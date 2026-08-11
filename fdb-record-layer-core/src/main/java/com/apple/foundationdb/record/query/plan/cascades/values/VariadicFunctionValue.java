@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.planprotos.PVariadicFunctionValue;
 import com.apple.foundationdb.record.planprotos.PVariadicFunctionValue.PPhysicalOperator;
@@ -49,7 +50,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -58,12 +59,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
- * A {@link Value} that applies an arithmetic operation on its child expressions.
+ * A {@link Value} that applies a variadic comparison function, such as {@code GREATEST()}, {@code LEAST()} or
+ * {@code COALESCE()}, to its child expressions.
  */
 @API(API.Status.EXPERIMENTAL)
 public class VariadicFunctionValue extends AbstractValue {
@@ -73,20 +76,23 @@ public class VariadicFunctionValue extends AbstractValue {
     private final PhysicalOperator operator;
     @Nonnull
     private final List<Value> children;
+    @Nonnull
+    private final Type resultType;
 
     @Nonnull
     private static final Supplier<Map<NonnullPair<ComparisonFunction, TypeCode>, PhysicalOperator>> operatorMapSupplier =
             Suppliers.memoize(VariadicFunctionValue::computeOperatorMap);
 
     /**
-     * Constructs a new instance of {@link VariadicFunctionValue}.
-     * @param operator The arithmetic operation.
+     * Constructs a new instance of {@link VariadicFunctionValue}, deriving the result type from the given children.
+     * @param operator The physical operator implementing the comparison function.
      * @param children The children.
      */
     public VariadicFunctionValue(@Nonnull PhysicalOperator operator,
                                  @Nonnull List<Value> children) {
         this.operator = operator;
         this.children = ImmutableList.copyOf(children);
+        this.resultType = computeResultType(operator, this.children);
     }
 
     @Nullable
@@ -99,7 +105,24 @@ public class VariadicFunctionValue extends AbstractValue {
     @Nonnull
     @Override
     public Type getResultType() {
-        return children.get(0).getResultType();
+        return resultType;
+    }
+
+    @Nonnull
+    private static Type computeResultType(@Nonnull final PhysicalOperator operator,
+                                          @Nonnull final List<Value> children) {
+        // Verify that all children have a suitable common type, which is done by injecting promotions in
+        // `encapsulate()`. The argument types may only differ in their nullability, which is combined into the
+        // nullability of the result according to the semantics of the comparison function at hand.
+        Verify.verify(children.size() >= 2, "`VariadicFunctionValue` must have at least two children");
+        final Type maximumType = children.get(0).getResultType();
+        for (final Value child : children.subList(1, children.size())) {
+            final Type childType = child.getResultType();
+            Verify.verify(childType.nullable().equals(maximumType.nullable()),
+                    "`VariadicFunctionValue` children must share a common type, but %s differs from %s",
+                    childType, maximumType);
+        }
+        return maximumType.withNullability(operator.getComparisonFunction().isResultNullable(children));
     }
 
     @Nonnull
@@ -116,7 +139,6 @@ public class VariadicFunctionValue extends AbstractValue {
     @Nonnull
     @Override
     public VariadicFunctionValue withChildren(final Iterable<? extends Value> newChildren) {
-        Verify.verify(Iterables.size(newChildren) >= 2);
         return new VariadicFunctionValue(this.operator, ImmutableList.copyOf(newChildren));
     }
 
@@ -187,37 +209,50 @@ public class VariadicFunctionValue extends AbstractValue {
     }
 
     @Nonnull
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction,
                                      @Nonnull final CallSiteArguments callSiteArguments) {
+        // Determine the common type of the arguments, rejecting the call if they are mutually incompatible.
+        //
+        // All arguments must have a resolved type, with the exception that some (though not all) of them may be of
+        // the unresolved `NullType` (e.g., a NULL literal). `Type.maximumType()` handles such a `NullType` correctly
+        // by returning the appropriate concrete type with its nullability set to true. If *every* argument is NULL,
+        // the overall maximum type will be `NullType` and the operator lookup below will fail.
         final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
         Verify.verify(arguments.size() >= 2);
-        Type resultType = null;
-        for (final var arg : arguments) {
+        Type maximumType = null;
+        for (final Typed arg : arguments) {
             Type argType = arg.getResultType();
-            // This logic allows one (but not all) of the arguments to be of `NullType`
-            // (e.g., a 'null' literal). In such cases, `Type.maximumType` will correctly
-            // determine the appropriate concrete type *and* set its nullability to `true`,
-            // due to the presence of the `NullType` argument.
-            Verify.verify(argType == Type.NULL || !argType.isUnresolved());
-            if (resultType == null) {
-                resultType = argType;
+            Verify.verify(argType.isNull() || !argType.isUnresolved());
+            if (maximumType == null) {
+                maximumType = argType;
             } else {
-                resultType = Type.maximumType(resultType, argType);
-                SemanticException.check(resultType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+                maximumType = Type.maximumType(maximumType, argType);
+                SemanticException.check(maximumType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
             }
         }
 
+        // Look up the physical operator implementing the comparison function for the common type of the arguments.
+        final ComparisonFunction comparisonFunction = ((ComparisonFn)builtInFunction).getComparisonFunction();
         final PhysicalOperator physicalOperator =
-                getOperatorMap()
-                        .get(NonnullPair.of((((ComparisonFn)builtInFunction).getComparisonFunction()), resultType.getTypeCode()));
-        SemanticException.check(physicalOperator != null, SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
+                getOperatorMap().get(NonnullPair.of(comparisonFunction, maximumType.getTypeCode()));
+        SemanticException.check(
+                physicalOperator != null,
+                SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
 
-        final ImmutableList.Builder<Value> promotedArgs = ImmutableList.builder();
-        for (final var arg: arguments) {
-            promotedArgs.add(PromoteValue.inject((Value) arg, resultType));
+        // Determine the result type with the appropriate nullability for the comparison function at hand.
+        final Type resultType = maximumType.withNullability(comparisonFunction.isResultNullable(arguments));
+
+        // Promote each argument to the common type, but keep non-nullable types non-nullable, so that the information
+        // about which arguments are nullable is retained.
+        final Type nullableResultType = resultType.withNullability(true);
+        final ImmutableList.Builder<Value> promotedArguments = ImmutableList.builder();
+        for (final Typed arg : arguments) {
+            final Type promoteToType = arg.getResultType().isNullable() ? nullableResultType : resultType;
+            promotedArguments.add(PromoteValue.inject((Value)arg, promoteToType));
         }
-        return new VariadicFunctionValue(physicalOperator, promotedArgs.build());
+        final ImmutableList<Value> children = promotedArguments.build();
+
+        return new VariadicFunctionValue(physicalOperator, children);
     }
 
     private static Map<NonnullPair<ComparisonFunction, TypeCode>, PhysicalOperator> computeOperatorMap() {
@@ -272,12 +307,56 @@ public class VariadicFunctionValue extends AbstractValue {
     }
 
     /**
-     * Logical operator.
+     * The comparison function that a {@link VariadicFunctionValue} applies. Each function defines how the nullabilities
+     * of the arguments combine into the nullability of the result.
      */
     public enum ComparisonFunction {
+        /**
+         * The {@code GREATEST()} function. Returns {@code NULL} if any of its arguments is {@code NULL}.
+         */
         GREATEST,
+        /**
+         * The {@code LEAST()} function. Returns {@code NULL} if any of its arguments is {@code NULL}.
+         */
         LEAST,
-        COALESCE
+        /**
+         * The {@code COALESCE()} function. Returns its first non-{@code NULL} argument; so it is nullable only if
+         * all its arguments are nullable.
+         */
+        COALESCE(Boolean::logicalAnd);
+
+        @Nonnull
+        private final BinaryOperator<Boolean> nullabilityCombiner;
+
+        /**
+         * Constructs a new instance of {@link ComparisonFunction} whose result is nullable if any of its arguments is
+         * nullable, which is the most common case.
+         */
+        ComparisonFunction() {
+            this(Boolean::logicalOr);
+        }
+
+        /**
+         * Constructs a new instance of {@link ComparisonFunction}.
+         *
+         * The given {@code nullabilityCombiner} combines the nullabilities of the arguments to derive the nullability
+         * of the result.
+         */
+        ComparisonFunction(@Nonnull final BinaryOperator<Boolean> nullabilityCombiner) {
+            this.nullabilityCombiner = nullabilityCombiner;
+        }
+
+        /**
+         * Computes whether the result of this function is nullable, given its arguments.
+         * @param arguments the arguments this function is applied to
+         * @return {@code true} if the result of this function is nullable, {@code false} otherwise
+         */
+        public boolean isResultNullable(@Nonnull final Iterable<? extends Typed> arguments) {
+            return Streams.stream(arguments)
+                    .map(argument -> argument.getResultType().isNullable())
+                    .reduce(nullabilityCombiner)
+                    .orElseThrow(() -> new RecordCoreException("function must have at least one argument"));
+        }
     }
 
     /**
