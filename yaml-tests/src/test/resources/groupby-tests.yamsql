@@ -222,6 +222,21 @@ test_block:
       - query: SELECT MAX(col2) OVER () FROM T1
       - supported_version: !current_version
       - error: UNSUPPORTED_QUERY
+    -
+      # GROUP_CONCAT() is present in the grammar but not supported. Notably, it uses the multi-argument grammar
+      # production, which is not otherwise exercised.
+      - query: SELECT GROUP_CONCAT(col2) FROM T1
+      - error: UNSUPPORTED_QUERY
+    -
+      - query: SELECT GROUP_CONCAT(col1, col2) FROM T1
+      - error: UNSUPPORTED_QUERY
+    -
+      # GROUP_CONCAT() also admits an in-call ORDER BY clause and a SEPARATOR clause (though they’re not implemented).
+      - query: SELECT GROUP_CONCAT(col2 ORDER BY col2) FROM T1
+      - error: UNSUPPORTED_QUERY
+    -
+      - query: SELECT GROUP_CONCAT(col2 SEPARATOR ',') FROM T1
+      - error: UNSUPPORTED_QUERY
 ---
 test_block:
   name: group-by-tests-with-continuations
