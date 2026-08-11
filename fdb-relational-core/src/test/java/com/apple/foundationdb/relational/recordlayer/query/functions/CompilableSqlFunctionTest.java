@@ -46,6 +46,45 @@ class CompilableSqlFunctionTest {
         Assertions.assertEquals("attempt to serialize compiled SQL function", exception.getMessage());
     }
 
+    @Test
+    void getAuxiliaryConstantObjectValuesReturnsProvidedList() {
+        // empty when none are provided
+        Assertions.assertTrue(createTestFunction().getAuxiliaryConstantObjectValues().isEmpty());
+
+        // round-trips the value-free constant object values passed to the constructor
+        final var cov = com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue.of(
+                com.apple.foundationdb.record.query.plan.cascades.Quantifier.constant(), "c0",
+                com.apple.foundationdb.record.query.plan.cascades.typing.Type.primitiveType(
+                        com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode.LONG));
+        final var function = new CompiledSqlFunction("testFunction", ImmutableList.of(), ImmutableList.of(),
+                ImmutableList.of(), Optional.empty(), createDummyBody(), Literals.empty(), ImmutableList.of(cov));
+        Assertions.assertEquals(ImmutableList.of(cov), function.getAuxiliaryConstantObjectValues());
+    }
+
+    @Test
+    void withPlanGenerationSideEffectsDefaultsToEmptyConstantObjectValues() {
+        // an implementation that provides only literals inherits an empty value-free COV list by default.
+        final WithPlanGenerationSideEffects sideEffects = Literals::empty;
+        Assertions.assertTrue(sideEffects.getAuxiliaryConstantObjectValues().isEmpty());
+    }
+
+    @Test
+    void finalStepBuilderDefaultSetUnboundConstantObjectValuesIsNoOp() {
+        final UserDefinedFunctionBuilder.FinalStepBuilder builder = new UserDefinedFunctionBuilder.FinalStepBuilder() {
+            @Override
+            public UserDefinedFunctionBuilder.FinalStepBuilder setLiterals(@Nonnull final Literals literals) {
+                return this;
+            }
+
+            @Override
+            public com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction build() {
+                return null;
+            }
+        };
+        // the default implementation ignores its argument and returns the same builder for chaining.
+        Assertions.assertSame(builder, builder.setUnboundConstantObjectValues(ImmutableList.of()));
+    }
+
     /**
      * Creates a simple test function with basic parameters.
      */
