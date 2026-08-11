@@ -103,14 +103,8 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openNestedRecordStore(context);
 
-            // insert 2 records
-            var plan = cascadesPlanner.planGraph(
-                    FDBModificationQueryTest::insertGraph,
-                    Optional.empty(),
-                    IndexQueryabilityFilter.TRUE,
-                    EvaluationContext.empty()).getPlan();
-            fetchResultValues(context, plan, Function.identity(), c -> {
-            });
+            insert2Records(cascadesPlanner, context);
+            RecordQueryPlan plan;
 
             plan = cascadesPlanner.planGraph(
                     () -> {
@@ -428,13 +422,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
             openNestedRecordStore(context);
 
             // insert 2 records
-            var plan = cascadesPlanner.planGraph(
-                    FDBModificationQueryTest::insertGraph,
-                    Optional.empty(),
-                    IndexQueryabilityFilter.TRUE,
-                    EvaluationContext.empty()).getPlan();
-            fetchResultValues(context, plan, Function.identity(), c -> {
-            });
+            final var plan = insert2Records(cascadesPlanner, context);
             // after inserting, try inserting again, throws RecordAlreadyExistsException
             final var usedTypes = usedTypes().evaluate(plan);
             final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes).build());
@@ -448,6 +436,18 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
                 Assertions.assertTrue(ex2.getMessage().contains("record already exists"));
             }
         }
+    }
+
+    public RecordQueryPlan insert2Records(final CascadesPlanner cascadesPlanner, final FDBRecordContext context) throws Exception {
+        // insert 2 records
+        var plan = cascadesPlanner.planGraph(
+                FDBModificationQueryTest::insertGraph,
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                EvaluationContext.empty()).getPlan();
+        fetchResultValues(context, plan, Function.identity(), c -> {
+        });
+        return plan;
     }
 
     @Nonnull
@@ -582,13 +582,8 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
             openNestedRecordStore(context);
 
             // insert 2 records
-            var plan = cascadesPlanner.planGraph(
-                    FDBModificationQueryTest::insertGraph,
-                    Optional.empty(),
-                    IndexQueryabilityFilter.TRUE,
-                    EvaluationContext.empty()).getPlan();
-            fetchResultValues(context, plan, Function.identity(), c -> {
-            });
+            insert2Records(cascadesPlanner, context);
+            RecordQueryPlan plan;
 
             plan = planGraph(
                     () -> {
@@ -754,13 +749,8 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
             openNestedRecordStore(context);
 
             // insert 2 records
-            var plan = cascadesPlanner.planGraph(
-                    FDBModificationQueryTest::insertGraph,
-                    Optional.empty(),
-                    IndexQueryabilityFilter.TRUE,
-                    EvaluationContext.empty()).getPlan();
-            fetchResultValues(context, plan, Function.identity(), c -> {
-            });
+            insert2Records(cascadesPlanner, context);
+            RecordQueryPlan plan;
 
             plan = cascadesPlanner.planGraph(
                     () -> {
