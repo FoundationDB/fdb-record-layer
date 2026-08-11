@@ -109,6 +109,20 @@ public class StoredQueriesTest {
                     "       FUNCTION1 sq1(in x bigint) AS (SELECT * FROM t1 WHERE col1 < x)" +
                     " AS SELECT * FROM sq1(10)";
 
+    /**
+     * Stored query with a typed-named-parameter signature. {@code param_a} is captured inside the declared function
+     * body (it is not the function's own parameter); {@code param_b} is passed as the function's argument in the outer
+     * SELECT. At warm-up both are planned value-free from their declared types; at runtime the client re-issues the
+     * equivalent SQL binding {@code ?param_a}/{@code ?param_b} by name.
+     */
+    private static final String SCHEMA_TEMPLATE_SIGNATURE =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                    " CREATE STORED QUERY by_sig(param_a bigint, param_b bigint)" +
+                    "   DECLARE" +
+                    "       FUNCTION f1(in p bigint) AS (SELECT * FROM t1 WHERE (p IS NULL OR col1 = p) AND col2 = param_a)" +
+                    " AS SELECT id FROM f1(param_b)";
+
 
     @RegisterExtension
     @Order(0)
@@ -573,6 +587,116 @@ public class StoredQueriesTest {
                                 .schemaTemplate(SCHEMA_TEMPLATE_TF_BAD_SYNTAX)
                                 .build())
                 .hasErrorCode(ErrorCode.SYNTAX_ERROR);
+    }
+
+    @Test
+    void signatureStoredQueryIsStored() throws Exception {
+        try (var ddl = Ddl.builder()
+                .database(URI.create("/TEST/SQ_SIGNATURE_PERSIST"))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_SIGNATURE)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final var embeddedConnection = connection.unwrap(EmbeddedRelationalConnection.class);
+            embeddedConnection.setAutoCommit(false);
+            embeddedConnection.createNewTransaction();
+            final var schemaTemplate = embeddedConnection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class);
+            embeddedConnection.rollback();
+            embeddedConnection.setAutoCommit(true);
+
+            final var sq = schemaTemplate.getStoredQueries().get("BY_SIG");
+            Assertions.assertNotNull(sq);
+            // signature parameters were resolved to their record-layer type codes.
+            Assertions.assertEquals("param_a:LONG,param_b:LONG", sq.getSignature());
+            // the argument reference param_b was rewritten to a named parameter ?param_b.
+            Assertions.assertEquals("SELECT id FROM f1(?param_b)", sq.getQuery());
+            // param_a, captured inside the function body, was rewritten to ?param_a; the function's own parameter p and
+            // the columns are untouched.
+            Assertions.assertEquals(1, sq.getTempFunctions().size());
+            final var tempFunc = sq.getTempFunctions().get(0);
+            Assertions.assertEquals(
+                    "CREATE TEMPORARY FUNCTION f1(in p bigint) ON COMMIT DROP FUNCTION AS " +
+                            "SELECT * FROM t1 WHERE (p IS NULL OR col1 = p) AND col2 = ?param_a",
+                    tempFunc);
+        }
+    }
+
+    @Test
+    void startupPlanGenerationWithSignature() throws Exception {
+        try (var ddl = Ddl.builder()
+                .database(URI.create("/TEST/SQ_SIGNATURE_WARMUP"))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_SIGNATURE)
+                .build()) {
+            final String templateName = ddl.getSchemaTemplateName();
+
+            // fresh engine triggers OfflineStoredQueriesProcessor, which plans the signature query value-free.
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+
+            // The stored query SELECT (calling the temp function, both signature params value-free) is planned + cached.
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+        }
+    }
+
+    @Test
+    void storedQueriesUsageWithSignature() throws Exception {
+        final String dbUri = "/TEST/SQ_SIGNATURE_USAGE";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_SIGNATURE)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO T1 VALUES (1, 10, 1)");
+                stmt.execute("INSERT INTO T1 VALUES (2, 20, 2)");
+                stmt.execute("INSERT INTO T1 VALUES (3, 30, 3)");
+            }
+
+            // fresh engine triggers OfflineStoredQueriesProcessor
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+
+            // pre-warmed: 1 value-free plan for the signature query.
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // The runtime user re-declares the temp function (binding ?param_a by name) and runs the canonical SELECT
+            // (binding ?param_b by name). The cache lookup should hit the pre-warmed value-free plan.
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                c.setAutoCommit(false);
+                try (var ps = c.prepareStatement(
+                        "CREATE TEMPORARY FUNCTION f1(in p bigint) ON COMMIT DROP FUNCTION AS " +
+                                "SELECT * FROM t1 WHERE (p IS NULL OR col1 = p) AND col2 = ?param_a")) {
+                    ps.setLong("param_a", 1L);
+                    ps.execute();
+                }
+                try (var ps = c.prepareStatement("SELECT id FROM f1(?param_b)")) {
+                    ps.setLong("param_b", 10L);
+                    try (RelationalResultSet rs = ps.executeQuery()) {
+                        // f1(10): (10 IS NULL OR col1 = 10) AND col2 = 1 → row (1, 10, 1) → id = 1.
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(1, rs.getLong("ID"));
+                        Assertions.assertFalse(rs.next());
+                    }
+                }
+                c.rollback();
+            });
+
+            // SELECT hit the pre-warmed value-free plan: hit +1, miss unchanged, cache size unchanged.
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+        }
     }
 
 }

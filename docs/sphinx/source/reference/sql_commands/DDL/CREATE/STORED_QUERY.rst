@@ -18,7 +18,7 @@ Syntax
 
 .. code-block:: sql
 
-    CREATE STORED QUERY query_name
+    CREATE STORED QUERY query_name [ ( parameter_name data_type, ... ) ]
         [ DECLARE
               FUNCTION function_name ( [IN] parameter_name data_type [DEFAULT default_value], ... )
                   AS ( query );
@@ -31,6 +31,9 @@ Parameters
 
 ``query_name``
     The name of the stored query, unique within the schema template. The name identifies the stored query in metadata; it is not used to invoke the query.
+
+``( parameter_name data_type, ... )`` (signature)
+    Optional. A list of typed named parameters. Each parameter is referenced by name — as a bare identifier, with no ``?`` prefix — anywhere in the declared function bodies or the stored query body. At warm-up each is planned *value-free* from its declared type; at runtime the client re-issues the equivalent SQL with the reference written as a named parameter ``?parameter_name`` and binds it by name (see the signature example below). Parameter types must be primitive.
 
 ``DECLARE`` block
     Optional. Declares one or more transaction-local functions that the stored query body may call, using the same syntax as :ref:`CREATE TEMPORARY FUNCTION <create_temporary_function>`. Multiple functions are separated by semicolons.
@@ -76,6 +79,34 @@ Temporary functions in scope are part of the plan-cache key, so a runtime query 
     SELECT * FROM recent(20)    -- reuses the warmed plan
 
 The function definition must match the one declared in the stored query; the invocation's literal is stripped, so any argument value reuses the plan.
+
+Parameterizing with a signature
+-------------------------------
+
+A stored query signature declares typed named parameters that are used as bare identifiers throughout the declared function bodies and the query body. This warms the plan for *any* runtime value of the declared type, without writing a concrete literal:
+
+.. code-block:: sql
+
+    CREATE STORED QUERY by_sig(param_a BIGINT, param_b BIGINT)
+        DECLARE
+            FUNCTION f1(IN p BIGINT) AS (SELECT * FROM t1 WHERE (p IS NULL OR col1 = p) AND col2 = param_a)
+    AS
+        SELECT id FROM f1(param_b)
+
+Here ``param_a`` is captured inside ``f1``'s body (it is not ``f1``'s own parameter ``p``), and ``param_b`` is passed as ``f1``'s argument. Internally each signature parameter becomes a named parameter ``?parameter_name``. At runtime the client re-issues the equivalent SQL — writing each reference as ``?parameter_name`` — and binds the values by name:
+
+.. code-block:: sql
+
+    CREATE TEMPORARY FUNCTION f1(IN p BIGINT) ON COMMIT DROP FUNCTION
+        AS SELECT * FROM t1 WHERE (p IS NULL OR col1 = p) AND col2 = ?param_a;   -- bind param_a by name
+
+    SELECT id FROM f1(?param_b)                                                  -- bind param_b by name, reuses the warmed plan
+
+Notes:
+
+* Signature parameter types must be **primitive**.
+* A reference must use the parameter's **declared spelling** — matching is case-sensitive, because a signature parameter becomes a named parameter, which is always case-sensitive. A reference written in a different case is treated as an ordinary column.
+* The warmed plan requires a **non-NULL** value of the declared type. Binding a parameter to ``NULL`` does not reuse the warmed plan — that query is planned on first use and cached normally.
 
 See Also
 ========

@@ -66,7 +66,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
-import org.antlr.v4.runtime.TokenStreamRewriter;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -942,13 +941,19 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var lexer = new RelationalLexer(new CaseInsensitiveCharStream(fragment));
         final var tokens = new CommonTokenStream(lexer);
         tokens.fill();
-        final var rewriter = new TokenStreamRewriter(tokens);
+        // Splice replacements into the original text by token character offsets — the lexer skips whitespace, so
+        // reconstructing from tokens (e.g. via TokenStreamRewriter) would drop it; editing the original preserves it.
+        final var rewritten = new StringBuilder();
+        int copiedUpTo = 0;
         for (final var token : tokens.getTokens()) {
             if (token.getType() == RelationalLexer.ID && declaredNames.contains(token.getText())) {
-                rewriter.replace(token, "?" + token.getText());
+                rewritten.append(fragment, copiedUpTo, token.getStartIndex());
+                rewritten.append('?').append(token.getText());
+                copiedUpTo = token.getStopIndex() + 1;
             }
         }
-        return rewriter.getText();
+        rewritten.append(fragment, copiedUpTo, fragment.length());
+        return rewritten.toString();
     }
 
     @Nonnull
