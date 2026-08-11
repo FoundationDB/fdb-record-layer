@@ -80,17 +80,21 @@ def emoji(result_word):
     else:
         raise Exception('Invalid result type: ' + result_word)
 
-def generate_markdown(results, header_size):
+def generate_markdown(results, header_level):
     sorted_keys = sorted(results.keys(), key=lambda raw: [int(part) for part in raw.split('.')])
 
-    return header_size + " Mixed Mode Test Results\n\nMixed mode testing run against the following previous versions:\n\n" + \
+    # The heading is html rather than markdown because this markdown is included in ReleaseNotes.md,
+    # where only versions should be headings, so that the table of contents lists the releases and
+    # nothing else. GitHub renders the html heading in the step summary just like a markdown one.
+    return f"<h{header_level}> Mixed Mode Test Results </h{header_level}>" + \
+        "\n\nMixed mode testing run against the following previous versions:\n\n" + \
         ', '.join([emoji(results[version]) + '`' + version + '`' for version in sorted_keys])
 
 def main(argv):
     '''Process the output of a mixedModeTest run and convert it into a short markdown'''
     parser = argparse.ArgumentParser()
     parser.add_argument('--results-path', help='Path to the results file, or a glob matching per-version result files', default='.out/reports/mixed-mode-results.log')
-    parser.add_argument('--header-size', help='Markdown header level (e.g. # or ##)', default='####')
+    parser.add_argument('--header-level', type=int, help='Heading level for the results heading (e.g. 1 or 2)', default=4)
     parser.add_argument('--run-link', help='A link to the test run that generated the results')
     parser.add_argument('--output', required=True, help='Output to print the markdown to')
     args = parser.parse_args(argv)
@@ -100,7 +104,7 @@ def main(argv):
     else:
         results = get_results(args.results_path)
 
-    markdown = generate_markdown(results, args.header_size)
+    markdown = generate_markdown(results, args.header_level)
     if args.run_link is not None:
         markdown = markdown + "\n\n[See full test run](" + args.run_link +")\n"
     with open(args.output, mode='w') as fout:

@@ -207,19 +207,8 @@ def format_notes(notes: list[tuple[str, str]], label_config: dict,
                 text += '\n</details>\n'
     text += f"\n\n**[Full Changelog ({old_version}...{new_version})](https://github.com/{repository}/compare/{old_version}...{new_version})**"
     if mixed_mode_results is not None:
-        text += f"\n\n{html_headings(mixed_mode_results)}\n"
+        text += f"\n\n{mixed_mode_results}\n"
     return text
-
-def html_headings(markdown: str) -> str:
-    ''' Rewrite any markdown heading in the given markdown as an html heading of the same level.
-    Only versions should be headings in ReleaseNotes.md, so that the table of contents lists the
-    releases and nothing else. The mixed mode results come from publish-mixed-mode-results.py as a
-    markdown heading because they are also written to the GitHub step summary, so they are converted
-    here, the same way as the category headings above.
-    '''
-    return re.sub(r'^(#{1,6}) +(.*?) *$',
-                  lambda match: f'<h{len(match[1])}> {match[2]} </h{len(match[1])}>',
-                  markdown, flags=re.MULTILINE)
 
 def detach_anchor(lines: list[str]) -> list[str]:
     ''' Remove the anchor belonging to the header that follows the given lines.
@@ -416,18 +405,21 @@ class TestStringMethods(unittest.TestCase):
                 for anchor in [minor_anchor, precise_anchor]:
                     self.assertRegex(anchor, Version.anchor_line)
 
-    def test_html_headings(self) -> None:
-        for (markdown, html) in [
-                ("#### Mixed Mode Test Results", "<h4> Mixed Mode Test Results </h4>"),
-                ("## Mixed Mode Test Results ", "<h2> Mixed Mode Test Results </h2>"),
-                ("#### Results\n\n✅`4.1.8.0`\n", "<h4> Results </h4>\n\n✅`4.1.8.0`\n"),
-                # Not headings, so they should be left alone
-                ("No heading here", "No heading here"),
-                ("#NotAHeading", "#NotAHeading"),
-                ("* A note about #### headings", "* A note about #### headings")
-                ]:
-            with self.subTest(markdown=markdown):
-                self.assertEqual(html, html_headings(markdown))
+    def test_format_notes_has_no_markdown_headings(self) -> None:
+        # Only versions should be markdown headings in ReleaseNotes.md, so that the table of contents
+        # lists the releases and nothing else. Categories are rendered as html here, and the mixed
+        # mode results already arrive with an html heading from publish-mixed-mode-results.py.
+        label_config = {'categories': [{'title': 'New Features', 'labels': ['enhancement']},
+                                       {'title': 'Build Improvements', 'labels': ['build'], 'collapsed': True}],
+                        'catch_all': 'Other Changes'}
+        notes = format_notes([('New Features', '* Something new'), ('Build Improvements', '* Something built'),
+                              ('Other Changes', '* Something else')],
+                             label_config, '4.1.8.0', '4.2.1.0', 'FoundationDB/fdb-record-layer',
+                             '<h4> Mixed Mode Test Results </h4>\n\n✅`4.1.8.0`')
+        self.assertNotRegex(notes, r'(?m)^#{1,6} ')
+        for title in ['New Features', 'Build Improvements', 'Other Changes', 'Mixed Mode Test Results']:
+            with self.subTest(title=title):
+                self.assertIn(f'<h4> {title}', notes)
 
     def test_greater_than_precise_version_header(self) -> None:
         for (new_version, line) in [
@@ -499,7 +491,7 @@ class TestStringMethods(unittest.TestCase):
                          '<h4> Mixed Mode Test Results </h4>\n\nAgainst 4.1.8.0\n',
                          format_notes([], self.simple_label_config(), '4.1.8.0', '4.2.1.0',
                                       'FoundationDB/fdb-record-layer',
-                                      '#### Mixed Mode Test Results\n\nAgainst 4.1.8.0'))
+                                      '<h4> Mixed Mode Test Results </h4>\n\nAgainst 4.1.8.0'))
 
     def test_format_notes_with_headerless_mixed_mode_results(self) -> None:
         self.assertEqual('\n\n**[Full Changelog (4.1.8.0...4.2.1.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.1.8.0...4.2.1.0)**\n\n' +
