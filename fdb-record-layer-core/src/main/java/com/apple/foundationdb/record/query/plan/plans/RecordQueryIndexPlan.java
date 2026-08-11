@@ -237,7 +237,6 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         this.constraint = constraint;
     }
 
-
     @Nonnull
     @Override
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context,

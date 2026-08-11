@@ -199,8 +199,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
                 }
                 return continuationProto.getInnerContinuation().toByteArray();
             } catch (InvalidProtocolBufferException ipbe) {
-                // rawBytes predates continuations being wrapped in this proto; return it as-is
-                return rawBytes;
+                throw new RecordCoreException("Unable to parse KeyValueCursorContinuation");
             }
         }
 
