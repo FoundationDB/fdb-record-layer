@@ -112,9 +112,9 @@ public class YamlFilesMaintainer {
             // and all queue a correction. The deduplication check prevents all but the first correct from being added.
             final int lineNumber = queryReference.getLineNumber();
             final boolean alreadyPending = corrections.stream()
-                    .anyMatch(c -> c instanceof YamlFilesMaintainer.AddMetadataCorrection && c.getLineNumber() == lineNumber);
+                    .anyMatch(c -> c instanceof AddMetadataCorrection && c.getLineNumber() == lineNumber);
             if (!alreadyPending) {
-                corrections.add(new YamlFilesMaintainer.AddMetadataCorrection(queryReference, new ArrayList<>(actualColumns)));
+                corrections.add(new AddMetadataCorrection(queryReference, new ArrayList<>(actualColumns)));
                 isDirty.put(queryReference.getResource(), true);
             }
         }
@@ -137,9 +137,9 @@ public class YamlFilesMaintainer {
                     .computeIfAbsent(queryReference.getResource(), k -> new ArrayList<>());
             final int lineNumber = queryReference.getLineNumber();
             final boolean alreadyPending = corrections.stream()
-                    .anyMatch(c -> c instanceof YamlFilesMaintainer.AddExplainCorrection && c.getLineNumber() == lineNumber);
+                    .anyMatch(c -> c instanceof AddExplainCorrection && c.getLineNumber() == lineNumber);
             if (!alreadyPending) {
-                corrections.add(new YamlFilesMaintainer.AddExplainCorrection(queryReference, actual));
+                corrections.add(new AddExplainCorrection(queryReference, actual));
                 isDirty.put(queryReference.getResource(), true);
             }
         }

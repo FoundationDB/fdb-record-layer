@@ -88,12 +88,15 @@ public class YamlMetricsMaintainer {
     private final Map<QueryAndLocation, PlannerMetricsProto.Info> actualMetricsMap;
     private volatile boolean isDirty = false;
 
+    private static final Comparator<QueryAndLocation> ACTUAL_METRICS_ORDER =
+            Comparator.comparing(QueryAndLocation::getReference)
+                    .thenComparing(QueryAndLocation::getBlockName)
+                    .thenComparing(QueryAndLocation::getQuery);
+
     public YamlMetricsMaintainer(@Nonnull YamlReference.YamlResource resource) throws RelationalException {
         this.resource = resource;
         this.expectedMetricsMap = loadMetricsResource(resource);
-        this.actualMetricsMap = new TreeMap<>(Comparator.comparing(QueryAndLocation::getReference)
-                .thenComparing(QueryAndLocation::getBlockName)
-                .thenComparing(QueryAndLocation::getQuery));
+        this.actualMetricsMap = new TreeMap<>(ACTUAL_METRICS_ORDER);
     }
 
     /** Testing constructor: bypasses file loading. */
@@ -101,9 +104,7 @@ public class YamlMetricsMaintainer {
                           @Nonnull ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> expectedMetrics) {
         this.resource = resource;
         this.expectedMetricsMap = expectedMetrics;
-        this.actualMetricsMap = new TreeMap<>(Comparator.comparing(QueryAndLocation::getReference)
-                .thenComparing(QueryAndLocation::getBlockName)
-                .thenComparing(QueryAndLocation::getQuery));
+        this.actualMetricsMap = new TreeMap<>(ACTUAL_METRICS_ORDER);
     }
 
     @VisibleForTesting
@@ -126,7 +127,6 @@ public class YamlMetricsMaintainer {
         return expectedMetricsMap.get(identifier);
     }
 
-    @Nullable
     @SuppressWarnings("UnusedReturnValue")
     public synchronized PlannerMetricsProto.Info putMetrics(@Nonnull final PlannerMetricsProto.Identifier identifier,
                                                             @Nonnull final YamlReference reference,
