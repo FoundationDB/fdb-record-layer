@@ -44,86 +44,6 @@ import java.sql.SQLException;
 
 public class StoredQueriesTest {
 
-    private static final String SCHEMA_TEMPLATE =
-            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
-                    " CREATE STORED QUERY by_col1 AS select * from t1 where col1 = 10" +
-                    " CREATE STORED QUERY by_id AS select * from t1 where id = 1";
-
-    /** Stored query body has a typo (`select1` rather than `select`) — DDL fails to parse. */
-    private static final String SCHEMA_TEMPLATE_BAD_SYNTAX =
-            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                    " CREATE STORED QUERY by_col1 AS select1 * from t1 where col1 = 10";
-
-    /** Stored query body is itself a DDL statement — rejected by the grammar. */
-    private static final String SCHEMA_TEMPLATE_DDL_IN_QUERY =
-            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                    " CREATE STORED QUERY ddl_t AS CREATE TABLE t2(id bigint, col1 bigint, PRIMARY KEY(id))";
-
-    /** Stored query references a column that does not exist on the table. */
-    private static final String SCHEMA_TEMPLATE_BAD_COLUMN =
-            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
-                    " CREATE STORED QUERY by_col1 AS select * from t1 where col3 = 10" + // col3 does not exit
-                    " CREATE STORED QUERY by_id AS select * from t1 where id = 1";
-
-    /** One stored query whose body calls a single temp function. */
-    private static final String SCHEMA_TEMPLATE_TF_SINGLE =
-            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
-                    " CREATE STORED QUERY by_x" +
-                    "   DECLARE" +
-                    "       FUNCTION sq1(in x bigint) AS (SELECT * FROM t1 WHERE col1 < 40 + x)" +
-                    " AS SELECT * FROM sq1(10)";
-
-    /**
-     * Chained temp functions.
-     */
-    private static final String SCHEMA_TEMPLATE_TF_CHAINED =
-            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
-                    " CREATE STORED QUERY by_chained" +
-                    "   DECLARE" +
-                    "       FUNCTION sq1(in x bigint) AS (SELECT * FROM t1 WHERE col1 < x);" +
-                    "       FUNCTION sq2(in x bigint) AS (SELECT * FROM sq1(x + 1))" +
-                    " AS SELECT * FROM sq2(50)";
-
-    /** The first stored query's temp function references a column that does not exist. */
-    private static final String SCHEMA_TEMPLATE_TF_BAD =
-            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
-                    " CREATE STORED QUERY by_bad" +
-                    "   DECLARE" +
-                    "       FUNCTION sq_bad() AS (SELECT * FROM t1 WHERE col_does_not_exist = 1)" +
-                    " AS SELECT * FROM sq_bad()" +
-                    " CREATE STORED QUERY by_good" +
-                    "   DECLARE" +
-                    "       FUNCTION sq_good() AS (SELECT * FROM t1 WHERE col1 = 10)" +
-                    " AS SELECT * FROM sq_good()";
-
-    /** Typo in the temp-function keyword  — DDL fails to parse. */
-    private static final String SCHEMA_TEMPLATE_TF_BAD_SYNTAX =
-            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                    " CREATE STORED QUERY by_x" +
-                    "   DECLARE" +
-                    "       FUNCTION1 sq1(in x bigint) AS (SELECT * FROM t1 WHERE col1 < x)" +
-                    " AS SELECT * FROM sq1(10)";
-
-    /**
-     * Stored query with a typed-named-parameter signature. {@code param_a} is captured inside the declared function
-     * body (it is not the function's own parameter); {@code param_b} is passed as the function's argument in the outer
-     * SELECT. At warm-up both are planned value-free from their declared types; at runtime the client re-issues the
-     * equivalent SQL binding {@code ?param_a}/{@code ?param_b} by name.
-     */
-    private static final String SCHEMA_TEMPLATE_SIGNATURE =
-            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
-                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
-                    " CREATE STORED QUERY by_sig(param_a bigint, param_b bigint)" +
-                    "   DECLARE" +
-                    "       FUNCTION f1(in p bigint) AS (SELECT * FROM t1 WHERE (p IS NULL OR col1 = p) AND col2 = param_a)" +
-                    " AS SELECT id FROM f1(param_b)";
-
-
     @RegisterExtension
     @Order(0)
     public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
@@ -149,6 +69,16 @@ public class StoredQueriesTest {
         }
         return total;
     }
+
+    // ---------------------------------------------------------------------------------------------------------------
+    // Basic stored queries (literal bodies)
+    // ---------------------------------------------------------------------------------------------------------------
+
+    private static final String SCHEMA_TEMPLATE =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                    " CREATE STORED QUERY by_col1 AS select * from t1 where col1 = 10" +
+                    " CREATE STORED QUERY by_id AS select * from t1 where id = 1";
 
     @Test
     void storedQueriesInTemplate() throws Exception {
@@ -376,6 +306,15 @@ public class StoredQueriesTest {
         }
     }
 
+    // ---------------------------------------------------------------------------------------------------------------
+    // Error cases
+    // ---------------------------------------------------------------------------------------------------------------
+
+    /** Stored query body has a typo (`select1` rather than `select`) — DDL fails to parse. */
+    private static final String SCHEMA_TEMPLATE_BAD_SYNTAX =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE STORED QUERY by_col1 AS select1 * from t1 where col1 = 10";
+
     @Test
     void badStoredQuery() {
         RelationalAssertions.assertThrowsSqlException(() ->
@@ -387,6 +326,11 @@ public class StoredQueriesTest {
                 .hasErrorCode(ErrorCode.SYNTAX_ERROR);
     }
 
+    /** Stored query body is itself a DDL statement — rejected by the grammar. */
+    private static final String SCHEMA_TEMPLATE_DDL_IN_QUERY =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE STORED QUERY ddl_t AS CREATE TABLE t2(id bigint, col1 bigint, PRIMARY KEY(id))";
+
     @Test
     void storedQueryDdl() {
         RelationalAssertions.assertThrowsSqlException(() ->
@@ -397,6 +341,13 @@ public class StoredQueriesTest {
                         .build())
                 .hasErrorCode(ErrorCode.SYNTAX_ERROR);
     }
+
+    /** Stored query references a column that does not exist on the table. */
+    private static final String SCHEMA_TEMPLATE_BAD_COLUMN =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                    " CREATE STORED QUERY by_col1 AS select * from t1 where col3 = 10" + // col3 does not exit
+                    " CREATE STORED QUERY by_id AS select * from t1 where id = 1";
 
     @Test
     void storedQueryBadColumn() throws Exception {
@@ -432,6 +383,19 @@ public class StoredQueriesTest {
             Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
         }
     }
+
+    // ---------------------------------------------------------------------------------------------------------------
+    // Declared (temporary) functions
+    // ---------------------------------------------------------------------------------------------------------------
+
+    /** One stored query whose body calls a single temp function. */
+    private static final String SCHEMA_TEMPLATE_TF_SINGLE =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                    " CREATE STORED QUERY by_x" +
+                    "   DECLARE" +
+                    "       FUNCTION sq1(in x bigint) AS (SELECT * FROM t1 WHERE col1 < 40 + x)" +
+                    " AS SELECT * FROM sq1(10)";
 
     @Test
     void tempFuncIsStored() throws Exception {
@@ -540,6 +504,16 @@ public class StoredQueriesTest {
         }
     }
 
+    /** Chained temp functions. */
+    private static final String SCHEMA_TEMPLATE_TF_CHAINED =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                    " CREATE STORED QUERY by_chained" +
+                    "   DECLARE" +
+                    "       FUNCTION sq1(in x bigint) AS (SELECT * FROM t1 WHERE col1 < x);" +
+                    "       FUNCTION sq2(in x bigint) AS (SELECT * FROM sq1(x + 1))" +
+                    " AS SELECT * FROM sq2(50)";
+
     @Test
     void startupPlanGenerationChained() throws Exception {
         try (var ddl = Ddl.builder()
@@ -560,6 +534,19 @@ public class StoredQueriesTest {
         }
     }
 
+    /** The first stored query's temp function references a column that does not exist. */
+    private static final String SCHEMA_TEMPLATE_TF_BAD =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                    " CREATE STORED QUERY by_bad" +
+                    "   DECLARE" +
+                    "       FUNCTION sq_bad() AS (SELECT * FROM t1 WHERE col_does_not_exist = 1)" +
+                    " AS SELECT * FROM sq_bad()" +
+                    " CREATE STORED QUERY by_good" +
+                    "   DECLARE" +
+                    "       FUNCTION sq_good() AS (SELECT * FROM t1 WHERE col1 = 10)" +
+                    " AS SELECT * FROM sq_good()";
+
     @Test
     void badTempFunc() throws Exception {
         try (var ddl = Ddl.builder()
@@ -578,6 +565,14 @@ public class StoredQueriesTest {
         }
     }
 
+    /** Typo in the temp-function keyword  — DDL fails to parse. */
+    private static final String SCHEMA_TEMPLATE_TF_BAD_SYNTAX =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE STORED QUERY by_x" +
+                    "   DECLARE" +
+                    "       FUNCTION1 sq1(in x bigint) AS (SELECT * FROM t1 WHERE col1 < x)" +
+                    " AS SELECT * FROM sq1(10)";
+
     @Test
     void tempFuncBadSyntax() {
         RelationalAssertions.assertThrowsSqlException(() ->
@@ -588,6 +583,24 @@ public class StoredQueriesTest {
                                 .build())
                 .hasErrorCode(ErrorCode.SYNTAX_ERROR);
     }
+
+    // ---------------------------------------------------------------------------------------------------------------
+    // Typed-named-parameter signatures
+    // ---------------------------------------------------------------------------------------------------------------
+
+    /**
+     * Stored query with a typed-named-parameter signature. {@code param_a} is captured inside the declared function
+     * body (it is not the function's own parameter); {@code param_b} is passed as the function's argument in the outer
+     * SELECT. At warm-up both are planned value-free from their declared types; at runtime the client re-issues the
+     * equivalent SQL binding {@code ?param_a}/{@code ?param_b} by name.
+     */
+    private static final String SCHEMA_TEMPLATE_SIGNATURE =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                    " CREATE STORED QUERY by_sig(param_a bigint, param_b bigint)" +
+                    "   DECLARE" +
+                    "       FUNCTION f1(in p bigint) AS (SELECT * FROM t1 WHERE (p IS NULL OR col1 = p) AND col2 = param_a)" +
+                    " AS SELECT id FROM f1(param_b)";
 
     @Test
     void signatureStoredQueryIsStored() throws Exception {
@@ -696,6 +709,200 @@ public class StoredQueriesTest {
             Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
             Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
             Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+        }
+    }
+
+    /**
+     * Same as {@link #SCHEMA_TEMPLATE_SIGNATURE} but {@code param_b} is declared exactly-NULL. Warm-up plans it
+     * value-free as the NULL type, so the planner specializes the plan for {@code param_b IS NULL} (the {@code col1 = p}
+     * probe folds away). At runtime the client binds {@code param_b} with {@code setNull} to hit this plan.
+     */
+    private static final String SCHEMA_TEMPLATE_SIGNATURE_NULL =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                    " CREATE STORED QUERY by_sig_null(param_a bigint, param_b null)" +
+                    "   DECLARE" +
+                    "       FUNCTION f1(in p bigint) AS (SELECT * FROM t1 WHERE (p IS NULL OR col1 = p) AND col2 = param_a)" +
+                    " AS SELECT id FROM f1(param_b)";
+
+    @Test
+    void nullSignatureStoredQueryIsStored() throws Exception {
+        try (var ddl = Ddl.builder()
+                .database(URI.create("/TEST/SQ_SIGNATURE_NULL_PERSIST"))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_SIGNATURE_NULL)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final var embeddedConnection = connection.unwrap(EmbeddedRelationalConnection.class);
+            embeddedConnection.setAutoCommit(false);
+            embeddedConnection.createNewTransaction();
+            final var schemaTemplate = embeddedConnection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class);
+            embeddedConnection.rollback();
+            embeddedConnection.setAutoCommit(true);
+
+            final var sq = schemaTemplate.getStoredQueries().get("BY_SIG_NULL");
+            Assertions.assertNotNull(sq);
+            // param_b was declared exactly-NULL → type code NULL; param_a keeps its primitive type.
+            Assertions.assertEquals("param_a:LONG,param_b:NULL", sq.getSignature());
+            Assertions.assertEquals("SELECT id FROM f1(?param_b)", sq.getQuery());
+        }
+    }
+
+    @Test
+    void storedQueriesUsageWithNullSignature() throws Exception {
+        final String dbUri = "/TEST/SQ_SIGNATURE_NULL_USAGE";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_SIGNATURE_NULL)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO T1 VALUES (1, 10, 1)");
+                stmt.execute("INSERT INTO T1 VALUES (2, 20, 2)");
+                stmt.execute("INSERT INTO T1 VALUES (3, 30, 3)");
+            }
+
+            // fresh engine triggers OfflineStoredQueriesProcessor
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+
+            // pre-warmed: 1 null-specialized plan (param_b IS NULL).
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // Runtime: re-declare the temp function binding ?param_a by name, run the SELECT binding ?param_b to NULL.
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                c.setAutoCommit(false);
+                try (var ps = c.prepareStatement(
+                        "CREATE TEMPORARY FUNCTION f1(in p bigint) ON COMMIT DROP FUNCTION AS " +
+                                "SELECT * FROM t1 WHERE (p IS NULL OR col1 = p) AND col2 = ?param_a")) {
+                    ps.setLong("param_a", 2L);
+                    ps.execute();
+                }
+                try (var ps = c.prepareStatement("SELECT id FROM f1(?param_b)")) {
+                    ps.setNull("param_b", java.sql.Types.BIGINT);
+                    try (RelationalResultSet rs = ps.executeQuery()) {
+                        // f1(NULL): (NULL IS NULL) short-circuits the p-filter → col2 = 2 → row (2, 20, 2) → id = 2.
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(2, rs.getLong("ID"));
+                        Assertions.assertFalse(rs.next());
+                    }
+                }
+                c.rollback();
+            });
+
+            // SELECT hit the pre-warmed null-specialized plan: hit +1, miss unchanged, cache size unchanged.
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+        }
+    }
+
+    /**
+     * Two stored queries with <em>identical</em> bodies (same SELECT, same declared function) whose signatures differ
+     * only in {@code param_b}: typed BIGINT in one, exactly-NULL in the other. Both rewrite to the same canonical SQL
+     * and temp function, so they warm into the <em>same</em> secondary cache key as two distinct tertiary entries —
+     * distinguished only by the {@code param_b IS NOT NULL} vs {@code IS NULL} constraint. At runtime a value binding
+     * selects the first, a {@code setNull} binding the second.
+     */
+    private static final String SCHEMA_TEMPLATE_SIGNATURE_BOTH =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                    " CREATE STORED QUERY sq_val(param_a bigint, param_b bigint)" +
+                    "   DECLARE" +
+                    "       FUNCTION f1(in p bigint) AS (SELECT * FROM t1 WHERE (p IS NULL OR col1 = p) AND col2 = param_a)" +
+                    " AS SELECT id FROM f1(param_b)" +
+                    " CREATE STORED QUERY sq_null(param_a bigint, param_b null)" +
+                    "   DECLARE" +
+                    "       FUNCTION f1(in p bigint) AS (SELECT * FROM t1 WHERE (p IS NULL OR col1 = p) AND col2 = param_a)" +
+                    " AS SELECT id FROM f1(param_b)";
+
+    @Test
+    void storedQueriesUsageWithBothSignatureVariants() throws Exception {
+        final String dbUri = "/TEST/SQ_SIGNATURE_BOTH_USAGE";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_SIGNATURE_BOTH)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO T1 VALUES (1, 10, 1)");
+                stmt.execute("INSERT INTO T1 VALUES (2, 20, 2)");
+                stmt.execute("INSERT INTO T1 VALUES (3, 30, 3)");
+            }
+
+            // fresh engine triggers OfflineStoredQueriesProcessor
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+
+            // Both stored queries warm value-free. They share one secondary cache key (identical canonical SQL and
+            // temp function) but hold two tertiary entries — param_b IS NOT NULL and param_b IS NULL.
+            Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // Runtime, value case: bind param_b to a value → selects the IS NOT NULL plan.
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                c.setAutoCommit(false);
+                try (var ps = c.prepareStatement(
+                        "CREATE TEMPORARY FUNCTION f1(in p bigint) ON COMMIT DROP FUNCTION AS " +
+                                "SELECT * FROM t1 WHERE (p IS NULL OR col1 = p) AND col2 = ?param_a")) {
+                    ps.setLong("param_a", 1L);
+                    ps.execute();
+                }
+                try (var ps = c.prepareStatement("SELECT id FROM f1(?param_b)")) {
+                    ps.setLong("param_b", 10L);
+                    try (RelationalResultSet rs = ps.executeQuery()) {
+                        // f1(10): col1 = 10 AND col2 = 1 → row (1, 10, 1) → id = 1.
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(1, rs.getLong("ID"));
+                        Assertions.assertFalse(rs.next());
+                    }
+                }
+                c.rollback();
+            });
+
+            // Value case hit one of the two warmed plans.
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // Runtime, null case: same SQL, but bind param_b to NULL → selects the IS NULL plan.
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                c.setAutoCommit(false);
+                try (var ps = c.prepareStatement(
+                        "CREATE TEMPORARY FUNCTION f1(in p bigint) ON COMMIT DROP FUNCTION AS " +
+                                "SELECT * FROM t1 WHERE (p IS NULL OR col1 = p) AND col2 = ?param_a")) {
+                    ps.setLong("param_a", 2L);
+                    ps.execute();
+                }
+                try (var ps = c.prepareStatement("SELECT id FROM f1(?param_b)")) {
+                    ps.setNull("param_b", java.sql.Types.BIGINT);
+                    try (RelationalResultSet rs = ps.executeQuery()) {
+                        // f1(NULL): col2 = 2 → row (2, 20, 2) → id = 2.
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(2, rs.getLong("ID"));
+                        Assertions.assertFalse(rs.next());
+                    }
+                }
+                c.rollback();
+            });
+
+            // Null case hit the other warmed plan: two hits total, still two misses, still two cached plans.
+            Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+            Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+            Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
         }
     }
 

@@ -508,27 +508,30 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 // Parse the optional typed-named-parameter signature. Each parameter is referenced by name in the query
                 // body and declared function bodies; those references are rewritten to '?name' (see
                 // rewriteReferencesToParams). Matching is case-sensitive — a signature parameter becomes a named
-                // prepared parameter, which is always case-sensitive, so a reference must use the declared spelling.
-                // The signature is persisted as "name:TYPECODE,..." so warm-up can type the value-free parameters.
+                // prepared parameter, which is always case-sensitive, so a reference must use the declared spelling. A
+                // parameter declared NULL is exactly-null (warmed value-free as the NULL type → a null-specialized
+                // plan). The signature is persisted as "name:TYPECODE,..." so warm-up can type the value-free params.
                 final var declaredNames = new HashSet<String>();
                 final var signatureBuilder = new StringBuilder();
-                final var paramListCtx = queryCtx.sqlParameterDeclarationList();
-                if (paramListCtx != null && paramListCtx.sqlParameterDeclarations() != null) {
-                    for (final var decl : paramListCtx.sqlParameterDeclarations().sqlParameterDeclaration()) {
-                        Assert.thatUnchecked(decl.sqlParameterName != null, ErrorCode.UNSUPPORTED_QUERY,
-                                "stored query signature parameters must be named");
-                        Assert.thatUnchecked(decl.parameterMode() == null || decl.parameterMode().IN() != null,
-                                ErrorCode.UNSUPPORTED_OPERATION, "only IN parameters are supported");
-                        final var paramName = decl.sqlParameterName.getText();
-                        final var paramType = DataTypeUtils.toRecordLayerType(visitFunctionColumnType(decl.parameterType));
-                        Assert.thatUnchecked(paramType.isPrimitive(), ErrorCode.UNSUPPORTED_QUERY,
-                                () -> "stored query signature parameter '" + paramName + "' must have a primitive type");
+                final var signatureCtx = queryCtx.storedQuerySignature();
+                if (signatureCtx != null) {
+                    for (final var param : signatureCtx.storedQueryParameter()) {
+                        final var paramName = param.parameterName.getText();
+                        final String typeCode;
+                        if (param.NULL_LITERAL() != null) {
+                            typeCode = "NULL";
+                        } else {
+                            final var paramType = DataTypeUtils.toRecordLayerType(visitFunctionColumnType(param.parameterType));
+                            Assert.thatUnchecked(paramType.isPrimitive(), ErrorCode.UNSUPPORTED_QUERY,
+                                    () -> "stored query signature parameter '" + paramName + "' must have a primitive or null type");
+                            typeCode = paramType.getTypeCode().name();
+                        }
                         Assert.thatUnchecked(declaredNames.add(paramName), ErrorCode.UNSUPPORTED_QUERY,
                                 () -> "duplicate stored query signature parameter '" + paramName + "'");
-                        if (signatureBuilder.length() > 0) {
+                        if (!signatureBuilder.isEmpty()) {
                             signatureBuilder.append(',');
                         }
-                        signatureBuilder.append(paramName).append(':').append(paramType.getTypeCode().name());
+                        signatureBuilder.append(paramName).append(':').append(typeCode);
                     }
                 }
                 final var start = queryCtx.storedQuery.start.getStartIndex();

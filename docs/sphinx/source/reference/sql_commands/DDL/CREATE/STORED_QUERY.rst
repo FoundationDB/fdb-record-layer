@@ -33,7 +33,7 @@ Parameters
     The name of the stored query, unique within the schema template. The name identifies the stored query in metadata; it is not used to invoke the query.
 
 ``( parameter_name data_type, ... )`` (signature)
-    Optional. A list of typed named parameters. Each parameter is referenced by name — as a bare identifier, with no ``?`` prefix — anywhere in the declared function bodies or the stored query body. At warm-up each is planned *value-free* from its declared type; at runtime the client re-issues the equivalent SQL with the reference written as a named parameter ``?parameter_name`` and binds it by name (see the signature example below). Parameter types must be primitive.
+    Optional. A list of typed named parameters. Each parameter is referenced by name — as a bare identifier, with no ``?`` prefix — anywhere in the declared function bodies or the stored query body. At warm-up each is planned *value-free* from its declared type; at runtime the client re-issues the equivalent SQL with the reference written as a named parameter ``?parameter_name`` and binds it by name (see the signature example below). A parameter type must be primitive, or the keyword ``NULL`` to declare the parameter as *exactly null* — see :ref:`the null-parameter example <stored_query_null_parameter>`.
 
 ``DECLARE`` block
     Optional. Declares one or more transaction-local functions that the stored query body may call, using the same syntax as :ref:`CREATE TEMPORARY FUNCTION <create_temporary_function>`. Multiple functions are separated by semicolons.
@@ -104,9 +104,37 @@ Here ``param_a`` is captured inside ``f1``'s body (it is not ``f1``'s own parame
 
 Notes:
 
-* Signature parameter types must be **primitive**.
+* Signature parameter types must be **primitive** (or ``NULL`` — see below).
 * A reference must use the parameter's **declared spelling** — matching is case-sensitive, because a signature parameter becomes a named parameter, which is always case-sensitive. A reference written in a different case is treated as an ordinary column.
-* The warmed plan requires a **non-NULL** value of the declared type. Binding a parameter to ``NULL`` does not reuse the warmed plan — that query is planned on first use and cached normally.
+* A typed parameter warms the plan for a **non-NULL** value of that type. Binding it to ``NULL`` does not reuse that plan. To pre-warm the null case, declare the parameter as exactly null (below).
+
+.. _stored_query_null_parameter:
+
+Null parameters
+---------------
+
+Declaring a signature parameter as ``NULL`` marks it as *exactly null* — the warmed plan is specialized for that parameter being NULL, which the planner can optimize (for example, folding ``param IS NULL`` to true and dropping the corresponding index probe). This is a distinct plan from the typed (non-null) one, so the value case and the null case are two separate stored queries:
+
+.. code-block:: sql
+
+    -- value case: param_b is a bigint
+    CREATE STORED QUERY sq(param_a BIGINT, param_b BIGINT)
+        DECLARE FUNCTION f1(IN p BIGINT) AS (SELECT * FROM t1 WHERE (p IS NULL OR col1 = p) AND col2 = param_a)
+    AS SELECT id FROM f1(param_b)
+
+    -- null case: param_b is exactly null (an optimized plan)
+    CREATE STORED QUERY sq_bnull(param_a BIGINT, param_b NULL)
+        DECLARE FUNCTION f1(IN p BIGINT) AS (SELECT * FROM t1 WHERE (p IS NULL OR col1 = p) AND col2 = param_a)
+    AS SELECT id FROM f1(param_b)
+
+At runtime the client binds the null parameter with ``setNull`` to reuse the null-specialized plan:
+
+.. code-block:: sql
+
+    CREATE TEMPORARY FUNCTION f1(IN p BIGINT) ON COMMIT DROP FUNCTION
+        AS SELECT * FROM t1 WHERE (p IS NULL OR col1 = p) AND col2 = ?param_a;
+
+    SELECT id FROM f1(?param_b)    -- setLong(param_a, ...), setNull(param_b) → reuses the null-specialized plan
 
 See Also
 ========

@@ -265,7 +265,11 @@ public final class OfflineStoredQueriesProcessor {
             final var separator = entry.indexOf(':');
             final var name = entry.substring(0, separator);
             final var typeCode = entry.substring(separator + 1);
-            declaredTypes.put(name, Type.primitiveType(Type.TypeCode.valueOf(typeCode), false));
+            // A NULL parameter is exactly-null: warmed value-free as the nullable NULL type (→ IS_NULL plan).
+            final var type = "NULL".equals(typeCode)
+                    ? Type.nullType()
+                    : Type.primitiveType(Type.TypeCode.valueOf(typeCode), false);
+            declaredTypes.put(name, type);
         }
         return PreparedParams.empty().withDeclaredTypes(declaredTypes);
     }
