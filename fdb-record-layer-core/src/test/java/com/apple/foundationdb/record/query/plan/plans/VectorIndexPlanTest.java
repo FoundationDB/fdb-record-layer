@@ -32,10 +32,13 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.IndexTraversalKind;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords;
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -56,7 +59,7 @@ class VectorIndexPlanTest {
     void indexTraversalKindFollowsEngine(@Nonnull final VectorIndexEngineKind engine,
                                          @Nonnull final IndexTraversalKind expectedKind) {
         final VectorIndexPlan plan = vectorIndexPlan(engine);
-        assertThat(plan.getEngine()).isEqualTo(engine);
+        assertThat(plan.getEngineKind()).isEqualTo(engine);
         assertThat(plan.getIndexTraversalKind()).isEqualTo(expectedKind);
     }
 
@@ -72,7 +75,7 @@ class VectorIndexPlanTest {
         final RecordQueryPlan parsedPlan = serializationContext.fromPlanReferenceProto(parsedProto);
 
         assertThat(parsedPlan).isInstanceOf(VectorIndexPlan.class);
-        assertThat(((VectorIndexPlan)parsedPlan).getEngine()).isEqualTo(engine);
+        assertThat(((VectorIndexPlan)parsedPlan).getEngineKind()).isEqualTo(engine);
         assertThat(plan.semanticEquals(parsedPlan)).isTrue();
     }
 
@@ -96,12 +99,37 @@ class VectorIndexPlanTest {
         assertThat(vectorIndexPlan(VectorIndexEngineKind.HNSW).semanticEquals(indexPlan())).isFalse();
     }
 
+    /**
+     * A plan deserialized from a newer writer can still be copied by this version, so every copy has to keep the engine
+     * kind rather than degrade to a plain {@link RecordQueryIndexPlan}.
+     */
+    @Test
+    void copyingAPlanKeepsTheEngineKind() {
+        final VectorIndexPlan plan = vectorIndexPlan(VectorIndexEngineKind.GUARDIANN);
+
+        assertThat(plan.strictlySorted(Memoizer.noMemoization(PlannerStage.PLANNED)))
+                .isInstanceOf(VectorIndexPlan.class)
+                .extracting(VectorIndexPlan::getEngineKind)
+                .isEqualTo(VectorIndexEngineKind.GUARDIANN);
+        assertThat(plan.strictlySorted(Memoizer.noMemoization(PlannerStage.PLANNED)).isStrictlySorted()).isTrue();
+
+        assertThat(plan.minimize(ImmutableList.of()))
+                .isInstanceOf(VectorIndexPlan.class)
+                .extracting(VectorIndexPlan::getEngineKind)
+                .isEqualTo(VectorIndexEngineKind.GUARDIANN);
+
+        assertThat(plan.withIndexScanParameters(vectorScan()))
+                .isInstanceOf(VectorIndexPlan.class)
+                .extracting(VectorIndexPlan::getEngineKind)
+                .isEqualTo(VectorIndexEngineKind.GUARDIANN);
+    }
+
     @Nonnull
     private static VectorIndexPlan vectorIndexPlan(@Nonnull final VectorIndexEngineKind engine) {
         final PlanSerializationContext serializationContext = PlanSerializationContext.newForCurrentMode();
         final PVectorIndexPlan proto = PVectorIndexPlan.newBuilder()
                 .setSuper(indexPlan().toRecordQueryIndexPlanProto(serializationContext))
-                .setEngine(engine.toProto())
+                .setEngineKind(engine.toProto())
                 .build();
         return VectorIndexPlan.fromProto(serializationContext, proto);
     }

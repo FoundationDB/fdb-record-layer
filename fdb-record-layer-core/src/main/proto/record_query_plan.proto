@@ -1927,7 +1927,7 @@ message PRecordQueryIndexPlan {
 //
 message PVectorIndexPlan {
   optional PRecordQueryIndexPlan super = 1;
-  optional PVectorIndexEngineKind engine = 2;
+  optional PVectorIndexEngineKind engine_kind = 2;
 }
 
 //

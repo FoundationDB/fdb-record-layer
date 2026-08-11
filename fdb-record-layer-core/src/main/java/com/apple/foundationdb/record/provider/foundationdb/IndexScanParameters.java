@@ -55,20 +55,13 @@ public interface IndexScanParameters extends PlanHashable, Correlated<IndexScanP
     IndexScanType getScanType();
 
     /**
-     * Get the way a scan with these parameters physically traverses the index. Answered by the parameters rather than
-     * derived from the {@link #getScanType() scan type} centrally, because the set of scan types is open: an index
-     * maintainer defined outside the core knows what its scans walk, and nothing else does.
-     * <p>
-     * The default is {@link IndexTraversalKind#UNKNOWN}, which is the honest answer for parameters that have not been
-     * taught to say. Overriding it is worthwhile for anything that means to be told apart from another access by a cost
-     * criterion.
-     *
-     * @return the way a scan with these parameters traverses the index
+     * Get the way a scan with these parameters physically traverses the index, such as ordered key-value pairs, a
+     * ranked set, or an R-tree. This is a property of how the index is scanned, not of the index type it is declared
+     * as. Parameters that do not tell one structure from another answer {@link IndexTraversalKind#UNKNOWN}.
+     * @return the index traversal kind
      */
     @Nonnull
-    default IndexTraversalKind getIndexTraversalKind() {
-        return IndexTraversalKind.UNKNOWN;
-    }
+    IndexTraversalKind getIndexTraversalKind();
 
     /**
      * Get the bound form of the index scan for use by the maintainer.

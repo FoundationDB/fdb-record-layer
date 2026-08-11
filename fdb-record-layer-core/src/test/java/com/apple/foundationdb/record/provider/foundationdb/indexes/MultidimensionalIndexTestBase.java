@@ -55,6 +55,7 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
+import com.apple.foundationdb.record.query.plan.IndexTraversalKind;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -1536,6 +1537,12 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
 
         @Nonnull
         @Override
+        public IndexTraversalKind getIndexTraversalKind() {
+            return IndexTraversalKind.R_TREE;
+        }
+
+        @Nonnull
+        @Override
         public IndexScanBounds bind(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final Index index, @Nonnull final EvaluationContext context) {
             final ImmutableList.Builder<TupleRange> tupleRangesBuilder = ImmutableList.builder();
             for (int i = 0; i < minsInclusive.length; i++) {
@@ -1626,6 +1633,12 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         @Override
         public IndexScanType getScanType() {
             return IndexScanType.BY_VALUE;
+        }
+
+        @Nonnull
+        @Override
+        public IndexTraversalKind getIndexTraversalKind() {
+            return IndexTraversalKind.R_TREE;
         }
 
         @Nonnull
