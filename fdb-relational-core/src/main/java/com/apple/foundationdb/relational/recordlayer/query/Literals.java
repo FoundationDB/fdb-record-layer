@@ -20,7 +20,9 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -85,10 +87,6 @@ public class Literals {
         return orderedLiterals;
     }
 
-    public boolean isEmpty() {
-        return orderedLiterals.isEmpty();
-    }
-
     public Map<String, Object> asMap() {
         return asMapSupplier.get();
     }
@@ -102,6 +100,25 @@ public class Literals {
      */
     public boolean isValueFree(@Nonnull final String constantId) {
         return valueFreeConstantIdsSupplier.get().contains(constantId);
+    }
+
+    /**
+     * Returns these literals as constant bindings in an {@link EvaluationContext}. Note that this binds the set of
+     * <em>values</em>, not the set of literals: a value-free literal declares a type but carries no value, so a
+     * non-empty literal table can still bind nothing.
+     *
+     * @param typeRepository the type repository to build the context with
+     * @return an {@link EvaluationContext} binding the values of these literals
+     */
+    @Nonnull
+    public EvaluationContext toEvaluationContext(@Nonnull final TypeRepository typeRepository) {
+        final var constantBindings = asMap();
+        if (constantBindings.isEmpty()) {
+            return EvaluationContext.forTypeRepository(typeRepository);
+        }
+        return EvaluationContext.newBuilder()
+                .setConstant(Quantifier.constant(), constantBindings)
+                .build(typeRepository);
     }
 
     @Nonnull
@@ -269,18 +286,6 @@ public class Literals {
                 return Optional.empty();
             }
             return Optional.ofNullable(literalReverseLookup.get(literal.getLiteralObject()));
-        }
-
-        /**
-         * Returns the constant ids of all value-free literals added so far.
-         * @return the constant ids of the value-free literals.
-         */
-        @Nonnull
-        public Set<String> valueFreeConstantIds() {
-            return literals.stream()
-                    .filter(OrderedLiteral::isValueFree)
-                    .map(OrderedLiteral::getConstantId)
-                    .collect(ImmutableSet.toImmutableSet());
         }
 
         public void finishArrayLiteral(@Nullable final Integer unnamedParameterIndex,

@@ -392,11 +392,11 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
 
         // add literal evaluation for specific values to enable
         // triggering constant folding internally.
-        final var evaluationContext = getEvaluationContext();
-        final var valueFreeConstantIds = literalsBuilder.valueFreeConstantIds();
+        final var literals = getLiterals();
+        final var evaluationContext = literals.toEvaluationContext(ParseHelpers.EMPTY_TYPE_REPOSITORY);
         constantObjectValues.forEach(cov -> {
             final EvaluatesToValue evaluatesTo;
-            if (valueFreeConstantIds.contains(cov.getConstantId())) {
+            if (literals.isValueFree(cov.getConstantId())) {
                 // Value-free constant, e.g. a typed signature parameter warmed with no value. Emit IS_NOT_NULL directly
                 // rather than dereferencing to null: dereferencing would both trip the non-nullable-type check in
                 // ConstantObjectValue.eval and yield an IS_NULL constraint (making runtime non-null values miss). At

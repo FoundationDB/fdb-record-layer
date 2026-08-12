@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 
 import javax.annotation.Nonnull;
@@ -33,15 +32,7 @@ public interface QueryExecutionContext {
 
     @Nonnull
     default EvaluationContext getEvaluationContext(@Nonnull TypeRepository typeRepository) {
-        // Note that this is the set of bindings, not the set of literals: a value-free literal declares a type but
-        // carries no value, so a non-empty literal table can still bind nothing.
-        final var constantBindings = getLiterals().asMap();
-        if (constantBindings.isEmpty()) {
-            return EvaluationContext.forTypeRepository(typeRepository);
-        }
-        final var builder = EvaluationContext.newBuilder();
-        builder.setConstant(Quantifier.constant(), constantBindings);
-        return builder.build(typeRepository);
+        return getLiterals().toEvaluationContext(typeRepository);
     }
 
     @Nonnull
