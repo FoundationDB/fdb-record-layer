@@ -732,7 +732,13 @@ public class SemanticAnalyzer {
         }
 
         if (parsedTypeInfo.isRepeated()) {
-            return DataType.ArrayType.from(type.withNullable(false), isNullable);
+            // “Repeated” means an ARRAY type, in which case `isNullable` is the nullability of the array itself and
+            // `type` is the element type. The element type is forced to be non-nullable here, since NULL values in
+            // ARRAYs are currently not supported (Issue #3646). The assert below is a backstop for that normalization.
+            final DataType.ArrayType arrayType = DataType.ArrayType.from(type.withNullable(false), isNullable);
+            Assert.thatUnchecked(!arrayType.getElementType().isNullable(), ErrorCode.UNSUPPORTED_OPERATION,
+                    "Nullable ARRAY elements are not supported.");
+            return arrayType;
         } else {
             return type;
         }
