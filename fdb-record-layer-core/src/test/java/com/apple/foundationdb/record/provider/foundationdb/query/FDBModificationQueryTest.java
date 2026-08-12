@@ -116,27 +116,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
 
             plan = cascadesPlanner.planGraph(
                     () -> {
-                        final var allRecordTypes =
-                                ImmutableSet.of("RestaurantRecord", "RestaurantReviewer");
-                        var qun =
-                                Quantifier.forEach(Reference.initialOf(
-                                        new FullUnorderedScanExpression(allRecordTypes,
-                                                new Type.AnyRecord(false),
-                                                new AccessHints())));
-
-                        qun = Quantifier.forEach(Reference.initialOf(
-                                LogicalTypeFilterExpression.of(ImmutableSet.of("RestaurantRecord"),
-                                        qun,
-                                        RESTAURANT_TYPE)));
-
-                        var graphExpansionBuilder = GraphExpansion.builder();
-
-                        graphExpansionBuilder.addQuantifier(qun);
-                        final var restNoValue =
-                                FieldValue.ofFieldName(qun.getFlowedObjectValue(), "rest_no");
-
-                        graphExpansionBuilder.addPredicate(new ValuePredicate(restNoValue, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 100L)));
-                        qun = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelectWithResultValue(QuantifiedObjectValue.of(qun))));
+                        var qun = selectByEquality("RestaurantRecord", RESTAURANT_TYPE, "rest_no", 100L);
 
                         // make accessors and resolve them
                         qun = Quantifier.forEach(Reference.initialOf(new DeleteExpression(qun, "RestaurantRecord")));
@@ -344,18 +324,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
             // distinct plan type, so it is exercised explicitly rather than assumed to match INSERT.
             final var updatePlanToRun = cascadesPlanner.planGraph(
                     () -> {
-                        final var allRecordTypes = ImmutableSet.of("RestaurantRecord", "RestaurantReviewer");
-                        var qun = Quantifier.forEach(Reference.initialOf(
-                                new FullUnorderedScanExpression(allRecordTypes, new Type.AnyRecord(false), new AccessHints())));
-                        qun = Quantifier.forEach(Reference.initialOf(
-                                LogicalTypeFilterExpression.of(ImmutableSet.of("RestaurantRecord"), qun, RESTAURANT_TYPE)));
-                        final var graphExpansionBuilder = GraphExpansion.builder();
-                        graphExpansionBuilder.addQuantifier(qun);
-                        final var restNoValue = FieldValue.ofFieldName(qun.getFlowedObjectValue(), "rest_no");
-                        graphExpansionBuilder.addPredicate(new ValuePredicate(restNoValue,
-                                new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 100L)));
-                        qun = Quantifier.forEach(Reference.initialOf(
-                                graphExpansionBuilder.build().buildSelectWithResultValue(QuantifiedObjectValue.of(qun))));
+                        Quantifier.ForEach qun = selectByEquality("RestaurantRecord", RESTAURANT_TYPE, "rest_no", 100L);
                         final var updatePath = FieldValue.resolveFieldPath(qun.getFlowedObjectType(),
                                 List.of(new FieldValue.Accessor("name", -1)));
                         final var updateValue = new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_SS,
@@ -386,18 +355,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
             // DELETE — exercises the separate guard in RecordQueryDeletePlan.
             final var deletePlan = cascadesPlanner.planGraph(
                     () -> {
-                        final var allRecordTypes = ImmutableSet.of("RestaurantRecord", "RestaurantReviewer");
-                        var qun = Quantifier.forEach(Reference.initialOf(
-                                new FullUnorderedScanExpression(allRecordTypes, new Type.AnyRecord(false), new AccessHints())));
-                        qun = Quantifier.forEach(Reference.initialOf(
-                                LogicalTypeFilterExpression.of(ImmutableSet.of("RestaurantRecord"), qun, RESTAURANT_TYPE)));
-                        final var graphExpansionBuilder = GraphExpansion.builder();
-                        graphExpansionBuilder.addQuantifier(qun);
-                        final var restNoValue = FieldValue.ofFieldName(qun.getFlowedObjectValue(), "rest_no");
-                        graphExpansionBuilder.addPredicate(new ValuePredicate(restNoValue,
-                                new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 100L)));
-                        qun = Quantifier.forEach(Reference.initialOf(
-                                graphExpansionBuilder.build().buildSelectWithResultValue(QuantifiedObjectValue.of(qun))));
+                        Quantifier.ForEach qun = selectByEquality("RestaurantRecord", RESTAURANT_TYPE, "rest_no", 100L);
                         qun = Quantifier.forEach(Reference.initialOf(new DeleteExpression(qun, "RestaurantRecord")));
                         return Reference.initialOf(LogicalSortExpression.unsorted(qun));
                     },
@@ -520,33 +478,6 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
         Assertions.assertThrows(RecordCoreException.class, () -> fetchResultValues(plan, this::openNestedRecordStore, Function.identity()));
     }
 
-    @Nonnull
-    private static Reference selectRecordsGraph(Function<Quantifier.ForEach, QueryPredicate> predicateCreator) {
-        final var allRecordTypes =
-                ImmutableSet.of("RestaurantRecord", "RestaurantReviewer");
-        var qun =
-                Quantifier.forEach(Reference.initialOf(
-                        new FullUnorderedScanExpression(allRecordTypes,
-                                new Type.AnyRecord(false),
-                                new AccessHints())));
-
-        qun = Quantifier.forEach(Reference.initialOf(
-                LogicalTypeFilterExpression.of(ImmutableSet.of("RestaurantRecord"),
-                        qun,
-                        RESTAURANT_TYPE)));
-
-        var graphExpansionBuilder = GraphExpansion.builder();
-        graphExpansionBuilder.addQuantifier(qun);
-        final var predicate = predicateCreator.apply(qun);
-        if (predicate != null) {
-            graphExpansionBuilder.addPredicate(predicate);
-        }
-        final var selectExpression = graphExpansionBuilder.build().buildSelectWithResultValue(qun.getFlowedObjectValue());
-        qun = Quantifier.forEach(Reference.initialOf(selectExpression));
-        return Reference.initialOf(LogicalSortExpression.unsorted(qun));
-    }
-
-
     @NonNull
     public static RecordQueryPlan planWhereReviewIsEmpty(final CascadesPlanner cascadesPlanner) {
         return cascadesPlanner.planGraph(() -> selectRecordsGraph(FDBModificationQueryTest::whereReviewsIsEmptyGraph),
@@ -588,27 +519,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
 
             plan = planGraph(
                     () -> {
-                        final var allRecordTypes =
-                                ImmutableSet.of("RestaurantRecord", "RestaurantReviewer");
-                        var qun =
-                                Quantifier.forEach(Reference.initialOf(
-                                        new FullUnorderedScanExpression(allRecordTypes,
-                                                new Type.AnyRecord(false),
-                                                new AccessHints())));
-
-                        qun = Quantifier.forEach(Reference.initialOf(
-                                LogicalTypeFilterExpression.of(ImmutableSet.of("RestaurantRecord"),
-                                        qun,
-                                        RESTAURANT_TYPE)));
-
-                        var graphExpansionBuilder = GraphExpansion.builder();
-
-                        graphExpansionBuilder.addQuantifier(qun);
-                        final var restNoValue =
-                                FieldValue.ofFieldName(qun.getFlowedObjectValue(), "rest_no");
-
-                        graphExpansionBuilder.addPredicate(new ValuePredicate(restNoValue, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 100L)));
-                        qun = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelectWithResultValue(QuantifiedObjectValue.of(qun))));
+                        var qun = selectByEquality("RestaurantRecord", RESTAURANT_TYPE, "rest_no", 100L);
 
                         // make accessors and resolve them
                         final var updatePath = FieldValue.resolveFieldPath(qun.getFlowedObjectType(), ImmutableList.of(new FieldValue.Accessor("name", -1)));
@@ -767,16 +678,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
 
                         final var allRecordTypes =
                                 ImmutableSet.of("RestaurantRecord", "RestaurantReviewer");
-                        var qun =
-                                Quantifier.forEach(Reference.initialOf(
-                                        new FullUnorderedScanExpression(allRecordTypes,
-                                                new Type.AnyRecord(false),
-                                                new AccessHints())));
-
-                        qun = Quantifier.forEach(Reference.initialOf(
-                                LogicalTypeFilterExpression.of(ImmutableSet.of("RestaurantRecord"),
-                                        qun,
-                                        RESTAURANT_TYPE)));
+                        var qun = selectType(allRecordTypes, "RestaurantRecord", RESTAURANT_TYPE);
 
                         var graphExpansionBuilder = GraphExpansion.builder();
 
@@ -883,30 +785,53 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
+    private static Reference selectRecordsGraph(Function<Quantifier.ForEach, QueryPredicate> predicateCreator) {
+        final var allRecordTypes = ImmutableSet.of("RestaurantRecord", "RestaurantReviewer");
+        var qun = selectType(allRecordTypes, "RestaurantRecord", RESTAURANT_TYPE);
+
+        var graphExpansionBuilder = GraphExpansion.builder();
+        graphExpansionBuilder.addQuantifier(qun);
+        final var predicate = predicateCreator.apply(qun);
+        if (predicate != null) {
+            graphExpansionBuilder.addPredicate(predicate);
+        }
+        final var selectExpression = graphExpansionBuilder.build().buildSelectWithResultValue(qun.getFlowedObjectValue());
+        return Reference.initialOf(LogicalSortExpression.unsorted(Quantifier.forEach(Reference.initialOf(selectExpression))));
+    }
+
+    @NonNull
+    public static Quantifier.ForEach selectType(final ImmutableSet<String> allRecordTypes, final String RestaurantRecord, final Type.Record restaurantType) {
+        var qun = Quantifier.forEach(Reference.initialOf(
+                        new FullUnorderedScanExpression(allRecordTypes,
+                                new Type.AnyRecord(false),
+                                new AccessHints())));
+
+        qun = Quantifier.forEach(Reference.initialOf(
+                LogicalTypeFilterExpression.of(ImmutableSet.of(RestaurantRecord),
+                        qun,
+                        restaurantType)));
+        return qun;
+    }
+
+    @NonNull
+    public static Quantifier.ForEach selectByEquality(final String typeName, final Type.Record type, final String idFieldName, final long idValue) {
+        final var allRecordTypes = ImmutableSet.of("RestaurantRecord", "RestaurantReviewer");
+        final var qun = selectType(allRecordTypes, typeName, type);
+
+        var graphExpansionBuilder = GraphExpansion.builder();
+
+        graphExpansionBuilder.addQuantifier(qun);
+        final var restNoValue = FieldValue.ofFieldName(qun.getFlowedObjectValue(), idFieldName);
+
+        graphExpansionBuilder.addPredicate(new ValuePredicate(restNoValue, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, idValue)));
+        return Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelectWithResultValue(QuantifiedObjectValue.of(qun))));
+    }
+
+    @Nonnull
     private RecordQueryPlan getUpdatePlan(final CascadesPlanner cascadesPlanner) {
         return cascadesPlanner.planGraph(
                 () -> {
-                    final var allRecordTypes =
-                            ImmutableSet.of("RestaurantRecord", "RestaurantReviewer");
-                    var qun =
-                            Quantifier.forEach(Reference.initialOf(
-                                    new FullUnorderedScanExpression(allRecordTypes,
-                                            new Type.AnyRecord(false),
-                                            new AccessHints())));
-
-                    qun = Quantifier.forEach(Reference.initialOf(
-                            LogicalTypeFilterExpression.of(ImmutableSet.of("RestaurantReviewer"),
-                                    qun,
-                                    REVIEWER_TYPE)));
-
-                    var graphExpansionBuilder = GraphExpansion.builder();
-
-                    graphExpansionBuilder.addQuantifier(qun);
-                    final var reviewerId =
-                            FieldValue.ofFieldName(qun.getFlowedObjectValue(), "id");
-
-                    graphExpansionBuilder.addPredicate(new ValuePredicate(reviewerId, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 100L)));
-                    qun = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelectWithResultValue(QuantifiedObjectValue.of(qun))));
+                    var qun = selectByEquality("RestaurantReviewer", REVIEWER_TYPE, "id", 100L);
 
                     // make accessors and resolve them
                     final var updatePath = FieldValue.resolveFieldPath(qun.getFlowedObjectType(), ImmutableList.of(new FieldValue.Accessor("stats", -1), new FieldValue.Accessor("start_date", -1)));
@@ -927,27 +852,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
     private RecordQueryPlan getUpdateArrayPlan(final CascadesPlanner cascadesPlanner) {
         return cascadesPlanner.planGraph(
                 () -> {
-                    final var allRecordTypes = ImmutableSet.of("RestaurantRecord", "RestaurantReviewer");
-
-                    var qun =
-                            Quantifier.forEach(Reference.initialOf(
-                                    new FullUnorderedScanExpression(allRecordTypes,
-                                            new Type.AnyRecord(false),
-                                            new AccessHints())));
-
-                    qun = Quantifier.forEach(Reference.initialOf(
-                            LogicalTypeFilterExpression.of(ImmutableSet.of("RestaurantRecord"),
-                                    qun,
-                                    RESTAURANT_TYPE)));
-
-                    var graphExpansionBuilder = GraphExpansion.builder();
-
-                    graphExpansionBuilder.addQuantifier(qun);
-                    final var rest_no =
-                            FieldValue.ofFieldName(qun.getFlowedObjectValue(), "rest_no");
-
-                    graphExpansionBuilder.addPredicate(new ValuePredicate(rest_no, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 100L)));
-                    qun = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelectWithResultValue(QuantifiedObjectValue.of(qun))));
+                    var qun = selectByEquality("RestaurantRecord", RESTAURANT_TYPE, "rest_no", 100L);
 
                     final var updatePath = FieldValue.resolveFieldPath(qun.getFlowedObjectType(), ImmutableList.of(new FieldValue.Accessor("reviews", -1)));
                     final var updateValue = LightArrayConstructorValue.of(
@@ -968,7 +873,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    private CascadesPlanner setUp() throws Exception {
+    private CascadesPlanner setUp() {
         try (FDBRecordContext context = openContext()) {
             openNestedRecordStore(context);
 
