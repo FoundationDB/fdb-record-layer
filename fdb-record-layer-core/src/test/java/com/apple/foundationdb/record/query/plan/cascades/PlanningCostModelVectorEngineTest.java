@@ -33,22 +33,21 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.VectorIndexEnginePreference;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithMatchCandidate;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -276,24 +275,19 @@ class PlanningCostModelVectorEngineTest {
     }
 
     /**
-     * Plans that both make vector accesses but a different number of them are still comparable: what matters is whether
-     * a plan has a vector access on the non-preferred engine, not how many accesses it makes. Three accesses all on the
-     * preferred engine beat a single access on the other one.
+     * A member that makes more than one vector index access is not comparable on this criterion: the preference decides
+     * which engine serves an access, and a pair of members that disagree on how many accesses they make is not the
+     * like-for-like choice it is meant to decide. Left to the cost criteria instead.
      */
     @Test
-    void preferenceComparesPlansWithDifferentNumbersOfVectorAccesses() {
-        final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> threeGuardiannAccesses =
-                planOpsMapOf(vectorIndexPlan("guardiannIndexOne", true),
-                        vectorIndexPlan("guardiannIndexTwo", true),
-                        vectorIndexPlan("guardiannIndexThree", true));
-        final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> oneHnswAccess =
-                planOpsMapOf(vectorIndexPlan(HNSW_INDEX_NAME, false));
+    void preferenceAbstainsWhenOneSideMakesSeveralVectorAccesses() {
+        final var twoGuardiannAccesses =
+                memberMakingAll(vectorIndexPlan("guardiannIndexOne", true), vectorIndexPlan("guardiannIndexTwo", true));
+        final var oneHnswAccess = vectorIndexPlan(HNSW_INDEX_NAME, false);
 
         final PlanningCostModel costModel = costModel(VectorIndexEnginePreference.PREFER_GUARDIANN);
-        assertTrue(costModel.compareVectorIndexEnginePreference(threeGuardiannAccesses, oneHnswAccess) < 0,
-                "three accesses on the preferred engine should beat one on the other engine");
-        assertTrue(costModel.compareVectorIndexEnginePreference(oneHnswAccess, threeGuardiannAccesses) > 0,
-                "comparison should be antisymmetric");
+        assertTrue(costModel.compareVectorIndexEnginePreference(twoGuardiannAccesses, oneHnswAccess).isEmpty());
+        assertTrue(costModel.compareVectorIndexEnginePreference(oneHnswAccess, twoGuardiannAccesses).isEmpty());
     }
 
     /**
@@ -303,39 +297,34 @@ class PlanningCostModelVectorEngineTest {
      */
     @Test
     void preferenceAbstainsWhenOneSideMakesNoVectorAccess() {
-        final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> oneHnswAccess =
-                planOpsMapOf(vectorIndexPlan(HNSW_INDEX_NAME, false));
-        final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> oneGuardiannAccess =
-                planOpsMapOf(vectorIndexPlan(GUARDIANN_INDEX_NAME, true));
-        final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> noAccesses = planOpsMapOf();
+        final var hnswPlan = vectorIndexPlan(HNSW_INDEX_NAME, false);
+        final var guardiannPlan = vectorIndexPlan(GUARDIANN_INDEX_NAME, true);
+        final var nonVectorPlan = nonVectorIndexPlan("valueIndex");
 
         for (final VectorIndexEnginePreference preference : VectorIndexEnginePreference.values()) {
             final PlanningCostModel costModel = costModel(preference);
-            assertEquals(0, costModel.compareVectorIndexEnginePreference(oneHnswAccess, noAccesses),
+            assertTrue(costModel.compareVectorIndexEnginePreference(hnswPlan, nonVectorPlan).isEmpty(),
                     () -> "preference " + preference + " should abstain against a plan with no vector access");
-            assertEquals(0, costModel.compareVectorIndexEnginePreference(noAccesses, oneHnswAccess),
+            assertTrue(costModel.compareVectorIndexEnginePreference(nonVectorPlan, hnswPlan).isEmpty(),
                     () -> "preference " + preference + " should abstain against a plan with no vector access");
-            assertEquals(0, costModel.compareVectorIndexEnginePreference(oneGuardiannAccess, noAccesses),
+            assertTrue(costModel.compareVectorIndexEnginePreference(guardiannPlan, nonVectorPlan).isEmpty(),
                     () -> "preference " + preference + " should abstain against a plan with no vector access");
         }
     }
 
     /**
-     * The counterpart to {@link #preferenceComparesPlansWithDifferentNumbersOfVectorAccesses()}: once neither side has a
-     * vector access on the non-preferred engine, the criterion abstains no matter how many accesses each side makes, so
-     * that it never rewards a plan simply for making more (approximate) vector accesses.
+     * The same on the preferred engine's own side: two accesses on the preferred engine do not beat one, so the criterion
+     * never rewards a plan simply for making more (approximate) vector accesses.
      */
     @Test
     void preferenceDoesNotRewardMoreAccessesOfThePreferredEngine() {
-        final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> twoGuardiannAccesses =
-                planOpsMapOf(vectorIndexPlan("guardiannIndexOne", true),
-                        vectorIndexPlan("guardiannIndexTwo", true));
-        final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> oneGuardiannAccess =
-                planOpsMapOf(vectorIndexPlan("guardiannIndexThree", true));
+        final var twoGuardiannAccesses =
+                memberMakingAll(vectorIndexPlan("guardiannIndexOne", true), vectorIndexPlan("guardiannIndexTwo", true));
+        final var oneGuardiannAccess = vectorIndexPlan("guardiannIndexThree", true);
 
         final PlanningCostModel costModel = costModel(VectorIndexEnginePreference.PREFER_GUARDIANN);
-        assertEquals(0, costModel.compareVectorIndexEnginePreference(twoGuardiannAccesses, oneGuardiannAccess));
-        assertEquals(0, costModel.compareVectorIndexEnginePreference(oneGuardiannAccess, twoGuardiannAccesses));
+        assertTrue(costModel.compareVectorIndexEnginePreference(twoGuardiannAccesses, oneGuardiannAccess).isEmpty());
+        assertTrue(costModel.compareVectorIndexEnginePreference(oneGuardiannAccess, twoGuardiannAccesses).isEmpty());
     }
 
     /**
@@ -356,14 +345,17 @@ class PlanningCostModelVectorEngineTest {
     }
 
     /**
-     * A {@code planOpsMap} as {@code compare()} would build it for a plan making exactly the given accesses. Constructed
-     * directly because assembling a well-formed multi-access plan tree is far more machinery than this criterion needs.
+     * A group member that makes both of the given index accesses, so that the criterion sees more than one vector access
+     * below a single member's root.
      *
-     * @param accesses the index accesses the plan makes
-     * @return the map of interesting operators
+     * @param accesses the index accesses the member makes
+     * @return a plan making all of the given accesses
      */
     @Nonnull
-    private static Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapOf(@Nonnull final RecordQueryIndexPlan... accesses) {
-        return ImmutableMap.of(RecordQueryPlanWithMatchCandidate.class, LinkedIdentitySet.of(accesses));
+    private static RecordQueryPlan memberMakingAll(@Nonnull final RecordQueryPlan... accesses) {
+        return RecordQueryUnorderedUnionPlan.fromQuantifiers(
+                Quantifiers.fromPlans(Arrays.stream(accesses)
+                        .map(Reference::plannedOf)
+                        .collect(ImmutableList.toImmutableList())));
     }
 }
