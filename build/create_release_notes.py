@@ -20,6 +20,26 @@
 # limitations under the License.
 #
 
+# Create release notes based on commits since the last version
+# See .github/workflows/release.yml for usage
+
+# You can also test locally by:
+# 1. Create a tag for the next version, e.g. `git tag 4.12.19.0 HEAD`
+# 2. Create a sample mixed mode results, e.g. `echo "MMR" > mixed-mode-results.md`
+# 3. Run:
+#   python3 ./build/create_release_notes.py \
+#           --config ./build/release-notes-config.json \
+#           --release-notes-md docs/sphinx/source/ReleaseNotes.md \
+#           --skip-commit $(git log -n 1 --format=%H HEAD) \
+#           --repository FoundationDB/fdb-record-layer \
+#           --mixed-mode-results mixed-mode-results.md \
+#           --version 4.12.19.0
+# 4. Look at the results:
+#   a) in the markdown: docs/sphinx/source/ReleaseNotes.md
+#   b) generated: `./gradlew clean documentationSite -PreleaseBuild=true && open docs/sphinx/.out/html/index.html`
+# 5. Cleanup:
+#   a) delete the tag `git tag -d 4.12.19.0`
+#   b) delete the mixed mode results: `rm mixed-mode-results.md`
 
 import argparse
 from collections import defaultdict
