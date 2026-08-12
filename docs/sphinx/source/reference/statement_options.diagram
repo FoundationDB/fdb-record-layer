@@ -1,0 +1,15 @@
+Diagram(
+    Terminal('OPTIONS'),
+    Terminal('('),
+    OneOrMore(
+        Choice(0,
+            Terminal('NOCACHE'),
+            Sequence(Terminal('LOG'), Terminal('QUERY')),
+            Sequence(Terminal('DRY'), Terminal('RUN')),
+            Sequence(Terminal('PLAN'), Terminal('RIGHT'), Terminal('DEEP')),
+            Sequence(Terminal('ISOLATION'), Terminal('LEVEL'), Terminal('SNAPSHOT'))
+        ),
+        Terminal(',')
+    ),
+    Terminal(')')
+)

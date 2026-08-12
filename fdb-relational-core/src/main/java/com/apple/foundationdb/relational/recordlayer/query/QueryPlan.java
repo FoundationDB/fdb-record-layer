@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.PlanHashable.PlanHashMode;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -430,10 +431,13 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             validatePlanAgainstEnvironment(parsedContinuation, fdbRecordStore, executionContext, OptionsUtils.getValidPlanHashModes(options));
 
             final RecordCursor<QueryResult> cursor;
-            final var executeProperties = connection.getExecuteProperties().toBuilder()
+            final var executePropertiesBuilder = connection.getExecuteProperties().toBuilder()
                     .setReturnedRowLimit(options.getOption(Options.Name.MAX_ROWS))
-                    .setDryRun(options.getOption(Options.Name.DRY_RUN))
-                    .build();
+                    .setDryRun(options.getOption(Options.Name.DRY_RUN));
+            if (Boolean.TRUE.equals(options.getOption(Options.Name.SNAPSHOT_ISOLATION))) {
+                executePropertiesBuilder.setIsolationLevel(IsolationLevel.SNAPSHOT);
+            }
+            final var executeProperties = executePropertiesBuilder.build();
             cursor = executionContext.metricCollector.clock(
                     RelationalMetric.RelationalEvent.EXECUTE_RECORD_QUERY_PLAN, () -> recordQueryPlan.executePlan(fdbRecordStore, evaluationContext,
                             parsedContinuation.getExecutionState(),

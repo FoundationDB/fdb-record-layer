@@ -23,7 +23,9 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
@@ -90,6 +92,42 @@ public class OptionScopeTest {
                 try (ResultSet rs = statement.executeQuery(SELECT_QUERY)) {
                     ResultSetAssert.assertThat((RelationalResultSet) rs).hasNextRow().isRowExactly(0L);
                 }
+            }
+        }
+    }
+
+    /**
+     * {@code SNAPSHOT_ISOLATION} is supported as a connection option: a {@code SELECT} on the connection
+     * runs (at snapshot isolation) without needing a per-query {@code OPTIONS} clause. This lets a user
+     * set the option on the connection, run a few reads, and switch back.
+     */
+    @Test
+    void snapshotIsolationTakenFromConnection() throws SQLException {
+        final var driver = (RelationalDriver) DriverManager.getDriver(db.getConnectionUri().toString());
+        try (Connection conn = driver.connect(db.getConnectionUri(), Options.builder().withOption(Options.Name.SNAPSHOT_ISOLATION, true).build())) {
+            conn.setSchema(db.getSchemaName());
+            try (Statement statement = conn.createStatement()) {
+                try (ResultSet rs = statement.executeQuery(SELECT_QUERY)) {
+                    ResultSetAssert.assertThat((RelationalResultSet) rs).hasNextRow().isRowExactly(0L);
+                }
+            }
+        }
+    }
+
+    /**
+     * Because {@code SNAPSHOT_ISOLATION} is rejected on mutations, setting it as a connection option makes
+     * every non-{@code SELECT} statement on that connection fail: the option applies to the {@code INSERT}
+     * just as it would to a {@code SELECT}, and mutations cannot run at snapshot isolation. A connection
+     * with the option set is therefore effectively read-only until the option is cleared.
+     */
+    @Test
+    void snapshotIsolationConnectionOptionRejectsDml() throws SQLException {
+        final var driver = (RelationalDriver) DriverManager.getDriver(db.getConnectionUri().toString());
+        try (Connection conn = driver.connect(db.getConnectionUri(), Options.builder().withOption(Options.Name.SNAPSHOT_ISOLATION, true).build())) {
+            conn.setSchema(db.getSchemaName());
+            try (Statement statement = conn.createStatement()) {
+                RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(INSERT_QUERY))
+                        .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
             }
         }
     }
