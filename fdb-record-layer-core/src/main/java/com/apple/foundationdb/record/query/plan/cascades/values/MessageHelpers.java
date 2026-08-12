@@ -510,7 +510,8 @@ public class MessageHelpers {
         final var coercedObjectsBuilder = ImmutableList.builder();
         for (final var currentObject : currentObjects) {
             // NULL as elements of a collection are currently not supported
-            SemanticException.check(currentObject != null, SemanticException.ErrorCode.UNSUPPORTED);
+            SemanticException.check(currentObject != null, SemanticException.ErrorCode.UNSUPPORTED,
+                    "An ARRAY value cannot have NULL elements");
 
             final var coercedObject =
                     Verify.verifyNotNull(coerceObject(elementsTrie,
