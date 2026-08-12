@@ -163,16 +163,16 @@ unnamed-1:
     ref: union-empty-tables.yamsql:81
     explain: 'AISCAN(MV10 [[LESS_THAN promote(@c21 AS DOUBLE)]] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP (_._1 AS Y) ⊎ SCAN([IS T4]) | MAP (_ AS _0) | AGG (count_star(*)
-        AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
-        AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () |
+        AS _0) GROUP BY () | ON EMPTY NULL | MAP (promote(coalesce_long(_._0._0, 0l)
+        AS LONG) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
-    task_count: 760
-    task_total_time_ms: 52
-    transform_count: 208
-    transform_time_ms: 21
-    transform_yield_count: 55
-    insert_time_ms: 0
-    insert_new_count: 65
+    task_count: 786
+    task_total_time_ms: 57
+    transform_count: 213
+    transform_time_ms: 29
+    transform_yield_count: 57
+    insert_time_ms: 1
+    insert_new_count: 69
     insert_reused_count: 3
 -   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t3 union all
         select count(*) from t1) as X
