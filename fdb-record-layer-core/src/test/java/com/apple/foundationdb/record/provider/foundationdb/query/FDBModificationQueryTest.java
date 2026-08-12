@@ -291,7 +291,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void insertPlansRejectSnapshotIsolation() throws Exception {
+    public void insertPlansRejectSnapshotIsolation() {
         final var cascadesPlanner = setUp();
 
         try (FDBRecordContext context = openContext()) {
@@ -314,7 +314,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void updatePlansRejectSnapshotIsolation() throws Exception {
+    public void updatePlansRejectSnapshotIsolation() {
         final var cascadesPlanner = setUp();
 
         try (FDBRecordContext context = openContext()) {
@@ -345,7 +345,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void deletePlansRejectSnapshotIsolation() throws Exception {
+    public void deletePlansRejectSnapshotIsolation() {
         final var cascadesPlanner = setUp();
 
         try (FDBRecordContext context = openContext()) {
@@ -439,10 +439,9 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
      *          (200, 'Heirloom Cafe', null, null, null);
      * }
      * </pre>
-     * @throws Exception if problem
      */
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    public void testPlanInsertExpressionBadNullAssignments() throws Exception {
+    public void testPlanInsertExpressionBadNullAssignments() {
         CascadesPlanner cascadesPlanner = setUp();
 
         final var plan = cascadesPlanner.planGraph(
@@ -765,7 +764,7 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void testStablePlanHash() throws Exception {
+    void testStablePlanHash() {
         final var cascadesPlanner = setUp();
         try (FDBRecordContext context = openContext()) {
             openNestedRecordStore(context);
