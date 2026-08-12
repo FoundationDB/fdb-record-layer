@@ -26,28 +26,24 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.metadata.RecordType;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.VectorIndexEnginePreference;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -78,23 +74,29 @@ class PlanningCostModelVectorEngineTest {
 
     @Nonnull
     private static RecordQueryIndexPlan vectorIndexPlan(@Nonnull final String indexName, final boolean guardiann) {
-        return planOver(vectorIndex(indexName, guardiann), ScanComparisons.EMPTY, null);
-    }
-
-    /**
-     * A vector index plan whose primary key is fully bound by an equality, which gives it a known maximum cardinality of
-     * one and so makes the cost model's first criterion — max cardinality of all data accesses — prefer it over a plan
-     * with an unknown cardinality.
-     *
-     * @param indexName the name of the index scanned
-     * @param guardiann whether the index is backed by Guardiann rather than HNSW
-     * @return a vector index plan bounded to at most one row
-     */
-    @Nonnull
-    private static RecordQueryIndexPlan boundedVectorIndexPlan(@Nonnull final String indexName, final boolean guardiann) {
-        return planOver(vectorIndex(indexName, guardiann),
-                ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1.0d)),
-                field("embedding"));
+        final Index index = vectorIndex(indexName, guardiann);
+        final Type.Record baseType = baseType();
+        final VectorIndexScanMatchCandidate matchCandidate =
+                new VectorIndexScanMatchCandidate(index,
+                        Collections.emptyList(),
+                        Traversal.withRoot(Reference.empty()),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        ImmutableSet.of(),
+                        baseType,
+                        CorrelationIdentifier.of("base"),
+                        field("embedding"),
+                        null);
+        return new RecordQueryIndexPlan(index.getName(),
+                null,
+                new IndexScanComparisons(IndexScanType.BY_VALUE, ScanComparisons.EMPTY),
+                IndexFetchMethod.SCAN_AND_FETCH,
+                RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
+                false,
+                false,
+                matchCandidate,
+                baseType,
+                QueryPlanConstraint.noConstraint());
     }
 
     @Nonnull
@@ -103,37 +105,6 @@ class PlanningCostModelVectorEngineTest {
                ? new Index(indexName, field("embedding"), IndexTypes.VECTOR,
                        Collections.singletonMap(IndexOptions.VECTOR_ENGINE, "GUARDIANN"))
                : new Index(indexName, field("embedding"), IndexTypes.VECTOR);
-    }
-
-    @Nonnull
-    private static RecordQueryIndexPlan planOver(@Nonnull final Index index,
-                                                 @Nonnull final ScanComparisons scanComparisons,
-                                                 @Nullable final KeyExpression primaryKey) {
-        final List<RecordType> queriedRecordTypes = Collections.emptyList();
-        final Set<CorrelationIdentifier> parametersRequiredForBinding = ImmutableSet.of();
-        final Type.Record baseType = baseType();
-        final KeyExpression keyExpression = field("embedding");
-        final VectorIndexScanMatchCandidate matchCandidate =
-                new VectorIndexScanMatchCandidate(index,
-                        queriedRecordTypes,
-                        Traversal.withRoot(Reference.empty()),
-                        ImmutableList.of(),
-                        ImmutableList.of(),
-                        parametersRequiredForBinding,
-                        baseType,
-                        CorrelationIdentifier.of("base"),
-                        keyExpression,
-                        primaryKey);
-        return new RecordQueryIndexPlan(index.getName(),
-                null,
-                new IndexScanComparisons(IndexScanType.BY_VALUE, scanComparisons),
-                IndexFetchMethod.SCAN_AND_FETCH,
-                RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
-                false,
-                false,
-                matchCandidate,
-                baseType,
-                QueryPlanConstraint.noConstraint());
     }
 
     /**
@@ -214,28 +185,6 @@ class PlanningCostModelVectorEngineTest {
     }
 
     /**
-     * The preference outranks the cost criteria, rather than merely breaking ties among plans the cost model finds
-     * indistinguishable. The HNSW plan here is bounded to at most one row, so the very first cost criterion — max
-     * cardinality over all data accesses — genuinely prefers it, as the first assertion establishes. Setting
-     * {@code PREFER_GUARDIANN} must still flip the outcome: the whole point of the option is to be able to steer queries
-     * off an engine, and an estimate of what is cheaper is not entitled to overrule that.
-     */
-    @Test
-    void preferenceOutranksTheCostCriteria() {
-        final RecordQueryIndexPlan cheapHnswPlan = boundedVectorIndexPlan(HNSW_INDEX_NAME, false);
-        final RecordQueryIndexPlan costlierGuardiannPlan = vectorIndexPlan(GUARDIANN_INDEX_NAME, true);
-
-        assertTrue(costModel(VectorIndexEnginePreference.NO_PREFERENCE).compare(cheapHnswPlan, costlierGuardiannPlan) < 0,
-                "without a preference the cost model should pick the bounded HNSW plan");
-
-        final PlanningCostModel costModel = costModel(VectorIndexEnginePreference.PREFER_GUARDIANN);
-        assertTrue(costModel.compare(cheapHnswPlan, costlierGuardiannPlan) > 0,
-                "the preference should outrank the cardinality criterion");
-        assertTrue(costModel.compare(costlierGuardiannPlan, cheapHnswPlan) < 0,
-                "comparison should be antisymmetric");
-    }
-
-    /**
      * A preference must not order two plans over indexes of the <em>same</em> engine, otherwise it would start
      * overriding decisions the cost model is entitled to make on its own.
      */
@@ -282,8 +231,8 @@ class PlanningCostModelVectorEngineTest {
     @Test
     void preferenceAbstainsWhenOneSideMakesSeveralVectorAccesses() {
         final var twoGuardiannAccesses =
-                memberMakingAll(vectorIndexPlan("guardiannIndexOne", true), vectorIndexPlan("guardiannIndexTwo", true));
-        final var oneHnswAccess = vectorIndexPlan(HNSW_INDEX_NAME, false);
+                planOpsMapOf(vectorIndexPlan("guardiannIndexOne", true), vectorIndexPlan("guardiannIndexTwo", true));
+        final var oneHnswAccess = planOpsMapOf(vectorIndexPlan(HNSW_INDEX_NAME, false));
 
         final PlanningCostModel costModel = costModel(VectorIndexEnginePreference.PREFER_GUARDIANN);
         assertTrue(costModel.compareVectorIndexEnginePreference(twoGuardiannAccesses, oneHnswAccess).isEmpty());
@@ -297,9 +246,9 @@ class PlanningCostModelVectorEngineTest {
      */
     @Test
     void preferenceAbstainsWhenOneSideMakesNoVectorAccess() {
-        final var hnswPlan = vectorIndexPlan(HNSW_INDEX_NAME, false);
-        final var guardiannPlan = vectorIndexPlan(GUARDIANN_INDEX_NAME, true);
-        final var nonVectorPlan = nonVectorIndexPlan("valueIndex");
+        final var hnswPlan = planOpsMapOf(vectorIndexPlan(HNSW_INDEX_NAME, false));
+        final var guardiannPlan = planOpsMapOf(vectorIndexPlan(GUARDIANN_INDEX_NAME, true));
+        final var nonVectorPlan = planOpsMapOf(nonVectorIndexPlan("valueIndex"));
 
         for (final VectorIndexEnginePreference preference : VectorIndexEnginePreference.values()) {
             final PlanningCostModel costModel = costModel(preference);
@@ -319,8 +268,8 @@ class PlanningCostModelVectorEngineTest {
     @Test
     void preferenceDoesNotRewardMoreAccessesOfThePreferredEngine() {
         final var twoGuardiannAccesses =
-                memberMakingAll(vectorIndexPlan("guardiannIndexOne", true), vectorIndexPlan("guardiannIndexTwo", true));
-        final var oneGuardiannAccess = vectorIndexPlan("guardiannIndexThree", true);
+                planOpsMapOf(vectorIndexPlan("guardiannIndexOne", true), vectorIndexPlan("guardiannIndexTwo", true));
+        final var oneGuardiannAccess = planOpsMapOf(vectorIndexPlan("guardiannIndexThree", true));
 
         final PlanningCostModel costModel = costModel(VectorIndexEnginePreference.PREFER_GUARDIANN);
         assertTrue(costModel.compareVectorIndexEnginePreference(twoGuardiannAccesses, oneGuardiannAccess).isEmpty());
@@ -345,17 +294,13 @@ class PlanningCostModelVectorEngineTest {
     }
 
     /**
-     * A group member that makes both of the given index accesses, so that the criterion sees more than one vector access
-     * below a single member's root.
+     * A {@code planOpsMap} as {@code compare()} would build it for a member making exactly the given index accesses.
      *
      * @param accesses the index accesses the member makes
-     * @return a plan making all of the given accesses
+     * @return the map of interesting operators
      */
     @Nonnull
-    private static RecordQueryPlan memberMakingAll(@Nonnull final RecordQueryPlan... accesses) {
-        return RecordQueryUnorderedUnionPlan.fromQuantifiers(
-                Quantifiers.fromPlans(Arrays.stream(accesses)
-                        .map(Reference::plannedOf)
-                        .collect(ImmutableList.toImmutableList())));
+    private static Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapOf(@Nonnull final RecordQueryIndexPlan... accesses) {
+        return ImmutableMap.of(RecordQueryPlanWithIndex.class, LinkedIdentitySet.of(accesses));
     }
 }

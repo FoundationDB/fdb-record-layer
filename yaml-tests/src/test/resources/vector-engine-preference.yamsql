@@ -193,7 +193,7 @@ test_block:
 ---
 # PREFER_GUARDIANN is the mirror image, plus the two negatives specific to it: a table with no GuardiANN index, and a
 # euclidean ordering only the HNSW index can serve. The last query makes no vector access at all — the preference is
-# about which engine backs one, so it must leave that plan alone even though it outranks the cost criteria.
+# about which engine backs one, so it must leave that plan alone.
 test_block:
   name: vector-engine-preference-prefer-guardiann
   options:

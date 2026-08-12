@@ -39,10 +39,10 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartia
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithMatchCandidate;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveDfsJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveLevelUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
@@ -88,14 +88,6 @@ public class PlanningCostModel implements CascadesCostModel {
                     RecordQueryPredicatesFilterPlan.class,
                     RecordQueryScanPlan.class);
 
-    /**
-     * The one class the engine preference looks for, walked per group member rather than taken from the operator map
-     * {@code compare()} builds, since the preference is decided before that map exists.
-     */
-    @Nonnull
-    private static final ImmutableSet<Class<? extends RelationalExpression>> matchCandidatePlanClasses =
-            ImmutableSet.of(RecordQueryPlanWithMatchCandidate.class);
-
     @Nonnull
     private final RecordQueryPlannerConfiguration configuration;
 
@@ -116,18 +108,6 @@ public class PlanningCostModel implements CascadesCostModel {
         }
         if (!(a instanceof RecordQueryPlan) && b instanceof RecordQueryPlan) {
             return 1;
-        }
-
-        // special case
-        // If a vector index engine is preferred, that preference outranks every cost criterion below. It is a deliberate
-        // choice by whoever set it, not an estimate the planner is entitled to overrule -- the motivating case is
-        // steering queries away from an engine that is misbehaving, where being outvoted by a cardinality estimate is
-        // precisely the failure being guarded against. See compareVectorIndexEnginePreference() for the one thing it
-        // still refuses to decide. Decided on the expressions themselves, before anything is collected or estimated for
-        // the criteria below.
-        final OptionalInt vectorIndexEnginePreferenceCompare = compareVectorIndexEnginePreference(a, b);
-        if (vectorIndexEnginePreferenceCompare.isPresent()) {
-            return vectorIndexEnginePreferenceCompare.getAsInt();
         }
 
         final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapA =
@@ -203,6 +183,13 @@ public class PlanningCostModel implements CascadesCostModel {
                 flipFlop(() -> compareInOperator(a, b), () -> compareInOperator(b, a));
         if (inPlanVsOtherOptional.isPresent() && inPlanVsOtherOptional.getAsInt() != 0) {
             return inPlanVsOtherOptional.getAsInt();
+        }
+
+        // special case
+        // if a vector index engine is preferred and exactly one of the two scans an index of that engine
+        final OptionalInt vectorIndexEnginePreferenceCompare = compareVectorIndexEnginePreference(planOpsMapA, planOpsMapB);
+        if (vectorIndexEnginePreferenceCompare.isPresent()) {
+            return vectorIndexEnginePreferenceCompare.getAsInt();
         }
 
         final int typeFilterCountA = typeFilterCount().evaluate(a);
@@ -355,37 +342,18 @@ public class PlanningCostModel implements CascadesCostModel {
     }
 
     /**
-     * Compares two members of a group by which vector index engine backs the vector index they scan, favoring the
-     * {@link VectorIndexEnginePreference preferred} engine. Returns {@code OptionalInt.empty()} when no engine is
-     * preferred, which is the default, so that this criterion does not participate in the comparison at all unless it
-     * was asked for.
-     * <p>
-     * This criterion is evaluated <em>before</em> every cost criterion, and deliberately so. It is not an estimate of
-     * what is cheaper, it is a stated choice by whoever configured it, and the motivating case — moving queries off an
-     * engine that is misbehaving — is one where losing to a cardinality or data-access estimate would defeat the point.
-     * A consequence worth being aware of: a plan on the preferred engine wins even if the alternative on the other engine
-     * looks considerably cheaper, including when it makes more vector accesses than the alternative does.
-     * <p>
-     * The one thing the preference does not decide is whether to make a vector access at all. It is about which engine
-     * backs a vector access, so a plan making no vector access is not comparable on this criterion and the comparison is
-     * abandoned, leaving it to the cost criteria below. Without that, preferring an engine could push a query off ANN
-     * entirely — turning a which-engine knob into a whether-to-use-ANN knob, and (since it now outranks cost) doing so in
-     * favor of an arbitrarily expensive plan. Making an engine's indexes unavailable to the planner altogether is a
-     * different job, for the allowed-index mechanism rather than for a cost model preference.
-     * <p>
-     * Both sides also have to boil down to exactly one vector index access, see
-     * {@link #singleVectorIndexEngineKindMaybe}. That keeps the criterion to the choice it is meant to make —
-     * which engine serves this access — rather than letting it rank plans that differ in how many (approximate) vector
-     * accesses they make.
+     * Compares two group members by the vector index engine backing the vector index they scan, favoring the
+     * {@link VectorIndexEnginePreference preferred} engine. Abstains unless an engine is preferred and both members
+     * make exactly one vector index access, see {@link #singleVectorIndexEngineKindMaybe}.
      *
-     * @param a the first group member
-     * @param b the second group member
+     * @param planOpsMapA the interesting operators of the first group member
+     * @param planOpsMapB the interesting operators of the second group member
      * @return {@code -1} or {@code 1} if exactly one of the two scans an index of the preferred engine,
      *         {@code OptionalInt.empty()} if the pair is not comparable on this criterion
      */
     @VisibleForTesting
-    OptionalInt compareVectorIndexEnginePreference(@Nonnull final RelationalExpression a,
-                                                   @Nonnull final RelationalExpression b) {
+    OptionalInt compareVectorIndexEnginePreference(@Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapA,
+                                                   @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapB) {
         final VectorIndexEngine.Kind preferredKind;
         switch (configuration.getVectorIndexEnginePreference()) {
             case PREFER_HNSW:
@@ -399,8 +367,8 @@ public class PlanningCostModel implements CascadesCostModel {
                 return OptionalInt.empty();
         }
 
-        final var engineKindOfAMaybe = singleVectorIndexEngineKindMaybe(a);
-        final var engineKindOfBMaybe = singleVectorIndexEngineKindMaybe(b);
+        final var engineKindOfAMaybe = singleVectorIndexEngineKindMaybe(planOpsMapA);
+        final var engineKindOfBMaybe = singleVectorIndexEngineKindMaybe(planOpsMapB);
 
         if (engineKindOfAMaybe.isEmpty() || engineKindOfBMaybe.isEmpty()) {
             return OptionalInt.empty();
@@ -422,53 +390,32 @@ public class PlanningCostModel implements CascadesCostModel {
     }
 
     /**
-     * The engine backing the vector index a group member scans, provided it scans exactly one. This is the verification
-     * that the two sides of a comparison are like for like: each member has to boil down to a single vector index
-     * access, otherwise the engine preference has nothing to say about the pair and the comparison is left to the cost
-     * criteria.
-     * <p>
-     * Note that a group member is not a bare index scan even when it is the data access alternative being chosen: match
-     * compensation wraps it, so the shape here is typically {@code MAP(ISCAN(...))} and the access has to be looked for
-     * below the member's root.
+     * The engine backing the vector index a group member scans, provided it scans exactly one. Taken from the index
+     * accesses already collected in {@code planOpsMap}.
      *
-     * @param expression the group member to inspect
+     * @param planOpsMap the interesting operators of a group member
      * @return the engine backing the single vector index access, or {@code Optional.empty()} if the member makes no
      *         vector index access, or more than one
      */
     @Nonnull
-    private static Optional<VectorIndexEngine.Kind> singleVectorIndexEngineKindMaybe(@Nonnull final RelationalExpression expression) {
+    private static Optional<VectorIndexEngine.Kind> singleVectorIndexEngineKindMaybe(@Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMap) {
         Optional<VectorIndexEngine.Kind> singleEngineKindMaybe = Optional.empty();
-        for (final var dataAccess : FindExpressionVisitor.slice(FindExpressionVisitor.evaluate(matchCandidatePlanClasses, expression),
-                RecordQueryPlanWithMatchCandidate.class)) {
-            final var engineKindMaybe = vectorIndexEngineKindMaybe(dataAccess);
+        for (final var dataAccess : FindExpressionVisitor.slice(planOpsMap, RecordQueryPlanWithIndex.class)) {
+            if (!(dataAccess instanceof RecordQueryIndexPlan)) {
+                continue;
+            }
+            final var engineKindMaybe = ((RecordQueryIndexPlan)dataAccess).getMatchCandidateMaybe()
+                    .filter(VectorIndexScanMatchCandidate.class::isInstance)
+                    .map(matchCandidate -> ((VectorIndexScanMatchCandidate)matchCandidate).getIndexEngineKind());
             if (engineKindMaybe.isEmpty()) {
                 continue;
             }
             if (singleEngineKindMaybe.isPresent()) {
-                // More than one vector index access; not a like-for-like comparison.
                 return Optional.empty();
             }
             singleEngineKindMaybe = engineKindMaybe;
         }
         return singleEngineKindMaybe;
-    }
-
-    /**
-     * The vector engine backing the index an expression scans, if the expression is an index scan over a vector index
-     * at all. The engine is taken from the {@link VectorIndexScanMatchCandidate} the plan was created from, which is the
-     * only handle on the index the plan retains — a plan itself only carries the index <em>name</em>.
-     *
-     * @param expression the expression to inspect
-     * @return the engine kind, or {@code Optional.empty()} if this is not a scan over a vector index
-     */
-    @Nonnull
-    private static Optional<VectorIndexEngine.Kind> vectorIndexEngineKindMaybe(@Nonnull final RelationalExpression expression) {
-        if (!(expression instanceof RecordQueryPlanWithMatchCandidate)) {
-            return Optional.empty();
-        }
-        return ((RecordQueryPlanWithMatchCandidate)expression).getMatchCandidateMaybe()
-                .filter(VectorIndexScanMatchCandidate.class::isInstance)
-                .map(matchCandidate -> ((VectorIndexScanMatchCandidate)matchCandidate).getIndexEngineKind());
     }
 
     @Nonnull
