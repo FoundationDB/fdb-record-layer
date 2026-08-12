@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -84,15 +84,31 @@ public class VariadicFunctionValue extends AbstractValue {
             Suppliers.memoize(VariadicFunctionValue::computeOperatorMap);
 
     /**
-     * Constructs a new instance of {@link VariadicFunctionValue}, deriving the result type from the given children.
+     * Constructs a new instance of {@link VariadicFunctionValue}.
      * @param operator The physical operator implementing the comparison function.
      * @param children The children.
+     * @param resultType The result type, which must be consistent with the children's types.
      */
-    public VariadicFunctionValue(@Nonnull PhysicalOperator operator,
-                                 @Nonnull List<Value> children) {
+    private VariadicFunctionValue(@Nonnull final PhysicalOperator operator,
+                                  @Nonnull final ImmutableList<Value> children,
+                                  @Nonnull final Type resultType) {
         this.operator = operator;
-        this.children = ImmutableList.copyOf(children);
-        this.resultType = computeResultType(operator, this.children);
+        this.children = children;
+        this.resultType = resultType;
+    }
+
+    /**
+     * Creates a new instance of {@link VariadicFunctionValue}, deriving the result type from the given children.
+     * @param operator The physical operator implementing the comparison function.
+     * @param children The children, of which there must be at least two.
+     * @return a new {@link VariadicFunctionValue}
+     */
+    @Nonnull
+    public static VariadicFunctionValue of(@Nonnull final PhysicalOperator operator,
+                                           @Nonnull final Iterable<? extends Value> children) {
+        final ImmutableList<Value> childrenList = ImmutableList.copyOf(children);
+        final Type resultType = computeResultType(operator, childrenList);
+        return new VariadicFunctionValue(operator, childrenList, resultType);
     }
 
     @Nullable
@@ -139,7 +155,7 @@ public class VariadicFunctionValue extends AbstractValue {
     @Nonnull
     @Override
     public VariadicFunctionValue withChildren(final Iterable<? extends Value> newChildren) {
-        return new VariadicFunctionValue(this.operator, ImmutableList.copyOf(newChildren));
+        return VariadicFunctionValue.of(this.operator, newChildren);
     }
 
     @Override
@@ -199,8 +215,11 @@ public class VariadicFunctionValue extends AbstractValue {
             final Value child = Value.fromValueProto(serializationContext, variadicFunctionValueProto.getChildren(i));
             childrenBuilder.add(child);
         }
-        return new VariadicFunctionValue(PhysicalOperator.fromProto(serializationContext, Objects.requireNonNull(variadicFunctionValueProto.getOperator())),
-                childrenBuilder.build());
+        final ImmutableList<Value> children = childrenBuilder.build();
+        final PhysicalOperator operator = PhysicalOperator.fromProto(
+                serializationContext,
+                Objects.requireNonNull(variadicFunctionValueProto.getOperator()));
+        return VariadicFunctionValue.of(operator, children);
     }
 
     @Nonnull
@@ -219,40 +238,37 @@ public class VariadicFunctionValue extends AbstractValue {
         // the overall maximum type will be `NullType` and the operator lookup below will fail.
         final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
         Verify.verify(arguments.size() >= 2);
-        Type maximumType = null;
-        for (final Typed arg : arguments) {
-            Type argType = arg.getResultType();
+        Type commonType = arguments.get(0).getResultType();
+        Verify.verify(commonType.isNull() || !commonType.isUnresolved());
+        for (final Typed arg : arguments.subList(1, arguments.size())) {
+            final Type argType = arg.getResultType();
             Verify.verify(argType.isNull() || !argType.isUnresolved());
-            if (maximumType == null) {
-                maximumType = argType;
-            } else {
-                maximumType = Type.maximumType(maximumType, argType);
-                SemanticException.check(maximumType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
-            }
+            final Type maximumType = Type.maximumType(commonType, argType);
+            SemanticException.check(maximumType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+            commonType = maximumType;
         }
 
         // Look up the physical operator implementing the comparison function for the common type of the arguments.
         final ComparisonFunction comparisonFunction = ((ComparisonFn)builtInFunction).getComparisonFunction();
         final PhysicalOperator physicalOperator =
-                getOperatorMap().get(NonnullPair.of(comparisonFunction, maximumType.getTypeCode()));
+                getOperatorMap().get(NonnullPair.of(comparisonFunction, commonType.getTypeCode()));
         SemanticException.check(
                 physicalOperator != null,
                 SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES);
 
         // Determine the result type with the appropriate nullability for the comparison function at hand.
-        final Type resultType = maximumType.withNullability(comparisonFunction.isResultNullable(arguments));
+        final Type resultType = commonType.withNullability(comparisonFunction.isResultNullable(arguments));
 
-        // Promote each argument to the common type, but keep non-nullable types non-nullable, so that the information
-        // about which arguments are nullable is retained.
-        final Type nullableResultType = resultType.withNullability(true);
+        // Promote each argument to the common type while retaining its own nullability, so that the information about
+        // which arguments are nullable is not lost.
         final ImmutableList.Builder<Value> promotedArguments = ImmutableList.builder();
         for (final Typed arg : arguments) {
-            final Type promoteToType = arg.getResultType().isNullable() ? nullableResultType : resultType;
+            final Type promoteToType = resultType.withNullability(arg.getResultType().isNullable());
             promotedArguments.add(PromoteValue.inject((Value)arg, promoteToType));
         }
         final ImmutableList<Value> children = promotedArguments.build();
 
-        return new VariadicFunctionValue(physicalOperator, children);
+        return new VariadicFunctionValue(physicalOperator, children, resultType);
     }
 
     private static Map<NonnullPair<ComparisonFunction, TypeCode>, PhysicalOperator> computeOperatorMap() {
@@ -323,7 +339,8 @@ public class VariadicFunctionValue extends AbstractValue {
          * The {@code COALESCE()} function. Returns its first non-{@code NULL} argument; so it is nullable only if
          * all its arguments are nullable.
          */
-        COALESCE(Boolean::logicalAnd);
+        COALESCE(Boolean::logicalAnd),
+        ;
 
         @Nonnull
         private final BinaryOperator<Boolean> nullabilityCombiner;
@@ -339,8 +356,8 @@ public class VariadicFunctionValue extends AbstractValue {
         /**
          * Constructs a new instance of {@link ComparisonFunction}.
          *
-         * The given {@code nullabilityCombiner} combines the nullabilities of the arguments to derive the nullability
-         * of the result.
+         * <p>The given {@code nullabilityCombiner} combines the nullabilities of the arguments to derive the
+         * nullability of the result.
          */
         ComparisonFunction(@Nonnull final BinaryOperator<Boolean> nullabilityCombiner) {
             this.nullabilityCombiner = nullabilityCombiner;

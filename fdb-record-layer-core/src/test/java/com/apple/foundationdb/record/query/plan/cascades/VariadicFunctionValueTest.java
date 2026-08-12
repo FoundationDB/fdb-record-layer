@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,6 +44,7 @@ import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 import org.junit.jupiter.params.support.ParameterDeclarations;
 
+import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -123,7 +124,7 @@ class VariadicFunctionValueTest {
     private static final VariadicFunctionValue.LeastFn LEAST_FN = new VariadicFunctionValue.LeastFn();
     private static final VariadicFunctionValue.CoalesceFn COALESCE_FN = new VariadicFunctionValue.CoalesceFn();
 
-    private static TypeRepository typeRepository;
+    private static final TypeRepository typeRepository;
 
     static {
         final TypeRepository.Builder typeRepositoryBuilder = TypeRepository.newBuilder().setName("foo").setPackage("a.b.c");
@@ -157,9 +158,10 @@ class VariadicFunctionValueTest {
     }
 
     static class BinaryPredicateTestProvider implements ArgumentsProvider {
+        @Nonnull
         @Override
-        public Stream<? extends Arguments> provideArguments(final ParameterDeclarations parameterDeclarations,
-                                                            final ExtensionContext context) {
+        public Stream<? extends Arguments> provideArguments(@Nonnull final ParameterDeclarations parameterDeclarations,
+                                                            @Nonnull final ExtensionContext context) {
             return Stream.of(
                     // Greatest Function
                     Arguments.of(List.of(INT_1, INT_1), GREATEST_FN, 1, false),
@@ -466,9 +468,10 @@ class VariadicFunctionValueTest {
     }
 
     static class ResultTypeTestProvider implements ArgumentsProvider {
+        @Nonnull
         @Override
-        public Stream<? extends Arguments> provideArguments(final ParameterDeclarations parameterDeclarations,
-                                                            final ExtensionContext context) {
+        public Stream<? extends Arguments> provideArguments(@Nonnull final ParameterDeclarations parameterDeclarations,
+                                                            @Nonnull final ExtensionContext context) {
             return Stream.of(
                     // GREATEST() and LEAST() are nullable if any of their arguments is nullable.
                     new ResultTypeTestCase(GREATEST_FN, List.of(INT_1, INT_2), Type.TypeCode.INT, true),
@@ -525,15 +528,12 @@ class VariadicFunctionValueTest {
         assertThat(resultType.getTypeCode()).isEqualTo(testCase.expectedTypeCode());
         assertThat(resultType.isNullable()).isEqualTo(expectedIsNullable);
 
-        // Check that, while every argument is promoted to the common result type, a non-nullable argument is widened to
-        // a nullable one only if the result type is nullable anyway.
+        // Check that, while every argument is promoted to the common result type, it retains its own nullability.
         final List<? extends Value> children = ImmutableList.copyOf(((VariadicFunctionValue)value).getChildren());
         for (int i = 0; i < arguments.size(); i++) {
-            final boolean argumentIsNullable = arguments.get(i).getResultType().isNullable();
-            final boolean expectedChildIsNullable = argumentIsNullable || expectedIsNullable;
             assertThat(children.get(i).getResultType().isNullable())
                     .as("nullability of promoted argument %d", i)
-                    .isEqualTo(expectedChildIsNullable);
+                    .isEqualTo(arguments.get(i).getResultType().isNullable());
         }
 
         // Check that re-deriving the result type from the promoted children, as `withChildren()` and `fromProto()` do,
