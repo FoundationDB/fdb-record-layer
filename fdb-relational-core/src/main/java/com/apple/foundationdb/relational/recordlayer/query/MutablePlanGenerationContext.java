@@ -46,6 +46,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
@@ -90,9 +91,9 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
 
     /**
      * The value-free (unbound) subset of {@link #constantObjectValues} — COVs created by {@link #valueFreeCovOf} for
-     * typed parameters warmed with no value. Tracked explicitly because, unlike a value-bound literal, a value-free
-     * parameter produces no {@link OrderedLiteral}, so it cannot be recovered from the literal table when a function
-     * body's side effects are carried into the enclosing query (see {@link #importAuxiliaryLiterals}).
+     * typed parameters warmed with no value. Transitional: these now ride in the literal table as value-free
+     * {@link OrderedLiteral}s, so this list is redundant and is only kept to cross-check the two during the changeover
+     * (see {@link #importAuxiliaryLiterals}).
      */
     @Nonnull
     private final List<ConstantObjectValue> unboundConstantObjectValues;
@@ -127,18 +128,21 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     /**
      * Creates a <em>value-free</em> {@link ConstantObjectValue} of the given declared type at this token's constant id:
      * a constant reference that carries a type but no plan-time value (e.g. a typed stored-query signature parameter
-     * warmed with no value). It is registered as a literal reference so {@link #getPlanConstraintsForLiteralReferences}
-     * emits its {@code OfType}/nullness constraint, but — unlike a bound literal — no {@link OrderedLiteral} is added,
-     * so its constant id stays unbound in the evaluation context. At runtime the byte-identical parameter token binds a
-     * value at the same constant id, and the warmed plan is reused.
+     * warmed with no value). A value-free {@link OrderedLiteral} is registered for it, which reserves the constant id
+     * and declares the type but — unlike a bound literal — contributes no binding, so the constant id stays unbound in
+     * the evaluation context. At runtime the byte-identical parameter token binds a value at the same constant id, and
+     * the warmed plan is reused.
      *
      * @param type the declared type of the parameter
+     * @param parameterName the name of the parameter
      * @param tokenIndex the token position, which (with the current scope) determines the constant id
      * @return a value-free {@link ConstantObjectValue} of the declared type
      */
     @Nonnull
-    public ConstantObjectValue valueFreeCovOf(@Nonnull final Type type, final int tokenIndex) {
-        final var result = ConstantObjectValue.of(Quantifier.constant(), literalsBuilder.constructConstantId(tokenIndex), type);
+    public ConstantObjectValue valueFreeCovOf(@Nonnull final Type type, @Nonnull final String parameterName,
+                                              final int tokenIndex) {
+        final var literal = literalsBuilder.addValueFreeLiteral(type, parameterName, tokenIndex);
+        final var result = ConstantObjectValue.of(Quantifier.constant(), literal.getConstantId(), literal.getType());
         addLiteralReference(result);
         unboundConstantObjectValues.add(result);
         return result;
@@ -401,22 +405,22 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         // add literal evaluation for specific values to enable
         // triggering constant folding internally.
         final var evaluationContext = getEvaluationContext();
+        final var valueFreeConstantIds = literalsBuilder.valueFreeConstantIds();
         constantObjectValues.forEach(cov -> {
             final EvaluatesToValue evaluatesTo;
-            if (evaluationContext.containsConstantBinding(cov.getAlias(), cov.getConstantId())) {
-                // Bound constant: fold to its concrete value (enables constant folding and, at cache lookup, matches
-                // the runtime value against the plan's constraint).
-                evaluatesTo = EvaluatesToValue.of(cov, evaluationContext);
-            } else if (cov.getResultType().isNull()) {
-                // Value-free constant of the NULL type: warm the IS NULL case.
-                evaluatesTo = EvaluatesToValue.isNull(cov);
-            } else {
-                // Value-free (unbound) constant, e.g. a typed signature parameter warmed with no value. Emit
-                // IS_NOT_NULL directly rather than dereferencing to null: dereferencing would both trip the
-                // non-nullable-type check in ConstantObjectValue.eval and yield an IS_NULL constraint (making runtime
-                // non-null values miss). At runtime the same constant id is bound to a value and this constraint is
-                // re-evaluated against it.
+            if (valueFreeConstantIds.contains(cov.getConstantId())) {
+                // Value-free constant, e.g. a typed signature parameter warmed with no value. Emit IS_NOT_NULL directly
+                // rather than dereferencing to null: dereferencing would both trip the non-nullable-type check in
+                // ConstantObjectValue.eval and yield an IS_NULL constraint (making runtime non-null values miss). At
+                // runtime the same constant id is bound to a value and this constraint is re-evaluated against it.
                 evaluatesTo = EvaluatesToValue.isNotNull(cov);
+            } else {
+                // Bound constant: fold to its concrete value (enables constant folding and, at cache lookup, matches
+                // the runtime value against the plan's constraint). A constant bound to null folds to IS_NULL, which is
+                // how a signature parameter declared NULL is warmed — it is bound to null, exactly as setNull binds it
+                // at runtime. A constant that is neither value-free nor bound is a bug, and dereferencing it here fails
+                // loudly rather than silently weakening the constraint.
+                evaluatesTo = EvaluatesToValue.of(cov, evaluationContext);
             }
             predicateBuilder.add(new ValuePredicate(evaluatesTo,
                     new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true)));
@@ -500,23 +504,37 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     }
 
     /**
-     * Imports a function body's plan-generation side effects into this (enclosing) context: its value-bearing
-     * {@code auxiliaryLiterals} and its value-free {@code auxiliaryConstantObjectValues} (typed parameters warmed with
-     * no value). Both kinds are registered into {@code constantObjectValues} so {@link
-     * #getPlanConstraintsForLiteralReferences} emits their {@code OfType}/nullness constraint; the literals additionally
-     * carry their value into the literal table (enabling constant folding and value-based dedup/equality). Value-free
-     * COVs carry no {@link OrderedLiteral}, so they must be passed explicitly rather than recovered from the literals.
+     * Imports a function body's plan-generation side effects into this (enclosing) context. Every literal in
+     * {@code auxiliaryLiterals} is registered into {@code constantObjectValues} so {@link
+     * #getPlanConstraintsForLiteralReferences} emits its {@code OfType}/nullness constraint; the value-bearing ones
+     * additionally carry their value into the literal table, enabling constant folding and value-based dedup/equality.
+     * Value-free literals ride along in the same table, which is how a typed parameter warmed with no value survives
+     * the hop from the context that compiled the function body into this one.
      */
     public void importAuxiliaryLiterals(@Nonnull final Literals auxiliaryLiterals,
                                         @Nonnull final List<ConstantObjectValue> auxiliaryConstantObjectValues) {
         final var newLiterals = literalsBuilder.importLiteralsRetrieveNewLiterals(auxiliaryLiterals);
         for (final var literal : newLiterals) {
+            if (literal.isValueFree()) {
+                // No value, so the type comes from the declaration and there is nothing to fold or dedup against.
+                constantObjectValues.add(ConstantObjectValue.of(Quantifier.constant(), literal.getConstantId(),
+                        literal.getType()));
+                continue;
+            }
             final var literalValue = new LiteralValue<>(literal.getLiteralObject());
             final var duplicateLiteralMaybe = literalsBuilder.getFirstValueDuplicateMaybe(literal.getLiteralObject());
             duplicateLiteralMaybe.ifPresent(prev -> addEqualityConstraint(prev.getConstantId(), literal.getConstantId(), literalValue.getResultType()));
             constantObjectValues.add(ConstantObjectValue.of(Quantifier.constant(), literal.getConstantId(), literalValue.getResultType()));
         }
-        constantObjectValues.addAll(auxiliaryConstantObjectValues);
+        // Transitional: the value-free constants used to be carried in a list beside the literals. Now that they ride in
+        // the literal table, check the two agree before the list goes away.
+        final var registeredConstantIds = constantObjectValues.stream()
+                .map(ConstantObjectValue::getConstantId)
+                .collect(ImmutableSet.toImmutableSet());
+        for (final var auxiliaryConstantObjectValue : auxiliaryConstantObjectValues) {
+            Assert.thatUnchecked(registeredConstantIds.contains(auxiliaryConstantObjectValue.getConstantId()),
+                    "value-free constant missing from the imported literal table");
+        }
     }
 
     /**
@@ -537,7 +555,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
             // Plan it as a value-free typed constant; the runtime re-issue binds a value at the same constant id.
             final var declaredType = preparedParams.declaredTypeMaybe(param);
             if (declaredType.isPresent()) {
-                return valueFreeCovOf(declaredType.get(), tokenIndex);
+                return valueFreeCovOf(declaredType.get(), param, tokenIndex);
             }
         }
         final var value = preparedParams.namedParamValue(param);

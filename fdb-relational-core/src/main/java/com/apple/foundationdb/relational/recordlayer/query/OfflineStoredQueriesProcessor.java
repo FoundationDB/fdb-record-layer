@@ -251,8 +251,10 @@ public final class OfflineStoredQueriesProcessor {
     }
 
     /**
-     * Builds the warm-up {@link PreparedParams} for a stored query: empty values, plus the declared types parsed from
-     * the persisted signature ({@code "name:TYPECODE,..."}), so value-free named parameters are typed but valueless.
+     * Builds the warm-up {@link PreparedParams} for a stored query from the persisted signature
+     * ({@code "name:TYPECODE,..."}). A parameter declared {@code NULL} is <em>exactly</em> null, so it is bound to null
+     * here — the same thing {@code setNull} does at runtime — which makes warm-up and runtime plan it through one path.
+     * Every other parameter has no value at warm-up and only contributes its declared type, so it is planned value-free.
      */
     @Nonnull
     private static PreparedParams warmupParamsFor(@Nonnull final StoredQuery storedQuery) {
@@ -261,17 +263,18 @@ public final class OfflineStoredQueriesProcessor {
             return PreparedParams.empty();
         }
         final var declaredTypes = new LinkedHashMap<String, Type>();
+        final var nullParams = new LinkedHashMap<String, Object>();
         for (final var entry : signature.split(",")) {
             final var separator = entry.indexOf(':');
             final var name = entry.substring(0, separator);
             final var typeCode = entry.substring(separator + 1);
-            // A NULL parameter is exactly-null: warmed value-free as the nullable NULL type (→ IS_NULL plan).
-            final var type = "NULL".equals(typeCode)
-                    ? Type.nullType()
-                    : Type.primitiveType(Type.TypeCode.valueOf(typeCode), false);
-            declaredTypes.put(name, type);
+            if ("NULL".equals(typeCode)) {
+                nullParams.put(name, null);
+            } else {
+                declaredTypes.put(name, Type.primitiveType(Type.TypeCode.valueOf(typeCode), false));
+            }
         }
-        return PreparedParams.empty().withDeclaredTypes(declaredTypes);
+        return PreparedParams.ofNamed(nullParams).withDeclaredTypes(declaredTypes);
     }
 
     private static final class Counts {

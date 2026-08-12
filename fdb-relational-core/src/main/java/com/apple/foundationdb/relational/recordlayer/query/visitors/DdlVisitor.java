@@ -509,8 +509,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 // body and declared function bodies; those references are rewritten to '?name' (see
                 // rewriteReferencesToParams). Matching is case-sensitive — a signature parameter becomes a named
                 // prepared parameter, which is always case-sensitive, so a reference must use the declared spelling. A
-                // parameter declared NULL is exactly-null (warmed value-free as the NULL type → a null-specialized
-                // plan). The signature is persisted as "name:TYPECODE,..." so warm-up can type the value-free params.
+                // parameter declared NULL is exactly-null, and is warmed by binding it to null just as setNull would.
+                // The signature is persisted as "name:TYPECODE,..." so warm-up can type the value-free params.
                 final var declaredNames = new HashSet<String>();
                 final var signatureBuilder = new StringBuilder();
                 final var signatureCtx = queryCtx.storedQuerySignature();
