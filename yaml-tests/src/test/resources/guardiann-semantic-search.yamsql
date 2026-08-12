@@ -21,11 +21,11 @@
 # ('USING GUARDIANN' with the guardiann-only 'primary_cluster_*' options plus the shared 'metric' option). The dataset
 # is small and well-separated so it forms a single cluster per partition, making the k-nearest-neighbor results exact.
 #
-# supported_version is !current_version because the Guardiann engine is new: no released server understands
+# supported_version is 4.12.18.0 because the Guardiann engine is new: no released server understands
 # 'USING GUARDIANN', so this file only runs against the current build (and is skipped in mixed-version mode).
 ---
 options:
-  supported_version: !current_version
+  supported_version: 4.12.18.0
 ---
 schema_template:
     create table documents(zone string, docId string, bookshelf string, title string, embedding vector(3, half), primary key (zone, docId))

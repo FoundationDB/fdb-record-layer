@@ -47,7 +47,7 @@ class GuardiannVectorIndexTest extends VectorIndexEngineTestSuite {
     @Override
     protected Map<String, String> indexOptions() {
         return ImmutableMap.<String, String>builder()
-                .put(IndexOptions.VECTOR_ENGINE, VectorIndexEngine.Kind.GUARDIANN.name())
+                .put(IndexOptions.VECTOR_ENGINE, VectorIndexEngineKind.GUARDIANN.name())
                 .put(IndexOptions.VECTOR_METRIC, Metric.EUCLIDEAN_METRIC.name())
                 .put(IndexOptions.VECTOR_NUM_DIMENSIONS, "128")
                 .put(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MAX, "200")
@@ -69,7 +69,7 @@ class GuardiannVectorIndexTest extends VectorIndexEngineTestSuite {
             validateOptionsEvolution(metaData, index,
                     ImmutableMap.<String, String>builder()
                             // immutable — must be re-specified at the same value
-                            .put(IndexOptions.VECTOR_ENGINE, VectorIndexEngine.Kind.GUARDIANN.name())
+                            .put(IndexOptions.VECTOR_ENGINE, VectorIndexEngineKind.GUARDIANN.name())
                             .put(IndexOptions.VECTOR_METRIC, Metric.EUCLIDEAN_METRIC.name())
                             .put(IndexOptions.VECTOR_NUM_DIMENSIONS, "128")
                             .put(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MAX, "200")
@@ -88,7 +88,7 @@ class GuardiannVectorIndexTest extends VectorIndexEngineTestSuite {
 
             // switching the engine is never allowed
             assertInvalidOptionsEvolution(metaData, index,
-                    optionsWith(IndexOptions.VECTOR_ENGINE, VectorIndexEngine.Kind.HNSW.name()));
+                    optionsWith(IndexOptions.VECTOR_ENGINE, VectorIndexEngineKind.HNSW.name()));
 
             // changing an immutable encoding option is not allowed
             assertInvalidOptionsEvolution(metaData, index,

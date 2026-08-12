@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.MetaDataException;
@@ -35,7 +34,6 @@ import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -110,42 +108,14 @@ public sealed interface VectorIndexEngine permits HnswVectorIndexEngine, Guardia
                                    @Nonnull RealVector vector);
 
     /**
-     * The kinds of vector engine, as selectable through the {@link IndexOptions#VECTOR_ENGINE} index option.
-     */
-    enum Kind {
-        HNSW,
-        GUARDIANN;
-
-        /**
-         * Resolves an engine kind from its option string, accepting any letter case. When {@code value} is
-         * {@code null} (the option was not set) the engine defaults to {@link #HNSW}, so vector indexes created before
-         * the engine option existed continue to use HNSW.
-         *
-         * @param value the raw option value, or {@code null} if unset
-         * @return the resolved engine kind
-         */
-        @Nonnull
-        static Kind fromOptionValue(final String value) {
-            if (value == null) {
-                return HNSW;
-            }
-            return switch (value.toUpperCase(Locale.ROOT)) {
-                case "HNSW" -> HNSW;
-                case "GUARDIANN" -> GUARDIANN;
-                default -> throw new MetaDataException("unknown vector index engine", LogMessageKeys.VALUE, value);
-            };
-        }
-    }
-
-    /**
      * Determines the engine kind an index is configured to use.
      *
      * @param index the index definition
      * @return the engine kind
      */
     @Nonnull
-    static Kind kindFromIndex(@Nonnull final Index index) {
-        return Kind.fromOptionValue(index.getOption(IndexOptions.VECTOR_ENGINE));
+    static VectorIndexEngineKind kindFromIndex(@Nonnull final Index index) {
+        return VectorIndexEngineKind.fromOptionValue(index.getOption(IndexOptions.VECTOR_ENGINE));
     }
 
     /**
@@ -193,7 +163,7 @@ public sealed interface VectorIndexEngine permits HnswVectorIndexEngine, Guardia
     static void validateChangedOptions(@Nonnull final Index oldIndex, @Nonnull final Index newIndex,
                                        @Nonnull final Set<String> changedOptions) {
         // The engine backing an index can never change; that would reinterpret the on-disk layout.
-        final Kind newIndexKind = kindFromIndex(newIndex);
+        final VectorIndexEngineKind newIndexKind = kindFromIndex(newIndex);
         VectorIndexOptionsHelper.disallowChange(changedOptions, IndexOptions.VECTOR_ENGINE,
                 kindFromIndex(oldIndex), newIndexKind, newIndex.getName());
 

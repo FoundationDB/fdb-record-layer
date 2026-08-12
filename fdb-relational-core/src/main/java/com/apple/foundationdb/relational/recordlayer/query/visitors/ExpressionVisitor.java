@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,6 +65,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.protobuf.ZeroCopyByteString;
 import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.Token;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -202,10 +203,20 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         if (!getDelegate().isTopLevel()) {
             Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "order by is not supported in subquery");
         }
-        final var orderByExpressions = orderByClauseContextContext.orderByExpression().stream().map(this::visitOrderByExpression)
+        final List<OrderByExpression> exprs = visitOrderByExpressions(orderByClauseContextContext.orderByExpression());
+        getDelegate().getSemanticAnalyzer().validateOrderByColumns(exprs);
+        return exprs;
+    }
+
+    /**
+     * Visits the individual expressions of an {@code ORDER BY} clause.
+     */
+    @Nonnull
+    private List<OrderByExpression> visitOrderByExpressions(
+            @Nonnull List<RelationalParser.OrderByExpressionContext> contexts) {
+        return contexts.stream()
+                .map(this::visitOrderByExpression)
                 .collect(ImmutableList.toImmutableList());
-        getDelegate().getSemanticAnalyzer().validateOrderByColumns(orderByExpressions);
-        return orderByExpressions;
     }
 
     @Nonnull
@@ -302,9 +313,9 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         @Nullable final var orderByClause = ctx.windowSpec().orderByClause();
         // Parse ORDER BY expressions directly — the isTopLevel() check in visitOrderByClause
         // is for query-level ORDER BY and does not apply inside OVER clauses.
-        final List<OrderByExpression> orderByExpressions = orderByClause == null ? ImmutableList.of()
-                                                                                 : orderByClause.orderByExpression().stream().map(this::visitOrderByExpression)
-                                                                                   .collect(ImmutableList.toImmutableList());
+        final List<OrderByExpression> orderByExpressions = orderByClause == null
+                  ? ImmutableList.of()
+                  : visitOrderByExpressions(orderByClause.orderByExpression());
 
         @Nullable final var windowOptionsClause = ctx.windowSpec().windowOptionsClause();
         final Expressions windowOptions = windowOptionsClause == null ? Expressions.empty() : getDelegate().visitWindowOptionsClause(windowOptionsClause);
@@ -352,16 +363,71 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitAggregateWindowedFunction(@Nonnull RelationalParser.AggregateWindowedFunctionContext functionContext) {
-        Assert.thatUnchecked(functionContext.aggregator == null || functionContext.aggregator.getText().equals(functionContext.ALL().getText()),
-                ErrorCode.UNSUPPORTED_QUERY, () -> String.format(Locale.ROOT, "Unsupported aggregator %s", functionContext.aggregator.getText()));
-        final var functionName = functionContext.functionName.getText();
-        Optional<Expression> argumentMaybe = Optional.empty();
+        final Token functionName = functionContext.functionName;
+        final String name = functionName.getText();
+
+        // Handle the aggregator (aka. set quantifier). Existing aggregates support only ALL (the default).
+        final Token aggregator = functionContext.aggregator;
+        Assert.thatUnchecked(
+                aggregator == null || aggregator.getType() == RelationalParser.ALL,
+                ErrorCode.UNSUPPORTED_QUERY,
+                () -> String.format(Locale.ROOT, "aggregator %s is not supported",
+                        Assert.notNullUnchecked(aggregator).getText()));
+
+        // Handle the OVER clause. The grammar admits it for most aggregates, but using an aggregate as a window
+        // function is not implemented.
+        Assert.isNullUnchecked(
+                functionContext.overClause(),
+                ErrorCode.UNSUPPORTED_QUERY,
+                String.format(Locale.ROOT, "an OVER clause is not supported for %s()", name));
+
+        // Handle the null treatment clause. The grammar admits it for ARRAY_AGG() only. Absent a clause, the default is
+        // RESPECT NULLS (which is aligned with the SQL standard).
+        final RelationalParser.NullTreatmentClauseContext nullTreatment = functionContext.nullTreatmentClause();
+        final boolean ignoreNulls = nullTreatment != null && getDelegate().visitNullTreatmentClause(nullTreatment);
+
+        // Determine and visit the arguments.
+        // * For the star argument of COUNT(*), use an empty record as a stand-in.
+        // * Multiple arguments are admitted for COUNT(DISTINCT …) and GROUP_CONCAT(), but not implemented yet. Note
+        //   that GROUP_CONCAT() uses the multi-argument production even when it is given a single argument.
+        final ImmutableList.Builder<Expression> args = ImmutableList.builder();
         if (functionContext.starArg != null) {
-            argumentMaybe = Optional.of(Expression.ofUnnamed(RecordConstructorValue.ofColumns(List.of())));
+            args.add(Expression.ofUnnamed(RecordConstructorValue.ofColumns(List.of())));
+        } else if (functionContext.functionArgs() != null) {
+            final List<RelationalParser.FunctionArgContext> functionArgs = functionContext.functionArgs().functionArg();
+            Assert.thatUnchecked(
+                    functionArgs.size() == 1,
+                    ErrorCode.UNSUPPORTED_QUERY,
+                    () -> String.format(Locale.ROOT, "multiple arguments are not supported for %s()", name));
+            args.add(visitFunctionArg(functionArgs.get(0)));
         } else if (functionContext.functionArg() != null) {
-            argumentMaybe = Optional.of(visitFunctionArg(functionContext.functionArg()));
+            args.add(visitFunctionArg(functionContext.functionArg()));
         }
-        return argumentMaybe.map(expression -> getDelegate().resolveFunction(functionName, expression)).orElseGet(() -> getDelegate().resolveFunction(functionName));
+        // ARRAY_AGG() carries the null treatment as an extra literal argument, to be consumed by its encapsulation.
+        if (functionName.getType() == RelationalParser.ARRAY_AGG) {
+            args.add(Expression.ofUnnamed(LiteralValue.ofScalar(ignoreNulls)));
+        }
+        final Expressions arguments = Expressions.of(args.build());
+
+        // Handle the in-call ORDER BY clause. The grammar admits it for ARRAY_AGG() and GROUP_CONCAT(), but they do
+        // not honor it yet. We still visit the sort expressions, so that they undergo the usual semantic analysis.
+        // This happens only once the arguments have been visited, so an error in an argument takes precedence.
+        final RelationalParser.OrderByClauseContext orderByClause = functionContext.orderByClause();
+        if (orderByClause != null) {
+            visitOrderByExpressions(orderByClause.orderByExpression());
+            throw Assert.failUnchecked(
+                    ErrorCode.UNSUPPORTED_QUERY,
+                    String.format(Locale.ROOT, "an ORDER BY clause is not supported for %s()", name));
+        }
+
+        // Resolve the function.
+        return getDelegate().resolveFunction(name, arguments);
+    }
+
+    @Nonnull
+    @Override
+    public Boolean visitNullTreatmentClause(@Nonnull final RelationalParser.NullTreatmentClauseContext ctx) {
+        return ctx.nullTreatment.getType() == RelationalParser.IGNORE;
     }
 
     @Nonnull
