@@ -1,7 +1,7 @@
 enum-tests:
 -   query: EXPLAIN SELECT * From TABLE_A where "mood" = 'CONFUSED'
     ref: enum.yamsql:73
-    explain: SCAN([IS TABLE_A]) | FILTER _.mood EQUALS promote(@c8 AS ENUM<JOYFUL(0),
+    explain: SCAN([IS TABLE_A]) | FILTER _.mood EQUALS promote(@c7 AS ENUM<JOYFUL(0),
         HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)
     task_count: 163
     task_total_time_ms: 9
@@ -13,7 +13,7 @@ enum-tests:
     insert_reused_count: 2
 -   query: EXPLAIN SELECT * From TABLE_A where "mood" > 'INDIFFERENT'
     ref: enum.yamsql:78
-    explain: SCAN([IS TABLE_A]) | FILTER _.mood GREATER_THAN promote(@c8 AS ENUM<JOYFUL(0),
+    explain: SCAN([IS TABLE_A]) | FILTER _.mood GREATER_THAN promote(@c7 AS ENUM<JOYFUL(0),
         HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)
     task_count: 163
     task_total_time_ms: 8
@@ -25,7 +25,7 @@ enum-tests:
     insert_reused_count: 2
 -   query: EXPLAIN SELECT * From TABLE_A where "mood" >= 'INDIFFERENT'
     ref: enum.yamsql:87
-    explain: SCAN([IS TABLE_A]) | FILTER _.mood GREATER_THAN_OR_EQUALS promote(@c9
+    explain: SCAN([IS TABLE_A]) | FILTER _.mood GREATER_THAN_OR_EQUALS promote(@c8
         AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5),
         ANXIOUS(6), ANGRY(7)>)
     task_count: 163
@@ -49,7 +49,7 @@ enum-tests:
     insert_reused_count: 2
 -   query: EXPLAIN SELECT * From TABLE_B where "mood" = 'CONFUSED'
     ref: enum.yamsql:157
-    explain: ISCAN(B$MOOD [EQUALS promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2),
+    explain: ISCAN(B$MOOD [EQUALS promote(@c7 AS ENUM<JOYFUL(0), HAPPY(1), RELAXED(2),
         INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)])
     task_count: 311
     task_total_time_ms: 20
@@ -61,7 +61,7 @@ enum-tests:
     insert_reused_count: 4
 -   query: EXPLAIN SELECT * From TABLE_B where "mood" > 'INDIFFERENT'
     ref: enum.yamsql:171
-    explain: ISCAN(B$MOOD [[GREATER_THAN promote(@c8 AS ENUM<JOYFUL(0), HAPPY(1),
+    explain: ISCAN(B$MOOD [[GREATER_THAN promote(@c7 AS ENUM<JOYFUL(0), HAPPY(1),
         RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)]])
     task_count: 311
     task_total_time_ms: 26
@@ -73,7 +73,7 @@ enum-tests:
     insert_reused_count: 4
 -   query: EXPLAIN SELECT * From TABLE_A where "mood" != 'INDIFFERENT'
     ref: enum.yamsql:193
-    explain: SCAN([IS TABLE_A]) | FILTER _.mood NOT_EQUALS promote(@c9 AS ENUM<JOYFUL(0),
+    explain: SCAN([IS TABLE_A]) | FILTER _.mood NOT_EQUALS promote(@c8 AS ENUM<JOYFUL(0),
         HAPPY(1), RELAXED(2), INDIFFERENT(3), CONFUSED(4), SAD(5), ANXIOUS(6), ANGRY(7)>)
     task_count: 163
     task_total_time_ms: 12

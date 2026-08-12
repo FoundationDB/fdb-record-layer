@@ -12,7 +12,7 @@ unnamed-2:
     insert_reused_count: 7
 -   query: EXPLAIN select a, b + c AS sum from t where e = 'alpha' order by b + c;
     ref: indexed-functions.yamsql:54
-    explain: ISCAN(BPLUSCBYE [EQUALS promote(@c14 AS STRING)]) | MAP (_.A AS A, _.B
+    explain: ISCAN(BPLUSCBYE [EQUALS promote(@c13 AS STRING)]) | MAP (_.A AS A, _.B
         + _.C AS SUM)
     task_count: 379
     task_total_time_ms: 33

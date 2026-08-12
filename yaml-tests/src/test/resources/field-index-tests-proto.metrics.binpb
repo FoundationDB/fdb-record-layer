@@ -18,10 +18,10 @@
   6 -> 5 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q12> label="q12" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}É
+}è
 C
-field-index-tests-proto(EXPLAIN select sum(COL1) from "MyTable";ª
-Ñºˇ‡? Ü©E(0ûõ8@pSCAN(<,>) | TFILTER MyTable | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)¨digraph G {
+field-index-tests-proto(EXPLAIN select sum(COL1) from "MyTable";«
+Ñºˇ‡? Ü©E(0ûõ8@|SCAN(<,>) | TFILTER MyTable | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)¨digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -38,10 +38,10 @@ C
   6 -> 5 [ label=<&nbsp;q25> label="q25" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}œ
+}€
 E
-field-index-tests-proto*EXPLAIN select count(COL1) from "MyTable";Ö
-ÑçÇö? ¿‘±(0¨ç8@îSCAN(<,>) | TFILTER MyTable | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)–digraph G {
+field-index-tests-proto*EXPLAIN select count(COL1) from "MyTable";ë
+ÑçÇö? ¿‘±(0¨ç8@†SCAN(<,>) | TFILTER MyTable | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)–digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

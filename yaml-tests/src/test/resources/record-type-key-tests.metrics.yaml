@@ -115,7 +115,7 @@ primary-key-range-scan:
 index-scan:
 -   query: EXPLAIN SELECT * from t1 where b = 21
     ref: record-type-key-tests.yamsql:101
-    explain: ISCAN(I1 [EQUALS promote(@c8 AS LONG)])
+    explain: ISCAN(I1 [EQUALS promote(@c7 AS LONG)])
     task_count: 311
     task_total_time_ms: 13
     transform_count: 75
@@ -126,7 +126,7 @@ index-scan:
     insert_reused_count: 4
 -   query: EXPLAIN SELECT * from t2 where d = 201
     ref: record-type-key-tests.yamsql:105
-    explain: ISCAN(I2 [EQUALS promote(@c8 AS LONG)])
+    explain: ISCAN(I2 [EQUALS promote(@c7 AS LONG)])
     task_count: 311
     task_total_time_ms: 13
     transform_count: 75
@@ -138,8 +138,8 @@ index-scan:
 table-isolation:
 -   query: EXPLAIN SELECT count(*) from t1
     ref: record-type-key-tests.yamsql:115
-    explain: ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+    explain: ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY ()
+        | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 319
     task_total_time_ms: 16
     transform_count: 76
@@ -150,8 +150,8 @@ table-isolation:
     insert_reused_count: 4
 -   query: EXPLAIN SELECT count(*) from t2
     ref: record-type-key-tests.yamsql:119
-    explain: ISCAN(I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+    explain: ISCAN(I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY ()
+        | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 319
     task_total_time_ms: 18
     transform_count: 76

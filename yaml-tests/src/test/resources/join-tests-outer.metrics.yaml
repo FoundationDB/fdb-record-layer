@@ -238,16 +238,16 @@ left-outer-join:
     ref: join-tests-outer.yamsql:263
     explain: 'ISCAN(dept$name <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP
         BY () | ON EMPTY NULL | FLATMAP q0 -> { COVERING(emp$fname <,> -> [fname:
-        KEY:[0], id: KEY:[2]]) | FILTER _.id GREATER_THAN_OR_EQUALS coalesce_long(q0._0._0,
-        promote(0l AS LONG)) | FETCH | ON EMPTY NULL AS q1 RETURN (coalesce_long(q0._0._0,
-        promote(0l AS LONG)) AS c, q1.fname AS fname, q1.lname AS lname) }'
-    task_count: 615
-    task_total_time_ms: 11
-    transform_count: 158
+        KEY:[0], id: KEY:[2]]) | FILTER _.id GREATER_THAN_OR_EQUALS promote(coalesce_long(q0._0._0,
+        0l) AS LONG) | FETCH | ON EMPTY NULL AS q1 RETURN (coalesce_long(q0._0._0,
+        0l) AS c, q1.fname AS fname, q1.lname AS lname) }'
+    task_count: 631
+    task_total_time_ms: 10
+    transform_count: 163
     transform_time_ms: 5
-    transform_yield_count: 59
+    transform_yield_count: 61
     insert_time_ms: 0
-    insert_new_count: 77
+    insert_new_count: 83
     insert_reused_count: 6
 -   query: EXPLAIN SELECT "d"."name", COUNT(*) FROM "dept" "d" LEFT JOIN "project"
         "p" ON "d"."id" = "p"."emp_id" GROUP BY "d"."name";
