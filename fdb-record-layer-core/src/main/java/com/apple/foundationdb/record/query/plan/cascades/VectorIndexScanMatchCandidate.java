@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexEngine;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexEngineKind;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -152,7 +153,7 @@ public class VectorIndexScanMatchCandidate implements WithPrimaryKeyMatchCandida
     private final Supplier<Optional<List<Value>>> primaryKeyValuesOptionalSupplier;
 
     @Nonnull
-    private final Supplier<VectorIndexEngine.Kind> indexEngineKindSupplier;
+    private final Supplier<VectorIndexEngineKind> indexEngineKindSupplier;
 
     public VectorIndexScanMatchCandidate(@Nonnull final Index index,
                                          @Nonnull final Collection<RecordType> queriedRecordTypes,
@@ -383,14 +384,14 @@ public class VectorIndexScanMatchCandidate implements WithPrimaryKeyMatchCandida
     }
 
     /**
-     * The kind of vector engine backing the index this candidate is based on. Only the {@link VectorIndexEngine.Kind
+     * The kind of vector engine backing the index this candidate is based on. Only the {@link VectorIndexEngineKind
      * kind} is exposed, not the engine itself: the engine implementations are package-private to the index maintainer,
      * and building one parses and validates the whole index option set, which planning has no use for.
      *
      * @return the engine kind backing this candidate's index
      */
     @Nonnull
-    public VectorIndexEngine.Kind getIndexEngineKind() {
+    public VectorIndexEngineKind getIndexEngineKind() {
         return indexEngineKindSupplier.get();
     }
 

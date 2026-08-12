@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexEngine;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexEngineKind;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanner.IndexScanPreference;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
@@ -354,13 +354,13 @@ public class PlanningCostModel implements CascadesCostModel {
     @VisibleForTesting
     OptionalInt compareVectorIndexEnginePreference(@Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapA,
                                                    @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapB) {
-        final VectorIndexEngine.Kind preferredKind;
+        final VectorIndexEngineKind preferredKind;
         switch (configuration.getVectorIndexEnginePreference()) {
             case PREFER_HNSW:
-                preferredKind = VectorIndexEngine.Kind.HNSW;
+                preferredKind = VectorIndexEngineKind.HNSW;
                 break;
             case PREFER_GUARDIANN:
-                preferredKind = VectorIndexEngine.Kind.GUARDIANN;
+                preferredKind = VectorIndexEngineKind.GUARDIANN;
                 break;
             case NO_PREFERENCE:
             default:
@@ -374,8 +374,8 @@ public class PlanningCostModel implements CascadesCostModel {
             return OptionalInt.empty();
         }
 
-        final VectorIndexEngine.Kind engineKindOfA = engineKindOfAMaybe.get();
-        final VectorIndexEngine.Kind engineKindOfB = engineKindOfBMaybe.get();
+        final VectorIndexEngineKind engineKindOfA = engineKindOfAMaybe.get();
+        final VectorIndexEngineKind engineKindOfB = engineKindOfBMaybe.get();
         if (engineKindOfA == engineKindOfB) {
             return OptionalInt.empty();
         }
@@ -398,8 +398,8 @@ public class PlanningCostModel implements CascadesCostModel {
      *         vector index access, or more than one
      */
     @Nonnull
-    private static Optional<VectorIndexEngine.Kind> singleVectorIndexEngineKindMaybe(@Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMap) {
-        Optional<VectorIndexEngine.Kind> singleEngineKindMaybe = Optional.empty();
+    private static Optional<VectorIndexEngineKind> singleVectorIndexEngineKindMaybe(@Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMap) {
+        Optional<VectorIndexEngineKind> singleEngineKindMaybe = Optional.empty();
         for (final var dataAccess : FindExpressionVisitor.slice(planOpsMap, RecordQueryPlanWithIndex.class)) {
             if (!(dataAccess instanceof RecordQueryIndexPlan)) {
                 continue;
