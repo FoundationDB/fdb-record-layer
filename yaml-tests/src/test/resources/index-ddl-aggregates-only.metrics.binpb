@@ -75,7 +75,7 @@
 }ä
 ≥
 sum_aggregate_multi_groupingíEXPLAIN select category, region, sum(amount) as total from sales_mat_view where category = 'Electronics' group by category, region order by region—
-·ìﬂ˜óî åºj(Å0ŸÃÍ8G@¨AISCAN(IDX_MV_CAT_REGION_SUM [EQUALS promote(@c17 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)Ädigraph G {
+·ìﬂ˜óî åºj(Å0ŸÃÍ8G@¨AISCAN(IDX_MV_CAT_REGION_SUM [EQUALS promote(@c16 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)Ädigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -87,7 +87,7 @@
 }ã
 ≥
 sum_aggregate_multi_groupingíEXPLAIN select category, region, sum(amount) as total from sales_index_on where category = 'Electronics' group by category, region order by region“
-·∑◊Êsî åÚªO(Å0≠ûº8G@≠AISCAN(IDX_IOT_CAT_REGION_SUM [EQUALS promote(@c17 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)Ådigraph G {
+·∑◊Êsî åÚªO(Å0≠ûº8G@≠AISCAN(IDX_IOT_CAT_REGION_SUM [EQUALS promote(@c16 AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._0 AS CATEGORY, _._1 AS REGION, _._2 AS TOTAL)Ådigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -172,7 +172,7 @@ x
 ò
 aggregate_with_havingEXPLAIN select category, sum(amount) as total from sales_mat_view group by category having sum(amount) > 2000 order by category˘
 ÂäÁ±õπ ﬂÖÅq(ê0óéË8o@
-§AISCAN(IDX_MV_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | FILTER _._1 GREATER_THAN promote(@c21 AS LONG) | MAP (_._0 AS CATEGORY, _._1 AS TOTAL)∞digraph G {
+§AISCAN(IDX_MV_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | FILTER _._1 GREATER_THAN promote(@c20 AS LONG) | MAP (_._0 AS CATEGORY, _._1 AS TOTAL)∞digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -187,7 +187,7 @@ x
 ò
 aggregate_with_havingEXPLAIN select category, sum(amount) as total from sales_index_on group by category having sum(amount) > 2000 order by category˚
 Â˛©Ôõπ Ì—ár(ê0ß¯Œ8o@
-•AISCAN(IDX_IOT_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | FILTER _._1 GREATER_THAN promote(@c21 AS LONG) | MAP (_._0 AS CATEGORY, _._1 AS TOTAL)±digraph G {
+•AISCAN(IDX_IOT_SUM_BY_CATEGORY <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | FILTER _._1 GREATER_THAN promote(@c20 AS LONG) | MAP (_._0 AS CATEGORY, _._1 AS TOTAL)±digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

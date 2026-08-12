@@ -1,7 +1,7 @@
  
 [
 subquery-testsIEXPLAIN select ida from a where exists (select ida from a where ida = 1);¡
-ÞëÐ¼ƒ ¹Öè(!0‚Ë›84@ŸSCAN([IS A, EQUALS promote(@c15 AS INT)]) | MAP (_.IDA AS IDA) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { SCAN([IS A]) AS q1 RETURN (q1.IDA AS IDA) }ßdigraph G {
+ÞëÐ¼ƒ ¹Öè(!0‚Ë›84@ŸSCAN([IS A, EQUALS promote(@c14 AS INT)]) | MAP (_.IDA AS IDA) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { SCAN([IS A]) AS q1 RETURN (q1.IDA AS IDA) }ßdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -31,7 +31,7 @@
 }ù
 Y
 subquery-testsGEXPLAIN select idx from x where exists (select x from a where ida = 1);›
-ú´œ¹]Œ œö—0(&0ñ87@›SCAN([IS A, EQUALS promote(@c15 AS INT)]) | MAP (_.X AS X) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { SCAN([IS X]) AS q1 RETURN (q1.IDX AS IDX) }Ýdigraph G {
+ú´œ¹]Œ œö—0(&0ñ87@›SCAN([IS A, EQUALS promote(@c14 AS INT)]) | MAP (_.X AS X) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { SCAN([IS X]) AS q1 RETURN (q1.IDX AS IDX) }Ýdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

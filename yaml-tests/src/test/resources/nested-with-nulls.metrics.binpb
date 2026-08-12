@@ -26,10 +26,10 @@ H
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¦
+}¨
 H
-nested-with-nulls-tests-EXPLAIN select id from t1 where a.b.a IS NULLÙ
-»ð‰Ëm öì¡($0¹Í*8-@TCOVERING(I1 [[null],[null]] -> [ID: KEY[2], A: [B: [A: KEY[0]]]]) | MAP (_.ID AS ID)ådigraph G {
+nested-with-nulls-tests-EXPLAIN select id from t1 where a.b.a IS NULLÛ
+»ð‰Ëm öì¡($0¹Í*8-@VCOVERING(I1 [[null],[null]] -> [ID: KEY:[2], A: [B: [A: KEY:[0]]]]) | MAP (_.ID AS ID)ådigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

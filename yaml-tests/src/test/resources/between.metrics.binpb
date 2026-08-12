@@ -1,7 +1,7 @@
 ï
 L
 between-index-tests5EXPLAIN select * from t1 WHERE col1 BETWEEN 10 AND 10ž
-ÇêÍ³Q ÙÐÓ( 0ïï8#@cISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c8 AS INT) && LESS_THAN_OR_EQUALS promote(@c8 AS INT)]])›digraph G {
+ÇêÍ³Q ÙÐÓ( 0ïï8#@cISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c7 AS INT) && LESS_THAN_OR_EQUALS promote(@c7 AS INT)]])›digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

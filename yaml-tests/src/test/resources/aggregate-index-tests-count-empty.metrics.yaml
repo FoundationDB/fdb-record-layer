@@ -49,8 +49,8 @@ agg-index-tests-count-empty:
     insert_reused_count: 1
 -   query: EXPLAIN select count(*) from t2
     ref: aggregate-index-tests-count-empty.yamsql:65
-    explain: ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+    explain: ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY ()
+        | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 319
     task_total_time_ms: 14
     transform_count: 76
@@ -73,8 +73,8 @@ agg-index-tests-count-empty:
     insert_reused_count: 2
 -   query: EXPLAIN select count(col1) from t2
     ref: aggregate-index-tests-count-empty.yamsql:75
-    explain: ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+    explain: ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY
+        () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 319
     task_total_time_ms: 6
     transform_count: 76

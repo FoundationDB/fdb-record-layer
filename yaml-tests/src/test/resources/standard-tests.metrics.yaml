@@ -27,7 +27,7 @@ standard-tests:
     insert_reused_count: 4
 -   query: EXPLAIN select * from T1 where COL1 = 20
     ref: standard-tests.yamsql:84
-    explain: ISCAN(I1 [EQUALS promote(@c8 AS LONG)])
+    explain: ISCAN(I1 [EQUALS promote(@c7 AS LONG)])
     task_count: 311
     task_total_time_ms: 20
     transform_count: 75
@@ -64,8 +64,8 @@ standard-tests:
     insert_reused_count: 13
 -   query: EXPLAIN select * from T1 where COL1 >= 10 AND COL1 <= 20
     ref: standard-tests.yamsql:134
-    explain: ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG) && LESS_THAN_OR_EQUALS
-        promote(@c14 AS LONG)]])
+    explain: ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c8 AS LONG) && LESS_THAN_OR_EQUALS
+        promote(@c13 AS LONG)]])
     task_count: 311
     task_total_time_ms: 15
     transform_count: 76
@@ -76,8 +76,8 @@ standard-tests:
     insert_reused_count: 4
 -   query: EXPLAIN select * from T1 where COL1 >= 10 AND COL1 <= 20 ORDER BY COL1
     ref: standard-tests.yamsql:152
-    explain: ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG) && LESS_THAN_OR_EQUALS
-        promote(@c14 AS LONG)]])
+    explain: ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c8 AS LONG) && LESS_THAN_OR_EQUALS
+        promote(@c13 AS LONG)]])
     task_count: 263
     task_total_time_ms: 12
     transform_count: 65
@@ -88,7 +88,7 @@ standard-tests:
     insert_reused_count: 2
 -   query: EXPLAIN select * from T1 where COL1 = 20 OR COL1 = 20
     ref: standard-tests.yamsql:170
-    explain: ISCAN(I1 [EQUALS promote(@c8 AS LONG)])
+    explain: ISCAN(I1 [EQUALS promote(@c7 AS LONG)])
     task_count: 327
     task_total_time_ms: 16
     transform_count: 80
@@ -99,7 +99,7 @@ standard-tests:
     insert_reused_count: 4
 -   query: EXPLAIN select * from T1 where COL1 = 20 OR COL1 = 20 ORDER BY COL1
     ref: standard-tests.yamsql:183
-    explain: ISCAN(I1 [EQUALS promote(@c8 AS LONG)])
+    explain: ISCAN(I1 [EQUALS promote(@c7 AS LONG)])
     task_count: 279
     task_total_time_ms: 23
     transform_count: 70
@@ -110,7 +110,7 @@ standard-tests:
     insert_reused_count: 2
 -   query: EXPLAIN select * from T1 where COL1 = 20 AND COL1 = 20
     ref: standard-tests.yamsql:196
-    explain: ISCAN(I1 [EQUALS promote(@c8 AS LONG)])
+    explain: ISCAN(I1 [EQUALS promote(@c7 AS LONG)])
     task_count: 311
     task_total_time_ms: 20
     transform_count: 75
@@ -150,8 +150,8 @@ standard-tests:
 -   query: EXPLAIN select * from T1 where (COL1 >= 10 AND COL1 <= 20) OR (COL1 >=
         10 AND COL1 <= 20)
     ref: standard-tests.yamsql:249
-    explain: ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c10 AS LONG) && LESS_THAN_OR_EQUALS
-        promote(@c15 AS LONG)]])
+    explain: ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG) && LESS_THAN_OR_EQUALS
+        promote(@c14 AS LONG)]])
     task_count: 327
     task_total_time_ms: 14
     transform_count: 81
@@ -163,8 +163,8 @@ standard-tests:
 -   query: EXPLAIN select * from T1 where (COL1 >= 10 AND COL1 <= 20) OR (COL1 >=
         10 AND COL1 <= 20) ORDER BY COL1
     ref: standard-tests.yamsql:267
-    explain: ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c10 AS LONG) && LESS_THAN_OR_EQUALS
-        promote(@c15 AS LONG)]])
+    explain: ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG) && LESS_THAN_OR_EQUALS
+        promote(@c14 AS LONG)]])
     task_count: 279
     task_total_time_ms: 23
     transform_count: 70

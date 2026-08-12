@@ -17,7 +17,7 @@ field-index-tests-proto:
 -   query: EXPLAIN select sum(COL1) from "MyTable";
     ref: field-index-tests-proto.yamsql:68
     explain: SCAN(<,>) | TFILTER MyTable | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS
-        _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)
+        _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)
     task_count: 260
     task_total_time_ms: 3
     transform_count: 63
@@ -29,8 +29,8 @@ field-index-tests-proto:
 -   query: EXPLAIN select count(COL1) from "MyTable";
     ref: field-index-tests-proto.yamsql:72
     explain: SCAN(<,>) | TFILTER MyTable | MAP (_ AS _0) | AGG (count(_._0.COL1) AS
-        _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS
-        _0)
+        _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS
+        LONG)) AS _0)
     task_count: 260
     task_total_time_ms: 13
     transform_count: 63
