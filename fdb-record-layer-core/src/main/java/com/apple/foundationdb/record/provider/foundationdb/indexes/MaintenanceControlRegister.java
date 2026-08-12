@@ -61,4 +61,15 @@ final class MaintenanceControlRegister implements TaskEventRegister {
     public void onTaskExecuted(@Nonnull final Transaction transaction) {
         // No-op: executing a queued task drains merge work, it does not create it.
     }
+
+    /**
+     * Whether this transaction already flagged the index for a background merge (i.e. it enqueued at least one task). The
+     * maintainer uses this to decide whether a follow-up check is needed: an insert/delete that enqueued nothing has
+     * not raised the flag here, so the maintainer falls back to reading the outstanding-work count to keep the signal
+     * self-healing.
+     * @return {@code true} once {@link #onTaskEnqueued} has flagged the index during this write
+     */
+    boolean wasSignaled() {
+        return signaled;
+    }
 }

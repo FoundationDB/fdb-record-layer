@@ -30,11 +30,7 @@ import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -45,9 +41,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Unit tests for {@link VectorIndexMergeLock}'s lease semantics — acquire, refuse-while-live, steal-once-stale, and
  * release — driven by an injected clock so expiry is exercised deterministically without sleeping. The whole exchange
  * runs inside a single transaction (read-your-writes makes an uncommitted lease visible to a subsequent read), which is
- * enough to test the acquire/steal/release logic; cross-transaction visibility is FDB's own guarantee. Also covers the
- * FDB-free per-owner claim weighting ({@link VectorIndexMergeLock#claimWeight}) that lets concurrent merges spread
- * across free prefixes instead of all claiming the same one.
+ * enough to test the acquire/steal/release logic; cross-transaction visibility is FDB's own guarantee.
  */
 class VectorIndexMergeLockTest extends VectorIndexTestBase {
     private static final long WINDOW_MILLIS = 10_000L;
@@ -196,62 +190,5 @@ class VectorIndexMergeLockTest extends VectorIndexTestBase {
             }
         }
         return false;
-    }
-
-    @Test
-    void claimWeightIsDeterministicAndOwnerAndPrefixDependent() {
-        final VectorIndexMergeLock a = weightLockFor(new UUID(1L, 1L));
-        final VectorIndexMergeLock aAgain = weightLockFor(new UUID(1L, 1L));
-        final VectorIndexMergeLock b = weightLockFor(new UUID(2L, 2L));
-        final Tuple prefix = Tuple.from(42L);
-
-        // Stable across calls, and across instances that share the same owner id.
-        assertThat(a.claimWeight(prefix)).isEqualTo(a.claimWeight(prefix));
-        assertThat(aAgain.claimWeight(prefix)).isEqualTo(a.claimWeight(prefix));
-        // Different owner -> different weight for the same prefix (so owners rank the free prefixes differently).
-        assertThat(b.claimWeight(prefix)).isNotEqualTo(a.claimWeight(prefix));
-        // Different prefix -> different weight for the same owner.
-        assertThat(a.claimWeight(Tuple.from(43L))).isNotEqualTo(a.claimWeight(prefix));
-        // The empty (unpartitioned) prefix is supported and stable.
-        assertThat(a.claimWeight(Tuple.from())).isEqualTo(a.claimWeight(Tuple.from()));
-    }
-
-    @Test
-    void claimWeightSpreadsOwnersAcrossFreePrefixes() {
-        final List<Tuple> prefixes = new ArrayList<>();
-        for (int i = 0; i < 8; i++) {
-            prefixes.add(Tuple.from((long)i));
-        }
-        // Many distinct owners must not all pick the same prefix as their highest-weight candidate; if they did, the
-        // claim phase would serialize (the very contention this weighting exists to avoid).
-        final Set<Tuple> chosen = new HashSet<>();
-        for (int i = 0; i < 50; i++) {
-            chosen.add(highestWeightPrefix(weightLockFor(new UUID(i, i)), prefixes));
-        }
-        assertThat(chosen).as("owners must spread across free prefixes, not all claim one").hasSizeGreaterThan(1);
-    }
-
-    /** A lock whose subspace is irrelevant: {@link VectorIndexMergeLock#claimWeight} depends only on owner + prefix. */
-    @Nonnull
-    private static VectorIndexMergeLock weightLockFor(@Nonnull final UUID owner) {
-        return new VectorIndexMergeLock(new Subspace(Tuple.from("merge-lock-weight")), owner, WINDOW_MILLIS, () -> 0L);
-    }
-
-    /** Mirrors the maintainer's selection: the free prefix with the greatest weight, first-seen breaking ties. */
-    @Nonnull
-    private static Tuple highestWeightPrefix(@Nonnull final VectorIndexMergeLock lock,
-                                             @Nonnull final List<Tuple> prefixes) {
-        // A partition set always has at least the empty (unpartitioned) prefix, so start from the first and scan the rest.
-        assertThat(prefixes).as("expected a non-empty set of prefixes").isNotEmpty();
-        Tuple best = prefixes.get(0);
-        long bestWeight = lock.claimWeight(best);
-        for (final Tuple prefix : prefixes.subList(1, prefixes.size())) {
-            final long weight = lock.claimWeight(prefix);
-            if (weight > bestWeight) {
-                best = prefix;
-                bestWeight = weight;
-            }
-        }
-        return best;
     }
 }

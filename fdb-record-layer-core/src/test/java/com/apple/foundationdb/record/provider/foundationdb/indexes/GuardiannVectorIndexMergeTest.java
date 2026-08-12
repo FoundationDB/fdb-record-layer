@@ -21,20 +21,29 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.linear.Metric;
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
+import com.apple.foundationdb.record.vector.TestRecordsVectorsProto.VectorRecord;
+import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.RandomSeedSource;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -135,6 +144,89 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
                         .as("with work still queued the driver must be told to loop")
                         .isGreaterThan(mergeControl.getMergesTried());
             }
+        }
+    }
+
+    /**
+     * A single {@code mergeIndex()} honors {@code timeQuotaMillis} the same way it honors {@code mergesLimit}: it stops
+     * draining once the time budget elapses, running fewer tasks than the (much larger) count budget alone would allow.
+     * Executing even one Guardiann task against FDB spends well more than a millisecond, so a 1&nbsp;ms budget is
+     * exhausted after the first task — leaving the drain at exactly one task. Pairing that with a generous
+     * {@code mergesLimit} proves it was the <em>time</em> budget, not the count, that stopped the drain (and that the
+     * drain still made forward progress: at least one task always runs).
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x5ca1ab1eL})
+    void mergeRespectsTimeQuota(final long seed) throws Exception {
+        saveRandomRecords(false, this::addVectorIndexes, new Random(seed), NUM_RECORDS);
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addVectorIndexes);
+            final VectorIndexMaintainer maintainer = maintainerFor("GroupedVectorIndex");
+            assertThat(maintainer.hasOutstandingWork().get())
+                    .as("test needs a backlog to exercise the time budget")
+                    .isTrue();
+
+            final IndexDeferredMaintenanceControl mergeControl = recordStore.getIndexDeferredMaintenanceControl();
+            mergeControl.setMergeSessionId(UUID.randomUUID());
+            // A generous count budget so mergesLimit can never be the binding constraint: only the time budget can stop
+            // this drain short of the backlog.
+            mergeControl.setMergesLimit(MERGE_BATCH);
+            mergeControl.setTimeQuotaMillis(1L);
+
+            // First invocation only claims a partition's lease (the claim must commit before any drain), so it drains
+            // nothing; the second, now owning that partition, drains under the time budget.
+            maintainer.mergeIndex().get();
+            assertThat(mergeControl.getMergesTried())
+                    .as("the claim invocation drains no tasks").isEqualTo(0L);
+
+            maintainer.mergeIndex().get();
+            assertThat(mergeControl.getMergesTried())
+                    .as("a 1ms budget is spent by the first task, stopping the drain well short of the count budget")
+                    .isEqualTo(1L);
+            if (maintainer.hasOutstandingWork().get()) {
+                assertThat(mergeControl.getMergesFound())
+                        .as("with work still queued the driver must be told to loop")
+                        .isGreaterThan(mergeControl.getMergesTried());
+            }
+        }
+    }
+
+    /**
+     * When the caller leaves {@code timeQuotaMillis} unset (its 0 default), a drain seeds a positive default budget and
+     * writes it back onto the control. That write-back is what lets {@code IndexingMerger} apply its adaptive feedback
+     * (halving the budget after a too-large transaction, letting it recover on success) instead of driving with a
+     * perpetually-zero — i.e. unbounded — time budget.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x5ca1ab1eL})
+    void mergeSeedsDefaultTimeQuotaWhenCallerSetsNone(final long seed) throws Exception {
+        saveRandomRecords(false, this::addVectorIndexes, new Random(seed), NUM_RECORDS);
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addVectorIndexes);
+            final VectorIndexMaintainer maintainer = maintainerFor("GroupedVectorIndex");
+            assertThat(maintainer.hasOutstandingWork().get())
+                    .as("test needs a backlog for a drain to occur")
+                    .isTrue();
+
+            final IndexDeferredMaintenanceControl mergeControl = recordStore.getIndexDeferredMaintenanceControl();
+            mergeControl.setMergeSessionId(UUID.randomUUID());
+            // A budget of one keeps the drain to a single task; we care only that the drain seeds a time budget, not how
+            // much it drains. Leave timeQuotaMillis at its 0 default so the drain is the thing that seeds it.
+            mergeControl.setMergesLimit(1);
+            assertThat(mergeControl.getTimeQuotaMillis())
+                    .as("precondition: caller has not set a time budget").isEqualTo(0L);
+
+            // First invocation claims (no drain, so nothing seeds the budget yet); the second drains and seeds.
+            maintainer.mergeIndex().get();
+            assertThat(mergeControl.getTimeQuotaMillis())
+                    .as("the claim invocation runs no drain, so it seeds no budget").isEqualTo(0L);
+
+            maintainer.mergeIndex().get();
+            assertThat(mergeControl.getTimeQuotaMillis())
+                    .as("the drain seeds and writes back a positive default budget for the driver to adapt")
+                    .isGreaterThan(0L);
         }
     }
 
@@ -323,6 +415,152 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
     }
 
     /**
+     * The merge-required signal is self-healing: an insert/delete that enqueues no task of its own must still flag the
+     * index when a backlog left by an earlier transaction remains outstanding — otherwise a stranded backlog (an earlier
+     * signal that never led to a merge) would sit un-merged until some future write happened to enqueue a task. The
+     * write here lands in a brand-new group, so it provably enqueues nothing (asserted via the enqueue counter); the
+     * flag it raises therefore comes from the outstanding-work fallback, not from an enqueue.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x5ca1ab1eL, 0xf00dcafeL})
+    void quietWriteWithBacklogStillSignalsMergeRequired(final long seed) throws Exception {
+        // A committed backlog in groups 0 and 1; the merge-required flags of its transactions are gone once committed.
+        saveRandomRecords(false, this::addGroupedVectorIndex, new Random(seed), NUM_RECORDS);
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addGroupedVectorIndex);
+            final Index index = recordStore.getRecordMetaData().getIndex("GroupedVectorIndex");
+            final IndexDeferredMaintenanceControl mergeControl = recordStore.getIndexDeferredMaintenanceControl();
+            assertThat(isFlaggedForMerge(mergeControl, index))
+                    .as("a freshly opened store has not flagged anything yet").isFalse();
+
+            timer.reset();
+            recordStore.saveRecord(quietVectorRecord(seed));
+            assertThat(timer.getCount(FDBStoreTimer.Counts.VECTOR_TASK_ENQUEUED))
+                    .as("the fresh-group insert must enqueue no deferred task, so any flag comes from the fallback")
+                    .isZero();
+            assertThat(isFlaggedForMerge(mergeControl, index))
+                    .as("with a backlog still outstanding, even a task-free write must (re-)flag the index for merge")
+                    .isTrue();
+            commit(context);
+        }
+    }
+
+    /**
+     * The self-healing fallback must not cry wolf: with no outstanding work, a task-free write leaves the index
+     * unflagged, so a caller is never told to schedule an empty merge. The fallback read still runs (Guardiann, not
+     * draining in-transaction) but finds nothing to do.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x5ca1ab1eL})
+    void quietWriteWithoutBacklogDoesNotSignalMergeRequired(final long seed) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addGroupedVectorIndex);
+            final Index index = recordStore.getRecordMetaData().getIndex("GroupedVectorIndex");
+            final IndexDeferredMaintenanceControl mergeControl = recordStore.getIndexDeferredMaintenanceControl();
+
+            timer.reset();
+            recordStore.saveRecord(quietVectorRecord(seed));
+            assertThat(timer.getCount(FDBStoreTimer.Counts.VECTOR_TASK_ENQUEUED))
+                    .as("a lone insert into an empty index must enqueue no deferred task").isZero();
+            assertThat(isFlaggedForMerge(mergeControl, index))
+                    .as("with no outstanding work, a task-free write must not flag the index for a merge")
+                    .isFalse();
+            commit(context);
+        }
+    }
+
+    /**
+     * A backlog spread across more partitions than a single merge invocation examines must still drain to completion.
+     * The merge examines only a bounded window of prefixes per invocation (not all of them), so this guards against a
+     * prefix beyond that window being starved: because a drained prefix drops out of the outstanding-work set, the
+     * window slides forward until every partition has been worked.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x5ca1ab1eL})
+    void mergeDrainsBacklogAcrossManyPrefixes(final long seed) throws Exception {
+        final int numGroups = 20; // deliberately more prefixes than a single scan examines (MAX_PREFIXES_EXAMINED = 16)
+        saveBacklogAcrossGroups(numGroups, 70, new Random(seed));
+
+        assertThat(hasOutstandingWork("GroupedVectorIndex"))
+                .as("a %d-group load must leave a deferred-maintenance backlog", numGroups).isTrue();
+        drainToCompletion("GroupedVectorIndex");
+        assertThat(hasOutstandingWork("GroupedVectorIndex"))
+                .as("merge must drain every partition, including those beyond a single scan window").isFalse();
+    }
+
+    /**
+     * The claim is not fixated on one prefix. Across repeated claim invocations that each face the identical set of
+     * free prefixes (every attempt is rolled back, so nothing is taken out of contention), the merge claims more than
+     * one distinct prefix — the property that lets a merge make progress on other prefixes rather than repeatedly
+     * picking a single (possibly problematic) one. The pick is randomized (not seeded), so this asserts an emergent
+     * property over enough attempts that a truly random choice reaching only one prefix is astronomically unlikely.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x5ca1ab1eL, 0xf00dcafeL})
+    void claimSelectionIsRandomizedNotFixated(final long seed) throws Exception {
+        final int numGroups = 6;
+        saveBacklogAcrossGroups(numGroups, 70, new Random(seed));
+
+        final UUID sessionId = UUID.randomUUID();
+        final Set<Tuple> claimed = new HashSet<>();
+        for (int attempt = 0; attempt < 12; attempt++) {
+            try (FDBRecordContext context = openContext()) {
+                openRecordStore(context, this::addVectorIndexes);
+                final Index index = recordStore.getRecordMetaData().getIndex("GroupedVectorIndex");
+                final IndexDeferredMaintenanceControl mergeControl = recordStore.getIndexDeferredMaintenanceControl();
+                mergeControl.setMergeSessionId(sessionId);
+                mergeControl.setMergesLimit(MERGE_BATCH);
+                // Owns nothing (each attempt is rolled back), so mergeIndex claims one free prefix; read which one it
+                // leased, then let the context roll back so the next attempt again faces all prefixes free.
+                maintainerFor("GroupedVectorIndex").mergeIndex().get();
+                final Tuple justClaimed = leasedPrefix(context, index, sessionId, numGroups);
+                assertThat(justClaimed != null)
+                        .as("a claim invocation must lease exactly one free prefix").isTrue();
+                claimed.add(justClaimed);
+            }
+        }
+        assertThat(claimed.size())
+                .as("the claim must not fixate on a single prefix; random selection should reach several")
+                .isGreaterThan(1);
+    }
+
+    /**
+     * Saves {@code perGroup} random vectors into each of groups {@code [0, numGroups)}, deferring maintenance (the
+     * default) so every group's partition accrues a split backlog — giving a merge many prefixes to work.
+     */
+    private void saveBacklogAcrossGroups(final int numGroups, final int perGroup, @Nonnull final Random random)
+            throws Exception {
+        batch(this::addVectorIndexes, numGroups * perGroup, 100, recNo -> {
+            final RealVector vector = randomHalfVector(random, 128);
+            return recordStore.saveRecord(VectorRecord.newBuilder()
+                    .setRecNo(recNo)
+                    .setGroupId((int)(recNo / perGroup))
+                    .setVectorData(ByteString.copyFrom(vector.getRawData()))
+                    .build());
+        });
+    }
+
+    /**
+     * The single grouped-index prefix currently leased by {@code sessionId}, found by checking each group's lease via
+     * read-your-writes within the open (uncommitted) context, or {@code null} if none is held.
+     */
+    @Nullable
+    private Tuple leasedPrefix(@Nonnull final FDBRecordContext context, @Nonnull final Index index,
+                              @Nonnull final UUID sessionId, final int numGroups) throws Exception {
+        final Subspace secondary = recordStore.indexSecondarySubspace(index);
+        final VectorIndexMergeLock lock = new VectorIndexMergeLock(secondary, sessionId,
+                VectorIndexMergeLock.DEFAULT_LEASE_WINDOW_MILLIS, System::currentTimeMillis);
+        for (int group = 0; group < numGroups; group++) {
+            final Tuple prefix = Tuple.from((long)group);
+            if (sessionId.equals(lock.currentOwner(context, prefix).get())) {
+                return prefix;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Whether {@code index} is flagged for a background merge on {@code mergeControl}, treating the lazily-initialized
      * (null-until-first-set) merge-required set as "nothing flagged".
      */
@@ -330,6 +568,22 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
                                              @Nonnull final Index index) {
         final var mergeRequired = mergeControl.getMergeRequiredIndexes();
         return mergeRequired != null && mergeRequired.contains(index);
+    }
+
+    /**
+     * A record in a group that {@link #getRecordGenerator} never emits (it only produces groups 0 and 1), so it lands in
+     * a fresh, empty partition of the grouped index. A lone vector in an empty partition cannot overflow a cluster, drop
+     * one below its minimum, or duplicate an existing one, so inserting it enqueues no deferred maintenance task — which
+     * is exactly the "task-free write" the self-healing signal must still act on.
+     */
+    @Nonnull
+    private static VectorRecord quietVectorRecord(final long seed) {
+        final RealVector vector = randomHalfVector(new Random(seed), 128);
+        return VectorRecord.newBuilder()
+                .setRecNo(1L)
+                .setGroupId(4242)
+                .setVectorData(ByteString.copyFrom(vector.getRawData()))
+                .build();
     }
 
     /**

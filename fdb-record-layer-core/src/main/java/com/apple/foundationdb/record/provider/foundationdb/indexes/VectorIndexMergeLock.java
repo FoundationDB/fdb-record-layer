@@ -25,7 +25,6 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.hash.Hashing;
 
 import javax.annotation.Nonnull;
 import java.util.UUID;
@@ -64,7 +63,7 @@ final class VectorIndexMergeLock {
     private static final String DELETE_GUARD_DISCRIMINATOR = "mergeLockDeleteGuard";
     /** Default lease window: comfortably longer than the gap between a holder's merge invocations (incl. driver
      * back-off), short enough to reclaim a crashed holder's prefix promptly. */
-    static final long DEFAULT_LEASE_WINDOW_MILLIS = 10_000L;
+    static final long DEFAULT_LEASE_WINDOW_MILLIS = 60_000L;
 
     @Nonnull
     private final Subspace lockSubspace;
@@ -110,26 +109,6 @@ final class VectorIndexMergeLock {
                     }
                     return decoded.getUUID(0);
                 });
-    }
-
-    /**
-     * A deterministic per-owner weight for {@code prefix}, used to choose which free prefix this owner claims when
-     * several merges run concurrently. Because the weight mixes this owner's id with the prefix, different owners rank
-     * the free prefixes differently, so each tends to claim a distinct one on its first try rather than all contending
-     * on the same (e.g. first-in-key-order) prefix. This is rendezvous/HRW hashing — the streaming, constant-memory
-     * analogue of the random start that mutual indexing uses to spread workers across fragments. Pure and stable across
-     * processes; it does not read the lease.
-     * @param prefix the partition prefix
-     * @return an opaque weight; the caller claims the free prefix with the greatest weight
-     */
-    @SuppressWarnings("UnstableApiUsage")
-    long claimWeight(@Nonnull final Tuple prefix) {
-        return Hashing.murmur3_128().newHasher()
-                .putLong(ownerId.getMostSignificantBits())
-                .putLong(ownerId.getLeastSignificantBits())
-                .putBytes(prefix.pack())
-                .hash()
-                .asLong();
     }
 
     /**
