@@ -193,7 +193,8 @@ public class MetaDataProtoEditor {
     }
 
     /**
-     * Returns the declared {@code usage} of a message type, or {@code UNSET} if none is declared.
+     * Returns the declared {@code usage} of a message type. If the message type declares no {@code record} options,
+     * or no {@code usage} within them, returns {@code UNSET} (which is the Protobuf default for the field).
      */
     @Nonnull
     private static RecordTypeOptions.Usage getMessageTypeUsage(
@@ -261,20 +262,23 @@ public class MetaDataProtoEditor {
     }
 
     /**
-     * Returns the fully-qualified name of the message type referenced by {@code field}, resolved against
+     * Returns the fully-qualified name of the message or enum type referenced by {@code field}, resolved against
      * {@code messageDescriptor} by field number rather than name or position, since the number is the only
      * identifier guaranteed to tie a mutable builder field to its resolved descriptor counterpart. Returns
-     * {@code null} if the field does not reference a message type.
+     * {@code null} if the field is of a primitive type, and so references no named type at all.
      */
     @Nullable
-    private static String resolveFieldMessageTypeFullName(
+    private static String resolveFieldTypeFullName(
             @Nonnull Descriptors.Descriptor messageDescriptor,
             @Nonnull DescriptorProtos.FieldDescriptorProtoOrBuilder field) {
         final Descriptors.FieldDescriptor resolvedField = Objects.requireNonNull(
                 messageDescriptor.findFieldByNumber(field.getNumber()),
                 "Could not find field from protobuf in descriptor");
-        final Descriptors.Descriptor messageType = resolvedField.getMessageType();
-        return messageType == null ? null : "." + messageType.getFullName();
+        return switch (resolvedField.getJavaType()) {
+            case MESSAGE -> "." + resolvedField.getMessageType().getFullName();
+            case ENUM -> "." + resolvedField.getEnumType().getFullName();
+            default -> null;
+        };
     }
 
     /**
@@ -314,7 +318,7 @@ public class MetaDataProtoEditor {
         // we require that the actual Descriptor be passed in so that we can work on fully qualified type names, which
         // is much, much easier, and less likely to have a bug.
         if (field.hasTypeName() && !field.getTypeName().isEmpty()) {
-            final String fullyQualifiedName = resolveFieldMessageTypeFullName(messageDescriptor, field);
+            final String fullyQualifiedName = resolveFieldTypeFullName(messageDescriptor, field);
             if (fullyQualifiedName == null) {
                 return FieldTypeMatch.DOES_NOT_MATCH;
             } else if (fullyQualifiedName.equals(fullTypeName)) {
@@ -547,8 +551,9 @@ public class MetaDataProtoEditor {
             if (FieldTypeMatch.MATCHES.equals(fieldTypeMatch)) {
                 field.setTypeName(fullNewRecordTypeName);
             } else if (FieldTypeMatch.MATCHES_AS_NESTED.equals(fieldTypeMatch)) {
-                final String fullOldFieldTypeName = "." + descriptorForMessage.findFieldByNumber(field.getNumber())
-                        .getMessageType().getFullName();
+                final String fullOldFieldTypeName = Objects.requireNonNull(
+                        resolveFieldTypeFullName(descriptorForMessage, field),
+                        "A field matching as nested must reference a named type");
                 final String newFieldTypeName = fullNewRecordTypeName + fullOldFieldTypeName.substring(fullRecordTypeName.length());
                 field.setTypeName(newFieldTypeName);
             }
