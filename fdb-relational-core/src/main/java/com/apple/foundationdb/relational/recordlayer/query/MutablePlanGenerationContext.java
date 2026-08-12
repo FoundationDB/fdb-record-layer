@@ -46,7 +46,6 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
@@ -88,15 +87,6 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
 
     @Nonnull
     private final List<ConstantObjectValue> constantObjectValues;
-
-    /**
-     * The value-free (unbound) subset of {@link #constantObjectValues} — COVs created by {@link #valueFreeCovOf} for
-     * typed parameters warmed with no value. Transitional: these now ride in the literal table as value-free
-     * {@link OrderedLiteral}s, so this list is redundant and is only kept to cross-check the two during the changeover
-     * (see {@link #importAuxiliaryLiterals}).
-     */
-    @Nonnull
-    private final List<ConstantObjectValue> unboundConstantObjectValues;
 
     private boolean shouldProcessLiteral;
 
@@ -144,7 +134,6 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         final var literal = literalsBuilder.addValueFreeLiteral(type, parameterName, tokenIndex);
         final var result = ConstantObjectValue.of(Quantifier.constant(), literal.getConstantId(), literal.getType());
         addLiteralReference(result);
-        unboundConstantObjectValues.add(result);
         return result;
     }
 
@@ -311,7 +300,6 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         this.parameterHash = parameterHash;
         literalsBuilder = Literals.newBuilder();
         constantObjectValues = new LinkedList<>();
-        unboundConstantObjectValues = new LinkedList<>();
         shouldProcessLiteral = true;
         forExplain = false;
         continuation = null;
@@ -511,8 +499,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
      * Value-free literals ride along in the same table, which is how a typed parameter warmed with no value survives
      * the hop from the context that compiled the function body into this one.
      */
-    public void importAuxiliaryLiterals(@Nonnull final Literals auxiliaryLiterals,
-                                        @Nonnull final List<ConstantObjectValue> auxiliaryConstantObjectValues) {
+    public void importAuxiliaryLiterals(@Nonnull final Literals auxiliaryLiterals) {
         final var newLiterals = literalsBuilder.importLiteralsRetrieveNewLiterals(auxiliaryLiterals);
         for (final var literal : newLiterals) {
             if (literal.isValueFree()) {
@@ -526,26 +513,6 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
             duplicateLiteralMaybe.ifPresent(prev -> addEqualityConstraint(prev.getConstantId(), literal.getConstantId(), literalValue.getResultType()));
             constantObjectValues.add(ConstantObjectValue.of(Quantifier.constant(), literal.getConstantId(), literalValue.getResultType()));
         }
-        // Transitional: the value-free constants used to be carried in a list beside the literals. Now that they ride in
-        // the literal table, check the two agree before the list goes away.
-        final var registeredConstantIds = constantObjectValues.stream()
-                .map(ConstantObjectValue::getConstantId)
-                .collect(ImmutableSet.toImmutableSet());
-        for (final var auxiliaryConstantObjectValue : auxiliaryConstantObjectValues) {
-            Assert.thatUnchecked(registeredConstantIds.contains(auxiliaryConstantObjectValue.getConstantId()),
-                    "value-free constant missing from the imported literal table");
-        }
-    }
-
-    /**
-     * The value-free (unbound) {@link ConstantObjectValue}s registered in this context — typed parameters warmed with
-     * no value. Captured from a compiled function body so the enclosing query can re-import them via {@link
-     * #importAuxiliaryLiterals}.
-     * @return the value-free constant object values registered so far.
-     */
-    @Nonnull
-    public List<ConstantObjectValue> getUnboundConstantObjectValues() {
-        return ImmutableList.copyOf(unboundConstantObjectValues);
     }
 
     @Nonnull

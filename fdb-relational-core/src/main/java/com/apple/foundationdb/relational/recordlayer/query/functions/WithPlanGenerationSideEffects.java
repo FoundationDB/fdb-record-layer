@@ -20,11 +20,9 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.functions;
 
-import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.relational.recordlayer.query.Literals;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 
 /**
  * Trait used to capture side effects resulting from the integration of a
@@ -43,18 +41,5 @@ public interface WithPlanGenerationSideEffects {
      */
     @Nonnull
     Literals getAuxiliaryLiterals();
-
-    /**
-     * Retrieve any value-free (unbound) {@link ConstantObjectValue}s produced inside the function body — e.g. a typed
-     * signature parameter warmed with no value. Unlike ordinary literals these carry no {@link
-     * com.apple.foundationdb.relational.recordlayer.query.OrderedLiteral}, so they are invisible to {@link
-     * #getAuxiliaryLiterals}; they must be propagated separately so the enclosing query's plan constraint carries their
-     * {@code OfType}/nullness. Defaults to empty for functions that produce none.
-     * @return any value-free constant object values produced by the function body.
-     */
-    @Nonnull
-    default List<ConstantObjectValue> getAuxiliaryConstantObjectValues() {
-        return List.of();
-    }
 
 }

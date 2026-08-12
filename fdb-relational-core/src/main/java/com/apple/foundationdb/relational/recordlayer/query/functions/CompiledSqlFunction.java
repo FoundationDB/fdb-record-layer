@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RangeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
@@ -45,7 +44,6 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Literals;
 import com.apple.foundationdb.relational.util.Assert;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
@@ -73,21 +71,16 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
     @Nonnull
     private final Literals literals;
 
-    @Nonnull
-    private final List<ConstantObjectValue> auxiliaryConstantObjectValues;
-
     protected CompiledSqlFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
                                   @Nonnull final List<Type> parameterTypes,
                                   @Nonnull final List<Optional<Value>> parameterDefaults,
                                   @Nonnull final Optional<CorrelationIdentifier> parametersCorrelation,
                                   @Nonnull final RelationalExpression body,
-                                  @Nonnull final Literals literals,
-                                  @Nonnull final List<ConstantObjectValue> auxiliaryConstantObjectValues) {
+                                  @Nonnull final Literals literals) {
         super(functionName, parameterNames, parameterTypes, parameterDefaults);
         this.parametersCorrelation = parametersCorrelation;
         this.body = body;
         this.literals = literals;
-        this.auxiliaryConstantObjectValues = ImmutableList.copyOf(auxiliaryConstantObjectValues);
     }
 
     @Nonnull
@@ -152,12 +145,6 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
         return literals;
     }
 
-    @Nonnull
-    @Override
-    public List<ConstantObjectValue> getAuxiliaryConstantObjectValues() {
-        return auxiliaryConstantObjectValues;
-    }
-
     /**
      * Creates a quantifier over a logical expression that is {@code range(0,1]}.
      *
@@ -185,7 +172,6 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
         private final List<Optional<Value>> parameterDefaults;
         private final Quantifier.ForEach parametersQuantifier;
         private Literals literals;
-        private List<ConstantObjectValue> unboundConstantObjectValues;
 
         CompiledSQLFunctionStepBuilder(@Nonnull final String name,
                                        @Nonnull final RelationalExpression body,
@@ -201,7 +187,6 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
             this.parameterDefaults = parameterDefaults;
             this.parametersQuantifier = parametersQuantifier;
             this.literals = Literals.empty();
-            this.unboundConstantObjectValues = ImmutableList.of();
         }
 
         @Nonnull
@@ -213,20 +198,13 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
 
         @Nonnull
         @Override
-        public UserDefinedFunctionBuilder.FinalStepBuilder setUnboundConstantObjectValues(@Nonnull final List<ConstantObjectValue> unboundConstantObjectValues) {
-            this.unboundConstantObjectValues = unboundConstantObjectValues;
-            return this;
-        }
-
-        @Nonnull
-        @Override
         public UserDefinedFunction build() {
             Assert.notNullUnchecked(name);
             Assert.notNullUnchecked(parameterDefaults);
             Assert.notNullUnchecked(parameters);
             return new CompiledSqlFunction(name, parameters.argumentNames(), parameters.underlyingTypes(),
-                    parameterDefaults, Optional.ofNullable(parametersQuantifier).map(Quantifier::getAlias), body, literals,
-                    unboundConstantObjectValues);
+                    parameterDefaults, Optional.ofNullable(parametersQuantifier).map(Quantifier::getAlias), body,
+                    literals);
         }
     }
 }
