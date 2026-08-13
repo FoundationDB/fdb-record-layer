@@ -67,23 +67,27 @@ class CheckExplainConfigTest {
     private static final String PLAN_DOT = "digraph G {}";
 
     @Test
-    void addExplainQueuesCorrectionWhenFileLoaded() throws Exception {
+    void addExplainAndMetricsQueuesCorrectionWhenFileLoaded() throws Exception {
         final var filesMaintainer = loadedFilesMaintainer();
-        final var yamlExecutionContext = mockExecutionContext(false, false, true, filesMaintainer, getMetricsMaintainer(null));
+        final var metricsMaintainer = getMetricsMaintainer(null);
+        final var yamlExecutionContext = mockExecutionContext(false, false, true, filesMaintainer, metricsMaintainer);
 
-        syntheticConfig(yamlExecutionContext).invoke(mockResultSet(PLAN_A, PLAN_DOT, null));
+        syntheticConfig(yamlExecutionContext).invoke(mockResultSet(PLAN_A, PLAN_DOT, metricsStruct(10, 5)));
 
         final var corrections = filesMaintainer.getPendingCorrections(RESOURCE);
         Assertions.assertEquals(1, corrections.size());
         Assertions.assertInstanceOf(YamlFilesMaintainer.AddExplainCorrection.class, corrections.get(0));
+        // addExplainAndMetrics now also records the actual metrics for the new query
+        assertMetricsWritten(metricsMaintainer, PLAN_A, 10);
     }
 
     @Test
-    void addExplainThrowsWhenFileNotLoaded() {
+    void addExplainAndMetricsThrowsWhenFileNotLoaded() {
         final var filesMaintainer = new YamlFilesMaintainer(); // file never loaded
         final var executionContext = mockExecutionContext(false, false, true, filesMaintainer, getMetricsMaintainer(null));
 
-        assertThrows(IllegalStateException.class,
+        // the IllegalStateException from verifyFileLoaded is wrapped by wrapContext
+        assertThrows(YamlExecutionContext.YamlExecutionError.class,
                 () -> syntheticConfig(executionContext).invoke(mockResultSet(PLAN_A, PLAN_DOT, null)));
     }
 

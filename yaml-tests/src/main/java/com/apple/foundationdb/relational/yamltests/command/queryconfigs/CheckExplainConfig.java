@@ -91,11 +91,11 @@ public class CheckExplainConfig extends QueryConfig {
         final var expectedPlannerMetricsInfo = executionContext.getMetricsMaintainer().getMetrics(identifier);
 
         if (getVal() == null) {
-            addExplain(actualPlannerMetricsInfo);
+            addExplainAndMetrics(identifier, actualPlannerMetricsInfo);
         } else if (!isExact) {
             checkExplainContains(queryDescription, actualPlannerMetricsInfo, expectedPlannerMetricsInfo);
         } else {
-            checkExplainAndMetrics(queryDescription, identifier,  actualPlannerMetricsInfo, expectedPlannerMetricsInfo);
+            checkExplainAndMetrics(queryDescription, identifier, actualPlannerMetricsInfo, expectedPlannerMetricsInfo);
         }
     }
 
@@ -132,13 +132,16 @@ public class CheckExplainConfig extends QueryConfig {
         return builder.build();
     }
 
-    private void addExplain(@Nonnull final PlannerMetricsProto.Info actualPlannerMetricsInfo) {
+    private void addExplainAndMetrics(
+            @Nonnull final PlannerMetricsProto.Identifier identifier,
+            @Nonnull final PlannerMetricsProto.Info actualPlannerMetricsInfo) {
         try {
             executionContext.getFilesMaintainer().addExplain(getReference(), actualPlannerMetricsInfo.getExplain());
         } catch (Throwable throwable) {
             throw YamlExecutionContext.wrapContext(throwable, () -> "‼️ Cannot add explain", QUERY_CONFIG_EXPLAIN, getReference());
         }
         logger.debug(() -> "⭐️ Successfully added plan at " + getReference());
+        recordMetrics(identifier, actualPlannerMetricsInfo, true);
     }
 
     private void checkExplainContains(@Nonnull final String queryDescription,
