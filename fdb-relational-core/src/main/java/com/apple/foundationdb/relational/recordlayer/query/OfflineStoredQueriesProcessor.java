@@ -78,6 +78,10 @@ import java.util.Optional;
 public final class OfflineStoredQueriesProcessor {
     private static final Logger logger = LogManager.getLogger(OfflineStoredQueriesProcessor.class);
 
+    // Log/context keys, shared by the failure reports and the per-plan log context.
+    private static final String SCHEMA_TEMPLATE_KEY = "schemaTemplate";
+    private static final String STORED_QUERY_NAME_KEY = "storedQueryName";
+
     private OfflineStoredQueriesProcessor() {
     }
 
@@ -164,8 +168,17 @@ public final class OfflineStoredQueriesProcessor {
                                                                  @Nonnull final List<RecordLayerSchemaTemplate> templates) {
         final Counts counts = new Counts();
         for (final RecordLayerSchemaTemplate template : templates) {
-            planStoredQueriesForSchemaTemplate(cache, metricCollector, template, counts);
-            counts.templatesProcessed++;
+            try {
+                planStoredQueriesForSchemaTemplate(cache, metricCollector, template, counts);
+                counts.templatesProcessed++;
+            } catch (RuntimeException e) {
+                // Per-query failures are already handled inside planStoredQuery; this is the backstop for anything
+                // else, so that one unusable template cannot cost every remaining template its warm-up.
+                if (logger.isErrorEnabled()) {
+                    logger.error(KeyValueLogMessage.of("OfflineStoredQueriesProcessor failed to plan schema template",
+                            SCHEMA_TEMPLATE_KEY, template.getName() + ":" + template.getVersion()), e);
+                }
+            }
         }
         return counts;
     }
@@ -212,15 +225,29 @@ public final class OfflineStoredQueriesProcessor {
         final var tempFuncFactory = new MetadataTempFuncFactory();
         RecordLayerSchemaTemplate currentTemplate = template;
         // Declared parameter types from the query's signature, so its value-free named parameters are planned
-        // value-free (typed, no value) both in the temp functions and in the SELECT body.
-        final var warmupParams = warmupParamsFor(storedQuery);
+        // value-free (typed, no value) both in the temp functions and in the SELECT body. Reading them can fail on
+        // metadata written by a version that knows a type this one does not, and unlike the planning failures below
+        // nothing has logged that yet, so it is reported here rather than allowed to escape and cost every other
+        // stored query its warm-up.
+        final PreparedParams warmupParams;
+        try {
+            warmupParams = warmupParamsFor(storedQuery);
+        } catch (RuntimeException e) {
+            if (logger.isErrorEnabled()) {
+                logger.error(KeyValueLogMessage.of("OfflineStoredQueriesProcessor failed to read stored query parameters",
+                        SCHEMA_TEMPLATE_KEY, templateKey,
+                        STORED_QUERY_NAME_KEY, storedQueryName), e);
+            }
+            counts.queriesFailed++;
+            return;
+        }
 
         for (final var tempFunc : storedQuery.getTempFunctions()) {
             try {
                 PlanGenerator.create(currentTemplate, tempFuncFactory, metricCollector, Options.NONE, warmupParams)
                         .getPlan(tempFunc, Map.of(
-                                "schemaTemplate", templateKey,
-                                "storedQueryName", storedQueryName,
+                                SCHEMA_TEMPLATE_KEY, templateKey,
+                                STORED_QUERY_NAME_KEY, storedQueryName,
                                 "tempFunction", tempFunc));
                 currentTemplate = tempFuncFactory.updateTemplate(currentTemplate);
                 counts.tempFunctionsProcessed++;
@@ -241,8 +268,8 @@ public final class OfflineStoredQueriesProcessor {
                             Options.NONE,
                             warmupParams)
                     .getPlan(sql, Map.of(
-                            "schemaTemplate", templateKey,
-                            "storedQueryName", storedQueryName,
+                            SCHEMA_TEMPLATE_KEY, templateKey,
+                            STORED_QUERY_NAME_KEY, storedQueryName,
                             "storedQuerySql", sql));
             counts.queriesProcessed++;
         } catch (RelationalException | RuntimeException e) {
@@ -270,7 +297,7 @@ public final class OfflineStoredQueriesProcessor {
                 nullParams.put(parameter.getKey(), null);
             } else {
                 // A declared type means strictly that type and non-null; the null case is declared as NULL instead.
-                declaredTypes.put(parameter.getKey(), Type.primitiveType(typeCode, false));
+                declaredTypes.put(parameter.getKey(), Type.primitiveType(typeCode).notNullable());
             }
         }
         return PreparedParams.ofNamed(nullParams).withDeclaredTypes(declaredTypes);
