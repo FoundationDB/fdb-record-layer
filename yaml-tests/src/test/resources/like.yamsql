@@ -40,6 +40,8 @@ setup:
         ('ありがとう'),
         ('学校'),
         ('مدرسة'),
+        ('👍abc'),
+        ('😮‍💨abc'),
         ('(abcdefghijk)'),
         ('[abcdefghijk]'),
         ('{abcdefghijk}'),
@@ -135,6 +137,32 @@ test_block:
       - initialVersionLessThan: !current_version
       - error: 'XX000'
     -
+      - query: select * from A WHERE A1 LIKE 4
+      - initialVersionAtLeast: !current_version
+      # INVALID_ARGUMENT_FOR_FUNCTION as LIKE requires a string
+      - error: '22F00'
+      - initialVersionLessThan: !current_version
+      # Previously: INTERNAL_ERROR
+      - error: 'XX000'
+    -
+      - query: select * from B WHERE B1 LIKE 'A'
+      - initialVersionAtLeast: !current_version
+      # INVALID_ARGUMENT_FOR_FUNCTION as LIKE requires a string
+      - error: '22F00'
+      - initialVersionLessThan: !current_version
+      # Previously: INTERNAL_ERROR
+      - error: 'XX000'
+    -
+      - query: select * from A WHERE A1 LIKE 'A' ESCAPE 4
+      # SYNTAX_ERROR as "ESCAPE" expects to be followed by a string literal.
+      # Arguably, should be INVALID_ARGUMENT_FOR_FUNCTION
+      - error: '42601'
+    -
+      - query: select * from A WHERE A1 LIKE 'A' ESCAPE NULL
+      # SYNTAX_ERROR as "ESCAPE" expects to be followed by a string literal.
+      # Arguably, should be treated just like a missing ESCAPE
+      - error: '42601'
+    -
       - query: select * from A WHERE A1 LIKE 'A'
       - result: []
     -
@@ -142,7 +170,10 @@ test_block:
       - result: []
     -
       - query: select * from A WHERE A1 LIKE '%abc'
-      - result: []
+      - result: [
+          {'👍abc'},
+          {'😮‍💨abc'},
+        ]
     -
       - query: select * from A WHERE A1 LIKE '%abc%'
       - unorderedResult: [
@@ -150,16 +181,29 @@ test_block:
           {'___abcdef'},
           {'%%abcdef'},
           {'*abcdef'},
+          {'👍abc'},
+          {'😮‍💨abc'},
           {'(abcdefghijk)'},
           {'[abcdefghijk]'},
           {'{abcdefghijk}'}]
     -
+      # All strings beginning with a single character, then 'abc'.
+      # This includes '👍abc' even though '👍' is one Unicode codepoint split across two (UTF-16) chars
       - query: select * from A WHERE A1 LIKE '_abc%'
       - unorderedResult: [
+          {'👍abc'},
           {'(abcdefghijk)'},
           {'[abcdefghijk]'},
           {'{abcdefghijk}'},
           {'*abcdef'}]
+    -
+      # All strings beginning with three characters then 'abc'.
+      # This includes '😮‍💨abc' as '😮‍💨' is three Unicode codepoints despite being rendered as a single glyph
+      - query: select * from A WHERE A1 LIKE '___abc%'
+      - unorderedResult: [
+          {'___abcdef'},
+          {'😮‍💨abc'},
+        ]
     -
       - query: select * from A WHERE A1 LIKE '%ABC%'
       - unorderedResult: [{'ABCDEFGHIJKLMNOPQRSTUVWXYZ'}]
@@ -364,11 +408,27 @@ test_block:
   tests:
     -
       - query: select * from A WHERE A1 LIKE '%' ESCAPE 'ab'
-      # Internal error from a multi-character escape. Perhaps this should be a more descriptive error
+      - initialVersionAtLeast: !current_version
+      # INVALID_ESCAPE_CHARACTER (escape character is too long)
+      - error: '22019'
+      - initialVersionLessThan: !current_version
+      # Previously: INTERNAL_ERROR
       - error: 'XX000'
     -
       - query: select * from A WHERE A1 LIKE '%' ESCAPE ''
-      # Internal error from an empty escape character. Perhaps this should be a more descriptive error
+      - initialVersionAtLeast: !current_version
+      # INVALID_ESCAPE_CHARACTER (empty escape character)
+      - error: '22019'
+      - initialVersionLessThan: !current_version
+      # Previously: INTERNAL_ERROR
+      - error: 'XX000'
+    -
+      - query: select * from A WHERE A1 LIKE '%' ESCAPE '👍'
+      - initialVersionAtLeast: !current_version
+      # INVALID_ESCAPE_CHARACTER (currently treated as a length 2 string as that is the number of UTF-16 chars)
+      - error: '22019'
+      - initialVersionLessThan: !current_version
+      # Previously: INTERNAL_ERROR
       - error: 'XX000'
     -
       - query: select * from A WHERE A1 LIKE '\%'
@@ -415,6 +475,8 @@ test_block:
            {'ありがとう'},
            {'学校'},
            {'مدرسة'},
+           {'👍abc'},
+           {'😮‍💨abc'},
            {'(abcdefghijk)'},
            {'[abcdefghijk]'},
            {'{abcdefghijk}'},
@@ -428,6 +490,7 @@ test_block:
            {'a?xyz'},
       ]
     -
+      # Character '%' used as an escape instead of a wildcard. This thus only matches the literal percent sign
       - query: select * from A WHERE A1 LIKE '%%' ESCAPE '%'
       - unorderedResult: [
            {'%'},
@@ -444,6 +507,8 @@ test_block:
            {'ありがとう'},
            {'学校'},
            {'مدرسة'},
+           {'👍abc'},
+           {'😮‍💨abc'},
            {'(abcdefghijk)'},
            {'[abcdefghijk]'},
            {'{abcdefghijk}'},
@@ -457,6 +522,7 @@ test_block:
            {'a?xyz'},
       ]
     -
+      # Character '%' used as an escape instead of a wildcard. The odd number results in a malformed sequence which matches nothing
       - query: select * from A WHERE A1 LIKE '%%%' ESCAPE '%'
       - supported_version: !current_version
       - unorderedResult: [
@@ -472,6 +538,8 @@ test_block:
           {'ありがとう'},
           {'学校'},
     {'مدرسة'},
+          {'👍abc'},
+          {'😮‍💨abc'},
           {'(abcdefghijk)'},
           {'[abcdefghijk]'},
           {'{abcdefghijk}'},
@@ -496,6 +564,8 @@ test_block:
           {'ありがとう'},
           {'学校'},
           {'مدرسة'},
+          {'👍abc'},
+          {'😮‍💨abc'},
           {'^$'},
           {'\\||%'},
           {'%'},
@@ -505,6 +575,7 @@ test_block:
           {'a?xyz'},
           ]
     -
+      # Escape character 'b' followed by a non-wildcard 'c' effectively drops the 'b'. Note that '<acdefghijk>' is missing
       - query: select * from A WHERE A1 NOT LIKE '%abcde%' ESCAPE 'b'
       - supported_version: !current_version
       - unorderedResult: [
@@ -517,6 +588,8 @@ test_block:
           {'ありがとう'},
           {'学校'},
           {'مدرسة'},
+          {'👍abc'},
+          {'😮‍💨abc'},
           {'(abcdefghijk)'},
           {'[abcdefghijk]'},
           {'{abcdefghijk}'},
@@ -536,6 +609,7 @@ test_block:
           {'a?xyz'},
         ]
     -
+      # Unorthodox escape character 'a' escaping a wildcard
       - query: select * from A WHERE A1 LIKE 'a%z' ESCAPE 'a'
       - unorderedResult: [
           {'%z'},
@@ -545,6 +619,7 @@ test_block:
       - unorderedResult: [
         ]
     -
+      # Unorthodox escape character 'a' escaping itself. We should match a starting 'a' and then leave the '%' wildcard unescaped
       - query: select * from A WHERE A1 LIKE 'aa%z' ESCAPE 'a'
       - supported_version: !current_version
       # Should not match: \xyz. This string would get matched if double escape character got mapped to \\ in PatternForLikeValue
@@ -554,6 +629,7 @@ test_block:
           {'a?xyz'},
         ]
     -
+      # Unorthodox escape character 'a' escaping itself
       - query: select * from A WHERE A1 LIKE 'aabcdefghijklmnopqrstuvwxyz' ESCAPE 'a'
       - supported_version: !current_version
       - unorderedResult: [
@@ -565,12 +641,14 @@ test_block:
           {'a%z'},
         ]
     -
+      # Use '?' as an escape character. This supersedes its behavior as a wildcard
       - query: select * from A WHERE A1 LIKE 'a??xyz' ESCAPE '?'
       - supported_version: !current_version
       - unorderedResult: [
           {'a?xyz'},
         ]
     -
+      # Use '?' as an escape character. As there are two, it does not escape a '%'
       - query: select * from A WHERE A1 LIKE 'a??%z' ESCAPE '?'
       - supported_version: !current_version
       - unorderedResult: [
@@ -580,12 +658,14 @@ test_block:
       - query: select * from A WHERE A1 LIKE '_abc%'
       - supported_version: !current_version
       - unorderedResult: [
+          {'👍abc'},
           {'*abcdef'},
           {'(abcdefghijk)'},
           {'[abcdefghijk]'},
           {'{abcdefghijk}'},
         ]
     -
+      # Escape character 'b' followed by a non-wildcard 'c' effectively drops the 'b'
       - query: select * from A WHERE A1 LIKE '_abc%' ESCAPE 'b'
       - supported_version: !current_version
       - unorderedResult: [

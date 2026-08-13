@@ -90,8 +90,8 @@ public class PatternForLikeValue extends AbstractValue {
      */
     @Nonnull
     public static final Type TYPE = Type.Record.fromFields(false, ImmutableList.of(
-            Type.Record.Field.of(Type.primitiveType(TypeCode.STRING, true), Optional.of("pattern"), Optional.of(PATTERN_FIELD_NUMBER)),
-            Type.Record.Field.of(Type.primitiveType(TypeCode.STRING, true), Optional.of("escape"), Optional.of(ESCAPE_FIELD_NUMBER)))
+            Type.Record.Field.of(Type.primitiveType(TypeCode.STRING, true), Optional.empty(), Optional.of(PATTERN_FIELD_NUMBER)),
+            Type.Record.Field.of(Type.primitiveType(TypeCode.STRING, true), Optional.empty(), Optional.of(ESCAPE_FIELD_NUMBER)))
     );
 
     @Nonnull

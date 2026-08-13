@@ -622,7 +622,6 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final LiteralValue<?> escapeValue;
         if (ctx.escape != null) {
             final var escapeChar = getDelegate().normalizeString(ctx.escape.getText());
-            Assert.thatUnchecked(escapeChar.length() == 1);
             escapeValue = new LiteralValue<>(escapeChar);
         } else {
             escapeValue = new LiteralValue<>(null);

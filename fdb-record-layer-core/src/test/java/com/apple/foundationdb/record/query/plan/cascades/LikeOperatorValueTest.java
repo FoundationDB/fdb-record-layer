@@ -115,8 +115,7 @@ class LikeOperatorValueTest {
                     Arguments.of(STRING_1, STRING_1, LONG_1),
                     Arguments.of(STRING_1, STRING_1, FLOAT_1),
                     Arguments.of(STRING_1, STRING_1, DOUBLE_1),
-                    Arguments.of(STRING_1, STRING_1, BOOLEAN_1),
-                    Arguments.of(STRING_1, STRING_1, FLOAT_1)
+                    Arguments.of(STRING_1, STRING_1, BOOLEAN_1)
             );
         }
     }
@@ -183,6 +182,16 @@ class LikeOperatorValueTest {
                     Arguments.of("[abc]", "[___]", null, true),
                     Arguments.of("{abc}", "{abc}", null, true),
                     Arguments.of("{abc}", "{%}", null, true),
+                    Arguments.of("🫪", "🫪", null, true), // This emoji is split into two Java chars. It should still match a single character
+                    Arguments.of("🫪", "_", null, true),
+                    Arguments.of("🫪", "__", null, false),
+                    Arguments.of("a🫪z", "a%z", null, true),
+                    Arguments.of("🫪", "🤔", null, false), // Pattern and text emojis share the same high surrogate, so during matching, their first char matches, but the second fails
+                    Arguments.of("🏳️‍🌈", "_", null, false), // The text's emoji is split into four Unicode codepoints. It should thus match four characters
+                    Arguments.of("🏳️‍🌈", "____", null, true),
+                    Arguments.of("🏳️‍🌈", "___🌈", null, true),
+                    Arguments.of("🏳️‍🌈", "%🌈", null, true),
+                    Arguments.of("🏳️‍🌈", "🏳️__", null, true),
                     Arguments.of("a", ".", null, false),
                     Arguments.of(".", ".", null, true),
                     Arguments.of(".a", ".%", null, true),
@@ -248,6 +257,8 @@ class LikeOperatorValueTest {
                     Arguments.of("abcdef", "abcdef", "b", false),
                     Arguments.of("acdef", "abcdef", null, false),
                     Arguments.of("acdef", "abcdef", "b", true),
+                    Arguments.of("🥲", "!🥲", "!", true),
+                    Arguments.of("x🥲x", "x!🥲x", "!", true),
                     // Special cases for the % escape character
                     Arguments.of("abc", "%%", null, true),
                     Arguments.of("%", "%%", null, true),

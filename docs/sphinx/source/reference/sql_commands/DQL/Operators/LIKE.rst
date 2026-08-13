@@ -287,7 +287,7 @@ We get different result sets with different escape values:
 
     SELECT filename
     FROM files
-    WHERE filename LIKE 'rfrirnrarlr_rrrerprorrrtr.rprdrf' escape 'r'
+    WHERE filename LIKE 'rfrirnrarlr_rrrerprorrrtr.rprdrf' ESCAPE 'r'
 
 .. list-table::
     :header-rows: 1

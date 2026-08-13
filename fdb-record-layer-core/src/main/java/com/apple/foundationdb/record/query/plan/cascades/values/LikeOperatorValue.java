@@ -95,12 +95,12 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
             return null;
         }
         Descriptors.Descriptor rhsDescriptor = rhs.getDescriptorForType();
-        final Descriptors.FieldDescriptor patternField = rhsDescriptor.findFieldByNumber(PatternForLikeValue.PATTERN_FIELD_NUMBER);
+        final Descriptors.FieldDescriptor patternField = Objects.requireNonNull(rhsDescriptor.findFieldByNumber(PatternForLikeValue.PATTERN_FIELD_NUMBER));
         if (!rhs.hasField(patternField)) {
             return null;
         }
         final String pattern = (String) rhs.getField(patternField);
-        final Descriptors.FieldDescriptor escapeField = rhsDescriptor.findFieldByNumber(PatternForLikeValue.ESCAPE_FIELD_NUMBER);
+        final Descriptors.FieldDescriptor escapeField = Objects.requireNonNull(rhsDescriptor.findFieldByNumber(PatternForLikeValue.ESCAPE_FIELD_NUMBER));
         final String escape = rhs.hasField(escapeField) ? (String) rhs.getField(escapeField) : null;
         return matchLike(lhs, pattern, escape);
     }
@@ -144,10 +144,10 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
         int starT = -1;
         final int tLen = text.length();
         final int pLen = pattern.length();
-        if (escape != null && escape.length() != 1) {
-            SemanticException.fail(SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR, "");
-        }
+        SemanticException.check(escape == null || escape.length() == 1, SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR);
         final char escapeChar = escape == null ? '\0' : escape.charAt(0);
+        // Do not allow an escape character that is a surrogate as it can cause the algorithm trouble. It would represent an invalid string anyway
+        SemanticException.check(!Character.isSurrogate(escapeChar), SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR);
 
         // Conceptually, this is similar to breaking the pattern down into chunks, separated by the wildcard
         // character %. For each sequence between %s, we can evaluate if a subsequence from the text
@@ -204,7 +204,17 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
                     starP = p++;
                     starT = t;
                     matched = true;
-                } else if (pc == '_' || pc == text.charAt(t)) {
+                } else if (pc == '_') {
+                    if (Character.isHighSurrogate(text.charAt(t)) && t + 1 < tLen && Character.isLowSurrogate(text.charAt(t + 1))) {
+                        // A high surrogate followed by a low surrogate represents a single Unicode codepoint split across
+                        // two characters. Consume both from the text for the one wildcard
+                        t += 2;
+                    } else {
+                        t++;
+                    }
+                    p++;
+                    matched = true;
+                } else if (pc == text.charAt(t)) {
                     // Single character in the text matches the character in the pattern
                     t++;
                     p++;

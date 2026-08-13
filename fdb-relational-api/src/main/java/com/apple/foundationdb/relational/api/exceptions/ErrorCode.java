@@ -80,6 +80,7 @@ public enum ErrorCode {
 
     // Class 22 - Data Exception
     CANNOT_CONVERT_TYPE("22000"),
+    INVALID_ESCAPE_CHARACTER("22019"),
     /** LIMIT clause is given an invalid value (e.g. negative). */
     INVALID_ROW_COUNT_IN_LIMIT_CLAUSE("2201W"),
     INVALID_PARAMETER("22023"),
