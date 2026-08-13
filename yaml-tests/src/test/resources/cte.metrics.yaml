@@ -13,8 +13,8 @@ cte-tests:
     insert_reused_count: 4
 -   query: EXPLAIN select col1 from t1 where col2 < 3
     ref: cte.yamsql:118
-    explain: 'COVERING(I1 [[LESS_THAN promote(@c8 AS LONG)]] -> [COL1: KEY[1], COL2:
-        KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS COL1)'
+    explain: 'COVERING(I1 [[LESS_THAN promote(@c7 AS LONG)]] -> [COL1: KEY:[1], COL2:
+        KEY:[0], ID: KEY:[3]]) | MAP (_.COL1 AS COL1)'
     task_count: 439
     task_total_time_ms: 3
     transform_count: 107

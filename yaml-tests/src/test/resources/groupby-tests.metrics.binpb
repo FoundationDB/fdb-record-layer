@@ -102,10 +102,10 @@ R
   5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ª
+}¶
 2
-group-by-tests EXPLAIN select COUNT(*) from T1;σ
-ΏΑ’—L ι±γ(0ΊΑ8!@ƒISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)Οdigraph G {
+group-by-tests EXPLAIN select COUNT(*) from T1;ÿ
+ΏΑ’—L ι±γ(0ΊΑ8!@ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)Οdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -120,10 +120,10 @@ R
   5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}µ
+}Α
 5
-group-by-tests#EXPLAIN select COUNT(col1) from T1;ϋ
-ΏεσθL Ο‚Θ(0΅Ύ$8!@†ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)Τdigraph G {
+group-by-tests#EXPLAIN select COUNT(col1) from T1;‡
+ΏεσθL Ο‚Θ(0΅Ύ$8!@’ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)Τdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

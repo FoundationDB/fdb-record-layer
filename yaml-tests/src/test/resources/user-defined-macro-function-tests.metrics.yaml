@@ -259,7 +259,8 @@ user-defined-scalar-function-with-expressions-tests:
 -   query: EXPLAIN select st1_array((1l, 2l)) from range(1, 2)
     ref: user-defined-macro-function-tests.yamsql:298
     explain: TF range(promote(@c12 AS LONG), promote(@c14 AS LONG), STEP 1l) | MAP
-        (array(promote((@c4 AS _0, @c6 AS _1) AS LONG AS Y, LONG AS Z)) AS _0)
+        (array(promote(promote((@c4 AS _0, @c6 AS _1) AS LONG AS Y, LONG AS Z) AS
+        LONG AS Y, LONG AS Z)) AS _0)
     task_count: 116
     task_total_time_ms: 2
     transform_count: 27
@@ -270,7 +271,8 @@ user-defined-scalar-function-with-expressions-tests:
     insert_reused_count: 0
 -   query: EXPLAIN select st1_array_alt(r.v) from nested
     ref: user-defined-macro-function-tests.yamsql:302
-    explain: SCAN([IS NESTED]) | MAP (array(_.R.V) AS _0)
+    explain: SCAN([IS NESTED]) | MAP (array(promote(_.R.V AS LONG AS Y, LONG AS Z))
+        AS _0)
     task_count: 146
     task_total_time_ms: 5
     transform_count: 40
@@ -281,7 +283,8 @@ user-defined-scalar-function-with-expressions-tests:
     insert_reused_count: 2
 -   query: EXPLAIN select st1_array_without_return_type(r.v) from nested
     ref: user-defined-macro-function-tests.yamsql:311
-    explain: SCAN([IS NESTED]) | MAP (array(_.R.V) AS _0)
+    explain: SCAN([IS NESTED]) | MAP (array(promote(_.R.V AS LONG AS Y, LONG AS Z))
+        AS _0)
     task_count: 146
     task_total_time_ms: 8
     transform_count: 40
