@@ -133,7 +133,11 @@ public class CheckExplainConfig extends QueryConfig {
     }
 
     private void addExplain(@Nonnull final PlannerMetricsProto.Info actualPlannerMetricsInfo) {
-        executionContext.getFilesMaintainer().addExplain(getReference(), actualPlannerMetricsInfo.getExplain());
+        try {
+            executionContext.getFilesMaintainer().addExplain(getReference(), actualPlannerMetricsInfo.getExplain());
+        } catch (Throwable throwable) {
+            throw YamlExecutionContext.wrapContext(throwable, () -> "‼️ Cannot add explain", QUERY_CONFIG_EXPLAIN, getReference());
+        }
         logger.debug(() -> "⭐️ Successfully added plan at " + getReference());
     }
 
@@ -201,7 +205,11 @@ public class CheckExplainConfig extends QueryConfig {
         } else {
             showPlanDiffIfNeeded(queryDescription, actualPlannerMetricsInfo, expectedPlannerMetricsInfo);
             if (executionContext.shouldCorrectExplains() || executionContext.shouldAddExplains()) {
-                executionContext.getFilesMaintainer().correctExplain(getReference(), actualPlan);
+                try {
+                    executionContext.getFilesMaintainer().correctExplain(getReference(), actualPlan);
+                } catch (Throwable throwable) {
+                    throw YamlExecutionContext.wrapContext(throwable, () -> "‼️ Cannot correct metrics", QUERY_CONFIG_EXPLAIN, getReference());
+                }
                 explainIsChanged = true;
                 logger.debug(() -> "⭐️ Successfully replaced plan at " + getReference());
             } else {
@@ -213,8 +221,7 @@ public class CheckExplainConfig extends QueryConfig {
         if (!actualPlannerMetricsInfo.hasCountersAndTimers()) {
             // In this case, if there are existing metrics and the plan is changed -> make sure to only update the plan
             if (explainIsChanged && expectedPlannerMetricsInfo != null) {
-                final var expectedMetricsWithActualPlan = expectedPlannerMetricsInfo.toBuilder().setExplain(actualPlannerMetricsInfo.getExplain()).build();
-                recordMetrics(identifier, expectedMetricsWithActualPlan, true);
+                correctExplainAndRecordMetrics(identifier, expectedPlannerMetricsInfo, actualPlannerMetricsInfo.getExplain());
             }
         // actual metrics are there, but existing metrics are not found -> case of new query / changed query
         } else if (expectedPlannerMetricsInfo == null) {
@@ -236,21 +243,29 @@ public class CheckExplainConfig extends QueryConfig {
             logger.debug(() -> "⭐️ Successfully updated planner metrics at " + getReference());
         // both actual and existing are there, and they match. However, the plan has some changes
         } else if (explainIsChanged) {
-            // make sure to only update the plan
-            final var expectedMetricsWithActualPlan = expectedPlannerMetricsInfo.toBuilder().setExplain(actualPlannerMetricsInfo.getExplain()).build();
-            recordMetrics(identifier, expectedMetricsWithActualPlan, true);
-        // Else, just preserve the existing metrics that we have gotten for this query
+            correctExplainAndRecordMetrics(identifier, expectedPlannerMetricsInfo, actualPlannerMetricsInfo.getExplain());
+            // Else, just preserve the existing metrics that we have gotten for this query
         } else {
             recordMetrics(identifier, expectedPlannerMetricsInfo, false);
         }
     }
 
+    private void correctExplainAndRecordMetrics(@Nonnull final PlannerMetricsProto.Identifier identifier,
+                               @Nonnull final PlannerMetricsProto.Info info, @Nonnull String plan) {
+        final var expectedMetricsWithActualPlan = info.toBuilder().setExplain(plan).build();
+        recordMetrics(identifier, expectedMetricsWithActualPlan, true);
+    }
+
     private void recordMetrics(@Nonnull final PlannerMetricsProto.Identifier identifier,
                                @Nonnull final PlannerMetricsProto.Info info,
                                final boolean dirty) {
-        executionContext.getMetricsMaintainer().putMetrics(identifier, getReference(), info);
-        if (dirty) {
-            executionContext.getMetricsMaintainer().markDirty();
+        try {
+            executionContext.getMetricsMaintainer().putMetrics(identifier, getReference(), info);
+            if (dirty) {
+                executionContext.getMetricsMaintainer().markDirty();
+            }
+        } catch (Throwable throwable) {
+            throw YamlExecutionContext.wrapContext(throwable, () -> "‼️ Cannot put metrics", QUERY_CONFIG_EXPLAIN, getReference());
         }
     }
 

@@ -248,12 +248,20 @@ public class CheckResultMetadataConfig extends QueryConfig {
     }
 
     private void addResultMetadata(@Nonnull final List<ColumnDescriptor> actualDescriptors) {
-        executionContext.getFilesMaintainer().addResultMetadata(getReference(), actualDescriptors);
+        try {
+            executionContext.getFilesMaintainer().addResultMetadata(getReference(), actualDescriptors);
+        } catch (Throwable throwable) {
+            throw YamlExecutionContext.wrapContext(throwable, () -> "‼️ Cannot add resultMetadata", QUERY_CONFIG_RESULT_METADATA, getReference());
+        }
         logger.debug(() -> "⭐️ Successfully added resultMetadata at " + getReference());
     }
 
     private void correctMetadata(@Nonnull final List<ColumnDescriptor> actualDescriptors) {
-        executionContext.getFilesMaintainer().correctResultMetadata(getReference(), actualDescriptors);
+        try {
+            executionContext.getFilesMaintainer().correctResultMetadata(getReference(), actualDescriptors);
+        } catch (Throwable throwable) {
+            throw YamlExecutionContext.wrapContext(throwable, () -> "‼️ Cannot correct resultMetadata", QUERY_CONFIG_RESULT_METADATA, getReference());
+        }
         logger.debug(() -> "⭐️ Successfully corrected resultMetadata at " + getReference());
     }
 
