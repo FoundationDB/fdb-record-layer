@@ -813,11 +813,47 @@ public class StoredQueriesTest {
         }
     }
 
+    /**
+     * A sparse index can only be matched by proving its predicate covers the query range, which needs the parameter's
+     * concrete value. A value-free parameter has none, so the query fails to warm rather than silently warming to a
+     * scan — a scan plan would satisfy the parameter's {@code IS_NOT_NULL} constraint and so be reused at runtime in
+     * place of the index plan, leaving the query permanently worse off than if it had never been warmed. The failure is
+     * per stored query: the sibling below, which does not touch the sparse index, still warms.
+     */
+    private static final String SCHEMA_TEMPLATE_SIGNATURE_SPARSE_INDEX =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE INDEX sparse1 AS SELECT col1 FROM t1 WHERE col1 > 42" +
+                    " CREATE STORED QUERY needs_value(param_a bigint)" +
+                    "   AS SELECT id FROM t1 WHERE col1 > param_a" +
+                    " CREATE STORED QUERY by_other(param_b bigint)" +
+                    "   AS SELECT id FROM t1 WHERE col2 = param_b";
+
+    @Test
+    void signatureParameterAgainstFilteredIndexFailsThatQueryOnly() throws Exception {
+        try (var ddl = Ddl.builder()
+                .database(URI.create("/TEST/SQ_SIGNATURE_SPARSE"))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_SIGNATURE_SPARSE_INDEX)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+
+            // fresh engine triggers OfflineStoredQueriesProcessor
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+
+            // needs_value could only be matched against the sparse index with a concrete value, so it is skipped and
+            // logged; by_other has nothing to prove and warms normally. One plan cached, not two.
+            Assertions.assertEquals(Long.valueOf(1), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+        }
+    }
+
     @Test
     void booleanSignatureParameterIsRejected() throws Exception {
-        // A value-free parameter can only carry "is not null", which for a boolean distinguishes nothing — one plan
-        // would serve both TRUE and FALSE, unspecialized. Booleans must therefore be written as literals in the body,
-        // which is what the planner can specialize on.
+        // A boolean's value is plan-determining, so it belongs in the body as a literal where the planner specializes on
+        // it and the IS_TRUE/IS_FALSE constraint keeps the two plans distinct. As a value-free parameter it could carry
+        // only "is not null", giving one unspecialized plan for both values.
         assertSchemaTemplateRejected(
                 "CREATE TABLE t1(id bigint, flag boolean, PRIMARY KEY(id))" +
                         " CREATE STORED QUERY by_flag(param_flag boolean)" +

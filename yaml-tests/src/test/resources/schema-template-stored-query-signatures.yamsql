@@ -54,9 +54,10 @@ schema_template:
             function f2(in p bigint) as (select * from t1 where (p is null or col1 = p) and col2 = param_a)
     as
         select id from f2(param_b)
-    # every primitive type a signature may declare. BOOLEAN is deliberately absent: a value-free boolean could only
-    # carry "is not null", so one unspecialized plan would serve both TRUE and FALSE. Booleans are written as
-    # literals in the body instead, which is what the planner can specialize on.
+    # every primitive type a signature may declare. BOOLEAN is deliberately absent: a boolean's value is
+    # plan-determining, so it belongs in the body as a literal where the planner specializes on it and the
+    # IS_TRUE/IS_FALSE constraint keeps the two plans distinct. As a value-free parameter it could carry only
+    # "is not null", giving one unspecialized plan for both values.
     create stored query by_types(a bigint, b string)
         as select id from t1 where col1 = a and name = b and flag = true
     # a parameter may share a column's name: only the value position becomes a parameter, so

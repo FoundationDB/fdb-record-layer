@@ -156,9 +156,9 @@ At runtime the client binds the null parameter with ``setNull`` to reuse the nul
 Boolean parameters
 ------------------
 
-``BOOLEAN`` is not permitted in a signature. A value-free parameter carries only "is not null", which for a boolean distinguishes nothing — one unspecialized plan would serve both ``TRUE`` and ``FALSE``, and no optimization that depends on knowing which one it is could apply.
+``BOOLEAN`` is not permitted in a signature — deliberately, because a boolean's value is plan-determining. Predicates fold away, whole branches disappear, and index choices differ depending on whether it is ``TRUE`` or ``FALSE``, so the two cases genuinely want different plans.
 
-Write the boolean as a literal in the body instead. A concrete value is exactly what the planner specializes on, and a warmed plan for one value is a distinct plan from the other — the same principle as declaring a parameter ``NULL`` rather than warming it value-free:
+Write the boolean as a literal in the body instead. The planner specializes on the concrete value, and the resulting plan constraint (``IS_TRUE`` or ``IS_FALSE``) is what keeps the two warmed plans distinct and selects the right one at lookup. A value-free parameter could carry only "is not null", so a single unspecialized plan would serve both values and none of that specialization would apply:
 
 .. code-block:: sql
 
