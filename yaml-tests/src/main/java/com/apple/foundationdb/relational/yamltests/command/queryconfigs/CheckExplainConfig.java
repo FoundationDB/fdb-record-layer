@@ -247,7 +247,7 @@ public class CheckExplainConfig extends QueryConfig {
         // both actual and existing are there, and they match. However, the plan has some changes
         } else if (explainIsChanged) {
             correctExplainAndRecordMetrics(identifier, expectedPlannerMetricsInfo, actualPlannerMetricsInfo.getExplain());
-            // Else, just preserve the existing metrics that we have gotten for this query
+        // Else, just preserve the existing metrics that we have gotten for this query
         } else {
             recordMetrics(identifier, expectedPlannerMetricsInfo, false);
         }
