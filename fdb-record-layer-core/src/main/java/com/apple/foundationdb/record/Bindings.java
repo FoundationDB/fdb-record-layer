@@ -179,8 +179,6 @@ public class Bindings {
      */
     @SuppressWarnings("serial")
     public static class MissingBindingException extends RecordCoreException {
-        private static final long serialVersionUID = 1L;
-
         public MissingBindingException(@Nonnull final String message) {
             super(message);
         }
