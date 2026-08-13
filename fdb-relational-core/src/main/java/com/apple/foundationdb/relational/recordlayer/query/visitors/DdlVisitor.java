@@ -545,11 +545,17 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 final var queryString = rewriteReferencesToParams(sourceText, queryCtx.storedQuery, parameters.keySet());
                 final ImmutableList.Builder<String> tempFunctionTexts = ImmutableList.builder();
                 if (queryCtx.declareBlock() != null) {
+                    // Compared as identifiers rather than as raw text: a reference resolves case-insensitively unless
+                    // the connection is case-sensitive, so a signature parameter `x` and a function parameter `X` are
+                    // the same identifier and collide, even though the rewrite itself matches exactly.
+                    final var normalizedParameterNames = parameters.keySet().stream()
+                            .map(parameterName -> getDelegate().normalizeString(parameterName))
+                            .collect(ImmutableSet.toImmutableSet());
                     for (final var dfCtx : queryCtx.declareBlock().declaredFunction()) {
-                        // A signature parameter and one of this function's own parameters spelled the same way are
+                        // A signature parameter and one of this function's own parameters naming the same identifier are
                         // indistinguishable in the body, so the rewrite would capture the function's parameter instead
                         // of shadowing it. Reject rather than silently changing what was written.
-                        final var shadowed = Sets.intersection(ownParameterNames(dfCtx), parameters.keySet());
+                        final var shadowed = Sets.intersection(ownParameterNames(dfCtx), normalizedParameterNames);
                         Assert.thatUnchecked(shadowed.isEmpty(), ErrorCode.UNSUPPORTED_QUERY,
                                 () -> "declared function parameter " + shadowed
                                         + " collides with a stored query signature parameter");
@@ -945,10 +951,11 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     /**
-     * Returns the parameter names a declared function declares for itself.
+     * Returns the identifiers a declared function declares as its own parameters. Resolved through
+     * {@link #visitUid} so they are normalized the same way a reference to them in the body would be.
      */
     @Nonnull
-    private static Set<String> ownParameterNames(@Nonnull final RelationalParser.DeclaredFunctionContext ctx) {
+    private Set<String> ownParameterNames(@Nonnull final RelationalParser.DeclaredFunctionContext ctx) {
         final var declarations = ctx.sqlParameterDeclarationList().sqlParameterDeclarations();
         if (declarations == null) {
             return Set.of();
@@ -956,7 +963,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return declarations.sqlParameterDeclaration().stream()
                 .map(declaration -> declaration.sqlParameterName)
                 .filter(Objects::nonNull)
-                .map(RelationalParser.UidContext::getText)
+                .map(uid -> visitUid(uid).getName())
                 .collect(ImmutableSet.toImmutableSet());
     }
 

@@ -683,6 +683,18 @@ public class StoredQueriesTest {
     }
 
     @Test
+    void signatureParameterCollidingWithFunctionParameterInDifferentCaseIsRejected() throws Exception {
+        // x and X are the same identifier unless the connection is case-sensitive, so this is the same collision as
+        // above even though the rewrite itself matches parameter names exactly.
+        assertSchemaTemplateRejected(
+                "CREATE TABLE t1(id bigint, col1 bigint, PRIMARY KEY(id))" +
+                        " CREATE STORED QUERY by_case_collision(x bigint)" +
+                        "   DECLARE FUNCTION f1(in X bigint) AS (SELECT * FROM t1 WHERE col1 = x)" +
+                        " AS SELECT id FROM f1(x)",
+                "/TEST/SQ_SIGNATURE_CASE_COLLISION");
+    }
+
+    @Test
     void duplicateSignatureParameterIsRejected() throws Exception {
         assertSchemaTemplateRejected(
                 "CREATE TABLE t1(id bigint, col1 bigint, PRIMARY KEY(id))" +
