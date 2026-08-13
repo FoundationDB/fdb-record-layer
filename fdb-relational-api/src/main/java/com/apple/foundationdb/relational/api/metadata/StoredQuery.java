@@ -21,9 +21,11 @@
 package com.apple.foundationdb.relational.api.metadata;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A SELECT query persisted on a {@link SchemaTemplate}, paired with the
@@ -38,17 +40,20 @@ public final class StoredQuery {
     @Nonnull
     private final List<String> tempFunctions;
     @Nonnull
-    private final String signature;
+    private final Map<String, String> parameters;
 
     public StoredQuery(@Nonnull final String storedQuery, @Nonnull final List<String> tempFunctions) {
-        this(storedQuery, tempFunctions, "");
+        this(storedQuery, tempFunctions, ImmutableMap.of());
     }
 
     public StoredQuery(@Nonnull final String storedQuery, @Nonnull final List<String> tempFunctions,
-                       @Nonnull final String signature) {
+                       @Nonnull final Map<String, String> parameters) {
         this.query = storedQuery;
         this.tempFunctions = ImmutableList.copyOf(tempFunctions);
-        this.signature = signature;
+        // ImmutableMap rather than Map.copyOf: the latter randomizes iteration order per JVM run, which would make the
+        // same metadata serialize to different bytes each time. Parameters are looked up by name, so the order itself
+        // carries no meaning — only its stability matters.
+        this.parameters = ImmutableMap.copyOf(parameters);
     }
 
     @Nonnull
@@ -62,12 +67,13 @@ public final class StoredQuery {
     }
 
     /**
-     * The declared parameter signature as raw parameter-list text (e.g. {@code "param_a bigint, param_b bigint"}),
-     * or empty if the query has no signature.
-     * @return the signature text.
+     * The parameters this query declares, as a map from parameter name to the declared record layer
+     * {@code Type.TypeCode} name. A declared type means the parameter is strictly of that type and non-null;
+     * {@code NULL} means it is strictly null. Empty if the query declares no parameters.
+     * @return the declared parameters, keyed by name.
      */
     @Nonnull
-    public String getSignature() {
-        return signature;
+    public Map<String, String> getParameters() {
+        return parameters;
     }
 }

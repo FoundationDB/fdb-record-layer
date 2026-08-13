@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.StoredQuery;
@@ -251,30 +252,44 @@ public final class OfflineStoredQueriesProcessor {
     }
 
     /**
-     * Builds the warm-up {@link PreparedParams} for a stored query from the persisted signature
-     * ({@code "name:TYPECODE,..."}). A parameter declared {@code NULL} is <em>exactly</em> null, so it is bound to null
-     * here — the same thing {@code setNull} does at runtime — which makes warm-up and runtime plan it through one path.
-     * Every other parameter has no value at warm-up and only contributes its declared type, so it is planned value-free.
+     * Builds the warm-up {@link PreparedParams} for a stored query from its declared parameters. A parameter declared
+     * {@code NULL} is <em>exactly</em> null, so it is bound to null here — the same thing {@code setNull} does at
+     * runtime — which makes warm-up and runtime plan it through one path. Every other parameter has no value at
+     * warm-up and only contributes its declared type, so it is planned value-free.
      */
     @Nonnull
     private static PreparedParams warmupParamsFor(@Nonnull final StoredQuery storedQuery) {
-        final var signature = storedQuery.getSignature();
-        if (signature.isEmpty()) {
+        if (storedQuery.getParameters().isEmpty()) {
             return PreparedParams.empty();
         }
         final var declaredTypes = new LinkedHashMap<String, Type>();
         final var nullParams = new LinkedHashMap<String, Object>();
-        for (final var entry : signature.split(",")) {
-            final var separator = entry.indexOf(':');
-            final var name = entry.substring(0, separator);
-            final var typeCode = entry.substring(separator + 1);
-            if ("NULL".equals(typeCode)) {
-                nullParams.put(name, null);
+        for (final var parameter : storedQuery.getParameters().entrySet()) {
+            final var typeCode = typeCodeOf(parameter.getKey(), parameter.getValue());
+            if (typeCode == Type.TypeCode.NULL) {
+                nullParams.put(parameter.getKey(), null);
             } else {
-                declaredTypes.put(name, Type.primitiveType(Type.TypeCode.valueOf(typeCode), false));
+                // A declared type means strictly that type and non-null; the null case is declared as NULL instead.
+                declaredTypes.put(parameter.getKey(), Type.primitiveType(typeCode, false));
             }
         }
         return PreparedParams.ofNamed(nullParams).withDeclaredTypes(declaredTypes);
+    }
+
+    /**
+     * Resolves a persisted parameter's type code, failing with a diagnosable error rather than an
+     * {@link IllegalArgumentException} when the metadata was written by a version that knows a type this one does not.
+     */
+    @Nonnull
+    private static Type.TypeCode typeCodeOf(@Nonnull final String parameterName, @Nonnull final String typeCode) {
+        try {
+            return Type.TypeCode.valueOf(typeCode);
+        } catch (final IllegalArgumentException e) {
+            throw new RelationalException("Unknown stored query parameter type", ErrorCode.UNSUPPORTED_QUERY, e)
+                    .addContext("parameterName", parameterName)
+                    .addContext("typeCode", typeCode)
+                    .toUncheckedWrappedException();
+        }
     }
 
     private static final class Counts {

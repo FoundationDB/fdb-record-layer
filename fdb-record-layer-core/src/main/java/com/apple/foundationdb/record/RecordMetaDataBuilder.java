@@ -246,7 +246,12 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             final List<String> tempFunctions = proto.getTempFunctionsCount() > 0
                     ? new ArrayList<>(proto.getTempFunctionsList())
                     : Collections.emptyList();
-            storedQueries.put(proto.getName(), new RecordMetaData.StoredQuery(proto.getQuery(), tempFunctions, proto.getSignature()));
+            final ImmutableMap.Builder<String, String> parameters = ImmutableMap.builder();
+            for (final RecordMetaDataProto.PStoredQueryParameter parameterProto : proto.getParametersList()) {
+                parameters.put(parameterProto.getName(), parameterProto.getTypeCode());
+            }
+            storedQueries.put(proto.getName(), new RecordMetaData.StoredQuery(proto.getQuery(), tempFunctions,
+                    parameters.buildKeepingLast()));
         }
         if (metaDataProto.hasSplitLongRecords()) {
             splitLongRecords = metaDataProto.getSplitLongRecords();
@@ -1230,13 +1235,9 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         return storedQueries;
     }
 
-    public void addStoredQuery(@Nonnull String name, @Nonnull String storedQuery, @Nonnull List<String> tempFunctions) {
-        storedQueries.put(name, new RecordMetaData.StoredQuery(storedQuery, tempFunctions));
-    }
-
     public void addStoredQuery(@Nonnull String name, @Nonnull String storedQuery, @Nonnull List<String> tempFunctions,
-                               @Nonnull String signature) {
-        storedQueries.put(name, new RecordMetaData.StoredQuery(storedQuery, tempFunctions, signature));
+                               @Nonnull Map<String, String> parameters) {
+        storedQueries.put(name, new RecordMetaData.StoredQuery(storedQuery, tempFunctions, parameters));
     }
 
     public boolean isSplitLongRecords() {

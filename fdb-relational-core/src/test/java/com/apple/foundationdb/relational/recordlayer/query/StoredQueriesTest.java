@@ -41,6 +41,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
 import java.sql.SQLException;
+import java.util.Map;
 
 public class StoredQueriesTest {
 
@@ -619,8 +620,8 @@ public class StoredQueriesTest {
 
             final var sq = schemaTemplate.getStoredQueries().get("BY_SIG");
             Assertions.assertNotNull(sq);
-            // signature parameters were resolved to their record-layer type codes.
-            Assertions.assertEquals("param_a:LONG,param_b:LONG", sq.getSignature());
+            // signature parameters were resolved to their record-layer type codes, keyed by name.
+            Assertions.assertEquals(Map.of("param_a", "LONG", "param_b", "LONG"), sq.getParameters());
             // the argument reference param_b was rewritten to a named parameter ?param_b.
             Assertions.assertEquals("SELECT id FROM f1(?param_b)", sq.getQuery());
             // param_a, captured inside the function body, was rewritten to ?param_a; the function's own parameter p and
@@ -743,7 +744,7 @@ public class StoredQueriesTest {
             final var sq = schemaTemplate.getStoredQueries().get("BY_SIG_NULL");
             Assertions.assertNotNull(sq);
             // param_b was declared exactly-NULL → type code NULL; param_a keeps its primitive type.
-            Assertions.assertEquals("param_a:LONG,param_b:NULL", sq.getSignature());
+            Assertions.assertEquals(Map.of("param_a", "LONG", "param_b", "NULL"), sq.getParameters());
             Assertions.assertEquals("SELECT id FROM f1(?param_b)", sq.getQuery());
         }
     }

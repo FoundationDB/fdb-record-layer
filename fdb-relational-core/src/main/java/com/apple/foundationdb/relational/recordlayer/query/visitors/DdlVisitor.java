@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorOptionK
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
 import com.apple.foundationdb.relational.api.Options;
@@ -71,6 +72,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -509,41 +511,45 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 // body and declared function bodies; those references are rewritten to '?name' (see
                 // rewriteReferencesToParams). Matching is case-sensitive — a signature parameter becomes a named
                 // prepared parameter, which is always case-sensitive, so a reference must use the declared spelling. A
-                // parameter declared NULL is exactly-null, and is warmed by binding it to null just as setNull would.
-                // The signature is persisted as "name:TYPECODE,..." so warm-up can type the value-free params.
-                final var declaredNames = new HashSet<String>();
-                final var signatureBuilder = new StringBuilder();
+                // parameter declared NULL is exactly-null, and is warmed by binding it to null just as setNull would,
+                // while a parameter with a declared type is strictly of that type and non-null. Each parameter is
+                // persisted as name -> type code so warm-up can type the value-free ones.
+                final var parameters = new HashMap<String, String>();
                 final var signatureCtx = queryCtx.storedQuerySignature();
                 if (signatureCtx != null) {
                     for (final var param : signatureCtx.storedQueryParameter()) {
                         final var paramName = param.parameterName.getText();
-                        final String typeCode;
+                        // The reference rewrite only matches ID tokens, so a quoted or keyword-spelled name would be
+                        // silently left alone in the body and resolved as a column instead of a parameter.
+                        Assert.thatUnchecked(isSimpleIdentifier(param.parameterName), ErrorCode.UNSUPPORTED_QUERY,
+                                () -> "stored query signature parameter '" + paramName + "' must be a simple identifier");
+                        final Type.TypeCode typeCode;
                         if (param.NULL_LITERAL() != null) {
-                            typeCode = "NULL";
+                            typeCode = Type.TypeCode.NULL;
                         } else {
+                            // A declared type means strictly that type and non-null — the null case is declared as
+                            // NULL instead — so only the type code is kept. The nullability that
+                            // visitFunctionColumnType assigns is a general-purpose default and does not apply here.
                             final var paramType = DataTypeUtils.toRecordLayerType(visitFunctionColumnType(param.parameterType));
                             Assert.thatUnchecked(paramType.isPrimitive(), ErrorCode.UNSUPPORTED_QUERY,
                                     () -> "stored query signature parameter '" + paramName + "' must have a primitive or null type");
-                            typeCode = paramType.getTypeCode().name();
+                            typeCode = paramType.getTypeCode();
                         }
-                        Assert.thatUnchecked(declaredNames.add(paramName), ErrorCode.UNSUPPORTED_QUERY,
+                        Assert.thatUnchecked(parameters.put(paramName, typeCode.name()) == null,
+                                ErrorCode.UNSUPPORTED_QUERY,
                                 () -> "duplicate stored query signature parameter '" + paramName + "'");
-                        if (!signatureBuilder.isEmpty()) {
-                            signatureBuilder.append(',');
-                        }
-                        signatureBuilder.append(paramName).append(':').append(typeCode);
                     }
                 }
                 final var start = queryCtx.storedQuery.start.getStartIndex();
                 final var stop = queryCtx.storedQuery.stop.getStopIndex() + 1;
-                final var queryString = rewriteReferencesToParams(sourceText.substring(start, stop), declaredNames);
+                final var queryString = rewriteReferencesToParams(sourceText.substring(start, stop), parameters.keySet());
                 final ImmutableList.Builder<String> tempFunctionTexts = ImmutableList.builder();
                 if (queryCtx.declareBlock() != null) {
                     for (final var dfCtx : queryCtx.declareBlock().declaredFunction()) {
-                        tempFunctionTexts.add(rewriteDeclaredFunctionToStandalone(dfCtx, sourceText, declaredNames));
+                        tempFunctionTexts.add(rewriteDeclaredFunctionToStandalone(dfCtx, sourceText, parameters.keySet()));
                     }
                 }
-                metadataBuilder.addStoredQuery(name, queryString, tempFunctionTexts.build(), signatureBuilder.toString());
+                metadataBuilder.addStoredQuery(name, queryString, tempFunctionTexts.build(), parameters);
             } else {
                 Assert.thatUnchecked(templateClause.indexDefinition() != null);
                 indexClauses.add(templateClause.indexDefinition());
@@ -925,6 +931,17 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         // parameter declarations are left untouched.
         final String body = rewriteReferencesToParams(sliceSource(sourceText, ctx.functionBody), declaredNames);
         return "CREATE TEMPORARY FUNCTION " + name + paramList + " ON COMMIT DROP FUNCTION AS " + body;
+    }
+
+    /**
+     * Returns whether a {@code uid} is a plain {@code ID} token, as opposed to a quoted identifier or one of the
+     * keywords that {@code simpleId} also accepts. Signature parameter names are restricted to this form because
+     * {@link #rewriteReferencesToParams} recognises references by matching {@code ID} tokens — anything else would be
+     * left untouched in the body and silently resolved as a column.
+     */
+    private static boolean isSimpleIdentifier(@Nonnull final RelationalParser.UidContext ctx) {
+        final var simpleId = ctx.simpleId();
+        return simpleId != null && simpleId.ID() != null;
     }
 
     /**

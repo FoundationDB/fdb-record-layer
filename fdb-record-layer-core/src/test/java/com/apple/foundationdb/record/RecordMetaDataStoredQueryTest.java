@@ -20,26 +20,46 @@
 
 package com.apple.foundationdb.record;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 class RecordMetaDataStoredQueryTest {
 
     @Test
-    void twoArgConstructorDefaultsSignatureToEmpty() {
+    void twoArgConstructorDeclaresNoParameters() {
         final var storedQuery = new RecordMetaData.StoredQuery("select * from t1", List.of("f1", "f2"));
-        Assertions.assertEquals("select * from t1", storedQuery.getQuery());
-        Assertions.assertEquals(List.of("f1", "f2"), storedQuery.getTempFunctions());
-        Assertions.assertEquals("", storedQuery.getSignature());
+        assertThat(storedQuery.getQuery()).isEqualTo("select * from t1");
+        assertThat(storedQuery.getTempFunctions()).containsExactly("f1", "f2");
+        assertThat(storedQuery.getParameters()).isEmpty();
     }
 
     @Test
-    void threeArgConstructorRetainsSignature() {
-        final var storedQuery = new RecordMetaData.StoredQuery("SELECT id FROM f1(?param_b)", List.of("f1 body"), "param_a:LONG,param_b:NULL");
-        Assertions.assertEquals("SELECT id FROM f1(?param_b)", storedQuery.getQuery());
-        Assertions.assertEquals(List.of("f1 body"), storedQuery.getTempFunctions());
-        Assertions.assertEquals("param_a:LONG,param_b:NULL", storedQuery.getSignature());
+    void threeArgConstructorRetainsParameters() {
+        final var storedQuery = new RecordMetaData.StoredQuery("SELECT id FROM f1(?param_b)", List.of("f1 body"),
+                Map.of("param_a", "LONG", "param_b", "NULL"));
+        assertThat(storedQuery.getQuery()).isEqualTo("SELECT id FROM f1(?param_b)");
+        assertThat(storedQuery.getTempFunctions()).containsExactly("f1 body");
+        assertThat(storedQuery.getParameters()).containsExactlyInAnyOrderEntriesOf(
+                Map.of("param_a", "LONG", "param_b", "NULL"));
+    }
+
+    @Test
+    void constructorCopiesItsInputs() {
+        final var tempFunctions = new ArrayList<>(List.of("f1"));
+        final var parameters = new HashMap<>(Map.of("param_a", "LONG"));
+        final var storedQuery = new RecordMetaData.StoredQuery("select 1", tempFunctions, parameters);
+
+        // mutating the caller's collections after construction must not be visible through the stored query.
+        tempFunctions.add("f2");
+        parameters.put("param_b", "STRING");
+
+        assertThat(storedQuery.getTempFunctions()).containsExactly("f1");
+        assertThat(storedQuery.getParameters()).containsOnlyKeys("param_a");
     }
 }

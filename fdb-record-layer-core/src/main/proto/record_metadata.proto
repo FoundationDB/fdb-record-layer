@@ -226,13 +226,26 @@ message PView {
   optional string definition = 2;
 }
 
+// One declared parameter of a stored query. The type is carried as a `Type.TypeCode` name rather than as a
+// serialized type, so that both the record layer and the relational API representations of a stored query can
+// hold it without either depending on the other's type system.
+// Compatible with map<string, string> on the wire; a repeated entry is used instead so that declaration order is
+// preserved and so that further per-parameter attributes can be added; see user_field for the same pattern.
+message PStoredQueryParameter {
+  optional string name = 1;
+  // A `com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode` name. A declared type means the
+  // parameter is strictly of that type and non-null; `NULL` means it is strictly null, which is warmed by
+  // binding it to null.
+  optional string type_code = 2;
+}
+
 message PStoredQuery {
   optional string name = 1;
   optional string query = 2;
   repeated string temp_functions = 3;
-  // The stored query's declared parameter signature, as raw parameter-list text (e.g. "param_a bigint, param_b bigint").
-  // Empty when the query has no signature. Parsed at warm-up to type the query's value-free named parameters.
-  optional string signature = 4;
+  // The query's declared parameters, in declaration order. Empty when the query declares none. Used at
+  // warm-up to type the query's value-free named parameters.
+  repeated PStoredQueryParameter parameters = 4;
 }
 
 message JoinedRecordType {
