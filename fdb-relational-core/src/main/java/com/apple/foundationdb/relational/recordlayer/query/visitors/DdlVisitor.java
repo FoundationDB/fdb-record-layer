@@ -116,6 +116,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                     // Guardiann-only (curated subset)
                     .put("primary_cluster_min", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MIN,
                             GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("primary_cluster_hard_max", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_HARD_MAX,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
                     .put("primary_cluster_max", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MAX,
                             GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
                     .put("underreplicated_primary_cluster_max", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_UNDERREPLICATED_PRIMARY_CLUSTER_MAX,
