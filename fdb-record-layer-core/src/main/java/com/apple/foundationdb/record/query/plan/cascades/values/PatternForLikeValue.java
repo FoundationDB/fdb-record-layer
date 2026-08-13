@@ -139,12 +139,15 @@ public class PatternForLikeValue extends AbstractValue {
     }
 
     static void validatePattern(@Nonnull String pattern, char escapeChar) {
-        for (int i = 0; i < pattern.length(); i++) {
+        int i = 0;
+        while (i < pattern.length()) {
             if (pattern.charAt(i) == escapeChar) {
                 SemanticException.check(i + 1 < pattern.length(), SemanticException.ErrorCode.INVALID_ESCAPE_SEQUENCE);
                 char literal = pattern.charAt(i + 1);
                 SemanticException.check(literal == '_' || literal == '%' || literal == escapeChar, SemanticException.ErrorCode.INVALID_ESCAPE_SEQUENCE);
-                i += 1;
+                i += 2;
+            } else {
+                i++;
             }
         }
     }
