@@ -536,6 +536,13 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                             Assert.thatUnchecked(paramType.isPrimitive(), ErrorCode.UNSUPPORTED_QUERY,
                                     () -> "stored query signature parameter '" + paramName + "' must have a primitive or null type");
                             typeCode = paramType.getTypeCode();
+                            // A value-free parameter can only carry "is not null", which for a boolean says nothing: one
+                            // unspecialized plan would serve both TRUE and FALSE. A concrete boolean is what the planner
+                            // can specialize on, so booleans must be written as literals in the body — the same
+                            // principle as declaring a parameter NULL rather than warming it value-free.
+                            Assert.thatUnchecked(typeCode != Type.TypeCode.BOOLEAN, ErrorCode.UNSUPPORTED_QUERY,
+                                    () -> "stored query signature parameter '" + paramName + "' may not be BOOLEAN; "
+                                            + "write the boolean as a literal in the query body instead");
                         }
                         Assert.thatUnchecked(parameters.put(paramName, typeCode.name()) == null,
                                 ErrorCode.UNSUPPORTED_QUERY,

@@ -106,12 +106,11 @@ The runtime statement has to match the stored form token for token, apart from k
 
 Notes:
 
-* A parameter type must be **primitive**, or the keyword ``NULL`` (see below). ``ARRAY`` and composite types are rejected.
+* A parameter type must be **primitive**, or the keyword ``NULL`` (see below). ``ARRAY`` and composite types are rejected, and so is ``BOOLEAN`` — see below.
 * A parameter name must be a **simple unquoted identifier**. A quoted name such as ``"param_a"``, or one spelled as a keyword, is rejected — such a name could not be recognised as a reference in the body.
 * A parameter name may **not** name the same identifier as one of a declared function's own parameters. Given ``FUNCTION f1(IN p BIGINT)``, a signature parameter ``p`` is rejected: inside the body the two would be indistinguishable, so rather than silently capturing one or the other the statement fails. Names are compared as identifiers, so ``p`` and ``P`` also collide unless the connection is case-sensitive.
 * A reference must use the parameter's **declared spelling** — matching is case-sensitive, because a signature parameter becomes a named parameter, which is always case-sensitive. A reference written in a different case is treated as an ordinary column reference.
 * A typed parameter is strictly of that type and **non-NULL**, and warms the plan for such a value. Binding it to ``NULL`` does not reuse that plan; to pre-warm the null case, declare the parameter as exactly null (below).
-* A ``BOOLEAN`` parameter is accepted, but a single plan serves both ``TRUE`` and ``FALSE``. The warmed plan is not specialized for either value, so optimizations that depend on knowing which one it is are not applied.
 
 Because only identifiers in *value* positions become parameters, a signature parameter may share its name with a column. A qualified reference stays a column reference, and an alias stays an alias:
 
@@ -153,6 +152,23 @@ At runtime the client binds the null parameter with ``setNull`` to reuse the nul
         AS SELECT * FROM t1 WHERE (p IS NULL OR col1 = p) AND col2 = ?param_a;
 
     SELECT id FROM f1(?param_b)    -- setLong(param_a, ...), setNull(param_b) → reuses the null-specialized plan
+
+Boolean parameters
+------------------
+
+``BOOLEAN`` is not permitted in a signature. A value-free parameter carries only "is not null", which for a boolean distinguishes nothing — one unspecialized plan would serve both ``TRUE`` and ``FALSE``, and no optimization that depends on knowing which one it is could apply.
+
+Write the boolean as a literal in the body instead. A concrete value is exactly what the planner specializes on, and a warmed plan for one value is a distinct plan from the other — the same principle as declaring a parameter ``NULL`` rather than warming it value-free:
+
+.. code-block:: sql
+
+    -- rejected: a boolean cannot be a signature parameter
+    CREATE STORED QUERY by_flag(param_flag BOOLEAN)
+        AS SELECT id FROM t1 WHERE flag = param_flag
+
+    -- instead, write each case concretely
+    CREATE STORED QUERY by_flag_true  AS SELECT id FROM t1 WHERE flag = TRUE
+    CREATE STORED QUERY by_flag_false AS SELECT id FROM t1 WHERE flag = FALSE
 
 See Also
 ========

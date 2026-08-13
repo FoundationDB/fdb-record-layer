@@ -54,9 +54,11 @@ schema_template:
             function f2(in p bigint) as (select * from t1 where (p is null or col1 = p) and col2 = param_a)
     as
         select id from f2(param_b)
-    # every primitive type a signature may declare
-    create stored query by_types(a bigint, b string, c boolean)
-        as select id from t1 where col1 = a and name = b and flag = c
+    # every primitive type a signature may declare. BOOLEAN is deliberately absent: a value-free boolean could only
+    # carry "is not null", so one unspecialized plan would serve both TRUE and FALSE. Booleans are written as
+    # literals in the body instead, which is what the planner can specialize on.
+    create stored query by_types(a bigint, b string)
+        as select id from t1 where col1 = a and name = b and flag = true
     # a parameter may share a column's name: only the value position becomes a parameter, so
     # `t1.col1` stays a column reference and `as col1` stays an alias
     create stored query by_shared_name(col1 bigint)
@@ -84,7 +86,7 @@ test_block:
     -
       - query: select id from t1 where (null is null or col1 = 10) and col2 = 3
       - result: [{ID: 3}]
-    # by_types' shape across bigint, string and boolean
+    # by_types' shape across bigint and string, with the boolean written as a literal
     -
       - query: select id from t1 where col1 = 20 and name = 'carol' and flag = true
       - result: [{ID: 3}]

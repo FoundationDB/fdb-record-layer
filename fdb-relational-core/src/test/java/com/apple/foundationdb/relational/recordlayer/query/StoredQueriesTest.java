@@ -813,6 +813,18 @@ public class StoredQueriesTest {
         }
     }
 
+    @Test
+    void booleanSignatureParameterIsRejected() throws Exception {
+        // A value-free parameter can only carry "is not null", which for a boolean distinguishes nothing — one plan
+        // would serve both TRUE and FALSE, unspecialized. Booleans must therefore be written as literals in the body,
+        // which is what the planner can specialize on.
+        assertSchemaTemplateRejected(
+                "CREATE TABLE t1(id bigint, flag boolean, PRIMARY KEY(id))" +
+                        " CREATE STORED QUERY by_flag(param_flag boolean)" +
+                        " AS SELECT id FROM t1 WHERE flag = param_flag",
+                "/TEST/SQ_SIGNATURE_BOOLEAN");
+    }
+
     /**
      * Same as {@link #SCHEMA_TEMPLATE_SIGNATURE} but {@code param_b} is declared exactly-NULL. Warm-up plans it
      * value-free as the NULL type, so the planner specializes the plan for {@code param_b IS NULL} (the {@code col1 = p}
