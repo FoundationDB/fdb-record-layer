@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanComparisons;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexEngine;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexEngineKind;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -150,6 +152,9 @@ public class VectorIndexScanMatchCandidate implements WithPrimaryKeyMatchCandida
     @Nonnull
     private final Supplier<Optional<List<Value>>> primaryKeyValuesOptionalSupplier;
 
+    @Nonnull
+    private final Supplier<VectorIndexEngineKind> indexEngineKindSupplier;
+
     public VectorIndexScanMatchCandidate(@Nonnull final Index index,
                                          @Nonnull final Collection<RecordType> queriedRecordTypes,
                                          @Nonnull final Traversal traversal,
@@ -172,6 +177,7 @@ public class VectorIndexScanMatchCandidate implements WithPrimaryKeyMatchCandida
         this.primaryKey = primaryKey;
         this.primaryKeyValuesOptionalSupplier =
                 Suppliers.memoize(() -> MatchCandidate.computePrimaryKeyValuesMaybe(primaryKey, baseType));
+        this.indexEngineKindSupplier = Suppliers.memoize(() -> VectorIndexEngine.kindFromIndex(index));
     }
 
     @Override
@@ -375,6 +381,18 @@ public class VectorIndexScanMatchCandidate implements WithPrimaryKeyMatchCandida
         }
 
         return Ordering.ofOrderingSequence(bindingMapBuilder.build(), orderingSequenceBuilder.build(), isDistinct);
+    }
+
+    /**
+     * The kind of vector engine backing the index this candidate is based on. Only the {@link VectorIndexEngineKind
+     * kind} is exposed, not the engine itself: the engine implementations are package-private to the index maintainer,
+     * and building one parses and validates the whole index option set, which planning has no use for.
+     *
+     * @return the engine kind backing this candidate's index
+     */
+    @Nonnull
+    public VectorIndexEngineKind getIndexEngineKind() {
+        return indexEngineKindSupplier.get();
     }
 
     @Nonnull

@@ -490,6 +490,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void vectorEnginePreferenceTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("vector-engine-preference.yamsql");
+    }
+
+    @TestTemplate
     public void vectorMixedVersionMetadataTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("vector-mixed-version-metadata.yamsql");
     }
