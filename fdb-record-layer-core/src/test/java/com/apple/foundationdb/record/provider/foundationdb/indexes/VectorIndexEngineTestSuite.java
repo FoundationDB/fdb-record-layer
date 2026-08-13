@@ -873,8 +873,8 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
      */
     @Nonnull
     private VectorIndexMaintainer maintainerExcludingRecordsWithoutVector(@Nonnull final Index index) {
-        final IndexMaintenanceFilter filter = (ignored, record) ->
-                record instanceof VectorRecord && ((VectorRecord)record).hasVectorData()
+        final IndexMaintenanceFilter filter = (ignored, rec) ->
+                rec instanceof VectorRecord && ((VectorRecord)rec).hasVectorData()
                 ? IndexMaintenanceFilter.IndexValues.ALL
                 : IndexMaintenanceFilter.IndexValues.NONE;
         return new VectorIndexMaintainer(new IndexMaintainerState(recordStore, index, filter));
