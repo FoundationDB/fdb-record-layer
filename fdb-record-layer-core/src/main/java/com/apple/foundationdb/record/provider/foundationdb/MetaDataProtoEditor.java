@@ -102,6 +102,7 @@ public class MetaDataProtoEditor {
                 .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
                 .setTypeName(fullyQualifiedTypeName(fileBuilder, typeName))
                 .setName("_" + typeName)
+                .setJsonName("_" + typeName)
                 .setNumber(assignFieldNumber(unionBuilder));
         unionBuilder.addField(fieldBuilder);
     }
@@ -416,6 +417,7 @@ public class MetaDataProtoEditor {
                             .noneMatch(otherUnionField -> otherUnionField != unionFieldBuilder
                                     && otherUnionField.getName().equals(newFieldName))) {
                         unionFieldBuilder.setName(newFieldName);
+                        unionFieldBuilder.setJsonName(newFieldName);
                     }
                 }
             }
