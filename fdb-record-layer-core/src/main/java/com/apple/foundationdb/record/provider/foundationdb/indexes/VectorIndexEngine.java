@@ -54,7 +54,7 @@ import java.util.concurrent.CompletableFuture;
  * The interface is {@code sealed}: the set of engines is closed and known at compile time, which lets
  * {@link #fromIndex(Index)} exhaustively dispatch on the {@link IndexOptions#VECTOR_ENGINE} option.
  */
-sealed interface VectorIndexEngine permits HnswVectorIndexEngine, GuardiannVectorIndexEngine {
+public sealed interface VectorIndexEngine permits HnswVectorIndexEngine, GuardiannVectorIndexEngine {
     /**
      * Searches a single partition for the nearest neighbors described by {@code scanBounds}. The result is the full,
      * distance-ordered page of hits the maintainer turns into index entries; pagination and continuations are handled
