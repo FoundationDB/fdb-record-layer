@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.planprotos.PParameterComparison.PBindingKind;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Verify;
@@ -133,7 +134,7 @@ public class Bindings {
         } else if (parent != null) {
             return parent.get(name);
         } else {
-            throw new MissingBindingException("Missing binding for " + name);
+            throw new MissingBindingException("Missing binding").addLogInfo(LogMessageKeys.NAME, name);
         }
     }
 

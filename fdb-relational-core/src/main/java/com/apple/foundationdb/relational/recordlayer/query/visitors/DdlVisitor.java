@@ -970,7 +970,9 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     /**
      * Checks that the rewritten stored query text still parses. The rewrite is driven by the parse tree so it should
      * always produce valid SQL, but this is what the metadata will carry and what warm-up will re-parse, so a defect
-     * here must fail the {@code CREATE} in front of its author rather than become a logged startup failure.
+     * here must fail the {@code CREATE} in front of its author rather than become a logged startup failure. The extra
+     * parse per stored query is accepted deliberately: DDL is rare, and the alternative is discovering the problem at
+     * the next engine start.
      */
     private static void validateRewrittenText(@Nonnull final String storedQueryName,
                                               @Nonnull final String queryString,
@@ -1058,8 +1060,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     private static void collectParameterReferences(@Nonnull final ParseTree tree,
                                                    @Nonnull final Set<String> declaredNames,
                                                    @Nonnull final List<RelationalParser.UidContext> references) {
-        if (tree instanceof RelationalParser.FullColumnNameExpressionAtomContext) {
-            final var uids = ((RelationalParser.FullColumnNameExpressionAtomContext)tree).fullColumnName().fullId().uid();
+        if (tree instanceof RelationalParser.FullColumnNameExpressionAtomContext atom) {
+            final var uids = atom.fullColumnName().fullId().uid();
             if (uids.size() == 1 && declaredNames.contains(uids.get(0).getText())) {
                 references.add(uids.get(0));
                 return;

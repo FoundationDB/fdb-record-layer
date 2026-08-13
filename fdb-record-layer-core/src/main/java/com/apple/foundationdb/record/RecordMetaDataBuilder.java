@@ -247,7 +247,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                     ? new ArrayList<>(proto.getTempFunctionsList())
                     : Collections.emptyList();
             final ImmutableMap.Builder<String, String> parameters = ImmutableMap.builder();
-            for (final RecordMetaDataProto.PStoredQueryParameter parameterProto : proto.getParametersList()) {
+            for (final RecordMetaDataProto.PStoredQuery.PStoredQueryParameter parameterProto : proto.getParametersList()) {
                 parameters.put(parameterProto.getName(), parameterProto.getTypeCode());
             }
             storedQueries.put(proto.getName(), new RecordMetaData.StoredQuery(proto.getQuery(), tempFunctions,

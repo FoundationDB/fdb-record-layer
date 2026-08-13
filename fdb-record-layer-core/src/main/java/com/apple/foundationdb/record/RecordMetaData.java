@@ -719,7 +719,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                 storedQueryBuilder.addAllTempFunctions(storedQuery.getTempFunctions());
             }
             for (final Map.Entry<String, String> parameter : storedQuery.getParameters().entrySet()) {
-                storedQueryBuilder.addParameters(RecordMetaDataProto.PStoredQueryParameter.newBuilder()
+                storedQueryBuilder.addParameters(RecordMetaDataProto.PStoredQuery.PStoredQueryParameter.newBuilder()
                         .setName(parameter.getKey())
                         .setTypeCode(parameter.getValue()));
             }
