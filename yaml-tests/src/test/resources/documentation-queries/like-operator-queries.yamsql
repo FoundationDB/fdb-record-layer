@@ -103,14 +103,6 @@ test_block:
       - query:
          SELECT filename
          FROM files
-         WHERE filename LIKE 'final%_report.pdf' ESCAPE '%'
-      - result: [
-         {"final_report.pdf"},
-        ]
-    -
-      - query:
-         SELECT filename
-         FROM files
          WHERE filename LIKE 'final\\_report.pdf' ESCAPE '\'
       - supported_version: !current_version
       - result: [
@@ -120,8 +112,23 @@ test_block:
       - query:
          SELECT filename
          FROM files
+         WHERE filename LIKE 'final%_report.pdf' ESCAPE '%'
+      - supported_version: !current_version
+      - error: '2200B'
+    -
+      - query:
+         SELECT filename
+         FROM files
+         WHERE filename LIKE 'final##_report.pdf' ESCAPE '##'
+      - initialVersionAtLeast: !current_version
+      - error: '22019'
+      - initialVersionLessThan: !current_version
+      - error: 'XX000'
+    -
+      - query:
+         SELECT filename
+         FROM files
          WHERE filename LIKE 'rfrirnrarlr_rrrerprorrrtr.rprdrf' ESCAPE 'r'
       - supported_version: !current_version
-      - result: [
-         {"final_report.pdf"},
-        ]
+      - error: '22025'
+---

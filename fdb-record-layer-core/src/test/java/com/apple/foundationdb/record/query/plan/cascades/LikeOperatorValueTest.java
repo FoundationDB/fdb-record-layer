@@ -87,7 +87,7 @@ class LikeOperatorValueTest {
         }
     }
 
-    static class InvalidInputArgumentsProvider implements ArgumentsProvider {
+    static class InvalidInputTypesArgumentsProvider implements ArgumentsProvider {
         @Nonnull
         @Override
         public Stream<? extends Arguments> provideArguments(@Nonnull final ParameterDeclarations parameterDeclarations,
@@ -120,15 +120,64 @@ class LikeOperatorValueTest {
         }
     }
 
-    static class InvalidEscapeArgumentsProvider implements ArgumentsProvider {
+    /**
+     * Invalid input into the {@code LIKE} operator that throws an exception. These test cases are designed so that if we
+     * relaxed the rules and allowed some of this as input, we'd want to consider what these cases would mean. For
+     * example, if we allowed a wildcard character to be an escape, we'd want to consider how patterns with that wildcard
+     * would behave.
+     */
+    static class InvalidInputValuesArgumentsProvider implements ArgumentsProvider {
         @Nonnull
         @Override
         public Stream<? extends Arguments> provideArguments(@Nonnull final ParameterDeclarations parameterDeclarations,
                                                             @Nonnull final ExtensionContext context) {
             return Stream.of(
-                    Arguments.of("blah", "blah%", ""),
-                    Arguments.of("foo", "bar", "ba")
-            );
+                    // Invalid escape characters
+                    Arguments.of("blah", "blah%", "", SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR),
+                    Arguments.of("foo", "bar", "ba", SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR),
+                    Arguments.of("foo", "bar", "👍", SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR), // Stored as two UTF-16 chars
+                    Arguments.of("foo", "bar", "\uD83D", SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR), // First half of thumbs up
+                    Arguments.of("foo", "bar", "\uDC4D", SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR), // Second half of thumbs up
+
+                    // Invalid sequences (ends with an escape char)
+                    Arguments.of("abc", "abc\\", "\\", SemanticException.ErrorCode.INVALID_ESCAPE_SEQUENCE),
+                    Arguments.of("abcd", "abc\\", "\\", SemanticException.ErrorCode.INVALID_ESCAPE_SEQUENCE),
+                    Arguments.of("abc", "abc", "c", SemanticException.ErrorCode.INVALID_ESCAPE_SEQUENCE),
+                    Arguments.of("abc", "ab%", "%", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+
+                    // Do not allow escaping non-special characters
+                    Arguments.of("abcdef", "abc", "c", SemanticException.ErrorCode.INVALID_ESCAPE_SEQUENCE),
+                    Arguments.of("abcdef", "abcdef", "b", SemanticException.ErrorCode.INVALID_ESCAPE_SEQUENCE),
+                    Arguments.of("acdef", "abcdef", "b", SemanticException.ErrorCode.INVALID_ESCAPE_SEQUENCE),
+                    Arguments.of("🥲", "!🥲", "!", SemanticException.ErrorCode.INVALID_ESCAPE_SEQUENCE),
+                    Arguments.of("x🥲x", "x!🥲x", "!", SemanticException.ErrorCode.INVALID_ESCAPE_SEQUENCE),
+
+                    // Do not allow '%' as an escape character
+                    Arguments.of("abc", "%%", "%", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("%", "%%", "%", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("%", "%%%", "%", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("abcdef", "abcdef%%", "%", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("abcdef%", "abcdef%%", "%", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("abcdef%%", "abcdef%%", "%", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("abcdef%%", "abcdef%%%%", "%", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("abfg", "ab%%fg", "%", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("abcefg", "ab%%fg", "%", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("abcdefg", "ab%%fg", "%", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("ab%fg", "ab%%fg", "%", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("ab%%fg", "ab%%fg", "%", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+
+                    // Do not allow '_' as an escape character
+                    Arguments.of("_", "__", "_", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("xy", "__", "_", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("", "%_%%", "_", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("_", "%_%%", "_", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("%", "%_%%", "_", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("ab_cdef", "%_%%", "_", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("ab%cdef", "%_%%", "_", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("abcdef", "%_%%", "_", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("aa", "_aa%", "_", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("baah", "_aa%", "_", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT)
+                );
         }
     }
 
@@ -223,24 +272,30 @@ class LikeOperatorValueTest {
                     Arguments.of("__text", "|_|_%", "|", true),
                     Arguments.of("__", "|_|_%", "|", true),
                     Arguments.of("\\\\|||", "_____", null, true),
-                    // Text containing '%' — wildcard in pattern must not match '%' in text as a literal
+                    // Text containing '%' — wildcard in pattern must not just match '%' in text as a literal
                     Arguments.of("%%abcdef", "%abc%", null, true),
                     Arguments.of("%hello%", "%hello%", null, true),
                     Arguments.of("100%", "100%", null, true),
                     Arguments.of("100%", "100\\%", "\\", true),
                     Arguments.of("100%off", "100\\%", "\\", false),
                     Arguments.of("50%", "100%", null, false),
-                    // Does not match if it ends with an escape char
-                    Arguments.of("abc", "abc\\", "\\", false),
-                    Arguments.of("abc", "abc", "c", false),
-                    Arguments.of("abc", "ab%", "%", false),
                     // Escape always does a literal match against the next character
                     Arguments.of("\\abc", "\\%", null, true),
                     Arguments.of("%", "\\%", null, false),
                     Arguments.of("\\abc", "\\%", "\\", false),
+                    Arguments.of("\\abc", "\\\\%", "\\", true),
+                    Arguments.of("\\abc", "\\_bc", "\\", false),
+                    Arguments.of("\\abc", "\\\\_bc", "\\", true),
+                    Arguments.of("a\\bc", "a!!bc", "!", false),
+                    Arguments.of("a!bc", "a!!bc", "!", true),
+                    Arguments.of("a!!bc", "a!!bc", "!", false),
                     Arguments.of("%", "\\%", "\\", true),
+                    Arguments.of("blah", "\\%", "\\", false),
                     Arguments.of("%", "%%%", "\\", true),
-                    Arguments.of("abcdef", "abc", "c", false),
+                    Arguments.of("blah", "%%%", "\\", true),
+                    Arguments.of("%", "%%%", "\\", true),
+                    Arguments.of("blah", "%%%", "\\", true),
+
                     Arguments.of("abc", "ab%%", null, true),
                     Arguments.of("abcdefgh", "ab%%", null, true),
                     Arguments.of("ab%", "ab%%", null, true),
@@ -254,57 +309,33 @@ class LikeOperatorValueTest {
                     Arguments.of("ab%cdef", "ab%%", "b", false),
                     Arguments.of("a%cdef", "ab%%", "b", true),
                     Arguments.of("abcdef", "abcdef", null, true),
-                    Arguments.of("abcdef", "abcdef", "b", false),
                     Arguments.of("acdef", "abcdef", null, false),
-                    Arguments.of("acdef", "abcdef", "b", true),
-                    Arguments.of("🥲", "!🥲", "!", true),
-                    Arguments.of("x🥲x", "x!🥲x", "!", true),
-                    // Special cases for the % escape character
+
+                    // Counter-parts to the invalid-input cases above that would behave oddly if '%' were the escape character
                     Arguments.of("abc", "%%", null, true),
                     Arguments.of("%", "%%", null, true),
-                    Arguments.of("abc", "%%", "%", false),
-                    Arguments.of("%", "%%", "%", true),
                     Arguments.of("%", "%%%", null, true),
-                    Arguments.of("%", "%%%", "%", false),
                     Arguments.of("abcdef", "abcdef%%", null, true),
-                    Arguments.of("abcdef", "abcdef%%", "%", false),
                     Arguments.of("abcdef%", "abcdef%%", null, true),
-                    Arguments.of("abcdef%", "abcdef%%", "%", true),
                     Arguments.of("abcdef%%", "abcdef%%", null, true),
-                    Arguments.of("abcdef%%", "abcdef%%", "%", false),
                     Arguments.of("abcdef%%", "abcdef%%%%", null, true),
-                    Arguments.of("abcdef%%", "abcdef%%%%", "%", true),
                     Arguments.of("abfg", "ab%%fg", null, true),
-                    Arguments.of("abfg", "ab%%fg", "%", false),
                     Arguments.of("abcefg", "ab%%fg", null, true),
-                    Arguments.of("abcefg", "ab%%fg", "%", false),
                     Arguments.of("abcdefg", "ab%%fg", null, true),
-                    Arguments.of("abcdefg", "ab%%fg", "%", false),
                     Arguments.of("ab%fg", "ab%%fg", null, true),
-                    Arguments.of("ab%fg", "ab%%fg", "%", true),
                     Arguments.of("ab%%fg", "ab%%fg", null, true),
-                    Arguments.of("ab%%fg", "ab%%fg", "%", false),
-                    // Special cases for the _ escape character
+
+                    // Counter-parts to the invalid-input cases above that would behave oddly if '_' were the escape character
                     Arguments.of("_", "__", null, false),
-                    Arguments.of("_", "__", "_", true),
                     Arguments.of("xy", "__", null, true),
-                    Arguments.of("xy", "__", "_", false),
                     Arguments.of("", "%_%%", null, false),
-                    Arguments.of("", "%_%%", "_", false),
                     Arguments.of("_", "%_%%", null, true),
-                    Arguments.of("_", "%_%%", "_", false),
                     Arguments.of("%", "%_%%", null, true),
-                    Arguments.of("%", "%_%%", "_", true),
                     Arguments.of("ab_cdef", "%_%%", null, true),
-                    Arguments.of("ab_cdef", "%_%%", "_", false),
                     Arguments.of("ab%cdef", "%_%%", null, true),
-                    Arguments.of("ab%cdef", "%_%%", "_", true),
                     Arguments.of("abcdef", "%_%%", null, true),
-                    Arguments.of("abcdef", "%_%%", "_", false),
                     Arguments.of("aa", "_aa%", null, false),
-                    Arguments.of("aa", "_aa%", "_", true),
-                    Arguments.of("baah", "_aa%", null, true),
-                    Arguments.of("baah", "_aa%", "_", false)
+                    Arguments.of("baah", "_aa%", null, true)
             );
         }
     }
@@ -321,7 +352,7 @@ class LikeOperatorValueTest {
     }
 
     @ParameterizedTest
-    @ArgumentsSource(InvalidInputArgumentsProvider.class)
+    @ArgumentsSource(InvalidInputTypesArgumentsProvider.class)
     void testSemanticException(@Nonnull Value lhs, @Nonnull Value rhs, @Nonnull Value escapeChar) {
         BuiltInFunction<?> like = new LikeOperatorValue.LikeFn();
         BuiltInFunction<?> pattern = new PatternForLikeValue.PatternForLikeFn();
@@ -339,11 +370,11 @@ class LikeOperatorValueTest {
     }
 
     @ParameterizedTest
-    @ArgumentsSource(InvalidEscapeArgumentsProvider.class)
-    void testInvalidEscape(@Nullable String lhs, @Nullable String rhs, @Nullable String escapeChar) {
+    @ArgumentsSource(InvalidInputValuesArgumentsProvider.class)
+    void testInvalidInputValues(@Nullable String lhs, @Nullable String rhs, @Nullable String escapeChar, @Nonnull SemanticException.ErrorCode expectedErrorCode) {
         final LikeOperatorValue value = createLikeOperatorValue(lhs, rhs, escapeChar);
         final SemanticException err = Assertions.assertThrows(SemanticException.class, () -> evalLikeOperator(value));
-        Assertions.assertEquals(SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR, err.getErrorCode());
+        Assertions.assertEquals(expectedErrorCode, err.getErrorCode());
     }
 
     @ParameterizedTest

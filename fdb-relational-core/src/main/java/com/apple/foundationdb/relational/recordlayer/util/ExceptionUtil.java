@@ -94,8 +94,12 @@ public final class ExceptionUtil {
             case FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES:
             case OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING:
                 return ErrorCode.INVALID_ARGUMENT_FOR_FUNCTION;
+            case ESCAPE_CHARACTER_CONFLICT:
+                return ErrorCode.ESCAPE_CHARACTER_CONFLICT;
             case ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR:
                 return ErrorCode.INVALID_ESCAPE_CHARACTER;
+            case INVALID_ESCAPE_SEQUENCE:
+                return ErrorCode.INVALID_ESCAPE_SEQUENCE;
             case INVALID_CAST:
                 return ErrorCode.INVALID_CAST;
             case COMPARISON_OF_INCOMPATIBLE_TYPES:

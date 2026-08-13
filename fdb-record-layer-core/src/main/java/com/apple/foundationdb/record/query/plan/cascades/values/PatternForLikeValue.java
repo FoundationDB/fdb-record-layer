@@ -119,12 +119,34 @@ public class PatternForLikeValue extends AbstractValue {
         if (patternStr != null) {
             resultBuilder.setField(typeDescriptor.findFieldByNumber(PATTERN_FIELD_NUMBER), patternStr);
         }
-        String escapeChar = (String)escapeChild.eval(store, context);
-        if (escapeChar != null) {
-            SemanticException.check(escapeChar.length() == 1, SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR);
-            resultBuilder.setField(typeDescriptor.findFieldByNumber(ESCAPE_FIELD_NUMBER), escapeChar);
+        String escape = (String)escapeChild.eval(store, context);
+        if (escape != null) {
+            char escapeChar = validateEscapeChar(escape);
+            if (patternStr != null) {
+                validatePattern(patternStr, escapeChar);
+            }
+            resultBuilder.setField(typeDescriptor.findFieldByNumber(ESCAPE_FIELD_NUMBER), escape);
         }
         return resultBuilder.build();
+    }
+
+    static char validateEscapeChar(@Nonnull String escape) {
+        SemanticException.check(escape.length() == 1, SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR);
+        char escapeChar = escape.charAt(0);
+        SemanticException.check(!Character.isSurrogate(escapeChar), SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR);
+        SemanticException.check(escapeChar != '_' && escapeChar != '%', SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT);
+        return escapeChar;
+    }
+
+    static void validatePattern(@Nonnull String pattern, char escapeChar) {
+        for (int i = 0; i < pattern.length(); i++) {
+            if (pattern.charAt(i) == escapeChar) {
+                SemanticException.check(i + 1 < pattern.length(), SemanticException.ErrorCode.INVALID_ESCAPE_SEQUENCE);
+                char literal = pattern.charAt(i + 1);
+                SemanticException.check(literal == '_' || literal == '%' || literal == escapeChar, SemanticException.ErrorCode.INVALID_ESCAPE_SEQUENCE);
+                i += 1;
+            }
+        }
     }
 
     @Nonnull

@@ -117,13 +117,18 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
      * </p>
      *
      * <p>
-     * Note that the escape character represents "match the next character as a literal" regardless of whether that
-     * character is actually special. So {@code escape + '_'} matches the literal {@code '_'} and {@code escape + '%'}
-     * matches the literal {@code '%'}, but also {@code escape + escape} matches the escape character {@code escape} and
-     * {@code escape + 'b'} matches the literal character {@code 'b'}. This means that if the character following
-     * {@code escape} is not a special character, then the escape character is effectively dropped from the pattern.
-     * Finally, note that if the escape character is the final character in the pattern, then that is a malformed pattern,
-     * which will thus always return {@code false}.
+     * This will reject any escape values that are either already used for wildcards ({@code '%'} or {@code '_'}),
+     * or are not a single character. It also rejects any escape values that are made up of the invalid Unicode
+     * codepoints used by UTF-16 strings to model multi-character codepoints.
+     * </p>
+     *
+     * <p>
+     * Note that the escape character only matches the next character as a literal if the next character is actually
+     * special. So {@code escape + '_'} matches the literal {@code '_'}, {@code escape + '%'} matches the literal
+     * {@code '%'}, and also {@code escape + escape} matches the escape character {@code escape}. If the pattern
+     * has an {@code escape} followed by a non-special character or if it ends with a single {@code escape}, then
+     * this throws a {@link SemanticException} with an {@link SemanticException.ErrorCode#INVALID_ESCAPE_SEQUENCE}
+     * error code.
      * </p>
      *
      * <p>
@@ -138,17 +143,6 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
      * @param escape an optional escape character
      */
     private static boolean matchLike(@Nonnull final String text, @Nonnull final String pattern, @Nullable final String escape) {
-        int t = 0;
-        int p = 0;
-        int starP = -1;
-        int starT = -1;
-        final int tLen = text.length();
-        final int pLen = pattern.length();
-        SemanticException.check(escape == null || escape.length() == 1, SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR);
-        final char escapeChar = escape == null ? '\0' : escape.charAt(0);
-        // Do not allow an escape character that is a surrogate as it can cause the algorithm trouble. It would represent an invalid string anyway
-        SemanticException.check(!Character.isSurrogate(escapeChar), SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR);
-
         // Conceptually, this is similar to breaking the pattern down into chunks, separated by the wildcard
         // character %. For each sequence between %s, we can evaluate if a subsequence from the text
         // matches in linear time. We then do the following:
@@ -176,18 +170,24 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
         // a text like 100,000 'a' characters, and then a pattern like '%aaaa'. To validate this match, we need to
         // check 100,000 - 4 ≈ 100,000 different substrings for the prefix, and each one requires reading the next 4
         // characters to evaluate, so that's around 400,000 character comparisons.
+        int t = 0;
+        int p = 0;
+        int starP = -1;
+        int starT = -1;
+        final int tLen = text.length();
+        final int pLen = pattern.length();
+        final char escapeChar = escape == null ? '\0' : PatternForLikeValue.validateEscapeChar(escape);
         while (t < tLen) {
             boolean matched = false;
             if (p < pLen) {
                 final char pc = pattern.charAt(p);
                 if (escape != null && pc == escapeChar) {
-                    // Escape character. Only allow this to be matched if the next character in the
-                    // text exactly matches the next character in the pattern, even if it is a wildcard
-                    if (p + 1 >= pLen) {
-                        // Pattern terminates in the escape character, which is malformed. Return "no match"
-                        return false;
-                    }
-                    if (pattern.charAt(p + 1) == text.charAt(t)) {
+                    // Escape character. Reject the pattern if the escape character is the final character in the pattern
+                    // or if it is followed by a non-special character
+                    SemanticException.check(p + 1 < pLen, SemanticException.ErrorCode.INVALID_ESCAPE_SEQUENCE);
+                    char literal =  pattern.charAt(p + 1);
+                    SemanticException.check(literal == '%' || literal == '_' || literal == escapeChar, SemanticException.ErrorCode.INVALID_ESCAPE_SEQUENCE);
+                    if (literal == text.charAt(t)) {
                         t++;
                         p += 2;
                         matched = true;
@@ -233,14 +233,10 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
                 }
             }
         }
-        if (escapeChar != '%') {
-            // Match any trailing wildcards against the empty string.
-            // (Note that if % is the escape character, we have to skip it, as a string of trailing
-            // %s in the pattern should be matched against a (half-as-long) sequence of trailing %s
-            // in the text, which is handled in the loop.)
-            while (p < pLen && pattern.charAt(p) == '%') {
-                p++;
-            }
+        // Match any trailing wildcards against the empty string.
+        // (Note that if % were allowed as the escape character, we'd need to skip this.)
+        while (p < pLen && pattern.charAt(p) == '%') {
+            p++;
         }
         return p == pLen;
     }

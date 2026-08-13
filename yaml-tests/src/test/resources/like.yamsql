@@ -91,21 +91,19 @@ test_block:
       - query: select * from B WHERE B2 LIKE 'Y'
       - result: [{1, 'Y'}]
     -
-      # Issue #3099 found that the pattern was being put in the escape part of the LIKE on continuation
-      # which for all the other queries, would result in an error that the escape should be of length 1.
-      # I added these queries to see if that issue would expose differently if the query was only one character,
-      # and it kind of did, it ended up exposing issue: https://github.com/FoundationDB/fdb-record-layer/issues/3216
       - query: select * from B WHERE B2 NOT LIKE 'Z'
       - result: [{1, 'Y'}, {3, 'A'}, {5, 'B'}]
     -
       - query: select * from B WHERE B2 NOT LIKE 'Z' ESCAPE 'Z'
-      # This should error; see https://github.com/FoundationDB/fdb-record-layer/issues/3216
       - supported_version: !current_version
-      - result: [{1, 'Y'}, {2, 'Z'}, {3, 'A'}, {4, Z}, {5, 'B'}]
+      - error: '22025'
     -
       - query: select * from B WHERE B2 NOT LIKE '\'
-      # This should error; see https://github.com/FoundationDB/fdb-record-layer/issues/3216
       - result: [{1, 'Y'}, {2, 'Z'}, {3, 'A'}, {4, Z}, {5, 'B'}]
+    -
+      - query: select * from B WHERE B2 NOT LIKE '\' ESCAPE '\'
+      - supported_version: !current_version
+      - error: '22025'
     -
       - query: select * from B WHERE B2 LIKE 'Z'
       - result: [{2, 'Z'}, {4, 'Z'}]
@@ -492,9 +490,9 @@ test_block:
     -
       # Character '%' used as an escape instead of a wildcard. This thus only matches the literal percent sign
       - query: select * from A WHERE A1 LIKE '%%' ESCAPE '%'
-      - unorderedResult: [
-           {'%'},
-        ]
+      - supported_version: !current_version
+      # ESCAPE_CHARACTER_CONFLICT (rejecting '%' as an escape)
+      - error: '2200B'
     -
       - query: select * from A WHERE A1 LIKE '%%%'
       - unorderedResult: [
@@ -525,8 +523,8 @@ test_block:
       # Character '%' used as an escape instead of a wildcard. The odd number results in a malformed sequence which matches nothing
       - query: select * from A WHERE A1 LIKE '%%%' ESCAPE '%'
       - supported_version: !current_version
-      - unorderedResult: [
-        ]
+      # ESCAPE_CHARACTER_CONFLICT (rejecting '%' as an escape)
+      - error: '2200B'
     -
       - query: select * from A WHERE A1 NOT LIKE '|_|_%' ESCAPE '|'
       - unorderedResult: [
@@ -575,32 +573,11 @@ test_block:
           {'a?xyz'},
           ]
     -
-      # Escape character 'b' followed by a non-wildcard 'c' effectively drops the 'b'. Note that '<acdefghijk>' is missing
+      # Reject pattern where 'b' escapes a non-wildcard 'c'. If we instead interpreted this as dropping the 'b', then we'd find that this excluded '<acdefghijk>'
       - query: select * from A WHERE A1 NOT LIKE '%abcde%' ESCAPE 'b'
       - supported_version: !current_version
-      - unorderedResult: [
-          {'abcdefghijklmnopqrstuvwxyz'},
-          {'___abcdef'},
-          {'%%abcdef'},
-          {'*abcdef'},
-          {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'},
-          {'école'},
-          {'ありがとう'},
-          {'学校'},
-          {'مدرسة'},
-          {'👍abc'},
-          {'😮‍💨abc'},
-          {'(abcdefghijk)'},
-          {'[abcdefghijk]'},
-          {'{abcdefghijk}'},
-          {'^$'},
-          {'\\||%'},
-          {'%'},
-          {'a%z'},
-          {'%z'},
-          {'\xyz'},
-          {'a?xyz'},
-          ]
+      # INVALID_ESCAPE_SEQUENCE (as 'b' precedes 'c')
+      - error: '22025'
     -
       - query: select * from A WHERE A1 LIKE 'a%z'
       - unorderedResult: [
@@ -641,14 +618,12 @@ test_block:
           {'a%z'},
         ]
     -
-      # Use '?' as an escape character. This supersedes its behavior as a wildcard
       - query: select * from A WHERE A1 LIKE 'a??xyz' ESCAPE '?'
       - supported_version: !current_version
       - unorderedResult: [
           {'a?xyz'},
         ]
     -
-      # Use '?' as an escape character. As there are two, it does not escape a '%'
       - query: select * from A WHERE A1 LIKE 'a??%z' ESCAPE '?'
       - supported_version: !current_version
       - unorderedResult: [
@@ -665,23 +640,23 @@ test_block:
           {'{abcdefghijk}'},
         ]
     -
-      # Escape character 'b' followed by a non-wildcard 'c' effectively drops the 'b'
+      # Reject sequences where the escape character is not followed by a special character
       - query: select * from A WHERE A1 LIKE '_abc%' ESCAPE 'b'
       - supported_version: !current_version
-      - unorderedResult: [
-          {'<acdefghijk>'},
-        ]
+      # INVALID_ESCAPE_SEQUENCE (as 'b' precedes 'c')
+      - error: '22025'
     -
       - query: select * from A WHERE A1 LIKE '%%abc%' ESCAPE 'b'
       - supported_version: !current_version
-      - unorderedResult: [
-          {'<acdefghijk>'},
-        ]
+      # INVALID_ESCAPE_SEQUENCE (as 'b' precedes 'c')
+      - error: '22025'
     -
       - query: select * from A WHERE A1 LIKE 'b%b%abc%' ESCAPE 'b'
       - supported_version: !current_version
-      - unorderedResult: []
+      # INVALID_ESCAPE_SEQUENCE (as 'b' precedes 'c')
+      - error: '22025'
     -
+      # No error here as even though 'b' precedes 'c', it's escaped by another 'b'
       - query: select * from A WHERE A1 LIKE 'b%b%abbc%' ESCAPE 'b'
       - supported_version: !current_version
       - unorderedResult: [
