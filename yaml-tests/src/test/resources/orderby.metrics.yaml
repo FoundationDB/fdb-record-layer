@@ -1,8 +1,8 @@
 orderby-tests:
 -   query: EXPLAIN select c from t1 order by b
     ref: orderby.yamsql:248
-    explain: 'COVERING(I1 <,> -> [A: KEY[2], B: KEY[0], C: VALUE[0]]) | MAP (_.C AS
-        C, _.B AS B) | MAP (_.C AS C)'
+    explain: 'COVERING(I1 <,> -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) | MAP (_.C
+        AS C, _.B AS B) | MAP (_.C AS C)'
     task_count: 302
     task_total_time_ms: 22
     transform_count: 77
@@ -13,8 +13,8 @@ orderby-tests:
     insert_reused_count: 2
 -   query: EXPLAIN select b from t1 order by c
     ref: orderby.yamsql:252
-    explain: 'COVERING(I2 <,> -> [A: KEY[2], B: VALUE[0], C: KEY[0]]) | MAP (_.B AS
-        B, _.C AS C) | MAP (_.B AS B)'
+    explain: 'COVERING(I2 <,> -> [A: KEY:[2], B: VALUE:[0], C: KEY:[0]]) | MAP (_.B
+        AS B, _.C AS C) | MAP (_.B AS B)'
     task_count: 407
     task_total_time_ms: 240
     transform_count: 94
@@ -25,8 +25,8 @@ orderby-tests:
     insert_reused_count: 4
 -   query: EXPLAIN select c from t1 order by b desc
     ref: orderby.yamsql:257
-    explain: 'COVERING(I1 <,> REVERSE -> [A: KEY[2], B: KEY[0], C: VALUE[0]]) | MAP
-        (_.C AS C, _.B AS B) | MAP (_.C AS C)'
+    explain: 'COVERING(I1 <,> REVERSE -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) |
+        MAP (_.C AS C, _.B AS B) | MAP (_.C AS C)'
     task_count: 302
     task_total_time_ms: 14
     transform_count: 77
@@ -37,8 +37,8 @@ orderby-tests:
     insert_reused_count: 2
 -   query: EXPLAIN select b from t1 order by c desc
     ref: orderby.yamsql:261
-    explain: 'COVERING(I2 <,> REVERSE -> [A: KEY[2], B: VALUE[0], C: KEY[0]]) | MAP
-        (_.B AS B, _.C AS C) | MAP (_.B AS B)'
+    explain: 'COVERING(I2 <,> REVERSE -> [A: KEY:[2], B: VALUE:[0], C: KEY:[0]]) |
+        MAP (_.B AS B, _.C AS C) | MAP (_.B AS B)'
     task_count: 407
     task_total_time_ms: 36
     transform_count: 94
@@ -49,8 +49,8 @@ orderby-tests:
     insert_reused_count: 4
 -   query: EXPLAIN select c, b from t5 order by c, b desc;
     ref: orderby.yamsql:266
-    explain: 'COVERING(I8 <,> -> [A: KEY[3], B: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST),
-        C: KEY[0]]) | MAP (_.C AS C, _.B AS B)'
+    explain: 'COVERING(I8 <,> -> [A: KEY:[3], B: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST),
+        C: KEY:[0]]) | MAP (_.C AS C, _.B AS B)'
     task_count: 210
     task_total_time_ms: 18
     transform_count: 53

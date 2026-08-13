@@ -104,6 +104,8 @@ public final class ExceptionUtil {
                 return ErrorCode.INVALID_CAST;
             case COMPARISON_OF_INCOMPATIBLE_TYPES:
                 return ErrorCode.DATATYPE_MISMATCH;
+            case UNSUPPORTED:
+                return ErrorCode.UNSUPPORTED_OPERATION;
             default:
                 return ErrorCode.INTERNAL_ERROR;
         }

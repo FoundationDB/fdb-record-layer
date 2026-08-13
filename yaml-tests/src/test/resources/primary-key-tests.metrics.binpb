@@ -1,7 +1,7 @@
-˝
+é
 4
-primary-key-testsEXPLAIN SELECT COUNT(*) FROM T1ƒ
-˜≤¬ç> ﬂ¨H(0¸Ë8@SCAN(<,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)¶digraph G {
+primary-key-testsEXPLAIN SELECT COUNT(*) FROM T1’
+˜≤¬ç> ﬂ¨H(0¸Ë8@èSCAN([IS T1]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)¶digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

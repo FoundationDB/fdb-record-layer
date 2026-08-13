@@ -179,7 +179,7 @@ arrays-cardinality-index-tests:
 -   query: EXPLAIN SELECT "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr")
         = 1
     ref: arrays-cardinality.yamsql:156
-    explain: 'COVERING(tab1_indexed_nn_index [EQUALS promote(@c11 AS INT)] -> [id:
+    explain: 'COVERING(tab1_indexed_nn_index [EQUALS promote(@c10 AS INT)] -> [id:
         KEY:[2]]) | MAP (_.id AS id)'
     task_count: 395
     task_total_time_ms: 14
@@ -192,7 +192,7 @@ arrays-cardinality-index-tests:
 -   query: EXPLAIN SELECT "id" FROM "tab1_indexed" WHERE CARDINALITY("int_arr") =
         1
     ref: arrays-cardinality.yamsql:159
-    explain: 'COVERING(tab1_indexed_index [EQUALS promote(@c11 AS INT)] -> [id: KEY:[2]])
+    explain: 'COVERING(tab1_indexed_index [EQUALS promote(@c10 AS INT)] -> [id: KEY:[2]])
         | MAP (_.id AS id)'
     task_count: 395
     task_total_time_ms: 13
@@ -305,7 +305,7 @@ arrays-cardinality-index-tests:
 -   query: EXPLAIN SELECT CARDINALITY("int_arr") AS "card", "id" FROM "tab1_indexed_nn"
         WHERE CARDINALITY("int_arr") = 1 ORDER BY CARDINALITY("int_arr")
     ref: arrays-cardinality.yamsql:195
-    explain: ISCAN(tab1_indexed_nn_index [EQUALS promote(@c18 AS INT)]) | MAP (cardinality(_.int_arr)
+    explain: ISCAN(tab1_indexed_nn_index [EQUALS promote(@c17 AS INT)]) | MAP (cardinality(_.int_arr)
         AS card, _.id AS id)
     task_count: 276
     task_total_time_ms: 8
@@ -318,7 +318,7 @@ arrays-cardinality-index-tests:
 -   query: EXPLAIN SELECT CARDINALITY("struct"."int_arr") AS "card", "id" FROM "tab2"
         WHERE CARDINALITY("struct"."int_arr") = 1 ORDER BY CARDINALITY("struct"."int_arr")
     ref: arrays-cardinality.yamsql:200
-    explain: ISCAN(tab2_index [EQUALS promote(@c22 AS INT)]) | MAP (cardinality(_.struct.int_arr)
+    explain: ISCAN(tab2_index [EQUALS promote(@c21 AS INT)]) | MAP (cardinality(_.struct.int_arr)
         AS card, _.id AS id)
     task_count: 276
     task_total_time_ms: 9
