@@ -35,9 +35,9 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
-import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
@@ -46,7 +46,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvoked
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
-import com.apple.foundationdb.relational.recordlayer.query.CaseInsensitiveCharStream;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
@@ -65,18 +64,21 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import org.antlr.v4.runtime.CommonTokenStream;
+import com.google.common.collect.Sets;
 import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.tree.ParseTree;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -540,16 +542,25 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                                 () -> "duplicate stored query signature parameter '" + paramName + "'");
                     }
                 }
-                final var start = queryCtx.storedQuery.start.getStartIndex();
-                final var stop = queryCtx.storedQuery.stop.getStopIndex() + 1;
-                final var queryString = rewriteReferencesToParams(sourceText.substring(start, stop), parameters.keySet());
+                final var queryString = rewriteReferencesToParams(sourceText, queryCtx.storedQuery, parameters.keySet());
                 final ImmutableList.Builder<String> tempFunctionTexts = ImmutableList.builder();
                 if (queryCtx.declareBlock() != null) {
                     for (final var dfCtx : queryCtx.declareBlock().declaredFunction()) {
+                        // A signature parameter and one of this function's own parameters spelled the same way are
+                        // indistinguishable in the body, so the rewrite would capture the function's parameter instead
+                        // of shadowing it. Reject rather than silently changing what was written.
+                        final var shadowed = Sets.intersection(ownParameterNames(dfCtx), parameters.keySet());
+                        Assert.thatUnchecked(shadowed.isEmpty(), ErrorCode.UNSUPPORTED_QUERY,
+                                () -> "declared function parameter " + shadowed
+                                        + " collides with a stored query signature parameter");
                         tempFunctionTexts.add(rewriteDeclaredFunctionToStandalone(dfCtx, sourceText, parameters.keySet()));
                     }
                 }
-                metadataBuilder.addStoredQuery(name, queryString, tempFunctionTexts.build(), parameters);
+                final var storedQueryTexts = tempFunctionTexts.build();
+                // The rewritten text is what gets persisted and re-parsed at warm-up, so prove now that it parses.
+                // This keeps a rewrite defect from becoming a startup-time failure that the author never sees.
+                validateRewrittenText(name, queryString, storedQueryTexts);
+                metadataBuilder.addStoredQuery(name, queryString, storedQueryTexts, parameters);
             } else {
                 Assert.thatUnchecked(templateClause.indexDefinition() != null);
                 indexClauses.add(templateClause.indexDefinition());
@@ -927,17 +938,56 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                                                               @Nonnull final Set<String> declaredNames) {
         final String name = sliceSource(sourceText, ctx.functionName);
         final String paramList = sliceSource(sourceText, ctx.sqlParameterDeclarationList());
-        // Only the body may reference the stored query's signature parameters; the name and this function's own
-        // parameter declarations are left untouched.
-        final String body = rewriteReferencesToParams(sliceSource(sourceText, ctx.functionBody), declaredNames);
+        // Only the body may reference the stored query's signature parameters; scoping the rewrite to the body subtree
+        // is what keeps the name and this function's own parameter declarations out of reach.
+        final String body = rewriteReferencesToParams(sourceText, ctx.functionBody, declaredNames);
         return "CREATE TEMPORARY FUNCTION " + name + paramList + " ON COMMIT DROP FUNCTION AS " + body;
     }
 
     /**
+     * Returns the parameter names a declared function declares for itself.
+     */
+    @Nonnull
+    private static Set<String> ownParameterNames(@Nonnull final RelationalParser.DeclaredFunctionContext ctx) {
+        final var declarations = ctx.sqlParameterDeclarationList().sqlParameterDeclarations();
+        if (declarations == null) {
+            return Set.of();
+        }
+        return declarations.sqlParameterDeclaration().stream()
+                .map(declaration -> declaration.sqlParameterName)
+                .filter(Objects::nonNull)
+                .map(RelationalParser.UidContext::getText)
+                .collect(ImmutableSet.toImmutableSet());
+    }
+
+    /**
+     * Checks that the rewritten stored query text still parses. The rewrite is driven by the parse tree so it should
+     * always produce valid SQL, but this is what the metadata will carry and what warm-up will re-parse, so a defect
+     * here must fail the {@code CREATE} in front of its author rather than become a logged startup failure.
+     */
+    private static void validateRewrittenText(@Nonnull final String storedQueryName,
+                                              @Nonnull final String queryString,
+                                              @Nonnull final List<String> tempFunctionTexts) {
+        try {
+            // Both are complete statements — the temp-function text is a `CREATE TEMPORARY FUNCTION ...` exactly as a
+            // client would submit it — so both go through the statement entry point.
+            for (final var tempFunctionText : tempFunctionTexts) {
+                QueryParser.parse(tempFunctionText);
+            }
+            QueryParser.parse(queryString);
+        } catch (final RelationalException | RuntimeException e) {
+            throw new RelationalException("Stored query is not valid after resolving its signature parameters",
+                    ErrorCode.UNSUPPORTED_QUERY, e)
+                    .addContext("storedQueryName", storedQueryName)
+                    .toUncheckedWrappedException();
+        }
+    }
+
+    /**
      * Returns whether a {@code uid} is a plain {@code ID} token, as opposed to a quoted identifier or one of the
-     * keywords that {@code simpleId} also accepts. Signature parameter names are restricted to this form because
-     * {@link #rewriteReferencesToParams} recognises references by matching {@code ID} tokens — anything else would be
-     * left untouched in the body and silently resolved as a column.
+     * keywords that {@code simpleId} also accepts. Signature parameter names are restricted to this form so that a
+     * reference to one is always spelled the same way as its declaration, and so that a quoted reference cannot
+     * accidentally match.
      */
     private static boolean isSimpleIdentifier(@Nonnull final RelationalParser.UidContext ctx) {
         final var simpleId = ctx.simpleId();
@@ -945,34 +995,72 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     /**
-     * Rewrites every unquoted identifier in {@code fragment} that references a stored-query signature parameter into a
-     * named parameter {@code ?name}, so the warm-up plan (parsed from this rewritten text) is reachable at runtime when
-     * the client re-issues the equivalent SQL binding {@code ?name} by name. Matching is <em>case-sensitive</em>: a
-     * signature parameter becomes a named prepared parameter (which is always case-sensitive), so a reference must use
-     * the declared spelling. Signature parameter names <em>shadow</em> columns of the same (exact) name.
+     * Rewrites references to a stored query's signature parameters within {@code fragment} into named parameters
+     * {@code ?name}, so the warm-up plan (parsed from this rewritten text) is reachable at runtime when the client
+     * re-issues the query binding {@code ?name} by name.
+     *
+     * <p>What counts as a reference is decided from the parse tree, not from token text: only an identifier used
+     * <em>as a value</em> is rewritten, i.e. a {@code fullColumnName} appearing as an {@code expressionAtom} whose
+     * {@code fullId} is a single unqualified {@code uid}. That excludes, structurally rather than by special case:
+     * <ul>
+     * <li>a qualified reference such as {@code t.param} &mdash; its {@code fullId} has more than one {@code uid}, and
+     *     it can only ever be a column of {@code t};
+     * <li>an alias such as {@code SELECT col AS param} &mdash; the alias hangs off {@code selectElement}, not
+     *     {@code expressionAtom};
+     * <li>table names, function names, type names and column definitions, none of which are {@code expressionAtom}s.
+     * </ul>
+     *
+     * <p>Matching is <em>case-sensitive</em>: a signature parameter becomes a named prepared parameter (which is always
+     * case-sensitive), so a reference must use the declared spelling. Signature parameter names <em>shadow</em> columns
+     * of the same (exact) name.
+     *
+     * @param sourceText the full statement text that {@code fragment} was parsed from
+     * @param fragment the subtree to rewrite, e.g. the query body or a declared function's body
+     * @param declaredNames the signature parameter names
+     * @return the text of {@code fragment} with parameter references rewritten
      */
     @Nonnull
-    private static String rewriteReferencesToParams(@Nonnull final String fragment,
+    private static String rewriteReferencesToParams(@Nonnull final String sourceText,
+                                                    @Nonnull final ParserRuleContext fragment,
                                                     @Nonnull final Set<String> declaredNames) {
+        final int fragmentStart = fragment.getStart().getStartIndex();
+        final int fragmentStop = fragment.getStop().getStopIndex() + 1;
         if (declaredNames.isEmpty()) {
-            return fragment;
+            return sourceText.substring(fragmentStart, fragmentStop);
         }
-        final var lexer = new RelationalLexer(new CaseInsensitiveCharStream(fragment));
-        final var tokens = new CommonTokenStream(lexer);
-        tokens.fill();
-        // Splice replacements into the original text by token character offsets — the lexer skips whitespace, so
-        // reconstructing from tokens (e.g. via TokenStreamRewriter) would drop it; editing the original preserves it.
+        final List<RelationalParser.UidContext> references = new ArrayList<>();
+        collectParameterReferences(fragment, declaredNames, references);
+        // Splice by character offset into the original text rather than reconstructing from tokens: the lexer skips
+        // whitespace, so rebuilding (e.g. via TokenStreamRewriter) would drop it.
+        references.sort(Comparator.comparingInt(uid -> uid.getStart().getStartIndex()));
         final var rewritten = new StringBuilder();
-        int copiedUpTo = 0;
-        for (final var token : tokens.getTokens()) {
-            if (token.getType() == RelationalLexer.ID && declaredNames.contains(token.getText())) {
-                rewritten.append(fragment, copiedUpTo, token.getStartIndex());
-                rewritten.append('?').append(token.getText());
-                copiedUpTo = token.getStopIndex() + 1;
+        int copiedUpTo = fragmentStart;
+        for (final var reference : references) {
+            rewritten.append(sourceText, copiedUpTo, reference.getStart().getStartIndex());
+            rewritten.append('?').append(reference.getText());
+            copiedUpTo = reference.getStop().getStopIndex() + 1;
+        }
+        rewritten.append(sourceText, copiedUpTo, fragmentStop);
+        return rewritten.toString();
+    }
+
+    /**
+     * Walks {@code tree} collecting the {@code uid} of every identifier that is used as a value and names one of
+     * {@code declaredNames}. See {@link #rewriteReferencesToParams} for why this shape is the one that matters.
+     */
+    private static void collectParameterReferences(@Nonnull final ParseTree tree,
+                                                   @Nonnull final Set<String> declaredNames,
+                                                   @Nonnull final List<RelationalParser.UidContext> references) {
+        if (tree instanceof RelationalParser.FullColumnNameExpressionAtomContext) {
+            final var uids = ((RelationalParser.FullColumnNameExpressionAtomContext)tree).fullColumnName().fullId().uid();
+            if (uids.size() == 1 && declaredNames.contains(uids.get(0).getText())) {
+                references.add(uids.get(0));
+                return;
             }
         }
-        rewritten.append(fragment, copiedUpTo, fragment.length());
-        return rewritten.toString();
+        for (int i = 0; i < tree.getChildCount(); i++) {
+            collectParameterReferences(tree.getChild(i), declaredNames, references);
+        }
     }
 
     @Nonnull

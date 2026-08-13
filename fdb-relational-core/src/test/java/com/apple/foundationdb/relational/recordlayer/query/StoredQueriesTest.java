@@ -39,6 +39,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.Map;
@@ -633,6 +634,93 @@ public class StoredQueriesTest {
                             "SELECT * FROM t1 WHERE (p IS NULL OR col1 = p) AND col2 = ?param_a",
                     tempFunc);
         }
+    }
+
+    /**
+     * A parameter reference is recognised from its position in the parse tree, not from its spelling: only an
+     * identifier used as a value is rewritten. These are the cases a text-level rewrite would corrupt.
+     */
+    @Test
+    void signatureRewriteOnlyTouchesValuePositions() throws Exception {
+        final var schemaTemplate =
+                "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                        // col1 is also the name of a signature parameter, and is referenced qualified, as an alias,
+                        // and bare.
+                        " CREATE STORED QUERY by_pos(col1 bigint)" +
+                        " AS SELECT t1.col1 AS col1, col2 AS aliased FROM t1 WHERE col2 = col1";
+        try (var ddl = Ddl.builder()
+                .database(URI.create("/TEST/SQ_SIGNATURE_POSITIONS"))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(schemaTemplate)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final var embeddedConnection = connection.unwrap(EmbeddedRelationalConnection.class);
+            embeddedConnection.setAutoCommit(false);
+            embeddedConnection.createNewTransaction();
+            final var template = embeddedConnection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class);
+            embeddedConnection.rollback();
+            embeddedConnection.setAutoCommit(true);
+
+            final var sq = template.getStoredQueries().get("BY_POS");
+            Assertions.assertNotNull(sq);
+            // t1.col1 stays qualified (it can only be a column), AS col1 stays an alias, and only the bare reference
+            // in the WHERE predicate becomes a parameter.
+            Assertions.assertEquals("SELECT t1.col1 AS col1, col2 AS aliased FROM t1 WHERE col2 = ?col1",
+                    sq.getQuery());
+        }
+    }
+
+    @Test
+    void signatureParameterCollidingWithFunctionParameterIsRejected() throws Exception {
+        // p names both a signature parameter and the declared function's own parameter. In the body the two are
+        // indistinguishable, so this is rejected rather than silently capturing the function's parameter.
+        assertSchemaTemplateRejected(
+                "CREATE TABLE t1(id bigint, col1 bigint, PRIMARY KEY(id))" +
+                        " CREATE STORED QUERY by_collision(p bigint)" +
+                        "   DECLARE FUNCTION f1(in p bigint) AS (SELECT * FROM t1 WHERE col1 = p)" +
+                        " AS SELECT id FROM f1(p)",
+                "/TEST/SQ_SIGNATURE_COLLISION");
+    }
+
+    @Test
+    void duplicateSignatureParameterIsRejected() throws Exception {
+        assertSchemaTemplateRejected(
+                "CREATE TABLE t1(id bigint, col1 bigint, PRIMARY KEY(id))" +
+                        " CREATE STORED QUERY by_dup(param_a bigint, param_a bigint)" +
+                        " AS SELECT id FROM t1 WHERE col1 = param_a",
+                "/TEST/SQ_SIGNATURE_DUPLICATE");
+    }
+
+    @Test
+    void nonPrimitiveSignatureParameterIsRejected() throws Exception {
+        assertSchemaTemplateRejected(
+                "CREATE TABLE t1(id bigint, col1 bigint, PRIMARY KEY(id))" +
+                        " CREATE STORED QUERY by_array(param_a bigint array)" +
+                        " AS SELECT id FROM t1 WHERE col1 = param_a",
+                "/TEST/SQ_SIGNATURE_ARRAY");
+    }
+
+    @Test
+    void quotedSignatureParameterIsRejected() throws Exception {
+        // A quoted name could never be matched as a reference, so it is refused rather than silently ignored.
+        assertSchemaTemplateRejected(
+                "CREATE TABLE t1(id bigint, col1 bigint, PRIMARY KEY(id))" +
+                        " CREATE STORED QUERY by_quoted(\"param_a\" bigint)" +
+                        " AS SELECT id FROM t1 WHERE col1 = col1",
+                "/TEST/SQ_SIGNATURE_QUOTED");
+    }
+
+    private void assertSchemaTemplateRejected(@Nonnull final String schemaTemplate,
+                                              @Nonnull final String databaseUri) {
+        Assertions.assertThrows(SQLException.class, () -> {
+            try (var ddl = Ddl.builder()
+                    .database(URI.create(databaseUri))
+                    .relationalExtension(relationalExtension)
+                    .schemaTemplate(schemaTemplate)
+                    .build()) {
+                ddl.setSchemaAndGetConnection();
+            }
+        });
     }
 
     @Test
