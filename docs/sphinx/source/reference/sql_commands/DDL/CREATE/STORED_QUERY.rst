@@ -18,7 +18,7 @@ Syntax
 
 .. code-block:: sql
 
-    CREATE STORED QUERY query_name [ ( parameter_name data_type, ... ) ]
+    CREATE STORED QUERY query_name [ ( parameter_name { data_type | NULL }, ... ) ]
         [ DECLARE
               FUNCTION function_name ( [IN] parameter_name data_type [DEFAULT default_value], ... )
                   AS ( query );
@@ -32,8 +32,8 @@ Parameters
 ``query_name``
     The name of the stored query, unique within the schema template. The name identifies the stored query in metadata; it is not used to invoke the query.
 
-``( parameter_name data_type, ... )`` (signature)
-    Optional. A list of typed named parameters. Each parameter is referenced by name — as a bare identifier, with no ``?`` prefix — anywhere in the declared function bodies or the stored query body. At warm-up each is planned *value-free* from its declared type; at runtime the client re-issues the equivalent SQL with the reference written as a named parameter ``?parameter_name`` and binds it by name (see the signature example below). A parameter type must be primitive, or the keyword ``NULL`` to declare the parameter as *exactly null* — see :ref:`the null-parameter example <stored_query_null_parameter>`.
+``( parameter_name { data_type | NULL }, ... )`` (signature)
+    Optional. A list of typed named parameters. Each parameter is referenced by name — as a bare identifier, with no ``?`` prefix — wherever the stored query body or a declared function body expects a *value*. At warm-up each is planned *value-free* from its declared type; at runtime the client issues the same query with the reference written as a named parameter ``?parameter_name`` and binds it by name (see the signature example below). A parameter type must be primitive, or the keyword ``NULL`` to declare the parameter as *exactly null* — see :ref:`the null-parameter example <stored_query_null_parameter>`.
 
 ``DECLARE`` block
     Optional. Declares one or more transaction-local functions that the stored query body may call, using the same syntax as :ref:`CREATE TEMPORARY FUNCTION <create_temporary_function>`. Multiple functions are separated by semicolons.
@@ -83,7 +83,7 @@ The function definition must match the one declared in the stored query; the inv
 Parameterizing with a signature
 -------------------------------
 
-A stored query signature declares typed named parameters that are used as bare identifiers throughout the declared function bodies and the query body. This warms the plan for *any* runtime value of the declared type, without writing a concrete literal:
+A stored query signature declares typed named parameters. Each is referenced by name — a bare identifier, with no ``?`` prefix — wherever the query body or a declared function body expects a *value*. This warms the plan for *any* runtime value of the declared type, without writing a concrete literal:
 
 .. code-block:: sql
 
@@ -93,7 +93,7 @@ A stored query signature declares typed named parameters that are used as bare i
     AS
         SELECT id FROM f1(param_b)
 
-Here ``param_a`` is captured inside ``f1``'s body (it is not ``f1``'s own parameter ``p``), and ``param_b`` is passed as ``f1``'s argument. Internally each signature parameter becomes a named parameter ``?parameter_name``. At runtime the client re-issues the equivalent SQL — writing each reference as ``?parameter_name`` — and binds the values by name:
+Here ``param_a`` is captured inside ``f1``'s body (it is not ``f1``'s own parameter ``p``), and ``param_b`` is passed as ``f1``'s argument. Internally each signature parameter becomes a named parameter ``?parameter_name``. At runtime the client issues the same query with each reference written as ``?parameter_name``, and binds the values by name:
 
 .. code-block:: sql
 
@@ -102,11 +102,29 @@ Here ``param_a`` is captured inside ``f1``'s body (it is not ``f1``'s own parame
 
     SELECT id FROM f1(?param_b)                                                  -- bind param_b by name, reuses the warmed plan
 
+The runtime statement has to match the stored form token for token, apart from keyword case and whitespace. A statement that is merely *equivalent* produces a different plan-cache key and misses the warmed plan.
+
 Notes:
 
-* Signature parameter types must be **primitive** (or ``NULL`` — see below).
-* A reference must use the parameter's **declared spelling** — matching is case-sensitive, because a signature parameter becomes a named parameter, which is always case-sensitive. A reference written in a different case is treated as an ordinary column.
-* A typed parameter warms the plan for a **non-NULL** value of that type. Binding it to ``NULL`` does not reuse that plan. To pre-warm the null case, declare the parameter as exactly null (below).
+* A parameter type must be **primitive**, or the keyword ``NULL`` (see below). ``ARRAY`` and composite types are rejected.
+* A parameter name must be a **simple unquoted identifier**. A quoted name such as ``"param_a"``, or one spelled as a keyword, is rejected — such a name could not be recognised as a reference in the body.
+* A parameter name may **not** name the same identifier as one of a declared function's own parameters. Given ``FUNCTION f1(IN p BIGINT)``, a signature parameter ``p`` is rejected: inside the body the two would be indistinguishable, so rather than silently capturing one or the other the statement fails. Names are compared as identifiers, so ``p`` and ``P`` also collide unless the connection is case-sensitive.
+* A reference must use the parameter's **declared spelling** — matching is case-sensitive, because a signature parameter becomes a named parameter, which is always case-sensitive. A reference written in a different case is treated as an ordinary column reference.
+* A typed parameter is strictly of that type and **non-NULL**, and warms the plan for such a value. Binding it to ``NULL`` does not reuse that plan; to pre-warm the null case, declare the parameter as exactly null (below).
+* A ``BOOLEAN`` parameter is accepted, but a single plan serves both ``TRUE`` and ``FALSE``. The warmed plan is not specialized for either value, so optimizations that depend on knowing which one it is are not applied.
+
+Because only identifiers in *value* positions become parameters, a signature parameter may share its name with a column. A qualified reference stays a column reference, and an alias stays an alias:
+
+.. code-block:: sql
+
+    CREATE STORED QUERY by_col1(col1 BIGINT)
+    AS SELECT t1.col1 AS col1, col2 FROM t1 WHERE col2 = col1
+
+Only the bare ``col1`` in the ``WHERE`` predicate becomes a parameter; ``t1.col1`` and ``AS col1`` are left alone, so the stored form is:
+
+.. code-block:: sql
+
+    SELECT t1.col1 AS col1, col2 FROM t1 WHERE col2 = ?col1
 
 .. _stored_query_null_parameter:
 
