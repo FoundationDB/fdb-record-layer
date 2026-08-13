@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOption
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -148,11 +149,12 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
      * record-layer exceptions across the module boundary) and passing every other failure through unchanged. Never
      * returns normally; the {@code Void} return type is only there to satisfy {@code exceptionally}.
      */
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static Void translateInsertBackPressure(@Nonnull final Throwable throwable) {
+        final Set<Throwable> seen = Sets.newIdentityHashSet();
         Throwable cause = throwable;
+        seen.add(cause);
         while ((cause instanceof CompletionException || cause instanceof ExecutionException)
-                && cause.getCause() != null && cause.getCause() != cause) {
+                && cause.getCause() != null && seen.add(cause.getCause())) {
             cause = cause.getCause();
         }
         if (cause instanceof ClusterCapacityExceededException) {

@@ -27,9 +27,13 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -42,7 +46,7 @@ import java.util.concurrent.Executor;
  * <p>
  * The register lives in the index's <em>secondary</em> subspace (ungrouped space, separate from the partition/structure
  * data, and cleared with the index on rebuild — see {@code FDBRecordStore.clearIndexData}). It is a single
- * per-partition-prefix count under {@link #PER_PREFIX_DISCRIMINATOR} — {@code prefix -> outstanding tasks} — whose key
+ * per-partition-prefix count under {@link VectorIndexSecondarySubspaceKeys#TASK_COUNTS} — {@code prefix -> outstanding tasks} — whose key
  * is dropped the moment the count returns to zero, so the entries present are exactly the prefixes with work (an
  * unpartitioned index has just the single empty-prefix entry). "Is there any work?" is therefore simply "is that map
  * non-empty?", which needs no separate total counter.
@@ -54,7 +58,8 @@ import java.util.concurrent.Executor;
  * under normal operation, since a task's enqueue/execute and its counter mutation commit and roll back together.
  */
 final class VectorIndexTaskCounts {
-    private static final String PER_PREFIX_DISCRIMINATOR = "taskCount";
+    private static final Logger logger = LoggerFactory.getLogger(VectorIndexTaskCounts.class);
+
     // The 8-byte little-endian encoding of zero — the same width the ADD counters use — as the COMPARE_AND_CLEAR
     // operand that drops a per-prefix entry the instant its count returns to zero.
     private static final byte[] ZERO_COUNT = new byte[Long.BYTES];
@@ -63,7 +68,8 @@ final class VectorIndexTaskCounts {
     private final Subspace perPrefixSubspace;
 
     VectorIndexTaskCounts(@Nonnull final Subspace indexSecondarySubspace) {
-        this.perPrefixSubspace = indexSecondarySubspace.subspace(Tuple.from(PER_PREFIX_DISCRIMINATOR));
+        this.perPrefixSubspace =
+                indexSecondarySubspace.subspace(Tuple.from(VectorIndexSecondarySubspaceKeys.TASK_COUNTS));
     }
 
     /**
@@ -129,15 +135,23 @@ final class VectorIndexTaskCounts {
     @Nonnull
     AsyncIterator<PrefixTaskCount> prefixesWithOutstandingWork(@Nonnull final ReadTransaction snapshot,
                                                                @Nonnull final Executor executor) {
-        // startsWith(getKey()) rather than range(): range() begins at getKey()+0x00 and would skip the empty-prefix
-        // entry of an unpartitioned index (whose key is the subspace key itself).
         final AsyncIterator<PrefixTaskCount> counts =
-                AsyncUtil.mapIterator(snapshot.getRange(Range.startsWith(perPrefixSubspace.getKey())).iterator(),
+                AsyncUtil.mapIterator(snapshot.getRange(range()).iterator(),
                         keyValue -> new PrefixTaskCount(perPrefixSubspace.unpack(keyValue.getKey()),
                                 decodeCount(keyValue.getValue())));
         // A count is dropped as soon as it hits zero, so this normally yields only positive entries; the filter is a
         // cheap guard in case a zero ever lingers.
-        return MoreAsyncUtil.filterRemaining(executor, counts, prefixTaskCount -> prefixTaskCount.count() > 0L);
+        return MoreAsyncUtil.filterRemaining(executor, counts, prefixTaskCount -> {
+            final long count = prefixTaskCount.count();
+            if (count > 0L) {
+                return true;
+            }
+            if (logger.isWarnEnabled()) {
+                logger.warn(KeyValueLogMessage.of("task count for prefix is not positive",
+                        LogMessageKeys.DEFERRED_TASK_COUNT, count));
+            }
+            return false;
+        });
     }
 
     /**
@@ -149,8 +163,15 @@ final class VectorIndexTaskCounts {
     @Nonnull
     CompletableFuture<Boolean> hasOutstandingWork(@Nonnull final ReadTransaction snapshot) {
         // Ask FDB for at most one entry (not the whole, unbounded map) and test the resulting list for emptiness.
-        return snapshot.getRange(Range.startsWith(perPrefixSubspace.getKey()), 1).asList()
+        return snapshot.getRange(range(), 1).asList()
                 .thenApply(keyValues -> !keyValues.isEmpty());
+    }
+
+    @Nonnull
+    private Range range() {
+        // startsWith(getKey()) rather than range(): range() begins at getKey()+0x00 and would skip the empty-prefix
+        // entry of an unpartitioned index (whose key is the subspace key itself).
+        return Range.startsWith(perPrefixSubspace.getKey());
     }
 
     private static long decodeCount(@Nullable final byte[] value) {

@@ -370,8 +370,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         }
         final MaintenanceControlRegister maintenanceControlRegister =
                 getEngine().signalsMergeRequiredToCaller(maintainInTransaction)
-                ? new MaintenanceControlRegister(mergeControl, state.index)
-                : null;
+                ? new MaintenanceControlRegister(mergeControl, state.index) : null;
         if (maintenanceControlRegister != null) {
             registers.add(maintenanceControlRegister);
         }

@@ -29,10 +29,14 @@ import javax.annotation.Nonnull;
 /**
  * A {@link TaskEventRegister} that flags its index as needing a background merge — through the record store's
  * {@link IndexDeferredMaintenanceControl#setMergeRequiredIndexes(Index)} — the first time a deferred maintenance task
- * is enqueued during a write. A caller's commit hook then reads {@link IndexDeferredMaintenanceControl#getMergeRequiredIndexes()}
- * and schedules the merge (this is how Lucene indexes already signal). The maintainer constructs it (it holds the store
- * and index), so the vector engine that fires the callback stays decoupled from the record store. Executing a queued
- * task pays down merge work rather than creating it, so {@link #onTaskExecuted} is a no-op.
+ * is enqueued during an insert or delete operation. A caller's commit hook then reads
+ * {@link IndexDeferredMaintenanceControl#getMergeRequiredIndexes()} and schedules the merge (this is how Lucene indexes
+ * already signal). The maintainer constructs it (it holds the store and index), so the vector engine that fires the
+ * callback stays decoupled from the record store. Executing a queued task pays down merge work rather than creating it,
+ * so {@link #onTaskExecuted} is a no-op.
+ * <p>
+ * It is also worth noting that this register is only used for insert/delete operations as while we are maintaining
+ * the index already that signal is not useful.
  */
 final class MaintenanceControlRegister implements TaskEventRegister {
     @Nonnull
