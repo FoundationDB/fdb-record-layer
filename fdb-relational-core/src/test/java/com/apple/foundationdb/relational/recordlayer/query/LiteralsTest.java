@@ -136,4 +136,35 @@ class LiteralsTest {
                 .isInstanceOf(UncheckedRelationalException.class)
                 .hasMessageContaining("value-free");
     }
+
+    @Test
+    void toStringOnValueFreeLiteralShowsDeclaredTypeInPlaceOfValue() {
+        final var builder = Literals.newBuilder();
+        final var valueFree = builder.addValueFreeLiteral(LONG_TYPE, "param_a", 12);
+
+        // There is no value to render, so the declared type stands in for it, alongside the constant id the parameter
+        // reserved -- which is what a "Missing binding" message names when such a constant is dereferenced.
+        assertThat(valueFree).hasToString("?param_a:{" + LONG_TYPE + "}@" + valueFree.getConstantId());
+        assertThat(valueFree.getConstantId()).isEqualTo("c12");
+    }
+
+    @Test
+    void toStringOnValueFreeLiteralIncludesScope() {
+        final var builder = Literals.newBuilder();
+        builder.setScope("F1");
+        final var valueFree = builder.addValueFreeLiteral(LONG_TYPE, "param_a", 12);
+
+        // Literals compiled inside a function body are namespaced by function name, so two functions may each have a
+        // parameter at the same token index.
+        assertThat(valueFree).hasToString("?param_a:{" + LONG_TYPE + "}@cF112");
+    }
+
+    @Test
+    void toStringOnLiteralBoundToNullIsUnchanged() {
+        final var boundToNull = Literals.newBuilder().addLiteral(LONG_TYPE, null, null, "param_a", 12);
+
+        // A bound named parameter renders as just its name, whether or not its value happens to be NULL. Only the
+        // value-free form carries the type, so the two are distinguishable in a log or a debugger.
+        assertThat(boundToNull).hasToString("?param_a");
+    }
 }

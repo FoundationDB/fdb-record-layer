@@ -204,8 +204,9 @@ public class OrderedLiteral {
     @Override
     public String toString() {
         if (valueFree) {
-            // No value to show, so show the declared type in its place, e.g. "?param_a:{LONG}@c12".
-            return "?" + parameterName + ":{" + type + "}@" + scope.orElse("") + tokenIndex;
+            // No value to show, so show the declared type in its place, e.g. "?param_a:{LONG}@c12". The constant id is
+            // rendered rather than the bare token index, since that is what a Missing binding message reports.
+            return "?" + parameterName + ":{" + type + "}@" + getConstantId();
         }
         return parameterName != null ?
                "?" + parameterName :
