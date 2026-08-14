@@ -36,7 +36,10 @@ import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
@@ -66,6 +69,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
@@ -84,6 +88,11 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 @Tag(Tags.RequiresFDB)
 public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
     private static final Logger logger = LoggerFactory.getLogger(VectorIndexTestBase.class);
+
+    // Max passes of the real merger to drive a vector index's backlog to completion before failing. Each pass is a full
+    // OnlineIndexer.mergeIndex(), which itself loops the per-partition claim/drain internally, so one pass usually
+    // suffices; the bound guards against a task-enqueues-follow-up loop never converging.
+    private static final int MERGE_DRAIN_MAX_PASSES = 200;
 
     /**
      * The index options a subclass creates its vector indexes with. These select the engine
@@ -145,14 +154,27 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
     }
 
     protected void openRecordStore(final FDBRecordContext context, final RecordMetaDataHook hook) throws Exception {
-        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsVectorsProto.getDescriptor());
-        metaDataBuilder.getRecordType("VectorRecord").setPrimaryKey(concatenateFields("group_id", "rec_no"));
-        hook.apply(metaDataBuilder);
-        createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
+        createOrOpenRecordStore(context, metaDataFor(hook));
         // In-transaction vs. deferred index maintenance is a runtime, per-store switch (autoMergeDuringCommit). It
         // defaults to false here (deferred, matching production/CK, so merge tests get a real backlog); a subclass whose
         // scenarios have no background merger (e.g. the behavioral suite) overrides maintainIndexesInTransaction().
         recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(maintainIndexesInTransaction());
+    }
+
+    /**
+     * Builds the {@link RecordMetaData} the vector-index tests use — the {@code VectorRecord} descriptor with the
+     * {@code (group_id, rec_no)} primary key and whatever indexes {@code hook} adds. Shared by {@link #openRecordStore}
+     * and the merge helpers so a test's inserts and its merges operate on identical index subspaces.
+     * @param hook adds the index(es) under test
+     * @return the built metadata
+     */
+    @Nonnull
+    protected RecordMetaData metaDataFor(@Nonnull final RecordMetaDataHook hook) {
+        final RecordMetaDataBuilder metaDataBuilder =
+                RecordMetaData.newBuilder().setRecords(TestRecordsVectorsProto.getDescriptor());
+        metaDataBuilder.getRecordType("VectorRecord").setPrimaryKey(concatenateFields("group_id", "rec_no"));
+        hook.apply(metaDataBuilder);
+        return metaDataBuilder.getRecordMetaData();
     }
 
     /**
@@ -163,6 +185,75 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
      */
     protected boolean maintainIndexesInTransaction() {
         return false;
+    }
+
+    /**
+     * Opens the record store for {@code metaData} at the test's key-space path, bypassing the {@code recordStore}
+     * field/hook machinery — used by the merge helpers, which drive their own {@link OnlineIndexer} transactions.
+     * @param context the context to open under
+     * @param metaData the metadata to open with
+     * @return the opened store
+     */
+    @Nonnull
+    protected FDBRecordStore openStore(@Nonnull final FDBRecordContext context, @Nonnull final RecordMetaData metaData) {
+        return getStoreBuilder(context, metaData, Objects.requireNonNull(path)).createOrOpen();
+    }
+
+    /**
+     * Runs one pass of the real record-layer index merger over {@code indexName} via {@link OnlineIndexer#mergeIndex()}
+     * — the same entry a background merge (e.g. CloudKit's) uses. The merger sets the merge session id and drives the
+     * per-partition claim/drain loop internally, so tests need not hand-roll that bookkeeping.
+     * @param metaData the metadata whose index to merge
+     * @param indexName the vector index to merge
+     */
+    @SuppressWarnings("PMD.CloseResource") // the outer context only builds the store for OnlineIndexer config
+    protected void mergeVectorIndexOnce(@Nonnull final RecordMetaData metaData, @Nonnull final String indexName) {
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore store = openStore(context, metaData);
+            final Index index = store.getRecordMetaData().getIndex(indexName);
+            try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                    .setRecordStore(store)
+                    .setIndex(index)
+                    .setTimer(new FDBStoreTimer())
+                    .build()) {
+                indexer.mergeIndex();
+            }
+        }
+    }
+
+    /**
+     * Drives {@link #mergeVectorIndexOnce} until {@code indexName} has no outstanding deferred-maintenance work
+     * (executing a task can enqueue follow-ups, so a few passes may be needed), failing if it does not converge.
+     * @param metaData the metadata whose index to merge
+     * @param indexName the vector index to drain
+     */
+    protected void mergeVectorIndexToCompletion(@Nonnull final RecordMetaData metaData,
+                                                @Nonnull final String indexName) throws Exception {
+        for (int pass = 0; pass < MERGE_DRAIN_MAX_PASSES; pass++) {
+            mergeVectorIndexOnce(metaData, indexName);
+            if (!vectorIndexHasOutstandingWork(metaData, indexName)) {
+                return;
+            }
+        }
+        throw new AssertionError(String.format("merge did not drain the backlog for %s within %d passes",
+                indexName, MERGE_DRAIN_MAX_PASSES));
+    }
+
+    /**
+     * Whether {@code indexName} still has outstanding deferred-maintenance work, read via its
+     * {@link VectorIndexMaintainer}.
+     * @param metaData the metadata whose index to check
+     * @param indexName the vector index to check
+     * @return whether any partition has outstanding tasks
+     */
+    protected boolean vectorIndexHasOutstandingWork(@Nonnull final RecordMetaData metaData,
+                                                    @Nonnull final String indexName) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore store = openStore(context, metaData);
+            final VectorIndexMaintainer maintainer =
+                    (VectorIndexMaintainer)store.getIndexMaintainer(store.getRecordMetaData().getIndex(indexName));
+            return maintainer.hasOutstandingWork().get();
+        }
     }
 
     protected static Function<Long, VectorRecord> getRecordGenerator(@Nonnull final Random random,

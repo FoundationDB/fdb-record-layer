@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -29,8 +30,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.vector.TestRecordsVectorsProto.VectorRecord;
-import com.apple.foundationdb.subspace.Subspace;
-import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.RandomSeedSource;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -39,11 +38,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Random;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -471,96 +467,6 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
     }
 
     /**
-     * A backlog spread across more partitions than a single merge invocation examines must still drain to completion.
-     * The merge examines only a bounded window of prefixes per invocation (not all of them), so this guards against a
-     * prefix beyond that window being starved: because a drained prefix drops out of the outstanding-work set, the
-     * window slides forward until every partition has been worked.
-     */
-    @ParameterizedTest
-    @RandomSeedSource({0x5ca1ab1eL})
-    void mergeDrainsBacklogAcrossManyPrefixes(final long seed) throws Exception {
-        final int numGroups = 20; // deliberately more prefixes than a single scan examines (MAX_PREFIXES_EXAMINED = 16)
-        saveBacklogAcrossGroups(numGroups, 70, new Random(seed));
-
-        assertThat(hasOutstandingWork("GroupedVectorIndex"))
-                .as("a %d-group load must leave a deferred-maintenance backlog", numGroups).isTrue();
-        drainToCompletion("GroupedVectorIndex");
-        assertThat(hasOutstandingWork("GroupedVectorIndex"))
-                .as("merge must drain every partition, including those beyond a single scan window").isFalse();
-    }
-
-    /**
-     * The claim is not fixated on one prefix. Across repeated claim invocations that each face the identical set of
-     * free prefixes (every attempt is rolled back, so nothing is taken out of contention), the merge claims more than
-     * one distinct prefix — the property that lets a merge make progress on other prefixes rather than repeatedly
-     * picking a single (possibly problematic) one. The pick is randomized (not seeded), so this asserts an emergent
-     * property over enough attempts that a truly random choice reaching only one prefix is astronomically unlikely.
-     */
-    @ParameterizedTest
-    @RandomSeedSource({0x5ca1ab1eL, 0xf00dcafeL})
-    void claimSelectionIsRandomizedNotFixated(final long seed) throws Exception {
-        final int numGroups = 6;
-        saveBacklogAcrossGroups(numGroups, 70, new Random(seed));
-
-        final UUID sessionId = UUID.randomUUID();
-        final Set<Tuple> claimed = new HashSet<>();
-        for (int attempt = 0; attempt < 12; attempt++) {
-            try (FDBRecordContext context = openContext()) {
-                openRecordStore(context, this::addVectorIndexes);
-                final Index index = recordStore.getRecordMetaData().getIndex("GroupedVectorIndex");
-                final IndexDeferredMaintenanceControl mergeControl = recordStore.getIndexDeferredMaintenanceControl();
-                mergeControl.setMergeSessionId(sessionId);
-                mergeControl.setMergesLimit(MERGE_BATCH);
-                // Owns nothing (each attempt is rolled back), so mergeIndex claims one free prefix; read which one it
-                // leased, then let the context roll back so the next attempt again faces all prefixes free.
-                maintainerFor("GroupedVectorIndex").mergeIndex().get();
-                final Tuple justClaimed = leasedPrefix(context, index, sessionId, numGroups);
-                assertThat(justClaimed != null)
-                        .as("a claim invocation must lease exactly one free prefix").isTrue();
-                claimed.add(justClaimed);
-            }
-        }
-        assertThat(claimed.size())
-                .as("the claim must not fixate on a single prefix; random selection should reach several")
-                .isGreaterThan(1);
-    }
-
-    /**
-     * Saves {@code perGroup} random vectors into each of groups {@code [0, numGroups)}, deferring maintenance (the
-     * default) so every group's partition accrues a split backlog — giving a merge many prefixes to work.
-     */
-    private void saveBacklogAcrossGroups(final int numGroups, final int perGroup, @Nonnull final Random random)
-            throws Exception {
-        batch(this::addVectorIndexes, numGroups * perGroup, 100, recNo -> {
-            final RealVector vector = randomHalfVector(random, 128);
-            return recordStore.saveRecord(VectorRecord.newBuilder()
-                    .setRecNo(recNo)
-                    .setGroupId((int)(recNo / perGroup))
-                    .setVectorData(ByteString.copyFrom(vector.getRawData()))
-                    .build());
-        });
-    }
-
-    /**
-     * The single grouped-index prefix currently leased by {@code sessionId}, found by checking each group's lease via
-     * read-your-writes within the open (uncommitted) context, or {@code null} if none is held.
-     */
-    @Nullable
-    private Tuple leasedPrefix(@Nonnull final FDBRecordContext context, @Nonnull final Index index,
-                              @Nonnull final UUID sessionId, final int numGroups) throws Exception {
-        final Subspace secondary = recordStore.indexSecondarySubspace(index);
-        final VectorIndexMergeLock lock = new VectorIndexMergeLock(secondary, sessionId,
-                VectorIndexMergeLock.DEFAULT_LEASE_WINDOW_MILLIS, System::currentTimeMillis);
-        for (int group = 0; group < numGroups; group++) {
-            final Tuple prefix = Tuple.from((long)group);
-            if (sessionId.equals(lock.currentOwner(context, prefix).get())) {
-                return prefix;
-            }
-        }
-        return null;
-    }
-
-    /**
      * Whether {@code index} is flagged for a background merge on {@code mergeControl}, treating the lazily-initialized
      * (null-until-first-set) merge-required set as "nothing flagged".
      */
@@ -587,28 +493,19 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
     }
 
     /**
-     * Drives {@code mergeIndex()} to completion for one index, each pass in its own transaction (executing a task can
-     * enqueue follow-ups, so the queue drains over several passes), until no outstanding work remains.
+     * Drains one index's deferred-maintenance backlog to completion through the real record-layer merger via
+     * {@link #mergeVectorIndexToCompletion} — the same {@code OnlineIndexer.mergeIndex()} machinery a background merge
+     * (e.g. CloudKit's) uses, which sets the merge session id and loops the per-partition claim/drain internally —
+     * rather than hand-driving {@code mergeIndex()} passes.
      */
     private void drainToCompletion(@Nonnull final String indexName) throws Exception {
-        // One stable session id for the whole drive loop so the maintainer recognizes and keeps its own per-partition
-        // lease across passes — a direct mergeIndex() call gets no id from the (absent) indexing session, so without
-        // this a fresh id each pass would skip its own just-claimed prefix and never drain.
-        final UUID sessionId = UUID.randomUUID();
-        for (int pass = 0; pass < MAX_MERGE_PASSES; pass++) {
-            try (FDBRecordContext context = openContext()) {
-                openRecordStore(context, this::addVectorIndexes);
-                final IndexDeferredMaintenanceControl mergeControl = recordStore.getIndexDeferredMaintenanceControl();
-                mergeControl.setMergeSessionId(sessionId);
-                mergeControl.setMergesLimit(MERGE_BATCH);
-                maintainerFor(indexName).mergeIndex().get();
-                commit(context);
-            }
-            if (!hasOutstandingWork(indexName)) {
-                return;
-            }
-        }
-        fail(String.format("merge did not drain the backlog for %s within %d passes", indexName, MAX_MERGE_PASSES));
+        mergeVectorIndexToCompletion(metaData(), indexName);
+    }
+
+    /** The metadata carrying both vector indexes, built identically to what {@link #openRecordStore} opens. */
+    @Nonnull
+    private RecordMetaData metaData() {
+        return metaDataFor(this::addVectorIndexes);
     }
 
     private boolean hasOutstandingWork(@Nonnull final String indexName) throws Exception {

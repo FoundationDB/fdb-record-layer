@@ -26,6 +26,7 @@ import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.CloseableAsyncIterator;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -133,8 +134,8 @@ final class VectorIndexTaskCounts {
      * @return an iterator over the prefixes with outstanding tasks and their counts
      */
     @Nonnull
-    AsyncIterator<PrefixTaskCount> prefixesWithOutstandingWork(@Nonnull final ReadTransaction snapshot,
-                                                               @Nonnull final Executor executor) {
+    CloseableAsyncIterator<PrefixTaskCount> prefixesWithOutstandingWork(@Nonnull final ReadTransaction snapshot,
+                                                                        @Nonnull final Executor executor) {
         final AsyncIterator<PrefixTaskCount> counts =
                 AsyncUtil.mapIterator(snapshot.getRange(range()).iterator(),
                         keyValue -> new PrefixTaskCount(perPrefixSubspace.unpack(keyValue.getKey()),

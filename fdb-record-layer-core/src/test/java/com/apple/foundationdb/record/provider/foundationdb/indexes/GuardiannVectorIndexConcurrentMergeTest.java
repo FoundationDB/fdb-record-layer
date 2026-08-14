@@ -42,7 +42,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.vector.TestRecordsVectorsProto;
@@ -111,7 +110,6 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
     private static final int BATCH_SIZE = 10;
     private static final long INSERT_THROTTLE_MILLIS = 100L;   // throttle writers so the merger can keep pace (lock step)
     private static final long BACK_PRESSURE_BACKOFF_MILLIS = 25L;
-    private static final int MAX_FINAL_MERGE_PASSES = 200;
 
     // Recall verification.
     private static final int RECALL_K = 100;
@@ -165,7 +163,7 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
         final AtomicReference<Throwable> failedMerge = new AtomicReference<>();
         final AtomicBoolean stopMerger = new AtomicBoolean(false);
         // Wake-up permits: inserters release one after each committed batch and the merger blocks acquiring them instead
-        // of polling. A no-work wake-up (a batch that enqueued no split) just fails the cheap hasOutstandingWork gate.
+        // of polling. A no-work wake-up (a batch that enqueued no split) just fails the cheap outstanding-work gate.
         final Semaphore mergeSignal = new Semaphore(0);
 
         // Inserter threads: each owns a disjoint slice of base indices [t, numBase) stepping by INSERTER_THREADS, so
@@ -204,8 +202,8 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
                     try {
                         // The permit only means "a batch committed"; it may not have enqueued a split, so gate the
                         // (transaction-opening) drain on there actually being outstanding work.
-                        if (hasOutstandingWork(metaData)) {
-                            runMergePass(metaData);
+                        if (vectorIndexHasOutstandingWork(metaData, INDEX_NAME)) {
+                            mergeVectorIndexOnce(metaData, INDEX_NAME);
                             mergerPasses.incrementAndGet();
                         }
                     } catch (final Exception e) {
@@ -234,12 +232,13 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
                 committed.get(), conflictRetries.get(), backPressureRetries.get(), mergerPasses.get());
 
         // Drain any residual backlog (and the follow-up tasks draining enqueues) to completion.
-        drainToCompletion(metaData);
+        mergeVectorIndexToCompletion(metaData, INDEX_NAME);
 
         // ---- assertions ----
         // 1. Every base vector was committed exactly once, and the backlog is fully drained.
         assertThat(committed.get()).as("all base vectors committed").isEqualTo(numBase);
-        assertThat(hasOutstandingWork(metaData)).as("backlog fully drained after the final merge").isFalse();
+        assertThat(vectorIndexHasOutstandingWork(metaData, INDEX_NAME))
+                .as("backlog fully drained after the final merge").isFalse();
 
         // 2. Real concurrency actually occurred: writers hit both FDB conflicts and hard-cap back-pressure, and the
         //    merger ran while they did. (If back-pressure never triggered, lower PRIMARY_CLUSTER_HARD_MAX or the
@@ -294,33 +293,6 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
         }
     }
 
-    /** One pass of the real record-layer index merger over the vector index (mirrors Lucene's explicitMergeIndex). */
-    @SuppressWarnings("PMD.CloseResource") // the outer context only builds the store for OnlineIndexer config
-    private void runMergePass(@Nonnull final RecordMetaData metaData) {
-        try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore store = openStore(context, metaData);
-            final Index index = store.getRecordMetaData().getIndex(INDEX_NAME);
-            try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
-                    .setRecordStore(store)
-                    .setIndex(index)
-                    .setTimer(new FDBStoreTimer())
-                    .build()) {
-                indexer.mergeIndex();
-            }
-        }
-    }
-
-    /** Drives the merger to completion after the concurrent phase, until no outstanding deferred work remains. */
-    private void drainToCompletion(@Nonnull final RecordMetaData metaData) throws Exception {
-        for (int pass = 0; pass < MAX_FINAL_MERGE_PASSES; pass++) {
-            runMergePass(metaData);
-            if (!hasOutstandingWork(metaData)) {
-                return;
-            }
-        }
-        throw new AssertionError("merge did not drain the backlog within " + MAX_FINAL_MERGE_PASSES + " passes");
-    }
-
     /**
      * Verifies the on-disk Guardiann structure is internally consistent after the concurrent load + merge: rebuild a
      * raw {@link Guardiann} over the index's subspace — the same keys the record-layer engine wrote — and run
@@ -328,7 +300,7 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
      * the reconstructed {@link Guardiann} is configured exactly as the engine that wrote the data (dimensions,
      * cluster sizes, replication thresholds). This is the no-delete variant (the test only inserts), so it also
      * asserts every replica references a live primary. The checker first drains to quiescence, which is a no-op here
-     * because {@link #drainToCompletion} already emptied the backlog.
+     * because {@link #mergeVectorIndexToCompletion} already emptied the backlog.
      */
     private void assertGuardiannStructureInvariants(@Nonnull final RecordMetaData metaData) {
         final Subspace indexSubspace;
@@ -342,15 +314,6 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
         final Guardiann guardiann = new Guardiann(indexSubspace, fdb.getExecutor(), config,
                 OnWriteListener.NOOP, OnReadListener.NOOP);
         GuardiannStructureAsserts.assertGuardiannInvariants(fdb.database(), guardiann);
-    }
-
-    private boolean hasOutstandingWork(@Nonnull final RecordMetaData metaData) throws Exception {
-        try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore store = openStore(context, metaData);
-            final VectorIndexMaintainer maintainer =
-                    (VectorIndexMaintainer)store.getIndexMaintainer(store.getRecordMetaData().getIndex(INDEX_NAME));
-            return maintainer.hasOutstandingWork().get();
-        }
     }
 
     /** Mean recall@{@link #RECALL_K} of the index over every SIFT query vs. the provided ground truth. */
@@ -392,11 +355,6 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
             } while (continuation != null);
         }
         return recNos;
-    }
-
-    @Nonnull
-    private FDBRecordStore openStore(@Nonnull final FDBRecordContext context, @Nonnull final RecordMetaData metaData) {
-        return getStoreBuilder(context, metaData, Objects.requireNonNull(path)).createOrOpen();
     }
 
     @Nonnull

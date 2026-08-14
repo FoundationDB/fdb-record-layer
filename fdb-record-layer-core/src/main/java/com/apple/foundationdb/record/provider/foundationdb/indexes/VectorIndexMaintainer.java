@@ -23,8 +23,8 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.CloseableAsyncIterator;
 import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.record.CursorStreamingMode;
@@ -390,11 +390,11 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                     }
                 });
         if (maintenanceControlRegister == null) {
-            // HNSW (does everything inline, tracks no work) or a write that drains in-transaction: nothing to signal.
+            // HNSW (does everything inline, tracks no work) or an update that drains in-transaction: nothing to signal.
             return writeFuture;
         }
-        // Keep the merge-required signal self-healing. A write that enqueued a task has already flagged the index
-        // (MaintenanceControlRegister fired on enqueue), so nothing more to do. A write that enqueued nothing has not —
+        // Keep the merge-required signal self-healing. An update that enqueued a task has already flagged the index
+        // (MaintenanceControlRegister fired on enqueue), so nothing more to do. An update that enqueued nothing has not —
         // yet a backlog left by an earlier transaction (or a signal that never led to a merge) must still get merged, so
         // re-raise the flag whenever a snapshot read finds outstanding work. The read is conflict-free and only has to
         // catch a committed backlog; the in-transaction enqueue case is handled by the register above.
@@ -513,6 +513,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
      */
     @Nonnull
     @Override
+    @SuppressWarnings({"PMD.CloseResource", "resource"}) // async iterator is closed explicitly
     public CompletableFuture<Void> mergeIndex() {
         final VectorIndexTaskCounts taskCounts = getEngine().getTaskCounts();
         if (taskCounts == null) {
@@ -537,12 +538,13 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         final VectorIndexMergeLock lock =
                 new VectorIndexMergeLock(state.store.indexSecondarySubspace(state.index), ownerId,
                         VectorIndexMergeLock.DEFAULT_LEASE_WINDOW_MILLIS, System::currentTimeMillis);
-        final AsyncIterator<PrefixTaskCount> prefixes =
+
+        final CloseableAsyncIterator<PrefixTaskCount> prefixes =
                 taskCounts.prefixesWithOutstandingWork(state.context.readTransaction(true), getExecutor());
 
         // Examine at most MAX_PREFIXES_EXAMINED outstanding prefixes rather than every one. Prefer a prefix I already
         // hold a (committed) lease on — that is my drain target this invocation, so stop as soon as I find it.
-        // Otherwise collect the free/stale prefixes seen within the window and later claim one at random, so a
+        // Otherwise, collect the free/stale prefixes seen within the window and later claim one at random, so a
         // problematic prefix is not chosen on every invocation and the other prefixes still get worked. A prefix held
         // live by another owner is skipped. A process holds at most one prefix at a time, so a held prefix is finished
         // before a new one is claimed — hence we look for an owned prefix (within the window) before settling for a
@@ -567,7 +569,10 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                 }
                 return true;
             });
-        }), getExecutor()).thenCompose(ignore -> {
+        }), getExecutor()).whenComplete((ignore, err) -> {
+            // Release the prefix scan's range read once scanning is done, on success or failure, before draining/claiming.
+            prefixes.close();
+        }).thenCompose(ignore -> {
             final PrefixTaskCount owned = drainTarget.get();
             if (owned != null) {
                 return drainOwnedPrefix(lock, owned, indexSubspace, taskCounts, taskBudget, mergeControl);
