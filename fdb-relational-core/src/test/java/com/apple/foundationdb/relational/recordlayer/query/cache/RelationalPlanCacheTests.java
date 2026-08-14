@@ -50,7 +50,6 @@ import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
-import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCacheSchemaKey;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
