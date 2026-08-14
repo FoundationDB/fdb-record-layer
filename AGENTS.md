@@ -30,6 +30,9 @@ JDK 21 is required to build. The code targets Java 17 language compatibility.
 - Always create PRs as **drafts** (`gh pr create --draft`). Let the human decide when it's
   ready for review.
 - Never merge branches or PRs without explicit user consent.
+- Run style/static-analysis checks locally before pushing (see the `using-gradle` skill's
+  "Style / static analysis checks" section) — this mirrors CI's `style` job and catches
+  Checkstyle/PMD/SpotBugs violations before they reach a PR.
 
 ## Test Strategy
 
