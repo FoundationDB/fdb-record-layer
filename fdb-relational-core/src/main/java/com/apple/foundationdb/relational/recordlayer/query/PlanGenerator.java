@@ -284,7 +284,7 @@ public final class PlanGenerator {
 
     @Nonnull
     private static PlanContext enrichWithSecondarySchemas(@Nonnull final PlanContext planContext,
-                                                          @Nonnull final java.util.Map<String, SchemaTemplate> loadedSecondarySchemas) {
+                                                          @Nonnull final Map<String, SchemaTemplate> loadedSecondarySchemas) {
         if (loadedSecondarySchemas.isEmpty()) {
             return planContext;
         }
