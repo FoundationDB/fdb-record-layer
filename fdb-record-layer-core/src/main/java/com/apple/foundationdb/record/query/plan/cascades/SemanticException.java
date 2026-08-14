@@ -53,6 +53,8 @@ public class SemanticException extends RecordCoreException {
         INVALID_UUID_VALUE(13, "Invalid UUID value for the UUID type"),
         INVALID_CAST(14, "Invalid cast operation"),
         COMPARISON_OF_INCOMPATIBLE_TYPES(15, "The operands of a comparison operator are not compatible."),
+        ESCAPE_CHARACTER_CONFLICT(16, "The like operator rejects wildcards as the escape character."),
+        INVALID_ESCAPE_SEQUENCE(17, "The like operator pattern requires all escape characters to be followed by a special character."),
 
         // insert, update, deletes
         UPDATE_TRANSFORM_AMBIGUOUS(1_000, "The transformations used in an UPDATE statement are ambiguous."),
