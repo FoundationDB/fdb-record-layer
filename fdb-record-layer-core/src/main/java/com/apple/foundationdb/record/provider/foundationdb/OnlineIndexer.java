@@ -110,6 +110,10 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull private final Index index; // First target index is used for locks
     @Nonnull private IndexingPolicy indexingPolicy;
     private boolean fallbackToRecordsScan = false;
+    // The first mismatch that was detected during this operation. If the policy adjustments cannot resolve it, this
+    // one - rather than the last one, which reflects an internal fallback - is reported to the caller.
+    @Nullable private IndexingBase.PartlyBuiltException firstPartlyBuiltException = null;
+    private int lastAttemptCount = 0;
 
     @SuppressWarnings("squid:S00107")
     OnlineIndexer(@Nonnull FDBDatabaseRunner runner,
@@ -131,6 +135,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     @Nonnull
     private CompletableFuture<Void> indexingLauncher(Supplier<CompletableFuture<Void>> indexingFunc) {
+        firstPartlyBuiltException = null; // a new operation, forget the previous one's mismatch
         return indexingLauncher(indexingFunc, 0);
     }
 
@@ -150,6 +155,7 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull
     private CompletableFuture<Void> indexingCatcher(Throwable ex, Supplier<CompletableFuture<Void>> indexingFunc, int attemptCount, @Nullable IndexingPolicy requestedPolicy) {
         // (skeleton function, a little long but broken to distinct cases)
+        lastAttemptCount = attemptCount;
         if (ex == null) {
             // A happy index it is
             return AsyncUtil.DONE;
@@ -187,30 +193,32 @@ public class OnlineIndexer implements AutoCloseable {
 
             if (desiredAction == IndexingPolicy.DesiredAction.CONTINUE) {
                 // Make an effort to finish indexing. Attempt continuation of the previous method
-                // Here: match the policy to the previous run
+                // Here: match the policy to the previous run. Every adjustment is attempted once
+                if (firstPartlyBuiltException == null) {
+                    firstPartlyBuiltException = partlyBuiltException;
+                }
+                final IndexingBase.PartlyBuiltException reportedException = firstPartlyBuiltException;
                 IndexBuildProto.IndexBuildIndexingStamp.Method method = conflictingIndexingTypeStamp.getMethod();
-                if (method == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS && !common.isMultiTarget()) {
-                    // Partly built by records. The fallback indicator should handle the policy
-                    fallbackToRecordsScan = true;
-                    return indexingLauncher(indexingFunc, attemptCount);
+                if (!common.isMultiTarget() && !fallbackToRecordsScan) {
+                    if (method == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS ||
+                            method == IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS) {
+                        // Here: Partly built by records, possibly in multi target mode.
+                        fallbackToRecordsScan = true;
+                        return indexingLauncher(indexingFunc, attemptCount);
+                    }
+                    if (method == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX &&
+                            !isPolicySourceIndexOf(conflictingIndexingTypeStamp)) {
+                        // Partly built by index. Retry with the old policy, but preserve the requested policy - in case the old one fails.
+                        Object sourceIndexSubspaceKey = decodeSubspaceKey(conflictingIndexingTypeStamp.getSourceIndexSubspaceKey());
+                        IndexingPolicy origPolicy = indexingPolicy;
+                        indexingPolicy = origPolicy.toBuilder()
+                                .setSourceIndexSubspaceKey(sourceIndexSubspaceKey)
+                                .build();
+                        return indexingLauncher(indexingFunc, attemptCount, origPolicy);
+                    }
                 }
-                if (method == IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS && !common.isMultiTarget()) {
-                    // Partly built by records, in multi target mode. We only allow a fallback from multi target
-                    // to a single target, but not to a subset.
-                    fallbackToRecordsScan = true;
-                    return indexingLauncher(indexingFunc, attemptCount);
-                }
-                if (method == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX && !common.isMultiTarget()) {
-                    // Partly built by index. Retry with the old policy, but preserve the requested policy - in case the old one fails.
-                    Object sourceIndexSubspaceKey = decodeSubspaceKey(conflictingIndexingTypeStamp.getSourceIndexSubspaceKey());
-                    IndexingPolicy origPolicy = indexingPolicy;
-                    indexingPolicy = origPolicy.toBuilder()
-                            .setSourceIndexSubspaceKey(sourceIndexSubspaceKey)
-                            .build();
-                    return indexingLauncher(indexingFunc, attemptCount, origPolicy);
-                }
-                // No other methods (yet). This line should never be reached.
-                throw partlyBuiltException;
+                // Here: no adjustment is left to try
+                throw reportedException;
             }
 
             if (desiredAction == IndexingPolicy.DesiredAction.REBUILD) {
@@ -274,6 +282,14 @@ public class OnlineIndexer implements AutoCloseable {
         throw FDBExceptions.wrapException(ex);
     }
 
+    private boolean isPolicySourceIndexOf(IndexBuildProto.IndexBuildIndexingStamp conflictingIndexingTypeStamp) {
+        // true if the policy already points at the conflicting stamp's source index, hence retrying by this source
+        // index would fail in the very same way
+        final Object policySourceIndexSubspaceKey = indexingPolicy.getSourceIndexSubspaceKey();
+        return policySourceIndexSubspaceKey != null &&
+               policySourceIndexSubspaceKey.equals(decodeSubspaceKey(conflictingIndexingTypeStamp.getSourceIndexSubspaceKey()));
+    }
+
     @Nonnull
     private IndexingByIndex getIndexerByIndex() {
         if (! (indexer instanceof IndexingByIndex)) { // this covers null pointer
@@ -331,6 +347,16 @@ public class OnlineIndexer implements AutoCloseable {
     @VisibleForTesting
     int getConfigLoaderInvocationCount() {
         return common.getConfigLoaderInvocationCount();
+    }
+
+    /**
+     * Get the number of indexing attempts that were made during the last indexing operation. An attempt is retried
+     * only if the indexing policy could be adjusted to handle the failure.
+     * @return the number of indexing attempts
+     */
+    @VisibleForTesting
+    int getLastAttemptCount() {
+        return lastAttemptCount;
     }
 
     /**
