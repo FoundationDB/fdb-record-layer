@@ -404,7 +404,7 @@ class TestStringMethods(unittest.TestCase):
                 "Some filler\n\n{#release-4-1-10-0-mixed-mode-test-results}\n\n<h4> Stuff </h4>"
                 ]:
             with self.subTest(old=old):
-                with self.assertRaises(Exception):
+                with self.assertRaisesRegex(Exception, 'Could not find spot'):
                     replace_note(old.split('\n'), Version('4.1.11.0'), 'banana')
 
     def test_anchors(self) -> None:
@@ -428,7 +428,7 @@ class TestStringMethods(unittest.TestCase):
                 ("4.1.3.0", "{#release-4-1-0-0}"),
                 ("4.2.1.0", "{#release-4-1-18-0}"),
                 ("4.0.1.5", "{#release-4-0-1-4}"),
-                ("4.1.10.0", "{#release-4.1.9.0}"),
+                ("4.1.10.0", "{#release-4-1-9-0}"),
                 ]:
             with self.subTest(new=new_version, line=line):
                 self.assertTrue(Version(new_version).greater_than_precise_version_anchor(line))
