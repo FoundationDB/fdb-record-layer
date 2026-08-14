@@ -30,6 +30,11 @@ JDK 21 is required to build. The code targets Java 17 language compatibility.
 - Always create PRs as **drafts** (`gh pr create --draft`). Let the human decide when it's
   ready for review.
 - Never merge branches or PRs without explicit user consent.
+- Record Layer team members with push access to the upstream repo should branch directly on
+  `FoundationDB/fdb-record-layer` — namespaced as `apple/<github-username>/**` — instead of
+  working from a personal fork. This is required for GitHub's native stacked-PR support (via
+  the `gh stack` CLI extension), since a PR's base branch must live in the same repo as the
+  PR. External contributors without upstream write access should keep using a fork as usual.
 
 ## Test Strategy
 
@@ -74,6 +79,9 @@ Use the appropriate specialized skill for each task type.
 
 ### Working in the SQL processing layer (`fdb-relational-core`)
 → Use the `relational-query-processor` skill.
+
+### Creating or managing stacked pull requests
+→ Use the `stacked-prs` skill.
 
 ## Tooling for AI Assistants
 
