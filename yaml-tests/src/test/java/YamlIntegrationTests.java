@@ -408,7 +408,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPECTATIONS)
     public void schemaTemplateStoredQuerySignatures(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("schema-template-stored-query-signatures.yamsql");
     }
