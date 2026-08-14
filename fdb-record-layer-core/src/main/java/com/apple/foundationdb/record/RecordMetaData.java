@@ -775,9 +775,6 @@ public class RecordMetaData implements RecordMetaDataProvider {
                            @Nonnull final Map<String, String> parameters) {
             this.query = storedQuery;
             this.tempFunctions = List.copyOf(tempFunctions);
-            // ImmutableMap rather than Map.copyOf: the latter randomizes iteration order per JVM run, which would make
-            // the same metadata serialize to different bytes each time. Parameters are looked up by name, so the order
-            // itself carries no meaning — only its stability matters.
             this.parameters = ImmutableMap.copyOf(parameters);
         }
 

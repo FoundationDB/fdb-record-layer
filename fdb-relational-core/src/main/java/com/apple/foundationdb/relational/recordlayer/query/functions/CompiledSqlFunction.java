@@ -203,8 +203,7 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
             Assert.notNullUnchecked(parameterDefaults);
             Assert.notNullUnchecked(parameters);
             return new CompiledSqlFunction(name, parameters.argumentNames(), parameters.underlyingTypes(),
-                    parameterDefaults, Optional.ofNullable(parametersQuantifier).map(Quantifier::getAlias), body,
-                    literals);
+                    parameterDefaults, Optional.ofNullable(parametersQuantifier).map(Quantifier::getAlias), body, literals);
         }
     }
 }

@@ -411,10 +411,13 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             final var parameterName = namedParameterContext.getText().substring(1);
             if (!preparedStatementParameters.hasNamedParamValue(parameterName)
                     && preparedStatementParameters.declaredTypeMaybe(parameterName).isPresent()) {
-                // Value-free warm-up: the named parameter is declared (via a stored-query signature) with a type but
-                // no value. Canonicalize it to ?name — matching a runtime ?name so the plan-cache key lines up — but
-                // pull no value and register no literal, so its constant id stays unbound in the evaluation context.
-                // The declared type is applied during planning (see MutablePlanGenerationContext.processNamedPreparedParam).
+                // Value-free warm-up: the named parameter is declared (via a stored-query signature) with a type but no
+                // value. Canonicalize it to ?name so the canonical query string — and therefore the plan-cache key —
+                // matches what a runtime client sends. No value is pulled, and nothing is added to the normalizer's
+                // literal table; planning registers a value-free literal for it instead, reserving the constant id
+                // without binding it (see MutablePlanGenerationContext.processNamedPreparedParam, which also applies
+                // the declared type). The parameter hash necessarily omits the value there is none of; that is safe
+                // because it feeds continuation binding validation rather than the cache key.
                 if (allowTokenAddition) {
                     final var canonicalName = "?" + parameterName;
                     sqlCanonicalizer.append(canonicalName).append(" ");

@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.planprotos.PQueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
@@ -35,8 +34,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithConstraint;
 import com.google.common.collect.ImmutableList;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -47,9 +44,6 @@ import java.util.stream.Collectors;
  * Represents a query plan constraint.
  */
 public class QueryPlanConstraint implements PlanHashable, PlanSerializable {
-    @Nonnull
-    private static final Logger LOGGER = LoggerFactory.getLogger(QueryPlanConstraint.class);
-
     @Nonnull
     private static final QueryPlanConstraint TAUTOLOGY = new QueryPlanConstraint(ConstantPredicate.TRUE);
 
@@ -69,11 +63,8 @@ public class QueryPlanConstraint implements PlanHashable, PlanSerializable {
             // so it does not match. Dereferencing the absent constant throws MissingBindingException; treating that as
             // unsatisfied is safe — a non-match merely (re)generates the plan and never yields wrong results. Catching
             // only this subtype avoids swallowing other RecordCoreExceptions (e.g. a type-promotion SemanticException).
-            // Logged because the other way to reach this is a genuine binding defect, whose only symptom would
-            // otherwise be a plan that silently never matches.
-            if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug(KeyValueLogMessage.of("Plan constraint references an unbound constant, treating as unsatisfied"), e);
-            }
+            // Deliberately not logged: every lookup that considers a cached value-free plan reaches this, so it is
+            // ordinary control flow rather than a fault, and a log here could not distinguish the two.
             return false;
         }
     }
