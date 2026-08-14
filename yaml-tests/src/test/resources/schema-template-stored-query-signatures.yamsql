@@ -24,6 +24,24 @@
 # rewrite of each reference to `?name`, and the re-parse of the rewritten text. If any of
 # those regress, template creation fails and every test in this file errors out.
 #
+# What each stored query in the template covers. Note these cannot be written as comments
+# next to the queries themselves: a `#` line terminates the plain multi-line scalar that
+# `schema_template` holds, and YAML then expects a new key where the next statement is.
+#   * by_sig         - a typed parameter captured inside a declared function body
+#                      (`param_a`), and one passed as that function's argument (`param_b`).
+#   * by_sig_null    - an exactly-null parameter, which warms a distinct null-specialized
+#                      plan from the typed one above.
+#   * by_types       - a signature spanning two primitive types. BOOLEAN is deliberately
+#                      absent: a boolean's value is plan-determining, so it belongs in the
+#                      body as a literal, where the planner specializes on it and the
+#                      resulting IS_TRUE/IS_FALSE constraint keeps the two plans distinct.
+#                      As a value-free parameter it could carry only "is not null", giving
+#                      one unspecialized plan for both values.
+#   * by_shared_name - a parameter sharing a column's name: only the value position becomes
+#                      a parameter, so `t1.col1` stays a column reference and `as col1`
+#                      stays an alias.
+#   * by_literal     - no signature at all, still working alongside the above.
+#
 # Two things are deliberately NOT covered here, both for the same reason - they need control
 # the framework does not give a yamsql test:
 #   * plan-cache warm-up. It runs once when the engine is constructed, against templates
@@ -42,29 +60,20 @@ options:
 schema_template:
     create table t1(id bigint, col1 bigint, col2 bigint, name string, flag boolean, primary key(id))
     create index i1 as select col1 from t1
-    # a typed parameter captured inside a declared function body, and one passed as its argument
     create stored query by_sig(param_a bigint, param_b bigint)
         declare
             function f1(in p bigint) as (select * from t1 where (p is null or col1 = p) and col2 = param_a)
     as
         select id from f1(param_b)
-    # exactly-null parameter: a distinct, null-specialized plan from the typed one above
     create stored query by_sig_null(param_a bigint, param_b null)
         declare
             function f2(in p bigint) as (select * from t1 where (p is null or col1 = p) and col2 = param_a)
     as
         select id from f2(param_b)
-    # every primitive type a signature may declare. BOOLEAN is deliberately absent: a boolean's value is
-    # plan-determining, so it belongs in the body as a literal where the planner specializes on it and the
-    # IS_TRUE/IS_FALSE constraint keeps the two plans distinct. As a value-free parameter it could carry only
-    # "is not null", giving one unspecialized plan for both values.
     create stored query by_types(a bigint, b string)
         as select id from t1 where col1 = a and name = b and flag = true
-    # a parameter may share a column's name: only the value position becomes a parameter, so
-    # `t1.col1` stays a column reference and `as col1` stays an alias
     create stored query by_shared_name(col1 bigint)
         as select t1.col1 as col1, col2 from t1 where col2 = col1
-    # no signature at all still works alongside the above
     create stored query by_literal as select * from t1 where col1 = 1
 ---
 setup:
