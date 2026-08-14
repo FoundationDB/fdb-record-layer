@@ -96,14 +96,14 @@ test_block:
     -
       - query: select * from B WHERE B2 NOT LIKE 'Z' ESCAPE 'Z'
       - supported_version: !current_version
-      - error: '22025'
+      - error: INVALID_ESCAPE_SEQUENCE
     -
       - query: select * from B WHERE B2 NOT LIKE '\'
       - result: [{1, 'Y'}, {2, 'Z'}, {3, 'A'}, {4, Z}, {5, 'B'}]
     -
       - query: select * from B WHERE B2 NOT LIKE '\' ESCAPE '\'
       - supported_version: !current_version
-      - error: '22025'
+      - error: INVALID_ESCAPE_SEQUENCE
     -
       - query: select * from B WHERE B2 LIKE 'Z'
       - result: [{2, 'Z'}, {4, 'Z'}]
@@ -115,51 +115,49 @@ test_block:
       - initialVersionAtLeast: !current_version
       - result: []
       - initialVersionLessThan: !current_version
-      - error: 'XX000'
+      - error: INTERNAL_ERROR
     -
       - query: select * from A WHERE A1 NOT LIKE NULL
       - initialVersionAtLeast: !current_version
       - result: []
       - initialVersionLessThan: !current_version
-      - error: 'XX000'
+      - error: INTERNAL_ERROR
     -
       - query: select * from A WHERE NULL LIKE NULL
       - initialVersionAtLeast: !current_version
       - result: []
       - initialVersionLessThan: !current_version
-      - error: 'XX000'
+      - error: INTERNAL_ERROR
     -
       - query: select * from A WHERE NULL NOT LIKE NULL
       - initialVersionAtLeast: !current_version
       - result: []
       - initialVersionLessThan: !current_version
-      - error: 'XX000'
+      - error: INTERNAL_ERROR
     -
       - query: select * from A WHERE A1 LIKE 4
       - initialVersionAtLeast: !current_version
-      # INVALID_ARGUMENT_FOR_FUNCTION as LIKE requires a string
-      - error: '22F00'
+      # LIKE requires a string for its pattern
+      - error: INVALID_ARGUMENT_FOR_FUNCTION
       - initialVersionLessThan: !current_version
-      # Previously: INTERNAL_ERROR
-      - error: 'XX000'
+      - error: INTERNAL_ERROR
     -
       - query: select * from B WHERE B1 LIKE 'A'
       - initialVersionAtLeast: !current_version
-      # INVALID_ARGUMENT_FOR_FUNCTION as LIKE requires a string
-      - error: '22F00'
+      # LIKE requires a string for text field
+      - error: INVALID_ARGUMENT_FOR_FUNCTION
       - initialVersionLessThan: !current_version
-      # Previously: INTERNAL_ERROR
-      - error: 'XX000'
+      - error: INTERNAL_ERROR
     -
       - query: select * from A WHERE A1 LIKE 'A' ESCAPE 4
-      # SYNTAX_ERROR as "ESCAPE" expects to be followed by a string literal.
+      # "ESCAPE" expects to be followed by a string literal.
       # Arguably, should be INVALID_ARGUMENT_FOR_FUNCTION
-      - error: '42601'
+      - error: SYNTAX_ERROR
     -
       - query: select * from A WHERE A1 LIKE 'A' ESCAPE NULL
-      # SYNTAX_ERROR as "ESCAPE" expects to be followed by a string literal.
+      # "ESCAPE" expects to be followed by a string literal.
       # Arguably, should be treated just like a missing ESCAPE
-      - error: '42601'
+      - error: SYNTAX_ERROR
     -
       - query: select * from A WHERE A1 LIKE 'A'
       - result: []
@@ -407,27 +405,24 @@ test_block:
     -
       - query: select * from A WHERE A1 LIKE '%' ESCAPE 'ab'
       - initialVersionAtLeast: !current_version
-      # INVALID_ESCAPE_CHARACTER (escape character is too long)
-      - error: '22019'
+      # Escape "character" is too long
+      - error: INVALID_ESCAPE_CHARACTER
       - initialVersionLessThan: !current_version
-      # Previously: INTERNAL_ERROR
-      - error: 'XX000'
+      - error: INTERNAL_ERROR
     -
       - query: select * from A WHERE A1 LIKE '%' ESCAPE ''
       - initialVersionAtLeast: !current_version
-      # INVALID_ESCAPE_CHARACTER (empty escape character)
-      - error: '22019'
+      # Escape character is empty
+      - error: INVALID_ESCAPE_CHARACTER
       - initialVersionLessThan: !current_version
-      # Previously: INTERNAL_ERROR
-      - error: 'XX000'
+      - error: INTERNAL_ERROR
     -
       - query: select * from A WHERE A1 LIKE '%' ESCAPE '👍'
       - initialVersionAtLeast: !current_version
-      # INVALID_ESCAPE_CHARACTER (currently treated as a length 2 string as that is the number of UTF-16 chars)
-      - error: '22019'
+      # Escape character currently treated as a length 2 string as that is the number of UTF-16 chars
+      - error: INVALID_ESCAPE_CHARACTER
       - initialVersionLessThan: !current_version
-      # Previously: INTERNAL_ERROR
-      - error: 'XX000'
+      - error: INTERNAL_ERROR
     -
       - query: select * from A WHERE A1 LIKE '\%'
       - unorderedResult: [{'\\||%'}, {'\xyz'}]
@@ -488,11 +483,11 @@ test_block:
            {'a?xyz'},
       ]
     -
-      # Character '%' used as an escape instead of a wildcard. This thus only matches the literal percent sign
+      # Reject using the character '%' as an escape instead of a wildcard.
+      # If we did accept this, we'd expect it to only match the literal '%'.
       - query: select * from A WHERE A1 LIKE '%%' ESCAPE '%'
       - supported_version: !current_version
-      # ESCAPE_CHARACTER_CONFLICT (rejecting '%' as an escape)
-      - error: '2200B'
+      - error: ESCAPE_CHARACTER_CONFLICT
     -
       - query: select * from A WHERE A1 LIKE '%%%'
       - unorderedResult: [
@@ -520,11 +515,11 @@ test_block:
            {'a?xyz'},
       ]
     -
-      # Character '%' used as an escape instead of a wildcard. The odd number results in a malformed sequence which matches nothing
+      # Reject using the character '%' as an escape instead of a wildcard.
+      # The odd number here would result in an INVALID_ESCAPE_SEQUENCE if we allowed it
       - query: select * from A WHERE A1 LIKE '%%%' ESCAPE '%'
       - supported_version: !current_version
-      # ESCAPE_CHARACTER_CONFLICT (rejecting '%' as an escape)
-      - error: '2200B'
+      - error: ESCAPE_CHARACTER_CONFLICT
     -
       - query: select * from A WHERE A1 NOT LIKE '|_|_%' ESCAPE '|'
       - unorderedResult: [
@@ -576,8 +571,7 @@ test_block:
       # Reject pattern where 'b' escapes a non-wildcard 'c'. If we instead interpreted this as dropping the 'b', then we'd find that this excluded '<acdefghijk>'
       - query: select * from A WHERE A1 NOT LIKE '%abcde%' ESCAPE 'b'
       - supported_version: !current_version
-      # INVALID_ESCAPE_SEQUENCE (as 'b' precedes 'c')
-      - error: '22025'
+      - error: INVALID_ESCAPE_SEQUENCE
     -
       - query: select * from A WHERE A1 LIKE 'a%z'
       - unorderedResult: [
@@ -643,18 +637,17 @@ test_block:
       # Reject sequences where the escape character is not followed by a special character
       - query: select * from A WHERE A1 LIKE '_abc%' ESCAPE 'b'
       - supported_version: !current_version
-      # INVALID_ESCAPE_SEQUENCE (as 'b' precedes 'c')
-      - error: '22025'
+      - error: INVALID_ESCAPE_SEQUENCE
     -
       - query: select * from A WHERE A1 LIKE '%%abc%' ESCAPE 'b'
       - supported_version: !current_version
       # INVALID_ESCAPE_SEQUENCE (as 'b' precedes 'c')
-      - error: '22025'
+      - error: INVALID_ESCAPE_SEQUENCE
     -
       - query: select * from A WHERE A1 LIKE 'b%b%abc%' ESCAPE 'b'
       - supported_version: !current_version
       # INVALID_ESCAPE_SEQUENCE (as 'b' precedes 'c')
-      - error: '22025'
+      - error: INVALID_ESCAPE_SEQUENCE
     -
       # No error here as even though 'b' precedes 'c', it's escaped by another 'b'
       - query: select * from A WHERE A1 LIKE 'b%b%abbc%' ESCAPE 'b'
