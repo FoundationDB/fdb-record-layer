@@ -55,6 +55,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -585,6 +586,71 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         try (FDBRecordContext context = openContext()) {
             assertTrue(recordStore.getIndexState(indexes.get(1)).isReadable());
             context.commit();
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testMultiTargetPartlyBuiltContinueByIndex(boolean allowTakeover) {
+        // After a multi target crash, continue a single target by a source index. The by-index attempt and the
+        // by-records fallback are each attempted once, and the fallback may take over the multi target stamp only if
+        // the takeover is allowed.
+
+        final int numRecords = 40;
+        final int chunkSize  = 7;
+
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+
+        populateData(numRecords);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+
+        // 1. partly build multi
+        buildIndexAndCrashHalfway(chunkSize, 3, new FDBStoreTimer(), newIndexerBuilder(indexes));
+
+        // 2. finish "indexB", to be used as a source index. The others keep the multi target stamp
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes.get(0))
+                .setLimit(chunkSize)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .allowTakeoverContinue())
+                .build()) {
+            indexBuilder.buildIndex();
+        }
+
+        // 3. continue "indexA" by a source index
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes.get(1))
+                .setLimit(chunkSize)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setSourceIndex(indexes.get(0).getName())
+                        .allowTakeoverContinue(allowTakeover))
+                .build()) {
+            if (allowTakeover) {
+                indexBuilder.buildIndex();
+            } else {
+                // Without a takeover, neither attempt may continue the multi target build. The reported mismatch is
+                // the requested by-index one, not the internal by-records fallback.
+                final RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+                final IndexingBase.PartlyBuiltException partlyBuilt = IndexingBase.getAPartlyBuiltExceptionIfApplicable(e);
+                assertNotNull(partlyBuilt, () -> "expected a PartlyBuiltException, got " + e);
+                assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS, partlyBuilt.getSavedStamp().getMethod());
+                assertTrue(partlyBuilt.getSavedStamp().getTargetIndexList().containsAll(List.of("indexA", "indexB", "indexC")));
+                assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX, partlyBuilt.getExpectedStamp().getMethod());
+            }
+            // by index, then a single fallback to by records - never up to the attempts recursion limit
+            assertEquals(2, indexBuilder.getLastAttemptCount());
+        }
+
+        if (allowTakeover) {
+            try (FDBRecordContext context = openContext()) {
+                assertTrue(recordStore.getIndexState(indexes.get(1)).isReadable());
+                context.commit();
+            }
+            scrubAndValidate(List.of(indexes.get(0), indexes.get(1)));
         }
     }
 
