@@ -427,7 +427,8 @@ class TestStringMethods(unittest.TestCase):
                 ("4.1.1.0", "{#release-4-0-10-0}"),
                 ("4.1.3.0", "{#release-4-1-0-0}"),
                 ("4.2.1.0", "{#release-4-1-18-0}"),
-                ("4.0.1.5", "{#release-4-0-1-4}")
+                ("4.0.1.5", "{#release-4-0-1-4}"),
+                ("4.1.10.0", "{#release-4.1.9.0}"),
                 ]:
             with self.subTest(new=new_version, line=line):
                 self.assertTrue(Version(new_version).greater_than_precise_version_anchor(line))
@@ -435,7 +436,8 @@ class TestStringMethods(unittest.TestCase):
         for (new_version, line) in [
                 ("4.1.1.0", "{#release-4-0}"),
                 ("4.2.1.0", "{#release-4-1}"),
-                ("4.0.1.0", "{#release-3-8}")
+                ("4.0.1.0", "{#release-3-8}"),
+                ("4.10.1.0", "{#release-4-9}"),
                 ]:
             with self.subTest(new=new_version, line=line):
                 self.assertTrue(Version(new_version).greater_than_minor_version_anchor(line))
