@@ -338,7 +338,7 @@ public final class QueryInterpreter {
                 }
             }
         } catch (Exception e) {
-            throw executionContext.wrapContext(e, () -> String.format(Locale.ROOT, "‼️ Error initializing query executor for query %s at %s", query, reference), "query", reference);
+            throw YamlExecutionContext.wrapContext(e, () -> String.format(Locale.ROOT, "‼️ Error initializing query executor for query %s at %s", query, reference), "query", reference);
         }
     }
 
