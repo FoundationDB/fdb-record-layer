@@ -362,12 +362,11 @@ public abstract class QueryConfig {
             @Override
             protected void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
                                                @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException {
-                if (actual instanceof RelationalResultSet) {
-                    final var resultSet = (RelationalResultSet) actual;
+                if (actual instanceof final RelationalResultSet resultSet) {
                     // slurp
                     boolean valid = true;
                     while (valid) { // suppress check style
-                        valid = ((RelationalResultSet) actual).next();
+                        valid = resultSet.next();
                     }
                     resultSet.close();
                 }

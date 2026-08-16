@@ -66,7 +66,7 @@ import java.util.Map;
  *     YAMSQL source file to be updated with the actual column metadata rather than failing the test.
  * </p>
  */
-@SuppressWarnings("PMD.GuardLogStatement")
+@SuppressWarnings({"PMD.AvoidCatchingThrowable", "PMD.GuardLogStatement"})
 public class CheckResultMetadataConfig extends QueryConfig {
     private static final Logger logger = LogManager.getLogger(CheckResultMetadataConfig.class);
 

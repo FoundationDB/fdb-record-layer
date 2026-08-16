@@ -56,6 +56,7 @@ import java.util.Objects;
  + * metrics, this will record the actual values via the {@link YamlExecutionContext}, which will save them when the
  + * test completes.
  + */
+@SuppressWarnings("PMD.AvoidCatchingThrowable")
 public class CheckExplainConfig extends QueryConfig {
 
     private static final Logger logger = LogManager.getLogger(CheckExplainConfig.class);
