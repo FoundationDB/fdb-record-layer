@@ -344,10 +344,10 @@ _
   4 -> 3 [ label=<&nbsp;q19> label="q19" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q26> label="q26" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}œ
+}‰
 _
-nested-with-nulls-proto-tests>EXPLAIN select id from t1 where coalesce(a.b.a, 'foo') IS NULL¸
-öØ›ŸB ý»«(0ƒ¥8@lSCAN(<,>) | TFILTER T1 | FILTER coalesce_string(_.A.B.A, promote(@c13 AS STRING)) IS_NULL | MAP (_.ID AS ID)¬digraph G {
+nested-with-nulls-proto-tests>EXPLAIN select id from t1 where coalesce(a.b.a, 'foo') IS NULL¥
+öØ›ŸB ý»«(0ƒ¥8@YSCAN(<,>) | TFILTER T1 | FILTER coalesce_string(_.A.B.A, @c13) IS_NULL | MAP (_.ID AS ID)¬digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

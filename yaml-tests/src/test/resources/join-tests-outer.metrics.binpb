@@ -583,10 +583,10 @@ z
     rankDir=LR;
     5 -> 4 [ color="red" style="invis" ];
   }
-}‹/
+}ú.
 k
-left-outer-joinXEXPLAIN SELECT COUNT(*) FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id";›.
-Íù¼Ýš ÁÖ„(60é¼8F@ûISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY NULL AS q1 RETURN ((q0.id AS _0, q0.fname AS _1, q0.lname AS _2, q0.dept_id AS _3, q1.id AS _4, q1.name AS _5) AS _0) } | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)þ*digraph G {
+left-outer-joinXEXPLAIN SELECT COUNT(*) FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id";Š.
+Íù¼Ýš ÁÖ„(60é¼8F@êISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY NULL AS q1 RETURN ((q0.id AS _0, q0.fname AS _1, q0.lname AS _2, q0.dept_id AS _3, q1.id AS _4, q1.name AS _5) AS _0) } | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)þ*digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -682,10 +682,10 @@ k
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}…"
+}ò!
 Œ
-left-outer-joinyEXPLAIN SELECT "e"."fname", COALESCE("d"."name", 'None') FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id";ó 
-é¼¢Ù„ •»÷(20ø¶8=@òISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY NULL AS q1 RETURN (q0.fname AS fname, coalesce_string(q1.name, promote(@c11 AS STRING)) AS _1) }ßdigraph G {
+left-outer-joinyEXPLAIN SELECT "e"."fname", COALESCE("d"."name", 'None') FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id";à 
+é¼¢Ù„ •»÷(20ø¶8=@ßISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY NULL AS q1 RETURN (q0.fname AS fname, coalesce_string(q1.name, @c11) AS _1) }ßdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1209,10 +1209,10 @@ m
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}ç
+}Ô
 Ž
-right-outer-joinzEXPLAIN SELECT COALESCE("e"."fname", 'None'), "d"."name" FROM "emp" "e" RIGHT JOIN "dept" "d" ON "e"."dept_id" = "d"."id";Ó
-Ì½Á¸€ ÚëÙ(10Ìî87@ÅISCAN(dept$name <,>) | FLATMAP q0 -> { ISCAN(emp$fname <,>) | FILTER _.dept_id EQUALS q0.id | ON EMPTY NULL AS q1 RETURN (coalesce_string(q1.fname, promote(@c7 AS STRING)) AS _0, q0.name AS name) }ìdigraph G {
+right-outer-joinzEXPLAIN SELECT COALESCE("e"."fname", 'None'), "d"."name" FROM "emp" "e" RIGHT JOIN "dept" "d" ON "e"."dept_id" = "d"."id";À
+Ì½Á¸€ ÚëÙ(10Ìî87@²ISCAN(dept$name <,>) | FLATMAP q0 -> { ISCAN(emp$fname <,>) | FILTER _.dept_id EQUALS q0.id | ON EMPTY NULL AS q1 RETURN (coalesce_string(q1.fname, @c7) AS _0, q0.name AS name) }ìdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

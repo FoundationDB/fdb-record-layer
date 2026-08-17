@@ -120,10 +120,10 @@ index-scan&EXPLAIN SELECT * from t2 where d = 201¸
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c8 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C, LONG AS D)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C, LONG AS D)" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ä
+}Ó
 2
-table-isolationEXPLAIN SELECT count(*) from t1…
-øµ√‘L Ö‚Ω(0°”K8!@èISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ôdigraph G {
+table-isolationEXPLAIN SELECT count(*) from t1∑
+øµ√‘L Ö‚Ω(0°”K8!@~ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)ôdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -138,10 +138,10 @@ index-scan&EXPLAIN SELECT * from t2 where d = 201¸
   5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ä
+}Ó
 2
-table-isolationEXPLAIN SELECT count(*) from t2…
-ø”ÇÅ	L ∞ÅÌ(0ÅÅI8!@èISCAN(I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ôdigraph G {
+table-isolationEXPLAIN SELECT count(*) from t2∑
+ø”ÇÅ	L ∞ÅÌ(0ÅÅI8!@~ISCAN(I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)ôdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

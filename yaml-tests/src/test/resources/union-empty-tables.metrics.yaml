@@ -3,7 +3,7 @@ unnamed-1:
     ref: union-empty-tables.yamsql:33
     explain: SCAN([IS T1]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0, count_star(*)
         AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1,
-        promote(0l AS LONG)) AS B)
+        0l) AS B)
     task_count: 247
     task_total_time_ms: 4
     transform_count: 62
@@ -17,11 +17,10 @@ unnamed-1:
     ref: union-empty-tables.yamsql:37
     explain: SCAN([IS T1]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0, count_star(*)
         AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1,
-        promote(0l AS LONG)) AS B) ⊎ SCAN([IS T2]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1)
-        AS _0, count_star(*) AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS
-        A, coalesce_long(_._0._1, promote(0l AS LONG)) AS B) | MAP (_ AS _0) | AGG
-        (sum_l(_._0.A) AS _0, sum_l(_._0.B) AS _1) GROUP BY () | ON EMPTY NULL | MAP
-        (_._0._0 AS A, _._0._1 AS B)
+        0l) AS B) ⊎ SCAN([IS T2]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0, count_star(*)
+        AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1,
+        0l) AS B) | MAP (_ AS _0) | AGG (sum_l(_._0.A) AS _0, sum_l(_._0.B) AS _1)
+        GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS A, _._0._1 AS B)
     task_count: 665
     task_total_time_ms: 21
     transform_count: 165
@@ -179,10 +178,10 @@ unnamed-1:
     ref: union-empty-tables.yamsql:85
     explain: 'AISCAN(MV10 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1)
         GROUP BY () | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
-        promote(0l AS LONG)) AS Y) ⊎ SCAN([IS T1]) | MAP (_ AS _0) | AGG (count_star(*)
-        AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
-        AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () |
-        ON EMPTY NULL | MAP (_._0._0 AS S)'
+        0l) AS Y) ⊎ SCAN([IS T1]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP
+        BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0) | MAP (_ AS
+        _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0
+        AS S)'
     task_count: 775
     task_total_time_ms: 54
     transform_count: 197
