@@ -22,14 +22,17 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.vector.TestRecordsVectorsProto.VectorRecord;
+import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.RandomSeedSource;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -287,6 +290,42 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
             maintainer.mergeIndex().get();
             assertThat(maintainer.hasOutstandingWork().get()).isFalse();
             commit(context);
+        }
+    }
+
+    /**
+     * A negative deferred-task count is an impossible, corrupt state (the conflict-free ADD/COMPARE_AND_CLEAR counter
+     * only ever moves toward, and is dropped at, zero). A merge that observes one must not fail on bad accounting: it
+     * disables the index (a graceful, no-throw outcome mirroring the pending-write-queue overflow) so the corrupt
+     * index is rebuilt rather than merged forever. Here the corruption is forged by driving the single (empty) prefix's
+     * counter to {@code -1} with a lone decrement (an ADD of {@code -1} to an absent key), which decodes as a negative
+     * long; after the merge, the index is {@link IndexState#DISABLED}.
+     */
+    @Test
+    void mergeDisablesTheIndexOnANegativeTaskCount() throws Exception {
+        final RecordMetaData metaData = metaDataFor(this::addUngroupedVectorIndex);
+        final String indexName = "UngroupedVectorIndex";
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore store = openStore(context, metaData);
+            final Index index = store.getRecordMetaData().getIndex(indexName);
+            assertThat(store.getIndexState(index))
+                    .as("precondition: the index starts readable").isEqualTo(IndexState.READABLE);
+            // Forge the impossible state on the index's single (empty) prefix.
+            new VectorIndexTaskCounts(store.indexSecondarySubspace(index))
+                    .decrement(context.ensureActive(), Tuple.from());
+            commit(context);
+        }
+
+        // The merge observes the negative count; it must complete gracefully (no throw) by disabling the corrupt index.
+        mergeVectorIndexOnce(metaData, indexName);
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore store = openStore(context, metaData);
+            final Index index = store.getRecordMetaData().getIndex(indexName);
+            assertThat(store.getIndexState(index))
+                    .as("a negative deferred-task count must disable the vector index")
+                    .isEqualTo(IndexState.DISABLED);
         }
     }
 

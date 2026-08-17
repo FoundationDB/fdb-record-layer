@@ -34,6 +34,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.entry;
 
 /**
@@ -210,6 +211,86 @@ class VectorIndexTaskCountsTest extends VectorIndexTestBase {
                     .as("clearing a group removes its count and leaves the other groups untouched")
                     .containsOnly(entry(groupTwo, 1L));
         }
+    }
+
+    /**
+     * A strictly-negative count is impossible under the conflict-free ADD/COMPARE_AND_CLEAR accounting, so a
+     * point read of one must surface {@link VectorIndexTaskCounts.NegativeTaskCountException} rather than quietly read
+     * it as "drained" — that exception is what lets a merge disable the corrupt index instead of releasing its lease
+     * on bad state. A lone decrement of an absent counter is the simplest way to drive it below zero (ADD {@code -1}
+     * to an absent key leaves {@code -1}).
+     */
+    @Test
+    void countForThrowsOnANegativeTaskCount() throws Exception {
+        final VectorIndexTaskCounts counts = new VectorIndexTaskCounts(secondarySubspace());
+        final Tuple prefix = Tuple.from(7L);
+
+        try (FDBRecordContext context = openContext()) {
+            counts.decrement(context.ensureActive(), prefix);
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext()) {
+            assertThatThrownBy(() -> counts.countFor(context.readTransaction(true), prefix).get())
+                    .as("a negative count must surface as NegativeTaskCountException, not read as drained")
+                    .hasRootCauseInstanceOf(VectorIndexTaskCounts.NegativeTaskCountException.class);
+        }
+    }
+
+    /**
+     * The same guard on the discovery path: streaming the prefixes with outstanding work must surface a negative count
+     * rather than emit it as if it were real work, so the merge driver disables the index instead of trying to drain a
+     * corrupt prefix.
+     */
+    @Test
+    void discoveryThrowsOnANegativeTaskCount() throws Exception {
+        final VectorIndexTaskCounts counts = new VectorIndexTaskCounts(secondarySubspace());
+        final Tuple prefix = Tuple.from(7L);
+
+        try (FDBRecordContext context = openContext()) {
+            counts.decrement(context.ensureActive(), prefix);
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext()) {
+            assertThatThrownBy(() -> collectPrefixes(counts, context))
+                    .as("outstanding-work discovery must surface a negative count rather than emit it")
+                    .hasRootCauseInstanceOf(VectorIndexTaskCounts.NegativeTaskCountException.class);
+        }
+    }
+
+    /**
+     * A lingering <em>zero</em> is benign, not corrupt: the accounting only stops distinguishing "healthy" from
+     * "corrupt" at strictly-negative. A zero is normally dropped the instant it is reached, so force a raw zero entry
+     * to exercise the branch — a point read reads it as zero (never throwing) and discovery filters it out with a
+     * warning rather than treating it as the fatal negative case.
+     */
+    @Test
+    void lingeringZeroCountIsFilteredNotFatal() throws Exception {
+        final Subspace secondary = secondarySubspace();
+        final VectorIndexTaskCounts counts = new VectorIndexTaskCounts(secondary);
+        final Tuple prefix = Tuple.from(7L);
+
+        // Write the 8-byte little-endian zero the ADD counters use directly, since COMPARE_AND_CLEAR would otherwise
+        // drop a genuine zero the moment it is reached.
+        try (FDBRecordContext context = openContext()) {
+            context.ensureActive().set(countKey(secondary, prefix), new byte[Long.BYTES]);
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext()) {
+            assertThat(counts.countFor(context.readTransaction(true), prefix).get())
+                    .as("a lingering zero reads as zero, never throwing").isEqualTo(0L);
+            assertThat(collectPrefixes(counts, context))
+                    .as("a lingering zero is filtered out of discovery, not fatal").isEmpty();
+        }
+    }
+
+    /**
+     * The on-disk counter key {@link VectorIndexTaskCounts} maintains for {@code prefix}: the index's secondary
+     * subspace, decorated with the {@code TASK_COUNTS} prefix, packed with the partition prefix — reconstructed here so
+     * a test can plant a raw value the public {@code increment}/{@code decrement} API cannot produce.
+     */
+    @Nonnull
+    private static byte[] countKey(@Nonnull final Subspace secondary, @Nonnull final Tuple prefix) {
+        return secondary.subspace(Tuple.from(VectorIndexSecondarySubspaceKeys.TASK_COUNTS)).pack(prefix);
     }
 
     /**

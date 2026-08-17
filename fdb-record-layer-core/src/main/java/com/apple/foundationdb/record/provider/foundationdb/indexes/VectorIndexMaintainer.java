@@ -45,10 +45,13 @@ import com.apple.foundationdb.record.cursors.ChainedCursor;
 import com.apple.foundationdb.record.cursors.LazyCursor;
 import com.apple.foundationdb.record.cursors.ListCursor;
 import com.apple.foundationdb.record.locking.LockIdentifier;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
@@ -68,6 +71,8 @@ import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -76,6 +81,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -92,6 +98,12 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 public class VectorIndexMaintainer extends StandardIndexMaintainer {
+    private static final Logger LOGGER = LoggerFactory.getLogger(VectorIndexMaintainer.class);
+
+    // Prefix for the per-index commit-check key that disables the index when a negative task count is observed. One
+    // check per index name, so a merge that trips the invariant more than once in a transaction disables it just once.
+    private static final String DISABLE_INDEX_COMMIT_HOOK = "disableVectorIndexOnNegativeTaskCount:";
+
     // Per-drain time budget used when the driver supplies none (IndexDeferredMaintenanceControl.getTimeQuotaMillis()
     // defaults to 0). Mirrors Lucene's agile-commit default and stays well under FoundationDB's ~5s transaction limit,
     // so a single drain commits before the transaction ages out rather than overrunning and being rolled back.
@@ -590,6 +602,18 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
             // remains beyond the window, a later merge (re-triggered by the outstanding-work signal) picks it up.
             reportProgress(mergeControl, 0, false);
             return AsyncUtil.DONE;
+        }).exceptionally(err -> {
+            // A negative task count is an impossible, corrupt state (see NegativeTaskCountException) surfaced by either
+            // the prefix discovery scan or the drain's countFor. Rather than fail the merge and have the driver retry
+            // forever on bad accounting, disable the index (deferred to a commit hook, since that takes the store-state
+            // write lock) and stop the driver by reporting no progress; complete normally so the transaction commits
+            // and the disable takes effect. Any other failure propagates unchanged.
+            if (FDBExceptions.isOrHasCause(err, VectorIndexTaskCounts.NegativeTaskCountException.class)) {
+                disableIndexOnNegativeTaskCount();
+                reportProgress(mergeControl, 0, false);
+                return null;
+            }
+            throw err instanceof CompletionException ? (CompletionException)err : new CompletionException(err);
         });
     }
 
@@ -645,6 +669,33 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                                        final boolean moreWork) {
         mergeControl.setMergesTried(executed);
         mergeControl.setMergesFound(moreWork ? executed + 1 : executed);
+    }
+
+    /**
+     * Registers a pre-commit hook that disables this index because a deferred-task count decoded to a negative value —
+     * an impossible state under the conflict-free counter accounting, so the maintenance bookkeeping is corrupt and the
+     * index can no longer be trusted. Disabling is deferred to a commit check (mirroring {@code IndexingPendingWriteQueue})
+     * because {@code markIndexDisabled} takes the record-store-state write lock, which cannot be acquired while the merge
+     * runs under the state read lock. {@code markIndexDisabled} also clears the index data, so the planner refuses the
+     * index until it is rebuilt. Keyed per index name so repeated trips within one transaction disable it just once.
+     */
+    private void disableIndexOnNegativeTaskCount() {
+        state.store.getContext().getOrCreateCommitCheck(DISABLE_INDEX_COMMIT_HOOK + state.index.getName(),
+                name -> () -> state.store.markIndexDisabled(state.index).thenAccept(changed -> {
+                    if (Boolean.TRUE.equals(changed)) {
+                        state.store.getContext()
+                                .increment(FDBStoreTimer.Counts.VECTOR_INDEX_DISABLED_ON_NEGATIVE_TASK_COUNT);
+                        if (LOGGER.isWarnEnabled()) {
+                            LOGGER.warn(KeyValueLogMessage.of(
+                                    "disabled vector index because a deferred-task count went negative",
+                                    LogMessageKeys.INDEX_NAME, state.index.getName()));
+                        }
+                    } else if (LOGGER.isWarnEnabled()) {
+                        LOGGER.warn(KeyValueLogMessage.of(
+                                "vector index deferred-task count went negative but the index was already disabled",
+                                LogMessageKeys.INDEX_NAME, state.index.getName()));
+                    }
+                }));
     }
 
     /**

@@ -28,6 +28,7 @@ import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.CloseableAsyncIterator;
 import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
@@ -38,6 +39,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.Serial;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -141,12 +143,17 @@ final class VectorIndexTaskCounts {
                 AsyncUtil.mapIterator(snapshot.getRange(range()).iterator(),
                         keyValue -> new PrefixTaskCount(perPrefixSubspace.unpack(keyValue.getKey()),
                                 decodeCount(keyValue.getValue())));
-        // A count is dropped as soon as it hits zero, so this normally yields only positive entries; the filter is a
-        // cheap guard in case a zero ever lingers.
+        // A count is dropped as soon as it hits zero, so this normally yields only positive entries. A zero that
+        // lingers is benign and filtered out with a warning; a strictly-negative count, however, is impossible under
+        // the conflict-free ADD/COMPARE_AND_CLEAR accounting (a count only ever moves toward, and is dropped at, zero),
+        // so it means the accounting is corrupt — surface it so the caller can disable the index rather than merge on.
         return MoreAsyncUtil.filterRemaining(executor, counts, prefixTaskCount -> {
             final long count = prefixTaskCount.count();
             if (count > 0L) {
                 return true;
+            }
+            if (count < 0L) {
+                throw new NegativeTaskCountException(prefixTaskCount.prefix(), count);
             }
             if (logger.isWarnEnabled()) {
                 logger.warn(KeyValueLogMessage.of("task count for prefix is not positive",
@@ -191,6 +198,34 @@ final class VectorIndexTaskCounts {
      */
     @Nonnull
     CompletableFuture<Long> countFor(@Nonnull final ReadTransaction snapshot, @Nonnull final Tuple prefix) {
-        return snapshot.get(perPrefixSubspace.pack(prefix)).thenApply(VectorIndexTaskCounts::decodeCount);
+        return snapshot.get(perPrefixSubspace.pack(prefix)).thenApply(value -> {
+            final long count = decodeCount(value);
+            // A strictly-negative count cannot arise under the conflict-free ADD/COMPARE_AND_CLEAR accounting, so it
+            // means the accounting is corrupt; surface it so the caller can disable the index rather than treat the
+            // prefix as drained (a plain <= 0 would silently release the lease on corrupt state).
+            if (count < 0L) {
+                throw new NegativeTaskCountException(prefix, count);
+            }
+            return count;
+        });
+    }
+
+    /**
+     * Thrown when a per-prefix task count decodes to a strictly-negative value. That is an "impossible" state: the
+     * counter is only ever moved by atomic {@code ADD}s that pair an enqueue/execute with its counter mutation and by a
+     * {@code COMPARE_AND_CLEAR} that drops the entry at exactly zero, so a healthy count is always {@code >= 0}. A
+     * negative therefore signals corrupt accounting on which the index can no longer be trusted; it is package-visible
+     * so {@link VectorIndexMaintainer} can recognize it on the merge path and disable the index.
+     */
+    @SuppressWarnings("java:S110") // inherits RecordCoreException's (deep) exception hierarchy by design
+    static final class NegativeTaskCountException extends RecordCoreException {
+        @Serial
+        private static final long serialVersionUID = 1L;
+
+        NegativeTaskCountException(@Nonnull final Tuple prefix, final long count) {
+            super("vector index deferred-task count is negative",
+                    LogMessageKeys.DEFERRED_TASK_COUNT, count,
+                    LogMessageKeys.PARTITION_ID, prefix);
+        }
     }
 }

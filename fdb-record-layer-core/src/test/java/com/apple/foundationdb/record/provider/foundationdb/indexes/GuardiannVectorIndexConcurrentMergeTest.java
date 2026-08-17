@@ -278,12 +278,12 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
                 committed.addAndGet(batch.size());
                 return;
             } catch (final RuntimeException e) {
-                if (isOrHasCause(e, VectorIndexClusterTooLargeException.class)) {
+                if (FDBExceptions.isOrHasCause(e, VectorIndexClusterTooLargeException.class)) {
                     backPressureRetries.incrementAndGet();
                     logger.info("insert back-pressured (hard cap) on batch starting {}; backing off and retrying",
                             batch.get(0));
                     sleepQuietly(BACK_PRESSURE_BACKOFF_MILLIS);
-                } else if (isOrHasCause(e, FDBExceptions.FDBStoreTransactionConflictException.class)) {
+                } else if (FDBExceptions.isOrHasCause(e, FDBExceptions.FDBStoreTransactionConflictException.class)) {
                     conflictRetries.incrementAndGet();
                     logger.info("insert conflict on batch starting {}; retrying", batch.get(0));
                 } else {
@@ -373,17 +373,6 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
                 .setGroupId(0)
                 .setVectorData(ByteString.copyFrom(vector.toHalfRealVector().getRawData()))
                 .build();
-    }
-
-    private static boolean isOrHasCause(@Nonnull final Throwable throwable,
-                                        @Nonnull final Class<? extends Throwable> type) {
-        for (Throwable current = throwable; current != null && current != current.getCause();
-                current = current.getCause()) {
-            if (type.isInstance(current)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static void sleepQuietly(final long millis) {

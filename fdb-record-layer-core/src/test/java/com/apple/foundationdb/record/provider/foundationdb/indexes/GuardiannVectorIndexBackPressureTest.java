@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.record.metadata.IndexOptions;
+import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.test.RandomSeedSource;
 import com.google.common.collect.ImmutableMap;
@@ -83,7 +84,7 @@ class GuardiannVectorIndexBackPressureTest extends VectorIndexTestBase {
                 }
                 fail("inserting past the cluster hard cap should have back-pressured");
             } catch (final Exception e) {
-                assertThat(isOrHasCause(e, VectorIndexClusterTooLargeException.class))
+                assertThat(FDBExceptions.isOrHasCause(e, VectorIndexClusterTooLargeException.class))
                         .as("back-pressure must surface as VectorIndexClusterTooLargeException, but got: %s", e)
                         .isTrue();
             }
@@ -106,16 +107,5 @@ class GuardiannVectorIndexBackPressureTest extends VectorIndexTestBase {
             }
             commit(context);
         }
-    }
-
-    private static boolean isOrHasCause(@Nonnull final Throwable throwable,
-                                        @Nonnull final Class<? extends Throwable> type) {
-        for (Throwable current = throwable; current != null && current != current.getCause();
-                current = current.getCause()) {
-            if (type.isInstance(current)) {
-                return true;
-            }
-        }
-        return false;
     }
 }

@@ -120,7 +120,7 @@ class VectorIndexMergeLockTest extends VectorIndexTestBase {
 
             assertThatThrownBy(claim::commit)
                     .as("a merge claim must abort when a concurrent deleteWhere commits first")
-                    .satisfies(e -> assertThat(isOrHasCause(e,
+                    .satisfies(e -> assertThat(FDBExceptions.isOrHasCause(e,
                             FDBExceptions.FDBStoreTransactionConflictException.class)).isTrue());
         }
     }
@@ -179,16 +179,5 @@ class VectorIndexMergeLockTest extends VectorIndexTestBase {
     @Nonnull
     private static VectorIndexMergeLock newLock(@Nonnull final Subspace secondary) {
         return new VectorIndexMergeLock(secondary, UUID.randomUUID(), WINDOW_MILLIS, System::currentTimeMillis);
-    }
-
-    private static boolean isOrHasCause(@Nonnull final Throwable throwable,
-                                        @Nonnull final Class<? extends Throwable> type) {
-        for (Throwable current = throwable; current != null && current != current.getCause();
-                current = current.getCause()) {
-            if (type.isInstance(current)) {
-                return true;
-            }
-        }
-        return false;
     }
 }
