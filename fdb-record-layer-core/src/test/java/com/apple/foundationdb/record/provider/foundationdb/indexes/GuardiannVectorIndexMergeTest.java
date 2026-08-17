@@ -533,8 +533,8 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
 
     /**
      * Drains one index's deferred-maintenance backlog to completion through the real record-layer merger via
-     * {@link #mergeVectorIndexToCompletion} — the same {@code OnlineIndexer.mergeIndex()} machinery a background merge
-     * (e.g. CloudKit's) uses, which sets the merge session id and loops the per-partition claim/drain internally —
+     * {@link #mergeVectorIndexToCompletion} — the same {@code OnlineIndexer.mergeIndex()} machinery a background merger
+     * uses, which sets the merge session id and loops the per-partition claim/drain internally —
      * rather than hand-driving {@code mergeIndex()} passes.
      */
     private void drainToCompletion(@Nonnull final String indexName) throws Exception {

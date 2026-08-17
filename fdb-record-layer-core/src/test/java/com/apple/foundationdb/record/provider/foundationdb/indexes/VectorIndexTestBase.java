@@ -156,7 +156,7 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
     protected void openRecordStore(final FDBRecordContext context, final RecordMetaDataHook hook) throws Exception {
         createOrOpenRecordStore(context, metaDataFor(hook));
         // In-transaction vs. deferred index maintenance is a runtime, per-store switch (autoMergeDuringCommit). It
-        // defaults to false here (deferred, matching production/CK, so merge tests get a real backlog); a subclass whose
+        // defaults to false here (deferred, matching production, so merge tests get a real backlog); a subclass whose
         // scenarios have no background merger (e.g. the behavioral suite) overrides maintainIndexesInTransaction().
         recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(maintainIndexesInTransaction());
     }
@@ -201,7 +201,7 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
 
     /**
      * Runs one pass of the real record-layer index merger over {@code indexName} via {@link OnlineIndexer#mergeIndex()}
-     * — the same entry a background merge (e.g. CloudKit's) uses. The merger sets the merge session id and drives the
+     * — the same entry a background merger uses. The merger sets the merge session id and drives the
      * per-partition claim/drain loop internally, so tests need not hand-roll that bookkeeping.
      * @param metaData the metadata whose index to merge
      * @param indexName the vector index to merge
