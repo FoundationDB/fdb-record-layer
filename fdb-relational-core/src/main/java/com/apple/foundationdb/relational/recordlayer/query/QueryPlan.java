@@ -434,7 +434,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             final var executePropertiesBuilder = connection.getExecuteProperties().toBuilder()
                     .setReturnedRowLimit(options.getOption(Options.Name.MAX_ROWS))
                     .setDryRun(options.getOption(Options.Name.DRY_RUN));
-            if (Boolean.TRUE.equals(options.getOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT))) {
+            if (options.<Boolean>getOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT)) {
                 executePropertiesBuilder.setIsolationLevel(IsolationLevel.SNAPSHOT);
             }
             final var executeProperties = executePropertiesBuilder.build();

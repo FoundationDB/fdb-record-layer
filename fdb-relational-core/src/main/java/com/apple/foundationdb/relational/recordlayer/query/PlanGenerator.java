@@ -493,7 +493,7 @@ public final class PlanGenerator {
      */
     private void validateIsolationLevelSnapshotOption(@Nonnull final Set<AstNormalizer.NormalizationResult.QueryCachingFlags> queryCachingFlags)
             throws RelationalException {
-        if (!Boolean.TRUE.equals(options.getOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT))) {
+        if (!options.<Boolean>getOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT)) {
             return;
         }
         final var isSelect = queryCachingFlags.contains(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT);
