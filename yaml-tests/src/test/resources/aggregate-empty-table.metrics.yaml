@@ -2,7 +2,7 @@ agg-empty-table-tests:
 -   query: EXPLAIN select count(*) from T1;
     ref: aggregate-empty-table.yamsql:39
     explain: SCAN([IS T1]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY ()
-        | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+        | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)
     task_count: 247
     task_total_time_ms: 8
     transform_count: 62
@@ -28,7 +28,7 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:52
     explain: SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS
         _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
-        promote(0l AS LONG)) AS _0)
+        0l) AS _0)
     task_count: 307
     task_total_time_ms: 19
     transform_count: 81
@@ -41,7 +41,7 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:57
     explain: SCAN([IS T1]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP
         (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
-        promote(0l AS LONG)) AS _0)
+        0l) AS _0)
     task_count: 307
     task_total_time_ms: 18
     transform_count: 81
@@ -53,7 +53,7 @@ agg-empty-table-tests:
 -   query: EXPLAIN select count(*) from T2;
     ref: aggregate-empty-table.yamsql:77
     explain: 'AISCAN(T2_I1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
+        NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)'
     task_count: 429
     task_total_time_ms: 38
     transform_count: 124
@@ -79,7 +79,7 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:91
     explain: 'AISCAN(T2_I2 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
-        promote(0l AS LONG)) AS _0)'
+        0l) AS _0)'
     task_count: 421
     task_total_time_ms: 40
     transform_count: 127
@@ -92,8 +92,7 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:96
     explain: 'AISCAN(T2_I2 [[GREATER_THAN promote(@c10 AS LONG)]] BY_GROUP -> [_0:
         KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1) GROUP BY () | MAP ((_._1 AS _0)
-        AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
-        AS _0)'
+        AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)'
     task_count: 433
     task_total_time_ms: 43
     transform_count: 128
@@ -141,7 +140,7 @@ agg-empty-table-tests:
 -   query: EXPLAIN select count(*) from T3;
     ref: aggregate-empty-table.yamsql:116
     explain: ISCAN(T3_I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY
-        () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+        () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)
     task_count: 391
     task_total_time_ms: 50
     transform_count: 90
@@ -153,8 +152,7 @@ agg-empty-table-tests:
 -   query: EXPLAIN select count(*) from T3 where col1 = 0;
     ref: aggregate-empty-table.yamsql:121
     explain: ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*)
-        AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
-        AS LONG)) AS _0)
+        AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)
     task_count: 611
     task_total_time_ms: 47
     transform_count: 156
@@ -167,7 +165,7 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:126
     explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) |
         AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
-        promote(0l AS LONG)) AS _0)
+        0l) AS _0)
     task_count: 626
     task_total_time_ms: 49
     transform_count: 157
@@ -215,7 +213,7 @@ agg-empty-table-tests:
 -   query: EXPLAIN select count(col2) from T1;
     ref: aggregate-empty-table.yamsql:146
     explain: SCAN([IS T1]) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP BY
-        () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+        () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)
     task_count: 247
     task_total_time_ms: 14
     transform_count: 62
@@ -228,7 +226,7 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:151
     explain: SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS
         _0) | AGG (count(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
-        promote(0l AS LONG)) AS _0)
+        0l) AS _0)
     task_count: 307
     task_total_time_ms: 20
     transform_count: 81
@@ -241,7 +239,7 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:156
     explain: SCAN([IS T1]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP
         (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP
-        (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+        (coalesce_long(_._0._0, 0l) AS _0)
     task_count: 307
     task_total_time_ms: 18
     transform_count: 81
@@ -253,7 +251,7 @@ agg-empty-table-tests:
 -   query: EXPLAIN select count(col2) from T2;
     ref: aggregate-empty-table.yamsql:176
     explain: 'AISCAN(T2_I3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
+        NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)'
     task_count: 429
     task_total_time_ms: 58
     transform_count: 124
@@ -266,7 +264,7 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:183
     explain: 'AISCAN(T2_I4 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
-        promote(0l AS LONG)) AS _0)'
+        0l) AS _0)'
     task_count: 421
     task_total_time_ms: 43
     transform_count: 127
@@ -279,8 +277,7 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:188
     explain: 'AISCAN(T2_I4 [[GREATER_THAN promote(@c10 AS LONG)]] BY_GROUP -> [_0:
         KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1) GROUP BY () | MAP ((_._1 AS _0)
-        AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
-        AS _0)'
+        AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)'
     task_count: 433
     task_total_time_ms: 45
     transform_count: 128
@@ -328,8 +325,7 @@ agg-empty-table-tests:
 -   query: EXPLAIN select count(col2) from T3;
     ref: aggregate-empty-table.yamsql:208
     explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP
-        BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS
-        _0)
+        BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)
     task_count: 391
     task_total_time_ms: 34
     transform_count: 90
@@ -341,8 +337,7 @@ agg-empty-table-tests:
 -   query: EXPLAIN select count(col2) from T3 where col1 = 0;
     ref: aggregate-empty-table.yamsql:213
     explain: ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (count(_._0.COL2)
-        AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
-        AS LONG)) AS _0)
+        AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)
     task_count: 611
     task_total_time_ms: 69
     transform_count: 156
@@ -355,7 +350,7 @@ agg-empty-table-tests:
     ref: aggregate-empty-table.yamsql:218
     explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) |
         AGG (count(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
-        promote(0l AS LONG)) AS _0)
+        0l) AS _0)
     task_count: 626
     task_total_time_ms: 51
     transform_count: 157
@@ -670,7 +665,7 @@ agg-empty-table-tests-after-modifications:
 -   query: EXPLAIN select count(*) from T1;
     ref: aggregate-empty-table.yamsql:377
     explain: SCAN([IS T1]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY ()
-        | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+        | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)
     task_count: 247
     task_total_time_ms: 8
     transform_count: 62
@@ -696,7 +691,7 @@ agg-empty-table-tests-after-modifications:
     ref: aggregate-empty-table.yamsql:386
     explain: SCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) | MAP (_ AS
         _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
-        promote(0l AS LONG)) AS _0)
+        0l) AS _0)
     task_count: 307
     task_total_time_ms: 19
     transform_count: 81
@@ -709,7 +704,7 @@ agg-empty-table-tests-after-modifications:
     ref: aggregate-empty-table.yamsql:391
     explain: SCAN([IS T1]) | FILTER _.COL1 GREATER_THAN promote(@c10 AS LONG) | MAP
         (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
-        promote(0l AS LONG)) AS _0)
+        0l) AS _0)
     task_count: 307
     task_total_time_ms: 18
     transform_count: 81
@@ -721,7 +716,7 @@ agg-empty-table-tests-after-modifications:
 -   query: EXPLAIN select count(*) from T2;
     ref: aggregate-empty-table.yamsql:411
     explain: 'AISCAN(T2_I1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
+        NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)'
     task_count: 429
     task_total_time_ms: 38
     transform_count: 124
@@ -746,7 +741,7 @@ agg-empty-table-tests-after-modifications:
 -   query: EXPLAIN select count(col2) from T2;
     ref: aggregate-empty-table.yamsql:491
     explain: 'AISCAN(T2_I3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
+        NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)'
     task_count: 429
     task_total_time_ms: 58
     transform_count: 124
@@ -759,7 +754,7 @@ agg-empty-table-tests-after-modifications:
     ref: aggregate-empty-table.yamsql:496
     explain: 'AISCAN(T2_I4 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0],
         _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
-        promote(0l AS LONG)) AS _0)'
+        0l) AS _0)'
     task_count: 421
     task_total_time_ms: 43
     transform_count: 127
@@ -772,8 +767,7 @@ agg-empty-table-tests-after-modifications:
     ref: aggregate-empty-table.yamsql:501
     explain: 'AISCAN(T2_I4 [[GREATER_THAN promote(@c10 AS LONG)]] BY_GROUP -> [_0:
         KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1) GROUP BY () | MAP ((_._1 AS _0)
-        AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
-        AS _0)'
+        AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)'
     task_count: 433
     task_total_time_ms: 45
     transform_count: 128
@@ -785,8 +779,7 @@ agg-empty-table-tests-after-modifications:
 -   query: EXPLAIN select count(col2) from T3;
     ref: aggregate-empty-table.yamsql:518
     explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) GROUP
-        BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS
-        _0)
+        BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)
     task_count: 391
     task_total_time_ms: 34
     transform_count: 90
@@ -798,8 +791,7 @@ agg-empty-table-tests-after-modifications:
 -   query: EXPLAIN select count(col2) from T3 where col1 = 0;
     ref: aggregate-empty-table.yamsql:523
     explain: ISCAN(T3_I1 [EQUALS promote(@c10 AS LONG)]) | MAP (_ AS _0) | AGG (count(_._0.COL2)
-        AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
-        AS LONG)) AS _0)
+        AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)
     task_count: 611
     task_total_time_ms: 69
     transform_count: 156
@@ -812,7 +804,7 @@ agg-empty-table-tests-after-modifications:
     ref: aggregate-empty-table.yamsql:528
     explain: ISCAN(T3_I1 [[GREATER_THAN promote(@c10 AS LONG)]]) | MAP (_ AS _0) |
         AGG (count(_._0.COL2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
-        promote(0l AS LONG)) AS _0)
+        0l) AS _0)
     task_count: 626
     task_total_time_ms: 51
     transform_count: 157
@@ -1038,8 +1030,7 @@ agg-empty-table-tests-after-modifications:
 -   query: EXPLAIN select count(col1) from t3 having count(col1) is null
     ref: aggregate-empty-table.yamsql:666
     explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP
-        BY () | FILTER coalesce_long(_._0._0, promote(0l AS LONG)) IS_NULL | MAP (coalesce_long(_._0._0,
-        promote(0l AS LONG)) AS _0)
+        BY () | FILTER false | MAP (coalesce_long(_._0._0, 0l) AS _0)
     task_count: 470
     task_total_time_ms: 38
     transform_count: 110
@@ -1052,7 +1043,7 @@ agg-empty-table-tests-after-modifications:
     ref: aggregate-empty-table.yamsql:671
     explain: ISCAN(T3_I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY
         () | FILTER coalesce_long(_._0._0, 0l) IS_NULL | MAP (coalesce_long(_._0._0,
-        promote(0l AS LONG)) AS _0)
+        0l) AS _0)
     task_count: 470
     task_total_time_ms: 32
     transform_count: 110
@@ -1103,9 +1094,9 @@ agg-empty-table-tests-after-modifications:
         > 100
     ref: aggregate-empty-table.yamsql:691
     explain: ISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP
-        BY () | ON EMPTY NULL | FILTER coalesce_long(_._0._0, promote(0l AS LONG))
-        IS_NULL OR coalesce_long(_._0._0, promote(0l AS LONG)) GREATER_THAN promote(@c20
-        AS LONG) | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+        BY () | ON EMPTY NULL | FILTER coalesce_long(_._0._0, 0l) IS_NULL OR coalesce_long(_._0._0,
+        0l) GREATER_THAN promote(@c20 AS LONG) | MAP (coalesce_long(_._0._0, 0l) AS
+        _0)
     task_count: 418
     task_total_time_ms: 30
     transform_count: 96
@@ -1118,8 +1109,8 @@ agg-empty-table-tests-after-modifications:
     ref: aggregate-empty-table.yamsql:696
     explain: ISCAN(T3_I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY
         () | ON EMPTY NULL | FILTER coalesce_long(_._0._0, 0l) IS_NULL OR coalesce_long(_._0._0,
-        0l) GREATER_THAN promote(@c20 AS LONG) | MAP (coalesce_long(_._0._0, promote(0l
-        AS LONG)) AS _0)
+        0l) GREATER_THAN promote(@c20 AS LONG) | MAP (coalesce_long(_._0._0, 0l) AS
+        _0)
     task_count: 418
     task_total_time_ms: 25
     transform_count: 96

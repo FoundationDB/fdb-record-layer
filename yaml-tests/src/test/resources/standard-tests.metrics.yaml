@@ -201,8 +201,7 @@ standard-tests:
         T1  where ID = 5) as x) as y) as z;
     ref: standard-tests.yamsql:293
     explain: SCAN([IS T1, EQUALS promote(@c22 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*)
-        AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
-        AS LONG)) AS _0)
+        AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)
     task_count: 593
     task_total_time_ms: 85
     transform_count: 144
