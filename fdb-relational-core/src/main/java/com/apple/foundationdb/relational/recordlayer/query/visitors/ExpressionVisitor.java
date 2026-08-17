@@ -1164,9 +1164,14 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var arrayElementValues = visitExpressions(ctx.expressions()).underlying();
         final var elements =
                 Streams.stream(arrayElementValues)
-                        .map(arrayElementValue ->
-                                Expression.fromUnderlying(
-                                        PromoteValue.inject(arrayElementValue, arrayElementValue.getResultType().notNullable())))
+                        .map(arrayElementValue -> {
+                            // An array cannot hold a NULL element. Say so, instead of letting `notNullable()` below
+                            // fail on a NULL type with a bare VerifyException that carries no message.
+                            Assert.thatUnchecked(!arrayElementValue.getResultType().isNull(),
+                                    ErrorCode.UNSUPPORTED_OPERATION, "NULL is not allowed as an array element");
+                            return Expression.fromUnderlying(
+                                    PromoteValue.inject(arrayElementValue, arrayElementValue.getResultType().notNullable()));
+                        })
                         .collect(ImmutableList.toImmutableList());
 
         return getDelegate().resolveFunction("__internal_array", false, elements.toArray(new Expression[0]));

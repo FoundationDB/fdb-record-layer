@@ -203,9 +203,17 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
         @Override
         @SuppressWarnings("java:S6213")
         public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-            return Streams.stream(getChildren())
-                    .map(child -> child.eval(store, context))
-                    .collect(ImmutableList.toImmutableList());
+            final var elements = ImmutableList.<Object>builder();
+            for (final var child : getChildren()) {
+                final var element = child.eval(store, context);
+                // An array cannot hold a NULL element. Check it here, where the element that caused it is known.
+                // Otherwise `ImmutableList` rejects it with a bare NullPointerException that names neither the array
+                // nor the element.
+                SemanticException.check(element != null, SemanticException.ErrorCode.UNSUPPORTED,
+                        "NULL is not allowed as an array element");
+                elements.add(element);
+            }
+            return elements.build();
         }
 
         @Nonnull

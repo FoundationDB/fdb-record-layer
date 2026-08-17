@@ -81,11 +81,14 @@ import java.util.function.Supplier;
  * </ul>
  * <p>
  * The visitor is designed to be very fast;
- * it does not perform any semantic checks
- * leaving that to {@link com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor}, et al.
+ * it leaves semantic analysis to {@link com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor}, et al.
  * Its main purpose is to lookup queries in the plan cache, and generate enough context to be able to execute a matching
  * physical plan.
  * <br>
+ * It does reject a few things outright, and only where the check has to happen before the plan cache is consulted: an
+ * unsupported clause that would never plan anyway ({@code OFFSET}, {@code LIMIT}), and a {@code NULL} written in an
+ * {@code IN} list. The latter has to be here rather than with the other semantic checks, because a query that hits the
+ * plan cache is never planned, so a check that lives in planning would be skipped for it.
  *
  * <p>
  * Note: this class is currently not thread-safe, I do not see currently any reason for making it so as it is mainly a
@@ -445,6 +448,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         } else if (ctx.inList().fullColumnName() != null) {
             visit(ctx.inList().fullColumnName());
         } else {
+            rejectNullItems(ctx.inList().expressions());
             sqlCanonicalizer.append("( ");
             if (ParseHelpers.isConstant(ctx.inList().expressions())) {
                 // todo (yhatem) we should prevent making the constant expressions
@@ -472,6 +476,40 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         }
 
         return null;
+    }
+
+    /**
+     * Rejects a bare {@code NULL} written in an {@code IN} list. An {@code IN} list is represented as an array, and an
+     * array cannot hold a {@code NULL} element.
+     * <br>
+     * This runs during normalization, so it runs for every query, before the plan cache is consulted. That matters:
+     * the same rule also lives in {@link SemanticAnalyzer#validateInListItems}, but that one only runs while a query is
+     * being planned, and planning is skipped on a cache hit. A list holding a {@code NULL} shares its canonical query
+     * string with the same list without it, so it can reuse that plan and never be checked at all.
+     *
+     * @param expressions the items of the {@code IN} list
+     */
+    private void rejectNullItems(@Nonnull final RelationalParser.ExpressionsContext expressions) {
+        for (final var expression : expressions.expression()) {
+            Assert.thatUnchecked(!isNullLiteral(expression), ErrorCode.WRONG_OBJECT_TYPE,
+                    "NULL values are not allowed in the IN list");
+        }
+    }
+
+    /**
+     * Returns {@code true} if the given item is a bare {@code NULL}. Descends through single-child nodes only, so a
+     * {@code NULL} that is merely wrapped is still found, while an expression that happens to contain a {@code NULL}
+     * somewhere below, such as {@code CAST(NULL AS BIGINT)}, is not. Those have a resolved type and are allowed.
+     *
+     * @param tree one item of an {@code IN} list
+     * @return {@code true} if the item is a bare {@code NULL} literal
+     */
+    private static boolean isNullLiteral(@Nonnull final ParseTree tree) {
+        var current = tree;
+        while (!(current instanceof RelationalParser.NullLiteralContext) && current.getChildCount() == 1) {
+            current = current.getChild(0);
+        }
+        return current instanceof RelationalParser.NullLiteralContext;
     }
 
     @Override
