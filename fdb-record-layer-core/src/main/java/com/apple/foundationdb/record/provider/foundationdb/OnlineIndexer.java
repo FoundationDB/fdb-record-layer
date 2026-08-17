@@ -197,7 +197,6 @@ public class OnlineIndexer implements AutoCloseable {
                 if (firstPartlyBuiltException == null) {
                     firstPartlyBuiltException = partlyBuiltException;
                 }
-                final IndexingBase.PartlyBuiltException reportedException = firstPartlyBuiltException;
                 IndexBuildProto.IndexBuildIndexingStamp.Method method = conflictingIndexingTypeStamp.getMethod();
                 if (!common.isMultiTarget() && !fallbackToRecordsScan) {
                     if (method == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS ||
@@ -208,7 +207,7 @@ public class OnlineIndexer implements AutoCloseable {
                     }
                     if (method == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX &&
                             !isPolicySourceIndexOf(conflictingIndexingTypeStamp)) {
-                        // Partly built by index. Retry with the old policy, but preserve the requested policy - in case the old one fails.
+                        // Here: Partly built by index. Retry with the old policy, but preserve the requested policy - in case the old one fails.
                         Object sourceIndexSubspaceKey = decodeSubspaceKey(conflictingIndexingTypeStamp.getSourceIndexSubspaceKey());
                         IndexingPolicy origPolicy = indexingPolicy;
                         indexingPolicy = origPolicy.toBuilder()
@@ -218,7 +217,7 @@ public class OnlineIndexer implements AutoCloseable {
                     }
                 }
                 // Here: no adjustment is left to try
-                throw reportedException;
+                throw firstPartlyBuiltException;
             }
 
             if (desiredAction == IndexingPolicy.DesiredAction.REBUILD) {
