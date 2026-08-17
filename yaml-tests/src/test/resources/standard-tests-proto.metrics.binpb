@@ -26,10 +26,10 @@ j
   3 -> 2 [ label=<&nbsp;q37> label="q37" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ν
+}ά
 z
-	unnamed-2mEXPLAIN select count(*) from (select * from (select * from (select * from T1  where ID = 5) as x) as y) as z;ξ
-τέb ­ΰΠ(0”ή$8)@³SCAN([EQUALS promote(@c22 AS LONG)]) | TFILTER T1 | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)digraph G {
+	unnamed-2mEXPLAIN select count(*) from (select * from (select * from (select * from T1  where ID = 5) as x) as y) as z;έ
+τέb ­ΰΠ(0”ή$8)@ΆSCAN([EQUALS promote(@c22 AS LONG)]) | TFILTER T1 | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
