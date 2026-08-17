@@ -583,6 +583,73 @@ public class CollapseScenarioTest implements BaseTest {
     // Helpers
     // ---------------------------------------------------------------------------------------------------------
 
+    /**
+     * {@code executeSingleDeferredTask} must skip a task whose queue row was already removed earlier in the same
+     * transaction — the situation a {@link BounceTask} creates when it picks and runs a dependency that also sits in a
+     * caller's fetched batch. Re-running would be a state no-op (the task's cluster-state flag is already gone), but it
+     * would still fire {@code onTaskExecuted} a second time and over-decrement the outstanding-work count. Here the
+     * prior removal is simulated with a direct {@code deleteDeferredTask}; the second execution must be skipped and
+     * silent.
+     */
+    @Test
+    void executeSingleDeferredTaskSkipsAnAlreadyRemovedTask() throws Exception {
+        final Guardiann guardiann = newGuardiann(100_000, 20); // one cluster; this small load triggers no split/collapse
+        insertIdentical(guardiann, duplicateVector(), 0L, 10);
+        final ClusterView cluster =
+                onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann)));
+
+        onWriteListener.pushFrame(); // the listener only tallies onto a pushed frame
+        try {
+            final boolean ran = db.run(tr -> {
+                final Primitives primitives = guardiann.getLocator().primitives();
+                final AccessInfo accessInfo = Objects.requireNonNull(primitives.fetchAccessInfo(tr).join());
+                final CollapseTask task = CollapseTask.of(guardiann.getLocator(), accessInfo,
+                        RandomHelpers.randomUuid(cluster.clusterId(), true), cluster.clusterId(),
+                        cluster.transformedCentroid());
+                task.writeDeferredTask(tr);              // enqueue it
+                primitives.deleteDeferredTask(tr, task); // simulate a BounceTask having already run and removed it
+                return primitives.executeSingleDeferredTask(tr, task).join();
+            });
+            assertThat(ran).as("a task whose queue row was already removed must be skipped").isFalse();
+            assertThat(onWriteListener.getNumTasksExecutedByKind().getOrDefault(TaskKind.COLLAPSE, 0))
+                    .as("a skipped task must not fire onTaskExecuted (which would drift the outstanding-work count)")
+                    .isEqualTo(0);
+        } finally {
+            onWriteListener.popFrame();
+        }
+    }
+
+    /**
+     * The other half of the contract: a task whose queue row is still present runs, reports {@code true}, and fires
+     * {@code onTaskExecuted} exactly once (the cluster is not in {@code COLLAPSE} state, so the collapse itself is a
+     * no-op, but the execution is still recorded once).
+     */
+    @Test
+    void executeSingleDeferredTaskRunsAndReportsAPresentTask() throws Exception {
+        final Guardiann guardiann = newGuardiann(100_000, 20);
+        insertIdentical(guardiann, duplicateVector(), 0L, 10);
+        final ClusterView cluster =
+                onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann)));
+
+        onWriteListener.pushFrame();
+        try {
+            final boolean ran = db.run(tr -> {
+                final Primitives primitives = guardiann.getLocator().primitives();
+                final AccessInfo accessInfo = Objects.requireNonNull(primitives.fetchAccessInfo(tr).join());
+                final CollapseTask task = CollapseTask.of(guardiann.getLocator(), accessInfo,
+                        RandomHelpers.randomUuid(cluster.clusterId(), true), cluster.clusterId(),
+                        cluster.transformedCentroid());
+                task.writeDeferredTask(tr);
+                return primitives.executeSingleDeferredTask(tr, task).join();
+            });
+            assertThat(ran).as("a present task must run").isTrue();
+            assertThat(onWriteListener.getNumTasksExecutedByKind().getOrDefault(TaskKind.COLLAPSE, 0))
+                    .as("a task that ran must fire onTaskExecuted exactly once").isEqualTo(1);
+        } finally {
+            onWriteListener.popFrame();
+        }
+    }
+
     @Nonnull
     private Guardiann newGuardiann(final int primaryClusterMax, final int collapseMinDuplicates) {
         onWriteListener = new TestHelpers.TestOnWriteListener();

@@ -523,8 +523,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         // Record the step so IndexingMerger.handleFailure retries a transient failure with a smaller budget.
         mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.MERGE);
         final int taskBudget = mergeControl.getMergesLimit() > 0
-                               ? (int)Math.min(mergeControl.getMergesLimit(), Integer.MAX_VALUE)
-                               : 1;
+                               ? (int)Math.min(mergeControl.getMergesLimit(), Integer.MAX_VALUE) : 1;
         final Subspace indexSubspace = getIndexSubspace();
         // The merge lease is keyed by a stable owner id so this process can re-verify and keep a prefix's lease across
         // the driver's re-invocations. IndexingMerger always sets it from the indexing session (the only production
@@ -625,12 +624,6 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         final TaskCountRegister register = taskCounts.registerFor(prefix);
         return getEngine().executeDeferredTasks(state.context, partitionSubspace, requested, register, deadlineMillis)
                 .thenCompose(executedForPrefix -> {
-                    // The per-prefix count is the expected number of queued tasks (enqueue/execute keep it in lock-step
-                    // with the queue), so the engine can run at most what we asked for; a time-bounded drain may run
-                    // fewer, but always at least one. Verify rather than trust.
-                    Verify.verify(executedForPrefix >= 1 && executedForPrefix <= requested,
-                            "vector merge expected to run 1..%s deferred task(s) but ran %s", requested,
-                            executedForPrefix);
                     // Release the lease only once the partition is truly empty (a read-your-writes-aware snapshot read
                     // reflects this drain's mutations, including any follow-up tasks it enqueued); otherwise keep it so
                     // we continue this same partition next invocation.

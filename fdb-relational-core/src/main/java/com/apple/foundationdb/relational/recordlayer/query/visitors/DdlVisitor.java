@@ -403,8 +403,6 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         // implicit (keeps HNSW index metadata unchanged and readable by nodes that predate the engine option).
         if (engine == VectorIndexEngineKind.GUARDIANN) {
             VectorIndexOptionKeys.ENGINE.put(indexOptionsBuilder::put, engine);
-            // In-transaction vs. deferred maintenance is no longer an index option; the embedded relational store sets
-            // it at runtime (BackingRecordStore enables autoMergeDuringCommit, since there is no background merger).
         }
         if (indexOptionsContext == null) {
             return indexOptionsBuilder.build();

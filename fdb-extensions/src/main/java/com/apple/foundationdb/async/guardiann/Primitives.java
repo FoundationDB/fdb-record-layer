@@ -931,12 +931,16 @@ class Primitives {
      * Drains up to {@code numTasks} pending maintenance tasks and runs them inline within this transaction. This is
      * how background structure maintenance is paid for: each foreground insert/delete absorbs a small, bounded slice
      * of queued work rather than relying on a separate sweeper.
+     * <p>
+     * {@code numTasks} bounds only the tasks this method runs <em>directly</em> from the queue. A task may itself run
+     * further tasks — notably a {@link BounceTask}, which runs one of its dependency tasks — and those are not counted
+     * against {@code numTasks}, so the total number of tasks executed in this transaction can exceed it.
      *
      * @param transaction the transaction to fetch and run the tasks within
      * @param accessInfo the access context passed to each rehydrated task
-     * @param numTasks the maximum number of tasks to run
-     * @return a future of the number of tasks actually executed (which is fewer than {@code numTasks} exactly when the
-     *         queue held fewer than that)
+     * @param numTasks the maximum number of tasks to run directly
+     * @return a future of the number of tasks this method ran directly (fewer than {@code numTasks} when the queue held
+     *         fewer, or when a fetched task had already been run by another task in this transaction and was skipped)
      */
     @Nonnull
     CompletableFuture<Integer> executeDeferredTasks(@Nonnull final Transaction transaction,
@@ -955,11 +959,12 @@ class Primitives {
      *
      * @param transaction the transaction to fetch and run the tasks within
      * @param accessInfo the access context passed to each rehydrated task
-     * @param numTasks the maximum number of tasks to run
+     * @param numTasks the maximum number of tasks to run directly (see {@link #executeDeferredTasks(Transaction,
+     *        AccessInfo, int)} — it does not count tasks a task itself runs, e.g. a {@link BounceTask}'s dependency)
      * @param deadlineMillis an absolute wall-clock deadline (epoch millis); draining stops before the next task once it
      *        is reached
-     * @return a future of the number of tasks actually executed (fewer than {@code numTasks} when the queue held fewer
-     *         <em>or</em> the deadline was reached)
+     * @return a future of the number of tasks this method ran directly (fewer than {@code numTasks} when the queue held
+     *         fewer, the deadline was reached, or a fetched task had already been run by another task and was skipped)
      */
     @Nonnull
     CompletableFuture<Integer> executeDeferredTasks(@Nonnull final Transaction transaction,
@@ -968,36 +973,53 @@ class Primitives {
                                                     final long deadlineMillis) {
         return fetchSomeDeferredTasks(transaction, accessInfo, numTasks)
                 .thenCompose(deferredTasks ->
-                        // The accumulator U carries the running count of executed tasks, which is the loop's result.
-                        // The first task always runs (i == 0); subsequent tasks run only while the deadline holds.
+                        // The accumulator U carries the running count of tasks actually executed, which is the loop's
+                        // result. The first task always runs (i == 0); subsequent tasks run only while the deadline
+                        // holds. A task already removed by another task this transaction (e.g. a bounce) is skipped and
+                        // not counted (executeSingleDeferredTask returns false).
                         forLoop(0, 0,
                                 i -> i < deferredTasks.size() && (i == 0 || System.currentTimeMillis() < deadlineMillis),
                                 i -> i + 1,
                                 (i, executed) -> executeSingleDeferredTask(transaction, deferredTasks.get(i))
-                                        .thenApply(ignored -> executed + 1), getExecutor()));
+                                        .thenApply(ran -> ran ? executed + 1 : executed), getExecutor()));
     }
 
     /**
-     * Runs one deferred task. The task is removed from the queue <em>before</em> it runs (not after), so a task that
+     * Runs one deferred task, unless its task entry is already gone. The presence check (a read-your-writes read
+     * within this transaction) guards against re-running a task that another task already ran and removed in this same
+     * transaction — for example a {@link BounceTask} that picked and ran a dependency which also happens to sit in the
+     * caller's fetched batch. Re-running would be a no-op for the task's own work (tasks are guarded by their
+     * cluster-state flags), but it would still notify {@link OnWriteListener#onTaskExecuted} a second time and thus
+     * over-decrement any outstanding-work count kept off that callback.
+     * <p>
+     * If the task is still present it is removed from the queue <em>before</em> it runs (not after), so a task that
      * re-enqueues follow-up work cannot collide with its own still-present queue entry — and so a task is free to
      * reuse its own just-freed slot. On success the {@link OnWriteListener} is notified; on failure the future
      * completes exceptionally and the enclosing transaction will not commit, so the removal is rolled back with it.
      *
      * @param transaction the transaction to run the task within
      * @param deferredTask the task to execute
-     * @return a future that completes when the task has run
+     * @return a future of whether the task actually ran ({@code true}), or was skipped because its queue entry had
+     *         already been removed in this transaction ({@code false})
      */
     @Nonnull
-    CompletableFuture<Void> executeSingleDeferredTask(@Nonnull final Transaction transaction,
-                                                      @Nonnull final AbstractDeferredTask deferredTask) {
-        deleteDeferredTask(transaction, deferredTask);
-        return deferredTask.runTask(transaction)
-                .whenComplete((ignored, throwable) -> {
-                    if (throwable == null) {
+    CompletableFuture<Boolean> executeSingleDeferredTask(@Nonnull final Transaction transaction,
+                                                         @Nonnull final AbstractDeferredTask deferredTask) {
+        final byte[] taskKey = getTasksSubspace().pack(Tuple.from(deferredTask.getTaskId()));
+        return transaction.get(taskKey).thenCompose(existing -> {
+            if (existing == null) {
+                // Already removed earlier in this same transaction (e.g. a BounceTask ran it). Skip: do not re-run and,
+                // crucially, do not fire onTaskExecuted again, which would drift the outstanding-work count.
+                return AsyncUtil.READY_FALSE;
+            }
+            deleteDeferredTask(transaction, deferredTask);
+            return deferredTask.runTask(transaction)
+                    .thenApply(ignored -> {
                         getOnWriteListener().onTaskExecuted(deferredTask.getKind(),
                                 deferredTask.getTaskId(), deferredTask.getTargetClusterIds());
-                    }
-                });
+                        return true;
+                    });
+        });
     }
 
     /**
