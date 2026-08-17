@@ -48,6 +48,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -656,6 +658,40 @@ public class AstNormalizerTests {
                 "select * from t1 where col1 in ( 2 )");
         validateNotEqual("select * from t1 where col1 in ( 1 + 1 )",
                 "select * from t1 where col1 in ( 2 )");
+    }
+
+    /**
+     * An IN list is represented as an array, and an array cannot hold a NULL element. The rejection lives here, in
+     * normalization, rather than with the other semantic checks, because normalization runs for every query while
+     * planning is skipped on a plan cache hit. A list holding a NULL shares its canonical query string with the same
+     * list without it, so it could otherwise reuse that plan and never be checked.
+     * <br>
+     * Every shape of a written IN list is covered by one check, because normalization sees the parse tree before it
+     * splits the all-constant case from the rest.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "select * from t1 where col1 in (10, null, 1000)",
+            "select * from t1 where col1 in (10 + 0, null)",
+            "select * from t1 where col1 in (null)",
+            "select * from t1 where col1 not in (10, null)",
+            "select * from t1 where col1 in (10, col2, null)"
+    })
+    void parseInPredicateRejectsNull(@Nonnull final String query) {
+        Assertions.assertThatThrownBy(() -> validate(query, "unreachable", Map.of()))
+                .isInstanceOf(UncheckedRelationalException.class)
+                .hasMessageContaining("NULL values are not allowed in the IN list");
+    }
+
+    /**
+     * Only a bare NULL is rejected. An expression that merely contains a NULL below it has a resolved type, so it is a
+     * usable array element and has to keep working.
+     */
+    @Test
+    void parseInPredicateAcceptsTypedNull() throws Exception {
+        validate("select * from t1 where col1 in (10, cast(null as bigint))",
+                "SELECT * FROM \"T1\" WHERE \"COL1\" IN ( ? , CAST ( NULL AS BIGINT ) ) ",
+                Map.of(constantId(8), 10));
     }
 
     @Test
