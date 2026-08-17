@@ -32,8 +32,8 @@ import java.util.List;
  * <p>
  *     Known implementations:
  *     <ul>
- *         <li>{@link YamlExecutionContext.ExplainCorrection} – replaces a single {@code explain:} line.</li>
- *         <li>{@link YamlExecutionContext.MetadataCorrection} – replaces a {@code resultMetadata:} block.</li>
+ *         <li>{@link YamlFilesMaintainer.ExplainCorrection} – replaces a single {@code explain:} line.</li>
+ *         <li>{@link YamlFilesMaintainer.MetadataCorrection} – replaces a {@code resultMetadata:} block.</li>
  *     </ul>
  * </p>
  */

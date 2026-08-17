@@ -32,51 +32,67 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.apple.foundationdb.util.StringUtils;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 /**
- * A {@link Value} that applies a like operator on its child expressions.
+ * A {@link Value} that constructs the pattern for a {@link LikeOperatorValue}. This extracts two fields, one
+ * of which represents a pattern and the other an escape value. In some ways, this operates like a
+ * {@link RecordConstructorValue}, but it offers two advantages:
+ *
+ * <ul>
+ *     <li><em>It can perform some semantic checks.</em> For example, it can validate that the escape sequence
+ *     is not multi-character.</li>
+ *     <li><em>It is backwards compatible.</em> Previous versions of this value would return a single regex pattern,
+ *     which would then be used to match candidate strings within {@link LikeOperatorValue}. That required a special
+ *     value to do the string manipulation, and so to allow for those older plans to be deserialized, we need
+ *     a special value here, even if it did the same job as a {@link RecordConstructorValue} with a fixed return type.</li>
+ * </ul>
  */
 @API(API.Status.EXPERIMENTAL)
 public class PatternForLikeValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Like-Operator-Value");
-    private static final Map<String, String> REPLACE_MAP = ImmutableMap.<String, String>builder()
-            .put("%", ".*")
-            .put("_", ".")
-            .put("|", "\\|")
-            .put(".", "\\.")
-            .put("^", "\\^")
-            .put("$", "\\$")
-            .put("\\", "\\\\")
-            .put("*", "\\*")
-            .put("+", "\\+")
-            .put("?", "\\?")
-            .put("[", "\\[")
-            .put("]", "\\]")
-            .put("{", "\\{")
-            .put("}", "\\}")
-            .put("(", "\\(")
-            .put(")", "\\)")
-            .build();
+
+    /**
+     * Field in the returned {@link #TYPE} corresponding to the {@code LIKE}'s pattern.
+     * This should be a SQL pattern as specified by the {@code LIKE} documentation.
+     */
+    public static final int PATTERN_FIELD_NUMBER = 1;
+
+    /**
+     * Field in the returned {@link #TYPE} corresponding to the {@code LIKE}'s escape character.
+     * This can be {@code null} to indicate no escape character should be applied.
+     */
+    public static final int ESCAPE_FIELD_NUMBER = 2;
+
+    /**
+     * Return type of this {@link Value}. This extracts the pattern and escape and creates a
+     * simple struct with that information. Fields should be accessed by number using the
+     * {@link #PATTERN_FIELD_NUMBER} and {@link #ESCAPE_FIELD_NUMBER} constants.
+     */
+    @Nonnull
+    public static final Type TYPE = Type.Record.fromFields(false, ImmutableList.of(
+            Type.Record.Field.of(Type.primitiveType(TypeCode.STRING, true), Optional.empty(), Optional.of(PATTERN_FIELD_NUMBER)),
+            Type.Record.Field.of(Type.primitiveType(TypeCode.STRING, true), Optional.empty(), Optional.of(ESCAPE_FIELD_NUMBER)))
+    );
 
     @Nonnull
     private final Value patternChild;
@@ -96,24 +112,44 @@ public class PatternForLikeValue extends AbstractValue {
     @Nullable
     @Override
     @SuppressWarnings("java:S6213")
-    public <M extends Message> String eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Message eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+        final Descriptors.Descriptor typeDescriptor = Objects.requireNonNull(context.getTypeRepository().getMessageDescriptor(TYPE));
         String patternStr = (String)patternChild.eval(store, context);
-        String escapeChar = (String)escapeChild.eval(store, context);
-        if (patternStr == null) {
-            return null;
+        final DynamicMessage.Builder resultBuilder = DynamicMessage.newBuilder(typeDescriptor);
+        if (patternStr != null) {
+            resultBuilder.setField(typeDescriptor.findFieldByNumber(PATTERN_FIELD_NUMBER), patternStr);
         }
-        Map<String, String> replaceMap;
-        if (escapeChar == null) {
-            replaceMap = REPLACE_MAP;
-        } else {
-            SemanticException.check(escapeChar.length() == 1, SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR);
-            replaceMap = ImmutableMap.<String, String>builderWithExpectedSize(REPLACE_MAP.size() + 2)
-                    .put(escapeChar + "_", "_")
-                    .put(escapeChar + "%", "%")
-                    .putAll(REPLACE_MAP)
-                    .build();
+        String escape = (String)escapeChild.eval(store, context);
+        if (escape != null) {
+            char escapeChar = validateEscapeChar(escape);
+            if (patternStr != null) {
+                validatePattern(patternStr, escapeChar);
+            }
+            resultBuilder.setField(typeDescriptor.findFieldByNumber(ESCAPE_FIELD_NUMBER), escape);
         }
-        return "^" + StringUtils.replaceEach(patternStr, replaceMap) + "$";
+        return resultBuilder.build();
+    }
+
+    static char validateEscapeChar(@Nonnull String escape) {
+        SemanticException.check(escape.length() == 1, SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR);
+        char escapeChar = escape.charAt(0);
+        SemanticException.check(!Character.isSurrogate(escapeChar), SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR);
+        SemanticException.check(escapeChar != '_' && escapeChar != '%', SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT);
+        return escapeChar;
+    }
+
+    static void validatePattern(@Nonnull String pattern, char escapeChar) {
+        int i = 0;
+        while (i < pattern.length()) {
+            if (pattern.charAt(i) == escapeChar) {
+                SemanticException.check(i + 1 < pattern.length(), SemanticException.ErrorCode.INVALID_ESCAPE_SEQUENCE);
+                char literal = pattern.charAt(i + 1);
+                SemanticException.check(literal == '_' || literal == '%' || literal == escapeChar, SemanticException.ErrorCode.INVALID_ESCAPE_SEQUENCE);
+                i += 2;
+            } else {
+                i++;
+            }
+        }
     }
 
     @Nonnull
@@ -166,7 +202,7 @@ public class PatternForLikeValue extends AbstractValue {
     @Nonnull
     @Override
     public Type getResultType() {
-        return Type.primitiveType(TypeCode.STRING);
+        return TYPE;
     }
 
     @Nonnull
@@ -195,9 +231,9 @@ public class PatternForLikeValue extends AbstractValue {
     private static Value encapsulate(@Nonnull final List<? extends Typed> arguments) {
         Verify.verify(arguments.size() == 2);
         Type patternType = arguments.get(0).getResultType();
-        Type escapeType = arguments.get(0).getResultType();
-        SemanticException.check(patternType.getTypeCode().equals(TypeCode.STRING), SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
-        SemanticException.check(escapeType.getTypeCode().equals(TypeCode.STRING), SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
+        Type escapeType = arguments.get(1).getResultType();
+        SemanticException.check(patternType.isNull() || patternType.getTypeCode().equals(TypeCode.STRING), SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
+        SemanticException.check(escapeType.isNull() || escapeType.getTypeCode().equals(TypeCode.STRING), SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
 
         return new PatternForLikeValue((Value) arguments.get(0), (Value) arguments.get(1));
     }
