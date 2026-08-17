@@ -529,8 +529,7 @@ public class CascadesPlanner implements QueryPlanner {
                                                     @Nonnull final Reference group,
                                                     @Nonnull final RelationalExpression expression,
                                                     final boolean forceExploration) {
-        exploreExpressionOnOptimizedInputs(plannerPhase, group, expression, forceExploration);
-        taskStack.push(new OptimizeInputs(plannerPhase, group, expression));
+        taskStack.push(new OptimizeInputs(plannerPhase, group, expression, forceExploration));
         exploreExpression(plannerPhase, group, expression, forceExploration);
     }
 
@@ -540,21 +539,9 @@ public class CascadesPlanner implements QueryPlanner {
                                    final boolean forceExploration) {
         Verify.verify(group.containsExactly(expression));
         if (forceExploration) {
-            taskStack.push(new ExploreExpression(plannerPhase, group, expression, false));
+            taskStack.push(new ExploreExpression(plannerPhase, group, expression));
         }  else {
-            taskStack.push(new ReExploreExpression(plannerPhase, group, expression, false));
-        }
-    }
-
-    private void exploreExpressionOnOptimizedInputs(@Nonnull final PlannerPhase plannerPhase,
-                                                    @Nonnull final Reference group,
-                                                    @Nonnull final RelationalExpression expression,
-                                                    final boolean forceExploration) {
-        Verify.verify(group.containsExactly(expression));
-        if (forceExploration) {
-            taskStack.push(new ExploreExpression(plannerPhase, group, expression, true));
-        }  else {
-            taskStack.push(new ReExploreExpression(plannerPhase, group, expression, true));
+            taskStack.push(new ReExploreExpression(plannerPhase, group, expression));
         }
     }
 
@@ -846,15 +833,10 @@ public class CascadesPlanner implements QueryPlanner {
      */
     @VisibleForTesting
     abstract class AbstractExploreExpression extends ExploreTask {
-
-        boolean onOptimizedInputs;
-
         public AbstractExploreExpression(@Nonnull final PlannerPhase plannerPhase,
                                          @Nonnull final Reference group,
-                                         @Nonnull final RelationalExpression expression,
-                                         boolean onOptimizedInputs) {
+                                         @Nonnull final RelationalExpression expression) {
             super(plannerPhase, group, expression);
-            this.onOptimizedInputs = onOptimizedInputs;
         }
 
         @Override
@@ -899,10 +881,7 @@ public class CascadesPlanner implements QueryPlanner {
          */
         @VisibleForTesting
         void pushTransformExpressionIfNeeded(@Nonnull CascadesRule<? extends RelationalExpression> rule) {
-            if (!configuration.isRuleEnabled(rule) || !shouldPushRule(rule)) {
-                return;
-            }
-            if (rule.onlyOnPrunedChildren() != onOptimizedInputs) {
+            if (!configuration.isRuleEnabled(rule) || !shouldPushRule(rule) || rule.onlyOnPrunedInputs()) {
                 return;
             }
             final PlannerPhase phase = getPlannerPhase();
@@ -926,10 +905,7 @@ public class CascadesPlanner implements QueryPlanner {
         }
 
         private void pushTransformMatchPartitionIfNeeded(AbstractCascadesRule<? extends MatchPartition> rule) {
-            if (!configuration.isRuleEnabled(rule) || !shouldPushRule(rule)) {
-                return;
-            }
-            if (rule.onlyOnPrunedChildren() != onOptimizedInputs) {
+            if (!configuration.isRuleEnabled(rule) || !shouldPushRule(rule) || rule.onlyOnPrunedInputs()) {
                 return;
             }
             taskStack.push(new TransformMatchPartition(getPlannerPhase(), getGroup(), getExpression(), rule));
@@ -965,22 +941,24 @@ public class CascadesPlanner implements QueryPlanner {
     private class ReExploreExpression extends AbstractExploreExpression {
         public ReExploreExpression(@Nonnull final PlannerPhase plannerPhase,
                                    @Nonnull final Reference group,
-                                   @Nonnull final RelationalExpression expression,
-                                   boolean onOptimizedInputs) {
-            super(plannerPhase, group, expression, onOptimizedInputs);
+                                   @Nonnull final RelationalExpression expression) {
+            super(plannerPhase, group, expression);
         }
 
         @Override
         protected boolean shouldPushRule(@Nonnull final CascadesRule<?> rule) {
-            final Set<PlannerConstraint<?>> requirementDependencies = rule.getConstraintDependencies();
-            final Reference group = getGroup();
-            if (!group.isExploring()) {
-                if (logger.isWarnEnabled()) {
-                    logger.warn(KeyValueLogMessage.of("transformation task run on a group that is not being explored"));
-                }
-            }
-            return group.isFullyExploring() || !group.isExploredForAttributes(requirementDependencies);
+            return CascadesPlanner.ruleIsApplicable(getGroup(), rule);
         }
+    }
+
+    private static boolean ruleIsApplicable(@Nonnull Reference group, @Nonnull final CascadesRule<?> rule) {
+        final Set<PlannerConstraint<?>> requirementDependencies = rule.getConstraintDependencies();
+        if (!group.isExploring()) {
+            if (logger.isWarnEnabled()) {
+                logger.warn(KeyValueLogMessage.of("transformation task run on a group that is not being explored"));
+            }
+        }
+        return group.isFullyExploring() || !group.isExploredForAttributes(requirementDependencies);
     }
 
     /**
@@ -998,9 +976,8 @@ public class CascadesPlanner implements QueryPlanner {
     class ExploreExpression extends AbstractExploreExpression {
         public ExploreExpression(@Nonnull final PlannerPhase plannerPhase,
                                  @Nonnull final Reference group,
-                                 @Nonnull final RelationalExpression expression,
-                                 boolean onOptimizedInputs) {
-            super(plannerPhase, group, expression, onOptimizedInputs);
+                                 @Nonnull final RelationalExpression expression) {
+            super(plannerPhase, group, expression);
         }
 
         @Override
@@ -1008,7 +985,6 @@ public class CascadesPlanner implements QueryPlanner {
             return true;
         }
     }
-
 
     /**
      * Abstract base class for all transformations. All transformations are defined on a subclass of
@@ -1378,13 +1354,16 @@ public class CascadesPlanner implements QueryPlanner {
         private final Reference group;
         @Nonnull
         private final RelationalExpression expression;
+        private final boolean forceExploration;
 
         public OptimizeInputs(@Nonnull final PlannerPhase plannerPhase,
                               @Nonnull final Reference group,
-                              @Nonnull final RelationalExpression expression) {
+                              @Nonnull final RelationalExpression expression,
+                              boolean forceExploration) {
             this.plannerPhase = plannerPhase;
             this.group = group;
             this.expression = expression;
+            this.forceExploration = forceExploration;
         }
 
         @Nonnull
@@ -1398,11 +1377,45 @@ public class CascadesPlanner implements QueryPlanner {
             if (!group.containsExactly(expression)) {
                 return false;
             }
+
+            // Push the TransformExpression tasks for OnPrunedInputsRule strictly after the inputs (children) have
+            // been pruned by the cost-model.
+            getPlannerPhase().getRuleSet().getRules(expression)
+                    .filter(CascadesRule::onlyOnPrunedInputs)
+                    .forEach(this::pushTransformExpressionForOnPrunedInputsRuleIfNeeded);
             for (final Quantifier quantifier : expression.getQuantifiers()) {
                 final Reference rangesOver = quantifier.getRangesOver();
                 taskStack.push(new OptimizeGroup(plannerPhase, rangesOver));
             }
             return true;
+        }
+
+        private void pushTransformExpressionForOnPrunedInputsRuleIfNeeded(
+                @Nonnull CascadesRule<? extends RelationalExpression> rule) {
+            if (!(configuration.isRuleEnabled(rule) && shouldPushRule(rule))) {
+                return;
+            }
+            final PlannerPhase phase = getPlannerPhase();
+            if (rule instanceof final ConditionalCascadesRule<?, ?> conditionalRule) {
+                // Check `shouldPushRule()` and `isRuleEnabled()` for each inner rule as well (rather than just the
+                // wrapper) so that on re-exploration only the inner rules that are actually sensitive to a newly-stale
+                // constraint get another chance to fire, instead of unconditionally restarting the whole chain from the
+                // first rule.
+                final var rules = conditionalRule.getRules().stream()
+                        .filter(innerRule ->
+                                configuration.isRuleEnabled(innerRule) && shouldPushRule(innerRule))
+                        .collect(ImmutableList.toImmutableList());
+
+                if (!rules.isEmpty()) {
+                    taskStack.push(new ConditionalTransformExpression(phase, group, expression, rules));
+                }
+            } else {
+                taskStack.push(new TransformExpression(phase, group, expression, rule));
+            }
+        }
+
+        private boolean shouldPushRule(@Nonnull CascadesRule<?> rule) {
+            return forceExploration || ruleIsApplicable(group, rule);
         }
 
         @Override

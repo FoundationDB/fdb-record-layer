@@ -183,7 +183,7 @@ public class RuleTestHelper {
             //
             preExploreForRule(copiedOriginal, false);
         }
-        Reference ref = rule instanceof CascadesRule.PostPruneRule ?
+        Reference ref = rule instanceof CascadesRule.OnPrunedInputsRule ?
                         Reference.ofFinalExpression(PlannerStage.CANONICAL, copiedOriginal) :
                         Reference.ofExploratoryExpression(PlannerStage.CANONICAL, copiedOriginal);
         PlanContext planContext = new FakePlanContext();

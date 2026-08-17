@@ -186,7 +186,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression> implements ImplementationCascadesRule<SelectExpression>, CascadesRule.PostPruneRule<SelectExpression> {
+public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression> implements ImplementationCascadesRule<SelectExpression>, CascadesRule.OnPrunedInputsRule<SelectExpression> {
     @Nonnull
     private static final BindingMatcher<RelationalExpression> childExpressionMatcher = anyExpression();
 

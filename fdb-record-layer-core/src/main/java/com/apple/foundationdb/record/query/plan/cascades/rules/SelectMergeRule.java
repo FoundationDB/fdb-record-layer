@@ -74,7 +74,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * and (3) the child expression is a {@link SelectExpression} or a {@link LogicalFilterExpression}.
  */
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class SelectMergeRule extends AbstractCascadesRule<SelectExpression> implements ImplementationCascadesRule<SelectExpression>, CascadesRule.PostPruneRule<SelectExpression> {
+public class SelectMergeRule extends AbstractCascadesRule<SelectExpression> implements ImplementationCascadesRule<SelectExpression>, CascadesRule.OnPrunedInputsRule<SelectExpression> {
     @Nonnull
     private static final BindingMatcher<RelationalExpressionWithPredicates> childExpressionMatcher =
             withPredicatesExpression();

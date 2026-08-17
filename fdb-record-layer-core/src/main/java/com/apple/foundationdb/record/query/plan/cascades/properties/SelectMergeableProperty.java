@@ -25,13 +25,14 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
+import com.apple.foundationdb.record.query.plan.cascades.rules.SelectMergeRule;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
  * A property indicating whether the top expression of a subgraph is one that
- * {@link com.apple.foundationdb.record.query.plan.cascades.rules.SelectMergeRule} could merge into a referencing parent
+ * {@link SelectMergeRule} could merge into a referencing parent
  * {@link com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression}. This captures only the
  * child-side condition of mergeability, namely that the expression carries predicates (i.e. it is a
  * {@link com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression} or a

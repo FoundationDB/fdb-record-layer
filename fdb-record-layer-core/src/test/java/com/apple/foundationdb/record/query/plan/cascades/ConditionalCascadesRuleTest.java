@@ -241,41 +241,41 @@ class ConditionalCascadesRuleTest {
     }
 
     /**
-     * When all inner rules are normal (non-post-prune) rules, the conditional rule inherits
-     * {@code onlyOnPrunedChildren() == false}.
+     * When all inner rules are normal (non-on-pruned-input) rules, the conditional rule inherits
+     * {@code onlyOnPrunedInputs() == false}.
      */
     @Test
-    void constructorWithAllNormalRulesInheritsOnlyOnPrunedChildrenFalse() {
+    void constructorWithAllNormalRulesInheritsOnlyOnPrunedInputsFalse() {
         final StubRule first = stubRule(SelectExpression.class);
         final StubRule second = stubRule(SelectExpression.class);
         final ConditionalCascadesRule<RelationalExpression, StubRule> rule = conditionalRuleOf(first, second);
-        assertThat(rule.onlyOnPrunedChildren()).isFalse();
+        assertThat(rule.onlyOnPrunedInputs()).isFalse();
     }
 
     /**
-     * When all inner rules implement {@link CascadesRule.PostPruneRule}, the conditional rule inherits
-     * {@code onlyOnPrunedChildren() == true}.
+     * When all inner rules implement {@link CascadesRule.OnPrunedInputsRule}, the conditional rule inherits
+     * {@code onlyOnPrunedInputs() == true}.
      */
     @Test
-    void constructorWithAllPostPruneRulesInheritsOnlyOnPrunedChildrenTrue() {
-        final StubPostPruneRule first = stubPostPruneRule(SelectExpression.class);
-        final StubPostPruneRule second = stubPostPruneRule(SelectExpression.class);
-        final ConditionalCascadesRule<RelationalExpression, StubPostPruneRule> rule =
+    void constructorWithAllOnPrunedInputRulesInheritsOnlyOnPrunedInputsTrue() {
+        final StubOnPrunedInputsRule first = stubOnPrunedInputRule(SelectExpression.class);
+        final StubOnPrunedInputsRule second = stubOnPrunedInputRule(SelectExpression.class);
+        final ConditionalCascadesRule<RelationalExpression, StubOnPrunedInputsRule> rule =
                 new ConditionalCascadesRule<>(ImmutableList.of(first, second));
-        assertThat(rule.onlyOnPrunedChildren()).isTrue();
+        assertThat(rule.onlyOnPrunedInputs()).isTrue();
     }
 
     /**
-     * Mixing a post-prune rule with a normal rule must be rejected at construction time, because the planner
+     * Mixing an on-pruned-input rule with a normal rule must be rejected at construction time, because the planner
      * schedules the two kinds in separate passes and a mixed conditional chain would be silently broken.
      */
     @Test
-    void constructorWithMismatchedOnlyOnPrunedChildrenThrows() {
+    void constructorWithMismatchedOnlyOnPrunedInputsThrows() {
         final StubRule normal = stubRule(SelectExpression.class);
-        final StubPostPruneRule postPrune = stubPostPruneRule(SelectExpression.class);
-        assertThatThrownBy(() -> new ConditionalCascadesRule<>(ImmutableList.of(normal, postPrune)))
+        final StubOnPrunedInputsRule onPrunedInput = stubOnPrunedInputRule(SelectExpression.class);
+        assertThatThrownBy(() -> new ConditionalCascadesRule<>(ImmutableList.of(normal, onPrunedInput)))
                 .isInstanceOf(VerifyException.class)
-                .hasMessageContaining("onlyOnPrunedChildren");
+                .hasMessageContaining("onlyOnPrunedInputs");
     }
 
     @Nonnull
@@ -311,8 +311,8 @@ class ConditionalCascadesRuleTest {
     }
 
     @Nonnull
-    private static StubPostPruneRule stubPostPruneRule(@Nonnull final Class<? extends RelationalExpression> rootClass) {
-        return new StubPostPruneRule(matcherFor(rootClass), rootClass);
+    private static StubOnPrunedInputsRule stubOnPrunedInputRule(@Nonnull final Class<? extends RelationalExpression> rootClass) {
+        return new StubOnPrunedInputsRule(matcherFor(rootClass), rootClass);
     }
 
     @Nonnull
@@ -386,14 +386,14 @@ class ConditionalCascadesRuleTest {
     }
 
     /**
-     * A minimal rule that implements {@link CascadesRule.PostPruneRule}, used to verify that a conditional rule
-     * whose constituents are all post-prune inherits {@code onlyOnPrunedChildren() == true}, and that mixing
-     * post-prune and normal rules is rejected.
+     * A minimal rule that implements {@link OnPrunedInputsRule}, used to verify that a conditional rule
+     * whose constituents are all on-pruned-input inherits {@code onlyOnPrunedInputs() == true}, and that mixing
+     * on-pruned-input and normal rules is rejected.
      */
-    private static final class StubPostPruneRule extends StubRule
-            implements CascadesRule.PostPruneRule<RelationalExpression> {
-        private StubPostPruneRule(@Nonnull final BindingMatcher<RelationalExpression> matcher,
-                                  @Nonnull final Class<? extends RelationalExpression> rootOperator) {
+    private static final class StubOnPrunedInputsRule extends StubRule
+            implements CascadesRule.OnPrunedInputsRule<RelationalExpression> {
+        private StubOnPrunedInputsRule(@Nonnull final BindingMatcher<RelationalExpression> matcher,
+                                       @Nonnull final Class<? extends RelationalExpression> rootOperator) {
             super(matcher, Optional.of(rootOperator));
         }
     }
