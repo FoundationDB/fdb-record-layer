@@ -43,8 +43,9 @@ import static org.assertj.core.api.Assertions.entry;
  * Unit tests for {@link VectorIndexTaskCounts} in isolation — the conflict-free per-prefix register of outstanding
  * deferred-maintenance work — exercising its own contract directly (constructed over an index's secondary subspace,
  * driven with raw transactions) rather than through the engine/maintainer. Covers adding, draining (including the
- * zero-drop), read-your-writes visibility within a transaction, unpartitioned (empty-prefix) vs partitioned prefixes,
- * the {@code deleteWhere} range clear, and the conflict-freedom the atomic {@code ADD} counters are built for.
+ * zero-drop), read-your-writes visibility within a transaction, empty-prefix (unpartitioned) discoverability and
+ * per-group independence, the {@code deleteWhere} range clear, and the conflict-freedom the atomic {@code ADD} counters
+ * are built for.
  */
 @Tag(Tags.RequiresFDB)
 class VectorIndexTaskCountsTest extends VectorIndexTestBase {
@@ -135,38 +136,80 @@ class VectorIndexTaskCountsTest extends VectorIndexTestBase {
         }
     }
 
+    /**
+     * The empty (unpartitioned) prefix is the awkward case for discovery: its entry keys at the register's subspace key
+     * itself, so {@code prefixesWithOutstandingWork} must scan {@code Range.startsWith(getKey())} rather than the
+     * subspace {@code .range()} (which begins just past that key and would skip it). This is the one test that exercises
+     * that guard: an empty-prefix entry is counted, surfaced by discovery, and — like any other prefix — dropped from
+     * discovery once it drains to zero.
+     */
     @Test
-    void unpartitionedAndPartitionedPrefixesAreTrackedIndependently() throws Exception {
+    void emptyPrefixIsDiscoverableAndDrainsLikeAnyOther() throws Exception {
         final VectorIndexTaskCounts counts = new VectorIndexTaskCounts(secondarySubspace());
-        final Tuple unpartitioned = Tuple.from();    // an unpartitioned index keys at the subspace itself
-        final Tuple partitioned = Tuple.from(7L);
+        final Tuple unpartitioned = Tuple.from(); // an unpartitioned index keys its sole entry at the subspace itself
 
         try (FDBRecordContext context = openContext()) {
             counts.increment(context.ensureActive(), unpartitioned);
-            counts.increment(context.ensureActive(), partitioned);
-            counts.increment(context.ensureActive(), partitioned);
             context.commit();
         }
         try (FDBRecordContext context = openContext()) {
             assertThat(counts.countFor(context.readTransaction(true), unpartitioned).get()).isEqualTo(1L);
-            assertThat(counts.countFor(context.readTransaction(true), partitioned).get()).isEqualTo(2L);
-            // Discovery must surface both — including the empty-prefix entry, which is keyed at the subspace key itself
-            // (the reason discovery scans startsWith(getKey()) rather than the subspace range).
+            assertThat(counts.hasOutstandingWork(context.readTransaction(true)).get()).isTrue();
             assertThat(collectPrefixes(counts, context))
-                    .as("both the unpartitioned and partitioned prefixes are discoverable, each with its own count")
-                    .containsOnly(entry(unpartitioned, 1L), entry(partitioned, 2L));
+                    .as("the empty-prefix entry keys at the subspace key itself, so discovery must scan "
+                            + "startsWith(getKey()) — the subspace range would skip it")
+                    .containsOnly(entry(unpartitioned, 1L));
         }
-        // Draining the partitioned prefix to zero leaves only the unpartitioned entry; work still remains overall.
+        // Draining the sole empty prefix to zero drops even the subspace-key entry: no entries, no outstanding work.
         try (FDBRecordContext context = openContext()) {
-            counts.decrement(context.ensureActive(), partitioned);
-            counts.decrement(context.ensureActive(), partitioned);
+            counts.decrement(context.ensureActive(), unpartitioned);
             context.commit();
         }
         try (FDBRecordContext context = openContext()) {
             assertThat(collectPrefixes(counts, context))
-                    .as("the drained partitioned prefix drops out; the independent unpartitioned one remains")
-                    .containsOnly(entry(unpartitioned, 1L));
-            assertThat(counts.hasOutstandingWork(context.readTransaction(true)).get()).isTrue();
+                    .as("draining the empty prefix to zero drops the subspace-key entry from discovery").isEmpty();
+            assertThat(counts.hasOutstandingWork(context.readTransaction(true)).get())
+                    .as("no entries means no outstanding work").isFalse();
+        }
+    }
+
+    /**
+     * A grouped index tracks each group's prefix independently: two groups accrue their own counts, both are surfaced by
+     * discovery, and draining one group's tasks to zero drops only that group while the other's count survives. Because
+     * "is there work?" is just "is the per-prefix map non-empty?", a still-backlogged sibling group keeps the index's
+     * outstanding-work status true — no index-wide total is involved.
+     */
+    @Test
+    void groupPrefixesAreTrackedIndependently() throws Exception {
+        final VectorIndexTaskCounts counts = new VectorIndexTaskCounts(secondarySubspace());
+        final Tuple groupOne = Tuple.from(1L);
+        final Tuple groupTwo = Tuple.from(2L);
+
+        try (FDBRecordContext context = openContext()) {
+            counts.increment(context.ensureActive(), groupOne);
+            counts.increment(context.ensureActive(), groupTwo);
+            counts.increment(context.ensureActive(), groupTwo);
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext()) {
+            assertThat(counts.countFor(context.readTransaction(true), groupOne).get()).isEqualTo(1L);
+            assertThat(counts.countFor(context.readTransaction(true), groupTwo).get()).isEqualTo(2L);
+            assertThat(collectPrefixes(counts, context))
+                    .as("each group prefix is discoverable with its own count")
+                    .containsOnly(entry(groupOne, 1L), entry(groupTwo, 2L));
+        }
+        // Draining one group to zero drops only that group; the other group's backlog is untouched.
+        try (FDBRecordContext context = openContext()) {
+            counts.decrement(context.ensureActive(), groupTwo);
+            counts.decrement(context.ensureActive(), groupTwo);
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext()) {
+            assertThat(collectPrefixes(counts, context))
+                    .as("the drained group drops out; the independent one remains")
+                    .containsOnly(entry(groupOne, 1L));
+            assertThat(counts.hasOutstandingWork(context.readTransaction(true)).get())
+                    .as("a still-backlogged sibling group keeps the index's outstanding-work status true").isTrue();
         }
     }
 
@@ -189,6 +232,42 @@ class VectorIndexTaskCountsTest extends VectorIndexTestBase {
         try (FDBRecordContext context = openContext()) {
             assertThat(counts.countFor(context.readTransaction(true), prefix).get())
                     .as("both conflict-free increments must land").isEqualTo(2L);
+        }
+    }
+
+    /**
+     * The decrement counterpart to {@link #concurrentIncrementsDoNotConflict}: two concurrent drains of the same prefix
+     * both commit (the counter is an atomic {@code ADD}, which commutes and takes no read conflict) — and when they
+     * cross zero together, the {@code COMPARE_AND_CLEAR} still drops the entry exactly once regardless of commit order,
+     * leaving no stale zero or negative. This exercises the {@code ADD} + {@code COMPARE_AND_CLEAR} interplay under
+     * concurrency that an increment never triggers (its clear is always a no-op), and is the concurrent counterpart to
+     * the sequential {@link #decrementingToZeroDropsTheEntry}.
+     */
+    @Test
+    void concurrentDecrementsDoNotConflictAndDropAtZero() throws Exception {
+        final VectorIndexTaskCounts counts = new VectorIndexTaskCounts(secondarySubspace());
+        final Tuple prefix = Tuple.from(7L);
+
+        // Seed a count of two so the two concurrent decrements land it exactly on zero.
+        try (FDBRecordContext context = openContext()) {
+            counts.increment(context.ensureActive(), prefix);
+            counts.increment(context.ensureActive(), prefix);
+            context.commit();
+        }
+        try (FDBRecordContext a = openContext();
+                FDBRecordContext b = openContext()) {
+            a.getReadVersion();
+            b.getReadVersion();
+            counts.decrement(a.ensureActive(), prefix);
+            counts.decrement(b.ensureActive(), prefix);
+            b.commit();
+            a.commit(); // must not conflict with b's concurrent decrement
+        }
+        try (FDBRecordContext context = openContext()) {
+            assertThat(counts.countFor(context.readTransaction(true), prefix).get())
+                    .as("two conflict-free decrements crossing zero drop the entry (reads back as zero)").isEqualTo(0L);
+            assertThat(counts.hasOutstandingWork(context.readTransaction(true)).get())
+                    .as("the dropped entry means no outstanding work").isFalse();
         }
     }
 

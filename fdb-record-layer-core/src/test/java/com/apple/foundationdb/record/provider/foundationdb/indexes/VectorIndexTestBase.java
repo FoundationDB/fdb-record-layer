@@ -89,10 +89,12 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
     private static final Logger logger = LoggerFactory.getLogger(VectorIndexTestBase.class);
 
-    // Max passes of the real merger to drive a vector index's backlog to completion before failing. Each pass is a full
-    // OnlineIndexer.mergeIndex(), which itself loops the per-partition claim/drain internally, so one pass usually
-    // suffices; the bound guards against a task-enqueues-follow-up loop never converging.
-    private static final int MERGE_DRAIN_MAX_PASSES = 200;
+    // A single OnlineIndexer.mergeIndex() drains the whole backlog on its own: it loops the per-partition claim/drain
+    // internally under one stable session id (so it holds each prefix's lease across transactions) until nothing is
+    // outstanding, retrying transient FDB failures — and follow-up tasks a drain enqueues keep the per-prefix count
+    // positive, so they are drained within that same pass. One pass therefore suffices for a quiescent index; this tiny
+    // bound is only a backstop so a pass that returns with work still outstanding fails the test rather than looping.
+    private static final int MERGE_DRAIN_MAX_PASSES = 2;
 
     /**
      * The index options a subclass creates its vector indexes with. These select the engine

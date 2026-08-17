@@ -94,8 +94,8 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
     private static final int DIMENSIONS = 128;
 
     // Cluster tuning. PRIMARY_CLUSTER_MAX is deliberately small so 10k vectors in one partition produce a big split
-    // backlog. The other knobs whose Config defaults derive from the default max (1000) are scaled down to match, and
-    // HARD_MAX is only ~2x MAX so inserters that briefly outrun the merger trip back-pressure.
+    // backlog. The other knobs whose Config defaults derive from the default max (1000) are scaled down to match,
+    // specifically HARD_MAX is only ~2x MAX so inserters that briefly outrun the merger trip back-pressure.
     private static final int PRIMARY_CLUSTER_MAX = 128;
     private static final int PRIMARY_CLUSTER_HARD_MAX = 2 * PRIMARY_CLUSTER_MAX;   // > MAX (invariant)
     private static final int PRIMARY_CLUSTER_MIN = 16;
@@ -202,10 +202,8 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
                     try {
                         // The permit only means "a batch committed"; it may not have enqueued a split, so gate the
                         // (transaction-opening) drain on there actually being outstanding work.
-                        if (vectorIndexHasOutstandingWork(metaData, INDEX_NAME)) {
-                            mergeVectorIndexOnce(metaData, INDEX_NAME);
-                            mergerPasses.incrementAndGet();
-                        }
+                        mergeVectorIndexOnce(metaData, INDEX_NAME);
+                        mergerPasses.incrementAndGet();
                     } catch (final Exception e) {
                         // A transient failure here is tolerable (the merger's runner already retries conflicts); record
                         // the first unexpected one but keep draining.

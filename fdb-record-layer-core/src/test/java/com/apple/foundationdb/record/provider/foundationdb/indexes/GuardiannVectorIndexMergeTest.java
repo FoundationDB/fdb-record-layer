@@ -183,11 +183,10 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
             assertThat(mergeControl.getMergesTried())
                     .as("a 1ms budget is spent by the first task, stopping the drain well short of the count budget")
                     .isEqualTo(1L);
-            if (maintainer.hasOutstandingWork().get()) {
-                assertThat(mergeControl.getMergesFound())
-                        .as("with work still queued the driver must be told to loop")
-                        .isGreaterThan(mergeControl.getMergesTried());
-            }
+            assertThat(maintainer.hasOutstandingWork().get()).isTrue();
+            assertThat(mergeControl.getMergesFound())
+                    .as("with work still queued the driver must be told to loop")
+                    .isGreaterThan(mergeControl.getMergesTried());
         }
     }
 
