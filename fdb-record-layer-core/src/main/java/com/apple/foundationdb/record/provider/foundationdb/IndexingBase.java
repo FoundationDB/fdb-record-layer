@@ -967,7 +967,7 @@ public abstract class IndexingBase {
     }
 
     private CompletableFuture<Void> updateHeartbeat(FDBRecordStore store, Index index) {
-        return heartbeat == null ?
+        return heartbeat == null || !store.getIndexState(index).isWriteOnly() ?
                AsyncUtil.DONE :
                heartbeat.checkAndUpdateHeartbeat(store, index);
     }
