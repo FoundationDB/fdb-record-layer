@@ -1,11 +1,12 @@
-‘
+€
 
-field-index-tests-prototEXPLAIN select count(*) from (select * from (select * from (select * from "MyTable"  where ID = 5) as x) as y) as z;ό
-¤‹‡b †Ψ¦(0ρΉ&8)@φSCAN([EQUALS promote(@c22 AS LONG)]) | TFILTER MyTable | MAP ((_.ID AS ID, _.COL1 AS COL1, _.COL31 AS COL31, _.COL32 AS COL32, _.COL2 AS COL2) AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)εdigraph G {
+field-index-tests-prototEXPLAIN select count(*) from (select * from (select * from (select * from "MyTable"  where ID = 5) as x) as y) as z;λ
+θεφ
+_ Ò•Ε(0’…8)@φSCAN([EQUALS promote(@c22 AS LONG)]) | TFILTER MyTable | MAP ((_.ID AS ID, _.COL1 AS COL1, _.COL31 AS COL31, _.COL32 AS COL32, _.COL2 AS COL2) AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)Τdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (coalesce_long(q12._0._0, promote(0l AS LONG)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (coalesce_long(q12._0._0, 0l) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q12 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (count_star(*) AS _0)</td></tr><tr><td align="left">GROUP BY ()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0 AS _0)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP ((q2.ID AS ID, q2.COL1 AS COL1, q2.COL31 AS COL31, q2.COL32 AS COL32, q2.COL2 AS COL2) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL31, LONG AS COL32, LONG AS COL2 AS _0)" ];
