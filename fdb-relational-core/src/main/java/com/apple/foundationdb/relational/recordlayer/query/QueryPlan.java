@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.PlanHashable.PlanHashMode;
 import com.apple.foundationdb.record.PlanSerializationContext;
@@ -430,15 +431,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
             validatePlanAgainstEnvironment(parsedContinuation, fdbRecordStore, executionContext, OptionsUtils.getValidPlanHashModes(options));
 
-            final RecordCursor<QueryResult> cursor;
-            final var executePropertiesBuilder = connection.getExecuteProperties().toBuilder()
-                    .setReturnedRowLimit(options.getOption(Options.Name.MAX_ROWS))
-                    .setDryRun(options.getOption(Options.Name.DRY_RUN));
-            if (options.<Boolean>getOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT)) {
-                executePropertiesBuilder.setIsolationLevel(IsolationLevel.SNAPSHOT);
-            }
-            final var executeProperties = executePropertiesBuilder.build();
-            cursor = executionContext.metricCollector.clock(
+            final var executeProperties = applyOptions(options, connection.getExecuteProperties());
+            final RecordCursor<QueryResult> cursor = executionContext.metricCollector.clock(
                     RelationalMetric.RelationalEvent.EXECUTE_RECORD_QUERY_PLAN, () -> recordQueryPlan.executePlan(fdbRecordStore, evaluationContext,
                             parsedContinuation.getExecutionState(),
                             executeProperties));
@@ -500,6 +494,17 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             return recordQueryPlan.planHash(currentPlanHashMode);
         }
 
+    }
+
+    @Nonnull
+    public static ExecuteProperties applyOptions(final Options options, final ExecuteProperties executeProperties) {
+        final var executePropertiesBuilder = executeProperties.toBuilder()
+                .setReturnedRowLimit(options.getOption(Options.Name.MAX_ROWS))
+                .setDryRun(options.getOption(Options.Name.DRY_RUN));
+        if (options.<Boolean>getOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT)) {
+            executePropertiesBuilder.setIsolationLevel(IsolationLevel.SNAPSHOT);
+        }
+        return executePropertiesBuilder.build();
     }
 
     public static class ContinuedPhysicalQueryPlan extends PhysicalQueryPlan {
