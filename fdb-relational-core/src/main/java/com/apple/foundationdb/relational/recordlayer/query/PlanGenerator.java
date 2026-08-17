@@ -56,6 +56,7 @@ import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.ddl.ThrowingMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.query.AstNormalizer.NormalizationResult.QueryCachingFlags;
 import com.apple.foundationdb.relational.recordlayer.query.cache.PhysicalPlanEquivalence;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor;
@@ -234,7 +235,7 @@ public final class PlanGenerator {
     private Plan<?> generatePhysicalPlan(@Nonnull AstNormalizer.NormalizationResult ast,
                                          @Nonnull Set<PlanHashable.PlanHashMode> validPlanHashModes,
                                          @Nonnull PlanHashable.PlanHashMode currentPlanHashMode) throws RelationalException {
-        if (ast.getQueryCachingFlags().contains(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_EXECUTE_CONTINUATION_STATEMENT)) {
+        if (ast.getQueryCachingFlags().contains(QueryCachingFlags.IS_EXECUTE_CONTINUATION_STATEMENT)) {
             return planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_CONTINUED_PLAN, () ->
                     generatePhysicalPlanForExecuteContinuation(ast, validPlanHashModes, currentPlanHashMode));
         } else {
@@ -465,12 +466,12 @@ public final class PlanGenerator {
      *
      * @return {@code true} if the query should interact with the plan cache, otherwise {@code false}.
      */
-    private static boolean shouldNotCache(@Nonnull final Set<AstNormalizer.NormalizationResult.QueryCachingFlags> queryCachingFlags) {
-        return queryCachingFlags.contains(AstNormalizer.NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION) ||
-                queryCachingFlags.contains(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DDL_STATEMENT) ||
+    private static boolean shouldNotCache(@Nonnull final Set<QueryCachingFlags> queryCachingFlags) {
+        return queryCachingFlags.contains(QueryCachingFlags.WITH_NO_CACHE_OPTION) ||
+                queryCachingFlags.contains(QueryCachingFlags.IS_DDL_STATEMENT) ||
                 // avoid caching INSERT statements since they could result in extremely large plans leading to potential
                 // OOM when too many of them are stored in the plan cache.
-                queryCachingFlags.contains(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_INSERT_STATEMENT);
+                queryCachingFlags.contains(QueryCachingFlags.IS_INSERT_STATEMENT);
 
     }
 
@@ -491,14 +492,14 @@ public final class PlanGenerator {
      * @throws RelationalException with {@link ErrorCode#UNSUPPORTED_OPERATION} if the option is used on a
      *         statement that is neither a {@code SELECT} nor an {@code EXECUTE CONTINUATION}.
      */
-    private void validateIsolationLevelSnapshotOption(@Nonnull final Set<AstNormalizer.NormalizationResult.QueryCachingFlags> queryCachingFlags)
+    private void validateIsolationLevelSnapshotOption(@Nonnull final Set<QueryCachingFlags> queryCachingFlags)
             throws RelationalException {
         if (!options.<Boolean>getOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT)) {
             return;
         }
-        final var isSelect = queryCachingFlags.contains(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT);
+        final var isSelect = queryCachingFlags.contains(QueryCachingFlags.IS_DQL_STATEMENT);
         final var isExecuteContinuation =
-                queryCachingFlags.contains(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_EXECUTE_CONTINUATION_STATEMENT);
+                queryCachingFlags.contains(QueryCachingFlags.IS_EXECUTE_CONTINUATION_STATEMENT);
         Assert.that(isSelect || isExecuteContinuation,
                 ErrorCode.UNSUPPORTED_OPERATION,
                 "OPTIONS (ISOLATION LEVEL SNAPSHOT) is only supported on SELECT queries");
