@@ -592,11 +592,13 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                                                          @Nullable final Integer partitionId) {
         // Note - since this directory wrapper was already created, agility context should be unused in the next line's path
         final PendingWriteQueue writeQueue = getPendingWriteQueue();
+        final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
         final ThrottledRetryingIterator<PendingWriteQueue.QueueEntry> iterator = ThrottledRetryingIterator.builder(
                         agilityContext.getCallerContext().getDatabase(),
                         agilityContext.getCallerContext().getConfig().toBuilder(),
                         cursorFactory(writeQueue),
                         handleOneItemFactory(writeQueue, groupingKey, partitionId))
+                .withTransactionPreCommitHook(mergeControl.getPreCommitCallback())
                 .build();
         return iterator.iterateAll(state.store.asBuilder())
                 .whenComplete((v, e) -> {

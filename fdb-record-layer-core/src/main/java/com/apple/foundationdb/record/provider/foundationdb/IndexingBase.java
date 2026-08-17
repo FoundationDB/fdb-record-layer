@@ -1091,7 +1091,7 @@ public abstract class IndexingBase {
             return AsyncUtil.DONE;
         }
         return AsyncUtil.whenAll(indexesToMerge.stream()
-                .map(index -> getIndexingMerger(index).mergeIndex()
+                .map(index -> getIndexingMerger(index).mergeIndex(store -> updateHeartbeat(store, index))
         ).toList());
     }
 
