@@ -45,6 +45,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.Serial;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 /**
  * Use {@link PendingWritesQueue} to defer index updates while an index is being built.
@@ -73,7 +74,7 @@ public final class IndexingPendingWriteQueue {
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    CompletableFuture<Void> drainPendingQueue() {
+    CompletableFuture<Void> drainPendingQueue(final Function<FDBRecordStore, CompletableFuture<Void>> heartbeatUpdater) {
         // Called by the indexer: update the index and then remove every queue item
         final FDBRecordContextConfig.Builder contextConfigBuilder =
                 FDBRecordContextConfig.newBuilder().setTimer(common.getRunner().getTimer());
@@ -84,6 +85,7 @@ public final class IndexingPendingWriteQueue {
                                 cursorFactory(),
                                 this::handleOneItem)
                         .withMaxRecordsDeletesPerSec(MAX_RECORDS_DELETE_PER_SECOND)
+                        .withTransactionPreCommitHook(heartbeatUpdater)
                         .build();
         return iterator.iterateAll(common.getRecordStoreBuilder().copyBuilder())
                 .whenComplete((v, e) -> {

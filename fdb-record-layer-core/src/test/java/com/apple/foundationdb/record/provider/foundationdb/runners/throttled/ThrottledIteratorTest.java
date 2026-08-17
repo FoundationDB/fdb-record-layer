@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.runners.throttled;
 
+import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
@@ -32,8 +33,10 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreKeyspace;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.ParameterizedTestUtils;
@@ -58,6 +61,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -175,6 +179,56 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         } else {
             assertThat(successTransactionCount.get()).isEqualTo(numRecords / deleteLimit + 1);
         }
+    }
+
+    @Test
+    void testThrottleIteratorPreCommitHook() throws Exception {
+        // Iterate in a few transactions, verify that the hook is called once per transaction and that its writes are
+        // committed with the range that was iterated
+        final int numRecords = 42;
+        final int deleteLimit = 10;
+        final int expectedTransactions = numRecords / deleteLimit + 1; // a transaction per delete limit, plus the one that exhausts the source
+        final AtomicInteger hookCount = new AtomicInteger(0);
+
+        final ItemHandler<Integer> itemHandler = (store, item, quotaManager) -> {
+            quotaManager.deleteCountInc();
+            return AsyncUtil.DONE;
+        };
+        final Function<FDBRecordStore, CompletableFuture<Void>> preCommitHook = store ->
+                // Delay a little, to ensure that the write of this asynchronous hook makes it into the transaction
+                MoreAsyncUtil.delayedFuture(2, TimeUnit.MILLISECONDS, store.getContext().getDatabase().getScheduledExecutor())
+                        .thenRun(() -> store.ensureContextActive()
+                                .set(hookSubspace(store).pack(Tuple.from(hookCount.incrementAndGet())), new byte[0]));
+
+        final FDBRecordStore.Builder storeBuilder;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            storeBuilder = recordStore.asBuilder();
+            commit(context);
+        }
+        try (ThrottledRetryingIterator<Integer> throttledIterator =
+                     iteratorBuilder(numRecords, itemHandler, null, null, -1, deleteLimit, -1, -1, null)
+                             .withTransactionPreCommitHook(preCommitHook)
+                             .build()) {
+            throttledIterator.iterateAll(storeBuilder).join();
+        }
+
+        assertThat(hookCount.get()).isEqualTo(expectedTransactions);
+
+        // Every one of the hook's writes was committed
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            final List<KeyValue> hookKeys = context.ensureActive()
+                    .getRange(hookSubspace(recordStore).range())
+                    .asList().join();
+            assertThat(hookKeys).hasSize(expectedTransactions);
+        }
+    }
+
+    private static Subspace hookSubspace(final FDBRecordStore store) {
+        // Note: the hook's keys must be written under a valid keyspace, else they would precede the store's header key.
+        // The index build keyspace is a legit (and, in this test, otherwise unused) part of the store.
+        return store.getSubspace().subspace(Tuple.from(FDBRecordStoreKeyspace.INDEX_BUILD_SPACE.key(), "preCommitHook"));
     }
 
     @CsvSource({"-1", "0", "50", "100"})

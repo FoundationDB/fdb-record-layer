@@ -425,7 +425,7 @@ public abstract class IndexingBase {
     @Nonnull
     private CompletableFuture<Void> drainPendingQueueIfNeeded(Index index) {
         return common.getQueuedIndexes().contains(index) ?
-               getIndexingDrainer(index).drainPendingQueue() :
+               getIndexingDrainer(index).drainPendingQueue(store -> updateHeartbeat(store, index)) :
                AsyncUtil.DONE;
     }
 
@@ -1100,7 +1100,7 @@ public abstract class IndexingBase {
             return AsyncUtil.DONE;
         }
         return AsyncUtil.whenAll(indexesToDrain.stream()
-                .map(index -> getIndexingDrainer(index).drainPendingQueue()
+                .map(index -> getIndexingDrainer(index).drainPendingQueue(store -> updateHeartbeat(store, index))
                 ).toList());
     }
 

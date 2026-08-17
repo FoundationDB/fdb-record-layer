@@ -597,7 +597,6 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                         agilityContext.getCallerContext().getConfig().toBuilder(),
                         cursorFactory(writeQueue),
                         handleOneItemFactory(writeQueue, groupingKey, partitionId))
-                .withCommitWhenDone(true)
                 .build();
         return iterator.iterateAll(state.store.asBuilder())
                 .whenComplete((v, e) -> {

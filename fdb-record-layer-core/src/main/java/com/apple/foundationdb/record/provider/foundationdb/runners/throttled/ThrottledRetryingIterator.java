@@ -51,6 +51,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * An iterator that can handle resource constraints and failures.
@@ -91,6 +92,8 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
     private final Consumer<QuotaManager> transactionSuccessNotification;
     @Nullable
     private final Consumer<QuotaManager> transactionInitNotification;
+    @Nullable
+    private final Function<FDBRecordStore, CompletableFuture<Void>> transactionPreCommitHook;
     private final int numOfRetries;
     private final boolean commitWhenDone;
 
@@ -116,6 +119,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
         this.maxRecordDeletesPerSec = builder.maxRecordDeletesPerSec;
         this.transactionSuccessNotification = builder.transactionSuccessNotification;
         this.transactionInitNotification = builder.transactionInitNotification;
+        this.transactionPreCommitHook = builder.transactionPreCommitHook;
         this.cursorRowsLimit = 0;
         this.numOfRetries = builder.numOfRetries;
         this.commitWhenDone = builder.commitWhenDone;
@@ -219,7 +223,9 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
                     });
                 }, executor)
                     .whenComplete((r, e) ->
-                            cursor.close());
+                            cursor.close())
+                    // let the user write to this transaction before it gets committed
+                    .thenCompose(ignore -> preCommit(store));
             });
         }).thenApply(ignore -> cont.get());
     }
@@ -325,6 +331,10 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
                nowMillis() - rangeIterationStartTimeMilliseconds;
     }
 
+    private CompletableFuture<Void> preCommit(FDBRecordStore store) {
+        return transactionPreCommitHook == null ? AsyncUtil.DONE : transactionPreCommitHook.apply(store);
+    }
+
     private static void runUnlessNull(@Nullable Consumer<QuotaManager> func, QuotaManager quotaManager) {
         if (func != null) {
             func.accept(quotaManager);
@@ -422,6 +432,8 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
         private final ItemHandler<T> singleItemHandler;
         private Consumer<QuotaManager> transactionSuccessNotification;
         private Consumer<QuotaManager> transactionInitNotification;
+        @Nullable
+        private Function<FDBRecordStore, CompletableFuture<Void>> transactionPreCommitHook;
         private int transactionTimeQuotaMillis;
         private int maxRecordDeletesPerTransaction;
         private int maxRecordScannedPerSec;
@@ -500,6 +512,17 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
          */
         public Builder<T> withTransactionInitNotification(Consumer<QuotaManager> transactionInitNotification) {
             this.transactionInitNotification = transactionInitNotification;
+            return this;
+        }
+
+        /**
+         * Set the callback to invoke after a successful range iteration, just before its transaction is committed.
+         * Defaults to null (no callback).
+         * @param transactionPreCommitHook the callback invoked every time a transaction is about to be committed
+         * @return this builder
+         */
+        public Builder<T> withTransactionPreCommitHook(@Nullable Function<FDBRecordStore, CompletableFuture<Void>> transactionPreCommitHook) {
+            this.transactionPreCommitHook = transactionPreCommitHook;
             return this;
         }
 
