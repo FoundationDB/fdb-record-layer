@@ -271,8 +271,7 @@ left-outer-join:
         KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY
         NULL AS q1 RETURN ((q0.id AS _0, q0.fname AS _1, q0.lname AS _2, q0.dept_id
         AS _3, q1.id AS _4, q1.name AS _5) AS _0) } | AGG (count_star(*) AS _0) GROUP
-        BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS
-        _0)'
+        BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)'
     task_count: 589
     task_total_time_ms: 9
     transform_count: 154
@@ -315,8 +314,8 @@ left-outer-join:
     ref: join-tests-outer.yamsql:306
     explain: 'ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id:
         KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY
-        NULL AS q1 RETURN (q0.fname AS fname, coalesce_string(q1.name, promote(@c11
-        AS STRING)) AS _1) }'
+        NULL AS q1 RETURN (q0.fname AS fname, coalesce_string(q1.name, @c11) AS _1)
+        }'
     task_count: 489
     task_total_time_ms: 7
     transform_count: 132
@@ -559,7 +558,7 @@ right-outer-join:
     ref: join-tests-outer.yamsql:491
     explain: ISCAN(dept$name <,>) | FLATMAP q0 -> { ISCAN(emp$fname <,>) | FILTER
         _.dept_id EQUALS q0.id | ON EMPTY NULL AS q1 RETURN (coalesce_string(q1.fname,
-        promote(@c7 AS STRING)) AS _0, q0.name AS name) }
+        @c7) AS _0, q0.name AS name) }
     task_count: 460
     task_total_time_ms: 7
     transform_count: 128

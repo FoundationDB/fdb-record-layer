@@ -123,8 +123,8 @@ not-distinct-from-tests:
 -   query: EXPLAIN select count(*) from t1 WHERE null is not distinct from null
     ref: distinct-from.yamsql:95
     explain: 'AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER NULL NOT_DISTINCT_FROM
-        NULL | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
-        AS LONG)) AS _0)'
+        NULL | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS
+        _0)'
     task_count: 844
     task_total_time_ms: 47
     transform_count: 206
@@ -136,8 +136,7 @@ not-distinct-from-tests:
 -   query: EXPLAIN select count(*) from t1 WHERE 10 is not distinct from 10
     ref: distinct-from.yamsql:99
     explain: 'AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER @c8 NOT_DISTINCT_FROM
-        @c8 | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
-        AS LONG)) AS _0)'
+        @c8 | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)'
     task_count: 844
     task_total_time_ms: 23
     transform_count: 206

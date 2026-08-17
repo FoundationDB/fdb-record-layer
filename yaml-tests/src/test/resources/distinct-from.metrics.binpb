@@ -143,10 +143,10 @@ V
   3 -> 2 [ label=<&nbsp;q61> label="q61" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q63> label="q63" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}
+}ﬂ
 _
-not-distinct-from-testsDEXPLAIN select count(*) from t1 WHERE null is not distinct from nullå
-ÃÛ™÷Œ ΩÅå(<0å√S8]@™AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER NULL NOT_DISTINCT_FROM NULL | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)¿digraph G {
+not-distinct-from-testsDEXPLAIN select count(*) from t1 WHERE null is not distinct from null˚
+ÃÛ™÷Œ ΩÅå(<0å√S8]@ôAISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER NULL NOT_DISTINCT_FROM NULL | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)¿digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -161,10 +161,10 @@ _
   5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ë
+}◊
 [
-not-distinct-from-tests@EXPLAIN select count(*) from t1 WHERE 10 is not distinct from 10à
-ÃÃ§ùŒ óﬂœ(<0ÍÏ68]@®AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER @c8 NOT_DISTINCT_FROM @c8 | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ædigraph G {
+not-distinct-from-tests@EXPLAIN select count(*) from t1 WHERE 10 is not distinct from 10˜
+ÃÃ§ùŒ óﬂœ(<0ÍÏ68]@óAISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER @c8 NOT_DISTINCT_FROM @c8 | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)ædigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
