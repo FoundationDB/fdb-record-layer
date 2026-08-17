@@ -2,7 +2,7 @@ unnamed-3:
 -   query: EXPLAIN select * from B where b3 = 4 and b2 = 'b' and (? is null or b1
         < 20)
     ref: null-extraction-tests.yamsql:49
-    explain: ISCAN(I1 [EQUALS promote(@c8 AS LONG), EQUALS @c12])
+    explain: ISCAN(I1 [EQUALS promote(@c7 AS LONG), EQUALS @c11])
     task_count: 327
     task_total_time_ms: 17
     transform_count: 80

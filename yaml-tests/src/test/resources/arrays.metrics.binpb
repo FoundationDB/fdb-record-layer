@@ -1,7 +1,7 @@
 û
 R
 arrays-testsBEXPLAIN select [x[1]] AS arr_1, [pk] AS arr_2 FROM F WHERE pk >= 1«
-ﬁ∏ıÂ> »‡Æ(0∑ä%8@∆SCAN([IS F, [GREATER_THAN_OR_EQUALS promote(@c21 AS INT)]]) | MAP (array(promote(_.X[promote(@c21 AS INT)> AS INT AS X, DOUBLE AS Y, ARRAY(INT) AS Z)) AS ARR_1, array(promote(_.PK AS INT)) AS ARR_2)‡digraph G {
+ﬁ∏ıÂ> »‡Æ(0∑ä%8@∆SCAN([IS F, [GREATER_THAN_OR_EQUALS promote(@c21 AS INT)]]) | MAP (array(promote(_.X[promote(@c21 AS INT)] AS INT AS X, DOUBLE AS Y, ARRAY(INT) AS Z)) AS ARR_1, array(promote(_.PK AS INT)) AS ARR_2)‡digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

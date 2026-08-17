@@ -662,6 +662,25 @@ public class DelegatingVisitorTest {
     }
 
     /**
+     * Covers {@link DelegatingVisitor#visitNullTreatmentClause}.
+     */
+    @Test
+    void visitNullTreatmentClauseTest() {
+        testSimple("IGNORE NULLS",
+                RelationalParser::nullTreatmentClause,
+                (visitor, ctx) -> Assertions.assertThat(visitor.visitNullTreatmentClause(ctx)).isTrue(),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public Boolean visitNullTreatmentClause(@Nonnull RelationalParser.NullTreatmentClauseContext ctx) {
+                        called.set(true);
+                        return ctx.nullTreatment.getType() == RelationalParser.IGNORE;
+                    }
+                });
+    }
+
+    /**
      * Covers {@link DelegatingVisitor#visitFunctionNameKeyword}.
      */
     @Test

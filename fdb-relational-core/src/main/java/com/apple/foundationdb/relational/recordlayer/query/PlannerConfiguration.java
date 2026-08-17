@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.query.plan.VectorIndexEnginePreference;
 import com.apple.foundationdb.record.query.plan.cascades.PlanningRuleSet;
 import com.apple.foundationdb.relational.api.Options;
 import com.google.common.collect.ImmutableSet;
@@ -65,6 +66,9 @@ public final class PlannerConfiguration {
     private final boolean planRightDeep;
 
     @Nonnull
+    private final VectorIndexEnginePreference vectorIndexEnginePreference;
+
+    @Nonnull
     private final RecordQueryPlannerConfiguration recordQueryPlannerConfiguration;
 
     private final int memoizedHash;
@@ -73,12 +77,14 @@ public final class PlannerConfiguration {
                                  @Nonnull final IndexFetchMethod indexFetchMethod,
                                  @Nonnull final Set<String> disabledPlannerRewriteRules,
                                  boolean disabledAllPlannerRules,
-                                 boolean planRightDeep) {
+                                 boolean planRightDeep,
+                                 @Nonnull final VectorIndexEnginePreference vectorIndexEnginePreference) {
         this.readableIndexes = readableIndexes;
         this.indexFetchMethod = indexFetchMethod;
         this.disabledAllPlannerRules = disabledAllPlannerRules;
         this.disabledPlannerRewriteRules = ImmutableSet.copyOf(disabledPlannerRewriteRules);
         this.planRightDeep = planRightDeep;
+        this.vectorIndexEnginePreference = vectorIndexEnginePreference;
         this.memoizedHash = computeHash();
         this.recordQueryPlannerConfiguration = buildRecordQueryPlannerConfiguration();
     }
@@ -118,7 +124,7 @@ public final class PlannerConfiguration {
         if (this.planRightDeep == newPlanRightDeep) {
             return this;
         }
-        return new PlannerConfiguration(readableIndexes, indexFetchMethod, disabledPlannerRewriteRules, disabledAllPlannerRules, newPlanRightDeep);
+        return new PlannerConfiguration(readableIndexes, indexFetchMethod, disabledPlannerRewriteRules, disabledAllPlannerRules, newPlanRightDeep, vectorIndexEnginePreference);
     }
 
     @Override
@@ -134,11 +140,13 @@ public final class PlannerConfiguration {
                 && this.indexFetchMethod.equals(that.indexFetchMethod)
                 && this.disabledAllPlannerRules == that.disabledAllPlannerRules
                 && this.disabledPlannerRewriteRules.equals(that.disabledPlannerRewriteRules)
-                && this.planRightDeep == that.planRightDeep;
+                && this.planRightDeep == that.planRightDeep
+                && this.vectorIndexEnginePreference == that.vectorIndexEnginePreference;
     }
 
     private int computeHash() {
-        return Objects.hash(readableIndexes, indexFetchMethod, disabledAllPlannerRules, disabledPlannerRewriteRules, planRightDeep);
+        return Objects.hash(readableIndexes, indexFetchMethod, disabledAllPlannerRules, disabledPlannerRewriteRules, planRightDeep,
+                vectorIndexEnginePreference);
     }
 
     @Override
@@ -157,6 +165,7 @@ public final class PlannerConfiguration {
             configurationBuilder.disableRewritingRules();
         }
         configurationBuilder.setJoinRightDeep(planRightDeep);
+        configurationBuilder.setVectorIndexEnginePreference(vectorIndexEnginePreference);
         return configurationBuilder.build();
     }
 
@@ -166,7 +175,7 @@ public final class PlannerConfiguration {
         final var disabledPlannerRules = ImmutableSet.copyOf(options.<Collection<String>>getOption(Options.Name.DISABLED_PLANNER_RULES));
         return new PlannerConfiguration(readableIndexesMaybe, OptionsUtils.getIndexFetchMethod(options),
                 disabledPlannerRules, options.getOption(DISABLE_PLANNER_REWRITING),
-                options.getOption(PLAN_RIGHT_DEEP));
+                options.getOption(PLAN_RIGHT_DEEP), OptionsUtils.getVectorIndexEnginePreference(options));
     }
 
     @Nonnull

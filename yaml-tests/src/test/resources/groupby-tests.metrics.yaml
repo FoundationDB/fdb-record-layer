@@ -53,8 +53,7 @@ group-by-tests:
 -   query: EXPLAIN select COUNT(x.col2) from (select col1,col2 from t1) as x;
     ref: groupby-tests.yamsql:162
     explain: ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (count(_._0.COL2)
-        AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l
-        AS LONG)) AS _0)
+        AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)
     task_count: 345
     task_total_time_ms: 20
     transform_count: 82
@@ -77,8 +76,8 @@ group-by-tests:
     insert_reused_count: 4
 -   query: EXPLAIN select COUNT(*) from T1;
     ref: groupby-tests.yamsql:185
-    explain: ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+    explain: ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY ()
+        | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)
     task_count: 319
     task_total_time_ms: 10
     transform_count: 76
@@ -89,8 +88,8 @@ group-by-tests:
     insert_reused_count: 4
 -   query: EXPLAIN select COUNT(col1) from T1;
     ref: groupby-tests.yamsql:189
-    explain: ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+    explain: ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY
+        () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)
     task_count: 319
     task_total_time_ms: 14
     transform_count: 76
@@ -103,8 +102,7 @@ group-by-tests:
     ref: groupby-tests.yamsql:196
     explain: ISCAN(I1 <,>) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) OR _.COL2
         EQUALS promote(@c14 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP
-        BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS
-        _0)
+        BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)
     task_count: 1075
     task_total_time_ms: 25
     transform_count: 260
@@ -117,8 +115,7 @@ group-by-tests:
     ref: groupby-tests.yamsql:205
     explain: ISCAN(I1 <,>) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) OR _.COL2
         EQUALS promote(@c14 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP
-        BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS
-        _0)
+        BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)
     task_count: 1075
     task_total_time_ms: 25
     transform_count: 260

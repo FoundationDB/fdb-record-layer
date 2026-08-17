@@ -66,13 +66,18 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    void arrays(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("arrays.yamsql");
+    void arrayAggTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("array-agg-tests.yamsql");
     }
 
     @TestTemplate
     void arrayJoinAt(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("array-join-at.yamsql");
+    }
+
+    @TestTemplate
+    void arrays(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("arrays.yamsql");
     }
 
     @TestTemplate
@@ -482,6 +487,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void validIdentifierTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("valid-identifiers.yamsql");
+    }
+
+    @TestTemplate
+    public void vectorEnginePreferenceTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("vector-engine-preference.yamsql");
     }
 
     @TestTemplate
