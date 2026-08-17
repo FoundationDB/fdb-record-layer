@@ -981,7 +981,7 @@ class Primitives {
                                 i -> i < deferredTasks.size() && (i == 0 || System.currentTimeMillis() < deadlineMillis),
                                 i -> i + 1,
                                 (i, executed) -> executeSingleDeferredTask(transaction, deferredTasks.get(i))
-                                        .thenApply(ran -> ran ? executed + 1 : executed), getExecutor()));
+                                        .thenApply(ran -> executed + (ran ? 1 : 0)), getExecutor()));
     }
 
     /**
