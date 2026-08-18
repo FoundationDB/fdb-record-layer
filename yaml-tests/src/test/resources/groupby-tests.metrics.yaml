@@ -4,10 +4,10 @@ group-by-tests:
     ref: groupby-tests.yamsql:136
     explain: ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (avg_l(_._0.COL2)
         AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)
-    task_count: 299
-    task_total_time_ms: 11
-    transform_count: 76
-    transform_time_ms: 4
+    task_count: 298
+    task_total_time_ms: 22
+    transform_count: 75
+    transform_time_ms: 6
     transform_yield_count: 26
     insert_time_ms: 0
     insert_new_count: 29
@@ -18,10 +18,10 @@ group-by-tests:
     explain: ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (sum_l(_._0.COL2)
         AS _0, count(_._0.COL2) AS _1, avg_l(_._0.COL2) AS _2) GROUP BY (_._0.COL1
         AS _0) | MAP (_._1._0 / _._1._1 AS _0, _._1._2 AS _1)
-    task_count: 299
-    task_total_time_ms: 13
-    transform_count: 76
-    transform_time_ms: 3
+    task_count: 298
+    task_total_time_ms: 18
+    transform_count: 75
+    transform_time_ms: 6
     transform_yield_count: 26
     insert_time_ms: 0
     insert_new_count: 29
@@ -30,10 +30,10 @@ group-by-tests:
     ref: groupby-tests.yamsql:154
     explain: ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (max_l(_._0.COL2)
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)
-    task_count: 345
-    task_total_time_ms: 15
-    transform_count: 82
-    transform_time_ms: 4
+    task_count: 344
+    task_total_time_ms: 23
+    transform_count: 81
+    transform_time_ms: 9
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 37
@@ -42,10 +42,10 @@ group-by-tests:
     ref: groupby-tests.yamsql:158
     explain: ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (min_l(_._0.COL2)
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)
-    task_count: 345
-    task_total_time_ms: 28
-    transform_count: 82
-    transform_time_ms: 7
+    task_count: 344
+    task_total_time_ms: 24
+    transform_count: 81
+    transform_time_ms: 6
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 37
@@ -54,10 +54,10 @@ group-by-tests:
     ref: groupby-tests.yamsql:162
     explain: ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (count(_._0.COL2)
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)
-    task_count: 345
-    task_total_time_ms: 20
-    transform_count: 82
-    transform_time_ms: 4
+    task_count: 344
+    task_total_time_ms: 23
+    transform_count: 81
+    transform_time_ms: 6
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 37
@@ -66,10 +66,10 @@ group-by-tests:
     ref: groupby-tests.yamsql:166
     explain: ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (avg_l(_._0.COL2)
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)
-    task_count: 345
-    task_total_time_ms: 10
-    transform_count: 82
-    transform_time_ms: 3
+    task_count: 344
+    task_total_time_ms: 14
+    transform_count: 81
+    transform_time_ms: 4
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 37

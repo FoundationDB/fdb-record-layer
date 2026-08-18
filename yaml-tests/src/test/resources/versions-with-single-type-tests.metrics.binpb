@@ -37,7 +37,7 @@ Z
 }‰
 >
 single-type-versions-queriesEXPLAIN select * from t1_v(10)°
-Ê ò“^ ‘ìÿ(0∏ç8/@éSCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c5 AS LONG) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)Údigraph G {
+‚´ÅúZ ¯ô€(0ŒË8/@éSCAN([IS T1]) | FILTER _.COL1 EQUALS promote(@c5 AS LONG) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)Údigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

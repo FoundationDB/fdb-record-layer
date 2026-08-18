@@ -221,7 +221,8 @@ p
 }ó
 ¤
 subquery-tests‘EXPLAIN select sq.idr, sq.z from (select * from r where idr = 1) sq, (select f from sq.nr where f > 10) sq2 where sq.z = 10 AND sq2.f is not nullÉ
-¸àç°.¿ ˜‡Í(90È§¥8`@ÎISCAN(IR [EQUALS promote(@c17 AS INT), EQUALS promote(@c31 AS INT)]) | FLATMAP q0 -> { EXPLODE q0.NR | FILTER _.F GREATER_THAN promote(@c31 AS INT) AND _.F NOT_NULL AS q1 RETURN (q0.IDR AS IDR, q0.Z AS Z) }Ødigraph G {
+âÃ‚­ ø»º
+(50ä 8R@ÎISCAN(IR [EQUALS promote(@c17 AS INT), EQUALS promote(@c31 AS INT)]) | FLATMAP q0 -> { EXPLODE q0.NR | FILTER _.F GREATER_THAN promote(@c31 AS INT) AND _.F NOT_NULL AS q1 RETURN (q0.IDR AS IDR, q0.Z AS Z) }Ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

@@ -66,12 +66,12 @@ join-tests:
         -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) |
         FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN
         (q0.NAME AS _0, q1.NAME AS _1) }'
-    task_count: 3212
-    task_total_time_ms: 558
-    transform_count: 983
-    transform_time_ms: 279
+    task_count: 3211
+    task_total_time_ms: 476
+    transform_count: 982
+    transform_time_ms: 139
     transform_yield_count: 210
-    insert_time_ms: 24
+    insert_time_ms: 16
     insert_new_count: 481
     insert_reused_count: 31
 -   query: EXPLAIN select (*) from (select dept.name, project.name from emp, dept,
@@ -81,12 +81,12 @@ join-tests:
         -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) |
         FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN
         ((q0.NAME AS _0, q1.NAME AS _1) AS X) }'
-    task_count: 3212
-    task_total_time_ms: 544
-    transform_count: 983
-    transform_time_ms: 255
+    task_count: 3211
+    task_total_time_ms: 449
+    transform_count: 982
+    transform_time_ms: 132
     transform_yield_count: 210
-    insert_time_ms: 31
+    insert_time_ms: 18
     insert_new_count: 481
     insert_reused_count: 31
 -   query: EXPLAIN select dept.name, project.name from project inner join emp on emp.id
@@ -251,12 +251,12 @@ join-tests:
         q1 -> { SCAN([IS JUA, EQUALS q1.C1]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS
         q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._0.C5 AS _2, q3._1.C3 AS C3,
         q3._1.C5 AS _4, q0.C4 AS C4, q0.C5 AS _6) }
-    task_count: 1497
-    task_total_time_ms: 174
-    transform_count: 595
-    transform_time_ms: 52
+    task_count: 1496
+    task_total_time_ms: 312
+    transform_count: 594
+    transform_time_ms: 84
     transform_yield_count: 97
-    insert_time_ms: 6
+    insert_time_ms: 9
     insert_new_count: 184
     insert_reused_count: 26
 -   query: EXPLAIN select emp.fname, emp.lname from emp, dept where emp.lname > dept.name
@@ -435,12 +435,12 @@ three-way-joins-right-deep-planner:
     explain: ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) |
         FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN
         q2 } AS q2 RETURN (q0.NAME AS _0, q2.NAME AS _1) }
-    task_count: 2164
-    task_total_time_ms: 168
-    transform_count: 609
-    transform_time_ms: 51
+    task_count: 2163
+    task_total_time_ms: 263
+    transform_count: 608
+    transform_time_ms: 80
     transform_yield_count: 159
-    insert_time_ms: 8
+    insert_time_ms: 6
     insert_new_count: 327
     insert_reused_count: 21
 -   query: EXPLAIN select (*) from (select dept.name, project.name from emp, dept,
@@ -449,12 +449,12 @@ three-way-joins-right-deep-planner:
     explain: ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) |
         FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN
         q2 } AS q2 RETURN ((q0.NAME AS _0, q2.NAME AS _1) AS X) }
-    task_count: 2164
-    task_total_time_ms: 197
-    transform_count: 609
-    transform_time_ms: 64
+    task_count: 2163
+    task_total_time_ms: 304
+    transform_count: 608
+    transform_time_ms: 91
     transform_yield_count: 159
-    insert_time_ms: 5
+    insert_time_ms: 7
     insert_new_count: 327
     insert_reused_count: 21
 -   query: EXPLAIN select dept.name, project.name from project inner join emp on emp.id
@@ -573,11 +573,11 @@ three-way-joins-right-deep-planner:
         q1 -> { SCAN([IS JUA, EQUALS q1.C1]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS
         q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._0.C5 AS _2, q3._1.C3 AS C3,
         q3._1.C5 AS _4, q0.C4 AS C4, q0.C5 AS _6) }
-    task_count: 1094
-    task_total_time_ms: 112
-    transform_count: 387
-    transform_time_ms: 39
+    task_count: 1093
+    task_total_time_ms: 184
+    transform_count: 386
+    transform_time_ms: 46
     transform_yield_count: 78
-    insert_time_ms: 2
+    insert_time_ms: 3
     insert_new_count: 137
     insert_reused_count: 13
