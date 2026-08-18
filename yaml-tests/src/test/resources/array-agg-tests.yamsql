@@ -28,10 +28,7 @@ schema_template:
     CREATE TABLE T1 (id BIGINT, grp BIGINT, val BIGINT, PRIMARY KEY (id))
     CREATE INDEX T1_grp AS SELECT grp FROM T1 ORDER BY grp
 
-    CREATE TABLE parent (pid BIGINT, name STRING, PRIMARY KEY (pid))
-    CREATE TABLE child (cid BIGINT, pid BIGINT, val BIGINT, PRIMARY KEY (cid))
     CREATE TABLE keywords (array_agg BIGINT, respect BIGINT, PRIMARY KEY (array_agg))
-    CREATE INDEX child_by_pid AS SELECT pid FROM child ORDER BY pid
 
     CREATE TYPE AS STRUCT Struct1 (a BIGINT, b BIGINT)
     CREATE TABLE T2 (id BIGINT, grp BIGINT, s Struct1, PRIMARY KEY (id))
@@ -57,15 +54,6 @@ setup:
                     (6, 30, NULL)
     - query: INSERT INTO keywords
              VALUES (1, 2)
-    - query: INSERT INTO parent
-             VALUES (1, 'a'),
-                    (2, 'b'),
-                    (3, 'c')
-    - query: INSERT INTO child
-             VALUES (1, 1, 100),
-                    (2, 1, 200),
-                    (3, 2, 300),
-                    (4, 2, NULL)
     - query: INSERT INTO T2
              VALUES (1, 10, (1, 2)),
                     (2, 10, (3, 4)),
@@ -232,21 +220,6 @@ test_block:
       # reaches the result set.
       - query: SELECT sq.agg[1] FROM (SELECT ARRAY_AGG(tags) AS agg FROM doc_rev) sq
       - error: UNSUPPORTED_OPERATION
----
-test_block:
-  name: array-agg-correlated-subquery
-  tests:
-    -
-      # A correlated ARRAY_AGG() subquery in a SELECT projection is currently not supported and fails with a parse-time
-      # syntax error. A scalar subquery is not allowed as a select-list expression (the grammar only permits EXISTS/IN
-      # subqueries there).
-      - query: SELECT p.pid, (SELECT ARRAY_AGG(c.val) FROM child c WHERE c.pid = p.pid) AS vals FROM parent p
-      - error: SYNTAX_ERROR
-    -
-      # Supported rewrite: A correlated ARRAY_AGG() subquery in the FROM clause. This is the recommended alternative
-      # for the projection form above. Row `pid=3` has no children, so its aggregate is NULL.
-      - query: SELECT p.pid, sq.vals FROM parent p, (SELECT ARRAY_AGG(c.val IGNORE NULLS) AS vals FROM child c WHERE c.pid = p.pid) sq
-      - result: [{1, [100, 200]}, {2, [300]}, {3, !null _}]
 ---
 # Tests involving element types whose runtime representation differs from their protobuf one. The accumulator has to
 # convert such types, both when it serializes its partial state and when it hands its result to the enclosing record

@@ -1,0 +1,16 @@
+Diagram(
+    Terminal('ARRAY_AGG'),
+    Terminal('('),
+    NonTerminal('expression'),
+    Optional(
+        Sequence(
+            Choice(0,
+                Terminal('IGNORE'),
+                Terminal('RESPECT'),
+            ),
+            Terminal('NULLS'),
+        ),
+        'skip'
+    ),
+    Terminal(')'),
+)
