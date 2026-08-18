@@ -1,0 +1,71 @@
+array-agg-combined-with-other-aggregates:
+-   query: EXPLAIN SELECT ARRAY_AGG(val IGNORE NULLS) AS a, ARRAY_AGG(val RESPECT
+        NULLS) AS b FROM T1 WHERE grp = 10
+    ref: array-agg-tests.yamsql:281
+    explain: ISCAN(T1_grp [EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (array_agg(_._0.val
+        IGNORE NULLS) AS _0, array_agg(_._0.val) AS _1) GROUP BY () | ON EMPTY NULL
+        | MAP (_._0._0 AS a, _._0._1 AS b)
+    task_count: 461
+    task_total_time_ms: 22
+    transform_count: 119
+    transform_time_ms: 8
+    transform_yield_count: 32
+    insert_time_ms: 1
+    insert_new_count: 47
+    insert_reused_count: 3
+array-agg-scenario:
+-   query: EXPLAIN SELECT m.mid, r.rid, sq.assets FROM doc_meta m, doc_rev r, (SELECT
+        ARRAY_AGG(a.url) AS assets FROM doc_asset a WHERE a.rid = r.rid) sq WHERE
+        m.owner IS NOT NULL AND 'featured' IN r.tags AND r.rid = 20
+    ref: array-agg-tests.yamsql:369
+    explain: SCAN([IS doc_rev, EQUALS promote(@c60 AS LONG)]) | FILTER @c50 IN _.tags
+        | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0)
+        | AGG (array_agg(_._0.url) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN
+        (q0 AS _0, q0 AS _1) } | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner
+        NOT_NULL AS q2 RETURN (q2.mid AS mid, q1._0.rid AS rid, q1._1._0._0 AS assets)
+        }
+    task_count: 2158
+    task_total_time_ms: 265
+    transform_count: 832
+    transform_time_ms: 88
+    transform_yield_count: 127
+    insert_time_ms: 17
+    insert_new_count: 290
+    insert_reused_count: 44
+-   query: EXPLAIN SELECT m.mid, r.rid, sq.assets FROM doc_meta m, doc_rev r, (SELECT
+        a.rid AS rid, ARRAY_AGG(a.url) AS assets FROM doc_asset a GROUP BY a.rid)
+        sq WHERE m.owner IS NOT NULL AND 'featured' IN r.tags AND r.rid = 20 AND sq.rid
+        = r.rid
+    ref: array-agg-tests.yamsql:397
+    explain: ISCAN(doc_asset_by_rid <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.url)
+        AS _0) GROUP BY (_._0.rid AS _0) | FLATMAP q0 -> { SCAN([IS doc_rev, EQUALS
+        promote(@c63 AS LONG)]) | FILTER @c53 IN _.tags AND q0._0._0 EQUALS _.rid
+        | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN
+        (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.mid AS mid, q3._1.rid AS rid, q0._1._0
+        AS assets) }
+    task_count: 5111
+    task_total_time_ms: 401
+    transform_count: 2166
+    transform_time_ms: 122
+    transform_yield_count: 283
+    insert_time_ms: 31
+    insert_new_count: 766
+    insert_reused_count: 184
+-   query: EXPLAIN SELECT m.mid, r.rid, sq.assets FROM doc_meta m, doc_rev r, (SELECT
+        ARRAY_AGG((a.aid, a.url)) AS assets FROM doc_asset a WHERE a.rid = r.rid)
+        sq WHERE m.owner IS NOT NULL AND 'featured' IN r.tags AND r.rid = 20
+    ref: array-agg-tests.yamsql:411
+    explain: SCAN([IS doc_rev, EQUALS promote(@c66 AS LONG)]) | FILTER @c56 IN _.tags
+        | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0)
+        | AGG (array_agg((_._0.aid AS aid, _._0.url AS url)) AS _0) GROUP BY () |
+        ON EMPTY NULL AS q0 RETURN (q0 AS _0, q0 AS _1) } | FLATMAP q1 -> { SCAN([IS
+        doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2.mid AS mid, q1._0.rid
+        AS rid, q1._1._0._0 AS assets) }
+    task_count: 2158
+    task_total_time_ms: 274
+    transform_count: 832
+    transform_time_ms: 88
+    transform_yield_count: 127
+    insert_time_ms: 17
+    insert_new_count: 290
+    insert_reused_count: 44

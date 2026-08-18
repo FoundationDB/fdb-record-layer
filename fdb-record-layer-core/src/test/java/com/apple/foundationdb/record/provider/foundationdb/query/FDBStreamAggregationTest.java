@@ -40,7 +40,9 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ArrayAggValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
@@ -56,6 +58,7 @@ import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -362,6 +365,41 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                 RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes());
                 Assertions.assertEquals(RecordCursorEndContinuation.END, continuation5);
             }
+        }
+    }
+
+    /**
+     * Tests that {@code ARRAY_AGG()} restores its partial state from a continuation. Unlike the scalar aggregates,
+     * whose partial state is a scalar, its state is a growing list that has to be serialized into the continuation and
+     * parsed back. That only happens when the cursor stops <em>inside</em> a group, and a record scan limit is the only
+     * thing that makes it do so: a group break carries no partial state, and a returned-row limit is applied above the
+     * aggregate cursor.
+     */
+    @ParameterizedTest
+    @EnumSource(value = RecordQueryStreamingAggregationPlan.SerializationMode.class, names = {"TO_NEW"})
+    void partialAggregateArrayAgg(RecordQueryStreamingAggregationPlan.SerializationMode serializationMode) {
+        try (final var context = openContext()) {
+            openSimpleRecordStore(context, NO_HOOK);
+
+            final var plan =
+                    new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+                            .withAggregateValue("num_value_2", value -> new ArrayAggValue(value, true))
+                            .withGroupCriterion("str_value_indexed")
+                            .build(false, serializationMode);
+
+            // Same scan-limit sequence as `partialAggregateSum()`: 2 groups of 3 rows each. The first execution stops
+            // inside the first group, so its 3 collected elements survive only if they make it into the continuation.
+            final RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null);
+            final RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1,
+                    continuation1.toBytes(), this::assertResultWithArrays, resultOf("0", List.of(0, 1, 2)));
+            final RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1,
+                    continuation2.toBytes());
+            final RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1,
+                    continuation3.toBytes());
+            final RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1,
+                    continuation4.toBytes(), this::assertResultWithArrays, resultOf("1", List.of(3, 4, 5)));
+
+            Assertions.assertEquals(RecordCursorEndContinuation.END, continuation5);
         }
     }
 
@@ -724,6 +762,12 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
     }
 
     private RecordCursorContinuation executePlanWithRecordScanLimit(final RecordQueryPlan plan, final int recordScanLimit, byte[] continuation, @Nullable List<?>... expectedResult) {
+        return executePlanWithRecordScanLimit(plan, recordScanLimit, continuation, this::assertResultFlattened, expectedResult);
+    }
+
+    private RecordCursorContinuation executePlanWithRecordScanLimit(final RecordQueryPlan plan, final int recordScanLimit, byte[] continuation,
+                                                                    @Nonnull final BiConsumer<QueryResult, List<?>> checkConsumer,
+                                                                    @Nullable List<?>... expectedResult) {
         List<QueryResult> queryResults = new LinkedList<>();
         try (RecordCursor<QueryResult> currentCursor = executePlan(plan, 0, recordScanLimit, continuation)) {
             RecordCursorResult<QueryResult> currentCursorResult;
@@ -746,7 +790,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             if (expectedResult == null) {
                 Assertions.assertTrue(queryResults.isEmpty());
             } else {
-                assertResults(this::assertResultFlattened, queryResults, expectedResult);
+                assertResults(checkConsumer, queryResults, expectedResult);
             }
             return cursorContinuation;
         }
@@ -788,6 +832,34 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         final var descriptor = message.getDescriptorForType();
         for (final var field : descriptor.getFields()) {
             resultFieldsBuilder.add(message.getField(field));
+        }
+        final var resultFields = resultFieldsBuilder.build();
+
+        Assertions.assertEquals(resultFields.size(), expected.size());
+        for (var i = 0; i < resultFields.size(); i++) {
+            Assertions.assertEquals(expected.get(i), resultFields.get(i));
+        }
+    }
+
+    /**
+     * Asserts a result like {@link #assertResultFlattened}, except that a nullable-array field, which arrives as its
+     * wrapper message, is compared against the expected {@link List} of its elements.
+     */
+    private void assertResultWithArrays(final QueryResult actual, final List<?> expected) {
+        final var message = actual.getMessage();
+        Assertions.assertNotNull(message);
+        final var resultFieldsBuilder = ImmutableList.builder();
+        for (final Descriptors.FieldDescriptor field : message.getDescriptorForType().getFields()) {
+            final Object value = message.getField(field);
+            if (value instanceof Message wrapper) {
+                final var valuesField =
+                        wrapper.getDescriptorForType().findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName());
+                if (valuesField != null) {
+                    resultFieldsBuilder.add(wrapper.getField(valuesField));
+                    continue;
+                }
+            }
+            resultFieldsBuilder.add(value);
         }
         final var resultFields = resultFieldsBuilder.build();
 
