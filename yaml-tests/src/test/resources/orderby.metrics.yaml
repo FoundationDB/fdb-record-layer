@@ -74,10 +74,10 @@ orderby-tests:
         t2) as T order by "ordered"
     ref: orderby.yamsql:282
     explain: ISCAN(I4 <,>) | MAP ((_.Q AS nested, _.Q.A AS ordered) AS T)
-    task_count: 220
-    task_total_time_ms: 16
-    transform_count: 59
-    transform_time_ms: 7
+    task_count: 219
+    task_total_time_ms: 21
+    transform_count: 58
+    transform_time_ms: 8
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 21
@@ -85,10 +85,10 @@ orderby-tests:
 -   query: EXPLAIN select (*) from t2_func() order by "ordered"
     ref: orderby.yamsql:288
     explain: ISCAN(I4 <,>) | MAP ((_.Q AS nesting, _.Q.A AS ordered) AS T2_FUNC)
-    task_count: 220
-    task_total_time_ms: 33
-    transform_count: 59
-    transform_time_ms: 15
+    task_count: 219
+    task_total_time_ms: 28
+    transform_count: 58
+    transform_time_ms: 14
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 21

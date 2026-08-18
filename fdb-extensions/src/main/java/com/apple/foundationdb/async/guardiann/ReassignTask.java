@@ -256,9 +256,11 @@ class ReassignTask extends AbstractDeferredTask {
                         config.reassignConcurrency())
                 .thenCompose(nearestClusterMetadataWithDistances -> {
 
+                    // numCoreClusters is 1 here — just the target, which always survives — so classifyClusters never
+                    // returns null for reassign.
                     final ClusterClassification classification =
-                            classifyClusters(nearestClusterMetadataWithDistances,
-                                    targetClusterMetadata, getCentroid(), numCoreClusters, numNeighboringClusters);
+                            Objects.requireNonNull(classifyClusters(nearestClusterMetadataWithDistances,
+                                    targetClusterMetadata, getCentroid(), numCoreClusters, numNeighboringClusters));
 
                     final List<ClusterMetadataWithDistance> coreClusters = classification.coreClusters();
                     final List<ClusterMetadataWithDistance> neighboringClusters = classification.neighboringClusters();

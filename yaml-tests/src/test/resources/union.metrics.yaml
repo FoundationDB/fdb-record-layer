@@ -24,10 +24,10 @@ union-tests:
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (promote(coalesce_long(_._0._0, 0l)
         AS LONG) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
-    task_count: 786
-    task_total_time_ms: 48
-    transform_count: 213
-    transform_time_ms: 18
+    task_count: 784
+    task_total_time_ms: 64
+    transform_count: 211
+    transform_time_ms: 24
     transform_yield_count: 57
     insert_time_ms: 1
     insert_new_count: 69
@@ -41,10 +41,10 @@ union-tests:
         BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0) | MAP (_ AS
         _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0
         AS S)'
-    task_count: 849
-    task_total_time_ms: 57
-    transform_count: 212
-    transform_time_ms: 15
+    task_count: 848
+    task_total_time_ms: 54
+    transform_count: 211
+    transform_time_ms: 17
     transform_yield_count: 65
     insert_time_ms: 1
     insert_new_count: 82
@@ -57,11 +57,11 @@ union-tests:
         [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         0l) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () | ON EMPTY
         NULL | MAP (_._0._0 AS S)'
-    task_count: 831
-    task_total_time_ms: 24
-    transform_count: 220
+    task_count: 830
+    task_total_time_ms: 28
+    transform_count: 219
     transform_time_ms: 11
     transform_yield_count: 62
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 74
     insert_reused_count: 6

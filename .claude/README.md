@@ -63,6 +63,12 @@ Run the tests for EmbeddedRelationalStatement
 /context-resumption
 ```
 
+### Split a change into a stack of PRs
+```
+/stacked-prs
+Split the changes on this branch into a stack of PRs
+```
+
 ### Session retrospective (capture learnings, improve tooling)
 ```
 /refine
