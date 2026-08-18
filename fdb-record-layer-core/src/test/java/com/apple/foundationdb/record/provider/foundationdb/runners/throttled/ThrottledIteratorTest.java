@@ -61,7 +61,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -182,23 +181,25 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void testThrottleIteratorPreCommitHook() throws Exception {
-        // Iterate in a few transactions, verify that the hook is called once per transaction and that its writes are
-        // committed with the range that was iterated
+    void testThrottleIteratorRunsCursorCommitChecks() throws Exception {
         final int numRecords = 42;
         final int deleteLimit = 10;
         final int expectedTransactions = numRecords / deleteLimit + 1; // a transaction per delete limit, plus the one that exhausts the source
-        final AtomicInteger hookCount = new AtomicInteger(0);
+        final AtomicInteger checkCount = new AtomicInteger(0);
 
         final ItemHandler<Integer> itemHandler = (store, item, quotaManager) -> {
             quotaManager.deleteCountInc();
             return AsyncUtil.DONE;
         };
-        final Function<FDBRecordStore, CompletableFuture<Void>> preCommitHook = store ->
-                // Delay a little, to ensure that the write of this asynchronous hook makes it into the transaction
-                MoreAsyncUtil.delayedFuture(2, TimeUnit.MILLISECONDS, store.getContext().getDatabase().getScheduledExecutor())
-                        .thenRun(() -> store.ensureContextActive()
-                                .set(hookSubspace(store).pack(Tuple.from(hookCount.incrementAndGet())), new byte[0]));
+        final CursorFactory<Integer> innerCursorFactory = intCursor(numRecords, null);
+        final CursorFactory<Integer> cursorFactory = (store, lastResult, rowLimit) -> {
+            store.getContext().getOrCreateCommitCheck("throttledIteratorTestCheck", name -> () ->
+                    // Delay a little, to ensure that the write of this asynchronous check makes it into the transaction
+                    MoreAsyncUtil.delayedFuture(2, TimeUnit.MILLISECONDS, store.getContext().getDatabase().getScheduledExecutor())
+                            .thenRun(() -> store.ensureContextActive()
+                                    .set(commitCheckSubspace(store).pack(Tuple.from(checkCount.incrementAndGet())), new byte[0])));
+            return innerCursorFactory.createCursor(store, lastResult, rowLimit);
+        };
 
         final FDBRecordStore.Builder storeBuilder;
         try (FDBRecordContext context = openContext()) {
@@ -207,28 +208,28 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
             commit(context);
         }
         try (ThrottledRetryingIterator<Integer> throttledIterator =
-                     iteratorBuilder(numRecords, itemHandler, null, null, -1, deleteLimit, -1, -1, null)
-                             .withTransactionPreCommitHook(preCommitHook)
+                     ThrottledRetryingIterator.builder(fdb, cursorFactory, itemHandler)
+                             .withMaxRecordsDeletesPerTransaction(deleteLimit)
                              .build()) {
             throttledIterator.iterateAll(storeBuilder).join();
         }
 
-        assertThat(hookCount.get()).isEqualTo(expectedTransactions);
+        assertThat(checkCount.get()).isEqualTo(expectedTransactions);
 
-        // Every one of the hook's writes was committed
+        // Every one of the checks' writes was committed
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            final List<KeyValue> hookKeys = context.ensureActive()
-                    .getRange(hookSubspace(recordStore).range())
+            final List<KeyValue> checkKeys = context.ensureActive()
+                    .getRange(commitCheckSubspace(recordStore).range())
                     .asList().join();
-            assertThat(hookKeys).hasSize(expectedTransactions);
+            assertThat(checkKeys).hasSize(expectedTransactions);
         }
     }
 
-    private static Subspace hookSubspace(final FDBRecordStore store) {
-        // Note: the hook's keys must be written under a valid keyspace, else they would precede the store's header key.
+    private static Subspace commitCheckSubspace(final FDBRecordStore store) {
+        // Note: the check's keys must be written under a valid keyspace, else they would precede the store's header key.
         // The index build keyspace is a legit (and, in this test, otherwise unused) part of the store.
-        return store.getSubspace().subspace(Tuple.from(FDBRecordStoreKeyspace.INDEX_BUILD_SPACE.key(), "preCommitHook"));
+        return store.getSubspace().subspace(Tuple.from(FDBRecordStoreKeyspace.INDEX_BUILD_SPACE.key(), "commitCheck"));
     }
 
     @CsvSource({"-1", "0", "50", "100"})

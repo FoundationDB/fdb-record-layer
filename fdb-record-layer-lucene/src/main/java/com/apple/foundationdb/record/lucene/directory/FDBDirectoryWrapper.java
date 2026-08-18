@@ -74,6 +74,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Function;
 
 /**
  * Wrapper containing an {@link FDBDirectory} and cached accessor objects (like {@link IndexWriter}s). This object
@@ -88,6 +89,8 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     // Lucene Optimized Codec Singleton
     private static final Codec CODEC = LuceneOptimizedCodec.CODEC;
     public static final boolean USE_COMPOUND_FILE = true;
+
+    private static final String DRAIN_PRE_COMMIT_HOOK = "luceneQueueDrainPreCommit:";
 
     private final IndexMaintainerState state;
     private final FDBDirectory directory;
@@ -596,9 +599,8 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         final ThrottledRetryingIterator<PendingWriteQueue.QueueEntry> iterator = ThrottledRetryingIterator.builder(
                         agilityContext.getCallerContext().getDatabase(),
                         agilityContext.getCallerContext().getConfig().toBuilder(),
-                        cursorFactory(writeQueue),
+                        cursorFactory(writeQueue, mergeControl.getPreCommitCallback()),
                         handleOneItemFactory(writeQueue, groupingKey, partitionId))
-                .withTransactionPreCommitHook(mergeControl.getPreCommitCallback())
                 .build();
         return iterator.iterateAll(state.store.asBuilder())
                 .whenComplete((v, e) -> {
@@ -610,8 +612,13 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                 });
     }
 
-    private CursorFactory<PendingWriteQueue.QueueEntry> cursorFactory(PendingWriteQueue pendingWriteQueue) {
+    private CursorFactory<PendingWriteQueue.QueueEntry> cursorFactory(PendingWriteQueue pendingWriteQueue,
+                                                                      @Nullable Function<FDBRecordStore, CompletableFuture<Void>> preCommitCallback) {
         return (@Nonnull FDBRecordStore store, @Nullable RecordCursorResult<PendingWriteQueue.QueueEntry> lastResult, int rowLimit) -> {
+            if (preCommitCallback != null) {
+                store.getContext().getOrCreateCommitCheck(DRAIN_PRE_COMMIT_HOOK + state.index.getName(),
+                        name -> () -> preCommitCallback.apply(store));
+            }
             byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
             ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(executeProperties -> executeProperties.setReturnedRowLimit(rowLimit));
             // Note: null could have been used instead of continuation as the preceding items should have been deleted. However,
