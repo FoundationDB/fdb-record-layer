@@ -53,6 +53,7 @@ import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryParser;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
+import com.apple.foundationdb.relational.recordlayer.query.ddl.IndexGenerationResult;
 import com.apple.foundationdb.relational.recordlayer.query.ddl.MaterializedViewIndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.ddl.OnSourceIndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
@@ -234,7 +235,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public RecordLayerIndex visitIndexAsSelectDefinition(@Nonnull RelationalParser.IndexAsSelectDefinitionContext indexDefinitionContext) {
+    public IndexGenerationResult visitIndexAsSelectDefinition(@Nonnull RelationalParser.IndexAsSelectDefinitionContext indexDefinitionContext) {
         final var indexId = visitUid(indexDefinitionContext.indexName);
 
         final var ddlCatalog = metadataBuilder.build();
@@ -247,12 +248,12 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var isUnique = indexDefinitionContext.UNIQUE() != null;
         final var generator = MaterializedViewIndexGenerator.from(viewPlan, useLegacyBasedExtremumEver);
         Assert.thatUnchecked(viewPlan instanceof LogicalSortExpression, ErrorCode.INVALID_COLUMN_REFERENCE, "Cannot create index and order by an expression that is not present in the projection list");
-        return generator.generate(metadataBuilder, indexId.getName(), isUnique, containsNullableArray, false).build();
+        return generator.generate(metadataBuilder, indexId.getName(), isUnique, containsNullableArray, false);
     }
 
     @Nonnull
     @Override
-    public RecordLayerIndex visitIndexOnSourceDefinition(@Nonnull final RelationalParser.IndexOnSourceDefinitionContext indexDefinitionContext) {
+    public IndexGenerationResult visitIndexOnSourceDefinition(@Nonnull final RelationalParser.IndexOnSourceDefinitionContext indexDefinitionContext) {
         final var ddlCatalog = metadataBuilder.build();
         getDelegate().replaceSchemaTemplate(ddlCatalog);
         getDelegate().pushPlanFragment();
@@ -286,12 +287,12 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         }
 
         getDelegate().popPlanFragment();
-        return indexGeneratorBuilder.build().generate().build();
+        return indexGeneratorBuilder.build().generate();
     }
 
     @Nonnull
     @Override
-    public RecordLayerIndex visitVectorIndexDefinition(final RelationalParser.VectorIndexDefinitionContext indexDefinitionContext) {
+    public IndexGenerationResult visitVectorIndexDefinition(final RelationalParser.VectorIndexDefinitionContext indexDefinitionContext) {
         final var ddlCatalog = metadataBuilder.build();
         getDelegate().replaceSchemaTemplate(ddlCatalog);
         getDelegate().pushPlanFragment();
@@ -337,7 +338,9 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         }
 
         getDelegate().popPlanFragment();
-        return indexGeneratorBuilder.build().generate().setIndexType(IndexTypes.VECTOR).build();
+        final var result = indexGeneratorBuilder.build().generate();
+        result.indexBuilder().setIndexType(IndexTypes.VECTOR);
+        return result;
     }
 
     @Nonnull
@@ -531,12 +534,19 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             final var view = getViewMetadata(viewClause, metadataBuilder.build());
             metadataBuilder.addView(view);
         });
-        final var indexes = indexClauses.build().stream().map(clause -> Assert.castUnchecked(visit(clause), RecordLayerIndex.class)).collect(ImmutableList.toImmutableList());
-        for (final RecordLayerIndex index : indexes) {
-            final var table = metadataBuilder.extractTable(index.getTableName());
-            final var tableWithIndex = RecordLayerTable.Builder.from(table).addIndex(index).build();
-            metadataBuilder.addTable(tableWithIndex);
-        }
+        indexClauses.build().forEach(clause -> {
+            final var result = Assert.castUnchecked(visit(clause), IndexGenerationResult.class);
+            if (result.syntheticType().isPresent()) {
+                // The index is defined on a synthetic type rather than on a stored table.
+                metadataBuilder.addSyntheticTable(
+                        result.syntheticType().get().addIndex(result.indexBuilder().build()).build());
+            } else {
+                final RecordLayerIndex index = result.indexBuilder().build();
+                final var table = metadataBuilder.extractTable(index.getTableName());
+                final var tableWithIndex = RecordLayerTable.Builder.from(table).addIndex(index).build();
+                metadataBuilder.addTable(tableWithIndex);
+            }
+        });
         return ProceduralPlan.of(metadataOperationsFactory.getSaveSchemaTemplateConstantAction(metadataBuilder.build(), Options.NONE));
     }
 

@@ -22,7 +22,10 @@ package com.apple.foundationdb.relational.recordlayer.metadata.serde;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.metadata.UnnestedRecordType;
+import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedMacroFunction;
@@ -34,6 +37,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerUnnestedSyntheticTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.util.Assert;
@@ -123,6 +127,13 @@ public class RecordMetadataDeserializer {
                 schemaTemplateBuilder.addView(generateViewBuilder(metadataProvider, view.getKey(), view.getValue().getDefinition()).build());
             }
         }
+        // Reconstruct synthetic types (UnnestedRecordType) stored in RecordMetaData.
+        for (final var syntheticType : recordMetaData.getSyntheticRecordTypes().values()) {
+            if (syntheticType instanceof UnnestedRecordType) {
+                schemaTemplateBuilder.addSyntheticTable(
+                        generateUnnestedSyntheticTableBuilder(recordMetaData, (UnnestedRecordType) syntheticType).build());
+            }
+        }
         for (final var entry : recordMetaData.getStoredQueries().entrySet()) {
             final RecordMetaData.StoredQuery storedQuery = entry.getValue();
             schemaTemplateBuilder.addStoredQuery(entry.getKey(), storedQuery.getQuery(), storedQuery.getTempFunctions());
@@ -187,7 +198,7 @@ public class RecordMetadataDeserializer {
     }
 
     @Nonnull
-    @SuppressWarnings("PMD.UnusedFormalParameter") // metadata will be used for view compilation in the future
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     private static RecordLayerView.Builder generateViewBuilder(@Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
                                                                @Nonnull final String name,
                                                                @Nonnull final String definition) {
@@ -195,6 +206,39 @@ public class RecordMetadataDeserializer {
                 .setName(name)
                 .setDescription(definition)
                 .setViewCompiler(getViewCompiler(name, metadata, definition));
+    }
+
+    @Nonnull
+    private static RecordLayerUnnestedSyntheticTable.Builder generateUnnestedSyntheticTableBuilder(
+            @Nonnull final RecordMetaData recordMetaData,
+            @Nonnull final UnnestedRecordType unnestedRecordType) {
+        final UnnestedRecordType.NestedConstituent parentConstituent = unnestedRecordType.getParentConstituent();
+        final String parentStorageName = parentConstituent.getRecordType().getName();
+        final Type.Record parentType = Type.Record.fromDescriptorPreservingName(
+                recordMetaData.getRecordType(parentStorageName).getDescriptor());
+
+        final RecordLayerUnnestedSyntheticTable.Builder builder = RecordLayerUnnestedSyntheticTable.newBuilder()
+                .setName(unnestedRecordType.getName())
+                .setAlias(parentConstituent.getName())
+                .setParentTableType(parentType);
+
+        for (final UnnestedRecordType.NestedConstituent constituent : unnestedRecordType.getConstituents()) {
+            if (constituent.isParent()) {
+                continue;
+            }
+            // The nesting expression is always field(arrayFieldStorageName, FanOut) — extract the field name.
+            final String arrayFieldStorageName = constituent.getNestingExpression() instanceof FieldKeyExpression fieldKey
+                    ? fieldKey.getFieldName()
+                    : constituent.getName();
+            builder.addConstituent(new RecordLayerUnnestedSyntheticTable.NestedConstituent(
+                    constituent.getName(), Objects.requireNonNull(constituent.getParentName()), arrayFieldStorageName));
+        }
+
+        // Reconstruct indexes defined on this synthetic type.
+        for (final Index index : unnestedRecordType.getIndexes()) {
+            builder.addIndex(RecordLayerIndex.from(unnestedRecordType.getName(), unnestedRecordType.getName(), index));
+        }
+        return builder;
     }
 
     @Nonnull

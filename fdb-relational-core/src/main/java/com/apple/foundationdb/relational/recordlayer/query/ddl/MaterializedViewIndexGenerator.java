@@ -72,6 +72,8 @@ import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSyntheticTable;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerUnnestedSyntheticTable;
 import com.apple.foundationdb.relational.recordlayer.query.FieldValueTrieNode;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.util.Assert;
@@ -89,6 +91,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -124,6 +127,23 @@ public final class MaterializedViewIndexGenerator {
     @Nonnull
     private final IdentityHashMap<CorrelationIdentifier, Value> correlatedKeyExpressions = new IdentityHashMap<>();
 
+    /**
+     * Nested constituents discovered while collecting quantifiers, keyed by the explode marker
+     * stamped onto the corresponding {@link AnnotatedAccessor}. A {@link LinkedHashMap} because
+     * constituent order is significant: {@code UnnestedRecordType} derives its primary key and
+     * generated descriptor field numbers from constituent order, and a nested constituent's parent
+     * must be registered before the constituent itself.
+     */
+    @Nonnull
+    private final Map<Integer, NestedConstituentInfo> unnestedConstituents = new LinkedHashMap<>();
+
+    /**
+     * Explodes over scalar arrays, keyed by the same explode marker. These do not become constituents
+     * of the synthetic type; they are indexed as a fan-out within their owning constituent.
+     */
+    @Nonnull
+    private final Map<Integer, ScalarUnnestingInfo> scalarFanouts = new LinkedHashMap<>();
+
     @Nonnull
     private final List<RelationalExpression> relationalExpressions;
 
@@ -131,6 +151,9 @@ public final class MaterializedViewIndexGenerator {
     private final RelationalExpression relationalExpression;
 
     private final boolean useLegacyBasedExtremumEver;
+
+    @Nonnull
+    private Optional<RecordLayerSyntheticTable.Builder> syntheticTableBuilder = Optional.empty();
 
     private MaterializedViewIndexGenerator(@Nonnull RelationalExpression relationalExpression, boolean useLegacyBasedExtremumEver) {
         collectQuantifiers(relationalExpression);
@@ -145,16 +168,25 @@ public final class MaterializedViewIndexGenerator {
         this.useLegacyBasedExtremumEver = useLegacyBasedExtremumEver;
     }
 
+    /**
+     * Generates the index definition, and for an unnesting over a struct array, the synthetic type to
+     * define it on. Callers must register the returned synthetic type, if present, otherwise the index
+     * would name a type that does not exist.
+     *
+     * @param schemaTemplateBuilder the schema template being built
+     * @param indexName the name of the index
+     * @param isUnique whether the index is unique
+     * @param containsNullableArray whether the schema contains any nullable array
+     * @param generateKeyValueExpressionWithEmptyKey whether to generate a key-with-value expression
+     *        even when there is no ordering
+     * @return the index definition and, when the plan unnests a struct array, the synthetic type
+     */
     @Nonnull
-    public RecordLayerIndex.Builder generate(@Nonnull RecordLayerSchemaTemplate.Builder schemaTemplateBuilder, @Nonnull String indexName,
-                                             boolean isUnique, boolean containsNullableArray, boolean generateKeyValueExpressionWithEmptyKey) {
+    public IndexGenerationResult generate(@Nonnull RecordLayerSchemaTemplate.Builder schemaTemplateBuilder, @Nonnull String indexName,
+                                     boolean isUnique, boolean containsNullableArray, boolean generateKeyValueExpressionWithEmptyKey) {
         final String recordTypeName = getRecordTypeName();
         // Have to use the storage name here because the index generator uses it
         final Type.Record tableType = schemaTemplateBuilder.findTableByStorageName(recordTypeName).getType();
-        final var indexBuilder = RecordLayerIndex.newBuilder()
-                .setName(indexName)
-                .setTableType(tableType)
-                .setUnique(isUnique);
 
         collectQuantifiers(relationalExpression);
 
@@ -165,6 +197,10 @@ public final class MaterializedViewIndexGenerator {
 
         checkValidity(expressionRefs);
 
+        final var indexBuilder = RecordLayerIndex.newBuilder()
+                .setName(indexName)
+                .setUnique(isUnique);
+
         // add predicates
         final var predicate = getTopLevelPredicate(Lists.reverse(expressionRefs));
         if (predicate != null) {
@@ -173,14 +209,14 @@ public final class MaterializedViewIndexGenerator {
 
         final var simplifiedValues = collectResultValues(relationalExpression.getResultValue());
 
-        final var unsupportedAggregates = simplifiedValues.stream().filter(sv -> sv instanceof StreamableAggregateValue && !(sv instanceof IndexableAggregateValue)).collect(toList());
+        final var unsupportedAggregates = simplifiedValues.stream().filter(sv -> sv instanceof StreamableAggregateValue && !(sv instanceof IndexableAggregateValue)).toList();
         Assert.thatUnchecked(unsupportedAggregates.isEmpty(), ErrorCode.UNSUPPORTED_OPERATION,
                 () -> String.format(Locale.ROOT, "Unsupported aggregate index definition containing non-indexable aggregation (%s), consider using a value index on the aggregated column instead.", unsupportedAggregates.stream().map(Objects::toString).collect(joining(","))));
 
         Assert.thatUnchecked(simplifiedValues.stream().allMatch(sv -> sv instanceof FieldValue || sv instanceof IndexableAggregateValue || sv instanceof ArithmeticValue || sv instanceof CardinalityValue));
-        final var aggregateValues = simplifiedValues.stream().filter(sv -> sv instanceof IndexableAggregateValue).collect(toList());
-        final var fieldValues = simplifiedValues.stream().filter(sv -> !(sv instanceof IndexableAggregateValue)).collect(toList());
-        final var versionValues = simplifiedValues.stream().filter(sv -> sv instanceof FieldValue && sv.getResultType().equals(PseudoField.ROW_VERSION.getType())).collect(toList());
+        final var aggregateValues = simplifiedValues.stream().filter(sv -> sv instanceof IndexableAggregateValue).toList();
+        final var fieldValues = simplifiedValues.stream().filter(sv -> !(sv instanceof IndexableAggregateValue)).toList();
+        final var versionValues = simplifiedValues.stream().filter(sv -> sv instanceof FieldValue && sv.getResultType().equals(PseudoField.ROW_VERSION.getType())).toList();
         Assert.thatUnchecked(versionValues.size() <= 1, ErrorCode.UNSUPPORTED_OPERATION, "Cannot have index with more than one version column");
         final Map<Value, String> orderingFunctions = new IdentityHashMap<>();
         final var orderByValues = getOrderByValues(relationalExpression, orderingFunctions);
@@ -191,18 +227,47 @@ public final class MaterializedViewIndexGenerator {
                 Assert.thatUnchecked(!orderByValues.isEmpty(), ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, value indexes must have an order by clause at the top level");
             }
             final var reordered = reorderValues(fieldValues, orderByValues);
-            final var expression = generate(reordered, orderingFunctions);
             var splitPoint = orderByValues.size();
             if (orderByValues.isEmpty() && !generateKeyValueExpressionWithEmptyKey) {
                 splitPoint = -1;
             }
-            if (splitPoint != -1 && splitPoint < fieldValues.size()) {
-                indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(keyWithValue(expression, splitPoint).toKeyExpression(), tableType, containsNullableArray)));
+            // The choice of representation can only be made once the key columns and their order are
+            // known, since it turns on whether one array element's columns are contiguous in the key.
+            final boolean useSyntheticType = requiresSyntheticType(reordered);
+            // A predicate would have to be evaluated against the synthetic record rather than the stored
+            // one, which is not worked out yet. Reject rather than fall back to a fan-out: the shapes that
+            // need a synthetic type are exactly those a fan-out cannot express, so falling back would fail
+            // later with a far less clear error.
+            Assert.thatUnchecked(!useSyntheticType || predicate == null, ErrorCode.UNSUPPORTED_OPERATION,
+                    "Unsupported index definition, a predicate is not supported on an index over an unnested synthetic type");
+            KeyExpression keyExpression;
+            if (useSyntheticType) {
+                final String syntheticTableName = "__unnested_" + recordTypeName + "_" + indexName;
+                indexBuilder
+                        .setTableName(syntheticTableName)
+                        .setTableStorageName(syntheticTableName);
+                syntheticTableBuilder = Optional.of(buildUnnestedTypeMetadata(
+                        schemaTemplateBuilder, syntheticTableName, recordTypeName, findParentConstituentAlias()));
+                // For unnested synthetic types the key expression uses constituent-alias paths
+                // (e.g. field("SQ").nest(field("a"))) rather than stored-table field paths.
+                // Build it directly from the dereferenced FieldValues.
+                final KeyExpression fullExpr = buildConstituentKeyExpression(
+                        reordered, orderingFunctions, findParentConstituentAlias());
+                keyExpression = splitPoint != -1 && splitPoint < fieldValues.size() ?
+                                keyWithValue(fullExpr, splitPoint) : fullExpr;
             } else {
-                indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(expression.toKeyExpression(), tableType, containsNullableArray)));
+                indexBuilder.setTableType(tableType);
+                final var expression = generate(reordered, orderingFunctions);
+                final var unwrappedKeyExpression = splitPoint != -1 && splitPoint < fieldValues.size() ?
+                                                   keyWithValue(expression, splitPoint) : expression;
+                keyExpression = KeyExpression.fromProto(NullableArrayUtils.wrapArray(
+                        unwrappedKeyExpression.toKeyExpression(), tableType, containsNullableArray));
             }
+            indexBuilder.setKeyExpression(keyExpression);
         } else {
-            Assert.thatUnchecked(aggregateValues.size() == 1, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, multiple group by aggregations found");
+            // Aggregate indexes always use the stored table: their grouping columns are emitted with a
+            // fan-out key expression, as before synthetic types existed.
+            indexBuilder.setTableType(tableType);
             final var aggregateValue = (AggregateValue) aggregateValues.get(0);
             int aggregateOrderIndex = -1;
             if (!orderByValues.isEmpty()) {
@@ -242,7 +307,7 @@ public final class MaterializedViewIndexGenerator {
                 Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition. Cannot order " + indexType + " index by aggregate value");
             }
         }
-        return indexBuilder;
+        return new IndexGenerationResult(indexBuilder, this.syntheticTableBuilder);
     }
 
     @Nonnull
@@ -310,14 +375,12 @@ public final class MaterializedViewIndexGenerator {
          */
         final var selectWhereQun = groupByExpression.getQuantifiers().get(0);
         return resultValues.stream().map(resultValue -> resultValue.replace(value -> {
-            if (!(value instanceof FieldValue)) {
+            if (!(value instanceof final FieldValue fieldValue)) {
                 return value;
             }
-            final FieldValue fieldValue = (FieldValue) value;
-            if (!(fieldValue.getChild() instanceof QuantifiedObjectValue)) {
+            if (!(fieldValue.getChild() instanceof final QuantifiedObjectValue quantifiedObjectValue)) {
                 return value;
             }
-            final QuantifiedObjectValue quantifiedObjectValue = (QuantifiedObjectValue) fieldValue.getChild();
             if (!quantifiedObjectValue.getAlias().equals(selectWhereQun.getAlias())) {
                 return value;
             }
@@ -338,29 +401,16 @@ public final class MaterializedViewIndexGenerator {
     @Nonnull
     private List<Value> getOrderByValues(@Nonnull RelationalExpression relationalExpression,
                                          @Nonnull Map<Value, String> orderingFunctions) {
-        if (relationalExpression instanceof LogicalSortExpression) {
-            final var logicalSortExpression = (LogicalSortExpression) relationalExpression;
+        if (relationalExpression instanceof final LogicalSortExpression logicalSortExpression) {
             final var reverseAliasMap = AliasMap.ofAliases(Quantifier.current(), logicalSortExpression.getQuantifiers().get(0).getAlias());
             final ImmutableList.Builder<Value> values = ImmutableList.builder();
             for (var orderingPart : logicalSortExpression.getOrdering().getOrderingParts()) {
-                final String orderingFunction;
-                switch (orderingPart.getSortOrder()) {
-                    case ASCENDING:
-                        orderingFunction = null;
-                        break;
-                    case DESCENDING:
-                        orderingFunction = "order_desc_nulls_last";
-                        break;
-                    case ASCENDING_NULLS_LAST:
-                        orderingFunction = "order_asc_nulls_last";
-                        break;
-                    case DESCENDING_NULLS_FIRST:
-                        orderingFunction = "order_desc_nulls_first";
-                        break;
-                    default:
-                        orderingFunction = null;
-                        break;
-                }
+                final String orderingFunction = switch (orderingPart.getSortOrder()) {
+                    case DESCENDING -> "order_desc_nulls_last";
+                    case ASCENDING_NULLS_LAST -> "order_asc_nulls_last";
+                    case DESCENDING_NULLS_FIRST -> "order_desc_nulls_first";
+                    default -> null;
+                };
                 if (orderingPart.getValue().getResultType().getTypeCode() == Type.TypeCode.RECORD) {
                     for (Value value : Values.deconstructRecord(orderingPart.getValue())) {
                         final var rebased = dereference(value.rebase(reverseAliasMap))
@@ -494,7 +544,7 @@ public final class MaterializedViewIndexGenerator {
     }
 
     @Nonnull
-    private KeyExpression generate(@Nonnull List<Value> fields, @Nonnull Map<Value, String> orderingFunctions) {
+    private static KeyExpression generate(@Nonnull List<Value> fields, @Nonnull Map<Value, String> orderingFunctions) {
         if (fields.isEmpty()) {
             return EmptyKeyExpression.EMPTY;
         } else if (fields.size() == 1) {
@@ -524,7 +574,7 @@ public final class MaterializedViewIndexGenerator {
     }
 
     @Nonnull
-    private KeyExpression toKeyExpression(Value value, Map<Value, String> orderingFunctions) {
+    private static KeyExpression toKeyExpression(Value value, Map<Value, String> orderingFunctions) {
         var expr = toKeyExpression(value);
         if (orderingFunctions.containsKey(value)) {
             return function(orderingFunctions.get(value), expr);
@@ -548,9 +598,8 @@ public final class MaterializedViewIndexGenerator {
     }
 
     @Nonnull
-    private KeyExpression toKeyExpression(@Nonnull Value value) {
-        if (value instanceof FieldValue) {
-            final FieldValue fieldValue = (FieldValue) value;
+    private static KeyExpression toKeyExpression(@Nonnull Value value) {
+        if (value instanceof final FieldValue fieldValue) {
             return toKeyExpression(fieldValue.getFieldPath().getFieldAccessors().iterator(), KeyExpression.FanType.FanOut);
         } else if (value instanceof CardinalityValue) {
             // CARDINALITY() consumes an array value. Currently, it can only be applied to a `field` directly. We make
@@ -637,7 +686,7 @@ public final class MaterializedViewIndexGenerator {
     }
 
     @Nullable
-    public static QueryPredicate getTopLevelPredicate(@Nonnull List<? extends RelationalExpression> expressions) {
+    private static QueryPredicate getTopLevelPredicate(@Nonnull List<? extends RelationalExpression> expressions) {
         if (expressions.isEmpty()) {
             return null;
         }
@@ -657,8 +706,7 @@ public final class MaterializedViewIndexGenerator {
         // current expression is either top-level select, or select-where or top-level group by.
         // make sure any other select statement does not have any predicates defined.
         for (int i = currentExpression + 1; i < expressions.size(); i++) {
-            if (expressions.get(i) instanceof SelectExpression) {
-                final var innerSelect = (SelectExpression) expressions.get(i);
+            if (expressions.get(i) instanceof final SelectExpression innerSelect) {
                 Assert.thatUnchecked(innerSelect.getPredicates().isEmpty(), ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, found predicate in inner-select");
             }
         }
@@ -689,6 +737,10 @@ public final class MaterializedViewIndexGenerator {
                                   int marker) {
             super(field, ordinal);
             this.marker = marker;
+        }
+
+        public int getMarker() {
+            return marker;
         }
 
         @Nonnull
@@ -727,11 +779,22 @@ public final class MaterializedViewIndexGenerator {
             if (qun.getRangesOver().get() instanceof ExplodeExpression) {
                 explodeCounter.incrementAndGet();
                 final var collectionValue = ((ExplodeExpression) qun.getRangesOver().get()).getCollectionValue();
-                if (collectionValue instanceof FieldValue) {
-                    final var field = (FieldValue) collectionValue;
+                if (collectionValue instanceof final FieldValue field) {
                     final var fieldAccessors = new ArrayList<>(field.getFieldPath().getFieldAccessors());
                     fieldAccessors.set(fieldAccessors.size() - 1, AnnotatedAccessor.of(fieldAccessors.get(fieldAccessors.size() - 1), explodeCounter.get()));
-                    correlatedKeyExpressions.put(qun.getAlias(), FieldValue.ofFields(((FieldValue) collectionValue).getChild(), new FieldValue.FieldPath(fieldAccessors)));
+                    correlatedKeyExpressions.put(qun.getAlias(), FieldValue.ofFields(field.getChild(), new FieldValue.FieldPath(fieldAccessors)));
+                    final var accessors = field.getFieldPath().getFieldAccessors();
+                    final String arrayFieldStorageName =
+                            accessors.get(accessors.size() - 1).getField().getFieldStorageName();
+                    final String owningAlias = resolveOwningAlias(field);
+                    final var arrayType = (Type.Array) field.getResultType();
+                    if (arrayType.getElementType() instanceof Type.Record) {
+                        unnestedConstituents.put(explodeCounter.get(),
+                                new NestedConstituentInfo(qun.getAlias().toString(), owningAlias, arrayFieldStorageName));
+                    } else {
+                        scalarFanouts.put(explodeCounter.get(),
+                                new ScalarUnnestingInfo(owningAlias, arrayFieldStorageName, arrayType.isNullable()));
+                    }
                 } else {
                     correlatedKeyExpressions.put(qun.getAlias(), collectionValue);
                 }
@@ -739,6 +802,63 @@ public final class MaterializedViewIndexGenerator {
                 correlatedKeyExpressions.put(qun.getAlias(), qun.getRangesOver().get().getResultValue());
             }
             collectQuantifiersInternal(qun.getRangesOver().get(), explodeCounter);
+        }
+    }
+
+    /**
+     * Returns the alias of the constituent that owns the array an explode reads from.
+     *
+     * <p>The raw correlation of the collection value is not enough. A first-level explode reads its array
+     * off the table quantifier, {@code FieldValue(QOV(a), [P])} for {@code a.p}, and that quantifier is
+     * the parent constituent — so the correlation happens to be right. A chained explode reads its array
+     * off the <em>preceding subquery's</em> alias, {@code FieldValue(QOV(b), [Q])} for {@code b.q} where
+     * {@code b} is {@code (SELECT * FROM a.p)}; that subquery quantifier is not a constituent, the explode
+     * inside it is. Using the correlation directly would name a non-existent constituent.
+     *
+     * <p>So the collection value is dereferenced first: any enclosing unnestings then show up as
+     * {@link AnnotatedAccessor}s in the resulting path, and the innermost of those identifies the
+     * constituent to parent to. When there are none the array hangs directly off the stored record and the
+     * correlation is already the right answer.
+     *
+     * @param collectionValue the array a newly seen explode ranges over
+     * @return the alias of the owning constituent
+     */
+    @Nonnull
+    private String resolveOwningAlias(@Nonnull final FieldValue collectionValue) {
+        final var markers = unnestingMarkers(dereference(collectionValue));
+        for (int i = markers.size() - 1; i >= 0; i--) {
+            final NestedConstituentInfo enclosing = unnestedConstituents.get(markers.get(i));
+            if (enclosing != null) {
+                return enclosing.alias();
+            }
+        }
+        return Iterables.getOnlyElement(collectionValue.getCorrelatedTo()).toString();
+    }
+
+    /**
+     * One nested constituent of an unnested synthetic type, as discovered from an
+     * {@link ExplodeExpression} over a struct array during {@link #collectQuantifiers}.
+     */
+    private record NestedConstituentInfo(@Nonnull String alias,
+                                         @Nonnull String parentAlias,
+                                         @Nonnull String arrayFieldStorageName) {
+    }
+
+    /**
+     * An {@link ExplodeExpression} over a scalar array. Scalar arrays cannot be constituents of an
+     * {@code UnnestedRecordType}, so they are expressed as a fan-out on the array field of the
+     * constituent that owns it. Nullable arrays are stored wrapped in a
+     * {@code { repeated T values; }} message, so the fan-out is on {@code values} in that case.
+     */
+    private record ScalarUnnestingInfo(@Nonnull String owningAlias,
+                                       @Nonnull String arrayFieldStorageName,
+                                       boolean nullableArray) {
+
+        @Nonnull
+        KeyExpression toFanOutExpression() {
+            return nullableArray
+                   ? field(arrayFieldStorageName).nest(field(NullableArrayUtils.REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut))
+                   : field(arrayFieldStorageName, KeyExpression.FanType.FanOut);
         }
     }
 
@@ -751,7 +871,7 @@ public final class MaterializedViewIndexGenerator {
                             .map(c -> Column.of(c.getField(), dereference(c.getValue())))
                             .collect(toList()));
         } else if (value instanceof CountValue) {
-            final var children = StreamSupport.stream(value.getChildren().spliterator(), false).collect(toList());
+            final var children = StreamSupport.stream(value.getChildren().spliterator(), false).toList();
             Verify.verify(children.size() <= 1);
             if (!children.isEmpty()) {
                 return value.withChildren(Collections.singleton(dereference(children.get(0))));
@@ -775,7 +895,7 @@ public final class MaterializedViewIndexGenerator {
     }
 
     @Nonnull
-    private KeyExpression toKeyExpression(@Nonnull Iterator<FieldValue.ResolvedAccessor> resolvedAccessors, KeyExpression.FanType fanTypeForArray) {
+    private static KeyExpression toKeyExpression(@Nonnull Iterator<FieldValue.ResolvedAccessor> resolvedAccessors, KeyExpression.FanType fanTypeForArray) {
         Assert.thatUnchecked(resolvedAccessors.hasNext(), "cannot resolve empty list");
         final FieldValue.ResolvedAccessor accessor = resolvedAccessors.next();
         final KeyExpression expression = toFieldKeyExpression(accessor, fanTypeForArray);
@@ -793,7 +913,7 @@ public final class MaterializedViewIndexGenerator {
         final var expressionRefs = relationalExpressions.stream()
                 .filter(r -> r instanceof LogicalTypeFilterExpression)
                 .map(r -> (LogicalTypeFilterExpression) r)
-                .collect(toList());
+                .toList();
         Assert.thatUnchecked(expressionRefs.size() == 1, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported query, expected to find exactly one type filter operator");
         final var recordTypes = expressionRefs.get(0).getRecordTypes();
         Assert.thatUnchecked(recordTypes.size() == 1, ErrorCode.UNSUPPORTED_OPERATION, () -> String.format(Locale.ROOT, "Unsupported query, expected to find exactly one record type in type filter operator, however found %s", recordTypes.isEmpty() ? "nothing" : String.join(",", recordTypes)));
@@ -829,5 +949,207 @@ public final class MaterializedViewIndexGenerator {
     @Nonnull
     public static MaterializedViewIndexGenerator from(@Nonnull RelationalExpression relationalExpression, boolean useLongBasedExtremumEver) {
         return new MaterializedViewIndexGenerator(relationalExpression, useLongBasedExtremumEver);
+    }
+
+    /**
+     * Finds the correlation alias of the parent (stored record) constituent of an unnested index.
+     * The parent is the quantifier that ranges over the stored record scan, which in an index
+     * definition plan is always wrapped in a {@link LogicalTypeFilterExpression}. All other
+     * quantifiers of the select range over {@link ExplodeExpression}s (the unnested constituents).
+     */
+    @Nonnull
+    private String findParentConstituentAlias() {
+        return relationalExpressions.stream()
+                .filter(expression -> expression instanceof SelectExpression)
+                .flatMap(expression -> expression.getQuantifiers().stream())
+                .filter(quantifier -> quantifier.getRangesOver().get() instanceof LogicalTypeFilterExpression)
+                .map(quantifier -> quantifier.getAlias().toString())
+                .findFirst()
+                .orElseThrow(() -> Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION,
+                        "Could not determine parent constituent alias in unnested index definition"));
+    }
+
+    @Nonnull
+    private RecordLayerUnnestedSyntheticTable.Builder buildUnnestedTypeMetadata(
+            @Nonnull RecordLayerSchemaTemplate.Builder schemaTemplateBuilder,
+            @Nonnull String syntheticTableName,
+            @Nonnull String recordTypeName,
+            @Nonnull String parentAlias) {
+        final RecordLayerUnnestedSyntheticTable.Builder builder = RecordLayerUnnestedSyntheticTable.newBuilder()
+                .setName(syntheticTableName)
+                .setAlias(parentAlias)
+                .setParentTableType(schemaTemplateBuilder.findTableByStorageName(recordTypeName).getType());
+        // Insertion order is parent-before-child, which addNestedConstituent requires.
+        unnestedConstituents.values().forEach(info ->
+                builder.addConstituent(new RecordLayerUnnestedSyntheticTable.NestedConstituent(
+                        info.alias(), info.parentAlias(), info.arrayFieldStorageName())));
+        return builder;
+    }
+
+    /**
+     * Builds a {@link KeyExpression} for an unnested synthetic type index. The dereferenced
+     * field values contain {@link AnnotatedAccessor}s that mark the unnesting boundary; this
+     * method transforms them into constituent-alias-based paths:
+     * {@code field("SQ").nest(field("a"))} for unnested fields and
+     * {@code field("row").nest(field(...))} for parent fields.
+     *
+     * <p>Values are emitted positionally, preserving the order of {@code reordered}, which the
+     * index key order must follow. A constituent may be referenced more than once and the
+     * references need not be adjacent — a constituent is navigated with {@link KeyExpression.FanType#None},
+     * holding a single nested message per synthetic record, so repeating it neither duplicates
+     * entries nor creates a cross-product. This is precisely what an {@code UnnestedRecordType}
+     * buys over a fan-out key expression on the stored type.
+     */
+    @Nonnull
+    private KeyExpression buildConstituentKeyExpression(
+            @Nonnull List<Value> reordered,
+            @Nonnull Map<Value, String> orderingFunctions,
+            @Nonnull String parentAlias) {
+        final List<KeyExpression> parts = new ArrayList<>(reordered.size());
+        for (final Value value : reordered) {
+            final KeyExpression base = toKeyExpressionOnNestedConstituent(value, parentAlias);
+            final String orderingFunctionName = orderingFunctions.get(value);
+            parts.add(orderingFunctionName != null ? function(orderingFunctionName, base) : base);
+        }
+        return parts.size() == 1 ? parts.get(0) : concat(parts);
+    }
+
+    /**
+     * Returns the position of the innermost unnesting boundary in a dereferenced field path, or
+     * {@code -1} if the path crosses none. The <em>last</em> {@link AnnotatedAccessor} is the innermost
+     * one: for {@code FROM T AS r, r.a AS x, x.b AS y} the value {@code y.c} dereferences to
+     * {@code [ann(A), ann(B), C]}, and it is {@code ann(B)} that says where {@code c} lives.
+     *
+     * @param accessors the dereferenced field path
+     * @return the index of the innermost {@link AnnotatedAccessor}, or {@code -1}
+     */
+    private static int innermostUnnestingIndex(@Nonnull final List<FieldValue.ResolvedAccessor> accessors) {
+        for (int i = accessors.size() - 1; i >= 0; i--) {
+            if (accessors.get(i) instanceof AnnotatedAccessor) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Returns the markers of every unnesting a value is read through, outermost first. For
+     * {@code FROM A AS a, (SELECT * FROM a.p) AS b, (SELECT * FROM b.q) AS c} the value {@code c.y}
+     * dereferences to {@code [ann(P), ann(Q), Y]} and so traverses both unnestings, while {@code b.x}
+     * dereferences to {@code [ann(P), X]} and traverses only the outer one.
+     *
+     * @param value the dereferenced value
+     * @return the markers of the unnestings traversed, outermost first, empty if there are none
+     */
+    @Nonnull
+    private static List<Integer> unnestingMarkers(@Nonnull final Value value) {
+        if (!(value instanceof FieldValue fieldValue)) {
+            return List.of();
+        }
+        final var markers = ImmutableList.<Integer>builder();
+        for (final FieldValue.ResolvedAccessor accessor : fieldValue.getFieldPath().getFieldAccessors()) {
+            if (accessor instanceof AnnotatedAccessor annotatedAccessor) {
+                markers.add(annotatedAccessor.getMarker());
+            }
+        }
+        return markers.build();
+    }
+
+    /**
+     * Returns whether this index has to be defined on an unnested synthetic type, rather than on the
+     * stored table with a fan-out key expression.
+     *
+     * <p>A fan-out expresses an unnesting perfectly well as long as every column read through one
+     * unnesting sits in a contiguous run of the index key: those columns are then emitted under a single
+     * navigation into the array, {@code field("A").nest(field("values", FanOut).nest(concat(...)))},
+     * which yields one index entry per element. That covers a single column from an element, and
+     * several adjacent columns of the same element. It also covers two independent unnestings, each
+     * with its own fan-out — as in {@code FROM T1, (SELECT col3 FROM T1.A) X, (SELECT col4 FROM T1.A) Y}
+     * — where the resulting cross-product is the intended meaning of the cross join and no correlation
+     * between {@code X} and {@code Y} is wanted.
+     *
+     * <p>What a fan-out cannot express is two columns reached through the <em>same</em> unnesting,
+     * separated by a column that is not, as in {@code ORDER BY X.col2, T1.col5, X.col3}. There is no
+     * single navigation covering both, and emitting two would fan out twice and cross-multiply, so this
+     * was previously rejected outright. A synthetic type handles it: a constituent is navigated with
+     * {@link KeyExpression.FanType#None} and holds one element per synthetic record, so it can be
+     * referenced at as many key positions as needed.
+     *
+     * <p>Every unnesting a column is read through counts, not just the innermost one. Under chained
+     * unnesting, {@code SELECT b.x, a.k, c.y} reads {@code b.x} and {@code c.y} through different
+     * innermost unnestings, but both traverse the outer {@code b}; with {@code a.k} between them that
+     * outer navigation would have to be emitted twice, so a synthetic type is required even though
+     * neither innermost unnesting is itself split.
+     *
+     * <p>Only struct arrays are considered: a scalar array cannot be a constituent at all, so repeated
+     * non-adjacent references to one keep failing as before.
+     *
+     * @param keyValues the index key columns, in key order
+     * @return whether a synthetic type is required
+     */
+    private boolean requiresSyntheticType(@Nonnull final List<Value> keyValues) {
+        final Map<Integer, Integer> firstPositions = new LinkedHashMap<>();
+        final Map<Integer, Integer> lastPositions = new LinkedHashMap<>();
+        final Map<Integer, Integer> counts = new LinkedHashMap<>();
+        for (int i = 0; i < keyValues.size(); i++) {
+            for (final Integer marker : unnestingMarkers(keyValues.get(i))) {
+                // Skip scalar arrays, which cannot be constituents.
+                if (!unnestedConstituents.containsKey(marker)) {
+                    continue;
+                }
+                firstPositions.putIfAbsent(marker, i);
+                lastPositions.put(marker, i);
+                counts.merge(marker, 1, Integer::sum);
+            }
+        }
+        return counts.entrySet().stream().anyMatch(entry ->
+                lastPositions.get(entry.getKey()) - firstPositions.get(entry.getKey()) + 1 != entry.getValue());
+    }
+
+    /**
+     * Translates a single dereferenced {@link FieldValue} into a constituent-alias key expression.
+     * {@link AnnotatedAccessor}s in the path mark unnesting boundaries.
+     *
+     * <p>The <em>last</em> such accessor is the one that matters: it identifies the innermost
+     * unnesting, and therefore the constituent the value actually lives in. Any outer unnestings in
+     * the path are already accounted for by that constituent's parent chain, so re-emitting them
+     * here would fan out a second time. For {@code FROM T AS r, r.a AS x, x.b AS y} the value
+     * {@code y.c} dereferences to {@code [ann(A), ann(B), C]} and must become
+     * {@code field("y").nest(field("C"))}, not {@code field("x").nest(field("B", FanOut).nest(field("C")))}.
+     */
+    @Nonnull
+    private KeyExpression toKeyExpressionOnNestedConstituent(@Nonnull Value value, @Nonnull String parentAlias) {
+        if (!(value instanceof FieldValue fieldValue)) {
+            return toKeyExpression(value);
+        } else {
+            final var accessors = fieldValue.getFieldPath().getFieldAccessors();
+            // No AnnotatedAccessor — field comes from the parent constituent.
+            if (accessors.isEmpty()) {
+                return field(parentAlias, KeyExpression.FanType.None);
+            }
+            final int boundary = innermostUnnestingIndex(accessors);
+            if (boundary < 0) {
+                // No AnnotatedAccessor — field comes from the parent constituent.
+                return field(parentAlias, KeyExpression.FanType.None)
+                        .nest(toKeyExpression(accessors.iterator(), KeyExpression.FanType.FanOut));
+            }
+            final int marker = ((AnnotatedAccessor) accessors.get(boundary)).getMarker();
+            final var remaining = accessors.subList(boundary + 1, accessors.size());
+            final NestedConstituentInfo info = unnestedConstituents.get(marker);
+            if (info != null) {
+                return remaining.isEmpty() ?
+                       field(info.alias(), KeyExpression.FanType.None) :
+                       field(info.alias(), KeyExpression.FanType.None)
+                        .nest(toKeyExpression(remaining.iterator(), KeyExpression.FanType.FanOut));
+            }
+            // Scalar array — not a constituent. Fan out over the array field within the
+            // constituent that owns it. Scalar elements have no sub-fields, so nothing remains.
+            final ScalarUnnestingInfo scalarInfo = scalarFanouts.get(marker);
+            Assert.notNullUnchecked(scalarInfo, "unknown unnesting in index definition");
+            Assert.thatUnchecked(remaining.isEmpty(), ErrorCode.UNSUPPORTED_OPERATION,
+                    "Unsupported index definition, cannot dereference a field of a scalar array element");
+            return field(scalarInfo.owningAlias(), KeyExpression.FanType.None)
+                    .nest(scalarInfo.toFanOutExpression());
+        }
     }
 }

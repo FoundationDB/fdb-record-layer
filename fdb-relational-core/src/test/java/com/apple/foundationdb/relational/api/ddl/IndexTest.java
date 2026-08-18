@@ -40,6 +40,7 @@ import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.recordlayer.ddl.AbstractMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerUnnestedSyntheticTable;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
@@ -53,8 +54,11 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Locale;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.RecordMetaDataProto.AndPredicate;
 import static com.apple.foundationdb.record.RecordMetaDataProto.Comparison;
@@ -119,6 +123,71 @@ public class IndexTest {
 
     private void indexIs(@Nonnull final String stmt, @Nonnull final KeyExpression expectedKey, @Nonnull final String indexType) throws Exception {
         indexIs(stmt, expectedKey, indexType, index -> { });
+    }
+
+    /**
+     * Asserts that the statement defines its index on an unnested synthetic type with a single nested
+     * constituent, and that the index key matches.
+     *
+     * @param stmt the DDL statement
+     * @param indexType the expected index type
+     * @param expectedKey builds the expected key from the (parent alias, constituent alias)
+     * @throws Exception if planning fails
+     */
+    private void syntheticIndexIs(@Nonnull final String stmt, @Nonnull final String indexType,
+                                  @Nonnull final BiFunction<String, String, KeyExpression> expectedKey) throws Exception {
+        syntheticIndexIs(stmt, indexType, 1, (parent, constituents) -> expectedKey.apply(parent, constituents.get(0)));
+    }
+
+    /**
+     * Asserts that the statement defines its index on an unnested synthetic type, and that the index key
+     * matches. The parent and constituent aliases are generated, so the expected key is built from the
+     * aliases found in the metadata; constituents are given in registration order, outermost first.
+     *
+     * @param stmt the DDL statement
+     * @param indexType the expected index type
+     * @param constituentCount the expected number of nested constituents
+     * @param expectedKey builds the expected key from the (parent alias, constituent aliases)
+     * @throws Exception if planning fails
+     */
+    private void syntheticIndexIs(@Nonnull final String stmt, @Nonnull final String indexType, final int constituentCount,
+                                  @Nonnull final BiFunction<String, List<String>, KeyExpression> expectedKey) throws Exception {
+        shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template,
+                                                                      @Nonnull final Options templateProperties) {
+                final var syntheticTables = Assert.castUnchecked(template, RecordLayerSchemaTemplate.class)
+                        .getUnnestedSyntheticTables();
+                Assertions.assertEquals(1, syntheticTables.size(), "Incorrect number of synthetic types!");
+                final var syntheticTable = syntheticTables.stream().findFirst().orElseThrow();
+                Assertions.assertEquals(constituentCount, syntheticTable.getConstituents().size(),
+                        "Incorrect number of nested constituents!");
+                final var constituentAliases = syntheticTable.getConstituents().stream()
+                        .map(RecordLayerUnnestedSyntheticTable.NestedConstituent::getAlias)
+                        .collect(Collectors.toList());
+                // Every constituent must parent to the stored-record constituent or to another
+                // constituent; a dangling parent cannot be registered on an UnnestedRecordType.
+                syntheticTable.getConstituents().forEach(constituent ->
+                        Assertions.assertTrue(constituent.getParentAlias().equals(syntheticTable.getAlias())
+                                        || constituentAliases.contains(constituent.getParentAlias()),
+                                () -> "constituent '" + constituent.getAlias() + "' has unknown parent '"
+                                        + constituent.getParentAlias() + "'"));
+                Assertions.assertEquals(1, syntheticTable.getIndexes().size(), "Incorrect number of indexes!");
+                final var index = syntheticTable.getIndexes().stream().findFirst().orElseThrow();
+                Assertions.assertEquals(indexType, index.getIndexType());
+                Assertions.assertEquals(expectedKey.apply(syntheticTable.getAlias(), constituentAliases),
+                        KeyExpression.fromProto(index.getKeyExpression().toKeyExpression()));
+                // The metadata must actually serialize: this exercises UnnestedRecordTypeBuilder, which
+                // rejects a constituent whose parent is not itself a registered constituent.
+                final var metaData = Assert.castUnchecked(template, RecordLayerSchemaTemplate.class).toRecordMetadata();
+                Assertions.assertTrue(metaData.getSyntheticRecordTypes().containsKey(syntheticTable.getName()),
+                        () -> "synthetic type '" + syntheticTable.getName() + "' missing from serialized metadata, got "
+                                + metaData.getSyntheticRecordTypes().keySet());
+                return txn -> {
+                };
+            }
+        });
     }
 
     private void indexIs(@Nonnull final String stmt, @Nonnull final KeyExpression expectedKey, @Nonnull final String indexType,
@@ -751,7 +820,14 @@ public class IndexTest {
                 "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
                 "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
                 "CREATE INDEX mv1 AS SELECT X.col2, T1.col5, X.col3, X.col4 FROM T1, (SELECT col2, col3, col4 FROM T1.A) X ORDER BY X.col2, T1.col5, X.col3";
-        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Index with multiple disconnected references to the same column are not supported");
+        // X.col2 is separated from X.col3/X.col4 by T1.col5, so no single fan-out can cover all three.
+        // A fan-out key expression rejected this outright; an unnested synthetic type expresses it, since a
+        // constituent holds one array element and can be referenced at any number of key positions.
+        syntheticIndexIs(stmt, IndexTypes.VALUE, (parent, x) -> keyWithValue(concat(
+                field(x).nest("COL2"),
+                field(parent).nest("COL5"),
+                field(x).nest("COL3"),
+                field(x).nest("COL4")), 3));
     }
 
     @Test
@@ -927,6 +1003,121 @@ public class IndexTest {
         indexIs(stmt, keyWithValue(concat(version(), field("A").nest(field("values", KeyExpression.FanType.FanOut).nest(concatenateFields("COL3", "COL4")))), 2), IndexTypes.VERSION);
     }
 
+    /**
+     * A predicate on an index that needs a synthetic type is rejected for now: the predicate would have to
+     * be evaluated against the synthetic record rather than the stored one.
+     */
+    @Test
+    void createIndexWithPredicateOverUnnestedSyntheticTypeIsNotSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col2, T1.col5, X.col3 FROM T1, (SELECT col2, col3 FROM T1.A) X " +
+                "WHERE T1.col5 > 10 ORDER BY X.col2, T1.col5, X.col3";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION,
+                "a predicate is not supported on an index over an unnested synthetic type");
+    }
+
+    /**
+     * The same predicate is fine when the shape does not need a synthetic type: one column per unnesting
+     * keeps the index on the stored table with a fan-out.
+     */
+    @Test
+    void createIndexWithPredicateOverUnnestingIsSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col3, T1.col5 FROM T1, (SELECT col3 FROM T1.A) X " +
+                "WHERE T1.col5 > 10 ORDER BY X.col3, T1.col5";
+        indexIs(stmt, concat(field("A").nest(field("values", KeyExpression.FanType.FanOut).nest("COL3")),
+                field("COL5")), IndexTypes.VALUE);
+    }
+
+    /**
+     * Two columns of the same unnesting separated by a column of a <em>different</em> unnesting, rather
+     * than by a parent column. Still no single fan-out covers X, so this needs a synthetic type.
+     */
+    @Test
+    void createIndexWithRepeatedNestedSplitByOtherRepeated() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col3, Y.col2, X.col4 FROM T1, (SELECT col3, col4 FROM T1.A) X, " +
+                "(SELECT col2 FROM T1.A) Y ORDER BY X.col3, Y.col2, X.col4";
+        syntheticIndexIs(stmt, IndexTypes.VALUE, 2, (parent, constituents) -> concat(
+                field(constituents.get(0)).nest("COL3"),
+                field(constituents.get(1)).nest("COL2"),
+                field(constituents.get(0)).nest("COL4")));
+    }
+
+    // ─── Chained unnesting: an array nested inside the elements of another array ───────────────
+
+    private static final String CHAINED_SCHEMA = "CREATE SCHEMA TEMPLATE test_template " +
+            "CREATE TYPE AS STRUCT Q(y bigint, y2 bigint) " +
+            "CREATE TYPE AS STRUCT P(x bigint, x2 bigint, q Q array) " +
+            "CREATE TABLE A(k bigint, p P array, primary key(k)) ";
+
+    /**
+     * Chained unnesting where the two columns are adjacent. Both are read through the outer unnesting, so
+     * a single fan-out into {@code p} covers them and correlates {@code y} to the element that supplied
+     * {@code x} — one entry per (p, q) pair. No synthetic type is needed.
+     */
+    @Test
+    void createdIndexWorksChainedUnnestingAdjacent() throws Exception {
+        final String stmt = CHAINED_SCHEMA +
+                "CREATE INDEX mv1 AS SELECT b.x, c.y FROM A AS a, (select * from a.p) as b, (select * from b.q) as c " +
+                "ORDER BY b.x, c.y";
+        indexIs(stmt, field("P", KeyExpression.FanType.None)
+                .nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut)
+                        .nest(concat(field("X"), field("Q", KeyExpression.FanType.None)
+                                .nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut)
+                                        .nest(field("Y")))))), IndexTypes.VALUE);
+    }
+
+    /**
+     * Chained unnesting split by a parent column. Neither innermost unnesting is itself split, but both
+     * columns are read through the outer one, and with {@code a.k} between them that outer navigation
+     * would have to be emitted twice — so a synthetic type is required.
+     */
+    @Test
+    void createdIndexWorksChainedUnnestingSplitByParent() throws Exception {
+        final String stmt = CHAINED_SCHEMA +
+                "CREATE INDEX mv1 AS SELECT b.x, a.k, c.y FROM A AS a, (select * from a.p) as b, (select * from b.q) as c " +
+                "ORDER BY b.x, a.k, c.y";
+        syntheticIndexIs(stmt, IndexTypes.VALUE, 2, (parent, constituents) -> concat(
+                field(constituents.get(0)).nest("X"),
+                field(parent).nest("K"),
+                field(constituents.get(1)).nest("Y")));
+    }
+
+    /**
+     * Chained unnesting where the split is within the inner unnesting.
+     */
+    @Test
+    void createdIndexWorksChainedUnnestingInnerSplit() throws Exception {
+        final String stmt = CHAINED_SCHEMA +
+                "CREATE INDEX mv1 AS SELECT c.y, a.k, c.y2 FROM A AS a, (select * from a.p) as b, (select * from b.q) as c " +
+                "ORDER BY c.y, a.k, c.y2";
+        syntheticIndexIs(stmt, IndexTypes.VALUE, 2, (parent, constituents) -> concat(
+                field(constituents.get(1)).nest("Y"),
+                field(parent).nest("K"),
+                field(constituents.get(1)).nest("Y2")));
+    }
+
+    /**
+     * Chained unnesting where the split is within the outer unnesting.
+     */
+    @Test
+    void createdIndexWorksChainedUnnestingOuterSplit() throws Exception {
+        final String stmt = CHAINED_SCHEMA +
+                "CREATE INDEX mv1 AS SELECT b.x, a.k, b.x2 FROM A AS a, (select * from a.p) as b, (select * from b.q) as c " +
+                "ORDER BY b.x, a.k, b.x2";
+        syntheticIndexIs(stmt, IndexTypes.VALUE, 2, (parent, constituents) -> concat(
+                field(constituents.get(0)).nest("X"),
+                field(parent).nest("K"),
+                field(constituents.get(0)).nest("X2")));
+    }
+
     @Test
     void createVersionIndexWithRepeatedNestedSplitByVersion() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
@@ -934,7 +1125,12 @@ public class IndexTest {
                 "CREATE TABLE T1(col1 bigint, a A Array, primary key(col1)) " +
                 "CREATE INDEX mv1 AS SELECT X.col2, T1.\"__ROW_VERSION\", X.col3, X.col4 FROM T1, (SELECT col2, col3, col4 FROM T1.A) X ORDER BY X.col2, T1.\"__ROW_VERSION\", X.col3 " +
                 "WITH OPTIONS(store_row_versions=true)";
-        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Index with multiple disconnected references to the same column are not supported");
+        // As above, but the column separating X.col2 from X.col3/X.col4 is the row version.
+        syntheticIndexIs(stmt, IndexTypes.VERSION, (parent, x) -> keyWithValue(concat(
+                field(x).nest("COL2"),
+                field(parent).nest(version()),
+                field(x).nest("COL3"),
+                field(x).nest("COL4")), 3));
     }
 
     @Test

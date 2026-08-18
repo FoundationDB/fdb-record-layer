@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
+import com.apple.foundationdb.record.metadata.UnnestedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
@@ -36,13 +37,19 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerUnnestedSyntheticTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
 import com.apple.foundationdb.relational.recordlayer.metadata.SkeletonVisitor;
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.util.NullableArrayUtils;
 
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 
 @API(API.Status.EXPERIMENTAL)
 public class RecordMetadataSerializer extends SkeletonVisitor {
@@ -69,6 +76,46 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
         final RecordTypeBuilder recordType = getBuilder().getRecordType(recLayerTable.getType().getStorageName());
         recordType.setRecordTypeKey(recordTypeCounter++);
         recordType.setPrimaryKey(keyExpression);
+    }
+
+    public void visit(@Nonnull final RecordLayerUnnestedSyntheticTable unnestedType) {
+        final UnnestedRecordTypeBuilder typeBuilder =
+                getBuilder().addUnnestedRecordType(unnestedType.getName());
+        // Record types are registered under their proto storage name, as in visit(Table) above.
+        final RecordTypeBuilder recordTypeBuilder = getBuilder().getRecordType(unnestedType.getParentTableStorageName());
+        typeBuilder.addParentConstituent(unnestedType.getAlias(), recordTypeBuilder);
+        // The descriptor an array field is looked up in depends on which constituent owns it: the stored
+        // record for a first-level unnesting, and the enclosing constituent's element type for a chained
+        // one. Constituents are registered parent-before-child, so the map is always populated in time.
+        final Map<String, Descriptors.Descriptor> descriptorsByAlias = new LinkedHashMap<>();
+        descriptorsByAlias.put(unnestedType.getAlias(), recordTypeBuilder.getDescriptor());
+        for (final RecordLayerUnnestedSyntheticTable.NestedConstituent nested : unnestedType.getConstituents()) {
+            final Descriptors.Descriptor owningProto = descriptorsByAlias.get(nested.getParentAlias());
+            Assert.notNullUnchecked(owningProto, "unknown parent constituent '" + nested.getParentAlias()
+                    + "' for constituent '" + nested.getAlias() + "'");
+            final Descriptors.FieldDescriptor arrayField = owningProto.findFieldByName(nested.getArrayFieldStorageName());
+            Assert.notNullUnchecked(arrayField, "array field '" + nested.getArrayFieldStorageName()
+                    + "' not found on '" + owningProto.getName() + "'");
+            Assert.thatUnchecked(arrayField.getType() == Descriptors.FieldDescriptor.Type.MESSAGE,
+                    "unnested index constituent must be a struct array, scalar arrays are not supported");
+            // A nullable array is stored wrapped, as { repeated <T> values; }, so the field's message type
+            // is that wrapper rather than the element. The constituent must be the element type, and the
+            // nesting expression must step through the wrapper to reach the repeated field.
+            final Descriptors.Descriptor arrayFieldType = arrayField.getMessageType();
+            final Descriptors.Descriptor constituentDescriptor;
+            final KeyExpression nestingExpr;
+            if (NullableArrayUtils.isWrappedArrayDescriptor(arrayFieldType)) {
+                constituentDescriptor = arrayFieldType.findFieldByName(NullableArrayUtils.REPEATED_FIELD_NAME).getMessageType();
+                nestingExpr = field(nested.getArrayFieldStorageName())
+                        .nest(field(NullableArrayUtils.REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut));
+            } else {
+                constituentDescriptor = arrayFieldType;
+                nestingExpr = field(nested.getArrayFieldStorageName(), KeyExpression.FanType.FanOut);
+            }
+            typeBuilder.addNestedConstituent(nested.getAlias(), constituentDescriptor,
+                    nested.getParentAlias(), nestingExpr);
+            descriptorsByAlias.put(nested.getAlias(), constituentDescriptor);
+        }
     }
 
     @Override
@@ -100,8 +147,13 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
 
     @Override
     public void visit(@Nonnull final View view) {
-        Assert.thatUnchecked(view instanceof RecordLayerView);
-        getBuilder().addView(((RecordLayerView)view).asRawView());
+        if (view instanceof RecordLayerUnnestedSyntheticTable unnestedSyntheticTable) {
+            visit(unnestedSyntheticTable);
+        } else if (view instanceof RecordLayerView recordLayerView) {
+            getBuilder().addView(recordLayerView.asRawView());
+        } else {
+            Assert.failUnchecked("view not supported");
+        }
     }
 
     @Override

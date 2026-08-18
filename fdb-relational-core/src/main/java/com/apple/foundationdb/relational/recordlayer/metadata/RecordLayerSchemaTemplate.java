@@ -82,6 +82,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     private final Set<RecordLayerView> views;
 
     @Nonnull
+    private final Set<RecordLayerSyntheticTable> syntheticTables;
+
+    @Nonnull
     private final Map<String, StoredQuery> storedQueries;
 
     private final int version;
@@ -111,6 +114,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                                       @Nonnull final Set<RecordLayerTable> tables,
                                       @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
                                       @Nonnull final Set<RecordLayerView> views,
+                                      @Nonnull final Set<RecordLayerSyntheticTable> syntheticTables,
                                       @Nonnull final Map<String, StoredQuery> storedQueries,
                                       int version,
                                       boolean enableLongRows,
@@ -120,6 +124,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.tables = ImmutableSet.copyOf(tables);
         this.invokedRoutines = ImmutableSet.copyOf(invokedRoutines);
         this.views = ImmutableSet.copyOf(views);
+        this.syntheticTables = ImmutableSet.copyOf(syntheticTables);
         this.storedQueries = ImmutableMap.copyOf(storedQueries);
         this.version = version;
         this.enableLongRows = enableLongRows;
@@ -136,6 +141,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                                       @Nonnull final Set<RecordLayerTable> tables,
                                       @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
                                       @Nonnull final Set<RecordLayerView> views,
+                                      @Nonnull final Set<RecordLayerSyntheticTable> syntheticTables,
                                       @Nonnull final Map<String, StoredQuery> storedQueries,
                                       int version,
                                       boolean enableLongRows,
@@ -147,6 +153,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.tables = ImmutableSet.copyOf(tables);
         this.invokedRoutines = ImmutableSet.copyOf(invokedRoutines);
         this.views = ImmutableSet.copyOf(views);
+        this.syntheticTables = ImmutableSet.copyOf(syntheticTables);
         this.storedQueries = ImmutableMap.copyOf(storedQueries);
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
@@ -283,7 +290,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         final Set<String> result = new TreeSet<>();
 
         // TODO: There are few index types that we currently don't handle
-        // Namely, universal, multi-type, and synthetic indexes. Once those are handled, we
+        // Namely, universal and multi-type indexes. Once those are handled, we
         // should be able to replace this with logic that gets the indexes from the
         // schema template directly instead of converting it to meta-data.
         final RecordMetaData metaData = toRecordMetadata();
@@ -346,6 +353,20 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         return views;
     }
 
+    /**
+     * Returns the unnested synthetic record types of this template.
+     *
+     * @return the unnested synthetic types
+     */
+    @VisibleForTesting
+    @Nonnull
+    public Set<RecordLayerUnnestedSyntheticTable> getUnnestedSyntheticTables() {
+        return syntheticTables.stream()
+                .filter(RecordLayerUnnestedSyntheticTable.class::isInstance)
+                .map(RecordLayerUnnestedSyntheticTable.class::cast)
+                .collect(ImmutableSet.toImmutableSet());
+    }
+
     @Nonnull
     @Override
     public Map<String, StoredQuery> getStoredQueries() {
@@ -401,6 +422,11 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         for (final var view : getViews()) {
             view.accept(visitor);
         }
+        // Synthetic types are not returned by getViews(), but they carry indexes and must be
+        // serialized, so visit them explicitly.
+        for (final var syntheticTable : syntheticTables) {
+            syntheticTable.accept(visitor);
+        }
         visitor.finishVisit(this);
     }
 
@@ -429,6 +455,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         private final Map<String, RecordLayerView> views;
 
         @Nonnull
+        private final Map<String, RecordLayerSyntheticTable> syntheticTables;
+
+        @Nonnull
         private final Map<String, StoredQuery> storedQueries;
 
 
@@ -439,6 +468,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             auxiliaryTypes = new LinkedHashMap<>();
             invokedRoutines = new LinkedHashMap<>();
             views = new LinkedHashMap<>();
+            syntheticTables = new LinkedHashMap<>();
             storedQueries = new LinkedHashMap<>();
             // enable long rows is TRUE by default
             enableLongRows = true;
@@ -553,8 +583,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         }
 
         @Nonnull
-        public Builder addViews(@Nonnull final Collection<RecordLayerView> views) {
-            views.forEach(this::addView);
+        public Builder addSyntheticTable(@Nonnull final RecordLayerSyntheticTable table) {
+            verifyNameIsNotUsed(table.getName());
+            syntheticTables.put(table.getName(), table);
             return this;
         }
 
@@ -663,10 +694,16 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
             if (cachedMetadata != null) {
                 return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()),
-                        new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()), storedQueries, version, enableLongRows, storeRowVersions, intermingleTables, cachedMetadata);
+                        new LinkedHashSet<>(invokedRoutines.values()),
+                        new LinkedHashSet<>(views.values()),
+                        new LinkedHashSet<>(syntheticTables.values()),
+                        storedQueries, version, enableLongRows, storeRowVersions, intermingleTables, cachedMetadata);
             } else {
                 return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()),
-                        new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()), storedQueries, version, enableLongRows, storeRowVersions, intermingleTables);
+                        new LinkedHashSet<>(invokedRoutines.values()),
+                        new LinkedHashSet<>(views.values()),
+                        new LinkedHashSet<>(syntheticTables.values()),
+                        storedQueries, version, enableLongRows, storeRowVersions, intermingleTables);
             }
         }
 
@@ -745,6 +782,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             Assert.thatUnchecked(!auxiliaryTypes.containsKey(name), ErrorCode.INVALID_SCHEMA_TEMPLATE, () -> "type with name '" + name + "' already exists");
             Assert.thatUnchecked(!invokedRoutines.containsKey(name), ErrorCode.INVALID_SCHEMA_TEMPLATE, () -> "routine with name '" + name + "' already exists");
             Assert.thatUnchecked(!views.containsKey(name), ErrorCode.INVALID_SCHEMA_TEMPLATE, () -> "view with name '" + name + "' already exists");
+            Assert.thatUnchecked(!syntheticTables.containsKey(name), ErrorCode.INVALID_SCHEMA_TEMPLATE, () -> "synthetic table with name '" + name + "' already exists");
         }
 
         @Nonnull
@@ -787,14 +825,16 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     @Nonnull
     public Builder toBuilder() {
-        return newBuilder()
+        final Builder builder = newBuilder()
                 .setName(name)
                 .setVersion(version)
                 .setEnableLongRows(enableLongRows)
                 .setIntermingleTables(intermingleTables)
                 .addTables(getTables())
                 .addInvokedRoutines(getInvokedRoutines())
-                .addViews(getViews())
                 .addStoredQueries(getStoredQueries());
+        syntheticTables.forEach(builder::addSyntheticTable);
+        views.forEach(builder::addView);
+        return builder;
     }
 }

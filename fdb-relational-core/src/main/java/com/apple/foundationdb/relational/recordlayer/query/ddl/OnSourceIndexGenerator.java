@@ -166,10 +166,11 @@ public final class OnSourceIndexGenerator {
      * The generated index will be ordered according to the key columns and can optionally enforce uniqueness
      * if configured via {@link Builder#setUnique(boolean)}.
      *
-     * @return a fully configured {@link RecordLayerIndex} ready to be added to the schema
+     * @return the generated index, together with the synthetic type to define it on when the source
+     *         unnests a struct array
      */
     @Nonnull
-    public RecordLayerIndex.Builder generate() {
+    public IndexGenerationResult generate() {
         final var keyIdentifiers = keyColumns.stream().map(IndexedColumn::getIdentifier).collect(ImmutableList.toImmutableList());
         final var keyIdentifiersAsSet = ImmutableSet.copyOf(keyIdentifiers);
         final var valueIdentifiers = valueColumns.stream().map(IndexedColumn::getIdentifier)
@@ -224,9 +225,10 @@ public final class OnSourceIndexGenerator {
                 Quantifier.forEach(Reference.initialOf(newSelectExpression)));
         final var indexPlan = LogicalOperator.generateSort(resultingOperator, orderByExpressions, ImmutableSet.of(), Optional.empty());
         final var indexGenerator = MaterializedViewIndexGenerator.from(indexPlan.getQuantifier().getRangesOver().get(), useLegacyExtremum);
-        final var indexBuilder = indexGenerator.generate(metadataBuilder, indexName.toString(), isUnique, useNullableArrays, generateKeyValueExpressionWithEmptyKey);
-        indexBuilder.addAllOptions(indexOptions);
-        return indexBuilder;
+        final var result = indexGenerator.generate(metadataBuilder, indexName.toString(), isUnique, useNullableArrays,
+                generateKeyValueExpressionWithEmptyKey);
+        result.indexBuilder().addAllOptions(indexOptions);
+        return result;
     }
 
     public static final class IndexedColumn {
