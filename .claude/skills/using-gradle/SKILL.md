@@ -22,6 +22,27 @@ Compile a single module without running tests:
 ./gradlew :fdb-record-layer-core:compileJava
 ```
 
+# Style / static analysis checks
+
+**Run this before pushing or opening a PR.** CI's `style` job (`.github/workflows/pull_request.yml`)
+runs `./gradlew build -x test -x destructiveTest -x scalarFallbackTest -PspotbugsEnableHtmlReport`,
+which includes Checkstyle, PMD, and SpotBugs across every module. That's slow for local
+iteration — scope it to the modules you actually touched:
+
+```
+./gradlew :fdb-relational-core:check :fdb-record-layer-core:check -x test -x destructiveTest -x scalarFallbackTest -PspotbugsEnableHtmlReport
+```
+
+Reports on failure land at `<module>/.out/reports/checkstyle/*.html`, `<module>/.out/reports/pmd/*.html`,
+and (with `-PspotbugsEnableHtmlReport`) `<module>/.out/reports/spotbugs/*.html`. The failure
+output in the console also prints the exact file, line, and rule.
+
+Common violations you'll hit when merging/rebasing branches by hand:
+- Checkstyle `RedundantImport` — importing a class that's in the same package as the file, or
+  the same class imported twice (easy to introduce when resolving import-block merge conflicts).
+- PMD `UnnecessaryFullyQualifiedName` — using a fully-qualified name (e.g. `java.util.Map`)
+  when the class is already imported under its simple name.
+
 # Running tests
 
 ## Standard test tasks
