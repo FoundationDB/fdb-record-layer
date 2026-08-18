@@ -101,6 +101,54 @@ class VectorIndexMergeLockTest extends VectorIndexTestBase {
     }
 
     /**
+     * The refresh flow: re-{@link VectorIndexMergeLock#acquire acquiring} a lease this owner already holds re-stamps it
+     * with a fresh timestamp — which is exactly what {@code drainOwnedPrefix} does each invocation to keep its lease
+     * live while it drains. So a holder that keeps refreshing never loses its prefix even as real time marches past the
+     * original lease window; and the refresh is not permanent — once a full window elapses since the <em>last</em>
+     * refresh, the lease reads stale again and another owner may steal it.
+     */
+    @Test
+    void refreshExtendsTheLeasePastItsOriginalWindow() throws Exception {
+        final UUID ownerA = UUID.randomUUID();
+        final UUID ownerB = UUID.randomUUID();
+        final AtomicLong clock = new AtomicLong(1_000_000L);
+        final Tuple prefix = Tuple.from();
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addUngroupedVectorIndex);
+            final Subspace secondary =
+                    recordStore.indexSecondarySubspace(recordStore.getRecordMetaData().getIndex("UngroupedVectorIndex"));
+            final VectorIndexMergeLock lockA = new VectorIndexMergeLock(secondary, ownerA, WINDOW_MILLIS, clock::get);
+            final VectorIndexMergeLock lockB = new VectorIndexMergeLock(secondary, ownerB, WINDOW_MILLIS, clock::get);
+
+            // A claims the prefix; the lease is stamped with the current time.
+            final long acquiredAt = clock.get();
+            lockA.acquire(context, prefix);
+            assertThat(lockA.currentOwner(context, prefix).get()).isEqualTo(ownerA);
+
+            // Still within the window, A refreshes: acquire() re-stamps the lease with the now-later time.
+            clock.addAndGet(WINDOW_MILLIS / 2);
+            lockA.acquire(context, prefix);
+            assertThat(lockA.currentOwner(context, prefix).get())
+                    .as("a refresh by the owner keeps the lease its own").isEqualTo(ownerA);
+
+            // Advance past the ORIGINAL expiry but not a full window past the refresh: the lease is still live because
+            // the refresh moved its timestamp forward, so B is still refused. This is the property the steal test lacks.
+            clock.addAndGet(WINDOW_MILLIS - 1);
+            assertThat(clock.get())
+                    .as("we are past when the un-refreshed lease would have expired")
+                    .isGreaterThan(acquiredAt + WINDOW_MILLIS);
+            assertThat(lockB.currentOwner(context, prefix).get())
+                    .as("the refreshed lease outlives its original window, so B still sees A").isEqualTo(ownerA);
+
+            // A full window after the last refresh, the lease finally reads stale and B may steal it.
+            clock.addAndGet(WINDOW_MILLIS);
+            assertThat(lockB.currentOwner(context, prefix).get())
+                    .as("a window after the last refresh, the lease is stale/free again").isNull();
+        }
+    }
+
+    /**
      * The dangerous ordering the delete-guard exists for: a {@code deleteWhere} commits first, then a merge claim's
      * blind {@code acquire} tries to commit. The claim's read-conflict on the (index-wide) guard — which
      * {@code deleteWhere} write-conflicts — must abort it, so it cannot orphan a lease into the just-emptied group. The

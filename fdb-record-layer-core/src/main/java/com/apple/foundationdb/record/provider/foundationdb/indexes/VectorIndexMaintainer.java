@@ -673,8 +673,9 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
 
     /**
      * Registers a pre-commit hook that disables this index because a deferred-task count decoded to a negative value —
-     * an impossible state under the conflict-free counter accounting, so the maintenance bookkeeping is corrupt and the
-     * index can no longer be trusted. Disabling is deferred to a commit check (mirroring {@code IndexingPendingWriteQueue})
+     * a corrupt state that cannot occur while the counter stays coupled to the task space (see
+     * {@link VectorIndexTaskCounts.NegativeTaskCountException}), so the maintenance bookkeeping can no longer be
+     * trusted. Disabling is deferred to a commit check (mirroring {@code IndexingPendingWriteQueue})
      * because {@code markIndexDisabled} takes the record-store-state write lock, which cannot be acquired while the merge
      * runs under the state read lock. {@code markIndexDisabled} also clears the index data, so the planner refuses the
      * index until it is rebuilt. Keyed per index name so repeated trips within one transaction disable it just once.

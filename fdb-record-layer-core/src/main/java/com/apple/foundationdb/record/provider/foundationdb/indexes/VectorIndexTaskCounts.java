@@ -144,9 +144,10 @@ final class VectorIndexTaskCounts {
                         keyValue -> new PrefixTaskCount(perPrefixSubspace.unpack(keyValue.getKey()),
                                 decodeCount(keyValue.getValue())));
         // A count is dropped as soon as it hits zero, so this normally yields only positive entries. A zero that
-        // lingers is benign and filtered out with a warning; a strictly-negative count, however, is impossible under
-        // the conflict-free ADD/COMPARE_AND_CLEAR accounting (a count only ever moves toward, and is dropped at, zero),
-        // so it means the accounting is corrupt — surface it so the caller can disable the index rather than merge on.
+        // lingers is benign and filtered out with a warning; a strictly-negative count, however, cannot occur while the
+        // count stays coupled to the task space (each enqueue/execute moves it in the same transaction as the task
+        // write, so it equals the outstanding-task count and is >= 0). A negative means that coupling was broken, so
+        // surface it and let the caller disable the index rather than merge on corrupt accounting.
         return MoreAsyncUtil.filterRemaining(executor, counts, prefixTaskCount -> {
             final long count = prefixTaskCount.count();
             if (count > 0L) {
@@ -200,8 +201,9 @@ final class VectorIndexTaskCounts {
     CompletableFuture<Long> countFor(@Nonnull final ReadTransaction snapshot, @Nonnull final Tuple prefix) {
         return snapshot.get(perPrefixSubspace.pack(prefix)).thenApply(value -> {
             final long count = decodeCount(value);
-            // A strictly-negative count cannot arise under the conflict-free ADD/COMPARE_AND_CLEAR accounting, so it
-            // means the accounting is corrupt; surface it so the caller can disable the index rather than treat the
+            // A strictly-negative count cannot arise while the count stays coupled to the task space (each enqueue/
+            // execute moves it in the same transaction as the task write), so a negative means that coupling was broken
+            // and the accounting is corrupt; surface it so the caller can disable the index rather than treat the
             // prefix as drained (a plain <= 0 would silently release the lease on corrupt state).
             if (count < 0L) {
                 throw new NegativeTaskCountException(prefix, count);
@@ -211,11 +213,14 @@ final class VectorIndexTaskCounts {
     }
 
     /**
-     * Thrown when a per-prefix task count decodes to a strictly-negative value. That is an "impossible" state: the
-     * counter is only ever moved by atomic {@code ADD}s that pair an enqueue/execute with its counter mutation and by a
-     * {@code COMPARE_AND_CLEAR} that drops the entry at exactly zero, so a healthy count is always {@code >= 0}. A
-     * negative therefore signals corrupt accounting on which the index can no longer be trusted; it is package-visible
-     * so {@link VectorIndexMaintainer} can recognize it on the merge path and disable the index.
+     * Thrown when a per-prefix task count decodes to a strictly-negative value — a corrupt, "impossible" state. It is
+     * not the {@code ADD}/{@code COMPARE_AND_CLEAR} mutations that keep the count non-negative (those only make it
+     * conflict-free); it stays {@code >= 0} because it is coupled to the task space — every enqueue increments and every
+     * execute decrements in the same transaction as the task write, so a healthy count equals the number of outstanding
+     * tasks for the prefix. A negative therefore means some code broke that symmetry (e.g. a decrement with no task
+     * removed, an enqueue that skipped the increment, or two tasks colliding on one key), and the accounting can no
+     * longer be trusted. Package-visible so {@link VectorIndexMaintainer} can recognize it on the merge path and disable
+     * the index.
      */
     @SuppressWarnings("java:S110") // inherits RecordCoreException's (deep) exception hierarchy by design
     static final class NegativeTaskCountException extends RecordCoreException {

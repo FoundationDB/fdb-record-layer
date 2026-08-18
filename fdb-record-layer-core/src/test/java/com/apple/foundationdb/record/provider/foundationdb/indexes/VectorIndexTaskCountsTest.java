@@ -296,11 +296,12 @@ class VectorIndexTaskCountsTest extends VectorIndexTestBase {
     }
 
     /**
-     * A strictly-negative count is impossible under the conflict-free ADD/COMPARE_AND_CLEAR accounting, so a
+     * A strictly-negative count cannot occur while the count stays coupled to the task space (each enqueue/execute
+     * moves it in the same transaction as the task write, so it equals the outstanding-task count and is &gt;= 0), so a
      * point read of one must surface {@link VectorIndexTaskCounts.NegativeTaskCountException} rather than quietly read
      * it as "drained" — that exception is what lets a merge disable the corrupt index instead of releasing its lease
-     * on bad state. A lone decrement of an absent counter is the simplest way to drive it below zero (ADD {@code -1}
-     * to an absent key leaves {@code -1}).
+     * on bad state. A lone decrement of an absent counter is the simplest way to break that coupling and drive it below
+     * zero (ADD {@code -1} to an absent key leaves {@code -1}).
      */
     @Test
     void countForThrowsOnANegativeTaskCount() throws Exception {

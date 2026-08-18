@@ -66,8 +66,10 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
     private static final int MAX_MERGE_PASSES = 500;
     private static final ImmutableList<String> INDEX_NAMES =
             ImmutableList.of("UngroupedVectorIndex", "GroupedVectorIndex");
-    // A single-transaction insert load comfortably above PRIMARY_CLUSTER_MAX (64), so one open transaction overflows a
-    // cluster and enqueues a deferred split — letting a test observe the merge-required flag before the write commits.
+    // A single-transaction insert load comfortably above 2 * PRIMARY_CLUSTER_MAX (64): the ungrouped index takes the
+    // whole burst in one partition, and a grouped index splits it across the two groups (group_id = recNo % 2) so each
+    // group partition gets half — still above the max. Either way one open transaction overflows a cluster and enqueues
+    // a deferred split (and the merge-required flag) before the write commits.
     private static final int SINGLE_TXN_SPLIT_FORCING_INSERTS = 200;
 
     @Nonnull
@@ -293,12 +295,15 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
     }
 
     /**
-     * A negative deferred-task count is an impossible, corrupt state (the conflict-free ADD/COMPARE_AND_CLEAR counter
-     * only ever moves toward, and is dropped at, zero). A merge that observes one must not fail on bad accounting: it
-     * disables the index (a graceful, no-throw outcome mirroring the pending-write-queue overflow) so the corrupt
-     * index is rebuilt rather than merged forever. Here the corruption is forged by driving the single (empty) prefix's
-     * counter to {@code -1} with a lone decrement (an ADD of {@code -1} to an absent key), which decodes as a negative
-     * long; after the merge, the index is {@link IndexState#DISABLED}.
+     * A negative deferred-task count is a corrupt, "impossible" state. It is not the ADD/COMPARE_AND_CLEAR mutations
+     * that keep the count non-negative (those only make it conflict-free) — it stays non-negative because it is coupled
+     * to the task space: every enqueue increments and every execute decrements in the same transaction as the task
+     * write, so a healthy count equals the number of outstanding tasks (&gt;= 0). Only a bug that broke that symmetry
+     * could drive it negative. A merge that observes one must not fail on bad accounting: it disables the index (a
+     * graceful, no-throw outcome mirroring the pending-write-queue overflow) so the corrupt index is rebuilt rather than
+     * merged forever. Here the corruption is forged by breaking the symmetry directly — a lone decrement of the single
+     * (empty) prefix's counter (an ADD of {@code -1} to an absent key) drives it to {@code -1}, which decodes as a
+     * negative long; after the merge, the index is {@link IndexState#DISABLED}.
      */
     @Test
     void mergeDisablesTheIndexOnANegativeTaskCount() throws Exception {
@@ -331,8 +336,10 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
     /**
      * With deferred tasks NOT drained in-transaction (the default), an insert that overflows a cluster enqueues a
      * deferred split and must flag its index as needing a background merge — the same signal Lucene raises for its
-     * pending-write queue, which a caller's commit hook reads to schedule the merge. The flag is asserted within the
-     * writing transaction, before commit, because the {@link IndexDeferredMaintenanceControl} lives on the record store.
+     * pending-write queue, which a caller's commit hook reads to schedule the merge. This is the ungrouped case (one
+     * partition); {@link #groupedInsertEnqueuingDeferredTaskSignalsMergeRequired} is the grouped counterpart. The flag
+     * is asserted within the writing transaction, before commit, because the {@link IndexDeferredMaintenanceControl}
+     * lives on the record store.
      */
     @ParameterizedTest
     @RandomSeedSource({0x5ca1ab1eL, 0xf00dcafeL})
@@ -353,11 +360,36 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
     }
 
     /**
+     * The grouped counterpart to {@link #insertEnqueuingDeferredTaskSignalsMergeRequired}: an insert that overflows a
+     * cluster in one of a grouped index's per-group partitions must flag the index just as the ungrouped case does. The
+     * burst spreads across the two groups (group_id = recNo % 2), and the load is above {@code 2 * PRIMARY_CLUSTER_MAX}
+     * so each group partition still overflows.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x5ca1ab1eL, 0xf00dcafeL})
+    void groupedInsertEnqueuingDeferredTaskSignalsMergeRequired(final long seed) throws Exception {
+        final var generator = getRecordGenerator(new Random(seed), 0.0d);
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addGroupedVectorIndex);
+            final Index index = recordStore.getRecordMetaData().getIndex("GroupedVectorIndex");
+            final IndexDeferredMaintenanceControl mergeControl = recordStore.getIndexDeferredMaintenanceControl();
+            for (int i = 0; i < SINGLE_TXN_SPLIT_FORCING_INSERTS; i++) {
+                recordStore.saveRecord(generator.apply((long)i));
+            }
+            assertThat(isFlaggedForMerge(mergeControl, index))
+                    .as("an insert that overflows a grouped-index partition must flag it for a background merge")
+                    .isTrue();
+            commit(context);
+        }
+    }
+
+    /**
      * The delete leg of the signal mirrors the insert leg — {@code updateIndexEntry} hands the same composed register to
      * both branches. A delete-driven task is only enqueued once a primary cluster drops below its minimum <em>and</em> a
      * mergeable neighbor exists and the cluster carries no pending task, so the split backlog is first drained to a
      * settled multi-cluster state; then primaries are deleted (in one open transaction) until a cluster underflows, at
-     * which point the index must be flagged for a background merge — read before commit.
+     * which point the index must be flagged for a background merge — read before commit. This is the ungrouped case;
+     * {@link #groupedDeleteEnqueuingDeferredTaskSignalsMergeRequired} is the grouped counterpart.
      */
     @ParameterizedTest
     @RandomSeedSource({0x5ca1ab1eL, 0xf00dcafeL})
@@ -379,6 +411,37 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
             }
             assertThat(flagged)
                     .as("a delete that drops a cluster below its minimum (with a mergeable neighbor) must flag the index")
+                    .isTrue();
+            commit(context);
+        }
+    }
+
+    /**
+     * The grouped counterpart to {@link #deleteEnqueuingDeferredTaskSignalsMergeRequired}: after draining the grouped
+     * index's split backlog to a settled multi-cluster state, deleting primaries until one of its per-group partitions
+     * has a cluster underflow its minimum (with a mergeable neighbor) must flag the index for a background merge — read
+     * before commit.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x5ca1ab1eL, 0xf00dcafeL})
+    void groupedDeleteEnqueuingDeferredTaskSignalsMergeRequired(final long seed) throws Exception {
+        final var saved = saveRandomRecords(false, this::addVectorIndexes, new Random(seed), NUM_RECORDS);
+        // Drain the grouped index's split backlog so its clusters settle into many neighbors, none carrying a pending
+        // SPLIT_MERGE task — the preconditions a delete-driven merge needs.
+        drainToCompletion("GroupedVectorIndex");
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addVectorIndexes);
+            final Index index = recordStore.getRecordMetaData().getIndex("GroupedVectorIndex");
+            final IndexDeferredMaintenanceControl mergeControl = recordStore.getIndexDeferredMaintenanceControl();
+            // Delete primaries until a per-group cluster underflows PRIMARY_CLUSTER_MIN with neighbors still present;
+            // stop at the first flag so plenty of clusters survive (cardinality stays MULTIPLE, the merge precondition).
+            boolean flagged = false;
+            for (int i = 0; i < saved.size() && !flagged; i++) {
+                recordStore.deleteRecordAsync(saved.get(i).getPrimaryKey()).get();
+                flagged = isFlaggedForMerge(mergeControl, index);
+            }
+            assertThat(flagged)
+                    .as("a delete that drops a grouped-partition cluster below its minimum must flag the index")
                     .isTrue();
             commit(context);
         }
