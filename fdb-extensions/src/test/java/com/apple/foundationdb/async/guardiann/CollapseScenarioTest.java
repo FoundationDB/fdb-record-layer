@@ -579,6 +579,118 @@ public class CollapseScenarioTest implements BaseTest {
         assertAllResolvable(guardiann, duplicate, collapsedPrimaryKeys);
     }
 
+    /**
+     * A target cluster holds both an <em>already-collapsed</em> replica for a signature (as a collapsed primary from
+     * another cluster appears once replicated in) and a plain member replica of the <em>same</em> signature whose
+     * primary has been folded. The already-collapsed replica is the collapsed-area representative, not a store member,
+     * so its fold-time lookup {@code fetchCollapsedVectorId(signature, Tuple.from(signature))} returns {@code null} and
+     * it takes {@code foldCollapsedReplicas}' pass-through branch — which registers its signature so the later member is
+     * dropped as a duplicate rather than folded into a second collapsed reference. Both share
+     * {@code primaryKey = Tuple.from(signature)}, so absent that dedup they collide when
+     * {@link AbstractDeferredTask#computeTargetClusterDelta} builds its {@code ImmutableMap}.
+     * <p>
+     * Verifies reassign completes and the two same-signature references collapse to a single collapsed-area reference
+     * keeping the highest replication priority among them (here the already-collapsed replica, given the higher priority
+     * so the fold walks it first). Mirrors {@link #reassignFoldsCollapsedReplicasIntoOneReference} for the all-plain case.
+     */
+    @Test
+    void reassignDedupesAnAlreadyCollapsedReplicaAgainstAMember() throws Exception {
+        final Guardiann guardiann = newGuardiann(1_000, 20); // huge cap: the distinct inserts stay in one cluster
+        final Primitives primitives = guardiann.getLocator().primitives();
+
+        // A real, single cluster of distinct primaries, so reassign has a genuine cluster to dissolve.
+        final int numDistinctPrimaries = 10;
+        final List<PrimaryKeyAndVector> records =
+                VecsDatasetLoaders.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, numDistinctPrimaries + 1);
+        for (int i = 1; i <= numDistinctPrimaries; i++) {
+            final Tuple primaryKey = Tuple.from("distinct", i);
+            final RealVector vector = records.get(i).vector();
+            db.run(tr -> {
+                guardiann.insert(tr, primaryKey, vector, null, true).join();
+                return null;
+            });
+        }
+        GuardiannStructureAsserts.runToQuiescence(db, guardiann);
+        final ClusterView cluster = onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann)));
+        final UUID clusterId = cluster.clusterId();
+
+        final RealVector duplicate = duplicateVector();
+
+        // Phase 1: one plain (non-collapsed) member replica whose primary is (below) recorded in the collapsed set.
+        final Tuple memberPrimaryKey = Tuple.from("collapsed-dup", 0);
+        db.run(tr -> {
+            final AccessInfo accessInfo = Objects.requireNonNull(primitives.fetchAccessInfo(tr).join());
+            final Quantizer quantizer = primitives.quantizer(accessInfo);
+            final Transformed<RealVector> transformedDuplicate =
+                    primitives.storageTransform(accessInfo).transform(duplicate);
+            final VectorMetadata memberMetadata =
+                    new VectorMetadata(memberPrimaryKey, RandomHelpers.randomUuid(memberPrimaryKey, true), null);
+            primitives.writeVectorMetadata(tr, memberMetadata);
+            // lower priority than the already-collapsed replica added below, so the fold processes it second
+            primitives.writeVectorReference(tr, quantizer, clusterId,
+                    VectorReference.replicatedCopy(memberMetadata.vectorId(), transformedDuplicate, 0.5d, false));
+            return null;
+        });
+
+        // Derive the signature from the read-back reference (RaBitQ is lossy), exactly as foldCollapsedReplicas sees it.
+        final ClusterView withMember = onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann)));
+        final VectorReference memberReplica = withMember.references().stream()
+                .filter(ref -> !ref.isPrimaryCopy() && !ref.isCollapsed())
+                .findFirst().orElseThrow();
+        final UUID signature = StorageAdapter.signatureUuid(memberReplica.vector());
+
+        // Phase 2: record the member in the collapsed store (so it folds), and add a HIGHER-priority already-collapsed
+        // replica of the same signature. Its primaryKey is Tuple.from(signature); we deliberately write NO collapsed-
+        // store entry for (signature, Tuple.from(signature)), so its fold-time lookup returns null and it passes through.
+        db.run(tr -> {
+            final AccessInfo accessInfo = Objects.requireNonNull(primitives.fetchAccessInfo(tr).join());
+            final Quantizer quantizer = primitives.quantizer(accessInfo);
+            final Transformed<RealVector> transformedDuplicate =
+                    primitives.storageTransform(accessInfo).transform(duplicate);
+            primitives.writeCollapsedVectorId(tr, signature, memberReplica.id());
+            final VectorId collapsedReplicaId =
+                    new VectorId(Tuple.from(signature), RandomHelpers.randomUuid(Tuple.from("already-collapsed"), true));
+            primitives.writeVectorReference(tr, quantizer, clusterId,
+                    VectorReference.replicatedCopy(collapsedReplicaId, transformedDuplicate, 0.99d, true));
+            return null;
+        });
+
+        final ClusterView staged = onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann)));
+        assertThat(staged.references().stream()
+                .filter(ref -> !ref.isPrimaryCopy() && ref.isCollapsed()
+                        && Tuple.from(signature).equals(ref.id().primaryKey()))
+                .toList())
+                .as("precondition: exactly one already-collapsed replica for the signature")
+                .hasSize(1);
+        assertThat(staged.references().stream()
+                .filter(ref -> !ref.isPrimaryCopy() && !ref.isCollapsed()
+                        && signature.equals(StorageAdapter.signatureUuid(ref.vector())))
+                .toList())
+                .as("precondition: exactly one plain member replica of the same signature")
+                .hasSize(1);
+
+        // The already-collapsed replica (processed first, higher priority) registers its signature on the pass-through
+        // branch, so the lower-priority member is dropped as a duplicate rather than folded into a colliding reference.
+        reassignCluster(guardiann, clusterId, staged.transformedCentroid());
+
+        final ClusterView after = onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann)));
+        assertThat(after.references().stream()
+                .filter(ref -> !ref.isPrimaryCopy() && !ref.isCollapsed()
+                        && signature.equals(StorageAdapter.signatureUuid(ref.vector())))
+                .toList())
+                .as("the plain member replica of the collapsed signature must be folded away")
+                .isEmpty();
+        final List<VectorReference> collapsedAreaRefs = after.references().stream()
+                .filter(ref -> ref.isCollapsed() && Tuple.from(signature).equals(ref.id().primaryKey()))
+                .toList();
+        assertThat(collapsedAreaRefs)
+                .as("the same-signature references must collapse to exactly one collapsed-area reference")
+                .hasSize(1);
+        assertThat(collapsedAreaRefs.get(0).replicationPriority())
+                .as("the surviving collapsed reference must keep the highest replication priority among the members")
+                .isEqualTo(0.99d);
+    }
+
     // ---------------------------------------------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------------------------------------------

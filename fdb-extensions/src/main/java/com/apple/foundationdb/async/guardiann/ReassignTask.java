@@ -490,6 +490,12 @@ class ReassignTask extends AbstractDeferredTask {
                                     .thenAccept(storedVectorId -> {
                                         if (storedVectorId == null) {
                                             keptReplicas.add(replica);
+                                            if (replica.isCollapsed()) {
+                                                // An already-collapsed replica is its signature's collapsed-area
+                                                // representative (not a store member), so register it here so later
+                                                // same-signature members dedupe against it.
+                                                collapsedReplicasBySignature.put(signature, replica);
+                                            }
                                         } else {
                                             // The replica's primary has since been folded into a collapsed set.
                                             // cleanUpVectorReferences has already removed stale references, so the
