@@ -416,11 +416,8 @@ public class MessageHelpers {
             // from an array literal or from `unwrapIfArray()`), subsequently setting it on the protobuf builder would
             // cause `setField()` to reject the `List<>` with a type mismatch error.
             if (targetType.isNullable() && targetType.isArray()) {
-                Verify.verify(current instanceof List);
                 Verify.verify(targetDescriptor instanceof Descriptors.Descriptor);
-                final var wrapperDescriptor = (Descriptors.Descriptor)targetDescriptor;
-                final var valuesField = Verify.verifyNotNull(wrapperDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()));
-                return wrapNullableArray(wrapperDescriptor, valuesField, (List<?>)current);
+                return wrapNullableArray((Descriptors.Descriptor)targetDescriptor, current);
             }
 
             return current;
@@ -536,10 +533,26 @@ public class MessageHelpers {
     @Nonnull
     static DynamicMessage wrapNullableArray(@Nonnull final Descriptors.Descriptor targetDescriptor,
                                             @Nonnull final Descriptors.FieldDescriptor targetElementFieldDescriptor,
-                                            final List<? extends Object> array) {
+                                            @Nonnull final List<?> array) {
         final var builder = DynamicMessage.newBuilder(targetDescriptor);
         builder.setField(targetElementFieldDescriptor, array);
         return builder.build();
+    }
+
+    /**
+     * Wrap the given {@code array} into a message, looking up the repeated {@code values} field on the wrapper message
+     * itself.
+     *
+     * @param targetDescriptor Descriptor for the wrapper message holding the array.
+     * @param array the array to wrap, which must be a {@link List}
+     */
+    @Nonnull
+    static DynamicMessage wrapNullableArray(@Nonnull final Descriptors.Descriptor targetDescriptor,
+                                            @Nonnull final Object array) {
+        Verify.verify(array instanceof List);
+        final var valuesField =
+                Verify.verifyNotNull(targetDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()));
+        return wrapNullableArray(targetDescriptor, valuesField, (List<?>)array);
     }
 
     /**
@@ -559,10 +572,7 @@ public class MessageHelpers {
         if (!fieldType.isArray() || !fieldType.isNullable()) {
             return fieldValue;
         }
-        final Descriptors.Descriptor wrapperDescriptor = fieldDescriptor.getMessageType();
-        final Descriptors.FieldDescriptor valuesField =
-                Verify.verifyNotNull(wrapperDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()));
-        return wrapNullableArray(wrapperDescriptor, valuesField, (List<?>)fieldValue);
+        return wrapNullableArray(fieldDescriptor.getMessageType(), fieldValue);
     }
 
     @Nonnull
