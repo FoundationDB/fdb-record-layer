@@ -165,10 +165,10 @@ unnamed-1:
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (promote(coalesce_long(_._0._0, 0l)
         AS LONG) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
-    task_count: 786
-    task_total_time_ms: 57
-    transform_count: 213
-    transform_time_ms: 29
+    task_count: 784
+    task_total_time_ms: 61
+    transform_count: 211
+    transform_time_ms: 21
     transform_yield_count: 57
     insert_time_ms: 1
     insert_new_count: 69
@@ -182,10 +182,10 @@ unnamed-1:
         BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0) | MAP (_ AS
         _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0
         AS S)'
-    task_count: 775
-    task_total_time_ms: 54
-    transform_count: 197
-    transform_time_ms: 18
+    task_count: 774
+    task_total_time_ms: 53
+    transform_count: 196
+    transform_time_ms: 16
     transform_yield_count: 54
     insert_time_ms: 1
     insert_new_count: 70
@@ -197,9 +197,9 @@ unnamed-1:
         q0.COL2]]) | MAP (_.A AS A) ⊎ SCAN([IS T4, [GREATER_THAN_OR_EQUALS q0.COL2]])
         | MAP (_.B AS B) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.COL2
         AS COL2) }
-    task_count: 694
-    task_total_time_ms: 35
-    transform_count: 208
+    task_count: 692
+    task_total_time_ms: 56
+    transform_count: 206
     transform_time_ms: 16
     transform_yield_count: 61
     insert_time_ms: 1

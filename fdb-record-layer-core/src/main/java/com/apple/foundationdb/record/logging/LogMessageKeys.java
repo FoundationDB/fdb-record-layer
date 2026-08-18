@@ -353,6 +353,9 @@ public enum LogMessageKeys {
     // function call-site options
     OPTION_NAME,
     OPTION_VALUE,
+
+    // Vector Index Maintainer
+    DEFERRED_TASK_COUNT
     ;
 
     private final String logKey;

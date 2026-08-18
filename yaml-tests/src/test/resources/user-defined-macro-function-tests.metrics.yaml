@@ -77,9 +77,9 @@ user-defined-scalar-function-tests:
     ref: user-defined-macro-function-tests.yamsql:108
     explain: ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c5 AS LONG)
         | MAP (_.ID AS ID, _.ID AS ID_COPY, _.R.V.Z AS Z_VAL)
-    task_count: 503
-    task_total_time_ms: 45
-    transform_count: 132
+    task_count: 499
+    task_total_time_ms: 41
+    transform_count: 128
     transform_time_ms: 11
     transform_yield_count: 41
     insert_time_ms: 1
@@ -89,22 +89,22 @@ user-defined-scalar-function-tests:
     ref: user-defined-macro-function-tests.yamsql:113
     explain: ISCAN(I2 [[GREATER_THAN_OR_EQUALS promote(@c5 AS LONG)]]) | MAP (_.ID
         AS PROCESSED_ID, _.R.V.Z AS Z_VAL)
-    task_count: 532
-    task_total_time_ms: 34
-    transform_count: 136
-    transform_time_ms: 8
+    task_count: 528
+    task_total_time_ms: 44
+    transform_count: 132
+    transform_time_ms: 9
     transform_yield_count: 43
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 67
     insert_reused_count: 3
 -   query: EXPLAIN select * from table_func3(20, 40)
     ref: user-defined-macro-function-tests.yamsql:118
     explain: SCAN([IS SIMPLE_TABLE, [GREATER_THAN_OR_EQUALS promote(@c5 AS LONG) &&
         LESS_THAN_OR_EQUALS promote(@c7 AS LONG)]]) | MAP (_.A AS A_VAL, _.A AS A_COPY)
-    task_count: 358
-    task_total_time_ms: 16
-    transform_count: 92
-    transform_time_ms: 5
+    task_count: 354
+    task_total_time_ms: 31
+    transform_count: 88
+    transform_time_ms: 7
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 46
@@ -115,22 +115,22 @@ user-defined-scalar-function-tests:
     explain: ISCAN(I2 [[GREATER_THAN_OR_EQUALS promote(@c21 AS LONG)]]) | FLATMAP
         q0 -> { ISCAN(I2 <,>) | FILTER _.ID EQUALS q0.ID AND _.ID LESS_THAN_OR_EQUALS
         promote(@c15 AS LONG) AS q1 RETURN (q1.ID AS A, q0.ID AS B) }
-    task_count: 1205
-    task_total_time_ms: 60
-    transform_count: 313
-    transform_time_ms: 23
+    task_count: 1198
+    task_total_time_ms: 91
+    transform_count: 306
+    transform_time_ms: 33
     transform_yield_count: 96
-    insert_time_ms: 2
+    insert_time_ms: 3
     insert_new_count: 175
     insert_reused_count: 9
 -   query: EXPLAIN select self(id_copy) as A, z_val as B from table_func1(4)
     ref: user-defined-macro-function-tests.yamsql:128
     explain: ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c14 AS LONG)
         | MAP (_.ID AS A, _.R.V.Z AS B)
-    task_count: 503
-    task_total_time_ms: 22
-    transform_count: 132
-    transform_time_ms: 6
+    task_count: 499
+    task_total_time_ms: 45
+    transform_count: 128
+    transform_time_ms: 11
     transform_yield_count: 41
     insert_time_ms: 1
     insert_new_count: 65
@@ -140,10 +140,10 @@ user-defined-scalar-function-tests:
     ref: user-defined-macro-function-tests.yamsql:133
     explain: SCAN([IS SIMPLE_TABLE, [GREATER_THAN_OR_EQUALS promote(@c20 AS LONG)
         && LESS_THAN_OR_EQUALS promote(@c22 AS LONG)]]) | MAP (_.A AS A, _.A AS B)
-    task_count: 358
-    task_total_time_ms: 17
-    transform_count: 92
-    transform_time_ms: 4
+    task_count: 354
+    task_total_time_ms: 30
+    transform_count: 88
+    transform_time_ms: 6
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 46
@@ -153,14 +153,14 @@ user-defined-scalar-function-tests:
     explain: ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c5 AS LONG)
         AND _.ID GREATER_THAN promote(@c13 AS LONG) | MAP (_.ID AS ID, _.ID AS ID_COPY,
         _.R.V.Z AS Z_VAL)
-    task_count: 522
-    task_total_time_ms: 25
-    transform_count: 137
-    transform_time_ms: 8
-    transform_yield_count: 42
+    task_count: 499
+    task_total_time_ms: 47
+    transform_count: 129
+    transform_time_ms: 15
+    transform_yield_count: 41
     insert_time_ms: 1
-    insert_new_count: 68
-    insert_reused_count: 5
+    insert_new_count: 65
+    insert_reused_count: 4
 -   query: EXPLAIN select id, abcd(a) as d_val from deep_nested_t
     ref: user-defined-macro-function-tests.yamsql:151
     explain: 'COVERING(DEEP_IDX <,> -> [ID: KEY:[2], A: [B: [C: [D: KEY:[0]]]]]) |

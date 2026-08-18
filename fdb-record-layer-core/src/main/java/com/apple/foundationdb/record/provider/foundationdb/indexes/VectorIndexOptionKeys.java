@@ -41,10 +41,9 @@ import java.util.List;
  */
 @API(API.Status.EXPERIMENTAL)
 public final class VectorIndexOptionKeys {
-    //
-    // The engine selector: which vector engine backs the index. Engine-neutral and brand-new, so a single canonical
-    // {@code vector*} name with no legacy alias.
-    //
+    /**
+     * The engine selector: which vector engine backs the index.
+     */
     public static final VectorOptionKey<VectorIndexEngineKind> ENGINE =
             VectorOptionKey.ofEngine(IndexOptions.VECTOR_ENGINE);
 

@@ -36,6 +36,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.slf4j.Logger;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -579,14 +580,18 @@ abstract class AbstractDeferredTask {
      * @param numCoreClusters the number of closest clusters to place in the core clusters (must be {@code >= 1})
      * @param numNeighboringClusters the number of subsequent clusters to place in the neighboring clusters
      *
-     * @return the core/neighboring {@link ClusterClassification} partition of the given clusters
+     * @return the core/neighboring {@link ClusterClassification} partition, or {@code null} if fewer than
+     *         {@code numCoreClusters} core clusters could be assembled — not enough clusters survived to form this
+     *         repartition order (the target always survives, but its neighbors may have been split/merged/deleted
+     *         between the task's enqueue and its execution). Callers that request a single core cluster (just the
+     *         target) never get {@code null} and should {@link java.util.Objects#requireNonNull(Object) requireNonNull}.
      */
-    @Nonnull
+    @Nullable
     static ClusterClassification classifyClusters(@Nonnull final List<ClusterMetadataWithDistance> clusterMetadataWithDistances,
-                                       @Nonnull final ClusterMetadata targetClusterMetadata,
-                                       @Nonnull final Transformed<RealVector> targetClusterCentroid,
-                                       final int numCoreClusters,
-                                       final int numNeighboringClusters) {
+                                                  @Nonnull final ClusterMetadata targetClusterMetadata,
+                                                  @Nonnull final Transformed<RealVector> targetClusterCentroid,
+                                                  final int numCoreClusters,
+                                                  final int numNeighboringClusters) {
         Verify.verify(numCoreClusters >= 1, "numCoreClusters must be >= 1, got %s", numCoreClusters);
         boolean foundPrimaryCluster = false;
         for (final ClusterMetadataWithDistance clusterMetadata : clusterMetadataWithDistances) {
@@ -596,28 +601,38 @@ abstract class AbstractDeferredTask {
             }
         }
 
+        final ClusterClassification classification;
         if (foundPrimaryCluster) {
             final int cappedNumCoreClusters = Math.min(numCoreClusters, clusterMetadataWithDistances.size());
             final int cappedNumNeighboringClusters = Math.min(numNeighboringClusters,
                     clusterMetadataWithDistances.size() - cappedNumCoreClusters);
-            return new ClusterClassification(clusterMetadataWithDistances.subList(0, cappedNumCoreClusters),
+            classification = new ClusterClassification(clusterMetadataWithDistances.subList(0, cappedNumCoreClusters),
                     clusterMetadataWithDistances.subList(cappedNumCoreClusters,
                             cappedNumCoreClusters + cappedNumNeighboringClusters));
+        } else {
+            final ImmutableList.Builder<ClusterMetadataWithDistance> coreClustersBuilder = ImmutableList.builder();
+            coreClustersBuilder.add(
+                    new ClusterMetadataWithDistance(targetClusterMetadata, targetClusterCentroid, 0.0d));
+            final int cappedNumCoreClusters = Math.min(numCoreClusters - 1, clusterMetadataWithDistances.size());
+
+            coreClustersBuilder.addAll(clusterMetadataWithDistances.subList(0, cappedNumCoreClusters));
+            final List<ClusterMetadataWithDistance> coreClusters = coreClustersBuilder.build();
+
+            final int cappedNumNeighboringClusters = Math.min(numNeighboringClusters,
+                    clusterMetadataWithDistances.size() - cappedNumCoreClusters);
+            final List<ClusterMetadataWithDistance> neighboringClusters = clusterMetadataWithDistances.subList(
+                    cappedNumCoreClusters, cappedNumCoreClusters + cappedNumNeighboringClusters);
+            classification = new ClusterClassification(coreClusters, neighboringClusters);
         }
 
-        final ImmutableList.Builder<ClusterMetadataWithDistance> coreClustersBuilder = ImmutableList.builder();
-        coreClustersBuilder.add(
-                new ClusterMetadataWithDistance(targetClusterMetadata, targetClusterCentroid, 0.0d));
-        final int cappedNumCoreClusters = Math.min(numCoreClusters - 1, clusterMetadataWithDistances.size());
-
-        coreClustersBuilder.addAll(clusterMetadataWithDistances.subList(0, cappedNumCoreClusters));
-        final List<ClusterMetadataWithDistance> coreClusters = coreClustersBuilder.build();
-
-        final int cappedNumNeighboringClusters = Math.min(numNeighboringClusters,
-                clusterMetadataWithDistances.size() - cappedNumCoreClusters);
-        final List<ClusterMetadataWithDistance> neighboringClusters = clusterMetadataWithDistances.subList(
-                cappedNumCoreClusters, cappedNumCoreClusters + cappedNumNeighboringClusters);
-        return new ClusterClassification(coreClusters, neighboringClusters);
+        // The nearest-cluster re-fetch drops neighbors that were split/merged/deleted between this task's enqueue and
+        // its execution, so the assembled core set can be smaller than requested (the target always survives, but its
+        // neighbors may not). If we could not gather the requested number of core clusters this repartition order is
+        // not viable; signal that with null and let the caller decide (skip the candidate, or clear SPLIT_MERGE).
+        if (classification.coreClusters().size() < numCoreClusters) {
+            return null;
+        }
+        return classification;
     }
 
     /**
