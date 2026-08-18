@@ -42,7 +42,9 @@ dependencies {
 
     testFixturesImplementation(libs.bundles.test.impl)
     testFixturesImplementation(libs.snakeyaml)
+    testFixturesImplementation(libs.guava)
     testFixturesCompileOnly(libs.bundles.test.compileOnly)
+    testFixturesCompileOnly(libs.jsr305)
     testFixturesImplementation(libs.slf4j.api)
     testFixturesAnnotationProcessor(libs.autoService)
 }

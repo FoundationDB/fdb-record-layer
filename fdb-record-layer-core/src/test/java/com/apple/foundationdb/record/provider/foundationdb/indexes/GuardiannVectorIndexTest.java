@@ -56,6 +56,11 @@ class GuardiannVectorIndexTest extends VectorIndexEngineTestSuite {
                 .build();
     }
 
+    @Override
+    protected boolean maintainIndexesInTransaction() {
+        return true;
+    }
+
     @Test
     void optionsEvolutionTest() throws Exception {
         try (FDBRecordContext context = openContext()) {

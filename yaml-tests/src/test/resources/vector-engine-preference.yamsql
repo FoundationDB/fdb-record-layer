@@ -41,22 +41,22 @@ schema_template:
     create table documents(zone string, docId string, bookshelf string, title string, embedding vector(3, half), primary key (zone, docId))
     create view documentsView as select embedding, zone, bookshelf, docId, title from documents
     create vector index documentsHnswIndex using hnsw on documentsView(embedding) partition by(zone, bookshelf) options (metric = euclidean_metric)
-    create vector index documentsGuardiannIndex using guardiann on documentsView(embedding) partition by(zone, bookshelf) options (metric = euclidean_metric, primary_cluster_min = 1, primary_cluster_max = 100)
+    create vector index documentsGuardiannIndex using guardiann on documentsView(embedding) partition by(zone, bookshelf) options (metric = euclidean_metric, primary_cluster_min = 1, primary_cluster_max = 100, collapse_min_duplicates = 50)
     create index documentsByTitle as select title from documents order by title
     create table articles(zone string, articleId string, section string, headline string, embedding vector(3, half), primary key (zone, articleId))
     create view articlesView as select embedding, zone, section, articleId, headline from articles
     create vector index articlesHnswIndex using hnsw on articlesView(embedding) partition by(zone, section) options (metric = euclidean_metric)
-    create vector index articlesGuardiannIndex using guardiann on articlesView(embedding) partition by(zone, section) options (metric = euclidean_metric, primary_cluster_min = 1, primary_cluster_max = 100)
+    create vector index articlesGuardiannIndex using guardiann on articlesView(embedding) partition by(zone, section) options (metric = euclidean_metric, primary_cluster_min = 1, primary_cluster_max = 100, collapse_min_duplicates = 50)
     create table hnswOnly(zone string, docId string, bookshelf string, embedding vector(3, half), primary key (zone, docId))
     create view hnswOnlyView as select embedding, zone, bookshelf, docId from hnswOnly
     create vector index hnswOnlyIndex using hnsw on hnswOnlyView(embedding) partition by(zone, bookshelf) options (metric = euclidean_metric)
     create table guardiannOnly(zone string, docId string, bookshelf string, embedding vector(3, half), primary key (zone, docId))
     create view guardiannOnlyView as select embedding, zone, bookshelf, docId from guardiannOnly
-    create vector index guardiannOnlyIndex using guardiann on guardiannOnlyView(embedding) partition by(zone, bookshelf) options (metric = euclidean_metric, primary_cluster_min = 1, primary_cluster_max = 100)
+    create vector index guardiannOnlyIndex using guardiann on guardiannOnlyView(embedding) partition by(zone, bookshelf) options (metric = euclidean_metric, primary_cluster_min = 1, primary_cluster_max = 100, collapse_min_duplicates = 50)
     create table mixedMetrics(zone string, docId string, bookshelf string, embedding vector(3, half), primary key (zone, docId))
     create view mixedMetricsView as select embedding, zone, bookshelf, docId from mixedMetrics
     create vector index mixedMetricsHnswEuclideanIndex using hnsw on mixedMetricsView(embedding) partition by(zone, bookshelf) options (metric = euclidean_metric)
-    create vector index mixedMetricsGuardiannCosineIndex using guardiann on mixedMetricsView(embedding) partition by(zone, bookshelf) options (metric = cosine_metric, primary_cluster_min = 1, primary_cluster_max = 100)
+    create vector index mixedMetricsGuardiannCosineIndex using guardiann on mixedMetricsView(embedding) partition by(zone, bookshelf) options (metric = cosine_metric, primary_cluster_min = 1, primary_cluster_max = 100, collapse_min_duplicates = 50)
 ---
 # One partition per table, small and well-separated so GuardiANN forms a single cluster and k-nearest-neighbor results
 # are exact for either engine.

@@ -23,8 +23,10 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.Index;
 
+import javax.annotation.Nullable;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Some store's indexes may need merging on some occasions. This helper module should allow the caller
@@ -44,6 +46,8 @@ public class IndexDeferredMaintenanceControl {
     private int repartitionDocumentCount = 0;
     private boolean repartitionCapped = false;
     private LastStep lastStep = LastStep.NONE;
+    @Nullable
+    private UUID mergeSessionId = null;
 
 
     /**
@@ -222,6 +226,26 @@ public class IndexDeferredMaintenanceControl {
      */
     public void setLastStep(final LastStep lastStep) {
         this.lastStep = lastStep;
+    }
+
+    /**
+     * The stable id of the merge run/session currently draining this store's deferred maintenance, or {@code null} if
+     * unset. Set by the merge driver ({@code IndexingMerger}) from the indexing session so an index maintainer can
+     * recognize and hold a per-partition lease across the driver's re-invocations — each of which is a fresh
+     * transaction with a fresh maintainer instance, so there is otherwise no stable owner identity to key a lease on.
+     * @return the merge session id, or {@code null} if unset
+     */
+    @Nullable
+    public UUID getMergeSessionId() {
+        return mergeSessionId;
+    }
+
+    /**
+     * Set by the merge driver - see {@link #getMergeSessionId()}.
+     * @param mergeSessionId the stable merge session id
+     */
+    public void setMergeSessionId(@Nullable final UUID mergeSessionId) {
+        this.mergeSessionId = mergeSessionId;
     }
 
     /**
