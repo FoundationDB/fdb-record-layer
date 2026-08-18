@@ -27,11 +27,11 @@
 # block's setting could plausibly change it, so the negative cases sit under the preference that would move them if the
 # option were too eager, not under all three.
 #
-# supported_version is !current_version because 'USING GUARDIANN' is new: no released server understands it, so this file
+# supported_version is 4.13.1.0 because 'USING GUARDIANN' is new: no released server understands it, so this file
 # only runs against the current build (and is skipped in mixed-version mode).
 ---
 options:
-  supported_version: !current_version
+  supported_version: 4.13.1.0
 ---
 # DOCUMENTS and ARTICLES carry both engines over the same field, so queries over them have a genuine choice. The other
 # three tables are the negative fixtures, each with exactly one index able to answer a given ordering: HNSWONLY and
