@@ -695,9 +695,9 @@ public class MetaDataEvolutionValidator {
         // The index root expression must be the same, modulo field renames
         KeyExpression expectedKeyExpression = null;
         if (allowsAnyFieldRenames()) {
-            for (RecordType oldRecordType : oldMetaData.recordTypesForIndex(oldIndex)) {
-                final Descriptor oldDescriptor = oldRecordType.getDescriptor();
-                final Descriptor newDescriptor = newMetaData.getRecordType(typeRenames.getOrDefault(oldRecordType.getName(), oldRecordType.getName())).getDescriptor();
+            for (String oldRecordTypeName : oldRecordTypeNames) {
+                final Descriptor oldDescriptor = oldMetaData.getRecordType(oldRecordTypeName).getDescriptor();
+                final Descriptor newDescriptor = newMetaData.getRecordType(typeRenames.getOrDefault(oldRecordTypeName, oldRecordTypeName)).getDescriptor();
                 final KeyExpression renamedKeyExpression = RenameFieldsVisitor.renameFields(oldIndex.getRootExpression(), oldDescriptor, newDescriptor);
                 if (expectedKeyExpression == null) {
                     expectedKeyExpression = renamedKeyExpression;
