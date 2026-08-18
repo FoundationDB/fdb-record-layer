@@ -301,7 +301,7 @@ D
 }²
 8
 	all-tests+EXPLAIN select * from "__$func3"(10, 1, 1);õ
-—ÏĞûi¾ ”‹Ÿ(u0Ï¯ì8—@˜SCAN([IS my__1adjacency__1list, EQUALS promote(@c7 AS LONG)]) | FLATMAP q0 -> { SCAN([IS my__1adjacency__1list, [LESS_THAN promote(@c5 AS LONG)]]) | FILTER _.my__parent EQUALS promote(@c7 AS LONG) AS q1 RETURN (q1.me AS _0, q1.my__parent AS _1, q0.me AS _2, q0.my__parent AS _3) }¹digraph G {
+‡ÖÌ‘C¸ Õúê(u0ƒÛà8—@˜SCAN([IS my__1adjacency__1list, EQUALS promote(@c7 AS LONG)]) | FLATMAP q0 -> { SCAN([IS my__1adjacency__1list, [LESS_THAN promote(@c5 AS LONG)]]) | FILTER _.my__parent EQUALS promote(@c7 AS LONG) AS q1 RETURN (q1.me AS _0, q1.my__parent AS _1, q0.me AS _2, q0.my__parent AS _3) }¹digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -327,7 +327,7 @@ D
 }ñ
 -
 	all-tests EXPLAIN select * from "$yay"(5);¿
-âÑÚı	Z ¬™œ(0æÑ(8/@qSCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c5 AS LONG) | MAP (_.foo.tableE.E1 AS _$x.id)®digraph G {
+àÇ×ÉY õªÍ(0äã8/@qSCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c5 AS LONG) | MAP (_.foo.tableE.E1 AS _$x.id)®digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -341,7 +341,7 @@ D
 }ó
 /
 	all-tests"EXPLAIN select * from "__2yay"(6);¿
-âİû¤Z î¢é(0³§.8/@qSCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c5 AS LONG) | MAP (_.foo.tableE.E1 AS _$y.id)®digraph G {
+àÃ¤Y Ñ’‹(0í²)8/@qSCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c5 AS LONG) | MAP (_.foo.tableE.E1 AS _$y.id)®digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -355,7 +355,7 @@ D
 }ü
 8
 	all-tests+EXPLAIN select * from "à¤¨à¤®à¤¸à¥à¤¤"(4);¿
-âÚè‘Z ¸°Ã(0µ:8/@qSCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c5 AS LONG) | MAP (_.foo.tableE.E1 AS _$z.id)®digraph G {
+àÌ»±Y ÅµŠ(0 ô%8/@qSCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c5 AS LONG) | MAP (_.foo.tableE.E1 AS _$z.id)®digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -748,7 +748,7 @@ unnamed-12=EXPLAIN SELECT "__T3$COL2" FROM "__T3" WHERE "__T3$COL2" > 13Ê
 9
 
 unnamed-12+EXPLAIN SELECT * FROM "__func__T3$col2"(13)
-âöÈÿZ ıœÕ(0õ¢$8/@oSCAN([IS __T3]) | FILTER _.__T3$COL2 EQUALS promote(@c5 AS LONG) | MAP (_.__T3$COL1 AS c.1, _.__T3$COL3 AS c.2)şdigraph G {
+àƒ‘ö	Y ¤ë(0ÑÕ8/@oSCAN([IS __T3]) | FILTER _.__T3$COL2 EQUALS promote(@c5 AS LONG) | MAP (_.__T3$COL1 AS c.1, _.__T3$COL3 AS c.2)şdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
