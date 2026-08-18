@@ -8,6 +8,58 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.12
 
+{#release-4-12-19-0}
+
+### 4.12.19.0
+
+<h4> Breaking Changes </h4>
+
+* Update `LIKE` matching to a new polynomial time algorithm with modified `ESCAPE` semantics - [PR #4430](https://github.com/FoundationDB/fdb-record-layer/pull/4430)
+* Clean up KeyValueCursorBase.SerializationMode - [PR #4436](https://github.com/FoundationDB/fdb-record-layer/pull/4436)
+<h4> New Features </h4>
+
+* Vector merge index - [PR #4418](https://github.com/FoundationDB/fdb-record-layer/pull/4418)
+* Group `SelectMergeRule` and `PredicatePushDownRule` into a conditional rule - [PR #4461](https://github.com/FoundationDB/fdb-record-layer/pull/4461)
+* Yamlsql CHECK_EXPLAIN also updates explain in metrics file - [PR #4434](https://github.com/FoundationDB/fdb-record-layer/pull/4434)
+* Add a planner configuration to prefer a vector index engine - [PR #4423](https://github.com/FoundationDB/fdb-record-layer/pull/4423)
+* Correctly derive the nullability of the `COALESCE()` result type - [PR #4440](https://github.com/FoundationDB/fdb-record-layer/pull/4440)
+* Grammar and semantic analysis for `ARRAY_AGG()` - [PR #4425](https://github.com/FoundationDB/fdb-record-layer/pull/4425)
+<h4> Bug Fixes </h4>
+
+* Refine syntax checks in `ExpressionVisitor#visitAggregateWindowedFunction()` - [PR #4424](https://github.com/FoundationDB/fdb-record-layer/pull/4424)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Fix `addExplainInsertsExplainBlockIntoFile` test after #4434 - [PR #4462](https://github.com/FoundationDB/fdb-record-layer/pull/4462)
+* Sync explains in `.metrics.yaml` after #4440 - [PR #4460](https://github.com/FoundationDB/fdb-record-layer/pull/4460)
+* Update documentation-related Python dependencies - [PR #4450](https://github.com/FoundationDB/fdb-record-layer/pull/4450)
+* Add stable anchors to release notes and clean up table of contents - [PR #4441](https://github.com/FoundationDB/fdb-record-layer/pull/4441)
+* Cleanups in `MetaDataProtoEditor` - [PR #4412](https://github.com/FoundationDB/fdb-record-layer/pull/4412)
+* Fix mismatched explains in YAML metrics file - [PR #4439](https://github.com/FoundationDB/fdb-record-layer/pull/4439)
+* Pending queue indexer add log message - [PR #4426](https://github.com/FoundationDB/fdb-record-layer/pull/4426)
+* Push updates changes during `publish.yml` even if `publish_artifacts` fails - [PR #4415](https://github.com/FoundationDB/fdb-record-layer/pull/4415)
+* Use the new Sonatype API for publishing instead of the legacy publishing plugin - [PR #4402](https://github.com/FoundationDB/fdb-record-layer/pull/4402)
+
+</details>
+
+
+**[Full Changelog (4.12.18.0...4.12.19.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.12.18.0...4.12.19.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.12.7.0`, ✅`4.12.8.0`, ✅`4.12.9.0`, ✅`4.12.10.0`, ✅`4.12.11.0`, ✅`4.12.12.0`, ✅`4.12.13.0`, ✅`4.12.15.0`, ✅`4.12.16.0`, ✅`4.12.18.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/32139383221)
+
+
+
 {#release-4-12-18-0}
 
 ### 4.12.18.0
