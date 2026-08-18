@@ -34,7 +34,7 @@ import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.cursors.aggregate.AggregateCursor;
 import com.apple.foundationdb.record.cursors.aggregate.StreamGrouping;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
-import com.apple.foundationdb.record.planprotos.PRecordQueryStreamingAggregationPlan2;
+import com.apple.foundationdb.record.planprotos.PRecordQueryStreamingAggregationPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -377,25 +377,34 @@ public class RecordQueryStreamingAggregationPlan extends AbstractRelationalExpre
 
     @Nonnull
     @Override
-    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return toProtoNew(serializationContext);
+    public PRecordQueryStreamingAggregationPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final var builder = PRecordQueryStreamingAggregationPlan.newBuilder()
+                .setInner(inner.toProto(serializationContext))
+                .setAggregateValue(aggregateValue.toValueProto(serializationContext));
+        if (groupingKeyValue != null) {
+            builder.setGroupingKeyValue(groupingKeyValue.toValueProto(serializationContext));
+        }
+        builder.setGroupingKeyAlias(groupingKeyAlias.getId())
+                .setAggregateAlias(aggregateAlias.getId())
+                .setCompleteResultValue(completeResultValue.toValueProto(serializationContext));
+        return builder.build();
     }
 
     @Nonnull
     @Override
     public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PRecordQueryPlan.newBuilder().setStreamingAggregationPlan2(toProtoNew(serializationContext)).build();
+        return PRecordQueryPlan.newBuilder().setStreamingAggregationPlan(toProto(serializationContext)).build();
     }
 
     @Nonnull
     public static RecordQueryStreamingAggregationPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                                @Nonnull final PRecordQueryStreamingAggregationPlan2 recordQueryStreamingAggregationPlanProto) {
+                                                                @Nonnull final PRecordQueryStreamingAggregationPlan recordQueryStreamingAggregationPlanProto) {
         // Note: it is important for proper deserialization (at least of things that interact with the serializationContext's cache of
         // referenced values and plans) that we deserialize the values in the same order as they are serialized, or we may
         // not
         final Quantifier.Physical inner = Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryStreamingAggregationPlanProto.getInner()));
         final AggregateValue aggregateValue =  (AggregateValue) Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryStreamingAggregationPlanProto.getAggregateValue()));
-        @Nullable final Value groupingKeyValue = PlanSerialization.getFieldOrNull(recordQueryStreamingAggregationPlanProto, PRecordQueryStreamingAggregationPlan2::hasGroupingKeyValue,
+        @Nullable final Value groupingKeyValue = PlanSerialization.getFieldOrNull(recordQueryStreamingAggregationPlanProto, PRecordQueryStreamingAggregationPlan::hasGroupingKeyValue,
                 m -> Value.fromValueProto(serializationContext, m.getGroupingKeyValue()));
         final CorrelationIdentifier groupingKeyAlias = CorrelationIdentifier.of(Objects.requireNonNull(recordQueryStreamingAggregationPlanProto.getGroupingKeyAlias()));
         final CorrelationIdentifier aggregateAlias = CorrelationIdentifier.of(Objects.requireNonNull(recordQueryStreamingAggregationPlanProto.getAggregateAlias()));
@@ -444,35 +453,21 @@ public class RecordQueryStreamingAggregationPlan extends AbstractRelationalExpre
                 resultValueFunction.apply(referencedGroupingKeyValue, referencedAggregateValue));
     }
 
-    @Nonnull
-    private PRecordQueryStreamingAggregationPlan2 toProtoNew(@Nonnull final PlanSerializationContext serializationContext) {
-        final var builder = PRecordQueryStreamingAggregationPlan2.newBuilder()
-                .setInner(inner.toProto(serializationContext))
-                .setAggregateValue(aggregateValue.toValueProto(serializationContext));
-        if (groupingKeyValue != null) {
-            builder.setGroupingKeyValue(groupingKeyValue.toValueProto(serializationContext));
-        }
-        builder.setGroupingKeyAlias(groupingKeyAlias.getId())
-                .setAggregateAlias(aggregateAlias.getId())
-                .setCompleteResultValue(completeResultValue.toValueProto(serializationContext));
-        return builder.build();
-    }
-
     /**
      * Deserializer.
      */
     @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<PRecordQueryStreamingAggregationPlan2, RecordQueryStreamingAggregationPlan> {
+    public static class Deserializer implements PlanDeserializer<PRecordQueryStreamingAggregationPlan, RecordQueryStreamingAggregationPlan> {
         @Nonnull
         @Override
-        public Class<PRecordQueryStreamingAggregationPlan2> getProtoMessageClass() {
-            return PRecordQueryStreamingAggregationPlan2.class;
+        public Class<PRecordQueryStreamingAggregationPlan> getProtoMessageClass() {
+            return PRecordQueryStreamingAggregationPlan.class;
         }
 
         @Nonnull
         @Override
         public RecordQueryStreamingAggregationPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                             @Nonnull final PRecordQueryStreamingAggregationPlan2 recordQueryStreamingAggregationPlanProto) {
+                                                             @Nonnull final PRecordQueryStreamingAggregationPlan recordQueryStreamingAggregationPlanProto) {
             return RecordQueryStreamingAggregationPlan.fromProto(serializationContext, recordQueryStreamingAggregationPlanProto);
         }
     }
