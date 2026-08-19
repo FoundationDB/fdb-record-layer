@@ -805,15 +805,6 @@ public class SchemaTemplateSerDeTests {
     }
 
     /**
-     * Builds a template whose {@code employees} table has a struct-array column, with an index defined on an
-     * unnested synthetic type over that array. The index key is expressed in constituent-alias paths, as the
-     * DDL layer produces for an unnesting whose columns are not adjacent in the key.
-     *
-     * @param nullableArray whether the array column is nullable, which decides whether it is stored wrapped
-     *                      in a {@code { repeated T values; }} message
-     * @return the template
-     */
-    /**
      * Navigates to an array's elements, the way the DDL layer does: a nullable array is stored wrapped as
      * {@code { repeated T values; }}, a non-nullable one is a plain repeated field.
      */
@@ -825,7 +816,6 @@ public class SchemaTemplateSerDeTests {
                : Key.Expressions.field(arrayFieldName, KeyExpression.FanType.FanOut);
     }
 
-    /** How an index key on a synthetic type references a field of one of its constituents. */
     @Nonnull
     private static KeyExpression constituentField(final String alias, final String fieldName) {
         return Key.Expressions.field(alias, KeyExpression.FanType.None).nest(fieldName);

@@ -817,19 +817,9 @@ public final class MaterializedViewIndexGenerator {
     }
 
     /**
-     * Returns the alias of the constituent that owns the array an explode reads from.
-     *
-     * <p>The raw correlation of the collection value is not enough. A first-level explode reads its array
-     * off the table quantifier, {@code FieldValue(QOV(a), [P])} for {@code a.p}, and that quantifier is
-     * the parent constituent — so the correlation happens to be right. A chained explode reads its array
-     * off the <em>preceding subquery's</em> alias, {@code FieldValue(QOV(b), [Q])} for {@code b.q} where
-     * {@code b} is {@code (SELECT * FROM a.p)}; that subquery quantifier is not a constituent, the explode
-     * inside it is. Using the correlation directly would name a non-existent constituent.
-     *
-     * <p>So the collection value is dereferenced first: any enclosing unnestings then show up as
-     * {@link AnnotatedAccessor}s in the resulting path, and the innermost of those identifies the
-     * constituent to parent to. When there are none the array hangs directly off the stored record and the
-     * correlation is already the right answer.
+     * Returns the alias of the constituent that owns the array an explode reads from. Dereferences the collection
+     * value and takes the innermost enclosing unnesting, identified by an {@link AnnotatedAccessor} in the resulting
+     * path; when there is none, the array hangs off the stored record and the value's own correlation is returned.
      *
      * @param collectionValue the array a newly seen explode ranges over
      * @return the alias of the owning constituent
@@ -1013,18 +1003,11 @@ public final class MaterializedViewIndexGenerator {
     }
 
     /**
-     * Builds a {@link KeyExpression} for an unnested synthetic type index. The dereferenced
-     * field values contain {@link AnnotatedAccessor}s that mark the unnesting boundary; this
-     * method transforms them into constituent-alias-based paths:
-     * {@code field("SQ").nest(field("a"))} for unnested fields and
-     * {@code field("row").nest(field(...))} for parent fields.
-     *
-     * <p>Values are emitted positionally, preserving the order of {@code reordered}, which the
-     * index key order must follow. A constituent may be referenced more than once and the
-     * references need not be adjacent — a constituent is navigated with {@link KeyExpression.FanType#None},
-     * holding a single nested message per synthetic record, so repeating it neither duplicates
-     * entries nor creates a cross-product. This is precisely what an {@code UnnestedRecordType}
-     * buys over a fan-out key expression on the stored type.
+     * Builds the index key for an unnested synthetic type, rewriting the {@link AnnotatedAccessor}-marked paths of
+     * the dereferenced values into constituent-alias paths: {@code field("SQ").nest(field("a"))} for unnested
+     * fields, {@code field("row").nest(...)} for parent fields. Values are emitted positionally, preserving the
+     * order of {@code reordered}; a constituent is navigated with {@link KeyExpression.FanType#None}, so it may be
+     * referenced repeatedly and non-adjacently without duplicating entries.
      */
     @Nonnull
     private KeyExpression buildConstituentKeyExpression(
@@ -1038,24 +1021,6 @@ public final class MaterializedViewIndexGenerator {
             parts.add(orderingFunctionName != null ? function(orderingFunctionName, base) : base);
         }
         return parts.size() == 1 ? parts.get(0) : concat(parts);
-    }
-
-    /**
-     * Returns the position of the innermost unnesting boundary in a dereferenced field path, or
-     * {@code -1} if the path crosses none. The <em>last</em> {@link AnnotatedAccessor} is the innermost
-     * one: for {@code FROM T AS r, r.a AS x, x.b AS y} the value {@code y.c} dereferences to
-     * {@code [ann(A), ann(B), C]}, and it is {@code ann(B)} that says where {@code c} lives.
-     *
-     * @param accessors the dereferenced field path
-     * @return the index of the innermost {@link AnnotatedAccessor}, or {@code -1}
-     */
-    private static int innermostUnnestingIndex(@Nonnull final List<FieldValue.ResolvedAccessor> accessors) {
-        for (int i = accessors.size() - 1; i >= 0; i--) {
-            if (accessors.get(i) instanceof AnnotatedAccessor) {
-                return i;
-            }
-        }
-        return -1;
     }
 
     /**
@@ -1082,33 +1047,15 @@ public final class MaterializedViewIndexGenerator {
     }
 
     /**
-     * Returns whether this index has to be defined on an unnested synthetic type, rather than on the
-     * stored table with a fan-out key expression.
+     * Returns whether this index has to be defined on an unnested synthetic type rather than on the stored table
+     * with a fan-out key expression. A fan-out suffices while every column read through one unnesting sits in a
+     * contiguous run of the index key; two or more columns reached through the same unnesting at non-adjacent
+     * positions require a synthetic type, whose constituents are navigated with
+     * {@link KeyExpression.FanType#None} and so may be referenced at any number of key positions.
      *
-     * <p>A fan-out expresses an unnesting perfectly well as long as every column read through one
-     * unnesting sits in a contiguous run of the index key: those columns are then emitted under a single
-     * navigation into the array, {@code field("A").nest(field("values", FanOut).nest(concat(...)))},
-     * which yields one index entry per element. That covers a single column from an element, and
-     * several adjacent columns of the same element. It also covers two independent unnestings, each
-     * with its own fan-out — as in {@code FROM T1, (SELECT col3 FROM T1.A) X, (SELECT col4 FROM T1.A) Y}
-     * — where the resulting cross-product is the intended meaning of the cross join and no correlation
-     * between {@code X} and {@code Y} is wanted.
-     *
-     * <p>What a fan-out cannot express is two columns reached through the <em>same</em> unnesting,
-     * separated by a column that is not, as in {@code ORDER BY X.col2, T1.col5, X.col3}. There is no
-     * single navigation covering both, and emitting two would fan out twice and cross-multiply, so this
-     * was previously rejected outright. A synthetic type handles it: a constituent is navigated with
-     * {@link KeyExpression.FanType#None} and holds one element per synthetic record, so it can be
-     * referenced at as many key positions as needed.
-     *
-     * <p>Every unnesting a column is read through counts, not just the innermost one. Under chained
-     * unnesting, {@code SELECT b.x, a.k, c.y} reads {@code b.x} and {@code c.y} through different
-     * innermost unnestings, but both traverse the outer {@code b}; with {@code a.k} between them that
-     * outer navigation would have to be emitted twice, so a synthetic type is required even though
-     * neither innermost unnesting is itself split.
-     *
-     * <p>Only struct arrays are considered: a scalar array cannot be a constituent at all, so repeated
-     * non-adjacent references to one keep failing as before.
+     * <p>Every unnesting a column is read through counts, not only the innermost, so chained unnesting can require
+     * a synthetic type even when no innermost unnesting is itself split. Only struct arrays are considered, since a
+     * scalar array cannot be a constituent.
      *
      * @param keyValues the index key columns, in key order
      * @return whether a synthetic type is required
@@ -1149,18 +1096,26 @@ public final class MaterializedViewIndexGenerator {
             return toKeyExpression(value);
         } else {
             final var accessors = fieldValue.getFieldPath().getFieldAccessors();
-            // No AnnotatedAccessor — field comes from the parent constituent.
             if (accessors.isEmpty()) {
                 return field(parentAlias, KeyExpression.FanType.None);
             }
-            final int boundary = innermostUnnestingIndex(accessors);
-            if (boundary < 0) {
-                // No AnnotatedAccessor — field comes from the parent constituent.
+            // calculate the last AnnotatedAccessor is the innermost unnesting
+            // for `FROM T AS r, r.a AS x, x.b AS y`, the value y.c dereferences to
+            // [ann(A), ann(B), C], and it is ann(B) that says where c lives.
+            int innermostUnnestingIdx = -1;
+            for (int i = accessors.size() - 1; i >= 0; i--) {
+                if (accessors.get(i) instanceof AnnotatedAccessor) {
+                    innermostUnnestingIdx = i;
+                    break;
+                }
+            }
+            if (innermostUnnestingIdx < 0) {
+                // field comes from the parent constituent.
                 return field(parentAlias, KeyExpression.FanType.None)
                         .nest(toKeyExpression(accessors.iterator(), KeyExpression.FanType.FanOut));
             }
-            final int marker = ((AnnotatedAccessor) accessors.get(boundary)).getMarker();
-            final var remaining = accessors.subList(boundary + 1, accessors.size());
+            final int marker = ((AnnotatedAccessor) accessors.get(innermostUnnestingIdx)).getMarker();
+            final var remaining = accessors.subList(innermostUnnestingIdx + 1, accessors.size());
             final NestedConstituentInfo info = unnestedConstituents.get(marker);
             if (info != null) {
                 return remaining.isEmpty() ?
