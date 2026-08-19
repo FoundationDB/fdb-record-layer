@@ -22,6 +22,8 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
 
+import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
 
@@ -41,6 +43,11 @@ public final class PreparedParams {
     @Nonnull
     private static final PreparedParams EMPTY_PARAMETERS = new PreparedParams(Map.of(), Map.of());
 
+    /**
+     * Positional (1-based) unnamed parameters. At runtime each entry is the bound value. At warmup a stored query's
+     * signature has no values, so entries are instead {@link DeclaredParameter} sentinels carrying the declared type
+     * (and optional range); callers of {@link #nextUnnamedParamValue()} branch on {@code instanceof DeclaredParameter}.
+     */
     @Nonnull
     private final Map<Integer, Object> unnamedParams;
 
@@ -108,6 +115,17 @@ public final class PreparedParams {
         return new PreparedParams(ImmutableMap.of(), parameters);
     }
 
+    /**
+     * Creates value-free prepared parameters carrying only positional declared parameters (type + optional range).
+     * Used at warmup for a stored query whose signature declares parameter types/ranges but supplies no values: the
+     * {@link DeclaredParameter}s are stored as the unnamed-parameter "values", so {@link #nextUnnamedParamValue()}
+     * returns them positionally and callers detect them via {@code instanceof DeclaredParameter}.
+     */
+    @Nonnull
+    public static PreparedParams ofDeclared(@Nonnull Map<Integer, DeclaredParameter> declared) {
+        return ofUnnamed(ImmutableMap.<Integer, Object>copyOf(declared));
+    }
+
     @Nonnull
     public static PreparedParams copyOf(@Nonnull PreparedParams other) {
         return copyOf(other, false);
@@ -119,6 +137,32 @@ public final class PreparedParams {
             return new PreparedParams(other.unnamedParams, other.namedParams, other.currentUnnamedParamIndex());
         } else {
             return new PreparedParams(other.unnamedParams, other.namedParams);
+        }
+    }
+
+    /**
+     * A stored query parameter declared positionally by a signature: a type and an optional range constraint,
+     * supplied at warmup instead of a bound value. Stored as an unnamed-parameter "value" (see {@link #ofDeclared}).
+     */
+    public static final class DeclaredParameter {
+        @Nonnull
+        private final Type type;
+        @Nullable
+        private final RangeConstraints range;
+
+        public DeclaredParameter(@Nonnull final Type type, @Nullable final RangeConstraints range) {
+            this.type = type;
+            this.range = range;
+        }
+
+        @Nonnull
+        public Type getType() {
+            return type;
+        }
+
+        @Nullable
+        public RangeConstraints getRange() {
+            return range;
         }
     }
 }
