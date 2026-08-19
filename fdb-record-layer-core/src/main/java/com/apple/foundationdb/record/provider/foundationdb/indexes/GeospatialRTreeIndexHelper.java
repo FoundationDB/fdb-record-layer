@@ -43,7 +43,7 @@ public class GeospatialRTreeIndexHelper {
     public static final int COORDINATE_DIMENSIONS = 2;
 
     private static final int DEFAULT_PRECISION_DIGITS = 7;
-    // 180 * 10^16 stays within a signed long; beyond this the fixed-point encoding of a longitude would overflow.
+    // Capped well below the signed-long overflow boundary of the fixed-point encoding: 180 * scale exceeds Long.MAX_VALUE only around 10^17.
     private static final int MAX_PRECISION_DIGITS = 15;
 
     private GeospatialRTreeIndexHelper() {
