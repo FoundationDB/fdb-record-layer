@@ -1,0 +1,70 @@
+#
+# schema-template-typed-stored-queries.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Covers the SYNTAX / DDL acceptance of stored-query bodies that use inline typed value-free
+# parameters (`?{type}`), e.g. `col1 > ?{bigint}`. As with schema-template-stored-queries.yamsql,
+# this does NOT exercise the plan-cache warm-up (`OfflineStoredQueriesProcessor`), which is
+# unreachable from yamsql; the value-free warm-up / reuse behavior is covered by the JUnit
+# StoredQueriesTest. `?{type}` is a new grammar construct absent from released servers, so this
+# file is gated to the current version (the release process rewrites `!current_version`).
+
+---
+options:
+  supported_version: !current_version
+---
+schema_template:
+    create table t1(id bigint, col1 bigint, primary key(id))
+    create index i1 as select col1 from t1
+    create table dept(id bigint, name string, primary key(id))
+    create index deptName as select name from dept
+    create stored query by_col1_typed as select * from t1 where col1 > ?{bigint}
+    create stored query by_name_typed as select * from dept where name = ?{string}
+    create stored query by_col1_declared
+        declare
+            function above(in threshold bigint) as (select * from t1 where col1 > threshold)
+    as
+        select * from above(?{bigint})
+---
+setup:
+  steps:
+    - query: INSERT INTO T1
+        VALUES (1, 10),
+               (2, 20),
+               (3, 30)
+    - query: INSERT INTO DEPT
+        VALUES (10, 'Engineering'),
+               (20, 'Sales')
+---
+test_block:
+  name: schema-template-typed-stored-queries-tests
+  tests:
+    -
+      - query: select * from t1 where col1 > 15
+      - unorderedResult: [{ID: 2, COL1: 20},
+                          {ID: 3, COL1: 30}]
+    -
+      - query: select * from dept where name = 'Sales'
+      - result: [{ID: 20, NAME: 'Sales'}]
+    -
+      # runtime counterpart of by_col1_declared: reinstall the same temp function, then invoke it
+      - query: select * from above(20)
+      - setup: create temporary function above(in threshold bigint) on commit drop function as
+               select * from t1 where col1 > threshold
+      - unorderedResult: [{ID: 3, COL1: 30}]
+...
