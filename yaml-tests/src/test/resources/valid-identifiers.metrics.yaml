@@ -43,7 +43,7 @@ all-tests:
 -   query: EXPLAIN select "level0.field1"."level1$field.1"."level2$field.1" from "foo.table$nested"
         where id = 1
     ref: valid-identifiers.yamsql:171
-    explain: SCAN([IS foo__2table__1nested, EQUALS promote(@c11 AS LONG)]) | MAP (_.level0.field1.level1$field.1.level2$field.1
+    explain: SCAN([IS foo.table$nested, EQUALS promote(@c11 AS LONG)]) | MAP (_.level0.field1.level1$field.1.level2$field.1
         AS level2$field.1)
     task_count: 448
     task_total_time_ms: 34
@@ -56,7 +56,7 @@ all-tests:
 -   query: EXPLAIN select "foo.table$repeated".id from "foo.table$repeated" where
         'foo' IN "foo.table$repeated"."field.1$array"
     ref: valid-identifiers.yamsql:178
-    explain: SCAN([IS foo__2table__1repeated]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.field.1$array)
+    explain: SCAN([IS foo.table$repeated]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.field.1$array)
         | FILTER @c7 EQUALS _ AS q1 RETURN (q0.ID AS ID) }
     task_count: 345
     task_total_time_ms: 17
@@ -82,7 +82,7 @@ all-tests:
 -   query: EXPLAIN select t."field.1$array" from "foo.table$repeated" as t where 3
         IN t."field.0$array"
     ref: valid-identifiers.yamsql:190
-    explain: SCAN([IS foo__2table__1repeated]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.field.0$array)
+    explain: SCAN([IS foo.table$repeated]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.field.0$array)
         | FILTER promote(@c9 AS LONG) EQUALS _ AS q1 RETURN (q0.field.1$array AS field.1$array)
         }
     task_count: 345
@@ -155,7 +155,7 @@ all-tests:
 -   query: EXPLAIN select * from "foo.tableA", "foo.tableB" where "foo.tableA"."foo.tableA.A1"
         = "foo.tableB"."foo.tableB.B1";
     ref: valid-identifiers.yamsql:286
-    explain: SCAN([IS foo__2tableB]) | FLATMAP q0 -> { ISCAN(foo.tableA.idx [EQUALS
+    explain: SCAN([IS foo.tableB]) | FLATMAP q0 -> { ISCAN(foo.tableA.idx [EQUALS
         q0.foo.tableB.B1]) AS q1 RETURN (q1.foo.tableA.A1 AS foo.tableA.A1, q1.foo.tableA.A2
         AS foo.tableA.A2, q1.foo.tableA.A3 AS foo.tableA.A3, q0.foo.tableB.B1 AS foo.tableB.B1,
         q0.foo.tableB.B2 AS foo.tableB.B2, q0.foo.tableB.B3 AS foo.tableB.B3) }
@@ -246,7 +246,7 @@ all-tests:
 -   query: EXPLAIN select "βήτα__f"("f__e"."foo.tableE.E3") AS "___h.1" from "foo.tableE"
         as "f__e" where "alpha__f"("f__e"."foo.tableE.E3") = 5
     ref: valid-identifiers.yamsql:346
-    explain: SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c21
+    explain: SCAN([IS foo.tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c21
         AS LONG) | MAP (_.foo.tableE.E3.S2 AS ___h.1)
     task_count: 204
     task_total_time_ms: 11
@@ -259,7 +259,7 @@ all-tests:
 -   query: EXPLAIN select "alpha__f"("f__e"."foo.tableE.E3") AS "___h.1" from "foo.tableE"
         as "f__e" where "βήτα__f"("f__e"."foo.tableE.E3") >= 50
     ref: valid-identifiers.yamsql:350
-    explain: SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S2 GREATER_THAN_OR_EQUALS
+    explain: SCAN([IS foo.tableE]) | FILTER _.foo.tableE.E3.S2 GREATER_THAN_OR_EQUALS
         promote(@c22 AS LONG) | MAP (_.foo.tableE.E3.S1 AS ___h.1)
     task_count: 204
     task_total_time_ms: 10
@@ -271,8 +271,8 @@ all-tests:
     insert_reused_count: 2
 -   query: EXPLAIN select * from "__$func3"(10, 1, 1);
     ref: valid-identifiers.yamsql:356
-    explain: SCAN([IS my__1adjacency__1list, EQUALS promote(@c7 AS LONG)]) | FLATMAP
-        q0 -> { SCAN([IS my__1adjacency__1list, [LESS_THAN promote(@c5 AS LONG)]])
+    explain: SCAN([IS my$adjacency$list, EQUALS promote(@c7 AS LONG)]) | FLATMAP
+        q0 -> { SCAN([IS my$adjacency$list, [LESS_THAN promote(@c5 AS LONG)]])
         | FILTER _.my__parent EQUALS promote(@c7 AS LONG) AS q1 RETURN (q1.me AS _0,
         q1.my__parent AS _1, q0.me AS _2, q0.my__parent AS _3) }
     task_count: 1337
@@ -285,7 +285,7 @@ all-tests:
     insert_reused_count: 17
 -   query: EXPLAIN select * from "$yay"(5);
     ref: valid-identifiers.yamsql:360
-    explain: SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c5
+    explain: SCAN([IS foo.tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c5
         AS LONG) | MAP (_.foo.tableE.E1 AS _$x.id)
     task_count: 338
     task_total_time_ms: 28
@@ -297,7 +297,7 @@ all-tests:
     insert_reused_count: 2
 -   query: EXPLAIN select * from "__2yay"(6);
     ref: valid-identifiers.yamsql:364
-    explain: SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c5
+    explain: SCAN([IS foo.tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c5
         AS LONG) | MAP (_.foo.tableE.E1 AS _$y.id)
     task_count: 338
     task_total_time_ms: 12
@@ -309,7 +309,7 @@ all-tests:
     insert_reused_count: 2
 -   query: EXPLAIN select * from "नमस्त"(4);
     ref: valid-identifiers.yamsql:368
-    explain: SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c5
+    explain: SCAN([IS foo.tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS promote(@c5
         AS LONG) | MAP (_.foo.tableE.E1 AS _$z.id)
     task_count: 338
     task_total_time_ms: 24
@@ -321,7 +321,7 @@ all-tests:
     insert_reused_count: 2
 -   query: EXPLAIN select * from "$yay__view";
     ref: valid-identifiers.yamsql:374
-    explain: SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS 4 | MAP (_.foo.tableE.E1
+    explain: SCAN([IS foo.tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS 4 | MAP (_.foo.tableE.E1
         AS _$x.id)
     task_count: 294
     task_total_time_ms: 14
@@ -333,7 +333,7 @@ all-tests:
     insert_reused_count: 2
 -   query: EXPLAIN select * from "__2yay__view";
     ref: valid-identifiers.yamsql:378
-    explain: SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS 5 | MAP (_.foo.tableE.E1
+    explain: SCAN([IS foo.tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS 5 | MAP (_.foo.tableE.E1
         AS _$y.id)
     task_count: 294
     task_total_time_ms: 14
@@ -345,7 +345,7 @@ all-tests:
     insert_reused_count: 2
 -   query: EXPLAIN select * from "வணக்கம்";
     ref: valid-identifiers.yamsql:382
-    explain: SCAN([IS foo__2tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS 6 | MAP (_.foo.tableE.E1
+    explain: SCAN([IS foo.tableE]) | FILTER _.foo.tableE.E3.S1 EQUALS 6 | MAP (_.foo.tableE.E1
         AS _$z.id)
     task_count: 294
     task_total_time_ms: 15
@@ -371,9 +371,9 @@ all-tests:
 -   query: EXPLAIN select struct "x$$" ("foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3")
         from "foo.tableA"
     ref: valid-identifiers.yamsql:392
-    explain: SCAN([IS foo__2tableA]) | MAP (_ AS _0)
-    task_count: 497
-    task_total_time_ms: 46
+    explain: SCAN([IS foo.tableA]) | MAP (_ AS _0)
+    task_count: 499
+    task_total_time_ms: 50
     transform_count: 136
     transform_time_ms: 10
     transform_yield_count: 50
@@ -493,9 +493,9 @@ update-delete-statements:
     ref: valid-identifiers.yamsql:510
     explain: 'COVERING(foo.tableA.idx [EQUALS promote(@c9 AS LONG)] -> [foo__2tableA__2A1:
         KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT
-        BY PK | FETCH | UPDATE foo__2tableA'
-    task_count: 707
-    task_total_time_ms: 16
+        BY PK | FETCH | UPDATE foo.tableA'
+    task_count: 709
+    task_total_time_ms: 19
     transform_count: 141
     transform_time_ms: 6
     transform_yield_count: 57
@@ -507,9 +507,9 @@ update-delete-statements:
     ref: valid-identifiers.yamsql:514
     explain: 'COVERING(foo.tableA.idx [[GREATER_THAN promote(@c9 AS LONG)]] -> [foo__2tableA__2A1:
         KEY:[0], foo__2tableA__2A2: KEY:[1], foo__2tableA__2A3: KEY:[2]]) | DISTINCT
-        BY PK | FETCH | UPDATE foo__2tableA | MAP (_.new.foo.tableA.A1 AS foo.tableA.A1)'
-    task_count: 762
-    task_total_time_ms: 10
+        BY PK | FETCH | UPDATE foo.tableA | MAP (_.new.foo.tableA.A1 AS foo.tableA.A1)'
+    task_count: 766
+    task_total_time_ms: 17
     transform_count: 155
     transform_time_ms: 4
     transform_yield_count: 57
