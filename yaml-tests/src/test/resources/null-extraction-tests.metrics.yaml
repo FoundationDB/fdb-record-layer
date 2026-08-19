@@ -3,10 +3,10 @@ unnamed-3:
         < 20)
     ref: null-extraction-tests.yamsql:49
     explain: ISCAN(I1 [EQUALS promote(@c7 AS LONG), EQUALS @c11])
-    task_count: 327
-    task_total_time_ms: 17
+    task_count: 323
+    task_total_time_ms: 23
     transform_count: 80
-    transform_time_ms: 6
+    transform_time_ms: 9
     transform_yield_count: 32
     insert_time_ms: 0
     insert_new_count: 35
