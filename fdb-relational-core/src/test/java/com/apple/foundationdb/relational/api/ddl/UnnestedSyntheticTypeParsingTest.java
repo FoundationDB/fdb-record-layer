@@ -37,13 +37,16 @@ import com.apple.foundationdb.relational.utils.TestSchemas;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Order;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
@@ -58,6 +61,11 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
  * {@code INDEX ... ON <view>} or {@code INDEX ... AS SELECT} — and all four must agree.
  */
 public class UnnestedSyntheticTypeParsingTest {
+
+    private static final String VIEW_SUBQUERY = "view + correlated subquery";
+    private static final String VIEW_PARTIQL = "view + PartiQL path";
+    private static final String AS_SELECT_SUBQUERY = "index as select + correlated subquery";
+    private static final String AS_SELECT_PARTIQL = "index as select + PartiQL path";
 
     private static final String SINGLE_STRUCT_ARRAY_SCHEMA = "CREATE SCHEMA TEMPLATE test_template " +
             "CREATE TYPE AS STRUCT A(x bigint, y bigint) " +
@@ -170,47 +178,28 @@ public class UnnestedSyntheticTypeParsingTest {
         };
     }
 
-    @Test
-    void createIndexOnRepeated() throws Exception {
-        final String schemaStatement = SINGLE_STRUCT_ARRAY_SCHEMA +
-                "CREATE VIEW mv1 AS SELECT SQ.x, t.p, SQ.y from T AS t, (select M.x, M.y from t.a AS M) SQ " +
-                "CREATE INDEX i1 on mv1(x, p, y)";
-
-        shouldWorkWithInjectedFactory(schemaStatement, unnestedStructArrayIndexFactory("i1"));
+    @Nonnull
+    private static Stream<Arguments> singleStructArraySpellings() {
+        return Stream.of(
+                Arguments.of(VIEW_SUBQUERY, "i1",
+                        "CREATE VIEW mv1 AS SELECT SQ.x, t.p, SQ.y from T AS t, (select M.x, M.y from t.a AS M) SQ "
+                                + "CREATE INDEX i1 on mv1(x, p, y)"),
+                Arguments.of(VIEW_PARTIQL, "i1",
+                        "CREATE VIEW mv1 AS SELECT M.x, t.p, M.y from T AS t, t.a AS M "
+                                + "CREATE INDEX i1 on mv1(x, p, y)"),
+                Arguments.of(AS_SELECT_SUBQUERY, "mv1",
+                        "CREATE INDEX mv1 AS SELECT SQ.x, t.p, SQ.y from T AS t, (select M.x, M.y from t.a AS M) SQ "
+                                + "order by SQ.x, t.p, SQ.y "),
+                Arguments.of(AS_SELECT_PARTIQL, "mv1",
+                        "CREATE INDEX mv1 AS SELECT M.x, t.p, M.y from T AS t, t.a AS M order by M.x, t.p, M.y "));
     }
 
-    /**
-     * As {@link #createIndexOnRepeated()}, but the view unnests using PartiQL path syntax
-     * ({@code FROM T AS t, t.a AS M}) rather than a correlated subquery. Both spellings describe the
-     * same unnesting and must produce the same synthetic type.
-     */
-    @Test
-    void createIndexOnRepeatedUsingPartiqlSyntax() throws Exception {
-        final String schemaStatement = SINGLE_STRUCT_ARRAY_SCHEMA +
-                "CREATE VIEW mv1 AS SELECT M.x, t.p, M.y from T AS t, t.a AS M " +
-                "CREATE INDEX i1 on mv1(x, p, y)";
-
-        shouldWorkWithInjectedFactory(schemaStatement, unnestedStructArrayIndexFactory("i1"));
-    }
-
-    @Test
-    void createIndexOnRepeatedUsingMatViewSyntax() throws Exception {
-        final String schemaStatement = SINGLE_STRUCT_ARRAY_SCHEMA +
-                "CREATE INDEX mv1 AS SELECT SQ.x, t.p, SQ.y from T AS t, (select M.x, M.y from t.a AS M) SQ order by SQ.x, t.p, SQ.y ";
-
-        shouldWorkWithInjectedFactory(schemaStatement, unnestedStructArrayIndexFactory("mv1"));
-    }
-
-    /**
-     * As {@link #createIndexOnRepeatedUsingMatViewSyntax()}, but unnesting with PartiQL path syntax
-     * ({@code FROM T AS t, t.a AS M}) rather than a correlated subquery.
-     */
-    @Test
-    void createIndexOnRepeatedUsingMatViewPartiqlSyntax() throws Exception {
-        final String schemaStatement = SINGLE_STRUCT_ARRAY_SCHEMA +
-                "CREATE INDEX mv1 AS SELECT M.x, t.p, M.y from T AS t, t.a AS M order by M.x, t.p, M.y ";
-
-        shouldWorkWithInjectedFactory(schemaStatement, unnestedStructArrayIndexFactory("mv1"));
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("singleStructArraySpellings")
+    void createIndexOnRepeated(@Nonnull final String spelling, @Nonnull final String indexName,
+                               @Nonnull final String indexDdl) throws Exception {
+        shouldWorkWithInjectedFactory(SINGLE_STRUCT_ARRAY_SCHEMA + indexDdl,
+                unnestedStructArrayIndexFactory(indexName));
     }
 
     // ─── Multiple (3) unnested struct arrays ──────────────────────────────────────────────────
@@ -274,46 +263,35 @@ public class UnnestedSyntheticTypeParsingTest {
         };
     }
 
-    @Test
-    void createIndexOnMultipleRepeated() throws Exception {
-        final String schemaStatement = THREE_STRUCT_ARRAY_SCHEMA +
-                "CREATE VIEW v1 AS SELECT SQ1.x, SQ2.y, SQ3.z, t.p, SQ1.x2, SQ2.y2, SQ3.z2 from T AS t, " +
-                "(select M.x, M.x2 from t.a AS M) SQ1, (select N.y, N.y2 from t.b AS N) SQ2, " +
-                "(select O.z, O.z2 from t.c AS O) SQ3 " +
-                "CREATE INDEX i1 on v1(x, y, z, p, x2, y2, z2)";
-
-        shouldWorkWithInjectedFactory(schemaStatement, threeUnnestedStructArrayIndexFactory("i1"));
+    @Nonnull
+    private static Stream<Arguments> threeStructArraySpellings() {
+        return Stream.of(
+                Arguments.of(VIEW_SUBQUERY, "i1",
+                        "CREATE VIEW v1 AS SELECT SQ1.x, SQ2.y, SQ3.z, t.p, SQ1.x2, SQ2.y2, SQ3.z2 from T AS t, "
+                                + "(select M.x, M.x2 from t.a AS M) SQ1, (select N.y, N.y2 from t.b AS N) SQ2, "
+                                + "(select O.z, O.z2 from t.c AS O) SQ3 "
+                                + "CREATE INDEX i1 on v1(x, y, z, p, x2, y2, z2)"),
+                Arguments.of(VIEW_PARTIQL, "i1",
+                        "CREATE VIEW v1 AS SELECT M.x, N.y, O.z, t.p, M.x2, N.y2, O.z2 from T AS t, "
+                                + "t.a AS M, t.b AS N, t.c AS O "
+                                + "CREATE INDEX i1 on v1(x, y, z, p, x2, y2, z2)"),
+                Arguments.of(AS_SELECT_SUBQUERY, "mv1",
+                        "CREATE INDEX mv1 AS SELECT SQ1.x, SQ2.y, SQ3.z, t.p, SQ1.x2, SQ2.y2, SQ3.z2 from T AS t, "
+                                + "(select M.x, M.x2 from t.a AS M) SQ1, (select N.y, N.y2 from t.b AS N) SQ2, "
+                                + "(select O.z, O.z2 from t.c AS O) SQ3 "
+                                + "order by SQ1.x, SQ2.y, SQ3.z, t.p, SQ1.x2, SQ2.y2, SQ3.z2"),
+                Arguments.of(AS_SELECT_PARTIQL, "mv1",
+                        "CREATE INDEX mv1 AS SELECT M.x, N.y, O.z, t.p, M.x2, N.y2, O.z2 from T AS t, "
+                                + "t.a AS M, t.b AS N, t.c AS O "
+                                + "order by M.x, N.y, O.z, t.p, M.x2, N.y2, O.z2"));
     }
 
-    @Test
-    void createIndexOnMultipleRepeatedUsingPartiqlSyntax() throws Exception {
-        final String schemaStatement = THREE_STRUCT_ARRAY_SCHEMA +
-                "CREATE VIEW v1 AS SELECT M.x, N.y, O.z, t.p, M.x2, N.y2, O.z2 from T AS t, " +
-                "t.a AS M, t.b AS N, t.c AS O " +
-                "CREATE INDEX i1 on v1(x, y, z, p, x2, y2, z2)";
-
-        shouldWorkWithInjectedFactory(schemaStatement, threeUnnestedStructArrayIndexFactory("i1"));
-    }
-
-    @Test
-    void createIndexOnMultipleRepeatedUsingMatViewSyntax() throws Exception {
-        final String schemaStatement = THREE_STRUCT_ARRAY_SCHEMA +
-                "CREATE INDEX mv1 AS SELECT SQ1.x, SQ2.y, SQ3.z, t.p, SQ1.x2, SQ2.y2, SQ3.z2 from T AS t, " +
-                "(select M.x, M.x2 from t.a AS M) SQ1, (select N.y, N.y2 from t.b AS N) SQ2, " +
-                "(select O.z, O.z2 from t.c AS O) SQ3 " +
-                "order by SQ1.x, SQ2.y, SQ3.z, t.p, SQ1.x2, SQ2.y2, SQ3.z2";
-
-        shouldWorkWithInjectedFactory(schemaStatement, threeUnnestedStructArrayIndexFactory("mv1"));
-    }
-
-    @Test
-    void createIndexOnMultipleRepeatedUsingMatViewPartiqlSyntax() throws Exception {
-        final String schemaStatement = THREE_STRUCT_ARRAY_SCHEMA +
-                "CREATE INDEX mv1 AS SELECT M.x, N.y, O.z, t.p, M.x2, N.y2, O.z2 from T AS t, " +
-                "t.a AS M, t.b AS N, t.c AS O " +
-                "order by M.x, N.y, O.z, t.p, M.x2, N.y2, O.z2";
-
-        shouldWorkWithInjectedFactory(schemaStatement, threeUnnestedStructArrayIndexFactory("mv1"));
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("threeStructArraySpellings")
+    void createIndexOnMultipleRepeated(@Nonnull final String spelling, @Nonnull final String indexName,
+                                       @Nonnull final String indexDdl) throws Exception {
+        shouldWorkWithInjectedFactory(THREE_STRUCT_ARRAY_SCHEMA + indexDdl,
+                threeUnnestedStructArrayIndexFactory(indexName));
     }
 
     // ─── Unnesting a scalar array ─────────────────────────────────────────────────────────────
@@ -360,38 +338,28 @@ public class UnnestedSyntheticTypeParsingTest {
         };
     }
 
-    @Test
-    void createIndexOnRepeatedScalar() throws Exception {
-        final String schemaStatement = SCALAR_ARRAY_SCHEMA +
-                "CREATE VIEW v1 AS SELECT SQ.v, t.p from T AS t, (select v from t.s AS v) SQ " +
-                "CREATE INDEX i1 on v1(v, p)";
-
-        shouldWorkWithInjectedFactory(schemaStatement, unnestedScalarArrayIndexFactory("i1"));
+    @Nonnull
+    private static Stream<Arguments> scalarArraySpellings() {
+        return Stream.of(
+                Arguments.of(VIEW_SUBQUERY, "i1",
+                        "CREATE VIEW v1 AS SELECT SQ.v, t.p from T AS t, (select v from t.s AS v) SQ "
+                                + "CREATE INDEX i1 on v1(v, p)"),
+                Arguments.of(VIEW_PARTIQL, "i1",
+                        "CREATE VIEW v1 AS SELECT v, t.p from T AS t, t.s AS v "
+                                + "CREATE INDEX i1 on v1(v, p)"),
+                Arguments.of(AS_SELECT_SUBQUERY, "mv1",
+                        "CREATE INDEX mv1 AS SELECT SQ.v, t.p from T AS t, (select v from t.s AS v) SQ "
+                                + "order by SQ.v, t.p"),
+                Arguments.of(AS_SELECT_PARTIQL, "mv1",
+                        "CREATE INDEX mv1 AS SELECT v, t.p from T AS t, t.s AS v order by v, t.p"));
     }
 
-    @Test
-    void createIndexOnRepeatedScalarUsingPartiqlSyntax() throws Exception {
-        final String schemaStatement = SCALAR_ARRAY_SCHEMA +
-                "CREATE VIEW v1 AS SELECT v, t.p from T AS t, t.s AS v " +
-                "CREATE INDEX i1 on v1(v, p)";
-
-        shouldWorkWithInjectedFactory(schemaStatement, unnestedScalarArrayIndexFactory("i1"));
-    }
-
-    @Test
-    void createIndexOnRepeatedScalarUsingMatViewSyntax() throws Exception {
-        final String schemaStatement = SCALAR_ARRAY_SCHEMA +
-                "CREATE INDEX mv1 AS SELECT SQ.v, t.p from T AS t, (select v from t.s AS v) SQ order by SQ.v, t.p";
-
-        shouldWorkWithInjectedFactory(schemaStatement, unnestedScalarArrayIndexFactory("mv1"));
-    }
-
-    @Test
-    void createIndexOnRepeatedScalarUsingMatViewPartiqlSyntax() throws Exception {
-        final String schemaStatement = SCALAR_ARRAY_SCHEMA +
-                "CREATE INDEX mv1 AS SELECT v, t.p from T AS t, t.s AS v order by v, t.p";
-
-        shouldWorkWithInjectedFactory(schemaStatement, unnestedScalarArrayIndexFactory("mv1"));
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("scalarArraySpellings")
+    void createIndexOnRepeatedScalar(@Nonnull final String spelling, @Nonnull final String indexName,
+                                     @Nonnull final String indexDdl) throws Exception {
+        shouldWorkWithInjectedFactory(SCALAR_ARRAY_SCHEMA + indexDdl,
+                unnestedScalarArrayIndexFactory(indexName));
     }
 
     // ─── Unnesting a struct array and a scalar array together ─────────────────────────────────
@@ -453,40 +421,31 @@ public class UnnestedSyntheticTypeParsingTest {
         };
     }
 
-    @Test
-    void createIndexOnRepeatedStructAndScalar() throws Exception {
-        final String schemaStatement = STRUCT_AND_SCALAR_ARRAY_SCHEMA +
-                "CREATE VIEW v1 AS SELECT SQ1.x, SQ2.v, SQ1.y from T AS t, " +
-                "(select M.x, M.y from t.a AS M) SQ1, (select v from t.s AS v) SQ2 " +
-                "CREATE INDEX i1 on v1(x, v, y)";
-
-        shouldWorkWithInjectedFactory(schemaStatement, unnestedStructAndScalarArrayIndexFactory("i1"));
+    @Nonnull
+    private static Stream<Arguments> structAndScalarArraySpellings() {
+        return Stream.of(
+                Arguments.of(VIEW_SUBQUERY, "i1",
+                        "CREATE VIEW v1 AS SELECT SQ1.x, SQ2.v, SQ1.y from T AS t, "
+                                + "(select M.x, M.y from t.a AS M) SQ1, (select v from t.s AS v) SQ2 "
+                                + "CREATE INDEX i1 on v1(x, v, y)"),
+                Arguments.of(VIEW_PARTIQL, "i1",
+                        "CREATE VIEW v1 AS SELECT M.x, v, M.y from T AS t, t.a AS M, t.s AS v "
+                                + "CREATE INDEX i1 on v1(x, v, y)"),
+                Arguments.of(AS_SELECT_SUBQUERY, "mv1",
+                        "CREATE INDEX mv1 AS SELECT SQ1.x, SQ2.v, SQ1.y from T AS t, "
+                                + "(select M.x, M.y from t.a AS M) SQ1, (select v from t.s AS v) SQ2 "
+                                + "order by SQ1.x, SQ2.v, SQ1.y"),
+                Arguments.of(AS_SELECT_PARTIQL, "mv1",
+                        "CREATE INDEX mv1 AS SELECT M.x, v, M.y from T AS t, t.a AS M, t.s AS v "
+                                + "order by M.x, v, M.y"));
     }
 
-    @Test
-    void createIndexOnRepeatedStructAndScalarUsingPartiqlSyntax() throws Exception {
-        final String schemaStatement = STRUCT_AND_SCALAR_ARRAY_SCHEMA +
-                "CREATE VIEW v1 AS SELECT M.x, v, M.y from T AS t, t.a AS M, t.s AS v " +
-                "CREATE INDEX i1 on v1(x, v, y)";
-
-        shouldWorkWithInjectedFactory(schemaStatement, unnestedStructAndScalarArrayIndexFactory("i1"));
-    }
-
-    @Test
-    void createIndexOnRepeatedStructAndScalarUsingMatViewSyntax() throws Exception {
-        final String schemaStatement = STRUCT_AND_SCALAR_ARRAY_SCHEMA +
-                "CREATE INDEX mv1 AS SELECT SQ1.x, SQ2.v, SQ1.y from T AS t, " +
-                "(select M.x, M.y from t.a AS M) SQ1, (select v from t.s AS v) SQ2 order by SQ1.x, SQ2.v, SQ1.y";
-
-        shouldWorkWithInjectedFactory(schemaStatement, unnestedStructAndScalarArrayIndexFactory("mv1"));
-    }
-
-    @Test
-    void createIndexOnRepeatedStructAndScalarUsingMatViewPartiqlSyntax() throws Exception {
-        final String schemaStatement = STRUCT_AND_SCALAR_ARRAY_SCHEMA +
-                "CREATE INDEX mv1 AS SELECT M.x, v, M.y from T AS t, t.a AS M, t.s AS v order by M.x, v, M.y";
-
-        shouldWorkWithInjectedFactory(schemaStatement, unnestedStructAndScalarArrayIndexFactory("mv1"));
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("structAndScalarArraySpellings")
+    void createIndexOnRepeatedStructAndScalar(@Nonnull final String spelling, @Nonnull final String indexName,
+                                              @Nonnull final String indexDdl) throws Exception {
+        shouldWorkWithInjectedFactory(STRUCT_AND_SCALAR_ARRAY_SCHEMA + indexDdl,
+                unnestedStructAndScalarArrayIndexFactory(indexName));
     }
 
 }

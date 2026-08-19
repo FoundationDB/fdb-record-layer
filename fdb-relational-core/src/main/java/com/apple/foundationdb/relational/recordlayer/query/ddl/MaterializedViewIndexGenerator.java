@@ -228,13 +228,10 @@ public final class MaterializedViewIndexGenerator {
             if (orderByValues.isEmpty() && !generateKeyValueExpressionWithEmptyKey) {
                 splitPoint = -1;
             }
-            // The choice of representation can only be made once the key columns and their order are
-            // known, since it turns on whether one array element's columns are contiguous in the key.
             final boolean useSyntheticType = requiresSyntheticType(reordered);
-            // A predicate would have to be evaluated against the synthetic record rather than the stored
-            // one, which is not worked out yet. Reject rather than fall back to a fan-out: the shapes that
-            // need a synthetic type are exactly those a fan-out cannot express, so falling back would fail
-            // later with a far less clear error.
+            // A predicate would have to be evaluated against the synthetic record rather than the stored one,
+            // which is not worked out yet. Rejected rather than falling back to a fan-out, which cannot express
+            // these shapes and so would fail later with a less clear error.
             Assert.thatUnchecked(!useSyntheticType || predicate == null, ErrorCode.UNSUPPORTED_OPERATION,
                     "Unsupported index definition, a predicate is not supported on an index over an unnested synthetic type");
             KeyExpression keyExpression;
@@ -262,8 +259,6 @@ public final class MaterializedViewIndexGenerator {
             }
             indexBuilder.setKeyExpression(keyExpression);
         } else {
-            // Aggregate indexes always use the stored table: their grouping columns are emitted with a
-            // fan-out key expression, as before synthetic types existed.
             indexBuilder.setTableType(tableType);
             final var aggregateValue = (AggregateValue) aggregateValues.get(0);
             int aggregateOrderIndex = -1;
@@ -868,7 +863,7 @@ public final class MaterializedViewIndexGenerator {
      * {@link ExplodeExpression} over a struct array during {@link #collectQuantifiers}.
      */
     private record NestedConstituentInfo(@Nonnull String alias,
-                                         @Nonnull String parentAlias,
+                                         @Nonnull String owningAlias,
                                          @Nonnull String arrayFieldStorageName,
                                          boolean nullableArray) {
 
@@ -1013,7 +1008,7 @@ public final class MaterializedViewIndexGenerator {
         // Insertion order is parent-before-child, which addNestedConstituent requires.
         unnestedConstituents.values().forEach(info ->
                 builder.addConstituent(new RecordLayerUnnestedSyntheticTable.NestedConstituent(
-                        info.alias(), info.parentAlias(), info.toNestingExpression())));
+                        info.alias(), info.owningAlias(), info.toNestingExpression())));
         return builder;
     }
 

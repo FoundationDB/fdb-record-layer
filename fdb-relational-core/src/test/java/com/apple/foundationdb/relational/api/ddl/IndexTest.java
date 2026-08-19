@@ -166,8 +166,6 @@ public class IndexTest {
                 final var constituentAliases = syntheticTable.getConstituents().stream()
                         .map(RecordLayerUnnestedSyntheticTable.NestedConstituent::getAlias)
                         .collect(Collectors.toList());
-                // Every constituent must parent to the stored-record constituent or to another
-                // constituent; a dangling parent cannot be registered on an UnnestedRecordType.
                 syntheticTable.getConstituents().forEach(constituent ->
                         Assertions.assertTrue(constituent.getParentAlias().equals(syntheticTable.getAlias())
                                         || constituentAliases.contains(constituent.getParentAlias()),
@@ -178,8 +176,6 @@ public class IndexTest {
                 Assertions.assertEquals(indexType, index.getIndexType());
                 Assertions.assertEquals(expectedKey.apply(syntheticTable.getAlias(), constituentAliases),
                         KeyExpression.fromProto(index.getKeyExpression().toKeyExpression()));
-                // The metadata must actually serialize: this exercises UnnestedRecordTypeBuilder, which
-                // rejects a constituent whose parent is not itself a registered constituent.
                 final var metaData = Assert.castUnchecked(template, RecordLayerSchemaTemplate.class).toRecordMetadata();
                 Assertions.assertTrue(metaData.getSyntheticRecordTypes().containsKey(syntheticTable.getName()),
                         () -> "synthetic type '" + syntheticTable.getName() + "' missing from serialized metadata, got "
