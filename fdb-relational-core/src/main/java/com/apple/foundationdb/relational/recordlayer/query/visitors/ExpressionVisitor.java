@@ -1160,16 +1160,21 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     private Expression handleArray(@Nonnull RelationalParser.ArrayConstructorContext ctx) {
-        // Promote array elements to its non-nullable type as record layer doesn't nullable array elements.
-        final var arrayElementValues = visitExpressions(ctx.expressions()).underlying();
-        final var elements =
-                Streams.stream(arrayElementValues)
-                        .map(arrayElementValue ->
-                                Expression.fromUnderlying(
-                                        PromoteValue.inject(arrayElementValue, arrayElementValue.getResultType().notNullable())))
+        // Promote the individual array elements to their respective non-nullable types, as arrays cannot currently
+        // store NULL elements (Issue #3646). NULL literals are rejected here as UNSUPPORTED_OPERATION, as `NullType`
+        // cannot be made non-nullable.
+        final Expressions elements = visitExpressions(ctx.expressions());
+        final ImmutableList<Expression> promotedElements =
+                Streams.stream(elements.underlying())
+                        .map(value -> {
+                            final Type type = value.getResultType();
+                            Assert.thatUnchecked(!type.isNull(), ErrorCode.UNSUPPORTED_OPERATION,
+                                    "An ARRAY value cannot have NULL elements");
+                            return Expression.fromUnderlying(PromoteValue.inject(value, type.notNullable()));
+                        })
                         .collect(ImmutableList.toImmutableList());
-
-        return getDelegate().resolveFunction("__internal_array", false, elements.toArray(new Expression[0]));
+        final Expression[] array = promotedElements.toArray(new Expression[0]);
+        return getDelegate().resolveFunction("__internal_array", false, array);
     }
 
     @Nonnull

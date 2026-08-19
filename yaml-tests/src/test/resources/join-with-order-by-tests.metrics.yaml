@@ -102,12 +102,12 @@ joins-with-order-by-tests:
         AS __ROW_VERSION, q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS x,
         (q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2,
         q1.b3 AS b3) AS y) }'
-    task_count: 1312
-    task_total_time_ms: 188
-    transform_count: 351
-    transform_time_ms: 76
+    task_count: 1301
+    task_total_time_ms: 142
+    transform_count: 342
+    transform_time_ms: 58
     transform_yield_count: 122
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 169
     insert_reused_count: 8
 -   query: EXPLAIN select (y.*) from t1_f(1) as x, t2_f(1) as y where x.a3 = y.b3
@@ -118,12 +118,12 @@ joins-with-order-by-tests:
         id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q1.__ROW_VERSION
         AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS y,
         q0.a2 AS a2) } | MAP (_.y AS y)'
-    task_count: 1376
-    task_total_time_ms: 240
-    transform_count: 367
-    transform_time_ms: 71
+    task_count: 1365
+    task_total_time_ms: 140
+    transform_count: 358
+    transform_time_ms: 50
     transform_yield_count: 124
-    insert_time_ms: 12
+    insert_time_ms: 2
     insert_new_count: 173
     insert_reused_count: 8
 -   query: EXPLAIN select (x.*), (y.*) from t1_g(1) as x, t2_g(1) as y where x.a3
@@ -135,12 +135,12 @@ joins-with-order-by-tests:
         AS __ROW_VERSION, q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3, q0.a2
         AS the_a2) AS x, (q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS
         b1, q1.b2 AS b2, q1.b3 AS b3, q1.b2 AS the_b2) AS y) }'
-    task_count: 1312
-    task_total_time_ms: 233
-    transform_count: 351
-    transform_time_ms: 107
+    task_count: 1301
+    task_total_time_ms: 146
+    transform_count: 342
+    transform_time_ms: 63
     transform_yield_count: 122
-    insert_time_ms: 4
+    insert_time_ms: 2
     insert_new_count: 169
     insert_reused_count: 8
 -   query: EXPLAIN select (y.*) from t1_g(1) as x, t2_g(1) as y where x.a3 = y.b3
@@ -151,12 +151,12 @@ joins-with-order-by-tests:
         id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q1.__ROW_VERSION
         AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3, q1.b2
         AS the_b2) AS y, q0.a2 AS the_a2) } | MAP (_.y AS y)'
-    task_count: 1376
-    task_total_time_ms: 175
-    transform_count: 367
-    transform_time_ms: 74
+    task_count: 1365
+    task_total_time_ms: 123
+    transform_count: 358
+    transform_time_ms: 47
     transform_yield_count: 124
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 173
     insert_reused_count: 8
 -   query: EXPLAIN select x.a2, x.a3, y.b2, y.b3 from t1_g(1) as x, t2_g(1) as y where
@@ -167,10 +167,10 @@ joins-with-order-by-tests:
         KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN (q0.a2
         AS a2, q0.a3 AS a3, q1.b2 AS b2, q1.b3 AS b3, q0.a2 AS the_a2) } | MAP (_.a2
         AS a2, _.a3 AS a3, _.b2 AS b2, _.b3 AS b3)'
-    task_count: 1376
-    task_total_time_ms: 151
-    transform_count: 367
-    transform_time_ms: 52
+    task_count: 1365
+    task_total_time_ms: 132
+    transform_count: 358
+    transform_time_ms: 50
     transform_yield_count: 124
     insert_time_ms: 2
     insert_new_count: 173
@@ -303,12 +303,12 @@ joins-with-order-by-tests:
         AS _0) GROUP BY () | FLATMAP q0 -> { ISCAN(t3$c1_c2_c3 [EQUALS promote(@c24
         AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.c1 AS c1,
         q1.c2 AS c2, q1.c3 AS c3, q1.aRef AS aRef) }
-    task_count: 1085
-    task_total_time_ms: 55
-    transform_count: 334
-    transform_time_ms: 21
+    task_count: 1084
+    task_total_time_ms: 159
+    transform_count: 333
+    transform_time_ms: 41
     transform_yield_count: 109
-    insert_time_ms: 2
+    insert_time_ms: 3
     insert_new_count: 108
     insert_reused_count: 8
 -   query: EXPLAIN select t1.* from t1, (select max(t1.a2) as maxA2 from t1 where
@@ -318,10 +318,10 @@ joins-with-order-by-tests:
         AS _0) GROUP BY () | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c24 AS
         LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2
         AS a2, q1.a3 AS a3) }
-    task_count: 1375
-    task_total_time_ms: 182
-    transform_count: 367
-    transform_time_ms: 56
+    task_count: 1374
+    task_total_time_ms: 178
+    transform_count: 366
+    transform_time_ms: 58
     transform_yield_count: 100
     insert_time_ms: 4
     insert_new_count: 169
@@ -333,10 +333,10 @@ joins-with-order-by-tests:
         AS _0) GROUP BY () | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c18 AS
         LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2
         AS a2, q1.a3 AS a3, q0._0._0 AS maxA2) }
-    task_count: 1375
-    task_total_time_ms: 127
-    transform_count: 368
-    transform_time_ms: 38
+    task_count: 1374
+    task_total_time_ms: 192
+    transform_count: 367
+    transform_time_ms: 63
     transform_yield_count: 100
     insert_time_ms: 3
     insert_new_count: 169
@@ -348,12 +348,12 @@ joins-with-order-by-tests:
         AS _0) GROUP BY () | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c28 AS
         LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2
         AS a2, q1.a3 AS a3) }
-    task_count: 1375
-    task_total_time_ms: 136
-    transform_count: 367
-    transform_time_ms: 38
+    task_count: 1374
+    task_total_time_ms: 188
+    transform_count: 366
+    transform_time_ms: 56
     transform_yield_count: 100
-    insert_time_ms: 5
+    insert_time_ms: 4
     insert_new_count: 169
     insert_reused_count: 11
 -   query: EXPLAIN select a.* from t1 as a, (select max(a.a2) as maxA2 from a where
@@ -363,12 +363,12 @@ joins-with-order-by-tests:
         AS _0) GROUP BY () | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c26 AS
         LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2
         AS a2, q1.a3 AS a3) }
-    task_count: 1375
-    task_total_time_ms: 178
-    transform_count: 367
-    transform_time_ms: 62
+    task_count: 1374
+    task_total_time_ms: 186
+    transform_count: 366
+    transform_time_ms: 55
     transform_yield_count: 100
-    insert_time_ms: 4
+    insert_time_ms: 5
     insert_new_count: 169
     insert_reused_count: 11
 -   query: EXPLAIN select t1.* from t1, (select max(t1.a2) as maxA2 from t1 where
@@ -378,10 +378,10 @@ joins-with-order-by-tests:
         ISCAN(t1$a1 [EQUALS promote(@c24 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2)
         AS _0) GROUP BY () | ON EMPTY NULL | FILTER _._0._0 EQUALS q0.a2 AS q0 RETURN
         (q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) }
-    task_count: 1350
-    task_total_time_ms: 149
-    transform_count: 361
-    transform_time_ms: 39
+    task_count: 1349
+    task_total_time_ms: 156
+    transform_count: 360
+    transform_time_ms: 44
     transform_yield_count: 98
     insert_time_ms: 3
     insert_new_count: 162
@@ -655,12 +655,12 @@ joins-with-order-by-tests:
         AS __ROW_VERSION, q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS a,
         (q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.b1 AS b1, q0.b2 AS b2,
         q0.b3 AS b3) AS b) }
-    task_count: 2105
-    task_total_time_ms: 439
-    transform_count: 490
-    transform_time_ms: 163
+    task_count: 2094
+    task_total_time_ms: 271
+    transform_count: 481
+    transform_time_ms: 101
     transform_yield_count: 158
-    insert_time_ms: 24
+    insert_time_ms: 4
     insert_new_count: 308
     insert_reused_count: 13
 -   query: EXPLAIN select (a.*), (b.*) from t1_f(1) as a, t2_f(1) as b where a.a3
@@ -672,12 +672,12 @@ joins-with-order-by-tests:
         q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS a, (q1.__ROW_VERSION
         AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS b)
         }'
-    task_count: 1312
-    task_total_time_ms: 183
-    transform_count: 351
-    transform_time_ms: 72
+    task_count: 1301
+    task_total_time_ms: 130
+    transform_count: 342
+    transform_time_ms: 51
     transform_yield_count: 122
-    insert_time_ms: 10
+    insert_time_ms: 2
     insert_new_count: 169
     insert_reused_count: 8
 -   query: EXPLAIN select (a.*), (b.*) from t1_f(1) as a, t2_f(1) as b where a.a3
@@ -688,10 +688,10 @@ joins-with-order-by-tests:
         AS __ROW_VERSION, q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS a,
         (q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.b1 AS b1, q0.b2 AS b2,
         q0.b3 AS b3) AS b) }
-    task_count: 1297
-    task_total_time_ms: 67
-    transform_count: 353
-    transform_time_ms: 29
+    task_count: 1286
+    task_total_time_ms: 133
+    transform_count: 344
+    transform_time_ms: 52
     transform_yield_count: 122
     insert_time_ms: 2
     insert_new_count: 166

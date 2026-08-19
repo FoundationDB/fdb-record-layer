@@ -94,6 +94,9 @@ public class IndexingMerger {
                                     mergeControl.setRepartitionDocumentCount(repartitionDocumentCount);
                                     mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.NONE);
                                     mergeControl.setRepartitionCapped(false);
+                                    // Stable across this run's re-invocations and distinct per concurrent merge
+                                    // process, so a maintainer can hold a per-partition lease across transactions.
+                                    mergeControl.setMergeSessionId(common.getIndexerId());
                                     return store.getIndexMaintainer(index).mergeIndex();
                                 })
                                 .thenApply(ignore -> false)

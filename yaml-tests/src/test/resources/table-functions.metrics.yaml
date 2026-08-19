@@ -61,9 +61,9 @@ table-functions:
     explain: EXPLODE array((@c19 AS B, @c21 AS C, (@c24 AS X, promote(@c26 AS DOUBLE)
         AS Y, @c28 AS Z) AS W), (@c33 AS B, @c35 AS C, (@c38 AS X, @c40 AS Y, @c42
         AS Z) AS W)) | MAP (_.B AS B, _.C AS Q, _.W.X AS X)
-    task_count: 142
-    task_total_time_ms: 2
-    transform_count: 33
+    task_count: 141
+    task_total_time_ms: 1
+    transform_count: 32
     transform_time_ms: 0
     transform_yield_count: 8
     insert_time_ms: 0
@@ -77,14 +77,14 @@ table-functions:
         AS Y, @c28 AS Z) AS W), (@c33 AS B, @c35 AS C, (@c38 AS X, @c40 AS Y, @c42
         AS Z) AS W)) | FILTER _.B LESS_THAN @c67 | MAP (_.B AS B, _.C AS Q, _.W.X
         AS X)
-    task_count: 172
-    task_total_time_ms: 4
-    transform_count: 39
-    transform_time_ms: 1
-    transform_yield_count: 9
+    task_count: 152
+    task_total_time_ms: 2
+    transform_count: 34
+    transform_time_ms: 0
+    transform_yield_count: 8
     insert_time_ms: 0
-    insert_new_count: 17
-    insert_reused_count: 1
+    insert_new_count: 14
+    insert_reused_count: 0
 -   query: EXPLAIN select * from range(0, 11, 5)
     ref: table-functions.yamsql:97
     explain: TF range(promote(@c5 AS LONG), promote(@c7 AS LONG), STEP promote(@c9
