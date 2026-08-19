@@ -691,6 +691,90 @@ public class CollapseScenarioTest implements BaseTest {
                 .isEqualTo(0.99d);
     }
 
+    /**
+     * The dedup is membership-aware: a same-signature replica that is NOT a member of the collapsed set — a duplicate
+     * inserted after the collapse and not yet aggregated — is a distinct record and must be kept, not dropped merely
+     * because a collapsed-area reference for that signature is present. Stages a higher-priority already-collapsed
+     * replica plus a lower-priority non-member replica of the same signature (present in metadata, absent from the
+     * collapsed store), then verifies reassign keeps BOTH: the single collapsed-area reference and the distinct
+     * non-member replica.
+     */
+    @Test
+    void reassignKeepsAFreshNonMemberReplicaAlongsideACollapsedReference() throws Exception {
+        final Guardiann guardiann = newGuardiann(1_000, 20); // huge cap: the distinct inserts stay in one cluster
+        final Primitives primitives = guardiann.getLocator().primitives();
+
+        // A real, single cluster of distinct primaries, so reassign has a genuine cluster to dissolve.
+        final int numDistinctPrimaries = 10;
+        final List<PrimaryKeyAndVector> records =
+                VecsDatasetLoaders.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, numDistinctPrimaries + 1);
+        for (int i = 1; i <= numDistinctPrimaries; i++) {
+            final Tuple primaryKey = Tuple.from("distinct", i);
+            final RealVector vector = records.get(i).vector();
+            db.run(tr -> {
+                guardiann.insert(tr, primaryKey, vector, null, true).join();
+                return null;
+            });
+        }
+        GuardiannStructureAsserts.runToQuiescence(db, guardiann);
+        final UUID clusterId =
+                onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann))).clusterId();
+
+        final RealVector duplicate = duplicateVector();
+
+        // A fresh, non-collapsed duplicate replica: same content (hence same signature) but a distinct primary key and,
+        // crucially, NO collapsed-store entry — the state a duplicate inserted after a collapse leaves.
+        final Tuple freshPrimaryKey = Tuple.from("fresh-dup", 0);
+        db.run(tr -> {
+            final AccessInfo accessInfo = Objects.requireNonNull(primitives.fetchAccessInfo(tr).join());
+            final Quantizer quantizer = primitives.quantizer(accessInfo);
+            final Transformed<RealVector> transformedDuplicate =
+                    primitives.storageTransform(accessInfo).transform(duplicate);
+            final VectorMetadata freshMetadata =
+                    new VectorMetadata(freshPrimaryKey, RandomHelpers.randomUuid(freshPrimaryKey, true), null);
+            primitives.writeVectorMetadata(tr, freshMetadata);
+            primitives.writeVectorReference(tr, quantizer, clusterId,
+                    VectorReference.replicatedCopy(freshMetadata.vectorId(), transformedDuplicate, 0.5d, false));
+            return null;
+        });
+
+        // Derive the signature from the read-back reference (RaBitQ is lossy), exactly as foldCollapsedReplicas sees it.
+        final UUID signature = StorageAdapter.signatureUuid(
+                onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann)))
+                        .references().stream().filter(ref -> !ref.isPrimaryCopy() && !ref.isCollapsed())
+                        .findFirst().orElseThrow().vector());
+
+        // A HIGHER-priority already-collapsed representative for the same signature (processed first). No collapsed-
+        // store entry for (signature, Tuple.from(signature)), so it takes the collapsed short-circuit and claims S.
+        db.run(tr -> {
+            final AccessInfo accessInfo = Objects.requireNonNull(primitives.fetchAccessInfo(tr).join());
+            final Quantizer quantizer = primitives.quantizer(accessInfo);
+            final Transformed<RealVector> transformedDuplicate =
+                    primitives.storageTransform(accessInfo).transform(duplicate);
+            final VectorId collapsedReplicaId =
+                    new VectorId(Tuple.from(signature), RandomHelpers.randomUuid(Tuple.from("already-collapsed"), true));
+            primitives.writeVectorReference(tr, quantizer, clusterId,
+                    VectorReference.replicatedCopy(collapsedReplicaId, transformedDuplicate, 0.99d, true));
+            return null;
+        });
+
+        final ClusterView staged = onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann)));
+        reassignCluster(guardiann, clusterId, staged.transformedCentroid());
+
+        final ClusterView after = onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann)));
+        assertThat(after.references().stream()
+                .filter(ref -> ref.isCollapsed() && Tuple.from(signature).equals(ref.id().primaryKey()))
+                .toList())
+                .as("the collapsed-area reference is kept (exactly one)")
+                .hasSize(1);
+        assertThat(after.references().stream()
+                .filter(ref -> !ref.isPrimaryCopy() && !ref.isCollapsed()
+                        && freshPrimaryKey.equals(ref.id().primaryKey()))
+                .toList())
+                .as("a same-signature non-member replica must be kept, not dropped on signature alone")
+                .hasSize(1);
+    }
+
     // ---------------------------------------------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------------------------------------------
