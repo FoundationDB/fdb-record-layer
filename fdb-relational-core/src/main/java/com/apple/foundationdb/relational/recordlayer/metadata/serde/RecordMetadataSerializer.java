@@ -41,15 +41,12 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerUnneste
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
 import com.apple.foundationdb.relational.recordlayer.metadata.SkeletonVisitor;
 import com.apple.foundationdb.relational.util.Assert;
-import com.apple.foundationdb.relational.util.NullableArrayUtils;
 
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
 import java.util.LinkedHashMap;
 import java.util.Map;
-
-import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 
 @API(API.Status.EXPERIMENTAL)
 public class RecordMetadataSerializer extends SkeletonVisitor {
@@ -93,27 +90,20 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
             final Descriptors.Descriptor owningProto = descriptorsByAlias.get(nested.getParentAlias());
             Assert.notNullUnchecked(owningProto, "unknown parent constituent '" + nested.getParentAlias()
                     + "' for constituent '" + nested.getAlias() + "'");
-            final Descriptors.FieldDescriptor arrayField = owningProto.findFieldByName(nested.getArrayFieldStorageName());
-            Assert.notNullUnchecked(arrayField, "array field '" + nested.getArrayFieldStorageName()
-                    + "' not found on '" + owningProto.getName() + "'");
-            Assert.thatUnchecked(arrayField.getType() == Descriptors.FieldDescriptor.Type.MESSAGE,
-                    "unnested index constituent must be a struct array, scalar arrays are not supported");
-            // A nullable array is stored wrapped, as { repeated <T> values; }, so the field's message type
-            // is that wrapper rather than the element. The constituent must be the element type, and the
-            // nesting expression must step through the wrapper to reach the repeated field.
-            final Descriptors.Descriptor arrayFieldType = arrayField.getMessageType();
-            final Descriptors.Descriptor constituentDescriptor;
-            final KeyExpression nestingExpr;
-            if (NullableArrayUtils.isWrappedArrayDescriptor(arrayFieldType)) {
-                constituentDescriptor = arrayFieldType.findFieldByName(NullableArrayUtils.REPEATED_FIELD_NAME).getMessageType();
-                nestingExpr = field(nested.getArrayFieldStorageName())
-                        .nest(field(NullableArrayUtils.REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut));
-            } else {
-                constituentDescriptor = arrayFieldType;
-                nestingExpr = field(nested.getArrayFieldStorageName(), KeyExpression.FanType.FanOut);
+            // The nesting expression is carried verbatim, so the element type is found by walking the field
+            // path it navigates. That handles either array storage form — a plain repeated field, or a nullable
+            // array wrapped as { repeated T values; } — as well as any deeper nesting, without special-casing.
+            Descriptors.Descriptor constituentDescriptor = owningProto;
+            for (final String fieldName : nested.getFieldPath()) {
+                final Descriptors.FieldDescriptor arrayField = constituentDescriptor.findFieldByName(fieldName);
+                Assert.notNullUnchecked(arrayField, "array field '" + fieldName + "' not found on '"
+                        + constituentDescriptor.getName() + "'");
+                Assert.thatUnchecked(arrayField.getType() == Descriptors.FieldDescriptor.Type.MESSAGE,
+                        "unnested index constituent must be a struct array, scalar arrays are not supported");
+                constituentDescriptor = arrayField.getMessageType();
             }
             typeBuilder.addNestedConstituent(nested.getAlias(), constituentDescriptor,
-                    nested.getParentAlias(), nestingExpr);
+                    nested.getParentAlias(), nested.getNestingExpression());
             descriptorsByAlias.put(nested.getAlias(), constituentDescriptor);
         }
     }

@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.UnnestedRecordType;
-import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedMacroFunction;
@@ -226,12 +225,11 @@ public class RecordMetadataDeserializer {
             if (constituent.isParent()) {
                 continue;
             }
-            // The nesting expression is always field(arrayFieldStorageName, FanOut) — extract the field name.
-            final String arrayFieldStorageName = constituent.getNestingExpression() instanceof FieldKeyExpression fieldKey
-                    ? fieldKey.getFieldName()
-                    : constituent.getName();
+            // The nesting expression is kept as-is rather than reduced to a field name, so any shape the record
+            // layer permits survives the round trip.
             builder.addConstituent(new RecordLayerUnnestedSyntheticTable.NestedConstituent(
-                    constituent.getName(), Objects.requireNonNull(constituent.getParentName()), arrayFieldStorageName));
+                    constituent.getName(), Objects.requireNonNull(constituent.getParentName()),
+                    constituent.getNestingExpression()));
         }
 
         // Reconstruct indexes defined on this synthetic type.

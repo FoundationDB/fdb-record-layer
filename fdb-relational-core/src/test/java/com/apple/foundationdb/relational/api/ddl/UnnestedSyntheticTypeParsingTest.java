@@ -31,7 +31,6 @@ import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.recordlayer.ddl.AbstractMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerUnnestedSyntheticTable;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
@@ -139,7 +138,8 @@ public class UnnestedSyntheticTypeParsingTest {
         // One nested constituent for the unnested array, parented to the stored-record constituent.
         assertThat(syntheticTable.getConstituents().size()).isEqualTo(1);
         final var constituent = syntheticTable.getConstituents().get(0);
-        assertThat(constituent.getArrayFieldStorageName()).isEqualTo("a");
+        assertThat(constituent.getNestingExpression()).isEqualTo(
+                Key.Expressions.field("a").nest(Key.Expressions.field("values", KeyExpression.FanType.FanOut)));
         assertThat(constituent.getParentAlias()).isEqualTo(syntheticTable.getAlias());
 
         assertThat(syntheticTable.getIndexes().size()).isEqualTo(1);
@@ -239,7 +239,7 @@ public class UnnestedSyntheticTypeParsingTest {
         // One constituent per unnested array, in declaration order, all parented to the stored record.
         final var constituents = syntheticTable.getConstituents();
         assertThat(constituents.size()).isEqualTo(3);
-        assertThat(constituents.stream().map(RecordLayerUnnestedSyntheticTable.NestedConstituent::getArrayFieldStorageName)
+        assertThat(constituents.stream().map(constituent -> constituent.getFieldPath().get(0))
                 .collect(Collectors.toList()))
                 .isEqualTo(List.of("a", "b", "c"));
         constituents.forEach(c -> assertThat(c.getParentAlias()).isEqualTo(syntheticTable.getAlias()));
@@ -420,7 +420,8 @@ public class UnnestedSyntheticTypeParsingTest {
         // Only the struct array is a constituent; the scalar array is not.
         assertThat(syntheticTable.getConstituents().size()).isEqualTo(1);
         final var constituent = syntheticTable.getConstituents().get(0);
-        assertThat(constituent.getArrayFieldStorageName()).isEqualTo("a");
+        assertThat(constituent.getNestingExpression()).isEqualTo(
+                Key.Expressions.field("a").nest(Key.Expressions.field("values", KeyExpression.FanType.FanOut)));
         assertThat(constituent.getParentAlias()).isEqualTo(syntheticTable.getAlias());
 
         assertThat(syntheticTable.getIndexes().size()).isEqualTo(1);

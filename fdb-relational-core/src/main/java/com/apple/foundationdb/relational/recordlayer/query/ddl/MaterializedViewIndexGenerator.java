@@ -790,7 +790,8 @@ public final class MaterializedViewIndexGenerator {
                     final var arrayType = (Type.Array) field.getResultType();
                     if (arrayType.getElementType() instanceof Type.Record) {
                         unnestedConstituents.put(explodeCounter.get(),
-                                new NestedConstituentInfo(qun.getAlias().toString(), owningAlias, arrayFieldStorageName));
+                                new NestedConstituentInfo(qun.getAlias().toString(), owningAlias,
+                                        arrayFieldStorageName, arrayType.isNullable()));
                     } else {
                         scalarFanouts.put(explodeCounter.get(),
                                 new ScalarUnnestingInfo(owningAlias, arrayFieldStorageName, arrayType.isNullable()));
@@ -836,19 +837,36 @@ public final class MaterializedViewIndexGenerator {
     }
 
     /**
+     * Navigates from the record owning an array field to the array's elements. A nullable array is stored
+     * wrapped in a {@code { repeated T values; }} message, so the fan-out is on {@code values} in that case.
+     */
+    @Nonnull
+    private static KeyExpression arrayElementsExpression(@Nonnull final String arrayFieldStorageName,
+                                                         final boolean nullableArray) {
+        return nullableArray
+               ? field(arrayFieldStorageName).nest(field(NullableArrayUtils.REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut))
+               : field(arrayFieldStorageName, KeyExpression.FanType.FanOut);
+    }
+
+    /**
      * One nested constituent of an unnested synthetic type, as discovered from an
      * {@link ExplodeExpression} over a struct array during {@link #collectQuantifiers}.
      */
     private record NestedConstituentInfo(@Nonnull String alias,
                                          @Nonnull String parentAlias,
-                                         @Nonnull String arrayFieldStorageName) {
+                                         @Nonnull String arrayFieldStorageName,
+                                         boolean nullableArray) {
+
+        @Nonnull
+        KeyExpression toNestingExpression() {
+            return arrayElementsExpression(arrayFieldStorageName, nullableArray);
+        }
     }
 
     /**
      * An {@link ExplodeExpression} over a scalar array. Scalar arrays cannot be constituents of an
      * {@code UnnestedRecordType}, so they are expressed as a fan-out on the array field of the
-     * constituent that owns it. Nullable arrays are stored wrapped in a
-     * {@code { repeated T values; }} message, so the fan-out is on {@code values} in that case.
+     * constituent that owns it.
      */
     private record ScalarUnnestingInfo(@Nonnull String owningAlias,
                                        @Nonnull String arrayFieldStorageName,
@@ -856,9 +874,7 @@ public final class MaterializedViewIndexGenerator {
 
         @Nonnull
         KeyExpression toFanOutExpression() {
-            return nullableArray
-                   ? field(arrayFieldStorageName).nest(field(NullableArrayUtils.REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut))
-                   : field(arrayFieldStorageName, KeyExpression.FanType.FanOut);
+            return arrayElementsExpression(arrayFieldStorageName, nullableArray);
         }
     }
 
@@ -982,7 +998,7 @@ public final class MaterializedViewIndexGenerator {
         // Insertion order is parent-before-child, which addNestedConstituent requires.
         unnestedConstituents.values().forEach(info ->
                 builder.addConstituent(new RecordLayerUnnestedSyntheticTable.NestedConstituent(
-                        info.alias(), info.parentAlias(), info.arrayFieldStorageName())));
+                        info.alias(), info.parentAlias(), info.toNestingExpression())));
         return builder;
     }
 

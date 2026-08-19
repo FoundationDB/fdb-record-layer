@@ -21,6 +21,9 @@
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.relational.util.Assert;
@@ -34,13 +37,16 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * A synthetic record type that unnests a repeated/array field of a stored record type. Each
- * stored record produces one synthetic record, and the index fans out over the array elements.
+ * A synthetic record type that unnests one or more struct array fields of a stored record type. Each
+ * combination of a stored record and one element from each unnested array forms a single synthetic record,
+ * so an index key can reference several fields of the same element without fanning out over the array once
+ * per reference.
  *
- * <p>Both scalar ({@code STRING ARRAY}) and struct array types use the same underlying wrapper
- * message ({@code { repeated <element_type> values; }}) as the nested constituent descriptor.
- * The nesting expression always navigates to the wrapper with {@code FanType.None}; FanOut is
- * expressed in the index key expression.
+ * <p>Only struct arrays become constituents; a scalar array contributes at most one key column, so it stays
+ * a fan-out in the index key expression. A constituent's array lives either on the stored record or, for
+ * chained unnesting, on another constituent's element type. The nesting expression that reaches the elements
+ * carries the {@code FanOut}, and its shape follows how the array is stored: a nullable array is wrapped as
+ * {@code { repeated T values; }}, while a non-nullable one is a plain repeated field.
  */
 @API(API.Status.EXPERIMENTAL)
 public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheticTable {
@@ -105,8 +111,10 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
         }
         sb.append(" FROM \"").append(parentTableName).append("\" AS \"").append(alias).append("\"");
         for (final NestedConstituent nested : constituents) {
-            sb.append(", (SELECT * FROM \"").append(alias).append("\".\"")
-              .append(nested.getArrayFieldStorageName()).append("\") AS ").append(nested.getAlias());
+            // The array is on whichever constituent owns it, which for a chained unnesting is another
+            // nested constituent rather than the stored record.
+            sb.append(", (SELECT * FROM \"").append(nested.getParentAlias()).append("\".\"")
+              .append(String.join("\".\"", nested.getFieldPath())).append("\") AS ").append(nested.getAlias());
         }
         return sb.toString();
     }
@@ -132,14 +140,14 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
         private final String parentAlias;
 
         @Nonnull
-        private final String arrayFieldStorageName;
+        private final KeyExpression nestingExpression;
 
         public NestedConstituent(@Nonnull final String alias,
                                  @Nonnull final String parentAlias,
-                                 @Nonnull final String arrayFieldStorageName) {
+                                 @Nonnull final KeyExpression nestingExpression) {
             this.alias = alias;
             this.parentAlias = parentAlias;
-            this.arrayFieldStorageName = arrayFieldStorageName;
+            this.nestingExpression = nestingExpression;
         }
 
         /** Correlation alias of this constituent, e.g. {@code "SQ"}. */
@@ -154,10 +162,35 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
             return parentAlias;
         }
 
-        /** Proto storage name of the array field on the parent constituent. */
+        /**
+         * Expression navigating from the owning constituent's record down to this constituent's elements. This is
+         * the same expression the record layer stores and evaluates, kept verbatim so that a synthetic type read
+         * back out of {@link com.apple.foundationdb.record.RecordMetaData} round-trips exactly.
+         */
         @Nonnull
-        public String getArrayFieldStorageName() {
-            return arrayFieldStorageName;
+        public KeyExpression getNestingExpression() {
+            return nestingExpression;
+        }
+
+        /**
+         * The chain of proto field names that {@link #getNestingExpression()} walks, e.g. {@code [scores]} for a
+         * plain repeated field, or {@code [scores, values]} for a nullable array stored wrapped.
+         */
+        @Nonnull
+        public List<String> getFieldPath() {
+            final ImmutableList.Builder<String> fieldPath = ImmutableList.builder();
+            KeyExpression remaining = nestingExpression;
+            while (remaining instanceof NestingKeyExpression nesting) {
+                fieldPath.add(nesting.getParent().getFieldName());
+                remaining = nesting.getChild();
+            }
+            if (remaining instanceof FieldKeyExpression fieldKeyExpression) {
+                fieldPath.add(fieldKeyExpression.getFieldName());
+            } else {
+                throw Assert.failUnchecked("unsupported nesting expression '" + nestingExpression
+                        + "' for constituent '" + alias + "'");
+            }
+            return fieldPath.build();
         }
     }
 

@@ -1019,6 +1019,23 @@ public class IndexTest {
     }
 
     /**
+     * The same columns and the same predicate as
+     * {@link #createIndexWithPredicateOverUnnestedSyntheticTypeIsNotSupported()}, but with the two columns of
+     * {@code X} made adjacent. That is expressible as a fan-out, so no synthetic type is needed and the
+     * predicate is accepted — reordering the key alone decides whether the predicate is allowed.
+     */
+    @Test
+    void createIndexWithPredicateIsSupportedWhenUnnestingNeedsNoSyntheticType() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col2, X.col3, T1.col5 FROM T1, (SELECT col2, col3 FROM T1.A) X " +
+                "WHERE T1.col5 > 10 ORDER BY X.col2, X.col3, T1.col5";
+        indexIs(stmt, concat(field("A").nest(field("values", KeyExpression.FanType.FanOut)
+                .nest(concatenateFields("COL2", "COL3"))), field("COL5")), IndexTypes.VALUE);
+    }
+
+    /**
      * The same predicate is fine when the shape does not need a synthetic type: one column per unnesting
      * keeps the index on the stored table with a fan-out.
      */
