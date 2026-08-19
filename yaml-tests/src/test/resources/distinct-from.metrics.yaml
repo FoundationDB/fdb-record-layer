@@ -3,10 +3,10 @@ distinct-from-tests:
     ref: distinct-from.yamsql:50
     explain: 'COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 IS_DISTINCT_FROM
         NULL | FETCH'
-    task_count: 434
-    task_total_time_ms: 22
+    task_count: 432
+    task_total_time_ms: 30
     transform_count: 107
-    transform_time_ms: 7
+    transform_time_ms: 10
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 50
@@ -15,10 +15,10 @@ distinct-from-tests:
     ref: distinct-from.yamsql:54
     explain: 'COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 IS_DISTINCT_FROM
         promote(@c9 AS INT) | FETCH'
-    task_count: 450
-    task_total_time_ms: 23
+    task_count: 446
+    task_total_time_ms: 31
     transform_count: 112
-    transform_time_ms: 8
+    transform_time_ms: 11
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 54
@@ -27,10 +27,10 @@ distinct-from-tests:
     ref: distinct-from.yamsql:58
     explain: 'COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 IS_DISTINCT_FROM
         NULL | FETCH'
-    task_count: 434
-    task_total_time_ms: 21
+    task_count: 432
+    task_total_time_ms: 29
     transform_count: 107
-    transform_time_ms: 7
+    transform_time_ms: 10
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 50
@@ -39,10 +39,10 @@ distinct-from-tests:
     ref: distinct-from.yamsql:62
     explain: 'COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 IS_DISTINCT_FROM
         promote(@c5 AS INT) | FETCH'
-    task_count: 450
-    task_total_time_ms: 21
+    task_count: 446
+    task_total_time_ms: 31
     transform_count: 112
-    transform_time_ms: 7
+    transform_time_ms: 11
     transform_yield_count: 48
     insert_time_ms: 0
     insert_new_count: 54
@@ -51,8 +51,8 @@ distinct-from-tests:
     ref: distinct-from.yamsql:66
     explain: 'COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER NULL IS_DISTINCT_FROM
         NULL | FETCH'
-    task_count: 473
-    task_total_time_ms: 23
+    task_count: 471
+    task_total_time_ms: 28
     transform_count: 112
     transform_time_ms: 9
     transform_yield_count: 48
@@ -63,12 +63,12 @@ distinct-from-tests:
     ref: distinct-from.yamsql:70
     explain: 'COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER @c5 IS_DISTINCT_FROM
         @c5 | FETCH'
-    task_count: 473
-    task_total_time_ms: 5
+    task_count: 471
+    task_total_time_ms: 16
     transform_count: 112
-    transform_time_ms: 2
+    transform_time_ms: 6
     transform_yield_count: 48
-    insert_time_ms: 0
+    insert_time_ms: 3
     insert_new_count: 56
     insert_reused_count: 6
 not-distinct-from-tests:
@@ -76,10 +76,10 @@ not-distinct-from-tests:
     ref: distinct-from.yamsql:79
     explain: 'COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 NOT_DISTINCT_FROM
         NULL | FETCH'
-    task_count: 434
-    task_total_time_ms: 21
+    task_count: 432
+    task_total_time_ms: 30
     transform_count: 106
-    transform_time_ms: 7
+    transform_time_ms: 11
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 50
@@ -88,22 +88,22 @@ not-distinct-from-tests:
     ref: distinct-from.yamsql:83
     explain: 'COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 NOT_DISTINCT_FROM
         promote(@c10 AS INT) | FETCH'
-    task_count: 450
-    task_total_time_ms: 23
+    task_count: 446
+    task_total_time_ms: 32
     transform_count: 111
-    transform_time_ms: 8
+    transform_time_ms: 11
     transform_yield_count: 48
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 54
     insert_reused_count: 5
 -   query: EXPLAIN select * from t1 WHERE null is not distinct from col2
     ref: distinct-from.yamsql:87
     explain: 'COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 NOT_DISTINCT_FROM
         NULL | FETCH'
-    task_count: 434
-    task_total_time_ms: 22
+    task_count: 432
+    task_total_time_ms: 28
     transform_count: 106
-    transform_time_ms: 7
+    transform_time_ms: 10
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 50
@@ -112,12 +112,12 @@ not-distinct-from-tests:
     ref: distinct-from.yamsql:91
     explain: 'COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 NOT_DISTINCT_FROM
         promote(@c5 AS INT) | FETCH'
-    task_count: 450
-    task_total_time_ms: 23
+    task_count: 446
+    task_total_time_ms: 32
     transform_count: 111
-    transform_time_ms: 8
+    transform_time_ms: 11
     transform_yield_count: 48
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 54
     insert_reused_count: 5
 -   query: EXPLAIN select count(*) from t1 WHERE null is not distinct from null
@@ -125,10 +125,10 @@ not-distinct-from-tests:
     explain: 'AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER NULL NOT_DISTINCT_FROM
         NULL | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS
         _0)'
-    task_count: 844
-    task_total_time_ms: 47
+    task_count: 840
+    task_total_time_ms: 54
     transform_count: 206
-    transform_time_ms: 14
+    transform_time_ms: 20
     transform_yield_count: 60
     insert_time_ms: 1
     insert_new_count: 93
@@ -137,11 +137,11 @@ not-distinct-from-tests:
     ref: distinct-from.yamsql:99
     explain: 'AISCAN(CNT <,> BY_GROUP -> [_0: VALUE:[0]]) | FILTER @c8 NOT_DISTINCT_FROM
         @c8 | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)'
-    task_count: 844
-    task_total_time_ms: 23
+    task_count: 840
+    task_total_time_ms: 42
     transform_count: 206
-    transform_time_ms: 9
+    transform_time_ms: 13
     transform_yield_count: 60
-    insert_time_ms: 0
+    insert_time_ms: 3
     insert_new_count: 93
     insert_reused_count: 5

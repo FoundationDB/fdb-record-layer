@@ -7,12 +7,12 @@ guardiann-semantic-search-tests:
     explain: 'ISCAN(DOCUMENTSGUARDIANNINDEX [EQUALS promote(@c16 AS STRING), EQUALS
         promote(@c20 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c44}:[] BY_DISTANCE)
         | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS DISTANCE)'
-    task_count: 203
-    task_total_time_ms: 95
+    task_count: 199
+    task_total_time_ms: 6
     transform_count: 62
-    transform_time_ms: 67
+    transform_time_ms: 4
     transform_yield_count: 22
-    insert_time_ms: 4
+    insert_time_ms: 0
     insert_new_count: 17
     insert_reused_count: 1
 -   query: EXPLAIN select docId, euclidean_distance(embedding, ?) as distance from
@@ -23,12 +23,12 @@ guardiann-semantic-search-tests:
     explain: 'ISCAN(DOCUMENTSGUARDIANNINDEX [EQUALS promote(@c16 AS STRING), EQUALS
         promote(@c20 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c44}:[] BY_DISTANCE)
         | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS DISTANCE)'
-    task_count: 203
-    task_total_time_ms: 95
+    task_count: 199
+    task_total_time_ms: 6
     transform_count: 62
-    transform_time_ms: 67
+    transform_time_ms: 4
     transform_yield_count: 22
-    insert_time_ms: 4
+    insert_time_ms: 0
     insert_new_count: 17
     insert_reused_count: 1
 -   query: EXPLAIN select docId from documents where zone = 'zone1' and bookshelf
@@ -38,10 +38,10 @@ guardiann-semantic-search-tests:
     explain: 'ISCAN(DOCUMENTSGUARDIANNINDEX [EQUALS promote(@c7 AS STRING), EQUALS
         promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c35}:[]
         BY_DISTANCE) | MAP (_.DOCID AS DOCID)'
-    task_count: 203
-    task_total_time_ms: 22
+    task_count: 199
+    task_total_time_ms: 5
     transform_count: 62
-    transform_time_ms: 13
+    transform_time_ms: 3
     transform_yield_count: 22
     insert_time_ms: 0
     insert_new_count: 17

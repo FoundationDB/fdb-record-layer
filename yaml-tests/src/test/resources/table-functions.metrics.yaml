@@ -5,7 +5,7 @@ table-functions:
     explain: EXPLODE array((@c5 AS B, @c7 AS C, (@c10 AS X, promote(@c12 AS DOUBLE)
         AS Y, @c14 AS Z) AS W), (@c19 AS B, @c21 AS C, (@c24 AS X, @c26 AS Y, @c28
         AS Z) AS W))
-    task_count: 110
+    task_count: 108
     task_total_time_ms: 0
     transform_count: 29
     transform_time_ms: 0
@@ -19,8 +19,8 @@ table-functions:
     explain: EXPLODE array((@c9 AS B, @c11 AS C, (@c14 AS X, promote(@c16 AS DOUBLE)
         AS Y, @c18 AS Z) AS W), (@c23 AS B, @c25 AS C, (@c28 AS X, @c30 AS Y, @c32
         AS Z) AS W)) | MAP (_.B AS B, _.C AS C, _.W AS W)
-    task_count: 116
-    task_total_time_ms: 0
+    task_count: 114
+    task_total_time_ms: 1
     transform_count: 27
     transform_time_ms: 0
     transform_yield_count: 6
@@ -33,8 +33,8 @@ table-functions:
     explain: EXPLODE array((@c11 AS B, @c13 AS C, (@c16 AS X, promote(@c18 AS DOUBLE)
         AS Y, @c20 AS Z) AS W), (@c25 AS B, @c27 AS C, (@c30 AS X, @c32 AS Y, @c34
         AS Z) AS W)) | MAP (_.B AS B, _.C AS C, _.W AS W)
-    task_count: 116
-    task_total_time_ms: 0
+    task_count: 114
+    task_total_time_ms: 1
     transform_count: 27
     transform_time_ms: 0
     transform_yield_count: 6
@@ -47,8 +47,8 @@ table-functions:
     explain: EXPLODE array((@c15 AS B, @c17 AS C, (@c20 AS X, promote(@c22 AS DOUBLE)
         AS Y, @c24 AS Z) AS W), (@c29 AS B, @c31 AS C, (@c34 AS X, @c36 AS Y, @c38
         AS Z) AS W)) | MAP (_.B AS B, _.C AS Q, _.W.X AS X)
-    task_count: 116
-    task_total_time_ms: 0
+    task_count: 114
+    task_total_time_ms: 1
     transform_count: 27
     transform_time_ms: 0
     transform_yield_count: 6
@@ -61,7 +61,7 @@ table-functions:
     explain: EXPLODE array((@c19 AS B, @c21 AS C, (@c24 AS X, promote(@c26 AS DOUBLE)
         AS Y, @c28 AS Z) AS W), (@c33 AS B, @c35 AS C, (@c38 AS X, @c40 AS Y, @c42
         AS Z) AS W)) | MAP (_.B AS B, _.C AS Q, _.W.X AS X)
-    task_count: 141
+    task_count: 137
     task_total_time_ms: 1
     transform_count: 32
     transform_time_ms: 0
@@ -77,10 +77,10 @@ table-functions:
         AS Y, @c28 AS Z) AS W), (@c33 AS B, @c35 AS C, (@c38 AS X, @c40 AS Y, @c42
         AS Z) AS W)) | FILTER _.B LESS_THAN @c67 | MAP (_.B AS B, _.C AS Q, _.W.X
         AS X)
-    task_count: 152
-    task_total_time_ms: 2
+    task_count: 148
+    task_total_time_ms: 3
     transform_count: 34
-    transform_time_ms: 0
+    transform_time_ms: 1
     transform_yield_count: 8
     insert_time_ms: 0
     insert_new_count: 14
@@ -89,7 +89,7 @@ table-functions:
     ref: table-functions.yamsql:97
     explain: TF range(promote(@c5 AS LONG), promote(@c7 AS LONG), STEP promote(@c9
         AS LONG))
-    task_count: 110
+    task_count: 108
     task_total_time_ms: 0
     transform_count: 29
     transform_time_ms: 0
@@ -101,7 +101,7 @@ table-functions:
     ref: table-functions.yamsql:101
     explain: TF range(promote(@c5 - @c5 AS LONG), promote(@c9 + @c5 + @c13 AS LONG),
         STEP promote(@c15 - @c17 AS LONG))
-    task_count: 110
+    task_count: 108
     task_total_time_ms: 0
     transform_count: 29
     transform_time_ms: 0
@@ -112,8 +112,8 @@ table-functions:
 -   query: EXPLAIN select ID as X from range(3) as Y
     ref: table-functions.yamsql:105
     explain: TF range(0l, promote(@c7 AS LONG), STEP 1l) | MAP (_.ID AS X)
-    task_count: 116
-    task_total_time_ms: 0
+    task_count: 114
+    task_total_time_ms: 1
     transform_count: 27
     transform_time_ms: 0
     transform_yield_count: 6
@@ -124,8 +124,8 @@ table-functions:
     ref: table-functions.yamsql:109
     explain: TF range(0l, promote(@c15 AS LONG), STEP 1l) | FLATMAP q0 -> { TF range(0l,
         promote(@c22 AS LONG), STEP 1l) AS q1 RETURN (q0.ID AS A, q1.ID AS B) }
-    task_count: 157
-    task_total_time_ms: 3
+    task_count: 155
+    task_total_time_ms: 2
     transform_count: 40
     transform_time_ms: 0
     transform_yield_count: 10
@@ -137,8 +137,8 @@ table-functions:
     ref: table-functions.yamsql:124
     explain: SCAN([IS T1]) | FLATMAP q0 -> { TF range(0l, q0.ID, STEP 1l) AS q1 RETURN
         (q0.ID AS X, q0.COL1 AS Y, q1.ID AS Z) }
-    task_count: 160
-    task_total_time_ms: 5
+    task_count: 158
+    task_total_time_ms: 4
     transform_count: 46
     transform_time_ms: 2
     transform_yield_count: 13
