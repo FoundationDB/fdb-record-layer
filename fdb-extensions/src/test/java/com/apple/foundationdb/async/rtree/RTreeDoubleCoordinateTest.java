@@ -63,6 +63,14 @@ class RTreeDoubleCoordinateTest {
     }
 
     @Test
+    void areaOfMultiDimensionalRectangleWithSubUnitDimensionIsNonZero() {
+        // 2D [0.0, 100.0] x [0.0, 0.5]. Truncating each dimension to BigInteger before multiplication
+        // would collapse the 0.5-wide dimension to 0 and zero the whole product; the correct area is 50.
+        final RTree.Rectangle rectangle = new RTree.Rectangle(Tuple.from(0.0, 0.0, 100.0, 0.5));
+        Assertions.assertThat(rectangle.area()).isEqualTo(BigInteger.valueOf(50));
+    }
+
+    @Test
     void plotStringOfDoubleRectangleIsNotTruncated() {
         final RTree.Rectangle rectangle = new RTree.Rectangle(Tuple.from(1.5, 2.5));
         Assertions.assertThat(rectangle.toPlotString()).isEqualTo("1.5,2.5");

@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsGeoProto;
@@ -60,6 +61,7 @@ import java.util.stream.Collectors;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Round-trip tests for {@link GeospatialRTreeIndexMaintainer} against a live FDB: records are indexed, then a
@@ -186,6 +188,30 @@ class GeospatialRTreeIndexTest extends FDBRecordStoreQueryTestBase {
         // A circle centered on the antimeridian must reach points on both sides of the ±180 seam.
         final Set<Long> ids = scanIds(UNGROUPED_HOOK, UNGROUPED_INDEX, TupleRange.ALL, 0.0, 180.0, 100_000.0);
         assertThat(ids).containsExactlyInAnyOrder(300L, 301L);
+    }
+
+    @Test
+    void saveWithNonNumericCoordinateThrowsRecordCoreArgumentException() throws Exception {
+        // A misconfigured index that pulls a String field into a coordinate position must surface a diagnostic
+        // exception rather than a raw ClassCastException from the internal Number cast.
+        final RecordMetaDataHook badTypeHook = metaData ->
+                metaData.addIndex("City", new Index("cityLocationBadType",
+                        concat(field("name"), field("location").nest(field("longitude"))),
+                        IndexTypes.GEOSPATIAL_RTREE, SMALL_NODE_OPTIONS));
+
+        final TestRecordsGeoProto.City.Builder builder =
+                TestRecordsGeoProto.City.newBuilder().setGeoNameId(1).setCountry("X").setName("not-a-number");
+        builder.getLocationBuilder().setLatitude(0.0).setLongitude(0.0);
+        final TestRecordsGeoProto.City record = builder.build();
+
+        assertThatThrownBy(() -> {
+            try (FDBRecordContext context = openContext()) {
+                openRecordStore(context, badTypeHook);
+                recordStore.saveRecord(record);
+                commit(context);
+            }
+        }).isInstanceOf(RecordCoreArgumentException.class)
+                .hasMessageContaining("geospatial coordinate must be numeric");
     }
 
     @Test
