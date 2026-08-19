@@ -122,6 +122,18 @@ class GeospatialRTreeScanBoundsTest {
     }
 
     @Test
+    void nonPositiveRadiusMatchesExactCenterOnly() {
+        // A non-positive radius must degenerate to the exact center in the exact haversine filter, matching the
+        // MBR-pruning path which independently clamps to zero.
+        for (final double radius : new double[] {0.0, -1.0, -1_000.0}) {
+            final GeospatialRTreeScanBounds bounds =
+                    GeospatialRTreeScanBounds.withinDistance(TupleRange.ALL, 37.4223878, -122.0841877, radius, SCALE);
+            assertThat(bounds.containsPosition(point(37.4223878, -122.0841877))).isTrue();
+            assertThat(bounds.containsPosition(point(37.4223879, -122.0841877))).isFalse();
+        }
+    }
+
+    @Test
     void withinDistanceRejectsOutOfRangeLatitude() {
         assertThatThrownBy(() -> GeospatialRTreeScanBounds.withinDistance(TupleRange.ALL, 91.0, 0.0, 1000.0, SCALE))
                 .isInstanceOf(RecordCoreArgumentException.class);
