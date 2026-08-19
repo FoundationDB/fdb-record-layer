@@ -2320,25 +2320,26 @@ public class RTree {
 
         @Nonnull
         public BigInteger area() {
-            BigInteger currentArea = BigInteger.ONE;
+            BigDecimal currentArea = BigDecimal.ONE;
             for (int d = 0; d < getNumDimensions(); d++) {
                 currentArea = currentArea.multiply(dimensionLength(d));
             }
-            return currentArea;
+            return currentArea.toBigInteger();
         }
 
         /**
-         * Length of this rectangle along one dimension, rounding {@code double} bounds via {@link BigDecimal}
-         * rather than truncating them through {@link Number#longValue()}.
+         * Length of this rectangle along one dimension, kept as a {@link BigDecimal} so fractional
+         * {@code double} widths survive until combined with the other dimensions in {@link #area()};
+         * truncating per-dimension would zero the product whenever any single width is less than 1.
          */
         @Nonnull
-        private BigInteger dimensionLength(final int dimension) {
+        private BigDecimal dimensionLength(final int dimension) {
             final Number high = (Number)getHigh(dimension);
             final Number low = (Number)getLow(dimension);
             if (high instanceof Double || low instanceof Double) {
-                return BigDecimal.valueOf(high.doubleValue()).subtract(BigDecimal.valueOf(low.doubleValue())).toBigInteger();
+                return BigDecimal.valueOf(high.doubleValue()).subtract(BigDecimal.valueOf(low.doubleValue()));
             }
-            return BigInteger.valueOf(high.longValue() - low.longValue());
+            return BigDecimal.valueOf(high.longValue() - low.longValue());
         }
 
         @Nonnull
