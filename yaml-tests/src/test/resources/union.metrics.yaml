@@ -8,10 +8,10 @@ union-tests:
         AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1,
         0l) AS B) | MAP (_ AS _0) | AGG (sum_l(_._0.A) AS _0, sum_l(_._0.B) AS _1)
         GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS A, _._0._1 AS B)
-    task_count: 739
-    task_total_time_ms: 18
+    task_count: 727
+    task_total_time_ms: 39
     transform_count: 180
-    transform_time_ms: 5
+    transform_time_ms: 8
     transform_yield_count: 53
     insert_time_ms: 0
     insert_new_count: 70
@@ -24,12 +24,12 @@ union-tests:
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (promote(coalesce_long(_._0._0, 0l)
         AS LONG) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
-    task_count: 784
-    task_total_time_ms: 64
+    task_count: 768
+    task_total_time_ms: 34
     transform_count: 211
-    transform_time_ms: 24
+    transform_time_ms: 12
     transform_yield_count: 57
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 69
     insert_reused_count: 3
 -   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t3 union all
@@ -41,10 +41,10 @@ union-tests:
         BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0) | MAP (_ AS
         _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0
         AS S)'
-    task_count: 848
-    task_total_time_ms: 54
+    task_count: 834
+    task_total_time_ms: 50
     transform_count: 211
-    transform_time_ms: 17
+    transform_time_ms: 15
     transform_yield_count: 65
     insert_time_ms: 1
     insert_new_count: 82
@@ -57,11 +57,11 @@ union-tests:
         [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         0l) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () | ON EMPTY
         NULL | MAP (_._0._0 AS S)'
-    task_count: 830
-    task_total_time_ms: 28
+    task_count: 816
+    task_total_time_ms: 45
     transform_count: 219
-    transform_time_ms: 11
+    transform_time_ms: 15
     transform_yield_count: 62
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 74
     insert_reused_count: 6

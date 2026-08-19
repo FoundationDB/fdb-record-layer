@@ -5,8 +5,8 @@ standard-tests-metadata:
     explain: SCAN([EQUALS promote(@c22 AS LONG)]) | TFILTER T1 | MAP (_ AS _0) | AGG
         (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         0l) AS _0)
-    task_count: 396
-    task_total_time_ms: 21
+    task_count: 386
+    task_total_time_ms: 19
     transform_count: 95
     transform_time_ms: 2
     transform_yield_count: 25

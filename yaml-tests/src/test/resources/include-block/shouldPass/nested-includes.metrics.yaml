@@ -4,10 +4,10 @@ transactions-tests:
     - create temporary function t2() on commit drop function AS SELECT * FROM t1;
     ref: nested-includes.yamsql:25 > include-with-include.yamsql:35
     explain: SCAN([IS T1])
-    task_count: 165
-    task_total_time_ms: 17
+    task_count: 161
+    task_total_time_ms: 13
     transform_count: 47
-    transform_time_ms: 6
+    transform_time_ms: 5
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 14
@@ -18,8 +18,8 @@ transactions-tests:
         id < 50;
     ref: nested-includes.yamsql:25 > include-with-include.yamsql:45
     explain: SCAN([IS T1, [LESS_THAN promote(@cT218 AS LONG)]])
-    task_count: 185
-    task_total_time_ms: 20
+    task_count: 181
+    task_total_time_ms: 15
     transform_count: 50
     transform_time_ms: 6
     transform_yield_count: 17
@@ -28,22 +28,22 @@ transactions-tests:
     insert_reused_count: 1
 -   query: EXPLAIN select * from t1 where id < 50
     ref: nested-includes.yamsql:25 > include-with-include.yamsql:47 > include-with-a-test-block.yamsql:29
-    explain: SCAN([IS T1, [LESS_THAN promote(@c8 AS LONG)]])
-    task_count: 160
+    explain: SCAN([IS T1, [LESS_THAN promote(@c7 AS LONG)]])
+    task_count: 158
     task_total_time_ms: 12
     transform_count: 45
-    transform_time_ms: 4
+    transform_time_ms: 6
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 13
     insert_reused_count: 1
 -   query: EXPLAIN select * from t1 where id < 50
     ref: nested-includes.yamsql:28 > include-with-a-test-block.yamsql:29
-    explain: SCAN([IS T1, [LESS_THAN promote(@c8 AS LONG)]])
-    task_count: 160
+    explain: SCAN([IS T1, [LESS_THAN promote(@c7 AS LONG)]])
+    task_count: 158
     task_total_time_ms: 12
     transform_count: 45
-    transform_time_ms: 4
+    transform_time_ms: 6
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 13
