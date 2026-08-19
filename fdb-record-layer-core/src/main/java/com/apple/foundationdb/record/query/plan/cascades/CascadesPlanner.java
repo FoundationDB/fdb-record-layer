@@ -787,7 +787,7 @@ public class CascadesPlanner implements QueryPlanner {
     /**
      * Abstract base class for all tasks that have a <em>current</em> (group, expression).
      */
-    private abstract static class ExploreTask implements Task {
+    private abstract class ExploreTask implements Task {
         @Nonnull
         private final PlannerPhase plannerPhase;
         @Nonnull
@@ -817,6 +817,48 @@ public class CascadesPlanner implements QueryPlanner {
         @Nonnull
         public RelationalExpression getExpression() {
             return expression;
+        }
+
+        /**
+         * Returns whether the given rule is worth trying for the current (group, expression) pair. By default every
+         * rule is, subclasses that can prove that applying a rule cannot make progress override this.
+         * @param rule the rule in question
+         * @return {@code true} if a task should be pushed for the given rule
+         */
+        protected boolean shouldPushRule(@Nonnull CascadesRule<?> rule) {
+            return true;
+        }
+
+        /**
+         * Pushes a task that transforms the current group/expression pair using the given rule, if that rule is
+         * currently enabled and worth trying according to {@link #shouldPushRule}. For an ordinary rule, pushes a
+         * {@link TransformExpression} task. For a {@link ConditionalCascadesRule}, pushes a single
+         * {@link ConditionalTransformExpression} task holding the subset of inner rules that are enabled and worth
+         * trying; if that subset is empty, no task is pushed.
+         */
+        @VisibleForTesting
+        void pushTransformExpressionIfNeeded(@Nonnull CascadesRule<? extends RelationalExpression> rule) {
+            if (!configuration.isRuleEnabled(rule) || !shouldPushRule(rule)) {
+                return;
+            }
+            final PlannerPhase phase = getPlannerPhase();
+            final Reference currentGroup = getGroup();
+            final RelationalExpression currentExpression = getExpression();
+            if (rule instanceof final ConditionalCascadesRule<?, ?> conditionalRule) {
+                // Check `shouldPushRule()` and `isRuleEnabled()` for each inner rule as well (rather than just the
+                // wrapper) so that on re-exploration only the inner rules that are actually sensitive to a newly-stale
+                // constraint get another chance to fire, instead of unconditionally restarting the whole chain from the
+                // first rule.
+                final var rules = conditionalRule.getRules().stream()
+                        .filter(innerRule ->
+                                configuration.isRuleEnabled(innerRule) && shouldPushRule(innerRule))
+                        .collect(ImmutableList.toImmutableList());
+                if (!rules.isEmpty()) {
+                    taskStack.push(new ConditionalTransformExpression(phase, currentGroup, currentExpression, rules));
+                }
+            } else {
+                taskStack.push(new TransformExpression(phase, currentGroup, currentExpression, rule));
+            }
         }
     }
 
@@ -854,7 +896,7 @@ public class CascadesPlanner implements QueryPlanner {
             // right here to determine the set of all possible rules that could ever be applied here, regardless of
             // what happens towards the leaves of the tree.
             ruleSet.getRules(expression)
-                    .filter(rule -> !(rule instanceof PreOrderRule))
+                    .filter(rule -> !(rule instanceof PreOrderRule) && !rule.onlyOnPrunedInputs())
                     .forEach(this::pushTransformExpressionIfNeeded);
 
             // Push `ExploreGroup` tasks for all groups this expression ranges over.
@@ -864,48 +906,14 @@ public class CascadesPlanner implements QueryPlanner {
 
             // Push `TransformExpression` tasks for pre-order rules.
             ruleSet.getRules(expression)
-                    .filter(rule -> rule instanceof PreOrderRule)
+                    .filter(rule -> rule instanceof PreOrderRule && !rule.onlyOnPrunedInputs())
                     .forEach(this::pushTransformExpressionIfNeeded);
 
             return true;
         }
 
-        protected abstract boolean shouldPushRule(@Nonnull CascadesRule<?> rule);
-
-        /**
-         * Pushes a task that transforms the current group/expression pair using the given rule, if that rule is
-         * currently enabled and worth trying according to {@link #shouldPushRule}. For an ordinary rule, pushes a
-         * {@link TransformExpression} task. For a {@link ConditionalCascadesRule}, pushes a single
-         * {@link ConditionalTransformExpression} task holding the subset of inner rules that are enabled and worth
-         * trying; if that subset is empty, no task is pushed.
-         */
-        @VisibleForTesting
-        void pushTransformExpressionIfNeeded(@Nonnull CascadesRule<? extends RelationalExpression> rule) {
-            if (!configuration.isRuleEnabled(rule) || !shouldPushRule(rule) || rule.onlyOnPrunedInputs()) {
-                return;
-            }
-            final PlannerPhase phase = getPlannerPhase();
-            final Reference group = getGroup();
-            final RelationalExpression expression = getExpression();
-            if (rule instanceof final ConditionalCascadesRule<?, ?> conditionalRule) {
-                // Check `shouldPushRule()` and `isRuleEnabled()` for each inner rule as well (rather than just the
-                // wrapper) so that on re-exploration only the inner rules that are actually sensitive to a newly-stale
-                // constraint get another chance to fire, instead of unconditionally restarting the whole chain from the
-                // first rule.
-                final var rules = conditionalRule.getRules().stream()
-                        .filter(innerRule ->
-                                configuration.isRuleEnabled(innerRule) && shouldPushRule(innerRule))
-                        .collect(ImmutableList.toImmutableList());
-                if (!rules.isEmpty()) {
-                    taskStack.push(new ConditionalTransformExpression(phase, group, expression, rules));
-                }
-            } else {
-                taskStack.push(new TransformExpression(phase, group, expression, rule));
-            }
-        }
-
         private void pushTransformMatchPartitionIfNeeded(AbstractCascadesRule<? extends MatchPartition> rule) {
-            if (!configuration.isRuleEnabled(rule) || !shouldPushRule(rule) || rule.onlyOnPrunedInputs()) {
+            if (!configuration.isRuleEnabled(rule) || !shouldPushRule(rule)) {
                 return;
             }
             taskStack.push(new TransformMatchPartition(getPlannerPhase(), getGroup(), getExpression(), rule));
@@ -978,11 +986,6 @@ public class CascadesPlanner implements QueryPlanner {
                                  @Nonnull final Reference group,
                                  @Nonnull final RelationalExpression expression) {
             super(plannerPhase, group, expression);
-        }
-
-        @Override
-        protected boolean shouldPushRule(@Nonnull final CascadesRule<?> rule) {
-            return true;
         }
     }
 
@@ -1336,96 +1339,65 @@ public class CascadesPlanner implements QueryPlanner {
     }
 
     /**
-     * Optimize Inputs Task. This task is only used for expressions that are {@link RecordQueryPlan} which are
-     * physical operators. If the current expression is a {@link RecordQueryPlan} all expressions that are considered
-     * children and/or descendants must also be of type {@link RecordQueryPlan}. At that moment we know that exploration
-     * is done, and we can optimize the children (that is we can now prune the plan space of the children).
+     * Optimize Inputs Task. This task is pushed for a (group, expression) pair together with the task that explores
+     * that expression, and it runs once the exploration of the expression has drained. At that moment, we know that
+     * exploration is done, and we can optimize the children.
+     * <br>
+     * Besides pushing an {@link OptimizeGroup} for each ranged over group, this task also schedules the rules that must
+     * only be applied to already-pruned inputs, that is the rules for which
+     * {@link CascadesRule#onlyOnPrunedInputs()} is {@code true}. By the time such a rule is applied, every child
+     * reference has therefore been pruned to its cheapest final expression by the cost model.
      * Simplified push/execute overview:
      * <pre>
      * {@link OptimizeInputs}
      *     pushes
+     *         all transformations ({@link TransformExpression}) for the current (group, expression) whose rule
+     *             declares {@link CascadesRule#onlyOnPrunedInputs()}
      *         {@link OptimizeGroup} for all ranged over groups
      * </pre>
      */
-    private class OptimizeInputs implements Task {
-        @Nonnull
-        private final PlannerPhase plannerPhase;
-        @Nonnull
-        private final Reference group;
-        @Nonnull
-        private final RelationalExpression expression;
+    private class OptimizeInputs extends ExploreTask {
         private final boolean forceExploration;
 
         public OptimizeInputs(@Nonnull final PlannerPhase plannerPhase,
                               @Nonnull final Reference group,
                               @Nonnull final RelationalExpression expression,
                               boolean forceExploration) {
-            this.plannerPhase = plannerPhase;
-            this.group = group;
-            this.expression = expression;
+            super(plannerPhase, group, expression);
             this.forceExploration = forceExploration;
-        }
-
-        @Nonnull
-        @Override
-        public PlannerPhase getPlannerPhase() {
-            return plannerPhase;
         }
 
         @Override
         public boolean execute() {
-            if (!group.containsExactly(expression)) {
+            if (!getGroup().containsExactly(getExpression())) {
                 return false;
             }
 
             // Push the TransformExpression tasks for OnPrunedInputsRule strictly after the inputs (children) have
             // been pruned by the cost-model.
-            getPlannerPhase().getRuleSet().getRules(expression)
+            getPlannerPhase().getRuleSet().getRules(getExpression())
                     .filter(CascadesRule::onlyOnPrunedInputs)
-                    .forEach(this::pushTransformExpressionForOnPrunedInputsRuleIfNeeded);
-            for (final Quantifier quantifier : expression.getQuantifiers()) {
+                    .forEach(this::pushTransformExpressionIfNeeded);
+            for (final Quantifier quantifier : getExpression().getQuantifiers()) {
                 final Reference rangesOver = quantifier.getRangesOver();
-                taskStack.push(new OptimizeGroup(plannerPhase, rangesOver));
+                taskStack.push(new OptimizeGroup(getPlannerPhase(), rangesOver));
             }
             return true;
         }
 
-        private void pushTransformExpressionForOnPrunedInputsRuleIfNeeded(
-                @Nonnull CascadesRule<? extends RelationalExpression> rule) {
-            if (!(configuration.isRuleEnabled(rule) && shouldPushRule(rule))) {
-                return;
-            }
-            final PlannerPhase phase = getPlannerPhase();
-            if (rule instanceof final ConditionalCascadesRule<?, ?> conditionalRule) {
-                // Check `shouldPushRule()` and `isRuleEnabled()` for each inner rule as well (rather than just the
-                // wrapper) so that on re-exploration only the inner rules that are actually sensitive to a newly-stale
-                // constraint get another chance to fire, instead of unconditionally restarting the whole chain from the
-                // first rule.
-                final var rules = conditionalRule.getRules().stream()
-                        .filter(innerRule ->
-                                configuration.isRuleEnabled(innerRule) && shouldPushRule(innerRule))
-                        .collect(ImmutableList.toImmutableList());
-
-                if (!rules.isEmpty()) {
-                    taskStack.push(new ConditionalTransformExpression(phase, group, expression, rules));
-                }
-            } else {
-                taskStack.push(new TransformExpression(phase, group, expression, rule));
-            }
-        }
-
-        private boolean shouldPushRule(@Nonnull CascadesRule<?> rule) {
-            return forceExploration || ruleIsApplicable(group, rule);
+        @Override
+        protected boolean shouldPushRule(@Nonnull CascadesRule<?> rule) {
+            return forceExploration || ruleIsApplicable(getGroup(), rule);
         }
 
         @Override
         public PlannerEvent toTaskEvent(final Location location) {
-            return new OptimizeInputsPlannerEvent(plannerPhase, currentRoot, taskStack, location, group, expression);
+            return new OptimizeInputsPlannerEvent(getPlannerPhase(), currentRoot, taskStack, location, getGroup(), getExpression());
         }
 
         @Override
         public String toString() {
-            return "OptimizeInputs(" + group + ")";
+            return "OptimizeInputs(" + getGroup() + ")";
         }
     }
 }
