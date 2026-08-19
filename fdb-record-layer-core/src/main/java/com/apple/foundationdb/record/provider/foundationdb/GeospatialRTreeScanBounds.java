@@ -80,9 +80,9 @@ public class GeospatialRTreeScanBounds implements IndexScanBounds {
         this.suffixRange = suffixRange;
         this.centerLatitude = centerLatitude;
         this.centerLongitude = normalizeLongitude(centerLongitude);
-        this.radiusMeters = radiusMeters;
+        this.radiusMeters = Math.max(0.0, radiusMeters);
         this.scale = scale;
-        this.rectangles = computeRectangles(this.centerLatitude, this.centerLongitude, radiusMeters, scale);
+        this.rectangles = computeRectangles(this.centerLatitude, this.centerLongitude, this.radiusMeters, scale);
     }
 
     /**
@@ -225,7 +225,7 @@ public class GeospatialRTreeScanBounds implements IndexScanBounds {
                                                           final double centerLongitude,
                                                           final double radiusMeters,
                                                           final long scale) {
-        final double angularRadius = Math.max(0.0, radiusMeters) / EARTH_RADIUS_METERS;
+        final double angularRadius = radiusMeters / EARTH_RADIUS_METERS;
         final double deltaLatitudeDegrees = Math.toDegrees(angularRadius);
         double lowLatitude = centerLatitude - deltaLatitudeDegrees;
         double highLatitude = centerLatitude + deltaLatitudeDegrees;

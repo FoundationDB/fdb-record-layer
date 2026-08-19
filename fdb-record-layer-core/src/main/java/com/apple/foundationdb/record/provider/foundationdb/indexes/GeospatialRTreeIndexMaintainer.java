@@ -26,10 +26,12 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.rtree.RTree;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.GeospatialRTreeScanBounds;
@@ -139,14 +141,27 @@ public class GeospatialRTreeIndexMaintainer extends StandardIndexMaintainer {
     }
 
     /**
-     * Build an R-tree point from the latitude/longitude columns, converting each {@code double} to fixed-point. A null
-     * coordinate is preserved as {@code null} (the R-tree substitutes a sentinel when computing the Hilbert value).
+     * Build an R-tree point from the latitude/longitude columns, converting each coordinate to fixed-point via
+     * {@link Number#doubleValue()}. A null coordinate is preserved as {@code null} (the R-tree substitutes a sentinel
+     * when computing the Hilbert value).
+     *
+     * @throws RecordCoreArgumentException if a non-null coordinate is not a {@link Number}, which can occur when the
+     *         index root expression is misconfigured to point at a non-numeric field
      */
     @Nonnull
     private RTree.Point encodePoint(@Nonnull final List<Object> coordinateItems) {
         final List<Object> encoded = Lists.newArrayListWithCapacity(coordinateItems.size());
         for (final Object coordinate : coordinateItems) {
-            encoded.add(coordinate == null ? null : encodeCoordinate(((Number)coordinate).doubleValue(), scale));
+            if (coordinate == null) {
+                encoded.add(null);
+                continue;
+            }
+            if (!(coordinate instanceof Number)) {
+                throw new RecordCoreArgumentException("geospatial coordinate must be numeric")
+                        .addLogInfo(LogMessageKeys.INDEX_NAME, state.index.getName())
+                        .addLogInfo(LogMessageKeys.VALUE, coordinate);
+            }
+            encoded.add(encodeCoordinate(((Number)coordinate).doubleValue(), scale));
         }
         return new RTree.Point(Tuple.fromList(encoded));
     }
