@@ -11,7 +11,7 @@ Y
 }‹
 e
 agg-index-tests-countLEXPLAIN select * from B where b3 = 4 and b2 = 'b' and (? is null or b1 < 20)¡
-Žù–¨F¤ ƒÔ… (^0øÞÆ8Ë@ºCOVERING(I1 [EQUALS promote(@c7 AS LONG), EQUALS promote(@c11 AS STRING)] -> [B1: KEY:[3], B2: KEY:[1], B3: KEY:[0]]) | FILTER @c14 IS_NULL OR _.B1 LESS_THAN promote(@c20 AS INT) | FETCHÃdigraph G {
+ŽŽÈÚ*¤ º®¨(^0ˆÔ®8Ë@ºCOVERING(I1 [EQUALS promote(@c7 AS LONG), EQUALS promote(@c11 AS STRING)] -> [B1: KEY:[3], B2: KEY:[1], B3: KEY:[0]]) | FILTER @c14 IS_NULL OR _.B1 LESS_THAN promote(@c20 AS INT) | FETCHÃdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
