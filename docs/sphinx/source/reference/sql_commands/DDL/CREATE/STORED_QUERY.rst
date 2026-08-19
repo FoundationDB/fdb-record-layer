@@ -18,7 +18,7 @@ Syntax
 
 .. code-block:: sql
 
-    CREATE STORED QUERY query_name
+    CREATE STORED QUERY query_name [ ( parameter_name { data_type | NULL }, ... ) ]
         [ DECLARE
               FUNCTION function_name ( [IN] parameter_name data_type [DEFAULT default_value], ... )
                   AS ( query );
@@ -31,6 +31,9 @@ Parameters
 
 ``query_name``
     The name of the stored query, unique within the schema template. The name identifies the stored query in metadata; it is not used to invoke the query.
+
+``( parameter_name { data_type | NULL }, ... )`` (signature)
+    Optional. A list of typed named parameters. Each parameter is referenced by name — as a bare identifier, with no ``?`` prefix — wherever the stored query body or a declared function body expects a *value*. At warm-up each is planned *value-free* from its declared type; at runtime the client issues the same query with the reference written as a named parameter ``?parameter_name`` and binds it by name (see the signature example below). A parameter type must be primitive, or the keyword ``NULL`` to declare the parameter as *exactly null* — see :ref:`the null-parameter example <stored_query_null_parameter>`.
 
 ``DECLARE`` block
     Optional. Declares one or more transaction-local functions that the stored query body may call, using the same syntax as :ref:`CREATE TEMPORARY FUNCTION <create_temporary_function>`. Multiple functions are separated by semicolons.
@@ -76,6 +79,97 @@ Temporary functions in scope are part of the plan-cache key, so a runtime query 
     SELECT * FROM recent(20)    -- reuses the warmed plan
 
 The function definition must match the one declared in the stored query; the invocation's literal is stripped, so any argument value reuses the plan.
+
+Parameterizing with a signature
+-------------------------------
+
+A stored query signature declares typed named parameters. Each is referenced by name — a bare identifier, with no ``?`` prefix — wherever the query body or a declared function body expects a *value*. This warms the plan for *any* runtime value of the declared type, without writing a concrete literal:
+
+.. code-block:: sql
+
+    CREATE STORED QUERY by_sig(param_a BIGINT, param_b BIGINT)
+        DECLARE
+            FUNCTION f1(IN p BIGINT) AS (SELECT * FROM t1 WHERE (p IS NULL OR col1 = p) AND col2 = param_a)
+    AS
+        SELECT id FROM f1(param_b)
+
+Here ``param_a`` is captured inside ``f1``'s body (it is not ``f1``'s own parameter ``p``), and ``param_b`` is passed as ``f1``'s argument. Internally each signature parameter becomes a named parameter ``?parameter_name``. At runtime the client issues the same query with each reference written as ``?parameter_name``, and binds the values by name:
+
+.. code-block:: sql
+
+    CREATE TEMPORARY FUNCTION f1(IN p BIGINT) ON COMMIT DROP FUNCTION
+        AS SELECT * FROM t1 WHERE (p IS NULL OR col1 = p) AND col2 = ?param_a;   -- bind param_a by name
+
+    SELECT id FROM f1(?param_b)                                                  -- bind param_b by name, reuses the warmed plan
+
+The runtime statement has to match the stored form token for token, apart from keyword case and whitespace. A statement that is merely *equivalent* produces a different plan-cache key and misses the warmed plan.
+
+Notes:
+
+* A parameter type must be **primitive**, or the keyword ``NULL`` (see below). ``ARRAY`` and composite types are rejected, and so is ``BOOLEAN`` — see below.
+* A parameter name must be a **simple unquoted identifier**. A quoted name such as ``"param_a"``, or one spelled as a keyword, is rejected — such a name could not be recognised as a reference in the body.
+* A parameter name may **not** name the same identifier as one of a declared function's own parameters. Given ``FUNCTION f1(IN p BIGINT)``, a signature parameter ``p`` is rejected: inside the body the two would be indistinguishable, so rather than silently capturing one or the other the statement fails. Names are compared as identifiers, so ``p`` and ``P`` also collide unless the connection is case-sensitive.
+* A reference must use the parameter's **declared spelling** — matching is case-sensitive, because a signature parameter becomes a named parameter, which is always case-sensitive. A reference written in a different case is treated as an ordinary column reference.
+* A typed parameter is strictly of that type and **non-NULL**, and warms the plan for such a value. Binding it to ``NULL`` does not reuse that plan; to pre-warm the null case, declare the parameter as exactly null (below).
+* A parameter cannot take part in planning decisions that need its concrete value. The clearest case is a **filtered (sparse) index**, where the planner has to prove the index predicate covers the query's range — with no value there is nothing to compare. Such a stored query is **not warmed**: warm-up logs the reason and moves on to the next one. Nothing is cached, so the query still plans normally at runtime and can still use the index; it simply gains nothing from being stored. Write concrete literals instead if you want a query over a filtered index to be warmed.
+
+Because only identifiers in *value* positions become parameters, a signature parameter may share its name with a column. A qualified reference stays a column reference, and an alias stays an alias:
+
+.. code-block:: sql
+
+    CREATE STORED QUERY by_col1(col1 BIGINT)
+    AS SELECT t1.col1 AS col1, col2 FROM t1 WHERE col2 = col1
+
+Only the bare ``col1`` in the ``WHERE`` predicate becomes a parameter; ``t1.col1`` and ``AS col1`` are left alone, so the stored form is:
+
+.. code-block:: sql
+
+    SELECT t1.col1 AS col1, col2 FROM t1 WHERE col2 = ?col1
+
+.. _stored_query_null_parameter:
+
+Null parameters
+---------------
+
+Declaring a signature parameter as ``NULL`` marks it as *exactly null* — the warmed plan is specialized for that parameter being NULL, which the planner can optimize (for example, folding ``param IS NULL`` to true and dropping the corresponding index probe). This is a distinct plan from the typed (non-null) one, so the value case and the null case are two separate stored queries:
+
+.. code-block:: sql
+
+    -- value case: param_b is a bigint
+    CREATE STORED QUERY sq(param_a BIGINT, param_b BIGINT)
+        DECLARE FUNCTION f1(IN p BIGINT) AS (SELECT * FROM t1 WHERE (p IS NULL OR col1 = p) AND col2 = param_a)
+    AS SELECT id FROM f1(param_b)
+
+    -- null case: param_b is exactly null (an optimized plan)
+    CREATE STORED QUERY sq_bnull(param_a BIGINT, param_b NULL)
+        DECLARE FUNCTION f1(IN p BIGINT) AS (SELECT * FROM t1 WHERE (p IS NULL OR col1 = p) AND col2 = param_a)
+    AS SELECT id FROM f1(param_b)
+
+At runtime the client binds the null parameter with ``setNull`` to reuse the null-specialized plan:
+
+.. code-block:: sql
+
+    CREATE TEMPORARY FUNCTION f1(IN p BIGINT) ON COMMIT DROP FUNCTION
+        AS SELECT * FROM t1 WHERE (p IS NULL OR col1 = p) AND col2 = ?param_a;
+
+    SELECT id FROM f1(?param_b)    -- setLong(param_a, ...), setNull(param_b) → reuses the null-specialized plan
+
+Boolean parameters
+------------------
+
+``BOOLEAN`` is not permitted in a signature — deliberately, because a boolean's value is plan-determining. Predicates fold away, whole branches disappear, and index choices differ depending on whether it is ``TRUE`` or ``FALSE``, so the two cases genuinely want different plans.
+
+Write the boolean as a literal in the body instead. The planner specializes on the concrete value, and the resulting plan constraint (``IS_TRUE`` or ``IS_FALSE``) is what keeps the two warmed plans distinct and selects the right one at lookup. A value-free parameter could carry only "is not null", so a single unspecialized plan would serve both values and none of that specialization would apply:
+
+.. code-block:: sql
+
+    -- rejected: a boolean cannot be a signature parameter
+    CREATE STORED QUERY by_flag(param_flag BOOLEAN)
+        AS SELECT id FROM t1 WHERE flag = param_flag
+
+    -- instead, write each case concretely
+    CREATE STORED QUERY by_flag_true  AS SELECT id FROM t1 WHERE flag = TRUE
+    CREATE STORED QUERY by_flag_false AS SELECT id FROM t1 WHERE flag = FALSE
 
 See Also
 ========

@@ -23,10 +23,12 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.StoredQuery;
@@ -45,6 +47,7 @@ import org.apache.logging.log4j.Logger;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -74,6 +77,10 @@ import java.util.Optional;
 @API(API.Status.EXPERIMENTAL)
 public final class OfflineStoredQueriesProcessor {
     private static final Logger logger = LogManager.getLogger(OfflineStoredQueriesProcessor.class);
+
+    // Log/context keys, shared by the failure reports and the per-plan log context.
+    private static final String SCHEMA_TEMPLATE_KEY = "schemaTemplate";
+    private static final String STORED_QUERY_NAME_KEY = "storedQueryName";
 
     private OfflineStoredQueriesProcessor() {
     }
@@ -161,8 +168,17 @@ public final class OfflineStoredQueriesProcessor {
                                                                  @Nonnull final List<RecordLayerSchemaTemplate> templates) {
         final Counts counts = new Counts();
         for (final RecordLayerSchemaTemplate template : templates) {
-            planStoredQueriesForSchemaTemplate(cache, metricCollector, template, counts);
-            counts.templatesProcessed++;
+            try {
+                planStoredQueriesForSchemaTemplate(cache, metricCollector, template, counts);
+                counts.templatesProcessed++;
+            } catch (RuntimeException e) {
+                // Per-query failures are already handled inside planStoredQuery; this is the backstop for anything
+                // else, so that one unusable template cannot cost every remaining template its warm-up.
+                if (logger.isErrorEnabled()) {
+                    logger.error(KeyValueLogMessage.of("OfflineStoredQueriesProcessor failed to plan schema template",
+                            SCHEMA_TEMPLATE_KEY, template.getName() + ":" + template.getVersion()), e);
+                }
+            }
         }
         return counts;
     }
@@ -208,13 +224,30 @@ public final class OfflineStoredQueriesProcessor {
                                         @Nonnull final Counts counts) {
         final var tempFuncFactory = new MetadataTempFuncFactory();
         RecordLayerSchemaTemplate currentTemplate = template;
+        // Declared parameter types from the query's signature, so its value-free named parameters are planned
+        // value-free (typed, no value) both in the temp functions and in the SELECT body. Reading them can fail on
+        // metadata written by a version that knows a type this one does not, and unlike the planning failures below
+        // nothing has logged that yet, so it is reported here rather than allowed to escape and cost every other
+        // stored query its warm-up.
+        final PreparedParams warmupParams;
+        try {
+            warmupParams = warmupParamsFor(storedQuery);
+        } catch (RuntimeException e) {
+            if (logger.isErrorEnabled()) {
+                logger.error(KeyValueLogMessage.of("OfflineStoredQueriesProcessor failed to read stored query parameters",
+                        SCHEMA_TEMPLATE_KEY, templateKey,
+                        STORED_QUERY_NAME_KEY, storedQueryName), e);
+            }
+            counts.queriesFailed++;
+            return;
+        }
 
         for (final var tempFunc : storedQuery.getTempFunctions()) {
             try {
-                PlanGenerator.create(currentTemplate, tempFuncFactory, metricCollector, Options.NONE)
+                PlanGenerator.create(currentTemplate, tempFuncFactory, metricCollector, Options.NONE, warmupParams)
                         .getPlan(tempFunc, Map.of(
-                                "schemaTemplate", templateKey,
-                                "storedQueryName", storedQueryName,
+                                SCHEMA_TEMPLATE_KEY, templateKey,
+                                STORED_QUERY_NAME_KEY, storedQueryName,
                                 "tempFunction", tempFunc));
                 currentTemplate = tempFuncFactory.updateTemplate(currentTemplate);
                 counts.tempFunctionsProcessed++;
@@ -232,15 +265,57 @@ public final class OfflineStoredQueriesProcessor {
                             currentTemplate,
                             new RecordStoreState(null, null),
                             metricCollector,
-                            Options.NONE)
+                            Options.NONE,
+                            warmupParams)
                     .getPlan(sql, Map.of(
-                            "schemaTemplate", templateKey,
-                            "storedQueryName", storedQueryName,
+                            SCHEMA_TEMPLATE_KEY, templateKey,
+                            STORED_QUERY_NAME_KEY, storedQueryName,
                             "storedQuerySql", sql));
             counts.queriesProcessed++;
         } catch (RelationalException | RuntimeException e) {
             // error already logged inside getPlan's finally
             counts.queriesFailed++;
+        }
+    }
+
+    /**
+     * Builds the warm-up {@link PreparedParams} for a stored query from its declared parameters. A parameter declared
+     * {@code NULL} is <em>exactly</em> null, so it is bound to null here — the same thing {@code setNull} does at
+     * runtime — which makes warm-up and runtime plan it through one path. Every other parameter has no value at
+     * warm-up and only contributes its declared type, so it is planned value-free.
+     */
+    @Nonnull
+    private static PreparedParams warmupParamsFor(@Nonnull final StoredQuery storedQuery) {
+        if (storedQuery.getParameters().isEmpty()) {
+            return PreparedParams.empty();
+        }
+        final var declaredTypes = new LinkedHashMap<String, Type>();
+        final var nullParams = new LinkedHashMap<String, Object>();
+        for (final var parameter : storedQuery.getParameters().entrySet()) {
+            final var typeCode = typeCodeOf(parameter.getKey(), parameter.getValue());
+            if (typeCode == Type.TypeCode.NULL) {
+                nullParams.put(parameter.getKey(), null);
+            } else {
+                // A declared type means strictly that type and non-null; the null case is declared as NULL instead.
+                declaredTypes.put(parameter.getKey(), Type.primitiveType(typeCode).notNullable());
+            }
+        }
+        return PreparedParams.ofNamed(nullParams).withDeclaredTypes(declaredTypes);
+    }
+
+    /**
+     * Resolves a persisted parameter's type code, failing with a diagnosable error rather than an
+     * {@link IllegalArgumentException} when the metadata was written by a version that knows a type this one does not.
+     */
+    @Nonnull
+    private static Type.TypeCode typeCodeOf(@Nonnull final String parameterName, @Nonnull final String typeCode) {
+        try {
+            return Type.TypeCode.valueOf(typeCode);
+        } catch (final IllegalArgumentException e) {
+            throw new RelationalException("Unknown stored query parameter type", ErrorCode.UNSUPPORTED_QUERY, e)
+                    .addContext("parameterName", parameterName)
+                    .addContext("typeCode", typeCode)
+                    .toUncheckedWrappedException();
         }
     }
 

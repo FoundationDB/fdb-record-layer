@@ -1,0 +1,112 @@
+#
+# schema-template-stored-query-signatures.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# NOTE: this file covers the DDL surface of typed named parameters on `CREATE STORED QUERY`.
+# Creating the schema template below is itself the assertion: it exercises the signature
+# grammar, the primitive-only type check, the simple-identifier restriction on parameter
+# names, the rejection of a name colliding with a declared function's own parameter, the
+# rewrite of each reference to `?name`, and the re-parse of the rewritten text. If any of
+# those regress, template creation fails and every test in this file errors out.
+#
+# What each stored query in the template covers. Note these cannot be written as comments
+# next to the queries themselves: a `#` line terminates the plain multi-line scalar that
+# `schema_template` holds, and YAML then expects a new key where the next statement is.
+#   * by_sig         - a typed parameter captured inside a declared function body
+#                      (`param_a`), and one passed as that function's argument (`param_b`).
+#   * by_sig_null    - an exactly-null parameter, which warms a distinct null-specialized
+#                      plan from the typed one above.
+#   * by_types       - a signature spanning two primitive types. BOOLEAN is deliberately
+#                      absent: a boolean's value is plan-determining, so it belongs in the
+#                      body as a literal, where the planner specializes on it and the
+#                      resulting IS_TRUE/IS_FALSE constraint keeps the two plans distinct.
+#                      As a value-free parameter it could carry only "is not null", giving
+#                      one unspecialized plan for both values.
+#   * by_shared_name - a parameter sharing a column's name: only the value position becomes
+#                      a parameter, so `t1.col1` stays a column reference and `as col1`
+#                      stays an alias.
+#   * by_literal     - no signature at all, still working alongside the above.
+#
+# Two things are deliberately NOT covered here, both for the same reason - they need control
+# the framework does not give a yamsql test:
+#   * plan-cache warm-up. It runs once when the engine is constructed, against templates
+#     already in the catalog; yamsql creates its template after the engine is up. See
+#     StoredQueriesTest for warm-up and plan-reuse coverage.
+#   * binding a parameter BY NAME at runtime, which is how a client reuses a warmed plan
+#     (`?param_a` plus setLong("param_a", ...)). yamsql's `!! ... !!` injection produces
+#     inline literals or positionally-bound parameters, never named ones.
+# The queries in the test block are therefore the literal-valued equivalents of the stored
+# queries, verifying that the template is usable and the query shapes behave.
+
+---
+options:
+  supported_version: !current_version
+---
+schema_template:
+    create table t1(id bigint, col1 bigint, col2 bigint, name string, flag boolean, primary key(id))
+    create index i1 as select col1 from t1
+    create stored query by_sig(param_a bigint, param_b bigint)
+        declare
+            function f1(in p bigint) as (select * from t1 where (p is null or col1 = p) and col2 = param_a)
+    as
+        select id from f1(param_b)
+    create stored query by_sig_null(param_a bigint, param_b null)
+        declare
+            function f2(in p bigint) as (select * from t1 where (p is null or col1 = p) and col2 = param_a)
+    as
+        select id from f2(param_b)
+    create stored query by_types(a bigint, b string)
+        as select id from t1 where col1 = a and name = b and flag = true
+    create stored query by_shared_name(col1 bigint)
+        as select t1.col1 as col1, col2 from t1 where col2 = col1
+    create stored query by_literal as select * from t1 where col1 = 1
+---
+setup:
+  steps:
+    - query: INSERT INTO T1
+        VALUES (1, 10, 1, 'alice', true),
+               (2, 10, 2, 'bob', false),
+               (3, 20, 3, 'carol', true),
+               (4, 20, 4, 'dave', false),
+               (5, 30, 5, 'erin', true)
+---
+test_block:
+  name: schema-template-stored-query-signature-tests
+  tests:
+    # the literal-valued equivalent of by_sig's body, via the same declared function shape
+    -
+      - query: select id from t1 where (10 is null or col1 = 10) and col2 = 1
+      - result: [{ID: 1}]
+    # the null case: a null argument makes the (p is null) branch true, so col2 alone selects
+    -
+      - query: select id from t1 where (null is null or col1 = 10) and col2 = 3
+      - result: [{ID: 3}]
+    # by_types' shape across bigint and string, with the boolean written as a literal
+    -
+      - query: select id from t1 where col1 = 20 and name = 'carol' and flag = true
+      - result: [{ID: 3}]
+    # by_shared_name's shape: a qualified reference and an alias sharing the parameter's name
+    -
+      - query: select t1.col1 as col1, col2 from t1 where col2 = 10
+      - result: []
+    -
+      - query: select t1.col1 as col1, col2 from t1 where col2 = 3
+      - result: [{COL1: 20, COL2: 3}]
+    -
+      - query: select * from t1 where col1 = 30
+      - result: [{ID: 5, COL1: 30, COL2: 5, NAME: 'erin', FLAG: true}]

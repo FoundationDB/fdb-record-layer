@@ -29,11 +29,13 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorOptionK
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.generated.RelationalParser;
@@ -62,16 +64,21 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.tree.ParseTree;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -524,16 +531,71 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 final var queryCtx = templateClause.storedQueryDefinition();
                 final var name = visitUid(queryCtx.queryName).getName();
                 final var sourceText = getDelegate().getPlanGenerationContext().getQuery();
-                final var start = queryCtx.storedQuery.start.getStartIndex();
-                final var stop = queryCtx.storedQuery.stop.getStopIndex() + 1;
-                final var queryString = sourceText.substring(start, stop);
-                final ImmutableList.Builder<String> tempFunctionTexts = ImmutableList.builder();
-                if (queryCtx.declareBlock() != null) {
-                    for (final var dfCtx : queryCtx.declareBlock().declaredFunction()) {
-                        tempFunctionTexts.add(rewriteDeclaredFunctionToStandalone(dfCtx, sourceText));
+                // Parse the optional typed-named-parameter signature. Each parameter is referenced by name in the query
+                // body and declared function bodies; those references are rewritten to '?name' (see
+                // rewriteReferencesToParams). Matching is case-sensitive — a signature parameter becomes a named
+                // prepared parameter, which is always case-sensitive, so a reference must use the declared spelling. A
+                // parameter declared NULL is exactly-null, and is warmed by binding it to null just as setNull would,
+                // while a parameter with a declared type is strictly of that type and non-null. Each parameter is
+                // persisted as name -> type code so warm-up can type the value-free ones.
+                final var parameters = new HashMap<String, String>();
+                final var signatureCtx = queryCtx.storedQuerySignature();
+                if (signatureCtx != null) {
+                    for (final var param : signatureCtx.storedQueryParameter()) {
+                        final var paramName = param.parameterName.getText();
+                        // The reference rewrite only matches ID tokens, so a quoted or keyword-spelled name would be
+                        // silently left alone in the body and resolved as a column instead of a parameter.
+                        Assert.thatUnchecked(isSimpleIdentifier(param.parameterName), ErrorCode.UNSUPPORTED_QUERY,
+                                () -> "stored query signature parameter '" + paramName + "' must be a simple identifier");
+                        final Type.TypeCode typeCode;
+                        if (param.NULL_LITERAL() != null) {
+                            typeCode = Type.TypeCode.NULL;
+                        } else {
+                            // A declared type means strictly that type and non-null — the null case is declared as
+                            // NULL instead — so only the type code is kept. The nullability that
+                            // visitFunctionColumnType assigns is a general-purpose default and does not apply here.
+                            final var paramType = DataTypeUtils.toRecordLayerType(visitFunctionColumnType(param.parameterType));
+                            Assert.thatUnchecked(paramType.isPrimitive(), ErrorCode.UNSUPPORTED_QUERY,
+                                    () -> "stored query signature parameter '" + paramName + "' must have a primitive or null type");
+                            typeCode = paramType.getTypeCode();
+                            // A boolean's value is plan-determining — predicates fold away, branches disappear, index
+                            // choices differ — so it belongs in the body as a literal, where the planner specializes on
+                            // it and the resulting IS_TRUE/IS_FALSE constraint keeps the two plans distinct. A
+                            // value-free boolean could carry only "is not null", giving one plan for both values.
+                            Assert.thatUnchecked(typeCode != Type.TypeCode.BOOLEAN, ErrorCode.UNSUPPORTED_QUERY,
+                                    () -> "stored query signature parameter '" + paramName + "' may not be BOOLEAN; "
+                                            + "write the boolean as a literal in the query body instead");
+                        }
+                        Assert.thatUnchecked(parameters.put(paramName, typeCode.name()) == null,
+                                ErrorCode.UNSUPPORTED_QUERY,
+                                () -> "duplicate stored query signature parameter '" + paramName + "'");
                     }
                 }
-                metadataBuilder.addStoredQuery(name, queryString, tempFunctionTexts.build());
+                final var queryString = rewriteReferencesToParams(sourceText, queryCtx.storedQuery, parameters.keySet());
+                final ImmutableList.Builder<String> tempFunctionTexts = ImmutableList.builder();
+                if (queryCtx.declareBlock() != null) {
+                    // Compared as identifiers rather than as raw text: a reference resolves case-insensitively unless
+                    // the connection is case-sensitive, so a signature parameter `x` and a function parameter `X` are
+                    // the same identifier and collide, even though the rewrite itself matches exactly.
+                    final var normalizedParameterNames = parameters.keySet().stream()
+                            .map(parameterName -> getDelegate().normalizeString(parameterName))
+                            .collect(ImmutableSet.toImmutableSet());
+                    for (final var dfCtx : queryCtx.declareBlock().declaredFunction()) {
+                        // A signature parameter and one of this function's own parameters naming the same identifier are
+                        // indistinguishable in the body, so the rewrite would capture the function's parameter instead
+                        // of shadowing it. Reject rather than silently changing what was written.
+                        final var shadowed = Sets.intersection(ownParameterNames(dfCtx), normalizedParameterNames);
+                        Assert.thatUnchecked(shadowed.isEmpty(), ErrorCode.UNSUPPORTED_QUERY,
+                                () -> "declared function parameter " + shadowed
+                                        + " collides with a stored query signature parameter");
+                        tempFunctionTexts.add(rewriteDeclaredFunctionToStandalone(dfCtx, sourceText, parameters.keySet()));
+                    }
+                }
+                final var storedQueryTexts = tempFunctionTexts.build();
+                // The rewritten text is what gets persisted and re-parsed at warm-up, so prove now that it parses.
+                // This keeps a rewrite defect from becoming a startup-time failure that the author never sees.
+                validateRewrittenText(name, queryString, storedQueryTexts);
+                metadataBuilder.addStoredQuery(name, queryString, storedQueryTexts, parameters);
             } else {
                 Assert.thatUnchecked(templateClause.indexDefinition() != null);
                 indexClauses.add(templateClause.indexDefinition());
@@ -907,11 +969,136 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
      */
     @Nonnull
     private static String rewriteDeclaredFunctionToStandalone(@Nonnull final RelationalParser.DeclaredFunctionContext ctx,
-                                                              @Nonnull final String sourceText) {
+                                                              @Nonnull final String sourceText,
+                                                              @Nonnull final Set<String> declaredNames) {
         final String name = sliceSource(sourceText, ctx.functionName);
         final String paramList = sliceSource(sourceText, ctx.sqlParameterDeclarationList());
-        final String body = sliceSource(sourceText, ctx.functionBody);
+        // Only the body may reference the stored query's signature parameters; scoping the rewrite to the body subtree
+        // is what keeps the name and this function's own parameter declarations out of reach.
+        final String body = rewriteReferencesToParams(sourceText, ctx.functionBody, declaredNames);
         return "CREATE TEMPORARY FUNCTION " + name + paramList + " ON COMMIT DROP FUNCTION AS " + body;
+    }
+
+    /**
+     * Returns the identifiers a declared function declares as its own parameters. Resolved through
+     * {@link #visitUid} so they are normalized the same way a reference to them in the body would be.
+     */
+    @Nonnull
+    private Set<String> ownParameterNames(@Nonnull final RelationalParser.DeclaredFunctionContext ctx) {
+        final var declarations = ctx.sqlParameterDeclarationList().sqlParameterDeclarations();
+        if (declarations == null) {
+            return Set.of();
+        }
+        return declarations.sqlParameterDeclaration().stream()
+                .map(declaration -> declaration.sqlParameterName)
+                .filter(Objects::nonNull)
+                .map(uid -> visitUid(uid).getName())
+                .collect(ImmutableSet.toImmutableSet());
+    }
+
+    /**
+     * Checks that the rewritten stored query text still parses. The rewrite is driven by the parse tree so it should
+     * always produce valid SQL, but this is what the metadata will carry and what warm-up will re-parse, so a defect
+     * here must fail the {@code CREATE} in front of its author rather than become a logged startup failure. The extra
+     * parse per stored query is accepted deliberately: DDL is rare, and the alternative is discovering the problem at
+     * the next engine start.
+     */
+    private static void validateRewrittenText(@Nonnull final String storedQueryName,
+                                              @Nonnull final String queryString,
+                                              @Nonnull final List<String> tempFunctionTexts) {
+        try {
+            // Both are complete statements — the temp-function text is a `CREATE TEMPORARY FUNCTION ...` exactly as a
+            // client would submit it — so both go through the statement entry point.
+            for (final var tempFunctionText : tempFunctionTexts) {
+                QueryParser.parse(tempFunctionText);
+            }
+            QueryParser.parse(queryString);
+        } catch (final RelationalException | RuntimeException e) {
+            throw new RelationalException("Stored query is not valid after resolving its signature parameters",
+                    ErrorCode.UNSUPPORTED_QUERY, e)
+                    .addContext("storedQueryName", storedQueryName)
+                    .toUncheckedWrappedException();
+        }
+    }
+
+    /**
+     * Returns whether a {@code uid} is a plain {@code ID} token, as opposed to a quoted identifier or one of the
+     * keywords that {@code simpleId} also accepts. Signature parameter names are restricted to this form so that a
+     * reference to one is always spelled the same way as its declaration, and so that a quoted reference cannot
+     * accidentally match.
+     */
+    private static boolean isSimpleIdentifier(@Nonnull final RelationalParser.UidContext ctx) {
+        final var simpleId = ctx.simpleId();
+        return simpleId != null && simpleId.ID() != null;
+    }
+
+    /**
+     * Rewrites references to a stored query's signature parameters within {@code fragment} into named parameters
+     * {@code ?name}, so the warm-up plan (parsed from this rewritten text) is reachable at runtime when the client
+     * re-issues the query binding {@code ?name} by name.
+     *
+     * <p>What counts as a reference is decided from the parse tree, not from token text: only an identifier used
+     * <em>as a value</em> is rewritten, i.e. a {@code fullColumnName} appearing as an {@code expressionAtom} whose
+     * {@code fullId} is a single unqualified {@code uid}. That excludes, structurally rather than by special case:
+     * <ul>
+     * <li>a qualified reference such as {@code t.param} &mdash; its {@code fullId} has more than one {@code uid}, and
+     *     it can only ever be a column of {@code t};
+     * <li>an alias such as {@code SELECT col AS param} &mdash; the alias hangs off {@code selectElement}, not
+     *     {@code expressionAtom};
+     * <li>table names, function names, type names and column definitions, none of which are {@code expressionAtom}s.
+     * </ul>
+     *
+     * <p>Matching is <em>case-sensitive</em>: a signature parameter becomes a named prepared parameter (which is always
+     * case-sensitive), so a reference must use the declared spelling. Signature parameter names <em>shadow</em> columns
+     * of the same (exact) name.
+     *
+     * @param sourceText the full statement text that {@code fragment} was parsed from
+     * @param fragment the subtree to rewrite, e.g. the query body or a declared function's body
+     * @param declaredNames the signature parameter names
+     * @return the text of {@code fragment} with parameter references rewritten
+     */
+    @Nonnull
+    private static String rewriteReferencesToParams(@Nonnull final String sourceText,
+                                                    @Nonnull final ParserRuleContext fragment,
+                                                    @Nonnull final Set<String> declaredNames) {
+        final int fragmentStart = fragment.getStart().getStartIndex();
+        final int fragmentStop = fragment.getStop().getStopIndex() + 1;
+        if (declaredNames.isEmpty()) {
+            return sourceText.substring(fragmentStart, fragmentStop);
+        }
+        final List<RelationalParser.UidContext> references = new ArrayList<>();
+        collectParameterReferences(fragment, declaredNames, references);
+        // Splice by character offset into the original text rather than reconstructing from tokens: the lexer skips
+        // whitespace, so rebuilding (e.g. via TokenStreamRewriter) would drop it.
+        references.sort(Comparator.comparingInt(uid -> uid.getStart().getStartIndex()));
+        final var rewritten = new StringBuilder();
+        int copiedUpTo = fragmentStart;
+        for (final var reference : references) {
+            rewritten.append(sourceText, copiedUpTo, reference.getStart().getStartIndex());
+            rewritten.append('?').append(reference.getText());
+            copiedUpTo = reference.getStop().getStopIndex() + 1;
+        }
+        rewritten.append(sourceText, copiedUpTo, fragmentStop);
+        return rewritten.toString();
+    }
+
+    /**
+     * Walks {@code tree} collecting the {@code uid} of every identifier that is used as a value and names one of
+     * {@code declaredNames}. See {@link #rewriteReferencesToParams} for why this shape is the one that matters.
+     */
+    private static void collectParameterReferences(@Nonnull final ParseTree tree,
+                                                   @Nonnull final Set<String> declaredNames,
+                                                   @Nonnull final List<RelationalParser.UidContext> references) {
+        if (tree instanceof RelationalParser.FullColumnNameExpressionAtomContext atom) {
+            final var uids = atom.fullColumnName().fullId().uid();
+            if (uids.size() == 1 && declaredNames.contains(uids.get(0).getText())) {
+                references.add(uids.get(0));
+                return;
+            }
+        }
+        for (int i = 0; i < tree.getChildCount(); i++) {
+            collectParameterReferences(tree.getChild(i), declaredNames, references);
+        }
     }
 
     @Nonnull
