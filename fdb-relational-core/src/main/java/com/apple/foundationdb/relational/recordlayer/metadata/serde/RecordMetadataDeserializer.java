@@ -197,7 +197,7 @@ public class RecordMetadataDeserializer {
     }
 
     @Nonnull
-    @SuppressWarnings("PMD.UnusedFormalParameter")
+    @SuppressWarnings("PMD.UnusedFormalParameter") // metadata will be used for view compilation in the future
     private static RecordLayerView.Builder generateViewBuilder(@Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
                                                                @Nonnull final String name,
                                                                @Nonnull final String definition) {
@@ -225,8 +225,6 @@ public class RecordMetadataDeserializer {
             if (constituent.isParent()) {
                 continue;
             }
-            // The nesting expression is kept as-is rather than reduced to a field name, so any shape the record
-            // layer permits survives the round trip.
             builder.addConstituent(new RecordLayerUnnestedSyntheticTable.NestedConstituent(
                     constituent.getName(), Objects.requireNonNull(constituent.getParentName()),
                     constituent.getNestingExpression()));

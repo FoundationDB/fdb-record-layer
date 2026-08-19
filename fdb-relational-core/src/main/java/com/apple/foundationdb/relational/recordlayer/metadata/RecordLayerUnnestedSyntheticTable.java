@@ -35,6 +35,8 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * A synthetic record type that unnests one or more struct array fields of a stored record type. Each
@@ -100,15 +102,14 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
     @Nonnull
     @Override
     public String getDescription() {
-        // Synthesized from constituents — e.g.:
-        // SELECT SQ.* FROM "T" AS "row", (SELECT * FROM "row"."TAGS") AS SQ
+        // e.g. SELECT "row".*, SQ.* FROM "T" AS "row", (SELECT * FROM "row"."TAGS") AS SQ
+        // A synthetic record is the stored record together with one element from each constituent, so the parent
+        // is projected alongside the constituents — index keys on this type reference its fields too.
         final StringBuilder sb = new StringBuilder("SELECT ");
-        for (int i = 0; i < constituents.size(); i++) {
-            if (i > 0) {
-                sb.append(", ");
-            }
-            sb.append(constituents.get(i).getAlias()).append(".*");
-        }
+        sb.append(Stream.concat(Stream.of('"' + alias + '"'),
+                        constituents.stream().map(NestedConstituent::getAlias))
+                .map(projected -> projected + ".*")
+                .collect(Collectors.joining(", ")));
         sb.append(" FROM \"").append(parentTableName).append("\" AS \"").append(alias).append("\"");
         for (final NestedConstituent nested : constituents) {
             // The array is on whichever constituent owns it, which for a chained unnesting is another

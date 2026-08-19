@@ -78,7 +78,6 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
     public void visit(@Nonnull final RecordLayerUnnestedSyntheticTable unnestedType) {
         final UnnestedRecordTypeBuilder typeBuilder =
                 getBuilder().addUnnestedRecordType(unnestedType.getName());
-        // Record types are registered under their proto storage name, as in visit(Table) above.
         final RecordTypeBuilder recordTypeBuilder = getBuilder().getRecordType(unnestedType.getParentTableStorageName());
         typeBuilder.addParentConstituent(unnestedType.getAlias(), recordTypeBuilder);
         // The descriptor an array field is looked up in depends on which constituent owns it: the stored

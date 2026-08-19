@@ -87,7 +87,7 @@ import java.util.concurrent.CompletableFuture;
  *
  * <p>
  * Evaluates to only <em>n</em>, as in every evaluated entry, the {@code a} and {@code b} fields come from the same
- * {@code NestedInnerMessage}. However, to achieve this, we have had to swap the order of {@code other_field} and
+ * {@code NestedInnerMessage}. However, to acheive this, we have had to swap the order of {@code other_field} and
  * {@code nested_repeated.a}.
  * </p>
  *

@@ -129,10 +129,7 @@ public final class MaterializedViewIndexGenerator {
 
     /**
      * Nested constituents discovered while collecting quantifiers, keyed by the explode marker
-     * stamped onto the corresponding {@link AnnotatedAccessor}. A {@link LinkedHashMap} because
-     * constituent order is significant: {@code UnnestedRecordType} derives its primary key and
-     * generated descriptor field numbers from constituent order, and a nested constituent's parent
-     * must be registered before the constituent itself.
+     * stamped onto the corresponding {@link AnnotatedAccessor}.
      */
     @Nonnull
     private final Map<Integer, NestedConstituentInfo> unnestedConstituents = new LinkedHashMap<>();
@@ -209,14 +206,14 @@ public final class MaterializedViewIndexGenerator {
 
         final var simplifiedValues = collectResultValues(relationalExpression.getResultValue());
 
-        final var unsupportedAggregates = simplifiedValues.stream().filter(sv -> sv instanceof StreamableAggregateValue && !(sv instanceof IndexableAggregateValue)).toList();
+        final var unsupportedAggregates = simplifiedValues.stream().filter(sv -> sv instanceof StreamableAggregateValue && !(sv instanceof IndexableAggregateValue)).collect(toList());
         Assert.thatUnchecked(unsupportedAggregates.isEmpty(), ErrorCode.UNSUPPORTED_OPERATION,
                 () -> String.format(Locale.ROOT, "Unsupported aggregate index definition containing non-indexable aggregation (%s), consider using a value index on the aggregated column instead.", unsupportedAggregates.stream().map(Objects::toString).collect(joining(","))));
 
         Assert.thatUnchecked(simplifiedValues.stream().allMatch(sv -> sv instanceof FieldValue || sv instanceof IndexableAggregateValue || sv instanceof ArithmeticValue || sv instanceof CardinalityValue));
-        final var aggregateValues = simplifiedValues.stream().filter(sv -> sv instanceof IndexableAggregateValue).toList();
-        final var fieldValues = simplifiedValues.stream().filter(sv -> !(sv instanceof IndexableAggregateValue)).toList();
-        final var versionValues = simplifiedValues.stream().filter(sv -> sv instanceof FieldValue && sv.getResultType().equals(PseudoField.ROW_VERSION.getType())).toList();
+        final var aggregateValues = simplifiedValues.stream().filter(sv -> sv instanceof IndexableAggregateValue).collect(toList());
+        final var fieldValues = simplifiedValues.stream().filter(sv -> !(sv instanceof IndexableAggregateValue)).collect(toList());
+        final var versionValues = simplifiedValues.stream().filter(sv -> sv instanceof FieldValue && sv.getResultType().equals(PseudoField.ROW_VERSION.getType())).collect(toList());
         Assert.thatUnchecked(versionValues.size() <= 1, ErrorCode.UNSUPPORTED_OPERATION, "Cannot have index with more than one version column");
         final Map<Value, String> orderingFunctions = new IdentityHashMap<>();
         final var orderByValues = getOrderByValues(relationalExpression, orderingFunctions);
@@ -375,12 +372,14 @@ public final class MaterializedViewIndexGenerator {
          */
         final var selectWhereQun = groupByExpression.getQuantifiers().get(0);
         return resultValues.stream().map(resultValue -> resultValue.replace(value -> {
-            if (!(value instanceof final FieldValue fieldValue)) {
+            if (!(value instanceof FieldValue)) {
                 return value;
             }
-            if (!(fieldValue.getChild() instanceof final QuantifiedObjectValue quantifiedObjectValue)) {
+            final FieldValue fieldValue = (FieldValue) value;
+            if (!(fieldValue.getChild() instanceof QuantifiedObjectValue)) {
                 return value;
             }
+            final QuantifiedObjectValue quantifiedObjectValue = (QuantifiedObjectValue) fieldValue.getChild();
             if (!quantifiedObjectValue.getAlias().equals(selectWhereQun.getAlias())) {
                 return value;
             }
@@ -401,16 +400,29 @@ public final class MaterializedViewIndexGenerator {
     @Nonnull
     private List<Value> getOrderByValues(@Nonnull RelationalExpression relationalExpression,
                                          @Nonnull Map<Value, String> orderingFunctions) {
-        if (relationalExpression instanceof final LogicalSortExpression logicalSortExpression) {
+        if (relationalExpression instanceof LogicalSortExpression) {
+            final var logicalSortExpression = (LogicalSortExpression) relationalExpression;
             final var reverseAliasMap = AliasMap.ofAliases(Quantifier.current(), logicalSortExpression.getQuantifiers().get(0).getAlias());
             final ImmutableList.Builder<Value> values = ImmutableList.builder();
             for (var orderingPart : logicalSortExpression.getOrdering().getOrderingParts()) {
-                final String orderingFunction = switch (orderingPart.getSortOrder()) {
-                    case DESCENDING -> "order_desc_nulls_last";
-                    case ASCENDING_NULLS_LAST -> "order_asc_nulls_last";
-                    case DESCENDING_NULLS_FIRST -> "order_desc_nulls_first";
-                    default -> null;
-                };
+                final String orderingFunction;
+                switch (orderingPart.getSortOrder()) {
+                    case ASCENDING:
+                        orderingFunction = null;
+                        break;
+                    case DESCENDING:
+                        orderingFunction = "order_desc_nulls_last";
+                        break;
+                    case ASCENDING_NULLS_LAST:
+                        orderingFunction = "order_asc_nulls_last";
+                        break;
+                    case DESCENDING_NULLS_FIRST:
+                        orderingFunction = "order_desc_nulls_first";
+                        break;
+                    default:
+                        orderingFunction = null;
+                        break;
+                }
                 if (orderingPart.getValue().getResultType().getTypeCode() == Type.TypeCode.RECORD) {
                     for (Value value : Values.deconstructRecord(orderingPart.getValue())) {
                         final var rebased = dereference(value.rebase(reverseAliasMap))
@@ -544,7 +556,7 @@ public final class MaterializedViewIndexGenerator {
     }
 
     @Nonnull
-    private static KeyExpression generate(@Nonnull List<Value> fields, @Nonnull Map<Value, String> orderingFunctions) {
+    private KeyExpression generate(@Nonnull List<Value> fields, @Nonnull Map<Value, String> orderingFunctions) {
         if (fields.isEmpty()) {
             return EmptyKeyExpression.EMPTY;
         } else if (fields.size() == 1) {
@@ -574,7 +586,7 @@ public final class MaterializedViewIndexGenerator {
     }
 
     @Nonnull
-    private static KeyExpression toKeyExpression(Value value, Map<Value, String> orderingFunctions) {
+    private KeyExpression toKeyExpression(Value value, Map<Value, String> orderingFunctions) {
         var expr = toKeyExpression(value);
         if (orderingFunctions.containsKey(value)) {
             return function(orderingFunctions.get(value), expr);
@@ -598,8 +610,9 @@ public final class MaterializedViewIndexGenerator {
     }
 
     @Nonnull
-    private static KeyExpression toKeyExpression(@Nonnull Value value) {
-        if (value instanceof final FieldValue fieldValue) {
+    private KeyExpression toKeyExpression(@Nonnull Value value) {
+        if (value instanceof FieldValue) {
+            final FieldValue fieldValue = (FieldValue) value;
             return toKeyExpression(fieldValue.getFieldPath().getFieldAccessors().iterator(), KeyExpression.FanType.FanOut);
         } else if (value instanceof CardinalityValue) {
             // CARDINALITY() consumes an array value. Currently, it can only be applied to a `field` directly. We make
@@ -686,7 +699,7 @@ public final class MaterializedViewIndexGenerator {
     }
 
     @Nullable
-    private static QueryPredicate getTopLevelPredicate(@Nonnull List<? extends RelationalExpression> expressions) {
+    public static QueryPredicate getTopLevelPredicate(@Nonnull List<? extends RelationalExpression> expressions) {
         if (expressions.isEmpty()) {
             return null;
         }
@@ -706,7 +719,8 @@ public final class MaterializedViewIndexGenerator {
         // current expression is either top-level select, or select-where or top-level group by.
         // make sure any other select statement does not have any predicates defined.
         for (int i = currentExpression + 1; i < expressions.size(); i++) {
-            if (expressions.get(i) instanceof final SelectExpression innerSelect) {
+            if (expressions.get(i) instanceof SelectExpression) {
+                final var innerSelect = (SelectExpression) expressions.get(i);
                 Assert.thatUnchecked(innerSelect.getPredicates().isEmpty(), ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, found predicate in inner-select");
             }
         }
@@ -779,7 +793,8 @@ public final class MaterializedViewIndexGenerator {
             if (qun.getRangesOver().get() instanceof ExplodeExpression) {
                 explodeCounter.incrementAndGet();
                 final var collectionValue = ((ExplodeExpression) qun.getRangesOver().get()).getCollectionValue();
-                if (collectionValue instanceof final FieldValue field) {
+                if (collectionValue instanceof FieldValue) {
+                    final var field = (FieldValue) collectionValue;
                     final var fieldAccessors = new ArrayList<>(field.getFieldPath().getFieldAccessors());
                     fieldAccessors.set(fieldAccessors.size() - 1, AnnotatedAccessor.of(fieldAccessors.get(fieldAccessors.size() - 1), explodeCounter.get()));
                     correlatedKeyExpressions.put(qun.getAlias(), FieldValue.ofFields(field.getChild(), new FieldValue.FieldPath(fieldAccessors)));
@@ -887,7 +902,7 @@ public final class MaterializedViewIndexGenerator {
                             .map(c -> Column.of(c.getField(), dereference(c.getValue())))
                             .collect(toList()));
         } else if (value instanceof CountValue) {
-            final var children = StreamSupport.stream(value.getChildren().spliterator(), false).toList();
+            final var children = StreamSupport.stream(value.getChildren().spliterator(), false).collect(toList());
             Verify.verify(children.size() <= 1);
             if (!children.isEmpty()) {
                 return value.withChildren(Collections.singleton(dereference(children.get(0))));
@@ -911,7 +926,7 @@ public final class MaterializedViewIndexGenerator {
     }
 
     @Nonnull
-    private static KeyExpression toKeyExpression(@Nonnull Iterator<FieldValue.ResolvedAccessor> resolvedAccessors, KeyExpression.FanType fanTypeForArray) {
+    private KeyExpression toKeyExpression(@Nonnull Iterator<FieldValue.ResolvedAccessor> resolvedAccessors, KeyExpression.FanType fanTypeForArray) {
         Assert.thatUnchecked(resolvedAccessors.hasNext(), "cannot resolve empty list");
         final FieldValue.ResolvedAccessor accessor = resolvedAccessors.next();
         final KeyExpression expression = toFieldKeyExpression(accessor, fanTypeForArray);
@@ -929,7 +944,7 @@ public final class MaterializedViewIndexGenerator {
         final var expressionRefs = relationalExpressions.stream()
                 .filter(r -> r instanceof LogicalTypeFilterExpression)
                 .map(r -> (LogicalTypeFilterExpression) r)
-                .toList();
+                .collect(toList());
         Assert.thatUnchecked(expressionRefs.size() == 1, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported query, expected to find exactly one type filter operator");
         final var recordTypes = expressionRefs.get(0).getRecordTypes();
         Assert.thatUnchecked(recordTypes.size() == 1, ErrorCode.UNSUPPORTED_OPERATION, () -> String.format(Locale.ROOT, "Unsupported query, expected to find exactly one record type in type filter operator, however found %s", recordTypes.isEmpty() ? "nothing" : String.join(",", recordTypes)));
