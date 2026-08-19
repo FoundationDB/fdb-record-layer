@@ -42,12 +42,14 @@ public final class PendingWritesQueueEntry<T extends Message> {
     private final Tuple keyTuple;
     @Nonnull
     private final T payload;
+    private final int version;
     @Nonnull
     private final String payloadTypeUrl;
     private final long enqueueTimestamp;
 
     PendingWritesQueueEntry(@Nonnull Tuple keyTuple,
                             @Nonnull T payload,
+                            int version,
                             @Nonnull String payloadTypeUrl,
                             long enqueueTimestamp) {
         // Sanity-check the key shape — the queue always writes (incarnation, versionstamp).
@@ -57,6 +59,7 @@ public final class PendingWritesQueueEntry<T extends Message> {
         }
         this.keyTuple = keyTuple;
         this.payload = payload;
+        this.version = version;
         this.payloadTypeUrl = payloadTypeUrl;
         this.enqueueTimestamp = enqueueTimestamp;
     }
@@ -68,6 +71,17 @@ public final class PendingWritesQueueEntry<T extends Message> {
 
     public int getIncarnation() {
         return (int)keyTuple.getLong(0);
+    }
+
+    /**
+     * Returns the on-disk schema version of this entry: the envelope {@code version} for a
+     * current-format entry, or {@code 0} for an entry read via the legacy decoder (which has no
+     * versioned envelope).
+     *
+     * @return the stored schema version, or {@code 0} for a legacy-format entry
+     */
+    public int getVersion() {
+        return version;
     }
 
     public long getEnqueueTimestamp() {

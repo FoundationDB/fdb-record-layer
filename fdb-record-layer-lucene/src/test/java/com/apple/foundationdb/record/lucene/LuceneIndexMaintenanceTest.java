@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.lucene.directory.FDBDirectoryLockFactory;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryWrapper;
 import com.apple.foundationdb.record.lucene.directory.NonAgileContext;
-import com.apple.foundationdb.record.lucene.directory.PendingWriteQueue;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.common.FixedZeroKeyManager;
 import com.apple.foundationdb.record.provider.common.RollingTestKeyManager;
@@ -53,6 +52,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilte
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
+import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueue;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.util.RandomSecretUtil;
@@ -1197,7 +1197,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             final LuceneIndexMaintainer indexMaintainer = getIndexMaintainer(store, dataModel.index);
             final FDBDirectoryManager directoryManager = indexMaintainer.getDirectoryManager();
             final FDBDirectoryWrapper directoryWrapper = directoryManager.getDirectoryWrapper(groupingKey, partitionId);
-            final PendingWriteQueue pendingWriteQueue = directoryWrapper.getPendingWriteQueue();
+            final PendingWritesQueue<LucenePendingWriteQueueProto.PendingWriteItem> pendingWriteQueue = directoryWrapper.getPendingWriteQueue();
             assertNotNull(pendingWriteQueue);
         }
     }
