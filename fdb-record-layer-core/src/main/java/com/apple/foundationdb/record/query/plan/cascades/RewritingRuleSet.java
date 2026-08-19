@@ -64,7 +64,9 @@ public class RewritingRuleSet extends CascadesRuleSet {
     );
 
     private static final Set<ConditionalCascadesRule<? extends RelationalExpression, ?>> CONDITIONAL_RULES =
-            ImmutableSet.of(decorrelateThenSimplification);
+            ImmutableSet.of(
+                    decorrelateThenSimplification,
+                    selectMergeThenPushDown);
 
     @Nonnull
     private static final Set<CascadesRule<? extends RelationalExpression>> ALL_EXPRESSION_RULES =
