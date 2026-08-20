@@ -42,6 +42,11 @@ test_block:
       - supported_version: 4.11.1.0
       - error: INTERNAL_ERROR
     -
+      # An array cannot hold a NULL element.
+      - query: INSERT INTO A_NOT_NULL VALUES (0, [1, NULL])
+      - supported_version: !current_version
+      - error: UNSUPPORTED_OPERATION
+    -
       # INSERT + basic SELECT for a not-nullable INTEGER ARRAY.
       - query: INSERT INTO A_NOT_NULL VALUES (0, []), (1, [1]), (2, [1, 2])
       - count: 3
