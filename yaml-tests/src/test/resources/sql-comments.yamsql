@@ -1,0 +1,104 @@
+#
+# sql-comments.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# NOTE: every query below is written as a YAML block scalar (`query: |`). This is deliberate: `--` in an unquoted
+# plain scalar is fine, but `#` starts a comment in YAML, and relying on plain-scalar quoting rules is fragile. A
+# block scalar preserves the raw text (including newlines) so the SQL comment handling is actually exercised.
+#
+# Only ANSI/PostgreSQL line comments (`--`) and C-style block comments (`/* */`) are supported. MySQL-style `#`
+# line comments and `/*!` executable comments are intentionally not supported.
+
+---
+options:
+  supported_version: !current_version
+---
+schema_template:
+    create table t(id bigint, val bigint, primary key(id))
+---
+setup:
+  steps:
+    - query: insert into t values (1, 10), (2, 20), (3, 30);
+---
+test_block:
+  name: sql-comments-tests
+  tests:
+    -
+      # block comment in the middle of a query
+      - query: |
+          select /* choose val */ val from t where id = 1
+      - result: [ { 10 } ]
+    -
+      # block comment spanning multiple lines
+      - query: |
+          select val
+          /* this comment
+             spans multiple
+             lines */
+          from t where id = 2
+      - result: [ { 20 } ]
+    -
+      # trailing '-- ' line comment (with a space after the dashes)
+      - query: |
+          select val from t where id = 3 -- fetch the third row
+      - result: [ { 30 } ]
+    -
+      # trailing '--' line comment WITHOUT a space (ANSI/PostgreSQL behaviour)
+      - query: |
+          select val from t where id = 1 --no space after the dashes
+      - result: [ { 10 } ]
+    -
+      # line comment on its own line, interleaved between clauses
+      - query: |
+          select val
+          -- pick the row
+          from t
+          where id = 1
+      - result: [ { 10 } ]
+    -
+      # comment text that looks like SQL must be ignored entirely
+      - query: |
+          select val from t where id = 1 -- select * from t; drop table t
+      - result: [ { 10 } ]
+    -
+      # '--' starts a comment even when glued to a token: '3--2' is 'select 3' then a comment
+      - query: |
+          select 3--2
+          from t where id = 1
+      - result: [ { 3 } ]
+    -
+      # regression guard: spaced '- -' is subtraction of a negative, NOT a comment
+      - query: |
+          select 3 - -2 from t where id = 1
+      - result: [ { 5 } ]
+    -
+      # MySQL '/*! ... */' executable comments carry no special meaning: they are stripped like any block comment
+      - query: |
+          select val from t /*! where id = 999 */ where id = 1
+      - result: [ { 10 } ]
+    -
+      # MySQL '#' line comments are intentionally unsupported and are a syntax error
+      - query: |
+          select val from t where id = 1 # hash comment
+      - error: SYNTAX_ERROR
+    -
+      # an unterminated block comment is a syntax error
+      - query: |
+          select val from t where id = 1 /* unterminated
+      - error: SYNTAX_ERROR
+...
