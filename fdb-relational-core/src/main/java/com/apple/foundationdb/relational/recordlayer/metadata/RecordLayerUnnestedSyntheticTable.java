@@ -34,6 +34,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -104,7 +105,7 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
     public String getDescription() {
         // e.g. SELECT "row".*, SQ.* FROM "T" AS "row", (SELECT * FROM "row"."TAGS") AS SQ
         // A synthetic record is the stored record together with one element from each constituent, so the parent
-        // is projected alongside the constituents — index keys on this type reference its fields too.
+        // is projected alongside the constituents; index keys on this type reference its fields too.
         final StringBuilder sb = new StringBuilder("SELECT ");
         sb.append(Stream.concat(Stream.of('"' + alias + '"'),
                         constituents.stream().map(NestedConstituent::getAlias))
@@ -125,13 +126,29 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
         super.accept(visitor);
     }
 
+    @Override
+    public boolean equals(final Object o) {
+        if (!super.equals(o)) {
+            return false;
+        }
+        final RecordLayerUnnestedSyntheticTable that = (RecordLayerUnnestedSyntheticTable) o;
+        return Objects.equals(alias, that.alias)
+                && Objects.equals(parentTableName, that.parentTableName)
+                && Objects.equals(parentTableStorageName, that.parentTableStorageName)
+                && Objects.equals(constituents, that.constituents);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), alias, parentTableName, parentTableStorageName, constituents);
+    }
+
     /**
      * A nested constituent of an {@link RecordLayerUnnestedSyntheticTable}, representing one array fan-out.
-     * The {@code parentAlias} is the alias of the constituent from which this one is unnested — for a
+     * The {@code parentAlias} is the alias of the constituent from which this one is unnested. For a
      * single-level unnesting this is the stored-record parent alias; for chained unnesting it is the
      * alias of the immediately preceding nested constituent.
      */
-    @API(API.Status.EXPERIMENTAL)
     public static final class NestedConstituent {
 
         @Nonnull
@@ -171,6 +188,24 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
         @Nonnull
         public KeyExpression getNestingExpression() {
             return nestingExpression;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (o == null) {
+                return false;
+            }
+            if (getClass() != o.getClass()) {
+                return false;
+            }
+            final NestedConstituent that = (NestedConstituent) o;
+            return Objects.equals(alias, that.alias) && Objects.equals(parentAlias, that.parentAlias)
+                    && Objects.equals(nestingExpression, that.nestingExpression);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(alias, parentAlias, nestingExpression);
         }
 
         /**
@@ -269,6 +304,9 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
         @Override
         public RecordLayerUnnestedSyntheticTable build() {
             Assert.notNullUnchecked(name, "unnested type name is not set");
+            // Used verbatim as a protobuf message name, so reject anything protobuf cannot express here rather
+            // than failing later with an opaque "could not build synthesized file descriptor".
+            ProtoUtils.checkValidProtoBufCompliantName(name);
             Assert.notNullUnchecked(alias, "parent constituent alias is not set");
             Assert.notNullUnchecked(parentTableName, "parent table name is not set");
             if (parentTableStorageName == null) {

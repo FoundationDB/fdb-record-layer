@@ -26,11 +26,12 @@ import com.apple.foundationdb.relational.api.metadata.Visitor;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import java.util.Objects;
 import java.util.Set;
 
 /**
  * Base class for synthetic record types in the relational layer. A synthetic type is an indexed
- * view — it is defined by a SQL SELECT query (like a {@link View}) and additionally backed by a
+ * view: it is defined by a SQL SELECT query (like a {@link View}) and additionally backed by a
  * record-layer synthetic record type ({@code UnnestedRecordType}) with one or more indexes
  * maintained on it.
  *
@@ -91,12 +92,29 @@ public abstract sealed class RecordLayerSyntheticTable implements View
         }
     }
 
-    /** Typed dispatch for {@link SkeletonVisitor} — implemented by each concrete subclass. */
+    /** Typed dispatch for {@link SkeletonVisitor}, implemented by each concrete subclass. */
     protected void acceptSkeleton(@Nonnull SkeletonVisitor visitor) {
         visitor.visit(this);
         for (final var index : getIndexes()) {
             index.accept(visitor);
         }
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+        if (o == null) {
+            return false;
+        }
+        if (getClass() != o.getClass()) {
+            return false;
+        }
+        final RecordLayerSyntheticTable that = (RecordLayerSyntheticTable) o;
+        return Objects.equals(name, that.name) && Objects.equals(indexes, that.indexes);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, indexes);
     }
 
     /** Common builder contract for all synthetic type builders. */

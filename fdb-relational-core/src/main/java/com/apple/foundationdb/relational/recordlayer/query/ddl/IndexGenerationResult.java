@@ -32,7 +32,7 @@ import java.util.Optional;
  *
  * <p>Most indexes are defined on a stored table, in which case only the index definition is produced.
  * An index over an unnesting that cannot be expressed as a fan-out is instead defined on a synthetic
- * record type, which is returned alongside it. Callers must register that type — the index names it, so
+ * record type, which is returned alongside it. Callers must register that type, since the index names it, so
  * leaving it out would produce an index on a type that does not exist.
  *
  * @param indexBuilder the index definition

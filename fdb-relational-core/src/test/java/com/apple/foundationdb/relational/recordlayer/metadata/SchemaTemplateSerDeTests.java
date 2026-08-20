@@ -959,6 +959,39 @@ public class SchemaTemplateSerDeTests {
     }
 
     /**
+     * Synthetic tables are held in a {@code Set}, so they need value semantics: two structurally identical
+     * instances must compare equal and collapse in a set, and a difference in any component must not.
+     */
+    @Test
+    void unnestedSyntheticTableHasValueSemantics() {
+        final var scoreType = struct("score",
+                structField("label", DataType.Primitives.STRING.type(), 1),
+                structField("value", DataType.Primitives.LONG.type(), 2));
+        final var table = tableWithId("employees", "scores", DataType.ArrayType.from(scoreType, true));
+        final var key = Key.Expressions.concat(constituentField("SQ", "label"), constituentField("row", "id"));
+        final java.util.function.Supplier<RecordLayerUnnestedSyntheticTable> build = () ->
+                syntheticTable("__unnested_employees_score_idx", table, "score_idx", key,
+                        new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
+                                arrayElementsExpression("scores", true)));
+
+        Assertions.assertEquals(build.get(), build.get());
+        Assertions.assertEquals(build.get().hashCode(), build.get().hashCode());
+        // Set.copyOf collapses duplicates, unlike Set.of which rejects them.
+        Assertions.assertEquals(1, Set.copyOf(List.of(build.get(), build.get())).size());
+
+        // A differing constituent must break equality — otherwise the set would silently collapse distinct types.
+        final var differentConstituent = syntheticTable("__unnested_employees_score_idx", table, "score_idx", key,
+                new RecordLayerUnnestedSyntheticTable.NestedConstituent("OTHER", "row",
+                        arrayElementsExpression("scores", true)));
+        Assertions.assertNotEquals(build.get(), differentConstituent);
+
+        final var differentName = syntheticTable("__unnested_employees_other_idx", table, "score_idx", key,
+                new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
+                        arrayElementsExpression("scores", true)));
+        Assertions.assertNotEquals(build.get(), differentName);
+    }
+
+    /**
      * Round trips a synthetic type with two chained constituents, where the second unnests an array that lives on
      * the element type of the first.
      */

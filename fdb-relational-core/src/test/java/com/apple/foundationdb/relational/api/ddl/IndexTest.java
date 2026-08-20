@@ -826,6 +826,102 @@ public class IndexTest {
                 field(x).nest("COL4")), 3));
     }
 
+    /**
+     * As {@link #createIndexWithRepeatedNestedSplitByField()}, but over an {@code ARRAY NOT NULL} column, which is
+     * stored as a plain repeated field rather than wrapped in a {@code { repeated T values; }} message. The
+     * constituent's nesting expression has to follow the declared storage form, so this only serializes if the
+     * generator reads the declared field type rather than the expression's null-propagated one.
+     */
+    @Test
+    void createIndexWithRepeatedNestedSplitByFieldOverNonNullableArray() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array not null, col5 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col2, T1.col5, X.col3, X.col4 FROM T1, (SELECT col2, col3, col4 FROM T1.A) X ORDER BY X.col2, T1.col5, X.col3";
+        syntheticIndexIs(stmt, IndexTypes.VALUE, (parent, x) -> keyWithValue(concat(
+                field(x).nest("COL2"),
+                field(parent).nest("COL5"),
+                field(x).nest("COL3"),
+                field(x).nest("COL4")), 3));
+    }
+
+    /**
+     * The unnesting is reached only through an enclosing arithmetic expression, so the key columns are not plain
+     * {@code FieldValue}s. Two such columns are non-adjacent, which needs a synthetic type, but a synthetic
+     * type's key can only be expressed in constituent-alias paths — so this is rejected rather than silently
+     * falling back to a fan-out, which would cross-multiply the array against itself.
+     */
+    @Test
+    void createIndexWithUnnestingReachedThroughExpressionIsNotSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col3 + 1 AS s1, T1.col5, X.col4 + 1 AS s2 FROM T1, (SELECT col3, col4 FROM T1.A) X ORDER BY s1, T1.col5, s2";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "supports only plain column references");
+    }
+
+    /**
+     * As {@link #createIndexWithRepeatedNestedSplitByField()}, but with an extra arithmetic column. The shape
+     * needs a synthetic type, and the arithmetic column cannot be rewritten into a constituent-alias path.
+     */
+    @Test
+    void createIndexOverUnnestedSyntheticTypeWithArithmeticColumnIsNotSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col2, T1.col5, X.col3, T1.col5 + 1 AS pp FROM T1, (SELECT col2, col3 FROM T1.A) X ORDER BY X.col2, T1.col5, X.col3, pp";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "supports only plain column references");
+    }
+
+    /**
+     * A scalar array cannot be a constituent, so each reference to it is emitted as its own fan-out. Two
+     * references would range over the array independently, so the same view column could take different values
+     * within one index entry. Rejected, matching what the stored-table path already does for this shape.
+     */
+    @Test
+    void createIndexWithScalarArrayReferencedTwiceIsNotSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, s string array, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col2, V.s AS v1, X.col3, V.s AS v2 FROM T1, (SELECT col2, col3 FROM T1.A) X, (SELECT s FROM T1.S) V ORDER BY X.col2, v1, X.col3, v2";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "a scalar array cannot be referenced at more than one index key position");
+    }
+
+    /**
+     * The single-reference cases the check above must not disturb: one scalar reference stays a fan-out, whether
+     * the array hangs off the stored record or off an unnested struct element.
+     */
+    @Test
+    void createIndexWithScalarArrayReferencedOnceKeepsFanOut() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, s string array, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col2, V.s AS v1, X.col3 FROM T1, (SELECT col2, col3 FROM T1.A) X, (SELECT s FROM T1.S) V ORDER BY X.col2, v1, X.col3";
+        syntheticIndexIs(stmt, IndexTypes.VALUE, (parent, x) -> concat(
+                field(x).nest("COL2"),
+                field(parent).nest(field("S").nest(field("values", KeyExpression.FanType.FanOut))),
+                field(x).nest("COL3")));
+    }
+
+    /**
+     * Two <em>separate</em> explodes over the same scalar array are distinct unnestings, so their cross-product is
+     * the intended meaning of the cross join and each is referenced once. This must stay allowed even though the
+     * emitted key looks identical to {@link #createIndexWithScalarArrayReferencedTwiceIsNotSupported()} — which is
+     * why the check keys on unnesting identity rather than on the array's field path.
+     */
+    @Test
+    void createIndexWithTwoIndependentScalarUnnestingsIsSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, s string array, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col2, V.s AS v1, X.col3, W.s AS v2 FROM T1, (SELECT col2, col3 FROM T1.A) X, (SELECT s FROM T1.S) V, (SELECT s FROM T1.S) W ORDER BY X.col2, v1, X.col3, v2";
+        syntheticIndexIs(stmt, IndexTypes.VALUE, (parent, x) -> concat(
+                field(x).nest("COL2"),
+                field(parent).nest(field("S").nest(field("values", KeyExpression.FanType.FanOut))),
+                field(x).nest("COL3"),
+                field(parent).nest(field("S").nest(field("values", KeyExpression.FanType.FanOut)))));
+    }
+
     @Test
     void createIndexWithRepeatedNestedCartesianSplitByField() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
@@ -851,6 +947,18 @@ public class IndexTest {
                 "CREATE TABLE T1(col1 bigint, col2 bigint, col3 bigint, col4 bigint, primary key(col1)) " +
                 "CREATE INDEX mv1 AS SELECT SUM(col2), COUNT(col2) FROM T1 GROUP BY col3, col4";
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, found group by expression with more than one aggregation");
+    }
+
+    /**
+     * Repeating the same aggregate gets past the group-by validation, so it reaches the aggregate branch with more
+     * than one aggregate value. Without the guard there the extra aggregation is silently dropped.
+     */
+    @Test
+    void createAggregateIndexWithRepeatedAggregationIsNotSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(col1 bigint, col2 bigint, col3 bigint, col4 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT col1, SUM(col2), SUM(col2) FROM T1 GROUP BY col1 ORDER BY col1";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, multiple group by aggregations found");
     }
 
     @Test

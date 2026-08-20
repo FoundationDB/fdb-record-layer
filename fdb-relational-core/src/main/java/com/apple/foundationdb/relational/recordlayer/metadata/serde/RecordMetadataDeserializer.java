@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedMacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.util.ProtoUtils;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
@@ -128,10 +129,12 @@ public class RecordMetadataDeserializer {
         }
         // Reconstruct synthetic types (UnnestedRecordType) stored in RecordMetaData.
         for (final var syntheticType : recordMetaData.getSyntheticRecordTypes().values()) {
-            if (syntheticType instanceof UnnestedRecordType) {
-                schemaTemplateBuilder.addSyntheticTable(
-                        generateUnnestedSyntheticTableBuilder(recordMetaData, (UnnestedRecordType) syntheticType).build());
-            }
+            // Dropping a synthetic type would also drop its indexes, shifting every later index position, so an
+            // unmodelled kind has to fail rather than disappear.
+            Assert.thatUnchecked(syntheticType instanceof UnnestedRecordType, ErrorCode.UNSUPPORTED_OPERATION,
+                    "Unsupported synthetic record type in metadata, only unnested record types can be deserialized");
+            schemaTemplateBuilder.addSyntheticTable(
+                    generateUnnestedSyntheticTableBuilder(recordMetaData, (UnnestedRecordType) syntheticType).build());
         }
         for (final var entry : recordMetaData.getStoredQueries().entrySet()) {
             final RecordMetaData.StoredQuery storedQuery = entry.getValue();
