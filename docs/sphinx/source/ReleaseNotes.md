@@ -8,6 +8,29 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.13
 
+{#release-4-13-3-0}
+
+### 4.13.3.0
+
+<h4> Bug Fixes </h4>
+
+* Revert "Clean up KeyValueCursorBase.SerializationMode (#4436)" - [PR #4482](https://github.com/FoundationDB/fdb-record-layer/pull/4482)
+* Parameter bound to NULL works the same as inline NULL when it is used as predicate - [PR #4469](https://github.com/FoundationDB/fdb-record-layer/pull/4469)
+* Reject `NULL` values in `IN` lists during normalization - [PR #4480](https://github.com/FoundationDB/fdb-record-layer/pull/4480)
+
+
+**[Full Changelog (4.13.2.0...4.13.3.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.13.2.0...4.13.3.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.12.9.0`, ✅`4.12.10.0`, ✅`4.12.11.0`, ✅`4.12.12.0`, ✅`4.12.13.0`, ✅`4.12.15.0`, ✅`4.12.16.0`, ✅`4.12.18.0`, ✅`4.13.1.0`, ✅`4.13.2.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/32409892474)
+
+
+
 {#release-4-13-2-0}
 
 ### 4.13.2.0
