@@ -139,28 +139,28 @@ test_block:
     -
       # ‡ Case 2: NULL in a list that is not all constants (so the list is not coalesced into a single array literal).
       - query: select a, b from ta where b in (1 + 0, null)
-      - supported_version: !current_version
+      - supported_version: 4.13.3.0
       - error: WRONG_OBJECT_TYPE
     -
       # ‡ Case 3: Same list as Case 2, but negated. NOT IN goes through the same check.
       - query: select a, b from ta where b not in (1 + 0, null)
-      - supported_version: !current_version
+      - supported_version: 4.13.3.0
       - error: WRONG_OBJECT_TYPE
     -
       # ‡ Case 4: A lone NULL as the entire list.
       - query: select a, b from ta where b in (null)
-      - supported_version: !current_version
+      - supported_version: 4.13.3.0
       - error: WRONG_OBJECT_TYPE
     -
       # ‡ Case 5: NULL in an all-constant list, negated. This is the counterpart to Case 1.
       - query: select a, b from ta where b not in (1, null)
-      - supported_version: !current_version
+      - supported_version: 4.13.3.0
       - error: WRONG_OBJECT_TYPE
     -
       # ‡ Case 6: No literal NULL to normalize. The `t_link.color` field is NULL in every row, so the array is built
       # with a NULL element at runtime and rejected.
       - query: select id from t_child where t_link.name in ('p1', t_link.color)
-      - supported_version: !current_version
+      - supported_version: 4.13.3.0
       - error: UNSUPPORTED_OPERATION
     -
       # DOUBLE value matched against IN list of DOUBLE values

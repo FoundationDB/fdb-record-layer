@@ -44,7 +44,7 @@ test_block:
     -
       # An array cannot hold a NULL element.
       - query: INSERT INTO A_NOT_NULL VALUES (0, [1, NULL])
-      - supported_version: !current_version
+      - supported_version: 4.13.3.0
       - error: UNSUPPORTED_OPERATION
     -
       # INSERT + basic SELECT for a not-nullable INTEGER ARRAY.
