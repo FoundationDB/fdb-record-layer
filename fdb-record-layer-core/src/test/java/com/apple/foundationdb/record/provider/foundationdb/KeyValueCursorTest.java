@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -48,6 +49,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.security.SecureRandom;
 import java.util.Arrays;
@@ -96,8 +99,9 @@ public class KeyValueCursorTest {
         });
     }
 
-    @Test
-    public void all() {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    public void all(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
             byte[] continuation = null;
             KeyValueCursor cursor = null;
@@ -108,6 +112,7 @@ public class KeyValueCursorTest {
                             .setRange(TupleRange.ALL)
                             .setContinuation(continuation)
                             .setScanProperties(ScanProperties.FORWARD_SCAN)
+                            .setSerializationMode(serializationMode)
                             .build();
                     RecordCursorResult<KeyValue> cursorResult = cursor.getNext();
                     KeyValue kv = cursorResult.get();
@@ -123,6 +128,7 @@ public class KeyValueCursorTest {
                     .setRange(TupleRange.ALL)
                     .setContinuation(null)
                     .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder().setReturnedRowLimit(10).build()))
+                    .setSerializationMode(serializationMode)
                     .build();
             assertEquals(10, (int)cursor.getCount().join());
             cursor = KeyValueCursor.Builder.withSubspace(subspace)
@@ -130,6 +136,7 @@ public class KeyValueCursorTest {
                     .setRange(TupleRange.ALL)
                     .setContinuation(cursor.getNext().getContinuation().toBytes())
                     .setScanProperties(ScanProperties.FORWARD_SCAN)
+                    .setSerializationMode(serializationMode)
                     .build();
             assertEquals(15, (int)cursor.getCount().join());
 
@@ -137,8 +144,9 @@ public class KeyValueCursorTest {
         });
     }
 
-    @Test
-    public void allInARange() throws InvalidProtocolBufferException {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    public void allInARange(KeyValueCursorBase.SerializationMode serializationMode) throws InvalidProtocolBufferException {
         // pick 2 examples that can be serialized as RecordCursorProto.KeyValueCursorContinuation, but was correctly rejected by the magic number check
         byte[] lowBytes = new byte[]{ 0x11, (byte) 0xac,  (byte) 0xcd, (byte) 0x73, 0x01, (byte) 0xdd, 0x42, (byte) 0x98, 0x5e, 0x0A, 0x04, 0x0f, (byte) 0xdb, 0x00, 0x14 };
         byte[] highBytes = new byte[]{ 0x18, 0x01, 0x0A, 0x02, 0x01, 0x14 };
@@ -175,6 +183,7 @@ public class KeyValueCursorTest {
                         .setRange(tupleRange)
                         .setContinuation(continuation)
                         .setScanProperties(ScanProperties.FORWARD_SCAN)
+                        .setSerializationMode(serializationMode)
                         .build();
                 RecordCursorResult<KeyValue> cursorResult = cursor.getNext();
                 KeyValue kv = cursorResult.get();
@@ -196,6 +205,7 @@ public class KeyValueCursorTest {
                     .setRange(tupleRange)
                     .setContinuation(null)
                     .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder().setReturnedRowLimit(1).build()))
+                    .setSerializationMode(serializationMode)
                     .build();
             assertEquals(1, (int)cursor.getCount().join());
             cursor = KeyValueCursor.Builder.withSubspace(subspace)
@@ -203,6 +213,7 @@ public class KeyValueCursorTest {
                     .setRange(tupleRange)
                     .setContinuation(cursor.getNext().getContinuation().toBytes())
                     .setScanProperties(ScanProperties.FORWARD_SCAN)
+                    .setSerializationMode(serializationMode)
                     .build();
             assertEquals(1, (int)cursor.getCount().join());
 
@@ -210,14 +221,16 @@ public class KeyValueCursorTest {
         });
     }
 
-    @Test
-    public void beginsWith() {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    public void beginsWith(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
             KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
                     .setRange(TupleRange.allOf(Tuple.from(3)))
                     .setContinuation(null)
                     .setScanProperties(ScanProperties.FORWARD_SCAN)
+                    .setSerializationMode(serializationMode)
                     .build();
             for (int j = 0; j < 5; j++) {
                 KeyValue kv = cursor.getNext().get();
@@ -231,6 +244,7 @@ public class KeyValueCursorTest {
                     .setRange(TupleRange.allOf(Tuple.from(3)))
                     .setContinuation(null)
                     .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder().setReturnedRowLimit(2).build()))
+                    .setSerializationMode(serializationMode)
                     .build();
             assertEquals(2, (int)cursor.getCount().join());
             cursor = KeyValueCursor.Builder.withSubspace(subspace)
@@ -238,6 +252,7 @@ public class KeyValueCursorTest {
                     .setRange(TupleRange.allOf(Tuple.from(3)))
                     .setContinuation(cursor.getNext().getContinuation().toBytes())
                     .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder().setReturnedRowLimit(3).build()))
+                    .setSerializationMode(serializationMode)
                     .build();
             assertEquals(3, (int)cursor.getCount().join());
 
@@ -245,8 +260,9 @@ public class KeyValueCursorTest {
         });
     }
 
-    @Test
-    public void inclusiveRange() {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    public void inclusiveRange(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
             KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
@@ -254,6 +270,7 @@ public class KeyValueCursorTest {
                     .setHigh(Tuple.from(4, 2), EndpointType.RANGE_INCLUSIVE)
                     .setContinuation(null)
                     .setScanProperties(ScanProperties.FORWARD_SCAN)
+                    .setSerializationMode(serializationMode)
                     .build();
             assertEquals(Arrays.asList(Tuple.from(3L, 3L), Tuple.from(3L, 4L), Tuple.from(4L, 0L), Tuple.from(4L, 1L), Tuple.from(4L, 2L)),
                     cursor.map(KeyValue::getValue).map(Tuple::fromBytes).asList().join());
@@ -264,6 +281,7 @@ public class KeyValueCursorTest {
                     .setHigh(Tuple.from(4, 2), EndpointType.RANGE_INCLUSIVE)
                     .setContinuation(null)
                     .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder().setReturnedRowLimit(2).build()))
+                    .setSerializationMode(serializationMode)
                     .build();
             assertEquals(Arrays.asList(Tuple.from(3L, 3L), Tuple.from(3L, 4L)),
                     cursor.map(KeyValue::getValue).map(Tuple::fromBytes).asList().join());
@@ -273,6 +291,7 @@ public class KeyValueCursorTest {
                     .setHigh(Tuple.from(4, 2), EndpointType.RANGE_INCLUSIVE)
                     .setContinuation(cursor.getNext().getContinuation().toBytes())
                     .setScanProperties(ScanProperties.FORWARD_SCAN)
+                    .setSerializationMode(serializationMode)
                     .build();
             assertEquals(Arrays.asList(Tuple.from(4L, 0L), Tuple.from(4L, 1L), Tuple.from(4L, 2L)),
                     cursor.map(KeyValue::getValue).map(Tuple::fromBytes).asList().join());
@@ -350,8 +369,9 @@ public class KeyValueCursorTest {
         });
     }
 
-    @Test
-    public void exclusiveRange() {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    public void exclusiveRange(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
             KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
@@ -359,6 +379,7 @@ public class KeyValueCursorTest {
                     .setHigh(Tuple.from(4, 2), EndpointType.RANGE_EXCLUSIVE)
                     .setContinuation(null)
                     .setScanProperties(ScanProperties.FORWARD_SCAN)
+                    .setSerializationMode(serializationMode)
                     .build();
             assertEquals(Arrays.asList(Tuple.from(3L, 4L), Tuple.from(4L, 0L), Tuple.from(4L, 1L)),
                     cursor.map(KeyValue::getValue).map(Tuple::fromBytes).asList().join());
@@ -369,6 +390,7 @@ public class KeyValueCursorTest {
                     .setHigh(Tuple.from(4, 2), EndpointType.RANGE_EXCLUSIVE)
                     .setContinuation(null)
                     .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder().setReturnedRowLimit(2).build()))
+                    .setSerializationMode(serializationMode)
                     .build();
             assertEquals(Arrays.asList(Tuple.from(3L, 4L), Tuple.from(4L, 0L)),
                     cursor.map(KeyValue::getValue).map(Tuple::fromBytes).asList().join());
@@ -378,6 +400,7 @@ public class KeyValueCursorTest {
                     .setHigh(Tuple.from(4, 2), EndpointType.RANGE_EXCLUSIVE)
                     .setContinuation(cursor.getNext().getContinuation().toBytes())
                     .setScanProperties(ScanProperties.FORWARD_SCAN)
+                    .setSerializationMode(serializationMode)
                     .build();
             assertEquals(Collections.singletonList(Tuple.from(4L, 1L)),
                     cursor.map(KeyValue::getValue).map(Tuple::fromBytes).asList().join());
@@ -386,8 +409,9 @@ public class KeyValueCursorTest {
         });
     }
 
-    @Test
-    public void inclusiveNull() {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    public void inclusiveNull(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
             RecordCursorIterator<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
@@ -395,6 +419,7 @@ public class KeyValueCursorTest {
                     .setHigh((Tuple) null, EndpointType.RANGE_INCLUSIVE)
                     .setContinuation(null)
                     .setScanProperties(ScanProperties.FORWARD_SCAN)
+                    .setSerializationMode(serializationMode)
                     .build()
                     .asIterator();
             for (int j = 0; j < 5; j++) {
@@ -408,8 +433,9 @@ public class KeyValueCursorTest {
         });
     }
 
-    @Test
-    public void exclusiveNull() {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    public void exclusiveNull(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
             RecordCursorIterator<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
@@ -417,6 +443,7 @@ public class KeyValueCursorTest {
                     .setHigh((Tuple) null, EndpointType.RANGE_EXCLUSIVE)
                     .setContinuation(null)
                     .setScanProperties(ScanProperties.FORWARD_SCAN)
+                    .setSerializationMode(serializationMode)
                     .build()
                     .asIterator();
             assertThat(cursor.hasNext(), is(false));
@@ -425,13 +452,15 @@ public class KeyValueCursorTest {
         });
     }
 
-    @Test
-    public void noNextReasons() {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    public void noNextReasons(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
             KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
                     .setRange(TupleRange.allOf(Tuple.from(3)))
                     .setContinuation(null)
+                    .setSerializationMode(serializationMode)
                     .setScanProperties(ScanProperties.FORWARD_SCAN.with(props -> props.setReturnedRowLimit(3)))
                     .build();
             assertEquals(Arrays.asList(Tuple.from(3L, 0L), Tuple.from(3L, 1L), Tuple.from(3L, 2L)),
@@ -442,6 +471,7 @@ public class KeyValueCursorTest {
                     .setContext(context)
                     .setRange(TupleRange.allOf(Tuple.from(3)))
                     .setContinuation(result.getContinuation().toBytes())
+                    .setSerializationMode(serializationMode)
                     .setScanProperties(ScanProperties.FORWARD_SCAN.with(props -> props.setReturnedRowLimit(3)))
                     .build();
             assertEquals(Arrays.asList(Tuple.from(3L, 3L), Tuple.from(3L, 4L)),
@@ -458,14 +488,16 @@ public class KeyValueCursorTest {
         return new ScanProperties(ExecuteProperties.SERIAL_EXECUTE.setState(new ExecuteState(limiter, null)));
     }
 
-    @Test
-    public void simpleScanLimit() {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    public void simpleScanLimit(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
             RecordScanLimiter limiter = RecordScanLimiterFactory.enforce(2);
             KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
                     .setRange(TupleRange.ALL)
                     .setScanProperties(forwardScanWithLimiter(limiter))
+                    .setSerializationMode(serializationMode)
                     .build();
             assertEquals(2, (int) cursor.getCount().join());
             RecordCursorResult<KeyValue> result = cursor.getNext();
@@ -476,8 +508,9 @@ public class KeyValueCursorTest {
         });
     }
 
-    @Test
-    public void limitNotReached() {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    public void limitNotReached(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
             RecordScanLimiter limiter = RecordScanLimiterFactory.enforce(4);
             KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
@@ -485,6 +518,7 @@ public class KeyValueCursorTest {
                     .setLow(Tuple.from(3, 3), EndpointType.RANGE_EXCLUSIVE)
                     .setHigh(Tuple.from(4, 2), EndpointType.RANGE_EXCLUSIVE)
                     .setScanProperties(forwardScanWithLimiter(limiter))
+                    .setSerializationMode(serializationMode)
                     .build();
             assertEquals(3, (int) cursor.getCount().join());
             RecordCursorResult<?> result = cursor.getNext();
@@ -499,15 +533,17 @@ public class KeyValueCursorTest {
         return cursor.getNext().hasNext();
     }
 
-    @Test
-    public void sharedLimiter() {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    public void sharedLimiter(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
             RecordScanLimiter limiter = RecordScanLimiterFactory.enforce(4);
             KeyValueCursor.Builder builder =  KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
                     .setLow(Tuple.from(3, 3), EndpointType.RANGE_EXCLUSIVE)
                     .setHigh(Tuple.from(4, 2), EndpointType.RANGE_EXCLUSIVE)
-                    .setScanProperties(forwardScanWithLimiter(limiter));
+                    .setScanProperties(forwardScanWithLimiter(limiter))
+                    .setSerializationMode(serializationMode);
             KeyValueCursor cursor1 = builder.build();
             KeyValueCursor cursor2 = builder.build();
 
@@ -526,8 +562,9 @@ public class KeyValueCursorTest {
         });
     }
 
-    @Test
-    public void limiterWithLookahead() {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    public void limiterWithLookahead(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
             RecordScanLimiter limiter = RecordScanLimiterFactory.enforce(1);
             KeyValueCursor kvCursor =  KeyValueCursor.Builder.withSubspace(subspace)
@@ -535,6 +572,7 @@ public class KeyValueCursorTest {
                     .setLow(Tuple.from(3, 3), EndpointType.RANGE_EXCLUSIVE)
                     .setHigh(Tuple.from(4, 2), EndpointType.RANGE_EXCLUSIVE)
                     .setScanProperties(forwardScanWithLimiter(limiter))
+                    .setSerializationMode(serializationMode)
                     .build();
             RecordCursor<KeyValue> cursor = kvCursor.skip(2); // should exhaust limit first
             RecordCursorResult<KeyValue> result = cursor.getNext();
@@ -545,14 +583,16 @@ public class KeyValueCursorTest {
         });
     }
 
-    @Test
-    public void emptyScan() {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    public void emptyScan(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
             RecordCursor<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
                     .setRange(TupleRange.allOf(Tuple.from(9)))
                     .setContinuation(null)
                     .setScanProperties(ScanProperties.FORWARD_SCAN)
+                    .setSerializationMode(serializationMode)
                     .build();
             RecordCursorResult<KeyValue> result = cursor.getNext();
             assertFalse(result.hasNext());
@@ -563,14 +603,16 @@ public class KeyValueCursorTest {
         });
     }
 
-    @Test
-    public void emptyScanSplit() {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    public void emptyScanSplit(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
             RecordCursor<KeyValue> kvCursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
                     .setRange(TupleRange.allOf(Tuple.from(9)))
                     .setContinuation(null)
                     .setScanProperties(ScanProperties.FORWARD_SCAN)
+                    .setSerializationMode(serializationMode)
                     .build();
             RecordCursor<?> cursor = new SplitHelper.KeyValueUnsplitter(context, subspace, kvCursor, false, null, false,
                     new CursorLimitManager(context, ScanProperties.FORWARD_SCAN));
@@ -638,11 +680,15 @@ public class KeyValueCursorTest {
         int prefixLength = 50;
         byte[] randomBytes = new byte[prefixLength];
         new SecureRandom().nextBytes(randomBytes);
-        KeyValueCursorBase.Continuation continuation = new KeyValueCursorBase.Continuation(randomBytes, prefixLength);
-        Assertions.assertFalse(continuation.isEnd());
+        RecordCursorContinuation oldContinuation = new KeyValueCursorBase.Continuation(randomBytes, prefixLength, KeyValueCursorBase.SerializationMode.TO_OLD);
+        Assertions.assertFalse(oldContinuation.isEnd());
+        Assertions.assertEquals(ByteString.EMPTY, oldContinuation.toByteString());
+
+        KeyValueCursorBase.Continuation newContinuation = new KeyValueCursorBase.Continuation(randomBytes, prefixLength, KeyValueCursorBase.SerializationMode.TO_NEW);
+        Assertions.assertFalse(newContinuation.isEnd());
         // inner continuation is empty
-        Assertions.assertEquals(0, Objects.requireNonNull(KeyValueCursorBase.Continuation.getInnerContinuation(continuation.toBytes())).length);
+        Assertions.assertEquals(0, Objects.requireNonNull(KeyValueCursorBase.Continuation.getInnerContinuation(newContinuation.toBytes())).length);
         // wrapped continuation is not empty
-        Assertions.assertNotEquals(ByteString.EMPTY, continuation.toByteString());
+        Assertions.assertNotEquals(ByteString.EMPTY, newContinuation.toByteString());
     }
 }
