@@ -8,6 +8,48 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.13
 
+{#release-4-13-2-0}
+
+### 4.13.2.0
+
+<h4> New Features </h4>
+
+* Select merge and predicate pushdown after optimize - [PR #4394](https://github.com/FoundationDB/fdb-record-layer/pull/4394)
+* Refinements around nullable `ARRAY` types and `NULL` array elements - [PR #4453](https://github.com/FoundationDB/fdb-record-layer/pull/4453)
+<h4> Bug Fixes </h4>
+
+* Address display name of logical type filter and instert/update/delete expressions using storage name - [PR #4437](https://github.com/FoundationDB/fdb-record-layer/pull/4437)
+* fix problem around collapsed replicated references - [PR #4476](https://github.com/FoundationDB/fdb-record-layer/pull/4476)
+* Indexer heartbeat during drain merge - [PR #4465](https://github.com/FoundationDB/fdb-record-layer/pull/4465)
+<h4> Performance Improvements </h4>
+
+* Add a conditional rule `decorrelateThenSimplification` to `RewritingRuleSet` - [PR #4417](https://github.com/FoundationDB/fdb-record-layer/pull/4417)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Clean up AggregateCursor serializationMode - [PR #4468](https://github.com/FoundationDB/fdb-record-layer/pull/4468)
+* Add a skill for stacked pull requests and the upstream branch naming convention - [PR #4449](https://github.com/FoundationDB/fdb-record-layer/pull/4449)
+
+</details>
+
+
+**[Full Changelog (4.13.1.0...4.13.2.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.13.1.0...4.13.2.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.12.8.0`, ✅`4.12.9.0`, ✅`4.12.10.0`, ✅`4.12.11.0`, ✅`4.12.12.0`, ✅`4.12.13.0`, ✅`4.12.15.0`, ✅`4.12.16.0`, ✅`4.12.18.0`, ✅`4.13.1.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/32346446263)
+
+
+
 {#release-4-13-1-0}
 
 ### 4.13.1.0
