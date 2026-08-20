@@ -28,7 +28,12 @@ import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier.Existential;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier.ForEach;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier.Physical;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUniqueExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.BoundMatch;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.ComputingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.DependencyUtils;
@@ -40,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.graph.Predicat
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.AbstractIterator;
@@ -67,10 +73,82 @@ import java.util.stream.StreamSupport;
 /**
  * Auxiliary class containing factory methods and helpers for {@link Quantifier}.
  */
-public class Quantifiers {
+public final class Quantifiers {
+
+    /**
+     * “Allowlist” of expressions whose corresponding implementation rules recognize and honor for-each quantifiers with
+     * null-on-empty semantics.
+     */
+    @Nonnull
+    private static final Set<Class<? extends RelationalExpression>> NULL_ON_EMPTY_AWARE_EXPRESSIONS =
+            ImmutableSet.of(
+                    SelectExpression.class,          // ImplementSimpleSelectRule, ImplementNestedLoopJoinRule
+                    LogicalSortExpression.class,     // RemoveSortRule
+                    LogicalDistinctExpression.class, // ImplementDistinctRule
+                    LogicalUniqueExpression.class,   // ImplementUniqueRule
+                    LogicalUnionExpression.class     // ImplementDistinctUnionRule, ImplementUnorderedUnionRule
+            );
 
     private Quantifiers() {
         // prevent instantiation
+    }
+
+    /**
+     * Returns whether the given quantifier is a for-each quantifier with null-on-empty semantics.
+     */
+    public static boolean isForEachWithNullOnEmpty(@Nonnull final Quantifier quantifier) {
+        return quantifier instanceof ForEach forEach && forEach.isNullOnEmpty();
+    }
+
+    /**
+     * Returns the given reference, possibly wrapped in a {@link RecordQueryDefaultOnEmptyPlan} node in order to
+     * implement the null-on-empty semantics of the given quantifier, if present. (The {@code quantifier} is assumed to
+     * range over the logical counterpart to {@code reference}, and provides the alias and the flowed object type.)
+     *
+     * @param call the rule call to memoize the wrapper into
+     * @param quantifier the quantifier that ranges over the logical counterpart of {@code reference}
+     * @param reference the reference to wrap
+     * @return either {@code reference} itself, or a reference for the wrapper, as described
+     */
+    @Nonnull
+    public static Reference implementNullOnEmptyIfPresent(@Nonnull final ImplementationCascadesRuleCall call,
+                                                          @Nonnull final Quantifier quantifier,
+                                                          @Nonnull final Reference reference) {
+        if (isForEachWithNullOnEmpty(quantifier)) {
+            return call.memoizePlan(RecordQueryDefaultOnEmptyPlan.forNullOnEmpty(quantifier, reference));
+        }
+        return reference;
+    }
+
+    /**
+     * Variant of {@link #implementNullOnEmptyIfPresent(ImplementationCascadesRuleCall, Quantifier, Reference)} that
+     * takes a {@link Memoizer.ReferenceOfPlansBuilder} instead of a {@link Reference}.
+     */
+    @Nonnull
+    public static Memoizer.ReferenceOfPlansBuilder implementNullOnEmptyIfPresent(@Nonnull final ImplementationCascadesRuleCall call,
+                                                                                 @Nonnull final Quantifier quantifier,
+                                                                                 @Nonnull final Memoizer.ReferenceOfPlansBuilder builder) {
+        if (isForEachWithNullOnEmpty(quantifier)) {
+            return call.memoizePlanBuilder(RecordQueryDefaultOnEmptyPlan.forNullOnEmpty(quantifier, builder.reference()));
+        }
+        return builder;
+    }
+
+    /**
+     * Verifies that the given expression does not own a for-each quantifier with null-on-empty semantics which its
+     * implementation would not honor. Only a limited set of implementation rules recognize null-on-empty and translate
+     * it into an appropriate plan such as {@link RecordQueryDefaultOnEmptyPlan}. On any other expression, such a
+     * quantifier would silently be ignored.
+     */
+    static void verifyNullOnEmptyAwareness(@Nonnull final RelationalExpression expression) {
+        if (NULL_ON_EMPTY_AWARE_EXPRESSIONS.stream().anyMatch(type -> type.isInstance(expression))) {
+            return;
+        }
+        for (final Quantifier quantifier : expression.getQuantifiers()) {
+            Verify.verify(!isForEachWithNullOnEmpty(quantifier),
+                    "Unsupported null-on-empty for-each quantifier on expression of type %s",
+                    expression.getClass().getSimpleName());
+        }
     }
 
     @Nonnull

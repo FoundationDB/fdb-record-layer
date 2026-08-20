@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartitions;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
@@ -42,8 +43,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
-import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
@@ -311,15 +310,10 @@ public class ImplementNestedLoopJoinRule extends AbstractCascadesRule<SelectExpr
     private Quantifier.Physical planPartitionToPhysical(@Nonnull final ImplementationCascadesRuleCall call, @Nonnull final Quantifier quantifier, @Nonnull final Reference reference, @Nonnull final List<QueryPredicate> predicates, @Nonnull final PlanPartition planPartition) {
         var ref = call.memoizeMemberPlansFromOther(reference, planPartition.getPlans());
 
-        if (quantifier instanceof Quantifier.Existential) {
-            ref = call.memoizePlan(
-                    new RecordQueryFirstOrDefaultPlan(Quantifier.physicalBuilder().withAlias(quantifier.getAlias()).build(ref),
-                            new NullValue(quantifier.getFlowedObjectType())));
-        }  else if (quantifier instanceof Quantifier.ForEach && ((Quantifier.ForEach)quantifier).isNullOnEmpty()) {
-            ref = call.memoizePlan(
-                    new RecordQueryDefaultOnEmptyPlan(
-                            Quantifier.physicalBuilder().withAlias(quantifier.getAlias()).build(ref),
-                            new NullValue(quantifier.getFlowedObjectType())));
+        if (quantifier instanceof Quantifier.Existential existential) {
+            ref = call.memoizePlan(RecordQueryFirstOrDefaultPlan.forExistential(existential, ref));
+        } else {
+            ref = Quantifiers.implementNullOnEmptyIfPresent(call, quantifier, ref);
         }
 
         if (!predicates.isEmpty()) {

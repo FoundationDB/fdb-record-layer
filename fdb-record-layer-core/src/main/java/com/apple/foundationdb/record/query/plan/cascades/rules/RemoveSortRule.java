@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
@@ -39,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProp
 import com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableSet;
@@ -101,6 +103,7 @@ public class RemoveSortRule extends AbstractCascadesRule<LogicalSortExpression> 
     @Override
     public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final LogicalSortExpression sortExpression = call.get(root);
+        final Quantifier.ForEach innerQuantifier = call.get(innerQuantifierMatcher);
         final PlanPartition innerPlanPartition = call.get(innerPlanPartitionMatcher);
 
         final Set<RecordQueryPlan> resultPlans = satisfyingPlans(call, sortExpression.getOrdering(), innerPlanPartition);
@@ -109,7 +112,16 @@ public class RemoveSortRule extends AbstractCascadesRule<LogicalSortExpression> 
             return;
         }
 
-        call.yieldPlans(resultPlans);
+        // If the ƒ quantifier below the sort expression has null-on-empty semantics, make sure to re-establish those
+        // semantics here. We do so by injecting an ON EMPTY NULL node _above_ the yielded plans (rather than below
+        // them, where the ƒ used to sit). That is correct because a sort passes a lone null row through unchanged, and
+        // it never turns a non-empty input into an empty one.
+        if (Quantifiers.isForEachWithNullOnEmpty(innerQuantifier)) {
+            final Reference plansReference = call.memoizePlansBuilder(resultPlans).reference();
+            call.yieldPlan(RecordQueryDefaultOnEmptyPlan.forNullOnEmpty(innerQuantifier, plansReference));
+        } else {
+            call.yieldPlans(resultPlans);
+        }
     }
 
     /**

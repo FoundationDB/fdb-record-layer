@@ -26,15 +26,19 @@ import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesR
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.DistinctRecordsProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
@@ -70,8 +74,11 @@ public class ImplementDistinctRule extends AbstractCascadesRule<LogicalDistinctE
                     any(innerPlanPartitionMatcher)));
 
     @Nonnull
+    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(innerReferenceMatcher);
+
+    @Nonnull
     private static final BindingMatcher<LogicalDistinctExpression> root =
-            logicalDistinctExpression(only(forEachQuantifierOverRef(innerReferenceMatcher)));
+            logicalDistinctExpression(only(innerQuantifierMatcher));
 
     public ImplementDistinctRule() {
         super(root);
@@ -79,17 +86,27 @@ public class ImplementDistinctRule extends AbstractCascadesRule<LogicalDistinctE
 
     @Override
     public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+        final var innerQuantifier = call.get(innerQuantifierMatcher);
         final var innerPlanPartition = call.get(innerPlanPartitionMatcher);
         final var innerReference = call.get(innerReferenceMatcher);
 
-        if (innerPlanPartition.getPartitionPropertyValue(DistinctRecordsProperty.distinctRecords())) {
-            call.yieldPlans(innerPlanPartition.getPlans());
+        Set<RecordQueryPlan> plans = innerPlanPartition.getPlans();
+        if (!innerPlanPartition.getPartitionPropertyValue(DistinctRecordsProperty.distinctRecords())) {
+            // These create duplicates.
+            final Reference innerPlansReference = call.memoizeMemberPlansFromOther(innerReference, plans);
+            final Quantifier.Physical innerPhysicalQuantifier = Quantifier.physical(innerPlansReference);
+            plans = ImmutableSet.of(new RecordQueryUnorderedPrimaryKeyDistinctPlan(innerPhysicalQuantifier));
+        }
+
+        // If the ƒ quantifier below the distinct expression has null-on-empty semantics, make sure to re-establish
+        // those semantics here. We do so by injecting an ON EMPTY NULL node _above_ the yielded plans (rather than
+        // below them, where the ƒ used to sit). That is correct because a distinct operation passes a lone null row
+        // through unchanged, and it never turns a non-empty input into an empty one.
+        if (Quantifiers.isForEachWithNullOnEmpty(innerQuantifier)) {
+            final Reference plansReference = call.memoizePlansBuilder(plans).reference();
+            call.yieldPlan(RecordQueryDefaultOnEmptyPlan.forNullOnEmpty(innerQuantifier, plansReference));
         } else {
-            // these create duplicates
-            call.yieldPlan(
-                    new RecordQueryUnorderedPrimaryKeyDistinctPlan(
-                            Quantifier.physical(
-                                    call.memoizeMemberPlansFromOther(innerReference, innerPlanPartition.getPlans()))));
+            call.yieldPlans(plans);
         }
     }
 }
