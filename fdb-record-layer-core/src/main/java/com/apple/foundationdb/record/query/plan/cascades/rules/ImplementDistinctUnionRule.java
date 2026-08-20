@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
@@ -206,7 +207,11 @@ public class ImplementDistinctUnionRule extends AbstractCascadesRule<LogicalDist
                     final var newQuantifiers =
                             Streams.zip(partitions.stream(),
                                             allForEachQuantifiers.stream(),
-                                            (partition, quantifier) -> call.memoizeMemberPlansFromOther(quantifier.getRangesOver(), partition.getPlans()))
+                                            (partition, quantifier) -> {
+                                                final Reference legReference =
+                                                        call.memoizeMemberPlansFromOther(quantifier.getRangesOver(), partition.getPlans());
+                                                return Quantifiers.implementNullOnEmptyIfPresent(call, quantifier, legReference);
+                                            })
                                     .map(Quantifier::physical)
                                     .collect(ImmutableList.toImmutableList());
 
