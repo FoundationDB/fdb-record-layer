@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.UnnestedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
@@ -81,9 +80,6 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
                 getBuilder().addUnnestedRecordType(unnestedType.getName());
         final RecordTypeBuilder recordTypeBuilder = getBuilder().getRecordType(unnestedType.getParentTableStorageName());
         typeBuilder.addParentConstituent(unnestedType.getAlias(), recordTypeBuilder);
-        // The descriptor an array field is looked up in depends on which constituent owns it: the stored
-        // record for a first-level unnesting, and the enclosing constituent's element type for a chained
-        // one. Constituents are registered parent-before-child, so the map is always populated in time.
         final Map<String, Descriptors.Descriptor> descriptorsByAlias = new LinkedHashMap<>();
         descriptorsByAlias.put(unnestedType.getAlias(), recordTypeBuilder.getDescriptor());
         for (final RecordLayerUnnestedSyntheticTable.NestedConstituent nested : unnestedType.getConstituents()) {
@@ -104,11 +100,7 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
             }
             typeBuilder.addNestedConstituent(nested.getAlias(), constituentDescriptor,
                     nested.getParentAlias(), nested.getNestingExpression());
-            // A collision would replace an already-registered alias's descriptor, so a later constituent naming
-            // it as parent would resolve against the wrong record.
-            final var replaced = descriptorsByAlias.put(nested.getAlias(), constituentDescriptor);
-            Assert.thatUnchecked(replaced == null, ErrorCode.INTERNAL_ERROR,
-                    "duplicate constituent alias '%s' in unnested synthetic type", nested.getAlias());
+            descriptorsByAlias.put(nested.getAlias(), constituentDescriptor);
         }
     }
 

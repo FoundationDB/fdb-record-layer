@@ -88,11 +88,6 @@ public abstract sealed class RecordLayerSyntheticTable implements View
     @Nonnull
     public abstract Set<String> getUnderlyingTableNames();
 
-    /**
-     * Dispatches to the typed {@link SkeletonVisitor} method for this concrete synthetic type,
-     * then visits each index. Callers that only have a {@link Visitor} reference will reach
-     * {@link Visitor#visit(View)} via the {@link View} default.
-     */
     @Override
     public void accept(@Nonnull final Visitor visitor) {
         if (visitor instanceof SkeletonVisitor) {
@@ -102,7 +97,6 @@ public abstract sealed class RecordLayerSyntheticTable implements View
         }
     }
 
-    /** Typed dispatch for {@link SkeletonVisitor}, implemented by each concrete subclass. */
     protected void acceptSkeleton(@Nonnull SkeletonVisitor visitor) {
         visitor.visit(this);
         for (final var index : getIndexes()) {
@@ -127,7 +121,6 @@ public abstract sealed class RecordLayerSyntheticTable implements View
         return Objects.hash(name, indexes);
     }
 
-    /** Common builder contract for all synthetic type builders. */
     public interface Builder {
         @Nonnull
         Builder addIndex(@Nonnull RecordLayerIndex index);

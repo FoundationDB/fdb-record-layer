@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.util.ProtoUtils;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -33,6 +34,7 @@ import com.google.common.collect.ImmutableSet;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -174,13 +176,11 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
             this.nestingExpression = nestingExpression;
         }
 
-        /** Correlation alias of this constituent, e.g. {@code "SQ"}. */
         @Nonnull
         public String getAlias() {
             return alias;
         }
 
-        /** Alias of the constituent from which this one is unnested. */
         @Nonnull
         public String getParentAlias() {
             return parentAlias;
@@ -188,8 +188,7 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
 
         /**
          * Expression navigating from the owning constituent's record down to this constituent's elements. This is
-         * the same expression the record layer stores and evaluates, kept verbatim so that a synthetic type read
-         * back out of {@link com.apple.foundationdb.record.RecordMetaData} round-trips exactly.
+         * the same expression the record layer stores and evaluates.
          */
         @Nonnull
         public KeyExpression getNestingExpression() {
@@ -243,9 +242,6 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
 
     /**
      * Builder for {@link RecordLayerUnnestedSyntheticTable}.
-     *
-     * <p>Use {@link #setParentTableType(Type.Record)} as the primary way to set the parent table,
-     * mirroring {@link RecordLayerIndex.Builder#setTableType(Type.Record)}.
      */
     public static final class Builder implements RecordLayerSyntheticTable.Builder {
 
@@ -286,7 +282,6 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
             return this;
         }
 
-        /** Mirrors {@link RecordLayerIndex.Builder#setTableType(Type.Record)}. */
         @Nonnull
         public Builder setParentTableType(@Nonnull final Type.Record tableType) {
             return setParentTableName(tableType.getName())
@@ -310,8 +305,6 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
         @Override
         public RecordLayerUnnestedSyntheticTable build() {
             Assert.notNullUnchecked(name, "unnested type name is not set");
-            // Used verbatim as a protobuf message name, so reject anything protobuf cannot express here rather
-            // than failing later with an opaque "could not build synthesized file descriptor".
             ProtoUtils.checkValidProtoBufCompliantName(name);
             Assert.notNullUnchecked(alias, "parent constituent alias is not set");
             Assert.notNullUnchecked(parentTableName, "parent table name is not set");
@@ -319,6 +312,17 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
                 parentTableStorageName = ProtoUtils.toProtoBufCompliantName(parentTableName);
             }
             Assert.thatUnchecked(!constituents.isEmpty(), "unnested type has no nested constituents");
+            final Set<String> aliases = new LinkedHashSet<>();
+            aliases.add(alias);
+            for (final NestedConstituent constituent : constituents) {
+                Assert.thatUnchecked(aliases.add(constituent.getAlias()), ErrorCode.INVALID_SCHEMA_TEMPLATE,
+                        "duplicate constituent alias '%s' in unnested type", constituent.getAlias());
+            }
+            for (final NestedConstituent constituent : constituents) {
+                Assert.thatUnchecked(aliases.contains(constituent.getParentAlias()),
+                        ErrorCode.INVALID_SCHEMA_TEMPLATE,
+                        "constituent parent alias '%s' is not a known alias", constituent.getParentAlias());
+            }
             return new RecordLayerUnnestedSyntheticTable(name, alias, parentTableName, parentTableStorageName,
                     constituents, indexes.build());
         }

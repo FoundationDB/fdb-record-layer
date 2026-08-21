@@ -121,6 +121,16 @@ public class UnnestedSyntheticTypeParsingTest {
                 "/UnnestedSyntheticTypeParsingTest", query, metadataOperationsFactory);
     }
 
+    /**
+     * Serializing is what registers the constituents on an {@code UnnestedRecordTypeBuilder}, so a constituent whose
+     * parent or array field cannot be resolved only fails here. Asserting on the template alone misses that.
+     */
+    private static void assertSerializesWithSyntheticType(@Nonnull final SchemaTemplate template,
+                                                          @Nonnull final String syntheticTableName) {
+        final var metaData = Assert.castUnchecked(template, RecordLayerSchemaTemplate.class).toRecordMetadata();
+        assertThat(metaData.getSyntheticRecordTypes().containsKey(syntheticTableName)).isTrue();
+    }
+
     // ─── A single unnested struct array ───────────────────────────────────────────────────────
 
     /**
@@ -206,12 +216,6 @@ public class UnnestedSyntheticTypeParsingTest {
 
     // ─── Multiple (3) unnested struct arrays ──────────────────────────────────────────────────
 
-    /**
-     * Asserts the metadata for an index unnesting three struct arrays, one constituent per array.
-     *
-     * @param template the schema template that was built
-     * @param indexName the name of the index that was declared
-     */
     /** Navigates to the elements of a nullable array, which is how the DDL layer stores {@code <T> array}. */
     @Nonnull
     private static KeyExpression wrappedArrayElements(@Nonnull final String arrayFieldName) {
@@ -220,15 +224,11 @@ public class UnnestedSyntheticTypeParsingTest {
     }
 
     /**
-     * Serializing is what registers the constituents on an {@code UnnestedRecordTypeBuilder}, so a constituent whose
-     * parent or array field cannot be resolved only fails here. Asserting on the template alone misses that.
+     * Asserts the metadata for an index unnesting three struct arrays, one constituent per array.
+     *
+     * @param template the schema template that was built
+     * @param indexName the name of the index that was declared
      */
-    private static void assertSerializesWithSyntheticType(@Nonnull final SchemaTemplate template,
-                                                          @Nonnull final String syntheticTableName) {
-        final var metaData = Assert.castUnchecked(template, RecordLayerSchemaTemplate.class).toRecordMetadata();
-        assertThat(metaData.getSyntheticRecordTypes().containsKey(syntheticTableName)).isTrue();
-    }
-
     private static void assertThreeUnnestedStructArrayIndex(@Nonnull final SchemaTemplate template,
                                                             @Nonnull final String indexName) {
         final String syntheticTableName = "__unnested_T_" + indexName;

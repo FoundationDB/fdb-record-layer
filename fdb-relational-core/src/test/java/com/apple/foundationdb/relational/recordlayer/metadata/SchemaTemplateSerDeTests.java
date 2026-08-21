@@ -986,8 +986,8 @@ public class SchemaTemplateSerDeTests {
     }
 
     /**
-     * Two constituents sharing an alias would have the second silently replace the first's descriptor, so a later
-     * constituent naming that alias as its parent would resolve against the wrong record.
+     * Aliases name the records a synthetic record is composed of, so a duplicate -- or a parent alias naming
+     * nothing -- describes no well-formed type. Rejected at build time rather than left for a consumer to trip over.
      */
     @Test
     void duplicateConstituentAliasIsRejected() {
@@ -997,16 +997,23 @@ public class SchemaTemplateSerDeTests {
                 structField("q", DataType.ArrayType.from(innerType, true), 2));
         final var table = tableWithId("dupes", "p", DataType.ArrayType.from(outerType, true));
         final var key = Key.Expressions.concat(constituentField("SQ", "x"), constituentField("row", "id"));
-        final var template = templateWith(table,
+        // Rejected where the type is built, so no consumer downstream has to cope with a malformed one.
+        final var thrown = Assertions.assertThrows(UncheckedRelationalException.class, () ->
                 syntheticTable("__unnested_dupes_idx", table, "dupe_idx", key,
                         new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
                                 arrayElementsExpression("p", true)),
                         new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "SQ",
-                                arrayElementsExpression("q", true))),
-                innerType, outerType);
-        final var thrown = Assertions.assertThrows(UncheckedRelationalException.class, template::toRecordMetadata);
+                                arrayElementsExpression("q", true))));
         Assertions.assertTrue(thrown.getMessage().contains("duplicate constituent alias"),
                 () -> "unexpected message: " + thrown.getMessage());
+
+        // A parent alias that names nothing is equally malformed.
+        final var danglingParent = Assertions.assertThrows(UncheckedRelationalException.class, () ->
+                syntheticTable("__unnested_dupes_idx", table, "dupe_idx", key,
+                        new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "nobody",
+                                arrayElementsExpression("p", true))));
+        Assertions.assertTrue(danglingParent.getMessage().contains("is not a known alias"),
+                () -> "unexpected message: " + danglingParent.getMessage());
     }
 
     /**

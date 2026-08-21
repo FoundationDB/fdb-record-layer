@@ -441,8 +441,6 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         for (final var view : getViews()) {
             view.accept(visitor);
         }
-        // Synthetic types are not returned by getViews(), but they carry indexes and must be
-        // serialized, so visit them explicitly.
         for (final var syntheticTable : syntheticTables) {
             syntheticTable.accept(visitor);
         }
