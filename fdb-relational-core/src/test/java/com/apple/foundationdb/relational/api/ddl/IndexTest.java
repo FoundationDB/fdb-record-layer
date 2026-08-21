@@ -40,6 +40,7 @@ import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.recordlayer.ddl.AbstractMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerUnnestedSyntheticTable;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
@@ -53,8 +54,13 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.Locale;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.RecordMetaDataProto.AndPredicate;
 import static com.apple.foundationdb.record.RecordMetaDataProto.Comparison;
@@ -81,7 +87,7 @@ public class IndexTest {
 
     @RegisterExtension
     @Order(2)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(DdlStatementParsingTest.class, TestSchemas.books());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(IndexTest.class, TestSchemas.books());
 
     @RegisterExtension
     @Order(3)
@@ -110,15 +116,82 @@ public class IndexTest {
             throws Exception {
         connection.setAutoCommit(false);
         connection.getUnderlyingEmbeddedConnection().createNewTransaction();
+        final var factoryConsulted = new AtomicBoolean();
         Assertions.assertDoesNotThrow(() ->
                 DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
-                        "/IndexTest", metadataOperationsFactory).getPlan(query));
+                        "/IndexTest",
+                        DdlTestUtil.recordingFactory(metadataOperationsFactory, factoryConsulted))
+                        .getPlan(query));
         connection.rollback();
         connection.setAutoCommit(true);
+        Assertions.assertTrue(factoryConsulted.get(),
+                "the DDL path never consulted the injected factory, "
+                        + "so the callback holding this test's assertions never ran");
     }
 
     private void indexIs(@Nonnull final String stmt, @Nonnull final KeyExpression expectedKey, @Nonnull final String indexType) throws Exception {
         indexIs(stmt, expectedKey, indexType, index -> { });
+    }
+
+    /**
+     * Asserts that the statement defines its index on an unnested synthetic type with a single nested
+     * constituent, and that the index key matches.
+     *
+     * @param stmt the DDL statement
+     * @param indexType the expected index type
+     * @param expectedKey builds the expected key from the (parent alias, constituent alias)
+     * @throws Exception if planning fails
+     */
+    private void syntheticIndexIs(@Nonnull final String stmt, @Nonnull final String indexType,
+                                  @Nonnull final BiFunction<String, String, KeyExpression> expectedKey) throws Exception {
+        syntheticIndexIs(stmt, indexType, 1, (parent, constituents) -> expectedKey.apply(parent, constituents.get(0)));
+    }
+
+    /**
+     * Asserts that the statement defines its index on an unnested synthetic type, and that the index key
+     * matches. The parent and constituent aliases are generated, so the expected key is built from the
+     * aliases found in the metadata; constituents are given in registration order, outermost first.
+     *
+     * @param stmt the DDL statement
+     * @param indexType the expected index type
+     * @param constituentCount the expected number of nested constituents
+     * @param expectedKey builds the expected key from the (parent alias, constituent aliases)
+     * @throws Exception if planning fails
+     */
+    private void syntheticIndexIs(@Nonnull final String stmt, @Nonnull final String indexType, final int constituentCount,
+                                  @Nonnull final BiFunction<String, List<String>, KeyExpression> expectedKey) throws Exception {
+        shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template,
+                                                                      @Nonnull final Options templateProperties) {
+                final var syntheticTables = Assert.castUnchecked(template, RecordLayerSchemaTemplate.class)
+                        .getUnnestedSyntheticTables();
+                Assertions.assertEquals(1, syntheticTables.size(), "Incorrect number of synthetic types!");
+                final var syntheticTable = syntheticTables.stream().findFirst().orElseThrow();
+                Assertions.assertEquals(constituentCount, syntheticTable.getConstituents().size(),
+                        "Incorrect number of nested constituents!");
+                final var constituentAliases = syntheticTable.getConstituents().stream()
+                        .map(RecordLayerUnnestedSyntheticTable.NestedConstituent::getAlias)
+                        .collect(Collectors.toList());
+                syntheticTable.getConstituents().forEach(constituent ->
+                        Assertions.assertTrue(constituent.getParentAlias().equals(syntheticTable.getAlias())
+                                        || constituentAliases.contains(constituent.getParentAlias()),
+                                () -> "constituent '" + constituent.getAlias() + "' has unknown parent '"
+                                        + constituent.getParentAlias() + "'"));
+                Assertions.assertEquals(1, syntheticTable.getIndexes().size(), "Incorrect number of indexes!");
+                final var index = syntheticTable.getIndexes().stream().findFirst().orElseThrow();
+                Assertions.assertEquals(indexType, index.getIndexType());
+                Assertions.assertEquals(expectedKey.apply(syntheticTable.getAlias(), constituentAliases),
+                        KeyExpression.fromProto(index.getKeyExpression().toKeyExpression()));
+                final var metaData = Assert.castUnchecked(template, RecordLayerSchemaTemplate.class).toRecordMetadata();
+                Assertions.assertTrue(metaData.getSyntheticRecordTypes().containsKey(syntheticTable.getName()),
+                        () -> "synthetic type '" + syntheticTable.getName() + "' missing from serialized metadata, got "
+                                + metaData.getSyntheticRecordTypes().keySet());
+                return txn -> {
+                };
+            }
+        });
     }
 
     private void indexIs(@Nonnull final String stmt, @Nonnull final KeyExpression expectedKey, @Nonnull final String indexType,
@@ -751,7 +824,181 @@ public class IndexTest {
                 "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
                 "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
                 "CREATE INDEX mv1 AS SELECT X.col2, T1.col5, X.col3, X.col4 FROM T1, (SELECT col2, col3, col4 FROM T1.A) X ORDER BY X.col2, T1.col5, X.col3";
-        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Index with multiple disconnected references to the same column are not supported");
+        // X.col2 is separated from X.col3/X.col4 by T1.col5, so no single fan-out can cover all three.
+        // A fan-out key expression rejected this outright; an unnested synthetic type expresses it, since a
+        // constituent holds one array element and can be referenced at any number of key positions.
+        syntheticIndexIs(stmt, IndexTypes.VALUE, (parent, x) -> keyWithValue(concat(
+                field(x).nest("COL2"),
+                field(parent).nest("COL5"),
+                field(x).nest("COL3"),
+                field(x).nest("COL4")), 3));
+    }
+
+    /**
+     * As {@link #createIndexWithRepeatedNestedSplitByField()}, but over an {@code ARRAY NOT NULL} column, which is
+     * stored as a plain repeated field rather than wrapped in a {@code { repeated T values; }} message. The
+     * constituent's nesting expression has to follow the declared storage form, so this only serializes if the
+     * generator reads the declared field type rather than the expression's null-propagated one.
+     */
+    @Test
+    void createIndexWithRepeatedNestedSplitByFieldOverNonNullableArray() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array not null, col5 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col2, T1.col5, X.col3, X.col4 FROM T1, (SELECT col2, col3, col4 FROM T1.A) X ORDER BY X.col2, T1.col5, X.col3";
+        syntheticIndexIs(stmt, IndexTypes.VALUE, (parent, x) -> keyWithValue(concat(
+                field(x).nest("COL2"),
+                field(parent).nest("COL5"),
+                field(x).nest("COL3"),
+                field(x).nest("COL4")), 3));
+    }
+
+    /**
+     * The unnesting is reached only through an enclosing arithmetic expression, so the key columns are not plain
+     * {@code FieldValue}s. Two such columns are non-adjacent, which needs a synthetic type, but a synthetic
+     * type's key can only be expressed in constituent-alias paths — so this is rejected rather than silently
+     * falling back to a fan-out, which would cross-multiply the array against itself.
+     */
+    @Test
+    void createIndexWithUnnestingReachedThroughExpressionIsNotSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col3 + 1 AS s1, T1.col5, X.col4 + 1 AS s2 FROM T1, (SELECT col3, col4 FROM T1.A) X ORDER BY s1, T1.col5, s2";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "supports only plain column references");
+    }
+
+    /**
+     * As {@link #createIndexWithRepeatedNestedSplitByField()}, but with an extra arithmetic column. The shape
+     * needs a synthetic type, and the arithmetic column cannot be rewritten into a constituent-alias path.
+     */
+    @Test
+    void createIndexOverUnnestedSyntheticTypeWithArithmeticColumnIsNotSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col2, T1.col5, X.col3, T1.col5 + 1 AS pp FROM T1, (SELECT col2, col3 FROM T1.A) X ORDER BY X.col2, T1.col5, X.col3, pp";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "supports only plain column references");
+    }
+
+    /**
+     * A scalar array cannot be a constituent, so each reference to it is emitted as its own fan-out. Two
+     * references would range over the array independently, so the same view column could take different values
+     * within one index entry. Rejected, matching what the stored-table path already does for this shape.
+     */
+    @Test
+    void createIndexWithScalarArrayReferencedTwiceIsNotSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, s string array, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col2, V.s AS v1, X.col3, V.s AS v2 FROM T1, (SELECT col2, col3 FROM T1.A) X, (SELECT s FROM T1.S) V ORDER BY X.col2, v1, X.col3, v2";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "a scalar array cannot be referenced at more than one index key position");
+    }
+
+    /**
+     * The single-reference cases the check above must not disturb: one scalar reference stays a fan-out, whether
+     * the array hangs off the stored record or off an unnested struct element.
+     */
+    @Test
+    void createIndexWithScalarArrayReferencedOnceKeepsFanOut() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, s string array, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col2, V.s AS v1, X.col3 FROM T1, (SELECT col2, col3 FROM T1.A) X, (SELECT s FROM T1.S) V ORDER BY X.col2, v1, X.col3";
+        syntheticIndexIs(stmt, IndexTypes.VALUE, (parent, x) -> concat(
+                field(x).nest("COL2"),
+                field(parent).nest(field("S").nest(field("values", KeyExpression.FanType.FanOut))),
+                field(x).nest("COL3")));
+    }
+
+    /**
+     * Two <em>separate</em> explodes over the same scalar array are distinct unnestings, so their cross-product is
+     * the intended meaning of the cross join and each is referenced once. This must stay allowed even though the
+     * emitted key looks identical to {@link #createIndexWithScalarArrayReferencedTwiceIsNotSupported()} — which is
+     * why the check keys on unnesting identity rather than on the array's field path.
+     */
+    @Test
+    void createIndexWithTwoIndependentScalarUnnestingsIsSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, s string array, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col2, V.s AS v1, X.col3, W.s AS v2 FROM T1, (SELECT col2, col3 FROM T1.A) X, (SELECT s FROM T1.S) V, (SELECT s FROM T1.S) W ORDER BY X.col2, v1, X.col3, v2";
+        syntheticIndexIs(stmt, IndexTypes.VALUE, (parent, x) -> concat(
+                field(x).nest("COL2"),
+                field(parent).nest(field("S").nest(field("values", KeyExpression.FanType.FanOut))),
+                field(x).nest("COL3"),
+                field(parent).nest(field("S").nest(field("values", KeyExpression.FanType.FanOut)))));
+    }
+
+    /**
+     * Two indexes in one template each need their own synthetic type, alongside a plain index on the stored table.
+     * Exercises per-index naming of the generated types, accumulation through {@code addSyntheticTable}, and two
+     * {@code UnnestedRecordType}s coexisting in one {@code RecordMetaData} with distinct record type keys.
+     */
+    @Test
+    void createTwoIndexesEachRequiringSyntheticTypeKeepsThemSeparate() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col2, T1.col5, X.col3 FROM T1, (SELECT col2, col3 FROM T1.A) X ORDER BY X.col2, T1.col5, X.col3 " +
+                "CREATE INDEX mv2 AS SELECT Y.col3, T1.col5, Y.col4 FROM T1, (SELECT col3, col4 FROM T1.A) Y ORDER BY Y.col3, T1.col5, Y.col4 " +
+                "CREATE INDEX i3 AS SELECT T1.col5, T1.col1 FROM T1 ORDER BY T1.col5, T1.col1";
+        shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template,
+                                                                      @Nonnull final Options templateProperties) {
+                final var recLayer = Assert.castUnchecked(template, RecordLayerSchemaTemplate.class);
+
+                final var syntheticNames = recLayer.getUnnestedSyntheticTables().stream()
+                        .map(RecordLayerUnnestedSyntheticTable::getName)
+                        .collect(Collectors.toSet());
+                Assertions.assertEquals(Set.of("__unnested_T1_MV1", "__unnested_T1_MV2"), syntheticNames);
+
+                // one index each, and the plain index stays on the stored table
+                recLayer.getUnnestedSyntheticTables().forEach(synthetic ->
+                        Assertions.assertEquals(1, synthetic.getIndexes().size(),
+                                () -> "expected one index on " + synthetic.getName()));
+                final var storedTableIndexes = Assertions.assertDoesNotThrow(() ->
+                        Assert.optionalUnchecked(template.findTableByName("T1")).getIndexes().stream()
+                                .map(com.apple.foundationdb.relational.api.metadata.Index::getName)
+                                .collect(Collectors.toSet()));
+                Assertions.assertEquals(Set.of("I3"), storedTableIndexes);
+
+                // both reach RecordMetaData, as distinct types with distinct record type keys
+                final var metaData = recLayer.toRecordMetadata();
+                Assertions.assertTrue(metaData.getSyntheticRecordTypes().keySet()
+                                .containsAll(Set.of("__unnested_T1_MV1", "__unnested_T1_MV2")),
+                        () -> "got " + metaData.getSyntheticRecordTypes().keySet());
+                final var recordTypeKeys = metaData.getSyntheticRecordTypes().values().stream()
+                        .map(com.apple.foundationdb.record.metadata.SyntheticRecordType::getRecordTypeKey)
+                        .collect(Collectors.toSet());
+                Assertions.assertEquals(2, recordTypeKeys.size(),
+                        () -> "the two synthetic types share a record type key: " + recordTypeKeys);
+                return txn -> {
+                };
+            }
+        });
+    }
+
+    /**
+     * The scalar array lives on the unnested struct's element type, not on the stored record, so its fan-out is
+     * rooted at the constituent that owns it rather than at the parent. Every other mixed struct+scalar test puts
+     * the scalar array on the table.
+     */
+    @Test
+    void createIndexWithScalarArrayInsideUnnestedStructRootsFanOutAtConstituent() throws Exception {
+        // A parent column between the struct's own columns is what splits the outer unnesting: `tg` sits inside
+        // the struct element, so it traverses that unnesting too and cannot split it.
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(x bigint, tags string array, y bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT M.x, t.col1, M.y, tg FROM T1 AS t, t.a AS M, M.tags AS tg ORDER BY M.x, t.col1, M.y, tg";
+        syntheticIndexIs(stmt, IndexTypes.VALUE, (parent, x) -> concat(
+                field(x).nest("X"),
+                field(parent).nest("COL1"),
+                field(x).nest("Y"),
+                field(x).nest(field("TAGS").nest(field("values", KeyExpression.FanType.FanOut)))));
     }
 
     @Test
@@ -779,6 +1026,18 @@ public class IndexTest {
                 "CREATE TABLE T1(col1 bigint, col2 bigint, col3 bigint, col4 bigint, primary key(col1)) " +
                 "CREATE INDEX mv1 AS SELECT SUM(col2), COUNT(col2) FROM T1 GROUP BY col3, col4";
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, found group by expression with more than one aggregation");
+    }
+
+    /**
+     * Repeating the same aggregate gets past the group-by validation, so it reaches the aggregate branch with more
+     * than one aggregate value. Without the guard there the extra aggregation is silently dropped.
+     */
+    @Test
+    void createAggregateIndexWithRepeatedAggregationIsNotSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T1(col1 bigint, col2 bigint, col3 bigint, col4 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT col1, SUM(col2), SUM(col2) FROM T1 GROUP BY col1 ORDER BY col1";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, multiple group by aggregations found");
     }
 
     @Test
@@ -927,6 +1186,138 @@ public class IndexTest {
         indexIs(stmt, keyWithValue(concat(version(), field("A").nest(field("values", KeyExpression.FanType.FanOut).nest(concatenateFields("COL3", "COL4")))), 2), IndexTypes.VERSION);
     }
 
+    /**
+     * A predicate on an index that needs a synthetic type is rejected for now: the predicate would have to
+     * be evaluated against the synthetic record rather than the stored one.
+     */
+    @Test
+    void createIndexWithPredicateOverUnnestedSyntheticTypeIsNotSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col2, T1.col5, X.col3 FROM T1, (SELECT col2, col3 FROM T1.A) X " +
+                "WHERE T1.col5 > 10 ORDER BY X.col2, T1.col5, X.col3";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION,
+                "a predicate is not supported on an index over an unnested synthetic type");
+    }
+
+    /**
+     * The same columns and the same predicate as
+     * {@link #createIndexWithPredicateOverUnnestedSyntheticTypeIsNotSupported()}, but with the two columns of
+     * {@code X} made adjacent. That is expressible as a fan-out, so no synthetic type is needed and the
+     * predicate is accepted — reordering the key alone decides whether the predicate is allowed.
+     */
+    @Test
+    void createIndexWithPredicateIsSupportedWhenUnnestingNeedsNoSyntheticType() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col2, X.col3, T1.col5 FROM T1, (SELECT col2, col3 FROM T1.A) X " +
+                "WHERE T1.col5 > 10 ORDER BY X.col2, X.col3, T1.col5";
+        indexIs(stmt, concat(field("A").nest(field("values", KeyExpression.FanType.FanOut)
+                .nest(concatenateFields("COL2", "COL3"))), field("COL5")), IndexTypes.VALUE);
+    }
+
+    /**
+     * The same predicate is fine when the shape does not need a synthetic type: one column per unnesting
+     * keeps the index on the stored table with a fan-out.
+     */
+    @Test
+    void createIndexWithPredicateOverUnnestingIsSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col3, T1.col5 FROM T1, (SELECT col3 FROM T1.A) X " +
+                "WHERE T1.col5 > 10 ORDER BY X.col3, T1.col5";
+        indexIs(stmt, concat(field("A").nest(field("values", KeyExpression.FanType.FanOut).nest("COL3")),
+                field("COL5")), IndexTypes.VALUE);
+    }
+
+    /**
+     * Two columns of the same unnesting separated by a column of a <em>different</em> unnesting, rather
+     * than by a parent column. Still no single fan-out covers X, so this needs a synthetic type.
+     */
+    @Test
+    void createIndexWithRepeatedNestedSplitByOtherRepeated() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col3, Y.col2, X.col4 FROM T1, (SELECT col3, col4 FROM T1.A) X, " +
+                "(SELECT col2 FROM T1.A) Y ORDER BY X.col3, Y.col2, X.col4";
+        syntheticIndexIs(stmt, IndexTypes.VALUE, 2, (parent, constituents) -> concat(
+                field(constituents.get(0)).nest("COL3"),
+                field(constituents.get(1)).nest("COL2"),
+                field(constituents.get(0)).nest("COL4")));
+    }
+
+    // ─── Chained unnesting: an array nested inside the elements of another array ───────────────
+
+    private static final String CHAINED_SCHEMA = "CREATE SCHEMA TEMPLATE test_template " +
+            "CREATE TYPE AS STRUCT Q(y bigint, y2 bigint) " +
+            "CREATE TYPE AS STRUCT P(x bigint, x2 bigint, q Q array) " +
+            "CREATE TABLE A(k bigint, p P array, primary key(k)) ";
+
+    /**
+     * Chained unnesting where the two columns are adjacent. Both are read through the outer unnesting, so
+     * a single fan-out into {@code p} covers them and correlates {@code y} to the element that supplied
+     * {@code x} — one entry per (p, q) pair. No synthetic type is needed.
+     */
+    @Test
+    void createIndexWithChainedUnnestingAdjacentKeepsFanOut() throws Exception {
+        final String stmt = CHAINED_SCHEMA +
+                "CREATE INDEX mv1 AS SELECT b.x, c.y FROM A AS a, (select * from a.p) as b, (select * from b.q) as c " +
+                "ORDER BY b.x, c.y";
+        indexIs(stmt, field("P", KeyExpression.FanType.None)
+                .nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut)
+                        .nest(concat(field("X"), field("Q", KeyExpression.FanType.None)
+                                .nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut)
+                                        .nest(field("Y")))))), IndexTypes.VALUE);
+    }
+
+    /**
+     * Chained unnesting split by a parent column. Neither innermost unnesting is itself split, but both
+     * columns are read through the outer one, and with {@code a.k} between them that outer navigation
+     * would have to be emitted twice — so a synthetic type is required.
+     */
+    @Test
+    void createIndexWithChainedUnnestingSplitByParentUsesSyntheticType() throws Exception {
+        final String stmt = CHAINED_SCHEMA +
+                "CREATE INDEX mv1 AS SELECT b.x, a.k, c.y FROM A AS a, (select * from a.p) as b, (select * from b.q) as c " +
+                "ORDER BY b.x, a.k, c.y";
+        syntheticIndexIs(stmt, IndexTypes.VALUE, 2, (parent, constituents) -> concat(
+                field(constituents.get(0)).nest("X"),
+                field(parent).nest("K"),
+                field(constituents.get(1)).nest("Y")));
+    }
+
+    /**
+     * Chained unnesting where the split is within the inner unnesting.
+     */
+    @Test
+    void createIndexWithChainedUnnestingInnerSplitUsesSyntheticType() throws Exception {
+        final String stmt = CHAINED_SCHEMA +
+                "CREATE INDEX mv1 AS SELECT c.y, a.k, c.y2 FROM A AS a, (select * from a.p) as b, (select * from b.q) as c " +
+                "ORDER BY c.y, a.k, c.y2";
+        syntheticIndexIs(stmt, IndexTypes.VALUE, 2, (parent, constituents) -> concat(
+                field(constituents.get(1)).nest("Y"),
+                field(parent).nest("K"),
+                field(constituents.get(1)).nest("Y2")));
+    }
+
+    /**
+     * Chained unnesting where the split is within the outer unnesting.
+     */
+    @Test
+    void createIndexWithChainedUnnestingOuterSplitUsesSyntheticType() throws Exception {
+        final String stmt = CHAINED_SCHEMA +
+                "CREATE INDEX mv1 AS SELECT b.x, a.k, b.x2 FROM A AS a, (select * from a.p) as b, (select * from b.q) as c " +
+                "ORDER BY b.x, a.k, b.x2";
+        syntheticIndexIs(stmt, IndexTypes.VALUE, 2, (parent, constituents) -> concat(
+                field(constituents.get(0)).nest("X"),
+                field(parent).nest("K"),
+                field(constituents.get(0)).nest("X2")));
+    }
+
     @Test
     void createVersionIndexWithRepeatedNestedSplitByVersion() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
@@ -934,7 +1325,12 @@ public class IndexTest {
                 "CREATE TABLE T1(col1 bigint, a A Array, primary key(col1)) " +
                 "CREATE INDEX mv1 AS SELECT X.col2, T1.\"__ROW_VERSION\", X.col3, X.col4 FROM T1, (SELECT col2, col3, col4 FROM T1.A) X ORDER BY X.col2, T1.\"__ROW_VERSION\", X.col3 " +
                 "WITH OPTIONS(store_row_versions=true)";
-        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "Index with multiple disconnected references to the same column are not supported");
+        // As above, but the column separating X.col2 from X.col3/X.col4 is the row version.
+        syntheticIndexIs(stmt, IndexTypes.VERSION, (parent, x) -> keyWithValue(concat(
+                field(x).nest("COL2"),
+                field(parent).nest(version()),
+                field(x).nest("COL3"),
+                field(x).nest("COL4")), 3));
     }
 
     @Test
