@@ -210,7 +210,7 @@ public final class Options {
          * This only affects the scans of the query it is set on; other reads and writes in the same transaction
          * continue to use their configured (typically serializable) isolation. Only supported on read-only
          * ({@code SELECT}) queries.
-         * Scope: Query
+         * Scope: Connection, Query
          */
         ISOLATION_LEVEL_SNAPSHOT,
 
