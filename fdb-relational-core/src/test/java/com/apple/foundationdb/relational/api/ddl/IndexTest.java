@@ -55,6 +55,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.Locale;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -85,7 +87,7 @@ public class IndexTest {
 
     @RegisterExtension
     @Order(2)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(DdlStatementParsingTest.class, TestSchemas.books());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(IndexTest.class, TestSchemas.books());
 
     @RegisterExtension
     @Order(3)
@@ -114,11 +116,17 @@ public class IndexTest {
             throws Exception {
         connection.setAutoCommit(false);
         connection.getUnderlyingEmbeddedConnection().createNewTransaction();
+        final var factoryConsulted = new AtomicBoolean();
         Assertions.assertDoesNotThrow(() ->
                 DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
-                        "/IndexTest", metadataOperationsFactory).getPlan(query));
+                        "/IndexTest",
+                        DdlTestUtil.recordingFactory(metadataOperationsFactory, factoryConsulted))
+                        .getPlan(query));
         connection.rollback();
         connection.setAutoCommit(true);
+        Assertions.assertTrue(factoryConsulted.get(),
+                "the DDL path never consulted the injected factory, "
+                        + "so the callback holding this test's assertions never ran");
     }
 
     private void indexIs(@Nonnull final String stmt, @Nonnull final KeyExpression expectedKey, @Nonnull final String indexType) throws Exception {
@@ -920,6 +928,57 @@ public class IndexTest {
                 field(parent).nest(field("S").nest(field("values", KeyExpression.FanType.FanOut))),
                 field(x).nest("COL3"),
                 field(parent).nest(field("S").nest(field("values", KeyExpression.FanType.FanOut)))));
+    }
+
+    /**
+     * Two indexes in one template each need their own synthetic type, alongside a plain index on the stored table.
+     * Exercises per-index naming of the generated types, accumulation through {@code addSyntheticTable}, and two
+     * {@code UnnestedRecordType}s coexisting in one {@code RecordMetaData} with distinct record type keys.
+     */
+    @Test
+    void createTwoIndexesEachRequiringSyntheticTypeKeepsThemSeparate() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col2, T1.col5, X.col3 FROM T1, (SELECT col2, col3 FROM T1.A) X ORDER BY X.col2, T1.col5, X.col3 " +
+                "CREATE INDEX mv2 AS SELECT Y.col3, T1.col5, Y.col4 FROM T1, (SELECT col3, col4 FROM T1.A) Y ORDER BY Y.col3, T1.col5, Y.col4 " +
+                "CREATE INDEX i3 AS SELECT T1.col5, T1.col1 FROM T1 ORDER BY T1.col5, T1.col1";
+        shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template,
+                                                                      @Nonnull final Options templateProperties) {
+                final var recLayer = Assert.castUnchecked(template, RecordLayerSchemaTemplate.class);
+
+                final var syntheticNames = recLayer.getUnnestedSyntheticTables().stream()
+                        .map(RecordLayerUnnestedSyntheticTable::getName)
+                        .collect(Collectors.toSet());
+                Assertions.assertEquals(Set.of("__unnested_T1_MV1", "__unnested_T1_MV2"), syntheticNames);
+
+                // one index each, and the plain index stays on the stored table
+                recLayer.getUnnestedSyntheticTables().forEach(synthetic ->
+                        Assertions.assertEquals(1, synthetic.getIndexes().size(),
+                                () -> "expected one index on " + synthetic.getName()));
+                final var storedTableIndexes = Assertions.assertDoesNotThrow(() ->
+                        Assert.optionalUnchecked(template.findTableByName("T1")).getIndexes().stream()
+                                .map(com.apple.foundationdb.relational.api.metadata.Index::getName)
+                                .collect(Collectors.toSet()));
+                Assertions.assertEquals(Set.of("I3"), storedTableIndexes);
+
+                // both reach RecordMetaData, as distinct types with distinct record type keys
+                final var metaData = recLayer.toRecordMetadata();
+                Assertions.assertTrue(metaData.getSyntheticRecordTypes().keySet()
+                                .containsAll(Set.of("__unnested_T1_MV1", "__unnested_T1_MV2")),
+                        () -> "got " + metaData.getSyntheticRecordTypes().keySet());
+                final var recordTypeKeys = metaData.getSyntheticRecordTypes().values().stream()
+                        .map(com.apple.foundationdb.record.metadata.SyntheticRecordType::getRecordTypeKey)
+                        .collect(Collectors.toSet());
+                Assertions.assertEquals(2, recordTypeKeys.size(),
+                        () -> "the two synthetic types share a record type key: " + recordTypeKeys);
+                return txn -> {
+                };
+            }
+        });
     }
 
     @Test

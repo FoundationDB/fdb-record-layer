@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.recordlayer.ddl.AbstractMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerUnnestedSyntheticTable;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
@@ -131,6 +132,7 @@ public class UnnestedSyntheticTypeParsingTest {
     private static void assertUnnestedStructArrayIndex(@Nonnull final SchemaTemplate template,
                                                       @Nonnull final String indexName) {
         final String syntheticTableName = "__unnested_T_" + indexName;
+        assertSerializesWithSyntheticType(template, syntheticTableName);
 
         final var tableMaybe = Assertions.assertDoesNotThrow(() -> template.findTableByName("T"));
         assertThat(tableMaybe).isPresent();
@@ -194,7 +196,7 @@ public class UnnestedSyntheticTypeParsingTest {
                         "CREATE INDEX mv1 AS SELECT M.x, t.p, M.y from T AS t, t.a AS M order by M.x, t.p, M.y "));
     }
 
-    @ParameterizedTest(name = "{0}")
+    @ParameterizedTest(name = "{displayName} - {0}")
     @MethodSource("singleStructArraySpellings")
     void createIndexOnRepeated(@Nonnull final String spelling, @Nonnull final String indexName,
                                @Nonnull final String indexDdl) throws Exception {
@@ -210,9 +212,27 @@ public class UnnestedSyntheticTypeParsingTest {
      * @param template the schema template that was built
      * @param indexName the name of the index that was declared
      */
+    /** Navigates to the elements of a nullable array, which is how the DDL layer stores {@code <T> array}. */
+    @Nonnull
+    private static KeyExpression wrappedArrayElements(@Nonnull final String arrayFieldName) {
+        return Key.Expressions.field(arrayFieldName)
+                .nest(Key.Expressions.field("values", KeyExpression.FanType.FanOut));
+    }
+
+    /**
+     * Serializing is what registers the constituents on an {@code UnnestedRecordTypeBuilder}, so a constituent whose
+     * parent or array field cannot be resolved only fails here. Asserting on the template alone misses that.
+     */
+    private static void assertSerializesWithSyntheticType(@Nonnull final SchemaTemplate template,
+                                                          @Nonnull final String syntheticTableName) {
+        final var metaData = Assert.castUnchecked(template, RecordLayerSchemaTemplate.class).toRecordMetadata();
+        assertThat(metaData.getSyntheticRecordTypes().containsKey(syntheticTableName)).isTrue();
+    }
+
     private static void assertThreeUnnestedStructArrayIndex(@Nonnull final SchemaTemplate template,
                                                             @Nonnull final String indexName) {
         final String syntheticTableName = "__unnested_T_" + indexName;
+        assertSerializesWithSyntheticType(template, syntheticTableName);
 
         final var tableMaybe = Assertions.assertDoesNotThrow(() -> template.findTableByName("T"));
         assertThat(tableMaybe).isPresent();
@@ -228,9 +248,10 @@ public class UnnestedSyntheticTypeParsingTest {
         // One constituent per unnested array, in declaration order, all parented to the stored record.
         final var constituents = syntheticTable.getConstituents();
         assertThat(constituents.size()).isEqualTo(3);
-        assertThat(constituents.stream().map(constituent -> constituent.getFieldPath().get(0))
+        assertThat(constituents.stream()
+                .map(RecordLayerUnnestedSyntheticTable.NestedConstituent::getNestingExpression)
                 .collect(Collectors.toList()))
-                .isEqualTo(List.of("a", "b", "c"));
+                .isEqualTo(List.of(wrappedArrayElements("a"), wrappedArrayElements("b"), wrappedArrayElements("c")));
         constituents.forEach(c -> assertThat(c.getParentAlias()).isEqualTo(syntheticTable.getAlias()));
 
         assertThat(syntheticTable.getIndexes().size()).isEqualTo(1);
@@ -286,7 +307,7 @@ public class UnnestedSyntheticTypeParsingTest {
                                 + "order by M.x, N.y, O.z, t.p, M.x2, N.y2, O.z2"));
     }
 
-    @ParameterizedTest(name = "{0}")
+    @ParameterizedTest(name = "{displayName} - {0}")
     @MethodSource("threeStructArraySpellings")
     void createIndexOnMultipleRepeated(@Nonnull final String spelling, @Nonnull final String indexName,
                                        @Nonnull final String indexDdl) throws Exception {
@@ -354,7 +375,7 @@ public class UnnestedSyntheticTypeParsingTest {
                         "CREATE INDEX mv1 AS SELECT v, t.p from T AS t, t.s AS v order by v, t.p"));
     }
 
-    @ParameterizedTest(name = "{0}")
+    @ParameterizedTest(name = "{displayName} - {0}")
     @MethodSource("scalarArraySpellings")
     void createIndexOnRepeatedScalar(@Nonnull final String spelling, @Nonnull final String indexName,
                                      @Nonnull final String indexDdl) throws Exception {
@@ -374,6 +395,7 @@ public class UnnestedSyntheticTypeParsingTest {
     private static void assertUnnestedStructAndScalarArrayIndex(@Nonnull final SchemaTemplate template,
                                                                 @Nonnull final String indexName) {
         final String syntheticTableName = "__unnested_T_" + indexName;
+        assertSerializesWithSyntheticType(template, syntheticTableName);
 
         final var tableMaybe = Assertions.assertDoesNotThrow(() -> template.findTableByName("T"));
         assertThat(tableMaybe).isPresent();
@@ -440,7 +462,7 @@ public class UnnestedSyntheticTypeParsingTest {
                                 + "order by M.x, v, M.y"));
     }
 
-    @ParameterizedTest(name = "{0}")
+    @ParameterizedTest(name = "{displayName} - {0}")
     @MethodSource("structAndScalarArraySpellings")
     void createIndexOnRepeatedStructAndScalar(@Nonnull final String spelling, @Nonnull final String indexName,
                                               @Nonnull final String indexDdl) throws Exception {

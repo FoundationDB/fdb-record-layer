@@ -79,6 +79,16 @@ public abstract sealed class RecordLayerSyntheticTable implements View
     }
 
     /**
+     * Names of the stored tables this synthetic type is built from. Indexes on the synthetic type are maintained
+     * from writes to those tables, so this is how they are attributed in a table-keyed view of the metadata. An
+     * unnested type has exactly one; a joined type would have several.
+     *
+     * @return the names of the underlying stored tables
+     */
+    @Nonnull
+    public abstract Set<String> getUnderlyingTableNames();
+
+    /**
      * Dispatches to the typed {@link SkeletonVisitor} method for this concrete synthetic type,
      * then visits each index. Callers that only have a {@link Visitor} reference will reach
      * {@link Visitor#visit(View)} via the {@link View} default.

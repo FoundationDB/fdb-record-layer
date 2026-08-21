@@ -102,6 +102,12 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
 
     @Nonnull
     @Override
+    public Set<String> getUnderlyingTableNames() {
+        return Set.of(parentTableName);
+    }
+
+    @Nonnull
+    @Override
     public String getDescription() {
         // e.g. SELECT "row".*, SQ.* FROM "T" AS "row", (SELECT * FROM "row"."TAGS") AS SQ
         // A synthetic record is the stored record together with one element from each constituent, so the parent

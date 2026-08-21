@@ -44,6 +44,8 @@ import org.assertj.core.api.Assertions;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -52,6 +54,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 public class DdlTestUtil {
@@ -67,6 +70,32 @@ public class DdlTestUtil {
      * @param metadataOperationsFactory the factory holding the assertions
      * @throws Exception if planning or execution fails
      */
+    /**
+     * Wraps a factory so a caller can tell whether the DDL path actually consulted it. These tests put every
+     * assertion inside one of the factory's callbacks, so if the path ever stopped routing through the injected
+     * factory they would pass while asserting nothing. Which callback matters differs per test -- some verify the
+     * save-schema-template action, others create/drop -- so any consultation counts.
+     */
+    @Nonnull
+    static MetadataOperationsFactory recordingFactory(@Nonnull final MetadataOperationsFactory delegate,
+                                                     @Nonnull final AtomicBoolean consulted) {
+        return (MetadataOperationsFactory) Proxy.newProxyInstance(
+                MetadataOperationsFactory.class.getClassLoader(),
+                new Class<?>[]{MetadataOperationsFactory.class},
+                (proxy, method, args) -> {
+                    // equals/hashCode/toString say nothing about the DDL path having used the factory
+                    if (method.getDeclaringClass() != Object.class) {
+                        consulted.set(true);
+                    }
+                    try {
+                        return method.invoke(delegate, args);
+                    } catch (final InvocationTargetException e) {
+                        // surface the callback's own failure, not a reflection wrapper around it
+                        throw e.getCause();
+                    }
+                });
+    }
+
     static void shouldWorkWithInjectedFactory(@Nonnull final RelationalConnectionRule connection,
                                              @Nonnull final String schemaTemplateName,
                                              @Nonnull final String databaseUri,
@@ -75,14 +104,19 @@ public class DdlTestUtil {
         connection.setAutoCommit(false);
         (connection.getUnderlyingEmbeddedConnection()).createNewTransaction();
         final var transaction = connection.getUnderlyingEmbeddedConnection().getTransaction();
+        final var factoryConsulted = new AtomicBoolean();
         final var plan = getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), schemaTemplateName, databaseUri,
-                metadataOperationsFactory, PreparedParams.empty(),
+                recordingFactory(metadataOperationsFactory, factoryConsulted), PreparedParams.empty(),
                 Options.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true).build()).getPlan(query);
         // execute the plan so we run any extra test-driven verifications within the transactional closure.
         plan.execute(Plan.ExecutionContext.of(transaction, Options.NONE, connection,
                 StoreTimerMetricCollector.fromFDBRecordContext(transaction.unwrap(RecordContextTransaction.class).getContext())));
         connection.rollback();
         connection.setAutoCommit(true);
+        Assertions.assertThat(factoryConsulted.get())
+                .withFailMessage("the DDL path never consulted the injected factory, "
+                        + "so the callback holding this test's assertions never ran")
+                .isTrue();
     }
 
     @Nonnull

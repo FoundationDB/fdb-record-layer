@@ -39,7 +39,6 @@ import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
-import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
@@ -534,19 +533,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             final var view = getViewMetadata(viewClause, metadataBuilder.build());
             metadataBuilder.addView(view);
         });
-        indexClauses.build().forEach(clause -> {
-            final var result = Assert.castUnchecked(visit(clause), IndexGenerationResult.class);
-            if (result.syntheticType().isPresent()) {
-                // The index is defined on a synthetic type rather than on a stored table.
-                metadataBuilder.addSyntheticTable(
-                        result.syntheticType().get().addIndex(result.indexBuilder().build()).build());
-            } else {
-                final RecordLayerIndex index = result.indexBuilder().build();
-                final var table = metadataBuilder.extractTable(index.getTableName());
-                final var tableWithIndex = RecordLayerTable.Builder.from(table).addIndex(index).build();
-                metadataBuilder.addTable(tableWithIndex);
-            }
-        });
+        indexClauses.build().forEach(clause ->
+                Assert.castUnchecked(visit(clause), IndexGenerationResult.class).registerOn(metadataBuilder));
         return ProceduralPlan.of(metadataOperationsFactory.getSaveSchemaTemplateConstantAction(metadataBuilder.build(), Options.NONE));
     }
 

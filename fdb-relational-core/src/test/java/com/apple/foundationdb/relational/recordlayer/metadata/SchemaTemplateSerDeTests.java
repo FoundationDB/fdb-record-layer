@@ -959,6 +959,57 @@ public class SchemaTemplateSerDeTests {
     }
 
     /**
+     * Indexes on a synthetic type are reachable through the table-index mapping, attributed to the stored table
+     * they are maintained from. They were previously absent while {@code getIndexes()} listed them, so the two
+     * views of the same metadata disagreed.
+     */
+    @Test
+    void tableIndexMappingIncludesSyntheticTypeIndexes() throws RelationalException {
+        final var scoreType = struct("score",
+                structField("label", DataType.Primitives.STRING.type(), 1),
+                structField("value", DataType.Primitives.LONG.type(), 2));
+        final var table = tableWithId("employees", "scores", DataType.ArrayType.from(scoreType, true));
+        final var key = Key.Expressions.concat(constituentField("SQ", "label"), constituentField("row", "id"));
+        final var template = templateWith(table,
+                syntheticTable("__unnested_employees_score_idx", table, "score_idx", key,
+                        new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
+                                arrayElementsExpression("scores", true))),
+                scoreType);
+
+        // Attributed to the stored table the index is maintained from, not to the synthetic type, which is not a
+        // table and does not appear in getTables()/findTableByName.
+        final var mapping = template.getTableIndexMapping();
+        Assertions.assertEquals(Set.of("score_idx"), Set.copyOf(mapping.get("employees")));
+        Assertions.assertFalse(mapping.keySet().contains("__unnested_employees_score_idx"),
+                () -> "synthetic type leaked into a table-keyed mapping: " + mapping.keySet());
+        Assertions.assertTrue(template.getIndexes().contains("score_idx"));
+    }
+
+    /**
+     * Two constituents sharing an alias would have the second silently replace the first's descriptor, so a later
+     * constituent naming that alias as its parent would resolve against the wrong record.
+     */
+    @Test
+    void duplicateConstituentAliasIsRejected() {
+        final var innerType = struct("inner", structField("y", DataType.Primitives.STRING.type(), 1));
+        final var outerType = struct("outer",
+                structField("x", DataType.Primitives.STRING.type(), 1),
+                structField("q", DataType.ArrayType.from(innerType, true), 2));
+        final var table = tableWithId("dupes", "p", DataType.ArrayType.from(outerType, true));
+        final var key = Key.Expressions.concat(constituentField("SQ", "x"), constituentField("row", "id"));
+        final var template = templateWith(table,
+                syntheticTable("__unnested_dupes_idx", table, "dupe_idx", key,
+                        new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
+                                arrayElementsExpression("p", true)),
+                        new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "SQ",
+                                arrayElementsExpression("q", true))),
+                innerType, outerType);
+        final var thrown = Assertions.assertThrows(UncheckedRelationalException.class, template::toRecordMetadata);
+        Assertions.assertTrue(thrown.getMessage().contains("duplicate constituent alias"),
+                () -> "unexpected message: " + thrown.getMessage());
+    }
+
+    /**
      * Synthetic tables are held in a {@code Set}, so they need value semantics: two structurally identical
      * instances must compare equal and collapse in a set, and a difference in any component must not.
      */

@@ -22,6 +22,8 @@ package com.apple.foundationdb.relational.recordlayer.query.ddl;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSyntheticTable;
 
 import javax.annotation.Nonnull;
@@ -41,4 +43,21 @@ import java.util.Optional;
 @API(API.Status.EXPERIMENTAL)
 public record IndexGenerationResult(@Nonnull RecordLayerIndex.Builder indexBuilder,
                                     @Nonnull Optional<RecordLayerSyntheticTable.Builder> syntheticType) {
+
+    /**
+     * Registers the generated index on the given schema template, together with the synthetic type it is defined on
+     * when there is one. Doing this here rather than at each call site keeps the two from drifting apart: an index
+     * whose synthetic type is not registered names a type that does not exist.
+     *
+     * @param metadataBuilder the schema template being built
+     */
+    public void registerOn(@Nonnull final RecordLayerSchemaTemplate.Builder metadataBuilder) {
+        if (syntheticType.isPresent()) {
+            metadataBuilder.addSyntheticTable(syntheticType.get().addIndex(indexBuilder.build()).build());
+        } else {
+            final RecordLayerIndex index = indexBuilder.build();
+            final var table = metadataBuilder.extractTable(index.getTableName());
+            metadataBuilder.addTable(RecordLayerTable.Builder.from(table).addIndex(index).build());
+        }
+    }
 }
