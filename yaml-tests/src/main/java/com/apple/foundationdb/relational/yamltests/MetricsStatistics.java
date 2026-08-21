@@ -175,8 +175,8 @@ public final class MetricsStatistics {
                         .average().orElse(0.0);
                 final var standardDeviation = Math.sqrt(variance);
 
-                final List<Double> sortedPcts = percentDifferences.getOrDefault(fieldName, ImmutableList.of());
-                final List<Double> mutablePcts = new ArrayList<>(sortedPcts);
+                final List<Double> pcts = percentDifferences.getOrDefault(fieldName, ImmutableList.of());
+                final List<Double> mutablePcts = new ArrayList<>(pcts);
                 Collections.sort(mutablePcts);
 
                 builder.put(fieldName, new FieldStatistics(values, mutablePcts, mean, standardDeviation));
