@@ -99,6 +99,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     private static final Descriptors.FileDescriptor[] emptyDependencyList = new Descriptors.FileDescriptor[0];
     public static final String DEFAULT_UNION_NAME = "RecordTypeUnion";
+    public static final String DEFAULT_AUXILIARY_TYPE_UNION_NAME = "AuxiliaryTypeUnion";
 
     @Nullable
     private Descriptors.FileDescriptor recordsDescriptor;
@@ -112,6 +113,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     private final Map<String, RecordTypeBuilder> recordTypes;
     @Nonnull
     private final Map<String, SyntheticRecordTypeBuilder<?>> syntheticRecordTypes;
+    @Nonnull
+    private final Map<String, Descriptors.GenericDescriptor> auxiliaryTypesMap;
     @Nonnull
     private final Map<String, UserDefinedFunction> userDefinedFunctionMap;
     @Nonnull
@@ -156,6 +159,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         userDefinedFunctionMap = new HashMap<>();
         viewMap = new HashMap<>();
         storedQueries = new HashMap<>();
+        auxiliaryTypesMap = new HashMap<>();
     }
 
     private void processSchemaOptions(boolean processExtensionOptions) {
@@ -316,6 +320,31 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         unionDescriptor = fetchUnionDescriptor(recordsDescriptor);
         validateRecords(recordsDescriptor, unionDescriptor);
         fillUnionFields(processExtensionOptions);
+
+        fillAuxiliaryTypesMap(recordsDescriptor);
+    }
+
+    private void fillAuxiliaryTypesMap(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
+        final var auxiliaryTypeUnionDescriptor = fileDescriptor
+                .findMessageTypeByName(DEFAULT_AUXILIARY_TYPE_UNION_NAME);
+
+        if (auxiliaryTypeUnionDescriptor == null) {
+            return;
+        }
+
+        for (final var field : auxiliaryTypeUnionDescriptor.getFields()) {
+            switch (field.getType()) {
+                case MESSAGE:
+                    auxiliaryTypesMap.put(field.getName(), field.getMessageType());
+                    break;
+                case ENUM:
+                    auxiliaryTypesMap.put(field.getName(), field.getEnumType());
+                    break;
+                default:
+                    throw new MetaDataException("Unsupported user-defined auxiliary type",
+                            LogMessageKeys.FIELD_NAME, field.getName());
+            }
+        }
     }
 
     @Nonnull
@@ -1475,7 +1504,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticRecordTypeMap = Maps.newHashMapWithExpectedSize(syntheticRecordTypes.size());
         RecordMetaData metaData = new RecordMetaData(recordsDescriptor, getUnionDescriptor(), unionFields,
                 builtRecordTypes, builtSyntheticRecordTypes, recordTypeKeyToSyntheticRecordTypeMap,
-                indexes, universalIndexes, formerIndexes, userDefinedFunctionMap, viewMap, storedQueries,
+                indexes, universalIndexes, formerIndexes, auxiliaryTypesMap, userDefinedFunctionMap, viewMap, storedQueries,
                 splitLongRecords, storeRecordVersions, version, subspaceKeyCounter, usesSubspaceKeyCounter, recordCountKey, localFileDescriptor != null);
         for (RecordTypeBuilder recordTypeBuilder : recordTypes.values()) {
             KeyExpression primaryKey = recordTypeBuilder.getPrimaryKey();

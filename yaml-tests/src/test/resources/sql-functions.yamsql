@@ -210,5 +210,56 @@ test_block:
     -
       - query: select * from f1;
       - error: UNDEFINED_FUNCTION
+---
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  options:
+    supported_version: !current_version
+  steps:
+    - query: drop schema template if exists test_sql_functions_with_struct_parameters
+    - query: create schema template test_sql_functions_with_struct_parameters
+             create type as struct st1(y bigint, z bigint)
+             create type as struct st2(w bigint, x bigint)
+             create type as struct st3(u st2, v st1)
+             create type as enum colour ('red', 'green', 'blue') 
+             create table nested(id bigint, r st3, primary key(id))
+             create function f1 ( in a type st1 )
+                as select id, r.v.y from nested where r.v.y = a.y and r.v.z = a.z
+             create function f2 (in a type colour)
+                as select a from range(1, 2)
+    - query: drop database if exists /FRL/SQL_FUNCTIONS_WITH_STRUCT_PARAMS
+    - query: create database /FRL/SQL_FUNCTIONS_WITH_STRUCT_PARAMS
+    - query: create schema /FRL/SQL_FUNCTIONS_WITH_STRUCT_PARAMS/test with template test_sql_functions_with_struct_parameters
+---
+setup:
+  connect: "jdbc:embed:/FRL/SQL_FUNCTIONS_WITH_STRUCT_PARAMS?schema=TEST"
+  options:
+    supported_version: !current_version
+  steps:
+    - query: INSERT INTO NESTED VALUES (1, ((5, 11), (10, 100)))
 
+---
+test_block:
+  connect: "jdbc:embed:/FRL/SQL_FUNCTIONS_WITH_STRUCT_PARAMS?schema=TEST"
+  name: sql-functions-with-struct-params
+  options:
+    supported_version: !current_version
+  tests:
+    -
+      - query: select * from f1((10, 100));
+      - result: [{!l 1, !l 10}]
+    -
+      - query: select * from f2('red')
+      - result: [ { 'red' } ]
+    -
+      - query: select * from f1(struct st1 (10, 100));
+      - error: UNKNOWN
+---
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  options:
+    supported_version: !current_version
+  steps:
+    - query: drop schema template test_sql_functions_with_struct_parameters
+    - query: drop database /FRL/SQL_FUNCTIONS_WITH_STRUCT_PARAMS
 ...

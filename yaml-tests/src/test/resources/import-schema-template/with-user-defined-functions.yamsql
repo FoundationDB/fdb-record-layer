@@ -1,0 +1,52 @@
+#
+# with-user-defined-functions.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+options:
+  supported_version: !current_version
+---
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists WITH_USER_DEFINED_FUNCTIONS_TEMPLATE
+    - query: drop database if exists /FRL/WITH_USER_DEFINED_FUNCTIONS_YAML
+    - query: create database /FRL/WITH_USER_DEFINED_FUNCTIONS_YAML
+    - load schema template: WITH_USER_DEFINED_FUNCTIONS_TEMPLATE from src/test/resources/import-schema-template/with_user_defined_functions_metadata.json
+    - query: create schema /FRL/WITH_USER_DEFINED_FUNCTIONS_YAML/TEST with template WITH_USER_DEFINED_FUNCTIONS_TEMPLATE
+---
+setup:
+  connect: "jdbc:embed:/FRL/WITH_USER_DEFINED_FUNCTIONS_YAML?schema=TEST"
+  steps:
+    - query: INSERT INTO U VALUES
+        (1, 2),
+        (2, 3),
+        (3, 4),
+        (4, 5),
+        (5, 6)
+---
+test_block:
+  connect: "jdbc:embed:/FRL/WITH_USER_DEFINED_FUNCTIONS_YAML?schema=TEST"
+  name: with-user-defined-functions
+  tests:
+    -
+      - query: SELECT * FROM "func_a"(1)
+      - result: [{ id: !l 1, x: !l 2 }]
+    -
+      - query: SELECT "func_b"(41) FROM range(1, 2)
+      - result: [{ !l 42 }]

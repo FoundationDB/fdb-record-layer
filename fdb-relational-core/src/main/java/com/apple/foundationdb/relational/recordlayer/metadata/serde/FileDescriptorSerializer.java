@@ -21,12 +21,17 @@
 package com.apple.foundationdb.relational.recordlayer.metadata.serde;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Metadata;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
+import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.SkeletonVisitor;
 import com.apple.foundationdb.relational.util.Assert;
@@ -48,6 +53,9 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
 
     @Nonnull
     private final DescriptorProtos.DescriptorProto.Builder unionDescriptorBuilder;
+
+    @Nonnull
+    private final DescriptorProtos.DescriptorProto.Builder auxiliaryTypesUnionDescriptorBuilder;
 
     @Nonnull
     private final Set<String> descriptorNames;
@@ -74,9 +82,12 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
     public FileDescriptorSerializer(@Nonnull DescriptorProtos.FileDescriptorProto.Builder fileBuilder) {
         this.fileBuilder = fileBuilder;
         this.fileBuilder.addAllDependency(TypeRepository.DEPENDENCIES.stream().map(Descriptors.FileDescriptor::getFullName).collect(Collectors.toList()));
-        this.unionDescriptorBuilder = DescriptorProtos.DescriptorProto.newBuilder().setName("RecordTypeUnion");
+        this.unionDescriptorBuilder = DescriptorProtos.DescriptorProto.newBuilder()
+                .setName(RecordMetaDataBuilder.DEFAULT_UNION_NAME);
         final RecordMetaDataOptionsProto.RecordTypeOptions options = RecordMetaDataOptionsProto.RecordTypeOptions.newBuilder().setUsage(RecordMetaDataOptionsProto.RecordTypeOptions.Usage.UNION).build();
         unionDescriptorBuilder.getOptionsBuilder().setExtension(RecordMetaDataOptionsProto.record, options);
+        this.auxiliaryTypesUnionDescriptorBuilder = DescriptorProtos.DescriptorProto.newBuilder()
+                .setName(RecordMetaDataBuilder.DEFAULT_AUXILIARY_TYPE_UNION_NAME);
         this.descriptorNames = new LinkedHashSet<>();
         this.enumNames = new LinkedHashSet<>();
         // Starts with 1 to maintain compatibility with the protobuf field number.
@@ -113,6 +124,30 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
         }
     }
 
+    @Override
+    public void visit(@Nonnull final DataType auxiliaryType) {
+        final var recordLayerType = DataTypeUtils.toRecordLayerType(auxiliaryType);
+        final String typeDescriptor;
+        final DescriptorProtos.FieldDescriptorProto.Type fieldType;
+        if (recordLayerType.isEnum()) {
+            typeDescriptor = registerTypeDescriptors((Type.Enum)recordLayerType);
+            fieldType = DescriptorProtos.FieldDescriptorProto.Type.TYPE_ENUM;
+        } else {
+            Assert.thatUnchecked(recordLayerType.isRecord(),
+                    ErrorCode.UNSUPPORTED_OPERATION,
+                    () -> String.format("Unsupported user defined auxiliary type in schema template of type: %s", auxiliaryType.getCode()));
+            typeDescriptor = registerTypeDescriptors((Type.Record)recordLayerType);
+            fieldType = DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE;
+        }
+        final var userDefinedTypeEntryInUnionDescriptor = DescriptorProtos.FieldDescriptorProto.newBuilder()
+                .setNumber(auxiliaryTypesUnionDescriptorBuilder.getFieldCount() + 1)
+                .setName(typeDescriptor)
+                .setType(fieldType)
+                .setTypeName(typeDescriptor)
+                .build();
+        auxiliaryTypesUnionDescriptorBuilder.addField(userDefinedTypeEntryInUnionDescriptor);
+    }
+
     // (yhatem) this is temporary, we use rec layer typing also as a bridge to PB serialization for now.
     @Nonnull
     private String registerTypeDescriptors(@Nonnull final Type.Record type) {
@@ -139,6 +174,24 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
         return typeDescriptor;
     }
 
+    // this is temporary, we use rec layer typing also as a bridge to PB serialization for now.
+    @Nonnull
+    private String registerTypeDescriptors(@Nonnull final Type.Enum type) {
+        final var builder = TypeRepository.newBuilder();
+        type.defineProtoType(builder);
+        final var typeDescriptors = builder.build();
+
+        final var enumDescriptor = typeDescriptors.getEnumDescriptor(type);
+        Assert.notNullUnchecked(enumDescriptor);
+        if (enumNames.contains(enumDescriptor.getName())) {
+            return enumDescriptor.getName();
+        }
+
+        fileBuilder.addEnumType(enumDescriptor.toProto());
+        enumNames.add(enumDescriptor.getName());
+        return enumDescriptor.getName();
+    }
+
     @Override
     public void startVisit(@Nonnull SchemaTemplate schemaTemplate) {
         fileBuilder.setName(schemaTemplate.getName());
@@ -151,7 +204,9 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
 
     private void finish() {
         final var unionDescriptor = unionDescriptorBuilder.build();
+        final var auxiliaryTypeUnionDescriptor = auxiliaryTypesUnionDescriptorBuilder.build();
         fileBuilder.addMessageType(unionDescriptor);
+        fileBuilder.addMessageType(auxiliaryTypeUnionDescriptor);
     }
 
     @Nonnull
