@@ -32,7 +32,6 @@ import io.grpc.ServerInterceptors;
 import io.grpc.health.v1.HealthCheckResponse;
 import io.grpc.health.v1.HealthGrpc;
 import io.grpc.protobuf.services.HealthStatusManager;
-import io.grpc.protobuf.services.ProtoReflectionService;
 import io.grpc.protobuf.services.ProtoReflectionServiceV1;
 import io.grpc.reflection.v1alpha.ServerReflectionGrpc;
 import io.grpc.util.TransmitStatusRuntimeExceptionInterceptor;
