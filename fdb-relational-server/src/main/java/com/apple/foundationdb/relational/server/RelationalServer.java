@@ -33,6 +33,7 @@ import io.grpc.health.v1.HealthCheckResponse;
 import io.grpc.health.v1.HealthGrpc;
 import io.grpc.protobuf.services.HealthStatusManager;
 import io.grpc.protobuf.services.ProtoReflectionService;
+import io.grpc.protobuf.services.ProtoReflectionServiceV1;
 import io.grpc.reflection.v1alpha.ServerReflectionGrpc;
 import io.grpc.util.TransmitStatusRuntimeExceptionInterceptor;
 import io.prometheus.client.CollectorRegistry;
@@ -159,7 +160,7 @@ public class RelationalServer implements Closeable {
         // Server exception handling and how they manifest on client-side is still a work-in-progress.
         this.grpcServer = ServerBuilder.forPort(grpcPort)
                 .addService(ServerInterceptors.intercept(healthStatusManager.getHealthService(), grpcMetrics))
-                .addService(ServerInterceptors.intercept(ProtoReflectionService.newInstance(), grpcMetrics))
+                .addService(ServerInterceptors.intercept(ProtoReflectionServiceV1.newInstance(), grpcMetrics))
                 .addService(ServerInterceptors.intercept(new JDBCService(frl), grpcMetrics))
                 .intercept(TransmitStatusRuntimeExceptionInterceptor.instance())
                 .build();
