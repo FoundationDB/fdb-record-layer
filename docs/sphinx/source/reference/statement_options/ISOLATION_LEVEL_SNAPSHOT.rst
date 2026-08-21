@@ -19,7 +19,7 @@ Overview
 
 By default, every read in a transaction is **serializable**: FoundationDB records the range of keys that was read, and if any of those keys is modified by another transaction that commits first, this transaction is rejected with a conflict and must be retried. This guarantees that the transaction sees a consistent view and that its writes are safe, but it also means a read over a wide or frequently updated range can cause conflicts even when the exact values read do not matter.
 
-A **snapshot** read still observes a consistent, point-in-time view of the database (as of the transaction's read version), but it does not register a read-conflict range. This makes snapshot isolation useful when a query reads data that is likely to be written concurrently and the query does not need its read to participate in conflict detection — for example, sampling an aggregate to choose a value that only needs to be approximately current.
+A **snapshot** read still observes a consistent, point-in-time view of the database (as of the transaction's read version), but it does not register a read-conflict range. It will still observe writes from the current transaction, but will not include any writes from uncommitted transactions or transactions committed after this transactions read version (making it distinct from read committed or read uncommitted). The key is that it does not add a read-conflict range, so it is useful when a query reads data that is likely to be written concurrently and the query does not need its read to participate in conflict detection. A brief example would be: sampling an aggregate to choose a value that only needs to be approximately current.
 
 Snapshot isolation applies only to the reads of the statement it is attached to. Other reads and writes in the same transaction — and everything else on the connection — continue to use their normal (serializable) isolation, so a snapshot ``SELECT`` can be freely mixed with serializable reads and writes in a single transaction. (For how an ``OPTIONS`` clause is scoped in general, see :doc:`Statement options </reference/statement_options>`.)
 
@@ -85,7 +85,6 @@ Restrictions
 
 * The option is only supported on read-only (``SELECT``) statements (and, when resuming one, on ``EXECUTE CONTINUATION``). It may be written on an ``INSERT``, ``UPDATE``, or ``DELETE`` statement, but is rejected there because mutations rely on serializable reads (for example, when maintaining indexes and enforcing primary-key uniqueness) to remain correct.
 * Snapshot isolation may also be set at connection scope (as a default for every statement on the connection). Because it is rejected on mutations, a connection with the option set will reject any ``INSERT``, ``UPDATE``, ``DELETE``, or DDL statement with an ``UNSUPPORTED_OPERATION`` error until the option is cleared. Setting it on the connection is therefore intended for read-only phases in which the connection issues only ``SELECT`` statements.
-* Snapshot isolation changes only conflict detection, not visibility. A snapshot read still returns data as of the transaction's read version and never sees uncommitted or later-committed writes from other transactions. It will include writes from the current transaction.
 
 Continuations
 #############
