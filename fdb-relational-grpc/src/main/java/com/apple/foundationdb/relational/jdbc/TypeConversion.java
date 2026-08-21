@@ -735,7 +735,9 @@ public class TypeConversion {
                     builder.setPlanRightDeep((Boolean)entry.getValue());
                     break;
                 case ISOLATION_LEVEL_SNAPSHOT:
-                    builder.setIsolationLevelSnapshot((Boolean)entry.getValue());
+                    builder.setIsolationLevel(((Boolean)entry.getValue())
+                            ? com.apple.foundationdb.relational.jdbc.grpc.v1.Options.IsolationLevel.SNAPSHOT
+                            : com.apple.foundationdb.relational.jdbc.grpc.v1.Options.IsolationLevel.SERIALIZABLE);
                     break;
                 default:
                     throw new SQLException("Cannot encode option in protobuf");
@@ -857,8 +859,19 @@ public class TypeConversion {
         if (protoOptions.hasPlanRightDeep()) {
             builder.withOption(Options.Name.PLAN_RIGHT_DEEP, protoOptions.getPlanRightDeep());
         }
-        if (protoOptions.hasIsolationLevelSnapshot()) {
-            builder.withOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT, protoOptions.getIsolationLevelSnapshot());
+        if (protoOptions.hasIsolationLevel()) {
+            final boolean snapshot;
+            switch (protoOptions.getIsolationLevel()) {
+                case SERIALIZABLE:
+                    snapshot = false;
+                    break;
+                case SNAPSHOT:
+                    snapshot = true;
+                    break;
+                default:
+                    throw new SQLException("Unknown isolation level");
+            }
+            builder.withOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT, snapshot);
         }
         return builder.build();
     }
