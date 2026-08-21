@@ -127,10 +127,7 @@ public class RecordMetadataDeserializer {
                 schemaTemplateBuilder.addView(generateViewBuilder(metadataProvider, view.getKey(), view.getValue().getDefinition()).build());
             }
         }
-        // Reconstruct synthetic types (UnnestedRecordType) stored in RecordMetaData.
         for (final var syntheticType : recordMetaData.getSyntheticRecordTypes().values()) {
-            // Dropping a synthetic type would also drop its indexes, shifting every later index position, so an
-            // unmodelled kind has to fail rather than disappear.
             Assert.thatUnchecked(syntheticType instanceof UnnestedRecordType, ErrorCode.UNSUPPORTED_OPERATION,
                     "Unsupported synthetic record type in metadata, only unnested record types can be deserialized");
             schemaTemplateBuilder.addSyntheticTable(
@@ -218,12 +215,10 @@ public class RecordMetadataDeserializer {
         final String parentStorageName = parentConstituent.getRecordType().getName();
         final Type.Record parentType = Type.Record.fromDescriptorPreservingName(
                 recordMetaData.getRecordType(parentStorageName).getDescriptor());
-
         final RecordLayerUnnestedSyntheticTable.Builder builder = RecordLayerUnnestedSyntheticTable.newBuilder()
                 .setName(unnestedRecordType.getName())
                 .setAlias(parentConstituent.getName())
                 .setParentTableType(parentType);
-
         for (final UnnestedRecordType.NestedConstituent constituent : unnestedRecordType.getConstituents()) {
             if (constituent.isParent()) {
                 continue;
@@ -232,8 +227,7 @@ public class RecordMetadataDeserializer {
                     constituent.getName(), Objects.requireNonNull(constituent.getParentName()),
                     constituent.getNestingExpression()));
         }
-
-        // Reconstruct indexes defined on this synthetic type.
+        // add indexes
         for (final Index index : unnestedRecordType.getIndexes()) {
             builder.addIndex(RecordLayerIndex.from(unnestedRecordType.getName(), unnestedRecordType.getName(), index));
         }
