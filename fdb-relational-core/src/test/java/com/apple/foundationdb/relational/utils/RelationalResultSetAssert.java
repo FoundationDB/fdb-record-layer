@@ -112,13 +112,11 @@ public class RelationalResultSetAssert extends AbstractAssert<RelationalResultSe
      */
     public RelationalResultSetAssert hasRowCount(int expected) {
         isNotNull();
-        extracting(rrs -> {
-            int count = 0;
-            while (advance(rrs)) {
-                count++;
-            }
-            return count;
-        }, Assertions::assertThat).describedAs("row count").isEqualTo(expected);
+        int count = 0;
+        while (advance(actual)) {
+            count++;
+        }
+        Assertions.assertThat(count).as("row count").isEqualTo(expected);
         return this;
     }
 
