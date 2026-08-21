@@ -1010,6 +1010,44 @@ public class SchemaTemplateSerDeTests {
     }
 
     /**
+     * {@code toBuilder()} routes synthetic tables and views through the collection-taking builder methods, so a
+     * template must survive the round trip with both intact -- a synthetic type dropped here would take its
+     * indexes with it.
+     */
+    @Test
+    void toBuilderPreservesSyntheticTablesAndViews() {
+        final var scoreType = struct("score",
+                structField("label", DataType.Primitives.STRING.type(), 1),
+                structField("value", DataType.Primitives.LONG.type(), 2));
+        final var table = tableWithId("employees", "scores", DataType.ArrayType.from(scoreType, true));
+        final var key = Key.Expressions.concat(constituentField("SQ", "label"), constituentField("row", "id"));
+        final var synthetic = syntheticTable("__unnested_employees_score_idx", table, "score_idx", key,
+                new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
+                        arrayElementsExpression("scores", true)));
+        final var original = RecordLayerSchemaTemplate.newBuilder()
+                .setName("TestSchemaTemplate")
+                .setVersion(42)
+                .addAuxiliaryType(scoreType)
+                .addTable(table)
+                .addSyntheticTable(synthetic)
+                .addView(RecordLayerView.newBuilder()
+                        .setName("v1")
+                        .setDescription("SELECT id FROM employees")
+                        .setViewCompiler(ignored -> null)
+                        .build())
+                .build();
+
+        final var rebuilt = original.toBuilder().build();
+        Assertions.assertEquals(original.getSyntheticTables(), rebuilt.getSyntheticTables());
+        Assertions.assertEquals(1, rebuilt.getUnnestedSyntheticTables().size());
+        Assertions.assertEquals(Set.of("v1"),
+                rebuilt.getViews().stream().map(RecordLayerView::getName).collect(Collectors.toSet()));
+        // the synthetic type's index survives too, and is still attributed to the stored table
+        Assertions.assertEquals(Set.of("score_idx"),
+                Set.copyOf(rebuilt.getTableIndexMapping().get("employees")));
+    }
+
+    /**
      * Synthetic tables are held in a {@code Set}, so they need value semantics: two structurally identical
      * instances must compare equal and collapse in a set, and a difference in any component must not.
      */

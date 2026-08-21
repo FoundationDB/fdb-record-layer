@@ -363,6 +363,16 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     }
 
     /**
+     * Returns the synthetic types of this template, of any kind.
+     *
+     * @return the synthetic types
+     */
+    @Nonnull
+    public Set<RecordLayerSyntheticTable> getSyntheticTables() {
+        return syntheticTables;
+    }
+
+    /**
      * Returns the unnested synthetic record types of this template.
      *
      * @return the unnested synthetic types
@@ -595,6 +605,18 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         public Builder addSyntheticTable(@Nonnull final RecordLayerSyntheticTable table) {
             verifyNameIsNotUsed(table.getName());
             syntheticTables.put(table.getName(), table);
+            return this;
+        }
+
+        @Nonnull
+        public Builder addSyntheticTables(@Nonnull final Collection<RecordLayerSyntheticTable> syntheticTables) {
+            syntheticTables.forEach(this::addSyntheticTable);
+            return this;
+        }
+
+        @Nonnull
+        public Builder addViews(@Nonnull final Collection<RecordLayerView> views) {
+            views.forEach(this::addView);
             return this;
         }
 
@@ -834,16 +856,15 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     @Nonnull
     public Builder toBuilder() {
-        final Builder builder = newBuilder()
+        return newBuilder()
                 .setName(name)
                 .setVersion(version)
                 .setEnableLongRows(enableLongRows)
                 .setIntermingleTables(intermingleTables)
                 .addTables(getTables())
+                .addSyntheticTables(getSyntheticTables())
+                .addViews(getViews())
                 .addInvokedRoutines(getInvokedRoutines())
                 .addStoredQueries(getStoredQueries());
-        syntheticTables.forEach(builder::addSyntheticTable);
-        views.forEach(builder::addView);
-        return builder;
     }
 }

@@ -198,7 +198,7 @@ public class UnnestedSyntheticTypeParsingTest {
 
     @ParameterizedTest(name = "{displayName} - {0}")
     @MethodSource("singleStructArraySpellings")
-    void createIndexOnRepeated(@Nonnull final String spelling, @Nonnull final String indexName,
+    void createIndexOnRepeatedSplitReferencesUsesSyntheticType(@Nonnull final String spelling, @Nonnull final String indexName,
                                @Nonnull final String indexDdl) throws Exception {
         shouldWorkWithInjectedFactory(SINGLE_STRUCT_ARRAY_SCHEMA + indexDdl,
                 unnestedStructArrayIndexFactory(indexName));
@@ -309,7 +309,7 @@ public class UnnestedSyntheticTypeParsingTest {
 
     @ParameterizedTest(name = "{displayName} - {0}")
     @MethodSource("threeStructArraySpellings")
-    void createIndexOnMultipleRepeated(@Nonnull final String spelling, @Nonnull final String indexName,
+    void createIndexOnMultipleRepeatedUsesSyntheticType(@Nonnull final String spelling, @Nonnull final String indexName,
                                        @Nonnull final String indexDdl) throws Exception {
         shouldWorkWithInjectedFactory(THREE_STRUCT_ARRAY_SCHEMA + indexDdl,
                 threeUnnestedStructArrayIndexFactory(indexName));
@@ -377,7 +377,7 @@ public class UnnestedSyntheticTypeParsingTest {
 
     @ParameterizedTest(name = "{displayName} - {0}")
     @MethodSource("scalarArraySpellings")
-    void createIndexOnRepeatedScalar(@Nonnull final String spelling, @Nonnull final String indexName,
+    void createIndexOnRepeatedScalarKeepsFanOut(@Nonnull final String spelling, @Nonnull final String indexName,
                                      @Nonnull final String indexDdl) throws Exception {
         shouldWorkWithInjectedFactory(SCALAR_ARRAY_SCHEMA + indexDdl,
                 unnestedScalarArrayIndexFactory(indexName));
@@ -464,7 +464,7 @@ public class UnnestedSyntheticTypeParsingTest {
 
     @ParameterizedTest(name = "{displayName} - {0}")
     @MethodSource("structAndScalarArraySpellings")
-    void createIndexOnRepeatedStructAndScalar(@Nonnull final String spelling, @Nonnull final String indexName,
+    void createIndexOnRepeatedStructAndScalarUsesSyntheticType(@Nonnull final String spelling, @Nonnull final String indexName,
                                               @Nonnull final String indexDdl) throws Exception {
         shouldWorkWithInjectedFactory(STRUCT_AND_SCALAR_ARRAY_SCHEMA + indexDdl,
                 unnestedStructAndScalarArrayIndexFactory(indexName));

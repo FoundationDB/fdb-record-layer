@@ -981,6 +981,26 @@ public class IndexTest {
         });
     }
 
+    /**
+     * The scalar array lives on the unnested struct's element type, not on the stored record, so its fan-out is
+     * rooted at the constituent that owns it rather than at the parent. Every other mixed struct+scalar test puts
+     * the scalar array on the table.
+     */
+    @Test
+    void createIndexWithScalarArrayInsideUnnestedStructRootsFanOutAtConstituent() throws Exception {
+        // A parent column between the struct's own columns is what splits the outer unnesting: `tg` sits inside
+        // the struct element, so it traverses that unnesting too and cannot split it.
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(x bigint, tags string array, y bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT M.x, t.col1, M.y, tg FROM T1 AS t, t.a AS M, M.tags AS tg ORDER BY M.x, t.col1, M.y, tg";
+        syntheticIndexIs(stmt, IndexTypes.VALUE, (parent, x) -> concat(
+                field(x).nest("X"),
+                field(parent).nest("COL1"),
+                field(x).nest("Y"),
+                field(x).nest(field("TAGS").nest(field("values", KeyExpression.FanType.FanOut)))));
+    }
+
     @Test
     void createIndexWithRepeatedNestedCartesianSplitByField() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
@@ -1243,7 +1263,7 @@ public class IndexTest {
      * {@code x} — one entry per (p, q) pair. No synthetic type is needed.
      */
     @Test
-    void createdIndexWorksChainedUnnestingAdjacent() throws Exception {
+    void createIndexWithChainedUnnestingAdjacentKeepsFanOut() throws Exception {
         final String stmt = CHAINED_SCHEMA +
                 "CREATE INDEX mv1 AS SELECT b.x, c.y FROM A AS a, (select * from a.p) as b, (select * from b.q) as c " +
                 "ORDER BY b.x, c.y";
@@ -1260,7 +1280,7 @@ public class IndexTest {
      * would have to be emitted twice — so a synthetic type is required.
      */
     @Test
-    void createdIndexWorksChainedUnnestingSplitByParent() throws Exception {
+    void createIndexWithChainedUnnestingSplitByParentUsesSyntheticType() throws Exception {
         final String stmt = CHAINED_SCHEMA +
                 "CREATE INDEX mv1 AS SELECT b.x, a.k, c.y FROM A AS a, (select * from a.p) as b, (select * from b.q) as c " +
                 "ORDER BY b.x, a.k, c.y";
@@ -1274,7 +1294,7 @@ public class IndexTest {
      * Chained unnesting where the split is within the inner unnesting.
      */
     @Test
-    void createdIndexWorksChainedUnnestingInnerSplit() throws Exception {
+    void createIndexWithChainedUnnestingInnerSplitUsesSyntheticType() throws Exception {
         final String stmt = CHAINED_SCHEMA +
                 "CREATE INDEX mv1 AS SELECT c.y, a.k, c.y2 FROM A AS a, (select * from a.p) as b, (select * from b.q) as c " +
                 "ORDER BY c.y, a.k, c.y2";
@@ -1288,7 +1308,7 @@ public class IndexTest {
      * Chained unnesting where the split is within the outer unnesting.
      */
     @Test
-    void createdIndexWorksChainedUnnestingOuterSplit() throws Exception {
+    void createIndexWithChainedUnnestingOuterSplitUsesSyntheticType() throws Exception {
         final String stmt = CHAINED_SCHEMA +
                 "CREATE INDEX mv1 AS SELECT b.x, a.k, b.x2 FROM A AS a, (select * from a.p) as b, (select * from b.q) as c " +
                 "ORDER BY b.x, a.k, b.x2";
