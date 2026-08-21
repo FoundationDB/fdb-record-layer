@@ -307,6 +307,9 @@ public final class MetricsDiffAnalyzer {
      * Results of metrics analysis containing all detected changes.
      */
     public static class MetricsAnalysisResult {
+        private static final double BIN_WIDTH = 2.0;
+        private static final int BAR_WIDTH = 30;
+
         private final List<QueryChange> newQueries;
         private final List<QueryChange> droppedQueries;
         private final List<QueryChange> planAndMetricsChanged;
@@ -545,9 +548,6 @@ public final class MetricsDiffAnalyzer {
                 }
             }
         }
-
-        private static final double BIN_WIDTH = 2.0;
-        private static final int BAR_WIDTH = 30;
 
         private void appendHistogram(@Nonnull final StringBuilder report,
                                      @Nonnull final String fieldName,
