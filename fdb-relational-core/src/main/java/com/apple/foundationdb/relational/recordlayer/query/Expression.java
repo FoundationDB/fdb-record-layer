@@ -50,6 +50,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
@@ -231,24 +232,72 @@ public class Expression {
         return false;
     }
 
+    /**
+     * Returns this expression rewritten in terms of the given value, which is simplified on the way. See
+     * {@link #pullUpSimplified} for details.
+     */
     @Nonnull
     public Expression pullUp(@Nonnull Value value, @Nonnull CorrelationIdentifier correlationIdentifier,
                              @Nonnull Set<CorrelationIdentifier> constantAliases) {
-        final var aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
-        final var simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
-        final var underlying = getUnderlying();
-        final var pulledUpUnderlying = Assert.notNullUnchecked(underlying.replace(
+        final AliasMap aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
+        final Value simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
+        return withUnderlying(pullUpSimplified(getUnderlying(), simplifiedValue, aliasMap, correlationIdentifier,
+                constantAliases));
+    }
+
+    /**
+     * Rewrites the given value in terms of a candidate value, by replacing every sub-value that can be expressed as a
+     * reference into the candidate with such a reference. This is the matching step behind the {@code pullUp()}
+     * methods, on values rather than on expressions, and the place where all of them are documented.
+     *
+     * <p>For example, given {@code SELECT g, COUNT(a) + 1 FROM T GROUP BY g}, the group-by operator computes
+     * {@code (g, COUNT(a))}, and the projection then has to be expressed over that result rather than over {@code T}.
+     * “Pulling up” the {@code COUNT(a) + 1} against it yields {@code _._1._0 + 1}, the group-by result keeping the
+     * grouping columns and the aggregates in separate records. The {@code COUNT(a)} sub-value is matched and replaced
+     * by a reference to the column that holds it, while the {@code + 1} is left alone because it has no counterpart on
+     * the other side.
+     *
+     * <p>The candidate has to arrive simplified, under the same {@code aliasMap} and {@code constantAliases} that are
+     * passed here. Simplification paves the way for the matching by performing certain canonicalization steps (such as
+     * collapsing a record constructor that effectively reconstructs a whole record to just that record), and the
+     * matching is structural, so a value that is canonicalized on one side but not on the other does not match at all.
+     *
+     * <p>Neither value is modified; the result is a new value, or the given one in case nothing matched.
+     *
+     * @param value the value to rewrite
+     * @param simplifiedValue the candidate to express {@code value} in terms of, simplified
+     * @param aliasMap the alias map of equalities to match under
+     * @param correlationIdentifier the alias the resulting references are expressed over
+     * @param constantAliases the aliases that are considered constant
+     * @return {@code value}, rewritten in terms of {@code simplifiedValue}
+     */
+    @Nonnull
+    static Value pullUpSimplified(@Nonnull Value value, @Nonnull Value simplifiedValue, @Nonnull AliasMap aliasMap,
+                                  @Nonnull CorrelationIdentifier correlationIdentifier,
+                                  @Nonnull Set<CorrelationIdentifier> constantAliases) {
+        // Walk the value, “offering” every sub-value for replacement in terms of the candidate.
+        return Assert.notNullUnchecked(value.replace(
                 subExpression -> {
-                    final var pulledUpExpressionMap =
+                    // Match this sub-value against the candidate.
+                    final Multimap<Value, Value> pulledUpExpressionMap =
                             simplifiedValue.pullUp(List.of(subExpression), EvaluationContext.empty(), aliasMap,
                                     constantAliases, correlationIdentifier);
-                    if (pulledUpExpressionMap.containsKey(subExpression)) {
-                        return Iterables.getOnlyElement(pulledUpExpressionMap.get(subExpression));
+                    final Collection<Value> references = pulledUpExpressionMap.get(subExpression);
+
+                    // If the candidate cannot express the sub-value, keep it.
+                    if (references.isEmpty()) {
+                        return subExpression;
                     }
-                    return subExpression;
+
+                    // Reject an ambiguous match. If a candidate exposes the same value twice (e.g., `x AS a` and
+                    // `x AS b`), this can mean the query left a column ambiguous, and we can’t just take a guess here.
+                    Assert.thatUnchecked(references.size() == 1,
+                            ErrorCode.AMBIGUOUS_COLUMN, "Ambiguous columns for %s", subExpression);
+
+                    // Replace the sub-value with the reference the candidate came back with.
+                    return Iterables.getOnlyElement(references);
                 }
         ));
-        return this.withUnderlying(pulledUpUnderlying);
     }
 
     public boolean canBeDerivedFrom(@Nonnull final Expression expression,
