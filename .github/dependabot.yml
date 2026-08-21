@@ -31,6 +31,7 @@ updates:
       day: "thursday"
 
   - package-ecosystem: "github-actions"
+    directory: "/"
     cooldown:
       default-days: 14
     schedule:
