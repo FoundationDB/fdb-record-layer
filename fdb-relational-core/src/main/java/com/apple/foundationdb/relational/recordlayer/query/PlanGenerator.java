@@ -293,6 +293,16 @@ public final class PlanGenerator {
             throw new RelationalException("unable to parse continuation",
                     ErrorCode.INTERNAL_ERROR, e);
         }
+        // Snapshot isolation is only supported when continuing a SELECT, whose plan is carried in the
+        // continuation as a compiled statement. A continuation may instead carry a COPY plan, which never builds
+        // ExecuteProperties (it always scans at SERIALIZABLE) and would therefore silently ignore the option, so
+        // reject it here rather than accepting it and doing nothing. This check cannot live in
+        // validateIsolationLevelSnapshotOption because the query caching flags are derived from the SQL text alone
+        // and so cannot distinguish a COPY continuation from a SELECT one.
+        Assert.that(!options.<Boolean>getOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT)
+                        || continuation.hasCompiledStatement(),
+                ErrorCode.UNSUPPORTED_OPERATION,
+                "OPTIONS (ISOLATION LEVEL SNAPSHOT) is only supported when continuing a SELECT query");
         if (continuation.hasCompiledStatement()) {
             return generatePhysicalPlanForCompiledStatementContinuation(ast, validPlanHashModes, currentPlanHashMode, continuation, continuationProto);
         } else if (continuation.hasCopyPlan()) {
@@ -482,11 +492,13 @@ public final class PlanGenerator {
      * attached to a sub-select feeding an {@code INSERT}, the enclosing statement is flagged as an INSERT, so this
      * check also rejects that case.
      * <p>
-     * {@code EXECUTE CONTINUATION} is also permitted. The option is per-execution and is not carried in the continuation,
-     * so it must be repeated on each {@code EXECUTE CONTINUATION} to avoid silently reverting to serializable.
-     * Note that continuations are only produced by (and resumable for) read-only {@code SELECT} queries
-     * (at least for the time being), but the underlying plans also double check that we are not executing insert/update/delete
-     * at snapshot isolation.
+     * {@code EXECUTE CONTINUATION} is also permitted here. The option is per-execution and is not carried in the
+     * continuation, so it must be repeated on each {@code EXECUTE CONTINUATION} to avoid silently reverting to
+     * serializable. Note that a continuation does not necessarily continue a {@code SELECT}: {@code COPY} for example
+     * also produces (and resumes) continuations. The narrower check that the continuation actually carries a
+     * {@code SELECT} plan lives in {@link #generatePhysicalPlanForExecuteContinuation} once the continuation has
+     * been parsed. Independently, the underlying data-modification plans also double check that we are not
+     * executing insert/update/delete at snapshot isolation.
      *
      * @param queryCachingFlags the statement-classification flags produced while normalizing the query.
      * @throws RelationalException with {@link ErrorCode#UNSUPPORTED_OPERATION} if the option is used on a

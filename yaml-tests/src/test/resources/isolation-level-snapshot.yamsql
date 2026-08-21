@@ -114,4 +114,9 @@ test_block:
     -
       - query: select id from t1 where exists (select id from t1 where id = 1 OPTIONS (ISOLATION LEVEL SNAPSHOT))
       - error: "42601" # SYNTAX_ERROR
+    -
+      # Options do not attach to a COPY statement, so this is a syntax error. Resuming a COPY continuation with
+      # the option is rejected as UNSUPPORTED_OPERATION; see CopyCommandTest.copyContinuationRejectsSnapshotIsolation.
+      - query: COPY /TEST/FOO PRESERVE INCARNATION OPTIONS (ISOLATION LEVEL SNAPSHOT)
+      - error: "42601" # SYNTAX_ERROR
 ...
