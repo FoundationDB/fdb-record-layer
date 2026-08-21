@@ -96,12 +96,12 @@ public class RelationalResultSetAssert extends AbstractAssert<RelationalResultSe
     }
 
     public RelationalResultSetAssert hasNextRow() {
-        extracting(this::advance, Assertions::assertThat).isTrue();
+        extracting(RelationalResultSetAssert::advance, Assertions::assertThat).isTrue();
         return this;
     }
 
     public RelationalResultSetAssert hasNoNextRow() {
-        extracting(this::advance, Assertions::assertThat).isFalse();
+        extracting(RelationalResultSetAssert::advance, Assertions::assertThat).isFalse();
         return this;
     }
 
@@ -177,7 +177,7 @@ public class RelationalResultSetAssert extends AbstractAssert<RelationalResultSe
         }
     }
 
-    private boolean advance(RelationalResultSet rrs) {
+    private static boolean advance(RelationalResultSet rrs) {
         //A simple wrapper function to throw the SQLException as a RuntimeException so that we can have cleaner asserts
         try {
             return rrs.next();
