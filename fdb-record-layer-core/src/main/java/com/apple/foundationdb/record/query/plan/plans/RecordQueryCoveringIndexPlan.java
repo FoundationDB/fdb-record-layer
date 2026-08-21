@@ -50,6 +50,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithoutChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -57,6 +58,7 @@ import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -157,6 +159,15 @@ public class RecordQueryCoveringIndexPlan extends AbstractRelationalExpressionWi
     @Override
     public boolean hasIndexScan(@Nonnull String indexName) {
         return indexPlan.hasIndexScan(indexName);
+    }
+
+    @Nonnull
+    @Override
+    public Set<Type> getDynamicTypes() {
+        final ImmutableSet.Builder<Type> resultBuilder = ImmutableSet.builder();
+        resultBuilder.addAll(RecordQueryPlanWithNoChildren.super.getDynamicTypes());
+        resultBuilder.addAll(indexPlan.getDynamicTypes());
+        return resultBuilder.build();
     }
 
     @Nonnull

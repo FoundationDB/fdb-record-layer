@@ -76,6 +76,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     private final Set<RecordLayerTable> tables;
 
     @Nonnull
+    private final Map<String, DataType.Named> auxiliaryTypeMap;
+
+    @Nonnull
     private final Set<RecordLayerInvokedRoutine> invokedRoutines;
 
     @Nonnull
@@ -109,6 +112,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
+                                      @Nonnull final Map<String, DataType.Named> auxiliaryTypeMap,
                                       @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
                                       @Nonnull final Set<RecordLayerView> views,
                                       @Nonnull final Map<String, StoredQuery> storedQueries,
@@ -118,6 +122,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                                       boolean intermingleTables) {
         this.name = name;
         this.tables = ImmutableSet.copyOf(tables);
+        this.auxiliaryTypeMap = ImmutableMap.copyOf(auxiliaryTypeMap);
         this.invokedRoutines = ImmutableSet.copyOf(invokedRoutines);
         this.views = ImmutableSet.copyOf(views);
         this.storedQueries = ImmutableMap.copyOf(storedQueries);
@@ -134,6 +139,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
+                                      @Nonnull final Map<String, DataType.Named> auxiliaryTypeMap,
                                       @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
                                       @Nonnull final Set<RecordLayerView> views,
                                       @Nonnull final Map<String, StoredQuery> storedQueries,
@@ -145,6 +151,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.name = name;
         this.version = version;
         this.tables = ImmutableSet.copyOf(tables);
+        this.auxiliaryTypeMap = ImmutableMap.copyOf(auxiliaryTypeMap);
         this.invokedRoutines = ImmutableSet.copyOf(invokedRoutines);
         this.views = ImmutableSet.copyOf(views);
         this.storedQueries = ImmutableMap.copyOf(storedQueries);
@@ -329,6 +336,11 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     }
 
     @Nonnull
+    public Map<String, DataType.Named> getAuxiliaryTypes() {
+        return auxiliaryTypeMap;
+    }
+
+    @Nonnull
     @Override
     public Set<RecordLayerInvokedRoutine> getInvokedRoutines() {
         return invokedRoutines;
@@ -350,6 +362,14 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     @Override
     public Map<String, StoredQuery> getStoredQueries() {
         return storedQueries;
+    }
+
+    @Nonnull
+    @Override
+    public Optional<DataType> findTypeByName(@Nonnull final String typeName) {
+        return findTableByName(typeName)
+                .<DataType>map(Table::getDatatype)
+                .or(() -> Optional.ofNullable((DataType)auxiliaryTypeMap.get(typeName)));
     }
 
     @Nonnull
@@ -395,6 +415,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         for (final var table : getTables()) {
             table.accept(visitor);
         }
+        for (final var auxiliaryType : auxiliaryTypeMap.values()) {
+            visitor.visit((DataType)auxiliaryType);
+        }
         for (final var invokedRoutine : getInvokedRoutines()) {
             invokedRoutine.accept(visitor);
         }
@@ -420,7 +443,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         private final Map<String, RecordLayerTable> tables;
 
         @Nonnull
-        private final Map<String, DataType.Named> auxiliaryTypes; // for quick lookup
+        private final Map<String, DataType.Named> auxiliaryTypes;
 
         @Nonnull
         private final Map<String, RecordLayerInvokedRoutine> invokedRoutines;
@@ -662,10 +685,10 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             }
 
             if (cachedMetadata != null) {
-                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()),
+                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), auxiliaryTypes,
                         new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()), storedQueries, version, enableLongRows, storeRowVersions, intermingleTables, cachedMetadata);
             } else {
-                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()),
+                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), auxiliaryTypes,
                         new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()), storedQueries, version, enableLongRows, storeRowVersions, intermingleTables);
             }
         }
@@ -793,6 +816,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                 .setEnableLongRows(enableLongRows)
                 .setIntermingleTables(intermingleTables)
                 .addTables(getTables())
+                .addAuxiliaryTypes(auxiliaryTypeMap.values())
                 .addInvokedRoutines(getInvokedRoutines())
                 .addViews(getViews())
                 .addStoredQueries(getStoredQueries());
