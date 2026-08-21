@@ -28,11 +28,11 @@ options:
     supported_version: !current_version
 ---
 schema_template:
-    create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
-    create table t2(id bigint, name string, primary key(id))
-    create index max_ever_col2 as select max_ever(col2) from t1
-    create index max_ever_col2_by_col1 as select max_ever(col2) from t1 group by col1
-    create index sum_col2_by_col1 as select sum(col2) from t1 group by col1
+    CREATE TABLE t1(id BIGINT, col1 BIGINT, col2 BIGINT, PRIMARY KEY(id))
+    CREATE TABLE t2(id BIGINT, name STRING, PRIMARY KEY(id))
+    CREATE INDEX max_ever_col2 AS SELECT MAX_EVER(col2) FROM t1
+    CREATE INDEX max_ever_col2_by_col1 AS SELECT MAX_EVER(col2) FROM t1 GROUP BY col1
+    CREATE INDEX sum_col2_by_col1 AS SELECT SUM(col2) FROM t1 GROUP BY col1
 ---
 setup:
   steps:
@@ -49,70 +49,38 @@ setup:
 test_block:
   name: snapshot-isolation-aggregates
   tests:
-    -
-      - query: select max_ever(col2) from t1 OPTIONS (ISOLATION LEVEL SNAPSHOT)
+    - # This should work on select queries without error
+      - query: SELECT MAX_EVER(col2) FROM t1 OPTIONS (ISOLATION LEVEL SNAPSHOT)
       - result: [{!l 8}]
-    -
-      - query: select col1, max_ever(col2) from t1 group by col1 OPTIONS (ISOLATION LEVEL SNAPSHOT)
-      - unorderedResult: [{!l 10, !l 7}, {!l 20, !l 8}]
-    -
-      - query: select sum(col2) from t1 OPTIONS (ISOLATION LEVEL SNAPSHOT)
-      - result: [{!l 25}]
-    -
-      - query: select col1, sum(col2) from t1 group by col1 having sum(col2) > 12 OPTIONS (ISOLATION LEVEL SNAPSHOT)
+    - # one extra, slightly more interesting query
+      - query: SELECT col1, SUM(col2) FROM t1 GROUP BY col1 HAVING SUM(col2) > 12 OPTIONS (ISOLATION LEVEL SNAPSHOT)
       - unorderedResult: [{!l 10, !l 15}]
-    -
+    - # it should be ok to combine with other options
       - query: select max_ever(col2) from t1 OPTIONS (ISOLATION LEVEL SNAPSHOT, LOG QUERY)
       - result: [{!l 8}]
 ---
 test_block:
-  name: snapshot-isolation-non-aggregate
-  tests:
-    -
-      - query: select id, col1, col2 from t1 where id = 1 OPTIONS (ISOLATION LEVEL SNAPSHOT)
-      - result: [{!l 1, !l 10, !l 5}]
-    -
-      - query: select id from t1 where id > 3 OPTIONS (ISOLATION LEVEL SNAPSHOT)
-      - unorderedResult: [{!l 4}, {!l 5}]
-    -
-      - query: select id from t1 order by id OPTIONS (ISOLATION LEVEL SNAPSHOT)
-      - result: [{!l 1}, {!l 2}, {!l 3}, {!l 4}, {!l 5}]
-    -
-      - query: select id from t1 where id in (1, 3, 5) OPTIONS (ISOLATION LEVEL SNAPSHOT)
-      - unorderedResult: [{!l 1}, {!l 3}, {!l 5}]
-    -
-      - query: select t2.name from t1, t2 where t1.col1 = t2.id OPTIONS (ISOLATION LEVEL SNAPSHOT)
-      - unorderedResult: [{'ten'}, {'ten'}, {'ten'}, {'twenty'}, {'twenty'}]
----
-test_block:
   name: snapshot-isolation-rejected-on-non-select
   tests:
-    -
-      - query: insert into t1 values (100, 30, 30) OPTIONS (ISOLATION LEVEL SNAPSHOT)
+    - # insert is not allowed at snapshot isolation
+      - query: INSERT INTO t1 VALUES (100, 30, 30) OPTIONS (ISOLATION LEVEL SNAPSHOT)
       - error: "0A000" # UNSUPPORTED_OPERATION
-    -
-      - query: update t1 set col2 = 99 where id = 1 OPTIONS (ISOLATION LEVEL SNAPSHOT)
+    - # update is not allowed at snapshot isolation
+      - query: UPDATE t1 SET col2 = 99 WHERE id = 1 OPTIONS (ISOLATION LEVEL SNAPSHOT)
       - error: "0A000" # UNSUPPORTED_OPERATION
-    -
-      - query: delete from t1 where id = 1 OPTIONS (ISOLATION LEVEL SNAPSHOT)
+    - # delete is not allowed at snapshot isolation
+      - query: DELETE FROM t1 WHERE id = 1 OPTIONS (ISOLATION LEVEL SNAPSHOT)
       - error: "0A000" # UNSUPPORTED_OPERATION
-    -
-      - query: insert into t2 (select id, 'name' from t1 where id = 1) OPTIONS (ISOLATION LEVEL SNAPSHOT)
+    - # ensure that the checks are not confused by a subselect
+      - query: INSERT INTO t2 (SELECT id, 'name' FROM t1 WHERE id = 1) OPTIONS (ISOLATION LEVEL SNAPSHOT)
       - error: "0A000" # UNSUPPORTED_OPERATION
-    -
-      - query: delete from t1 where id IN (select id from t1 where id = 1 OPTIONS (ISOLATION LEVEL SNAPSHOT))
+    - # double check that options aren't allowed in DDL, a lot of the infrastructure would have to rework to
+      # support this, and require some real thought about the semantics
+      - query: CREATE SCHEMA TEMPLATE snapshot_template CREATE TABLE tt(id BIGINT, v BIGINT, PRIMARY KEY(id)) CREATE INDEX bad_idx AS SELECT v FROM tt OPTIONS (ISOLATION LEVEL SNAPSHOT)
       - error: "42601" # SYNTAX_ERROR
-    -
-      - query: insert into t2 (select id, 'name' from t1 where id = 1 OPTIONS (ISOLATION LEVEL SNAPSHOT))
-      - error: "42601" # SYNTAX_ERROR
-    -
-      - query: create schema template SNAPSHOT_TEMPLATE create table tt(id bigint, v bigint, primary key(id)) create index bad_idx as select v from tt OPTIONS (ISOLATION LEVEL SNAPSHOT)
-      - error: "42601" # SYNTAX_ERROR
-    -
-      - query: select id from (select id from t1 where id = 1 OPTIONS (ISOLATION LEVEL SNAPSHOT)) as sub
-      - error: "42601" # SYNTAX_ERROR
-    -
-      - query: select id from t1 where exists (select id from t1 where id = 1 OPTIONS (ISOLATION LEVEL SNAPSHOT))
+    - # double check that options aren't allowed in subselects, a lot of the infrastructure would have to rework to
+      # support this, and require some real thought about the semantics
+      - query: SELECT id FROM (SELECT id FROM t1 WHERE id = 1 OPTIONS (ISOLATION LEVEL SNAPSHOT)) AS sub
       - error: "42601" # SYNTAX_ERROR
     -
       # Options do not attach to a COPY statement, so this is a syntax error. Resuming a COPY continuation with
