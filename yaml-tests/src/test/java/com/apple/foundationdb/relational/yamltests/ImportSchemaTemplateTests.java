@@ -38,4 +38,14 @@ class ImportSchemaTemplateTests {
     void withIncludedDependencies(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("import-schema-template/with-included-dependencies.yamsql");
     }
+
+    @TestTemplate
+    void withUserDefinedFunctions(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("import-schema-template/with-user-defined-functions.yamsql");
+    }
+
+    @TestTemplate
+    void withAuxiliaryTypes(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("import-schema-template/with-auxiliary-types.yamsql");
+    }
 }

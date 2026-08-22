@@ -320,15 +320,13 @@ test_block:
       - explain: "TF range(promote(@c15 AS LONG), promote(@c17 AS LONG), STEP 1l) | MAP (array(promote(promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, LONG AS Z) AS LONG AS Y, LONG AS Z))[promote(1 AS INT)] AS _0)"
       - unorderedResult: [{ {y: !l 1, z: !l 2} }]
     -
-      # TODO: this should be fixed as part of https://github.com/FoundationDB/fdb-record-layer/issues/4177
       - query: select temp_z(r) from nested
       - setup: create temporary function temp_z(IN r TYPE st3) returns bigint on commit drop function return r.v.z
-      - error: INTERNAL_ERROR
+      - unorderedResult: [{100}, {100}, {100}, {100}, {140}, {140}]
     -
-      # TODO: this should be fixed as part of https://github.com/FoundationDB/fdb-record-layer/issues/4317
       - query: select temp_constructor(r.u.w) from nested where id = 1
       - setup: create temporary function temp_constructor(IN x bigint) returns st1 on commit drop function return (x, 5L)
-      - error: UNKNOWN_TYPE
+      - unorderedResult: [{ {y: !l 5, z: !l 5} }]
     -
       - query: select temp_constructor(r.u.w) from nested where id = 1
       - setup: create temporary function temp_constructor(IN x bigint) on commit drop function return (x, 5L)
@@ -372,6 +370,19 @@ test_block:
     -
       - query: select st1_constructor_with_defaults from range(1, 2)
       - error: UNDEFINED_COLUMN
+    -
+      - query: select z(((5l, 11l), (10l, 100l))) from range(1, 2)
+      - unorderedResult: [ { !l 100 } ]
+    -
+      - query: select z(struct st3 (struct st2 (5l, 11l), struct st1 (10l, 100l))) from range(1, 2)
+      - error: UNKNOWN
+    -
+      - query: select st1_array(struct st1 (1, 2)) from range(1, 2)
+      - error: UNKNOWN
+    -
+      - query: select temp_constructor(r.u.w) from nested where id = 1
+      - setup: create temporary function temp_constructor(IN x bigint) on commit drop function return struct st1 (x, 5L)
+      - error: UNKNOWN
 ---
 setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
