@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -29,10 +30,12 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.function.Predicate;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.members;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher.typed;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithExtractAndDownstream.typedWithDownstream;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithPredicate.typedMatcherWithPredicate;
 
 /**
  * Matchers for {@link Quantifier}s.
@@ -121,6 +124,18 @@ public class QuantifierMatchers {
         return typedWithDownstream(Quantifier.ForEach.class,
                 Extractor.of(Quantifier.ForEach::isNullOnEmpty, name -> "withDefaultOnEmpty(" + name + ")"),
                 PrimitiveMatchers.equalsObject(true));
+    }
+
+    /**
+     * Matches any quantifier other than a for-each quantifier with null-on-empty semantics.
+     *
+     * <p>Note that, unlike {@link #forEachQuantifierWithDefaultOnEmpty()}, this matcher is rooted at {@link Quantifier}
+     * (rather than at {@link Quantifier.ForEach}) and will therefore match existential and physical quantifiers too.
+     * That way it can also be used under an {@code all()} over the quantifiers of an expression.
+     */
+    @Nonnull
+    public static BindingMatcher<Quantifier> anyQuantifierExceptForEachWithNullOnEmpty() {
+        return typedMatcherWithPredicate(Quantifier.class, Predicate.not(Quantifiers::isForEachWithNullOnEmpty));
     }
 
     @Nonnull

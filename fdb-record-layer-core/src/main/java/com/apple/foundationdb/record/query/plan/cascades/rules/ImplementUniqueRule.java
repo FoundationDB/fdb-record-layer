@@ -24,6 +24,8 @@ import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUniqueExpression;
@@ -31,9 +33,12 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.DistinctRecordsProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyProperty;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
@@ -60,7 +65,10 @@ public class ImplementUniqueRule extends AbstractCascadesRule<LogicalUniqueExpre
                     rollUpPartitions(anyPlanPartitionMatcher)));
 
     @Nonnull
-    private static final BindingMatcher<LogicalUniqueExpression> root = logicalUniqueExpression(only(forEachQuantifierOverRef(innerReferenceMatcher)));
+    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(innerReferenceMatcher);
+
+    @Nonnull
+    private static final BindingMatcher<LogicalUniqueExpression> root = logicalUniqueExpression(only(innerQuantifierMatcher));
 
     public ImplementUniqueRule() {
         super(root, ImmutableSet.of(RequestedOrderingConstraint.REQUESTED_ORDERING));
@@ -68,7 +76,22 @@ public class ImplementUniqueRule extends AbstractCascadesRule<LogicalUniqueExpre
 
     @Override
     public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+        final var innerQuantifier = call.get(innerQuantifierMatcher);
+        final var innerReference = call.get(innerReferenceMatcher);
         final var innerPlanPartitions = call.get(anyPlanPartitionMatcher);
-        innerPlanPartitions.forEach(partition -> call.yieldPlans(partition.getPlans()));
+        for (final PlanPartition partition : innerPlanPartitions) {
+            final Set<RecordQueryPlan> plans = partition.getPlans();
+
+            // If the ƒ quantifier below the unique expression has null-on-empty semantics, make sure to re-establish
+            // those semantics here. We do so by injecting an ON EMPTY NULL node _above_ the yielded plans (rather than
+            // below them, where the ƒ used to sit). That is correct because this rule only ever absorbs the unique
+            // expression, so the plans are yielded unchanged.
+            if (Quantifiers.isForEachWithNullOnEmpty(innerQuantifier)) {
+                final Reference plansReference = call.memoizeMemberPlansFromOther(innerReference, plans);
+                call.yieldPlan(RecordQueryDefaultOnEmptyPlan.forNullOnEmpty(innerQuantifier, plansReference));
+            } else {
+                call.yieldPlans(plans);
+            }
+        }
     }
 }
