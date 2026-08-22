@@ -79,6 +79,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilte
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryStoreBindingPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
@@ -548,6 +549,12 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
                     Ordering.normalizeOrderingSet(resultBindingMap,
                             PartiallyOrderedSet.of(resultOrderingSetDomain, childOrderingSet.getDependencyMap()));
             return Ordering.ofOrderingSet(resultBindingMap, orderingSet, childOrdering.isDistinct());
+        }
+
+        @Nonnull
+        @Override
+        public Ordering visitStoreBindingPlan(@Nonnull final RecordQueryStoreBindingPlan storeBindingPlan) {
+            return orderingFromSingleChild(storeBindingPlan);
         }
 
         @Nonnull
