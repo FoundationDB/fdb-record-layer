@@ -618,6 +618,36 @@ class FDBDatabaseTest {
     }
 
     @Test
+    void canSetKnobOnRunningClient() {
+        // Get a running client (initialized in dbExtension)
+        final FDBDatabase database = dbExtension.getDatabase();
+        final FDBDatabaseFactory factory = database.getFactory();
+
+        // A knob that the native client recognizes: setting it should not throw, whether or not the client
+        // actually respects a change to it after having already started.
+        assertDoesNotThrow(() -> factory.setKnob(FDBClientKnob.TLS_CLIENT_HANDSHAKE_THREADS, "3"));
+        assertEquals("3", factory.getKnobs().get(FDBClientKnob.TLS_CLIENT_HANDSHAKE_THREADS.getKnobName()));
+
+        // The native client swallows unrecognized knob names (logging a warning) rather than throwing, both
+        // before and after the client has started. Setting one through the factory should not throw either,
+        // but it is still recorded so that, e.g., a subsequent factory targeting a fresh client would apply it.
+        assertDoesNotThrow(() -> factory.setKnob("this_knob_does_not_exist", "1"));
+        assertEquals("1", factory.getKnobs().get("this_knob_does_not_exist"));
+
+    }
+
+    @Test
+    void cannotClearKnobsOnRunningClient() {
+        // Get a running client (initialized in dbExtension)
+        final FDBDatabase database = dbExtension.getDatabase();
+        final FDBDatabaseFactory factory = database.getFactory();
+
+        // Since there is no way to reset a knob that has already been applied to a running client, clearKnobs()
+        // is only allowed before the client has started.
+        assertThrows(RecordCoreException.class, factory::clearKnobs);
+    }
+
+    @Test
     void canAccessMultipleClusters() {
         FDBTestEnvironment.assumeClusterCount(2);
         final FDBDatabase database0 = dbExtension.getDatabase(0);
