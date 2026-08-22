@@ -39,6 +39,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvoked
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
+import com.google.common.collect.ImmutableSortedMap;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.util.Hex;
 import com.apple.foundationdb.relational.util.Assert;
@@ -1668,8 +1669,9 @@ public class AstNormalizerTests {
 
     @Test
     void queryCacheKeyToString() {
-        final var key = QueryCacheKey.of("select ? from testTable", plannerConfiguration, "someAuxiliaryMetadata", 3);
-        final var expected = "(3 || someAuxiliaryMetadata)||select ? from testTable||" + key.hashCode();
+        final var key = QueryCacheKey.of("select ? from testTable", plannerConfiguration, "someAuxiliaryMetadata",
+                ImmutableSortedMap.of("testSchema", 3));
+        final var expected = "({testSchema=3} || someAuxiliaryMetadata)||select ? from testTable||" + key.hashCode();
         Assertions.assertThat(key).hasToString(expected);
     }
 }
