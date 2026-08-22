@@ -548,4 +548,9 @@ public class YamlIntegrationTests {
     public void selectWithoutFrom(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("select-without-from.yamsql");
     }
+
+    @TestTemplate
+    public void crossSchemaJoinTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("cross-schema-join.yamsql");
+    }
 }
