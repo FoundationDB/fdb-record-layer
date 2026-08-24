@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.jdbc.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.jdbc.grpc.GrpcSQLExceptionUtil;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.CommitRequest;
@@ -62,6 +63,7 @@ import java.sql.Array;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Struct;
 import java.util.Collection;
@@ -87,12 +89,13 @@ import java.util.concurrent.TimeUnit;
 // URI query string to have the client connect to the existing inprocess server. E.g:
 // jdbc:relational:///__SYS?schema=CATALOG&server=123e4567-e89b-12d3-a456-42661417400
 class JDBCRelationalConnection implements RelationalConnection {
+
     /**
-     * This is a lie for now. TODO: Fix.
-     * Choosing dbeaver default for now until properly implemented.
-     * See https://docs.oracle.com/javadb/10.8.3.0/devguide/cdevconcepts15366.html
+     * We only currently support {@link Connection#TRANSACTION_SERIALIZABLE}.
+     * We support snapshot isolation via options, but that is most appropiate at the statement level, so it is
+     * exposed via {@link Options.Name#ISOLATION_LEVEL_SNAPSHOT}.
      */
-    private volatile int transactionIsolationLevel = Connection.TRANSACTION_REPEATABLE_READ;
+    private final int transactionIsolationLevel = Connection.TRANSACTION_SERIALIZABLE;
     /**
      * TODO: implement.
      */
@@ -495,8 +498,10 @@ class JDBCRelationalConnection implements RelationalConnection {
 
     @Override
     public void setTransactionIsolation(int level) throws SQLException {
-        // TODO: Set but not implemented. SQLLine does this on startup.
-        this.transactionIsolationLevel = level;
+        if (level != TRANSACTION_SERIALIZABLE) {
+            throw new SQLFeatureNotSupportedException("Only SERIALIZABLE isolation level is supported",
+                    ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        }
     }
 
     /**

@@ -59,6 +59,7 @@ import java.net.URI;
 import java.sql.Array;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Struct;
 import java.util.Arrays;
@@ -82,9 +83,9 @@ import java.util.stream.Collectors;
 public class EmbeddedRelationalConnection implements RelationalConnection {
 
     /**
-     * Chose a transaction level that we *pretend* to support (Rather than throw an exception that stops
-     * all processing).
-     * TODO: Implement.
+     * We only currently support {@link Connection#TRANSACTION_SERIALIZABLE}.
+     * We support snapshot isolation via options, but that is most appropiate at the statement level, so it is
+     * exposed via {@link Options.Name#ISOLATION_LEVEL_SNAPSHOT}.
      */
     private static final int DEFAULT_TRANSACTION_LEVEL = Connection.TRANSACTION_SERIALIZABLE;
 
@@ -106,7 +107,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     @Nonnull
     private Options options;
 
-    private int transactionIsolation;
+    private final int transactionIsolation;
 
     @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "May be refactored as embedded takes over transaction lifetime")
     public EmbeddedRelationalConnection(@Nonnull AbstractDatabase frl,
@@ -344,7 +345,10 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
 
     @Override
     public void setTransactionIsolation(int level) throws SQLException {
-        transactionIsolation = level;
+        if (level != TRANSACTION_SERIALIZABLE) {
+            throw new SQLFeatureNotSupportedException("Only SERIALIZABLE isolation level is supported",
+                    ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        }
     }
 
     @Override
@@ -507,18 +511,10 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         return executeProperties;
     }
 
-    private static IsolationLevel toExecutePropertiesIsolationLevel(int jdbcTransactionIsolation) {
-        if (jdbcTransactionIsolation == Connection.TRANSACTION_SERIALIZABLE) {
-            return IsolationLevel.SERIALIZABLE;
-        } else {
-            return IsolationLevel.SNAPSHOT;
-        }
-    }
-
-    // todo: remove this.
+    // todo: remove this; we should create the ExecuteProperties closer to their usage
     private ExecuteProperties newExecuteProperties() {
         return ExecuteProperties.newBuilder()
-                .setIsolationLevel(toExecutePropertiesIsolationLevel(transactionIsolation))
+                .setIsolationLevel(IsolationLevel.SERIALIZABLE)
                 .setTimeLimit(options.getOption(Options.Name.EXECUTION_TIME_LIMIT))
                 .setScannedBytesLimit(options.getOption(Options.Name.EXECUTION_SCANNED_BYTES_LIMIT))
                 .setScannedRecordsLimit(options.getOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT))
