@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.runners.throttled;
 
+import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
@@ -32,8 +33,10 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreKeyspace;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.ParameterizedTestUtils;
@@ -175,6 +178,58 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         } else {
             assertThat(successTransactionCount.get()).isEqualTo(numRecords / deleteLimit + 1);
         }
+    }
+
+    @Test
+    void testThrottleIteratorRunsCursorCommitChecks() throws Exception {
+        final int numRecords = 42;
+        final int deleteLimit = 10;
+        final int expectedTransactions = numRecords / deleteLimit + 1; // a transaction per delete limit, plus the one that exhausts the source
+        final AtomicInteger checkCount = new AtomicInteger(0);
+
+        final ItemHandler<Integer> itemHandler = (store, item, quotaManager) -> {
+            quotaManager.deleteCountInc();
+            return AsyncUtil.DONE;
+        };
+        final CursorFactory<Integer> innerCursorFactory = intCursor(numRecords, null);
+        final CursorFactory<Integer> cursorFactory = (store, lastResult, rowLimit) -> {
+            store.getContext().getOrCreateCommitCheck("throttledIteratorTestCheck", name -> () ->
+                    // Delay a little, to ensure that the write of this asynchronous check makes it into the transaction
+                    MoreAsyncUtil.delayedFuture(2, TimeUnit.MILLISECONDS, store.getContext().getDatabase().getScheduledExecutor())
+                            .thenRun(() -> store.ensureContextActive()
+                                    .set(commitCheckSubspace(store).pack(Tuple.from(checkCount.incrementAndGet())), new byte[0])));
+            return innerCursorFactory.createCursor(store, lastResult, rowLimit);
+        };
+
+        final FDBRecordStore.Builder storeBuilder;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            storeBuilder = recordStore.asBuilder();
+            commit(context);
+        }
+        try (ThrottledRetryingIterator<Integer> throttledIterator =
+                     ThrottledRetryingIterator.builder(fdb, cursorFactory, itemHandler)
+                             .withMaxRecordsDeletesPerTransaction(deleteLimit)
+                             .build()) {
+            throttledIterator.iterateAll(storeBuilder).join();
+        }
+
+        assertThat(checkCount.get()).isEqualTo(expectedTransactions);
+
+        // Every one of the checks' writes was committed
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            final List<KeyValue> checkKeys = context.ensureActive()
+                    .getRange(commitCheckSubspace(recordStore).range())
+                    .asList().join();
+            assertThat(checkKeys).hasSize(expectedTransactions);
+        }
+    }
+
+    private static Subspace commitCheckSubspace(final FDBRecordStore store) {
+        // Note: the check's keys must be written under a valid keyspace, else they would precede the store's header key.
+        // The index build keyspace is a legit (and, in this test, otherwise unused) part of the store.
+        return store.getSubspace().subspace(Tuple.from(FDBRecordStoreKeyspace.INDEX_BUILD_SPACE.key(), "commitCheck"));
     }
 
     @CsvSource({"-1", "0", "50", "100"})

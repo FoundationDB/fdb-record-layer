@@ -1,8 +1,7 @@
 Û
 ï
 (array-agg-combined-with-other-aggregatesiEXPLAIN SELECT ARRAY_AGG(val IGNORE NULLS) AS a, ARRAY_AGG(val RESPECT NULLS) AS b FROM T1 WHERE grp = 10ÿ
-ÕÁı⁄
-w ªì˛( 0≠≤P8/@≈ISCAN(T1_grp [EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (array_agg(_._0.val IGNORE NULLS) AS _0, array_agg(_._0.val) AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS a, _._0._1 AS b)Údigraph G {
+…»Í”w ÆÍ±( 0»∂L8/@≈ISCAN(T1_grp [EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (array_agg(_._0.val IGNORE NULLS) AS _0, array_agg(_._0.val) AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS a, _._0._1 AS b)Údigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -17,10 +16,10 @@
   5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ﬁ;
+}Ö<
 Á
-array-agg-scenario–EXPLAIN SELECT m.mid, r.rid, sq.assets FROM doc_meta m, doc_rev r, (SELECT ARRAY_AGG(a.url) AS assets FROM doc_asset a WHERE a.rid = r.rid) sq WHERE m.owner IS NOT NULL AND 'featured' IN r.tags AND r.rid = 20Ò9
-Ó˚€‡~¿  ı¨*(0áÈî8¢@,¸SCAN([IS doc_rev, EQUALS promote(@c60 AS LONG)]) | FILTER @c50 IN _.tags | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0) | AGG (array_agg(_._0.url) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (q0 AS _0, q0 AS _1) } | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2.mid AS mid, q1._0.rid AS rid, q1._1._0._0 AS assets) }—6digraph G {
+array-agg-scenario–EXPLAIN SELECT m.mid, r.rid, sq.assets FROM doc_meta m, doc_rev r, (SELECT ARRAY_AGG(a.url) AS assets FROM doc_asset a WHERE a.rid = r.rid) sq WHERE m.owner IS NOT NULL AND 'featured' IN r.tags AND r.rid = 20ò:
+ÁÓÀõÅø ÎÓç)(0∑‚€	8¢@,¸SCAN([IS doc_rev, EQUALS promote(@c60 AS LONG)]) | FILTER @c50 IN _.tags | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0) | AGG (array_agg(_._0.url) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (q0 AS _0, q0 AS _1) } | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2.mid AS mid, q1._0.rid AS rid, q1._1._0._0 AS assets) }˜6digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -30,13 +29,13 @@
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q14 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(STRING) AS _0 AS _0)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS doc_rev, EQUALS promote(@c60 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (array_agg(q94._0.url) AS _0)</td></tr><tr><td align="left">GROUP BY ()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(STRING) AS _0 AS _0)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [doc_asset, doc_meta, keywords, doc_rev, T1, T2]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [parent, keywords, doc_rev, doc_asset, doc_meta, T1, T2, child, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
   8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q10 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS aid, LONG AS rid, STRING AS url AS _0)" ];
   9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q6.rid]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS aid, LONG AS rid, STRING AS url)" ];
   10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">doc_asset_by_rid</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS aid, LONG AS rid, STRING AS url)" ];
   11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.owner NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
   12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS doc_meta]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
-  13 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [doc_asset, doc_meta, keywords, doc_rev, T1, T2]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
+  13 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [parent, keywords, doc_rev, doc_asset, doc_meta, T1, T2, child, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
   3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ label=<&nbsp;q14> label="q14" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 3 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -50,14 +49,6 @@
   13 -> 12 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   11 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    11 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    2 -> 11 [ color="red" style="invis" ];
-  }
-  {
     3 -> 2 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -68,10 +59,18 @@
     rankDir=LR;
     3 -> 4 [ color="red" style="invis" ];
   }
-}Ê8
+  {
+    11 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 11 [ color="red" style="invis" ];
+  }
+}å9
 É
-array-agg-scenarioÏEXPLAIN SELECT m.mid, r.rid, sq.assets FROM doc_meta m, doc_rev r, (SELECT a.rid AS rid, ARRAY_AGG(a.url) AS assets FROM doc_asset a GROUP BY a.rid) sq WHERE m.owner IS NOT NULL AND 'featured' IN r.tags AND r.rid = 20 AND sq.rid = r.rid›6
-˜'£Ç“øˆ íÊ∫:(õ0ÄÌ˚8˛@∏àISCAN(doc_asset_by_rid <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.url) AS _0) GROUP BY (_._0.rid AS _0) | FLATMAP q0 -> { SCAN([IS doc_rev, EQUALS promote(@c63 AS LONG)]) | FILTER @c53 IN _.tags AND q0._0._0 EQUALS _.rid | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.mid AS mid, q3._1.rid AS rid, q0._1._0 AS assets) }Æ3digraph G {
+array-agg-scenarioÏEXPLAIN SELECT m.mid, r.rid, sq.assets FROM doc_meta m, doc_rev r, (SELECT a.rid AS rid, ARRAY_AGG(a.url) AS assets FROM doc_asset a GROUP BY a.rid) sq WHERE m.owner IS NOT NULL AND 'featured' IN r.tags AND r.rid = 20 AND sq.rid = r.ridÉ7
+'º©Ãòı ∫˜÷/(õ0ùìà8˛@∏àISCAN(doc_asset_by_rid <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.url) AS _0) GROUP BY (_._0.rid AS _0) | FLATMAP q0 -> { SCAN([IS doc_rev, EQUALS promote(@c63 AS LONG)]) | FILTER @c53 IN _.tags AND q0._0._0 EQUALS _.rid | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.mid AS mid, q3._1.rid AS rid, q0._1._0 AS assets) }‘3digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -81,31 +80,23 @@
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS aid, LONG AS rid, STRING AS url)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">doc_asset_by_rid</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS aid, LONG AS rid, STRING AS url)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2 AS _0, q6 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner AS _0, LONG AS rid, STRING AS title, ARRAY(STRING) AS tags AS _1)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE @c53 IN q6.tags AND q14._0._0 EQUALS q6.rid</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
-  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.owner NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
-  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS doc_rev, EQUALS promote(@c63 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
-  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS doc_meta]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
-  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [doc_asset, doc_meta, keywords, doc_rev, T1, T2]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
-  12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [doc_asset, doc_meta, keywords, doc_rev, T1, T2]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.owner NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE @c53 IN q6.tags AND q14._0._0 EQUALS q6.rid</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS doc_meta]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
+  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS doc_rev, EQUALS promote(@c63 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
+  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [parent, keywords, doc_rev, doc_asset, doc_meta, T1, T2, child, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
+  12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [parent, keywords, doc_rev, doc_asset, doc_meta, T1, T2, child, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
   3 -> 2 [ label=<&nbsp;q73> label="q73" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ label=<&nbsp;q10> label="q10" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q14> label="q14" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 6 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  8 -> 6 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  9 -> 7 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  10 -> 8 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 6 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  9 -> 7 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  10 -> 8 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   11 -> 9 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   12 -> 10 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 1 [ label=<&nbsp;q85> label="q85" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    7 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    2 -> 6 [ color="red" style="invis" ];
-  }
   {
     7 -> 6 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
@@ -115,12 +106,20 @@
   {
     rank=same;
     rankDir=LR;
-    7 -> 8 [ color="red" style="invis" ];
+    8 -> 7 [ color="red" style="invis" ];
   }
-}Ó<
+  {
+    8 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 6 [ color="red" style="invis" ];
+  }
+}ì=
 
-array-agg-scenarioŸEXPLAIN SELECT m.mid, r.rid, sq.assets FROM doc_meta m, doc_rev r, (SELECT ARRAY_AGG((a.aid, a.url)) AS assets FROM doc_asset a WHERE a.rid = r.rid) sq WHERE m.owner IS NOT NULL AND 'featured' IN r.tags AND r.rid = 20¯:
-ÓŸÅﬂÇ¿ „ﬁ¢*(0ﬂˇ£8¢@,ñSCAN([IS doc_rev, EQUALS promote(@c66 AS LONG)]) | FILTER @c56 IN _.tags | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0) | AGG (array_agg((_._0.aid AS aid, _._0.url AS url)) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (q0 AS _0, q0 AS _1) } | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2.mid AS mid, q1._0.rid AS rid, q1._1._0._0 AS assets) }Ω7digraph G {
+array-agg-scenarioŸEXPLAIN SELECT m.mid, r.rid, sq.assets FROM doc_meta m, doc_rev r, (SELECT ARRAY_AGG((a.aid, a.url)) AS assets FROM doc_asset a WHERE a.rid = r.rid) sq WHERE m.owner IS NOT NULL AND 'featured' IN r.tags AND r.rid = 20ù;
+Áéá€~ø •å¸*(0∑ûÜ8¢@,ñSCAN([IS doc_rev, EQUALS promote(@c66 AS LONG)]) | FILTER @c56 IN _.tags | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0) | AGG (array_agg((_._0.aid AS aid, _._0.url AS url)) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (q0 AS _0, q0 AS _1) } | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2.mid AS mid, q1._0.rid AS rid, q1._1._0._0 AS assets) }„7digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -130,13 +129,13 @@
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q14 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(LONG AS aid, STRING AS url) AS _0 AS _0)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS doc_rev, EQUALS promote(@c66 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (array_agg((q94._0.aid AS aid, q94._0.url AS url)) AS _0)</td></tr><tr><td align="left">GROUP BY ()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(LONG AS aid, STRING AS url) AS _0 AS _0)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [doc_asset, doc_meta, keywords, doc_rev, T1, T2]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [parent, keywords, doc_rev, doc_asset, doc_meta, T1, T2, child, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
   8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q10 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS aid, LONG AS rid, STRING AS url AS _0)" ];
   9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q6.rid]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS aid, LONG AS rid, STRING AS url)" ];
   10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">doc_asset_by_rid</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS aid, LONG AS rid, STRING AS url)" ];
   11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.owner NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
   12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS doc_meta]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
-  13 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [doc_asset, doc_meta, keywords, doc_rev, T1, T2]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
+  13 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [parent, keywords, doc_rev, doc_asset, doc_meta, T1, T2, child, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, STRING AS owner)" ];
   3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ label=<&nbsp;q14> label="q14" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 3 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];

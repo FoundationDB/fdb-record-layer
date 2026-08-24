@@ -87,6 +87,7 @@ import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryDamPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
@@ -453,7 +454,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
         // TODO maybe explain the coercion tree on ALL_DETAILS
         visit(insertPlan.getChild());
         return pipe().addKeyword("INSERT").addWhitespace().addKeyword("INTO").addWhitespace()
-                .addIdentifier(insertPlan.getTargetRecordType());
+                .addIdentifier(ProtoUtils.toUserIdentifier(insertPlan.getTargetRecordType()));
     }
 
     @Nonnull
@@ -609,7 +610,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
                 .addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
                         () -> typeFilterPlan.getRecordTypes()
                                 .stream()
-                                .map(recordType -> new ExplainTokens().addIdentifier(recordType))
+                                .map(recordType -> new ExplainTokens().addIdentifier(ProtoUtils.toUserIdentifier(recordType)))
                                 .iterator());
     }
 
@@ -679,7 +680,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
     public ExplainTokens visitUpdatePlan(@Nonnull final RecordQueryUpdatePlan updatePlan) {
         // TODO explain with coercion and update tries in ALL_DETAILS
         visit(updatePlan.getChild());
-        return pipe().addKeyword("UPDATE").addWhitespace().addIdentifier(updatePlan.getTargetRecordType());
+        return pipe().addKeyword("UPDATE").addWhitespace().addIdentifier(ProtoUtils.toUserIdentifier(updatePlan.getTargetRecordType()));
     }
 
     @Nonnull
