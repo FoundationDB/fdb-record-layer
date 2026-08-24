@@ -366,7 +366,7 @@ jobs:
         # Only create the PR if we've otherwise been successful, but the push failed. Note that
         # we're checking the .outcome of the push step, which is applied before continue-on-error.
         if: success() && steps.push_updates.outcome == 'failure'
-        uses: peter-evans/create-pull-request@bb88e27d3f9cc69c8bc689eba126096c6fe3dded
+        uses: peter-evans/create-pull-request@b99c9ae23bcf83f0f5aa571c2f0093de8aa85036
         id: pr_on_conflict
         with:
           branch: release-build
