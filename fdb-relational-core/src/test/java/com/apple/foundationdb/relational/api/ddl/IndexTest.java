@@ -128,7 +128,7 @@ public class IndexTest {
     }
 
     /**
-     * Asserts that the statement defines its index on an unnested synthetic type with a single nested
+     * Asserts that the statement defines its index on an unnested synthetic table with a single nested
      * constituent, and that the index key matches.
      *
      * @param stmt the DDL statement
@@ -142,7 +142,7 @@ public class IndexTest {
     }
 
     /**
-     * Asserts that the statement defines its index on an unnested synthetic type, and that the index key
+     * Asserts that the statement defines its index on an unnested synthetic table, and that the index key
      * matches. The parent and constituent aliases are generated, so the expected key is built from the
      * aliases found in the metadata; constituents are given in registration order, outermost first.
      *
@@ -161,7 +161,7 @@ public class IndexTest {
                                                                       @Nonnull final Options templateProperties) {
                 final var syntheticTables = Assert.castUnchecked(template, RecordLayerSchemaTemplate.class)
                         .getUnnestedSyntheticTables();
-                Assertions.assertEquals(1, syntheticTables.size(), "Incorrect number of synthetic types!");
+                Assertions.assertEquals(1, syntheticTables.size(), "Incorrect number of synthetic tables!");
                 final var syntheticTable = syntheticTables.stream().findFirst().orElseThrow();
                 Assertions.assertEquals(constituentCount, syntheticTable.getConstituents().size(),
                         "Incorrect number of nested constituents!");
@@ -819,7 +819,7 @@ public class IndexTest {
                 "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
                 "CREATE INDEX mv1 AS SELECT X.col2, T1.col5, X.col3, X.col4 FROM T1, (SELECT col2, col3, col4 FROM T1.A) X ORDER BY X.col2, T1.col5, X.col3";
         // X.col2 is separated from X.col3/X.col4 by T1.col5, so no single fan-out can cover all three.
-        // A fan-out key expression rejected this outright; an unnested synthetic type expresses it, since a
+        // A fan-out key expression rejected this outright; an unnested synthetic table expresses it, since a
         // constituent holds one array element and can be referenced at any number of key positions.
         syntheticIndexIs(stmt, IndexTypes.VALUE, (parent, x) -> keyWithValue(concat(
                 field(x).nest("COL2"),
@@ -867,7 +867,7 @@ public class IndexTest {
      * needs a synthetic type, and the arithmetic column cannot be rewritten into a constituent-alias path.
      */
     @Test
-    void createIndexOverUnnestedSyntheticTypeWithArithmeticColumnIsNotSupported() throws Exception {
+    void createIndexOverUnnestedSyntheticTableWithArithmeticColumnIsNotSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
                 "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
@@ -930,7 +930,7 @@ public class IndexTest {
      * {@code UnnestedRecordType}s coexisting in one {@code RecordMetaData} with distinct record type keys.
      */
     @Test
-    void createTwoIndexesEachRequiringSyntheticTypeKeepsThemSeparate() throws Exception {
+    void createTwoIndexesEachRequiringSyntheticTableKeepsThemSeparate() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
                 "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
@@ -1185,24 +1185,24 @@ public class IndexTest {
      * be evaluated against the synthetic record rather than the stored one.
      */
     @Test
-    void createIndexWithPredicateOverUnnestedSyntheticTypeIsNotSupported() throws Exception {
+    void createIndexWithPredicateOverUnnestedSyntheticTableIsNotSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
                 "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
                 "CREATE INDEX mv1 AS SELECT X.col2, T1.col5, X.col3 FROM T1, (SELECT col2, col3 FROM T1.A) X " +
                 "WHERE T1.col5 > 10 ORDER BY X.col2, T1.col5, X.col3";
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION,
-                "a predicate is not supported on an index over an unnested synthetic type");
+                "a predicate is not supported on an index over an unnested synthetic table");
     }
 
     /**
      * The same columns and the same predicate as
-     * {@link #createIndexWithPredicateOverUnnestedSyntheticTypeIsNotSupported()}, but with the two columns of
+     * {@link #createIndexWithPredicateOverUnnestedSyntheticTableIsNotSupported()}, but with the two columns of
      * {@code X} made adjacent. That is expressible as a fan-out, so no synthetic type is needed and the
      * predicate is accepted — reordering the key alone decides whether the predicate is allowed.
      */
     @Test
-    void createIndexWithPredicateIsSupportedWhenUnnestingNeedsNoSyntheticType() throws Exception {
+    void createIndexWithPredicateIsSupportedWhenUnnestingNeedsNoSyntheticTable() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
                 "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
@@ -1274,7 +1274,7 @@ public class IndexTest {
      * would have to be emitted twice — so a synthetic type is required.
      */
     @Test
-    void createIndexWithChainedUnnestingSplitByParentUsesSyntheticType() throws Exception {
+    void createIndexWithChainedUnnestingSplitByParentUsesSyntheticTable() throws Exception {
         final String stmt = CHAINED_SCHEMA +
                 "CREATE INDEX mv1 AS SELECT b.x, a.k, c.y FROM A AS a, (select * from a.p) as b, (select * from b.q) as c " +
                 "ORDER BY b.x, a.k, c.y";
@@ -1288,7 +1288,7 @@ public class IndexTest {
      * Chained unnesting where the split is within the inner unnesting.
      */
     @Test
-    void createIndexWithChainedUnnestingInnerSplitUsesSyntheticType() throws Exception {
+    void createIndexWithChainedUnnestingInnerSplitUsesSyntheticTable() throws Exception {
         final String stmt = CHAINED_SCHEMA +
                 "CREATE INDEX mv1 AS SELECT c.y, a.k, c.y2 FROM A AS a, (select * from a.p) as b, (select * from b.q) as c " +
                 "ORDER BY c.y, a.k, c.y2";
@@ -1302,7 +1302,7 @@ public class IndexTest {
      * Chained unnesting where the split is within the outer unnesting.
      */
     @Test
-    void createIndexWithChainedUnnestingOuterSplitUsesSyntheticType() throws Exception {
+    void createIndexWithChainedUnnestingOuterSplitUsesSyntheticTable() throws Exception {
         final String stmt = CHAINED_SCHEMA +
                 "CREATE INDEX mv1 AS SELECT b.x, a.k, b.x2 FROM A AS a, (select * from a.p) as b, (select * from b.q) as c " +
                 "ORDER BY b.x, a.k, b.x2";

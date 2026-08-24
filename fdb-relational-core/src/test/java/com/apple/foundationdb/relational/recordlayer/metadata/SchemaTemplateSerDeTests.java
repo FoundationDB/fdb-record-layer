@@ -831,7 +831,7 @@ public class SchemaTemplateSerDeTests {
         return DataType.StructType.Field.from(name, type, number);
     }
 
-    /** A table with a {@code bigint id} primary key plus the one column the synthetic type unnests through. */
+    /** A table with a {@code bigint id} primary key plus the one column the unnested synthetic table unnests through. */
     @Nonnull
     private static RecordLayerTable tableWithId(final String tableName, final String columnName,
                                                final DataType columnType) {
@@ -914,13 +914,13 @@ public class SchemaTemplateSerDeTests {
     }
 
     /**
-     * Round trips a synthetic type over a struct array in both storage forms: a nullable array is stored wrapped as
+     * Round trips an unnested synthetic table over a struct array in both storage forms: a nullable array is stored wrapped as
      * {@code { repeated T values; }}, a non-nullable one as a plain repeated field, and the serializer picks the
      * constituent descriptor and nesting expression differently for each.
      */
     @ParameterizedTest(name = "nullableArray = {0}")
     @BooleanSource
-    void testUnnestedSyntheticTypeSerializationAndDeserialization(final boolean nullableArray) {
+    void testUnnestedSyntheticTableSerializationAndDeserialization(final boolean nullableArray) {
         final var syntheticName = "__unnested_employees_score_idx";
         final var scoreType = struct("score",
                 structField("label", DataType.Primitives.STRING.type(), 1),
@@ -959,12 +959,12 @@ public class SchemaTemplateSerDeTests {
     }
 
     /**
-     * Indexes on a synthetic type are reachable through the table-index mapping, attributed to the stored table
+     * Indexes on an unnested synthetic table are reachable through the table-index mapping, attributed to the stored table
      * they are maintained from. They were previously absent while {@code getIndexes()} listed them, so the two
      * views of the same metadata disagreed.
      */
     @Test
-    void tableIndexMappingIncludesSyntheticTypeIndexes() throws RelationalException {
+    void tableIndexMappingIncludesSyntheticTableIndexes() throws RelationalException {
         final var scoreType = struct("score",
                 structField("label", DataType.Primitives.STRING.type(), 1),
                 structField("value", DataType.Primitives.LONG.type(), 2));
@@ -976,12 +976,12 @@ public class SchemaTemplateSerDeTests {
                                 arrayElementsExpression("scores", true))),
                 scoreType);
 
-        // Attributed to the stored table the index is maintained from, not to the synthetic type, which is not a
-        // table and does not appear in getTables()/findTableByName.
+        // Attributed to the stored table the index is maintained from, not to the synthetic table, which is not
+        // itself a stored table and does not appear in getTables()/findTableByName.
         final var mapping = template.getTableIndexMapping();
         Assertions.assertEquals(Set.of("score_idx"), Set.copyOf(mapping.get("employees")));
         Assertions.assertFalse(mapping.keySet().contains("__unnested_employees_score_idx"),
-                () -> "synthetic type leaked into a table-keyed mapping: " + mapping.keySet());
+                () -> "synthetic table leaked into a table-keyed mapping: " + mapping.keySet());
         Assertions.assertTrue(template.getIndexes().contains("score_idx"));
     }
 
@@ -1018,7 +1018,7 @@ public class SchemaTemplateSerDeTests {
 
     /**
      * {@code toBuilder()} routes synthetic tables and views through the collection-taking builder methods, so a
-     * template must survive the round trip with both intact -- a synthetic type dropped here would take its
+     * template must survive the round trip with both intact -- a synthetic table dropped here would take its
      * indexes with it.
      */
     @Test
@@ -1088,11 +1088,11 @@ public class SchemaTemplateSerDeTests {
     }
 
     /**
-     * Round trips a synthetic type with two chained constituents, where the second unnests an array that lives on
+     * Round trips an unnested synthetic table with two chained constituents, where the second unnests an array that lives on
      * the element type of the first.
      */
     @Test
-    void testChainedUnnestedSyntheticTypeSerializationAndDeserialization() {
+    void testChainedUnnestedSyntheticTableSerializationAndDeserialization() {
         final var syntheticName = "__unnested_nested_employees_chained_idx";
         final var innerType = struct("inner", structField("y", DataType.Primitives.STRING.type(), 1));
         final var outerType = struct("outer",
@@ -1141,7 +1141,7 @@ public class SchemaTemplateSerDeTests {
      * wrapper, so this is only representable because the nesting expression is stored rather than a field name.
      */
     @Test
-    void testUnnestedSyntheticTypeOverTwoHopPathSerializationAndDeserialization() {
+    void testUnnestedSyntheticTableOverTwoHopPathSerializationAndDeserialization() {
         final var syntheticName = "__unnested_map_records_map_idx";
         final var entryType = struct("entryType",
                 structField("k", DataType.Primitives.STRING.type(), 1),

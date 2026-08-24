@@ -1,5 +1,5 @@
 /*
- * UnnestedSyntheticTypeParsingTest.java
+ * UnnestedSyntheticTableParsingTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -54,14 +54,14 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 /**
  * Tests the metadata produced by {@code CREATE INDEX} over an unnesting of an array.
  *
- * <p>Unnesting an array of structs defines the index on an unnested synthetic record type, with one
+ * <p>Unnesting an array of structs defines the index on an unnested synthetic table, with one
  * nested constituent per array and key expressions rooted at a constituent alias. An array of scalars
- * does not warrant a synthetic type and keeps a fan-out key expression on the stored table.
+ * does not warrant a synthetic table and keeps a fan-out key expression on the stored table.
  *
  * <p>Each scenario is spelled four ways — correlated subquery or PartiQL path, declared with
  * {@code INDEX ... ON <view>} or {@code INDEX ... AS SELECT} — and all four must agree.
  */
-public class UnnestedSyntheticTypeParsingTest {
+public class UnnestedSyntheticTableParsingTest {
 
     private static final String VIEW_SUBQUERY = "view + correlated subquery";
     private static final String VIEW_PARTIQL = "view + PartiQL path";
@@ -90,7 +90,7 @@ public class UnnestedSyntheticTypeParsingTest {
 
     @RegisterExtension
     @Order(2)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(UnnestedSyntheticTypeParsingTest.class,
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(UnnestedSyntheticTableParsingTest.class,
             TestSchemas.books(), Options.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true).build(), null);
 
     @RegisterExtension
@@ -99,7 +99,7 @@ public class UnnestedSyntheticTypeParsingTest {
             .withSchema("TEST_SCHEMA")
             .withOptions(Options.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true).build());
 
-    public UnnestedSyntheticTypeParsingTest() throws SQLException {
+    public UnnestedSyntheticTableParsingTest() throws SQLException {
     }
 
     @BeforeAll
@@ -118,7 +118,7 @@ public class UnnestedSyntheticTypeParsingTest {
     void shouldWorkWithInjectedFactory(@Nonnull final String query,
                                        @Nonnull final MetadataOperationsFactory metadataOperationsFactory) throws Exception {
         DdlTestUtil.shouldWorkWithInjectedFactory(connection, database.getSchemaTemplateName(),
-                "/UnnestedSyntheticTypeParsingTest", query, metadataOperationsFactory);
+                "/UnnestedSyntheticTableParsingTest", query, metadataOperationsFactory);
     }
 
     /**
@@ -208,7 +208,7 @@ public class UnnestedSyntheticTypeParsingTest {
 
     @ParameterizedTest(name = "{displayName} - {0}")
     @MethodSource("singleStructArraySpellings")
-    void createIndexOnRepeatedSplitReferencesUsesSyntheticType(@Nonnull final String spelling, @Nonnull final String indexName,
+    void createIndexOnRepeatedSplitReferencesUsesSyntheticTable(@Nonnull final String spelling, @Nonnull final String indexName,
                                @Nonnull final String indexDdl) throws Exception {
         shouldWorkWithInjectedFactory(SINGLE_STRUCT_ARRAY_SCHEMA + indexDdl,
                 unnestedStructArrayIndexFactory(indexName));
@@ -309,7 +309,7 @@ public class UnnestedSyntheticTypeParsingTest {
 
     @ParameterizedTest(name = "{displayName} - {0}")
     @MethodSource("threeStructArraySpellings")
-    void createIndexOnMultipleRepeatedUsesSyntheticType(@Nonnull final String spelling, @Nonnull final String indexName,
+    void createIndexOnMultipleRepeatedUsesSyntheticTable(@Nonnull final String spelling, @Nonnull final String indexName,
                                        @Nonnull final String indexDdl) throws Exception {
         shouldWorkWithInjectedFactory(THREE_STRUCT_ARRAY_SCHEMA + indexDdl,
                 threeUnnestedStructArrayIndexFactory(indexName));
@@ -318,7 +318,7 @@ public class UnnestedSyntheticTypeParsingTest {
     // ─── Unnesting a scalar array ─────────────────────────────────────────────────────────────
 
     /**
-     * Asserts the metadata for an index unnesting a scalar array: no synthetic type, and a fan-out key
+     * Asserts the metadata for an index unnesting a scalar array: no synthetic table, and a fan-out key
      * expression on the stored table.
      *
      * @param template the schema template that was built
@@ -464,7 +464,7 @@ public class UnnestedSyntheticTypeParsingTest {
 
     @ParameterizedTest(name = "{displayName} - {0}")
     @MethodSource("structAndScalarArraySpellings")
-    void createIndexOnRepeatedStructAndScalarUsesSyntheticType(@Nonnull final String spelling, @Nonnull final String indexName,
+    void createIndexOnRepeatedStructAndScalarUsesSyntheticTable(@Nonnull final String spelling, @Nonnull final String indexName,
                                               @Nonnull final String indexDdl) throws Exception {
         shouldWorkWithInjectedFactory(STRUCT_AND_SCALAR_ARRAY_SCHEMA + indexDdl,
                 unnestedStructAndScalarArrayIndexFactory(indexName));
