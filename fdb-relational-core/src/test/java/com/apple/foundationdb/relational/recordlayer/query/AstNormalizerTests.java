@@ -77,6 +77,7 @@ import static com.apple.foundationdb.relational.recordlayer.query.OrderedLiteral
  *     metadata of the normalized result of any subsequent SQL statement</li>
  *     <li>documentation of handling compilable, temporary SQL functions, and how literal stripping is scoped to the
  *     name of the function</li>
+ *     <li>documentation of comment handling, though a broader suite of tests appears in {@link QueryParserTests}</li>
  * </ul>
  */
 public class AstNormalizerTests {
@@ -550,12 +551,10 @@ public class AstNormalizerTests {
 
     @Test
     void commentsAreExcludedFromCanonicalQueryString() throws Exception {
-        //
-        // Comments live on the hidden channel and never reach the parse tree, so block, line, multi-line, and
+        // Comments are skipped by the lexer and never reach the parse tree, so block, line, multi-line, and
         // leading/trailing comments are all absent from the canonical query string. Every variant below therefore
         // normalizes to exactly the same comment-free canonical string and, consequently, shares the same cache
         // key and hash (asserted by the multi-query validate helper).
-        //
         validate(List.of(
                         "select * from t1 where col1 = col2",
                         "select /* pick everything */ * from t1 where col1 = col2",
@@ -569,11 +568,9 @@ public class AstNormalizerTests {
 
     @Test
     void commentedQuerySharesCanonicalStringAndCacheKeyWithBareQuery() throws RelationalException {
-        //
         // Even when a stripped literal is present, a query peppered with comments must normalize to exactly the
         // same canonical string and cache key as the bare query. The cache key derives from the canonical string
         // (not from token positions), so comments cannot influence caching.
-        //
         final var bareQuery = "select * from t1 where col1 = 42";
         final var commentedQuery = "select /* cols */ * from t1 /* SELECT ... DROP */ where col1 = 42 -- trailing\n";
 
@@ -591,7 +588,31 @@ public class AstNormalizerTests {
                 .isEqualTo(bareResult.getQueryCacheKey());
         Assertions.assertThat(commentedResult.getQueryCacheKey().hashCode())
                 .as("commented and bare queries must share the same cache key hash")
-                .isEqualTo(bareResult.getQueryCacheKey().hashCode());
+                .hasSameHashCodeAs(bareResult.getQueryCacheKey());
+    }
+
+    @Test
+    void commentsDoNotShiftConstantIds() throws Exception {
+        //
+        // Constant ids are derived from the token index of the literal (see OrderedLiteral.constantId), so anything
+        // the lexer emits ahead of a literal shifts the id of that literal and of every literal after it. Comments
+        // must therefore be skipped outright rather than routed to a hidden channel: a hidden-channel token is still
+        // emitted and still advances the token index, which would leave a commented query with the same cache key as
+        // the bare query but with its constants bound under different ids. A plan cached for one would then look up
+        // constants the other never bound, so the ids are pinned here alongside the key.
+        //
+        // Comments are placed before, between, and after the literals to make sure no position shifts anything.
+        //
+        validate(List.of(
+                        "select * from t1 where col1 = 42 and col2 = 43",
+                        "select /* leading */ * from t1 where col1 = 42 /* between */ and col2 = 43",
+                        "-- leading line comment\nselect * from t1 where col1 = 42 and col2 = 43 -- trailing\n",
+                        "select *\n/* multi\n   line */\nfrom t1 where col1 = 42 and col2 = 43"),
+                "SELECT * FROM \"T1\" WHERE \"COL1\" = ? AND \"COL2\" = ? ",
+                List.of(Map.of(constantId(7), 42, constantId(11), 43),
+                        Map.of(constantId(7), 42, constantId(11), 43),
+                        Map.of(constantId(7), 42, constantId(11), 43),
+                        Map.of(constantId(7), 42, constantId(11), 43)));
     }
 
     @Test

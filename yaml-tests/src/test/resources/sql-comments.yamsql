@@ -17,19 +17,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# NOTE: every query below is written as a YAML block scalar (`query: |`). This is deliberate: `--` in an unquoted
-# plain scalar is fine, but `#` starts a comment in YAML, and relying on plain-scalar quoting rules is fragile. A
-# block scalar preserves the raw text (including newlines) so the SQL comment handling is actually exercised.
-#
 # Only ANSI/PostgreSQL line comments (`--`) and C-style block comments (`/* */`) are supported. MySQL-style `#`
 # line comments and `/*!` executable comments are intentionally not supported.
+#
+# Queries are written as block scalars (`query: |`) so the raw text reaches the SQL lexer; see
+# showcasing-tests.yamsql for how YAML comments and SQL comments differ.
 
 ---
 options:
   supported_version: !current_version
+  connection_options:
+    CASE_SENSITIVE_IDENTIFIERS: true
 ---
 schema_template:
-    create table t(id bigint, val bigint, primary key(id))
+    # A schema_template is sent to the same lexer as any other statement, so comments work here too.
+    create table t(id bigint, val bigint, primary key(id)) -- the only table
+    /* a block comment
+       between DDL statements */
+    create table u(id bigint, /* inline */ val bigint, primary key(id))
 ---
 setup:
   steps:
@@ -101,4 +106,20 @@ test_block:
       - query: |
           select val from t where id = 1 /* unterminated
       - error: SYNTAX_ERROR
+    -
+      # block comments nest: the inner '*/' closes only the inner comment
+      - query: |
+          select val from t /* outer /* inner */ still a comment */ where id = 1
+      - result: [ { 10 } ]
+    -
+      # a nested block comment left open is a syntax error: the inner '*/' does not close the outer comment, so
+      # the trailing text stays commented out rather than rejoining the query
+      - query: |
+          select val from t /* outer /* inner */ where id = 1
+      - error: SYNTAX_ERROR
+    -
+      # comment markers inside a quoted identifier are part of the name, not the start of a comment
+      - query: |
+          select val as "a--b" from t where id = 1
+      - result: [ { "a--b": 10 } ]
 ...

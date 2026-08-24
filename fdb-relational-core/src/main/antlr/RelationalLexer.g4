@@ -27,13 +27,44 @@ THE SOFTWARE.
 lexer grammar RelationalLexer;
 
 //
-// Comments are purely lexical: they are routed to the HIDDEN channel and never reach the parser, so they are purely
+// Comments are purely lexical: they are skipped outright and never reach the parser, so they are purely
 // informational and cannot carry any semantics. In particular there is no support for hint-style comments (e.g.
-// '/*+ ... */'); making those meaningful would require the parser (not just the lexer) to inspect the hidden channel.
+// '/*+ ... */'); making those meaningful would require the parser to see them, which skipping rules out.
 //
+// They are skipped rather than routed to the HIDDEN channel because a hidden-channel token is still emitted and
+// still advances the token index. Constant ids are derived from that index (see OrderedLiteral.constantId), while
+// the cache key is rebuilt from the parse tree and so ignores comments entirely. A hidden comment would therefore
+// leave a commented query sharing the bare query's cache key while binding its constants under shifted ids.
+//
+// Both styles follow PostgreSQL. A line comment runs to the end of the line, where CR, LF, and CRLF all count as
+// the line ending (a lone CR is a line ending to PostgreSQL, not just part of CRLF), or to the end of the input.
+//
+// Block comments nest: a '/*' inside a block comment opens an inner comment that must be closed before the outer
+// one, so commenting out a region that already contains a comment does what it looks like. Nesting is tracked with
+// the lexer mode stack -- one entry per open comment -- rather than a recursive rule, because a recursive rule
+// backtracks to the non-nested reading when the nested one fails to match, which would silently accept
+// '/* a /* b */' as a complete comment and let whatever follows it back into the query. An unterminated comment is
+// a syntax error, as it is in PostgreSQL, rather than a comment that swallows the rest of the input.
+//
+// Reaching the end of the input while still inside a block comment means one was left open, which is an error just
+// as it is in PostgreSQL. That cannot be written as a rule matching EOF -- the lexer never runs one -- so it is
+// detected in emitEOF below, where a non-empty mode stack is exactly the "still inside a comment" condition. Without
+// it the unterminated comment would swallow the rest of the input and the truncated query would go on to parse as
+// if the missing part had never been written.
+//
+@lexer::members {
+    @Override
+    public Token emitEOF() {
+        if (_mode != DEFAULT_MODE) {
+            notifyListeners(new LexerNoViableAltException(this, _input, _tokenStartCharIndex, null));
+        }
+        return super.emitEOF();
+    }
+}
+
 SPACE:                               [ \t\r\n]+    -> skip;
-COMMENT_INPUT:                       '/*' .*? '*/' -> channel(HIDDEN);
-LINE_COMMENT:                        '--' ~[\r\n]* ('\r'? '\n' | EOF) -> channel(HIDDEN);
+COMMENT_INPUT:                       '/*'          -> skip, pushMode(IN_BLOCK_COMMENT);
+LINE_COMMENT:                        '--' ~[\r\n]* ('\r' '\n'? | '\n' | EOF) -> skip;
 
 // Keywords
 // Common Keywords
@@ -1380,3 +1411,16 @@ fragment DECIMAL_TYPE_MODIFIER:      (INT_TYPE_MODIFIER | LONG_TYPE_MODIFIER);
 ERROR_RECOGNITION
     : . { this.notifyListeners(new LexerNoViableAltException(this, _input, _tokenStartCharIndex, null)); }
     ;
+
+//
+// Inside a block comment. Every '/*' pushes this mode again and every '*/' pops one level, so the mode stack holds
+// one entry per open comment and the outermost '*/' is what returns to normal lexing. Everything in between is
+// skipped a character at a time, including quotes and '--', which have no meaning once a comment has started.
+//
+// An unterminated comment is reported by emitEOF (see the members block at the top), not by a rule here.
+//
+mode IN_BLOCK_COMMENT;
+
+BLOCK_COMMENT_OPEN:                  '/*' -> skip, pushMode(IN_BLOCK_COMMENT);
+BLOCK_COMMENT_CLOSE:                 '*/' -> skip, popMode;
+BLOCK_COMMENT_BODY:                  .    -> skip;

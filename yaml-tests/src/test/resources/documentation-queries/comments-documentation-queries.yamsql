@@ -8,6 +8,8 @@
 ---
 options:
   supported_version: !current_version
+  connection_options:
+    CASE_SENSITIVE_IDENTIFIERS: true
 ---
 schema_template:
     create table products(id bigint, name string, price bigint, primary key(id))
