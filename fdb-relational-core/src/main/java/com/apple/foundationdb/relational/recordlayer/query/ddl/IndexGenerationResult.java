@@ -32,10 +32,11 @@ import java.util.Optional;
 /**
  * The outcome of generating an index from a DDL definition.
  *
- * <p>Most indexes are defined on a stored table, in which case only the index definition is produced.
- * An index over an unnesting that cannot be expressed as a fan-out is instead defined on a synthetic
- * record type, which is returned alongside it. Callers must register that type, since the index names it, so
- * leaving it out would produce an index on a type that does not exist.
+ * <p>Most indexes are defined on a stored table, in which case only the index definition is produced. An index
+ * whose key spans a record composed of several others is instead defined on a synthetic record type, which is
+ * returned alongside it: an unnested type for a stored record and the elements of an array it unnests, a joined
+ * type for the sides of a join. Callers must register that type, since the index names it, so leaving it out
+ * would produce an index on a type that does not exist.
  *
  * @param indexBuilder the index definition
  * @param syntheticType the synthetic type to register, empty for an index on a stored table

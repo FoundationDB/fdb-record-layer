@@ -271,9 +271,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                 result.put(table.getName(), index.getName());
             }
         }
-        // A synthetic type is not itself a table, so its indexes are attributed to the stored table(s) they are
-        // maintained from -- keying them by the synthetic type's name would put a non-table in a table-keyed map.
-        for (final var syntheticTable : syntheticTables) {
+        for (final var syntheticTable : getSyntheticTables()) {
             for (final var index : syntheticTable.getIndexes()) {
                 for (final var tableName : syntheticTable.getUnderlyingTableNames()) {
                     result.put(tableName, index.getName());

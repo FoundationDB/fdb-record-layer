@@ -60,17 +60,6 @@ import java.util.stream.Collectors;
 public class DdlTestUtil {
 
     /**
-     * Plans and executes the given DDL with an injected metadata factory, so that any assertions the
-     * factory makes run against the schema template the statement builds, inside the transaction.
-     *
-     * @param connection the connection to plan against
-     * @param schemaTemplateName the name of the schema template in the catalog
-     * @param databaseUri the database URI to plan against
-     * @param query the DDL statement
-     * @param metadataOperationsFactory the factory holding the assertions
-     * @throws Exception if planning or execution fails
-     */
-    /**
      * Wraps a factory so a caller can tell whether the DDL path actually consulted it. These tests put every
      * assertion inside one of the factory's callbacks, so if the path ever stopped routing through the injected
      * factory they would pass while asserting nothing. Which callback matters differs per test -- some verify the
@@ -96,6 +85,17 @@ public class DdlTestUtil {
                 });
     }
 
+    /**
+     * Plans and executes the given DDL with an injected metadata factory, so that any assertions the
+     * factory makes run against the schema template the statement builds, inside the transaction.
+     *
+     * @param connection the connection to plan against
+     * @param schemaTemplateName the name of the schema template in the catalog
+     * @param databaseUri the database URI to plan against
+     * @param query the DDL statement
+     * @param metadataOperationsFactory the factory holding the assertions
+     * @throws Exception if planning or execution fails
+     */
     static void shouldWorkWithInjectedFactory(@Nonnull final RelationalConnectionRule connection,
                                              @Nonnull final String schemaTemplateName,
                                              @Nonnull final String databaseUri,

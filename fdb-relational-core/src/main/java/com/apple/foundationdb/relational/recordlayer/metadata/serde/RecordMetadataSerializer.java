@@ -86,9 +86,6 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
             final Descriptors.Descriptor owningProto = descriptorsByAlias.get(nested.getParentAlias());
             Assert.notNullUnchecked(owningProto, "unknown parent constituent '" + nested.getParentAlias()
                     + "' for constituent '" + nested.getAlias() + "'");
-            // The nesting expression is carried verbatim, so the element type is found by walking the field
-            // path it navigates. That handles either array storage form (a plain repeated field, or a nullable
-            // array wrapped as { repeated T values; }), as well as any deeper nesting, without special-casing.
             Descriptors.Descriptor constituentDescriptor = owningProto;
             for (final String fieldName : nested.getFieldPath()) {
                 final Descriptors.FieldDescriptor arrayField = constituentDescriptor.findFieldByName(fieldName);
