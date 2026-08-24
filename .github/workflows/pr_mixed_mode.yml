@@ -18,7 +18,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: Calculate versions
@@ -39,7 +39,7 @@ jobs:
     timeout-minutes: 40
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: Setup FDB
@@ -67,7 +67,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout HEAD sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: 'Download results'
