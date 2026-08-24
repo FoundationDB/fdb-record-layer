@@ -233,15 +233,17 @@ public class Expression {
     }
 
     /**
-     * Returns this expression rewritten in terms of the given value, which is simplified on the way. See
-     * {@link #pullUp} for details.
+     * Returns this expression rewritten in terms of the given value, simplifying both sides on the way. See
+     * {@link #pullUp(Value, Value, AliasMap, CorrelationIdentifier, Set)} for details.
      */
     @Nonnull
     public Expression pullUp(@Nonnull Value value, @Nonnull CorrelationIdentifier correlationIdentifier,
                              @Nonnull Set<CorrelationIdentifier> constantAliases) {
         final AliasMap aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
         final Value simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
-        return withUnderlying(pullUp(getUnderlying(), simplifiedValue, aliasMap, correlationIdentifier,
+        final Value simplifiedUnderlying =
+                getUnderlying().simplify(EvaluationContext.empty(), aliasMap, constantAliases);
+        return withUnderlying(pullUp(simplifiedUnderlying, simplifiedValue, aliasMap, correlationIdentifier,
                 constantAliases));
     }
 
@@ -249,8 +251,8 @@ public class Expression {
      * Rewrites the given {@code value} in terms of a reference value {@code other}, by replacing every sub-value that
      * can be expressed as a reference into {@code other} with such a reference.
      *
-     * <p>The matching is structural. {@code other} should therefore be passed in its canonical form, simplified under
-     * the same {@code aliasMap} and {@code constantAliases} that are passed here.
+     * <p>The matching is structural. Both {@code value} and {@code other} should therefore be passed in their canonical
+     * form, simplified under the same {@code aliasMap} and {@code constantAliases} that are passed here.
      *
      * <p>As an example, in a group-by query {@code SELECT g, COUNT(a) + 1 FROM T GROUP BY g}, the group-by operator
      * computes {@code (g, COUNT(a))}, and the projection then has to be expressed over that result rather than over
