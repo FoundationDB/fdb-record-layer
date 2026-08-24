@@ -361,9 +361,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     }
 
     /**
-     * Returns the synthetic types of this template, of any kind.
+     * Returns the synthetic tables of this template, of any kind.
      *
-     * @return the synthetic types
+     * @return the synthetic tables
      */
     @Nonnull
     public Set<RecordLayerSyntheticTable> getSyntheticTables() {
@@ -371,9 +371,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     }
 
     /**
-     * Returns the unnested synthetic record types of this template.
+     * Returns the unnested synthetic tables of this template.
      *
-     * @return the unnested synthetic types
+     * @return the unnested synthetic tables
      */
     @VisibleForTesting
     @Nonnull

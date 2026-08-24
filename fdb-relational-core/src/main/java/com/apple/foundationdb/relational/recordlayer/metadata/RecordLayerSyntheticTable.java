@@ -30,12 +30,12 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Base class for synthetic record types in the relational layer. A synthetic type is an indexed
+ * Base class for synthetic tables in the relational layer. A synthetic table is an indexed
  * view: it is defined by a SQL SELECT query (like a {@link View}) and additionally backed by a
  * record-layer synthetic record type ({@code UnnestedRecordType}) with one or more indexes
  * maintained on it.
  *
- * <p>Implementing {@link View} reflects the semantic reality: a synthetic type is a virtual,
+ * <p>Implementing {@link View} reflects the semantic reality: a synthetic table is a virtual,
  * named, SQL-defined type. It is not temporary, and its description is synthesized from its
  * constituent definitions rather than stored as a raw string.
  *
@@ -67,7 +67,7 @@ public abstract sealed class RecordLayerSyntheticTable implements View
     @Override
     public abstract String getDescription();
 
-    /** Synthetic types are always permanent. */
+    /** Synthetic tables are always permanent. */
     @Override
     public boolean isTemporary() {
         return false;
@@ -79,9 +79,9 @@ public abstract sealed class RecordLayerSyntheticTable implements View
     }
 
     /**
-     * Names of the stored tables this synthetic type is built from. Indexes on the synthetic type are maintained
-     * from writes to those tables, so this is how they are attributed in a table-keyed view of the metadata. An
-     * unnested type has exactly one; a joined type would have several.
+     * Names of the stored tables this synthetic table is built from. Indexes on it are maintained from writes to
+     * those tables, so this is how they are attributed in a table-keyed view of the metadata. An unnested synthetic
+     * table has exactly one; a joined one would have several.
      *
      * @return the names of the underlying stored tables
      */

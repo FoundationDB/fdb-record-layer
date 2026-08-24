@@ -119,7 +119,7 @@ import static java.util.stream.Collectors.toList;
 @API(API.Status.EXPERIMENTAL)
 public final class MaterializedViewIndexGenerator {
 
-    private static final String UNNESTED_TYPE_NAME_PREFIX = "__unnested_";
+    private static final String UNNESTED_TABLE_NAME_PREFIX = "__unnested_";
     private static final String BITMAP_BIT_POSITION = "bitmap_bit_position";
     private static final String BITMAP_BUCKET_OFFSET = "bitmap_bucket_offset";
 
@@ -132,7 +132,7 @@ public final class MaterializedViewIndexGenerator {
     /**
      * Unnestings discovered while collecting quantifiers, keyed by the {@link AnnotatedAccessor} marker. One marker
      * identifies exactly one explode, so this is a plain map; whether an unnesting becomes a constituent of the
-     * synthetic type or a fan-out is {@link UnnestingInfo#structArray()}.
+     * unnested synthetic table or a fan-out is {@link UnnestingInfo#structArray()}.
      */
     @Nonnull
     private final Map<Integer, UnnestingInfo> unnestings = new LinkedHashMap<>();
@@ -162,9 +162,9 @@ public final class MaterializedViewIndexGenerator {
     }
 
     /**
-     * Generates the index definition, and for an unnesting over a struct array, the synthetic type to
-     * define it on. Callers must register the returned synthetic type, if present, otherwise the index
-     * would name a type that does not exist.
+     * Generates the index definition, and for an unnesting over a struct array, the unnested synthetic table
+     * to define it on. Callers must register the returned table, if present, otherwise the index would name a
+     * type that does not exist.
      *
      * @param schemaTemplateBuilder the schema template being built
      * @param indexName the name of the index
@@ -172,7 +172,7 @@ public final class MaterializedViewIndexGenerator {
      * @param containsNullableArray whether the schema contains any nullable array
      * @param generateKeyValueExpressionWithEmptyKey whether to generate a key-with-value expression
      *        even when there is no ordering
-     * @return the index definition and, when the plan unnests a struct array, the synthetic type
+     * @return the index definition and, when the plan unnests a struct array, the unnested synthetic table
      */
     @Nonnull
     public IndexGenerationResult generate(@Nonnull RecordLayerSchemaTemplate.Builder schemaTemplateBuilder, @Nonnull String indexName,
@@ -224,22 +224,22 @@ public final class MaterializedViewIndexGenerator {
                 splitPoint = -1;
             }
             validateScalarUnnestings(reordered);
-            final boolean useSyntheticType = requiresSyntheticType(reordered);
+            final boolean useUnnestedSyntheticTable = requiresUnnestedSyntheticTable(reordered);
             // A predicate would have to be evaluated against the synthetic record rather than the stored one,
             // which is not worked out yet. Rejected rather than falling back to a fan-out, which cannot express
             // these shapes and so would fail later with a less clear error.
-            Assert.thatUnchecked(!useSyntheticType || predicate == null, ErrorCode.UNSUPPORTED_OPERATION,
-                    "Unsupported index definition, a predicate is not supported on an index over an unnested synthetic type");
+            Assert.thatUnchecked(!useUnnestedSyntheticTable || predicate == null, ErrorCode.UNSUPPORTED_OPERATION,
+                    "Unsupported index definition, a predicate is not supported on an index over an unnested synthetic table");
             KeyExpression keyExpression;
-            if (useSyntheticType) {
-                final String syntheticTableName = UNNESTED_TYPE_NAME_PREFIX + recordTypeName + "_" + indexName;
+            if (useUnnestedSyntheticTable) {
+                final String syntheticTableName = UNNESTED_TABLE_NAME_PREFIX + recordTypeName + "_" + indexName;
                 indexBuilder
                         .setTableName(syntheticTableName)
                         .setTableStorageName(syntheticTableName);
                 final String parentConstituentAlias = findParentConstituentAlias();
-                syntheticTableBuilder = Optional.of(buildUnnestedTypeMetadata(
+                syntheticTableBuilder = Optional.of(buildUnnestedSyntheticTable(
                         schemaTemplateBuilder, syntheticTableName, recordTypeName, parentConstituentAlias));
-                // For unnested synthetic types the key expression uses constituent-alias paths
+                // For unnested synthetic tables the key expression uses constituent-alias paths
                 // (e.g. field("SQ").nest(field("a"))) rather than stored-table field paths.
                 // Build it directly from the dereferenced FieldValues.
                 final KeyExpression fullExpr = buildConstituentKeyExpression(
@@ -832,7 +832,7 @@ public final class MaterializedViewIndexGenerator {
     /**
      * One unnesting, as discovered from an {@link ExplodeExpression} during {@link #collectQuantifiers}.
      *
-     * <p>A struct array becomes a constituent of the synthetic type, navigated by {@link #arrayElements()} from
+     * <p>A struct array becomes a constituent of the unnested synthetic table, navigated by {@link #arrayElements()} from
      * {@code owningAlias}. A scalar array cannot be a constituent, since its elements have no fields to reference,
      * so the same expression is instead emitted as a fan-out inside the owning constituent.
      */
@@ -956,7 +956,7 @@ public final class MaterializedViewIndexGenerator {
     }
 
     @Nonnull
-    private RecordLayerUnnestedSyntheticTable.Builder buildUnnestedTypeMetadata(
+    private RecordLayerUnnestedSyntheticTable.Builder buildUnnestedSyntheticTable(
             @Nonnull RecordLayerSchemaTemplate.Builder schemaTemplateBuilder,
             @Nonnull String syntheticTableName,
             @Nonnull String recordTypeName,
@@ -972,7 +972,7 @@ public final class MaterializedViewIndexGenerator {
     }
 
     /**
-     * Builds the index key for an unnested synthetic type, rewriting the {@link AnnotatedAccessor}-marked paths of
+     * Builds the index key for an unnested synthetic table, rewriting the {@link AnnotatedAccessor}-marked paths of
      * the dereferenced values into constituent-alias paths: {@code field("SQ").nest(field("a"))} for unnested
      * fields, {@code field("row").nest(...)} for parent fields. Values are emitted positionally, preserving the
      * order of {@code reordered}; a constituent is navigated with {@link KeyExpression.FanType#None}, so it may be
@@ -1019,7 +1019,8 @@ public final class MaterializedViewIndexGenerator {
 
     /**
      * Rejects an index whose key reads through the same scalar unnesting at more than one position. A scalar array
-     * cannot be a constituent of a synthetic type, so each reference is emitted as its own fan-out over the array;
+     * cannot be a constituent of an unnested synthetic table, so each reference is emitted as its own fan-out over
+     * the array;
      * two of them would range over it independently and yield a cross-product of one view column against itself.
      * The stored-table path already rejects this shape, so the check applies to both representations.
      *
@@ -1041,20 +1042,20 @@ public final class MaterializedViewIndexGenerator {
     }
 
     /**
-     * Returns whether this index has to be defined on an unnested synthetic type rather than on the stored table
-     * with a fan-out key expression. A fan-out suffices while every column read through one unnesting sits in a
-     * contiguous run of the index key; two or more columns reached through the same unnesting at non-adjacent
-     * positions require a synthetic type, whose constituents are navigated with
+     * Returns whether this index has to be defined on an {@link RecordLayerUnnestedSyntheticTable} rather than on the
+     * stored table with a fan-out key expression. A fan-out suffices while every column read through one unnesting
+     * sits in a contiguous run of the index key; two or more columns reached through the same unnesting at
+     * non-adjacent positions require an unnested synthetic table, whose constituents are navigated with
      * {@link KeyExpression.FanType#None} and so may be referenced at any number of key positions.
      *
      * <p>Every unnesting a column is read through counts, not only the innermost, so chained unnesting can require
-     * a synthetic type even when no innermost unnesting is itself split. Only struct arrays are considered, since a
-     * scalar array cannot be a constituent.
+     * one even when no innermost unnesting is itself split. Only struct arrays are considered, since a scalar array
+     * cannot be a constituent.
      *
      * @param keyValues the index key columns, in key order
-     * @return whether a synthetic type is required
+     * @return whether an unnested synthetic table is required
      */
-    private boolean requiresSyntheticType(@Nonnull final List<Value> keyValues) {
+    private boolean requiresUnnestedSyntheticTable(@Nonnull final List<Value> keyValues) {
         final Map<Integer, Integer> firstPositions = new LinkedHashMap<>();
         final Map<Integer, Integer> lastPositions = new LinkedHashMap<>();
         final Map<Integer, Integer> counts = new LinkedHashMap<>();
@@ -1091,7 +1092,7 @@ public final class MaterializedViewIndexGenerator {
     private KeyExpression toKeyExpressionOnNestedConstituent(@Nonnull Value value, @Nonnull String parentAlias) {
         if (!(value instanceof FieldValue fieldValue)) {
             throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION,
-                    "Unsupported index definition, an index over an unnested synthetic type supports only plain column references");
+                    "Unsupported index definition, an index over an unnested synthetic table supports only plain column references");
         }
         final var accessors = fieldValue.getFieldPath().getFieldAccessors();
         if (accessors.isEmpty()) {

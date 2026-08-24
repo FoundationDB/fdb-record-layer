@@ -151,8 +151,8 @@ public final class OnSourceIndexGenerator {
     }
 
     /**
-     * Generates an index from the configured source query and index columns, together with the synthetic type to
-     * define it on when the source unnests a struct array in a way a fan-out cannot express.
+     * Generates an index from the configured source query and index columns, together with the unnested synthetic
+     * table to define it on when the source unnests a struct array in a way a fan-out cannot express.
      * <p>
      * This method first extracts key and value column identifiers from the configured columns, ensuring value
      * columns don't duplicate key columns. It then retrieves the top-level logical operator from the source query
@@ -167,8 +167,8 @@ public final class OnSourceIndexGenerator {
      * The generated index will be ordered according to the key columns and can optionally enforce uniqueness
      * if configured via {@link Builder#setUnique(boolean)}.
      *
-     * @return the generated index, together with the synthetic type to define it on when the source
-     *         unnests a struct array
+     * @return the generated index, together with the unnested synthetic table to define it on when the
+     *         source unnests a struct array
      */
     @Nonnull
     public IndexGenerationResult generate() {

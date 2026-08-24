@@ -75,14 +75,14 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
         recordType.setPrimaryKey(keyExpression);
     }
 
-    private void visit(@Nonnull final RecordLayerUnnestedSyntheticTable unnestedType) {
+    private void visit(@Nonnull final RecordLayerUnnestedSyntheticTable unnestedTable) {
         final UnnestedRecordTypeBuilder typeBuilder =
-                getBuilder().addUnnestedRecordType(unnestedType.getName());
-        final RecordTypeBuilder recordTypeBuilder = getBuilder().getRecordType(unnestedType.getParentTableStorageName());
-        typeBuilder.addParentConstituent(unnestedType.getAlias(), recordTypeBuilder);
+                getBuilder().addUnnestedRecordType(unnestedTable.getName());
+        final RecordTypeBuilder recordTypeBuilder = getBuilder().getRecordType(unnestedTable.getParentTableStorageName());
+        typeBuilder.addParentConstituent(unnestedTable.getAlias(), recordTypeBuilder);
         final Map<String, Descriptors.Descriptor> descriptorsByAlias = new LinkedHashMap<>();
-        descriptorsByAlias.put(unnestedType.getAlias(), recordTypeBuilder.getDescriptor());
-        for (final RecordLayerUnnestedSyntheticTable.NestedConstituent nested : unnestedType.getConstituents()) {
+        descriptorsByAlias.put(unnestedTable.getAlias(), recordTypeBuilder.getDescriptor());
+        for (final RecordLayerUnnestedSyntheticTable.NestedConstituent nested : unnestedTable.getConstituents()) {
             final Descriptors.Descriptor owningProto = descriptorsByAlias.get(nested.getParentAlias());
             Assert.notNullUnchecked(owningProto, "unknown parent constituent '" + nested.getParentAlias()
                     + "' for constituent '" + nested.getAlias() + "'");

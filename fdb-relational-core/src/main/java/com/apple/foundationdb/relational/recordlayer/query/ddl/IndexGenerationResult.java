@@ -39,22 +39,22 @@ import java.util.Optional;
  * would produce an index on a type that does not exist.
  *
  * @param indexBuilder the index definition
- * @param syntheticType the synthetic type to register, empty for an index on a stored table
+ * @param syntheticTable the synthetic table to register, empty for an index on a stored table
  */
 @API(API.Status.EXPERIMENTAL)
 public record IndexGenerationResult(@Nonnull RecordLayerIndex.Builder indexBuilder,
-                                    @Nonnull Optional<RecordLayerSyntheticTable.Builder> syntheticType) {
+                                    @Nonnull Optional<RecordLayerSyntheticTable.Builder> syntheticTable) {
 
     /**
-     * Registers the generated index on the given schema template, together with the synthetic type it is defined on
-     * when there is one. Doing this here rather than at each call site keeps the two from drifting apart: an index
-     * whose synthetic type is not registered names a type that does not exist.
+     * Registers the generated index on the given schema template, together with the synthetic table it is defined
+     * on when there is one. Doing this here rather than at each call site keeps the two from drifting apart: an index
+     * whose synthetic table is not registered names a type that does not exist.
      *
      * @param metadataBuilder the schema template being built
      */
     public void registerOn(@Nonnull final RecordLayerSchemaTemplate.Builder metadataBuilder) {
-        if (syntheticType.isPresent()) {
-            metadataBuilder.addSyntheticTable(syntheticType.get().addIndex(indexBuilder.build()).build());
+        if (syntheticTable.isPresent()) {
+            metadataBuilder.addSyntheticTable(syntheticTable.get().addIndex(indexBuilder.build()).build());
         } else {
             final RecordLayerIndex index = indexBuilder.build();
             final var table = metadataBuilder.extractTable(index.getTableName());

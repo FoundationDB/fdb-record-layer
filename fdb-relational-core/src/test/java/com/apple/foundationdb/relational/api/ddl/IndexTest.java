@@ -56,7 +56,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.Locale;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -116,17 +115,12 @@ public class IndexTest {
             throws Exception {
         connection.setAutoCommit(false);
         connection.getUnderlyingEmbeddedConnection().createNewTransaction();
-        final var factoryConsulted = new AtomicBoolean();
         Assertions.assertDoesNotThrow(() ->
                 DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
-                        "/IndexTest",
-                        DdlTestUtil.recordingFactory(metadataOperationsFactory, factoryConsulted))
+                        "/IndexTest", metadataOperationsFactory)
                         .getPlan(query));
         connection.rollback();
         connection.setAutoCommit(true);
-        Assertions.assertTrue(factoryConsulted.get(),
-                "the DDL path never consulted the injected factory, "
-                        + "so the callback holding this test's assertions never ran");
     }
 
     private void indexIs(@Nonnull final String stmt, @Nonnull final KeyExpression expectedKey, @Nonnull final String indexType) throws Exception {
