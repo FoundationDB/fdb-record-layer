@@ -27,7 +27,7 @@ import org.gradle.api.tasks.testing.TestListener
 apply plugin: 'jacoco'
 // configure for test, other *Test are configured below
 jacoco {
-    toolVersion = libs.versions.jacoco.get()
+    toolVersion = rootProject.libs.versions.jacoco.get()
 }
 
 // Resolved to the mockito-core jar so it can be installed as a -javaagent on every Test JVM.
@@ -40,7 +40,7 @@ configurations {
     mockitoAgent
 }
 dependencies {
-    mockitoAgent(libs.mockito) { transitive = false }
+    mockitoAgent(rootProject.libs.mockito) { transitive = false }
 }
 
 // if you add to or modify these testing configurations, make sure to update the CONTRIBUTING.md to include any updates
