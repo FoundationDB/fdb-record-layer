@@ -556,15 +556,10 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         final Subspace entriesSubspace = partitionSubspace.subspace(ENTRIES_SUBSPACE_KEY);
         final Subspace metaSubspace = partitionSubspace.subspace(META_SUBSPACE_KEY);
 
-        // Writing the entry key is a no-op overwrite when the entry is already tracked, but the insert below
-        // always increments the window count, so re-applying an insert for a tracked entry would inflate the
-        // count without adding an entry. The online indexer does exactly that whenever it builds a range
-        // holding a record that a write already indexed, because IndexingBase applies build updates as a plain
-        // update(null, record) with no dedup of its own. Removing the tracked entry first turns the replay into
-        // a delete/insert pair that nets out to no change, which keeps the count equal to the number of entries
-        // actually on the window side. The delete deliberately leaves the delegate alone: the insert that
-        // follows re-adds the entry to it, and an already-tracked entry always beats whatever the delete
-        // promoted out of overflow in its place, so it cannot end up stranded on the overflow side.
+        // Avoid double counting when re-inserting an already-tracked entry, which online indexing does whenever it
+        // builds a range holding a record that a write already indexed: IndexingBase replays build updates as a
+        // plain update(null, record) with no dedup of its own. Deleting the tracked entry first turns the replay
+        // into a delete/insert pair that nets out. The delete skips the delegate, since the insert re-adds it.
         return tr.get(entriesSubspace.pack(key.entriesKey())).thenCompose(existingEntry -> {
             if (existingEntry == null) {
                 return insertUntrackedEntry(key, entriesSubspace, metaSubspace, tr, delegateInsert);
