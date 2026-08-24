@@ -45,6 +45,7 @@ schema_template:
     CREATE TABLE doc_rev (rid BIGINT, title STRING, tags STRING ARRAY, PRIMARY KEY (rid))
     CREATE TABLE doc_asset (aid BIGINT, rid BIGINT, url STRING, PRIMARY KEY (aid))
     CREATE INDEX doc_asset_by_rid AS SELECT rid FROM doc_asset ORDER BY rid
+
 ---
 setup:
   steps:
@@ -123,6 +124,19 @@ test_block:
       - query: SELECT ARRAY_AGG(val RESPECT NULLS) FROM T1
       - error: UNSUPPORTED_OPERATION
     -
+      # An untyped NULL argument is rejected, as its type, and hence the element type of the resulting array, cannot be
+      # determined. This is the same rejection an untyped element of an IN list gets.
+      - query: SELECT ARRAY_AGG(NULL) FROM T1
+      - error: UNKNOWN_TYPE
+    -
+      # … which holds under IGNORE NULLS as well.
+      - query: SELECT ARRAY_AGG(NULL IGNORE NULLS) FROM T1
+      - error: UNKNOWN_TYPE
+    -
+      # A typed NULL is accepted, and under IGNORE NULLS this yields an empty array.
+      - query: SELECT ARRAY_AGG(CAST(NULL AS BIGINT) IGNORE NULLS) FROM T1
+      - result: [{[]}]
+    -
       # The bare ARRAY_AGG() form (with RESPECT NULLS semantics) succeeds if the input doesn’t contain any NULL.
       - query: SELECT ARRAY_AGG(val) FROM T1 WHERE grp = 10
       - result: [{[100, 200, 300]}]
@@ -200,7 +214,8 @@ test_block:
   tests:
     -
       # Paginating a grouped ARRAY_AGG() returns one group per page, each with its array fully collected.
-      # The `grp=30` group additionally covers a group that consists of only NULL values.
+      # The `grp=30` group additionally covers a group that consists of only NULL values (and yields an empty array due
+      # to IGNORE NULLS).
       - query: SELECT grp, ARRAY_AGG(val IGNORE NULLS) FROM T1 GROUP BY grp
       - maxRows: 1
       - result: [{10, [100, 200, 300]}]

@@ -59,7 +59,6 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Supplier;
 
 /**
@@ -127,13 +126,14 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
         this.elementType = elementType;
         this.ignoreNulls = ignoreNulls;
         this.wrapperDescriptorSupplier = Suppliers.memoize(() -> wrapperDescriptorFor(elementType));
+        // Note: The result type is always nullable, since ARRAY_AGG() must yield a NULL array for empty input.
         this.resultTypeSupplier = Suppliers.memoize(() -> new Type.Array(true, elementType));
     }
 
     /**
      * Builds the descriptor of the message the accumulator wraps its collected elements in for serialization.
      * This produces a message with a single repeated {@code values} field, i.e., the same wrapper a nullable array
-     * uses. The wrapper is only a serialization container and is independent of the result type’s nullability.
+     * uses. Here the wrapper is only a serialization container and is independent of the result type’s nullability.
      *
      * @param elementType the type of the collected elements
      *
@@ -141,9 +141,10 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
      */
     @Nonnull
     static Descriptors.Descriptor wrapperDescriptorFor(@Nonnull final Type elementType) {
-        final Type.Record wrapperType = Type.Record.fromFields(false, List.of(
-                Type.Record.Field.of(new Type.Array(false, elementType),
-                        Optional.of(NullableArrayTypeUtils.getRepeatedFieldName()))));
+        final Type.Record wrapperType = NullableArrayTypeUtils.wrapperTypeFor(elementType);
+        // Build the descriptor through a throwaway repository holding just the wrapper type. The `TypeRepository`
+        // repository that the accumulator converts its elements against is a different, plan-wide one, so the two
+        // cannot be shared.
         final TypeRepository localRepository = TypeRepository.newBuilder().addTypeIfNeeded(wrapperType).build();
         return Verify.verifyNotNull(localRepository.getMessageDescriptor(wrapperType));
     }
@@ -312,6 +313,10 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
                     || !(nullTreatment.getLiteralValue() instanceof Boolean ignoreNulls)) {
                 throw new RecordCoreException("null treatment must be a boolean literal");
             }
+            // Reject an argument whose type cannot be determined, such as an untyped NULL.
+            SemanticException.check(!arg0.getResultType().isUnresolved(),
+                    SemanticException.ErrorCode.UNKNOWN_TYPE,
+                    "Cannot resolve the argument type of ARRAY_AGG()");
             return new ArrayAggValue((Value)arg0, ignoreNulls);
         }
     }
@@ -371,6 +376,7 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
                     wrapperDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()));
             this.elements = new ArrayList<>();
             this.ignoreNulls = ignoreNulls;
+            this.seenAnyRow = false;
         }
 
         /**
