@@ -1,34 +1,23 @@
-===
-DQL
-===
+==============
+Query language
+==============
 
-The Relational Layer supports a full query engine, complete with query planning and index selection. We generally recommend
-using the query planner whenever possible over using the :doc:`../../jdbc/direct_access` as it is more powerful and more capable, and
-it is designed to make intelligent choices regarding query planning decisions like appropriate index selection.
-
-The language is heavily inspired by SQL. However, the Relational Layer *does* make some important changes to SQL to accommodate
-the nature of its data model (particularly with regard to :ref:`struct <struct_types>` and :ref:`array <array_types>` data types).
-
-Syntax
-######
+The Data Query Language (DQL) is used to retrieve data with the ``SELECT`` statement. Its complete syntax is shown in the following diagram:
 
 .. raw:: html
     :file: DQL.diagram.svg
 
-.. toctree::
-    :maxdepth: 2
+The pages in this section cover the individual parts of the ``SELECT`` statement, listed in the order in which they appear.
 
-    DQL/SELECT
+.. toctree::
+    :maxdepth: 1
+
+    DQL/EXPLAIN
     DQL/WITH
+    DQL/SELECT
     DQL/JOIN
     DQL/WHERE
     DQL/GROUP_BY
-    DQL/CASE
     DQL/ORDER_BY
     DQL/WINDOW_FUNCTIONS
-    DQL/EXPLAIN
 
-.. toctree::
-    :maxdepth: 2
-
-    DQL/Operators

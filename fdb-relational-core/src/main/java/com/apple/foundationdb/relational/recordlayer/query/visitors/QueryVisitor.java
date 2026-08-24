@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTy
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
@@ -255,13 +256,22 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public LogicalOperator visitSimpleTable(@Nonnull RelationalParser.SimpleTableContext simpleTableContext) {
-        Assert.notNullUnchecked(simpleTableContext.fromClause(), ErrorCode.UNSUPPORTED_QUERY, "query is not supported");
         getDelegate().pushPlanFragment();
-        simpleTableContext.fromClause().accept(this);
+        if (simpleTableContext.fromClause() != null) {
+            simpleTableContext.fromClause().accept(this);
+        } else {
+            // No FROM clause: synthesize a single-row source so constant expressions
+            // can be projected over exactly one output row (standard SQL semantics).
+            final var dummyElement = Expression.fromUnderlying(LiteralValue.ofScalar(true));
+            final var arrayOfOne = getDelegate().resolveFunction("__internal_array", false, dummyElement);
+            final var explodeExpr = new ExplodeExpression(arrayOfOne.getUnderlying());
+            final var syntheticQuantifier = Quantifier.forEach(Reference.initialOf(explodeExpr));
+            getDelegate().getCurrentPlanFragment().setOperator(LogicalOperator.newUnnamedOperator(Expressions.empty(), syntheticQuantifier));
+        }
 
-        // Visit the WHERE clause, if present.
-        final RelationalParser.WhereExprContext whereExpr = simpleTableContext.fromClause().whereExpr();
-        Optional<Expression> where = whereExpr != null ? Optional.of(visitWhereExpr(whereExpr)) : Optional.empty();
+        var where = Optional.ofNullable(simpleTableContext.fromClause() == null || simpleTableContext.fromClause().whereExpr() == null ?
+                null :
+                visitWhereExpr(simpleTableContext.fromClause().whereExpr()));
 
         // Absorb pending INNER JOIN … ON predicates into the WHERE clause. The quantifiers and predicates of INNER
         // JOINs are collected in the fragment by `visitInnerJoin()`. Since inner joins are associative, they are
@@ -623,26 +633,29 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                 aliases,
                 getDelegate().isForDdl());
 
-        // Build the result value: a flat record combining all flowed values from both sides (left then right). The
-        // result column ordering is independent of the join type: LEFT JOIN and RIGHT JOIN both produce the SQL outputs
-        // in the source order.
-        final ImmutableList<Value> values = ImmutableList.<Value>builder()
-                .addAll(leftQun.getFlowedValues())
-                .addAll(rightQun.getFlowedValues())
-                .build();
-        final RecordConstructorValue resultValue = ofUnnamed(values);
-
-        // Set up the preserved/null-supplying quantifiers for `OuterJoinExpression`. A LEFT OUTER JOIN preserves the
-        // left side; a RIGHT OUTER JOIN preserves the right side.
+        // Build the result value, a flat record combining the flowed values from both sides.
+        // 1. Determine the preserved/null-supplying quantifiers for `OuterJoinExpression` as per the LEFT/RIGHT type.
+        // 2. Ensure that the flowed values of the null-supplying side are nullable.
+        // 3. Assemble the result values in source order (left then right).
         final Quantifier.ForEach preservedQun;
         final Quantifier.ForEach nullSupplyingQun;
+        final ImmutableList<Value> values;
         if (joinType == JoinType.LEFT) {
             preservedQun = leftQun;
             nullSupplyingQun = rightQun;
+            values = ImmutableList.<Value>builder()
+                    .addAll(leftQun.getFlowedValues())
+                    .addAll(rightQun.pullUpResultColumnsWithNullability(true))
+                    .build();
         } else {
             preservedQun = rightQun;
             nullSupplyingQun = leftQun;
+            values = ImmutableList.<Value>builder()
+                    .addAll(leftQun.pullUpResultColumnsWithNullability(true))
+                    .addAll(rightQun.getFlowedValues())
+                    .build();
         }
+        final RecordConstructorValue resultValue = ofUnnamed(values);
 
         final OuterJoinExpression outerJoinExpression = new OuterJoinExpression(
                 preservedQun, nullSupplyingQun,

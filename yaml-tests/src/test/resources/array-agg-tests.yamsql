@@ -1,0 +1,120 @@
+#
+# array-agg-tests.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+options:
+    supported_version: 4.13.1.0
+    connection_options:
+      CASE_SENSITIVE_IDENTIFIERS: true
+---
+schema_template:
+    CREATE TABLE T1 (id BIGINT, grp BIGINT, val BIGINT, PRIMARY KEY (id))
+    CREATE TABLE parent (pid BIGINT, name STRING, PRIMARY KEY (pid))
+    CREATE TABLE child (cid BIGINT, pid BIGINT, val BIGINT, PRIMARY KEY (cid))
+    CREATE TABLE keywords (array_agg BIGINT, respect BIGINT, PRIMARY KEY (array_agg))
+---
+setup:
+  steps:
+    - query: INSERT INTO T1
+             VALUES (1, 10, 100),
+                    (2, 10, 200),
+                    (3, 10, 300),
+                    (4, 20, 400),
+                    (5, 20, 500),
+                    (6, 30, NULL)
+    - query: INSERT INTO keywords VALUES (1, 2)
+---
+test_block:
+  name: array-agg-tests
+  tests:
+    -
+      # The plain form is grammatically accepted.
+      - query: SELECT ARRAY_AGG(val) FROM T1
+      - error: UNSUPPORTED_QUERY
+    -
+      # ALL is the default set quantifier and is accepted.
+      - query: SELECT ARRAY_AGG(ALL val) FROM T1
+      - error: UNSUPPORTED_QUERY
+    -
+      # DISTINCT is grammatically accepted but rejected at semantic-analysis time, like other aggregates such as SUM().
+      - query: SELECT ARRAY_AGG(DISTINCT val) FROM T1
+      - error: UNSUPPORTED_QUERY
+    -
+      # Using ARRAY_AGG() as a window function is grammatically accepted but rejected at semantic-analysis time, like
+      # other aggregates such as MAX().
+      - query: SELECT ARRAY_AGG(val) OVER () FROM T1
+      - error: UNSUPPORTED_QUERY
+    -
+      # In-call ORDER BY is grammatically accepted but rejected at semantic-analysis time (not yet implemented).
+      - query: SELECT ARRAY_AGG(val ORDER BY val) FROM T1
+      - error: UNSUPPORTED_QUERY
+    -
+      # The sort expressions are still resolved, so a bogus one is reported as such before the clause is rejected.
+      - query: SELECT ARRAY_AGG(val ORDER BY bogus) FROM T1
+      - error: UNDEFINED_COLUMN
+    -
+      # The aggregate's own argument is resolved before the ORDER BY clause is rejected, so a bogus argument is
+      # reported in preference to the unsupported clause.
+      - query: SELECT ARRAY_AGG(bogus ORDER BY val) FROM T1
+      - error: UNDEFINED_COLUMN
+    -
+      # The grammar admits the null treatment clause for ARRAY_AGG() only, so it is a parse error elsewhere. The
+      # ordinary aggregates ignore NULL inputs implicitly, so the clause would be meaningless for them anyway.
+      - query: SELECT SUM(val IGNORE NULLS) FROM T1
+      - error: SYNTAX_ERROR
+    -
+      # IGNORE NULLS and RESPECT NULLS are grammatically accepted and resolved during semantic analysis.
+      - query: SELECT ARRAY_AGG(val IGNORE NULLS) FROM T1
+      - error: UNSUPPORTED_QUERY
+    -
+      - query: SELECT ARRAY_AGG(val RESPECT NULLS) FROM T1
+      - error: UNSUPPORTED_QUERY
+    -
+      # The null treatment clause precedes the in-call ORDER BY clause. Here the ORDER BY is what gets rejected.
+      - query: SELECT ARRAY_AGG(val IGNORE NULLS ORDER BY val) FROM T1
+      - error: UNSUPPORTED_QUERY
+    -
+      # The opposite order is a parse error.
+      - query: SELECT ARRAY_AGG(val ORDER BY val IGNORE NULLS) FROM T1
+      - error: SYNTAX_ERROR
+---
+test_block:
+  name: array-agg-keywords-as-identifiers
+  tests:
+    -
+      # ARRAY_AGG and RESPECT are in `keywordsCanBeId`, so they are usable as identifiers.
+      - query: SELECT array_agg, respect FROM keywords
+      - result: [{array_agg: 1, respect: 2}]
+    -
+      - query: SELECT val AS array_agg, val AS respect FROM T1 WHERE id = 1
+      - result: [{array_agg: 100, respect: 100}]
+    -
+      - query: SELECT array_agg.val FROM T1 AS array_agg WHERE array_agg.id = 1
+      - result: [{val: 100}]
+---
+test_block:
+  name: array-agg-correlated-subquery
+  tests:
+    -
+      # A correlated ARRAY_AGG() subquery in a SELECT projection is currently not supported and fails with a parse-time
+      # syntax error. A scalar subquery is not allowed as a select-list expression (the grammar only permits EXISTS/IN
+      # subqueries there).
+      - query: SELECT p.pid, (SELECT ARRAY_AGG(c.val) FROM child c WHERE c.pid = p.pid) AS vals FROM parent p
+      - error: SYNTAX_ERROR
+...

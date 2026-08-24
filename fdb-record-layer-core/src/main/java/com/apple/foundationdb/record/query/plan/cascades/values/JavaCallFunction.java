@@ -24,8 +24,8 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 
@@ -45,7 +45,9 @@ public class JavaCallFunction extends BuiltInFunction<Value> {
     }
 
     @Nonnull
-    private static Value findFunction(@Nonnull final BuiltInFunction<Value> ignored, final List<? extends Typed> arguments) {
+    private static Value findFunction(@Nonnull final BuiltInFunction<Value> ignored, @Nonnull final CallSiteArguments callSiteArguments) {
+        Verify.verify(callSiteArguments.isSimplePositional());
+        final List<Value> arguments = callSiteArguments.getArgumentsList();
         Verify.verify(!arguments.isEmpty());
         Verify.verify(arguments.get(0).getResultType().getTypeCode().equals(Type.TypeCode.STRING));
         // dispatching happens at query-building time, therefore, the argument must be literal
@@ -71,7 +73,8 @@ public class JavaCallFunction extends BuiltInFunction<Value> {
         // the class must have parameterless constructor
         try {
             final Constructor<?> constructor = clazz.getDeclaredConstructor();
-            return (Value)((UdfFunction)constructor.newInstance()).encapsulate(arguments.stream().skip(1).collect(Collectors.toUnmodifiableList()));
+            return (Value)((UdfFunction)constructor.newInstance())
+                    .encapsulate(CallSiteArguments.ofPositional(arguments.stream().skip(1).collect(Collectors.toUnmodifiableList())));
         } catch (NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw new RecordCoreException("could not instantiate call-site from '" + clazz.getName() + "'", e);
         }

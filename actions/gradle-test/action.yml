@@ -20,6 +20,17 @@ inputs:
 runs:
   using: "composite"
   steps:
+  - name: Cache Downloaded Build Assets
+    id: cache-donwloaded-build-assets
+    uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+    with:
+      path: .downloaded-build-assets
+      key: downloaded-build-assets-for-'${{ inputs.gradle_command }}'-${{ hashFiles('**/*.gradle') }}
+  - name: List Cached Downloaded Build Assets
+    shell: bash
+    if: ${{ steps.cache-donwloaded-build-assets.outputs.cache-hit == 'true' }}
+    continue-on-error: true
+    run: find .downloaded-build-assets
   - name: Run build and test
     uses: ./actions/run-gradle
     with:

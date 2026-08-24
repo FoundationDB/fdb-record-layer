@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
@@ -35,6 +36,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
+
+import java.util.List;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.atLeastOne;
@@ -88,7 +91,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *  }</pre>
  */
 @SuppressWarnings({"PMD.TooManyStaticImports", "PMD.CompareObjectsWithEquals"})
-public class QueryPredicateSimplificationRule extends ExplorationCascadesRule<SelectExpression> {
+public class QueryPredicateSimplificationRule extends AbstractCascadesRule<SelectExpression> implements ExplorationCascadesRule<SelectExpression> {
     @Nonnull
     private static final CollectionMatcher<QueryPredicate> predicateMatcher = atLeastOne(anyPredicate());
     @Nonnull
@@ -107,21 +110,22 @@ public class QueryPredicateSimplificationRule extends ExplorationCascadesRule<Se
         final var constantAliases = Sets.difference(conjunction.getCorrelatedTo(),
                 Quantifiers.aliases(selectExpression.getQuantifiers()));
 
-        final var simplifiedConjunction = Simplification.optimize(conjunction, call.getEvaluationContext(), aliasMap,
-                constantAliases, ConstantFoldingRuleSet.ofSimplificationRules());
-
-        if (simplifiedConjunction.get().semanticEquals(conjunction, aliasMap)) {
+        final QueryPredicate simplifiedConjunction = Simplification.optimize(conjunction, call.getEvaluationContext(),
+                aliasMap, constantAliases, ConstantFoldingRuleSet.ofSimplificationRules()).get();
+        if (simplifiedConjunction.semanticEquals(conjunction, aliasMap)) {
             return;
         }
 
         final var resultValue = selectExpression.getResultValue();
         final var quantifier = selectExpression.getQuantifiers();
         final SelectExpression simplifiedSelectExpression;
-        if (simplifiedConjunction instanceof AndPredicate) {
-            simplifiedSelectExpression = new SelectExpression(resultValue, quantifier, ((AndPredicate)simplifiedConjunction).getChildren());
+        final List<? extends QueryPredicate> newPredicates;
+        if (simplifiedConjunction instanceof AndPredicate andPredicate) {
+            newPredicates = andPredicate.getChildren();
         } else {
-            simplifiedSelectExpression = new SelectExpression(resultValue, quantifier, ImmutableList.of(simplifiedConjunction.get()));
+            newPredicates = ImmutableList.of(simplifiedConjunction);
         }
+        simplifiedSelectExpression = new SelectExpression(resultValue, quantifier, newPredicates);
 
         call.yieldExploratoryExpression(simplifiedSelectExpression);
     }

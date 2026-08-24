@@ -606,7 +606,8 @@ public class PredicateMultiMap {
 
             @Override
             public int hashCode() {
-                return Objects.hash(originalQueryPredicate, candidatePredicate, mappingKind);
+                // Note: This hash must be stable across JVMs, as `MappingKey` is stored in hash-based sets during planning.
+                return Objects.hash(originalQueryPredicate, candidatePredicate, mappingKind.name());
             }
         }
 

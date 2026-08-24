@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
@@ -138,7 +139,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * </pre>
  */
 @API(API.Status.EXPERIMENTAL)
-public class PushFilterThroughFetchRule extends ImplementationCascadesRule<RecordQueryPredicatesFilterPlan> {
+public class PushFilterThroughFetchRule extends AbstractCascadesRule<RecordQueryPredicatesFilterPlan> implements ImplementationCascadesRule<RecordQueryPredicatesFilterPlan> {
     @Nonnull
     private static final BindingMatcher<RecordQueryPlan> innerPlanMatcher = anyPlan();
     @Nonnull
@@ -240,9 +241,9 @@ public class PushFilterThroughFetchRule extends ImplementationCascadesRule<Recor
         final var pushedLeafPredicateOptional =
                 predicateWithValue.translateValueAndComparisonsMaybe(
                         value -> fetchPlan.pushValue(value, oldInnerAlias, newInnerAlias),
-                        comparison -> comparison.replaceValuesMaybe(value -> {
-                            return fetchPlan.pushValue(value, oldInnerAlias, newInnerAlias);
-                        }));
+                        comparison ->
+                                comparison.replaceValuesMaybe(value -> fetchPlan.pushValue(value, oldInnerAlias,
+                                        newInnerAlias)));
         // Something went wrong when attempting to push this value through the fetch.
         // We must return null to prevent pushing of this conjunct.
         return pushedLeafPredicateOptional.orElse(null);

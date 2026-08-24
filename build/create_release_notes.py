@@ -20,6 +20,26 @@
 # limitations under the License.
 #
 
+# Create release notes based on commits since the last version
+# See .github/workflows/release.yml for usage
+
+# You can also test locally by:
+# 1. Create a tag for the next version, e.g. `git tag 4.12.19.0 HEAD`
+# 2. Create a sample mixed mode results, e.g. `echo "MMR" > mixed-mode-results.md`
+# 3. Run:
+#   python3 ./build/create_release_notes.py \
+#           --config ./build/release-notes-config.json \
+#           --release-notes-md docs/sphinx/source/ReleaseNotes.md \
+#           --skip-commit $(git log -n 1 --format=%H HEAD) \
+#           --repository FoundationDB/fdb-record-layer \
+#           --mixed-mode-results mixed-mode-results.md \
+#           --version 4.12.19.0
+# 4. Look at the results:
+#   a) in the markdown: docs/sphinx/source/ReleaseNotes.md
+#   b) generated: `./gradlew clean documentationSite -PreleaseBuild=true && open docs/sphinx/.out/html/index.html`
+# 5. Cleanup:
+#   a) delete the tag `git tag -d 4.12.19.0`
+#   b) delete the mixed mode results: `rm mixed-mode-results.md`
 
 import argparse
 from collections import defaultdict
@@ -29,8 +49,11 @@ import subprocess
 import sys
 
 class Version:
-    minor_header = re.compile(r'^## (\d+\.\d+)$')  # match all version headers, including major or minor headers
     precise_header = re.compile(r'^### (\d+\.\d+\.\d+\.\d+)$')  # match precise version headers
+    # Every version header is preceded by an anchor (see minor_version_anchor), and new notes are
+    # inserted above the anchor of the release they precede, so that each header keeps its own anchor
+    minor_anchor = re.compile(r'^\{#release-(\d+-\d+)\}$')
+    precise_anchor = re.compile(r'^\{#release-(\d+-\d+-\d+-\d+)\}$')
 
     def __init__(self, version: str):
         self.version = version
@@ -54,23 +77,32 @@ class Version:
                     return test_version
         raise Exception(f'Could not find previous version for {self.version}')
 
-    def greater_than_precise_version_header(self, line: str) -> bool:
-        result = self.precise_header.match(line)
-        return result and self.is_greater(result[1])
+    def greater_than_precise_version_anchor(self, line: str) -> bool:
+        result = self.precise_anchor.match(line)
+        return result is not None and self.is_greater(result[1].replace('-', '.'))
 
-    def greater_than_minor_version_header(self, line: str) -> bool:
-        result = self.minor_header.match(line)
-        if result:
-            test_version = result[1]
-            if self.is_greater(test_version):
-                return True
-        return False
+    def greater_than_minor_version_anchor(self, line: str) -> bool:
+        result = self.minor_anchor.match(line)
+        return result is not None and self.is_greater(result[1].replace('-', '.'))
 
     def minor_version_header(self) -> str:
         return '## ' + '.'.join([str(v) for v in self.version_split[:2]])
 
     def precise_version_header(self) -> str:
         return '### ' + self.version
+
+    # Sphinx/docutils cannot derive an id from a purely numeric heading like "4.12.16.0": it strips
+    # leading digits and falls back to a serial id (id1, id2, ...) that shifts every time a release
+    # is inserted at the top of the file. These anchors, rendered by the MyST attrs_block extension,
+    # pin each version to a stable, semantic id instead.
+    def anchor_name(self, parts: int) -> str:
+        return 'release-' + '-'.join([str(v) for v in self.version_split[:parts]])
+
+    def minor_version_anchor(self) -> str:
+        return '{#' + self.anchor_name(2) + '}'
+
+    def precise_version_anchor(self) -> str:
+        return '{#' + self.anchor_name(4) + '}'
 
     def precise_version(self) -> str:
         return self.version
@@ -204,26 +236,29 @@ def replace_note(lines: list[str], version, note: str) -> list[str]:
     new_lines = []
     added = False
     for line in lines:
-        if not added and version.greater_than_precise_version_header(line):
+        if not added and version.greater_than_precise_version_anchor(line):
+            new_lines.append(version.precise_version_anchor())
+            new_lines.append('')
             new_lines.append(version.precise_version_header())
             new_lines.append('')
             new_lines.append(note)
             new_lines.append('')
-            new_lines.append(line)
             added = True
-        elif not added and version.greater_than_minor_version_header(line):
+        elif not added and version.greater_than_minor_version_anchor(line):
+            new_lines.append(version.minor_version_anchor())
+            new_lines.append('')
             new_lines.append(version.minor_version_header())
             new_lines.append('')
+            new_lines.append(version.precise_version_anchor())
+            new_lines.append('')
             new_lines.append(version.precise_version_header())
             new_lines.append('')
             new_lines.append(note)
             new_lines.append('')
-            new_lines.append(line)
             added = True
-        else:
-            new_lines.append(line)
+        new_lines.append(line)
     if not added:
-        raise Exception(f"Could not find spot for {version}")
+        raise Exception(f"Could not find spot for {version}: no anchor for an older version")
     return new_lines
 
 def read_notes(filename: str) -> list[str]:
@@ -320,78 +355,127 @@ class TestStringMethods(unittest.TestCase):
                 self.assertEqual(old, Version(new).get_old_version(content.split('\n')))
 
     def test_replace_note(self) -> None:
+        # Every version header in ReleaseNotes.md is preceded by its anchor, and the new notes are
+        # inserted above the anchor of the release they precede, so that each header keeps its anchor
+        release_notes = ("Some filler\n\n{#release-4-1}\n\n## 4.1\n\ncontent\n\n" +
+                         "{#release-4-1-10-0}\n\n### 4.1.10.0\n\n<h4> Stuff </h4>\n\n" +
+                         "{#release-4-1-9-0}\n\n### 4.1.9.0")
         for (version, old, new) in [
-                ("4.1.10.1", 
-                 "Some filler\n## 4.1\ncontent\n### 4.1.10.0\n<h4> Stuff </h4>\n### 4.1.9.0",
-                 "Some filler\n## 4.1\ncontent\n### 4.1.10.1\n\nbanana\n\n### 4.1.10.0\n<h4> Stuff </h4>\n### 4.1.9.0"),
-                ("4.1.11.0",
-                 "Some filler\n## 4.1\ncontent\n### 4.1.10.0\n<h4> Stuff </h4>\n### 4.1.9.0",
-                 "Some filler\n## 4.1\ncontent\n### 4.1.11.0\n\nbanana\n\n### 4.1.10.0\n<h4> Stuff </h4>\n### 4.1.9.0"),
-                ("4.2.1.0",
-                 "Some filler\n## 4.1\ncontent\n### 4.1.10.0\n<h4> Stuff </h4>\n### 4.1.9.0",
-                 "Some filler\n## 4.2\n\n### 4.2.1.0\n\nbanana\n\n## 4.1\ncontent\n### 4.1.10.0\n<h4> Stuff </h4>\n### 4.1.9.0"),
+                # A new build, inserted above the most recent one
+                ("4.1.11.0", release_notes,
+                 "Some filler\n\n{#release-4-1}\n\n## 4.1\n\ncontent\n\n" +
+                 "{#release-4-1-11-0}\n\n### 4.1.11.0\n\nbanana\n\n" +
+                 "{#release-4-1-10-0}\n\n### 4.1.10.0\n\n<h4> Stuff </h4>\n\n" +
+                 "{#release-4-1-9-0}\n\n### 4.1.9.0"),
+                # A patch on the most recent build
+                ("4.1.10.1", release_notes,
+                 "Some filler\n\n{#release-4-1}\n\n## 4.1\n\ncontent\n\n" +
+                 "{#release-4-1-10-1}\n\n### 4.1.10.1\n\nbanana\n\n" +
+                 "{#release-4-1-10-0}\n\n### 4.1.10.0\n\n<h4> Stuff </h4>\n\n" +
+                 "{#release-4-1-9-0}\n\n### 4.1.9.0"),
+                # A patch on an older build, which goes above that build rather than at the top
+                ("4.1.9.1", release_notes,
+                 "Some filler\n\n{#release-4-1}\n\n## 4.1\n\ncontent\n\n" +
+                 "{#release-4-1-10-0}\n\n### 4.1.10.0\n\n<h4> Stuff </h4>\n\n" +
+                 "{#release-4-1-9-1}\n\n### 4.1.9.1\n\nbanana\n\n" +
+                 "{#release-4-1-9-0}\n\n### 4.1.9.0"),
+                # A new minor version, which needs a minor version header of its own
+                ("4.2.1.0", release_notes,
+                 "Some filler\n\n{#release-4-2}\n\n## 4.2\n\n{#release-4-2-1-0}\n\n### 4.2.1.0\n\nbanana\n\n" +
+                 "{#release-4-1}\n\n## 4.1\n\ncontent\n\n" +
+                 "{#release-4-1-10-0}\n\n### 4.1.10.0\n\n<h4> Stuff </h4>\n\n" +
+                 "{#release-4-1-9-0}\n\n### 4.1.9.0"),
+                # A patch on a minor version that is no longer the most recent one
                 ("4.1.9.1",
-                 "Some filler\n## 4.2\n\ncontent\n\n### 4.2.10.0\n\n<h4> Stuff </h4>\n\n## 4.1\n\n### 4.1.9.0",
-                 "Some filler\n## 4.2\n\ncontent\n\n### 4.2.10.0\n\n<h4> Stuff </h4>\n\n## 4.1\n\n### 4.1.9.1\n\nbanana\n\n### 4.1.9.0"),
-                ("4.1.9.1",
-                 "Some filler\n## 4.1\ncontent\n### 4.1.10.0\n<h4> Stuff </h4>\n### 4.1.9.0",
-                 "Some filler\n## 4.1\ncontent\n### 4.1.10.0\n<h4> Stuff </h4>\n### 4.1.9.1\n\nbanana\n\n### 4.1.9.0")
+                 "Some filler\n\n{#release-4-2}\n\n## 4.2\n\n{#release-4-2-10-0}\n\n### 4.2.10.0\n\n" +
+                 "<h4> Stuff </h4>\n\n{#release-4-1}\n\n## 4.1\n\n{#release-4-1-9-0}\n\n### 4.1.9.0",
+                 "Some filler\n\n{#release-4-2}\n\n## 4.2\n\n{#release-4-2-10-0}\n\n### 4.2.10.0\n\n" +
+                 "<h4> Stuff </h4>\n\n{#release-4-1}\n\n## 4.1\n\n" +
+                 "{#release-4-1-9-1}\n\n### 4.1.9.1\n\nbanana\n\n{#release-4-1-9-0}\n\n### 4.1.9.0")
                 ]:
             with self.subTest(version=version, new=new, old=old):
                 self.assertEqual(new, '\n'.join(replace_note(old.split('\n'), Version(version), 'banana')))
 
-    def test_greater_than_precise_version_header(self) -> None:
-        for (new_version, line) in [
-                ("4.1.1.0", "### 4.0.10.0"),
-                ("4.1.3.0", "### 4.1.0.0"),
-                ("4.2.1.0", "### 4.1.18.0"),
-                ("4.0.1.0", "### 3.8.9.0"),
-                ("4.0.1.5", "### 4.0.1.4"),
+    def test_replace_note_without_anchors(self) -> None:
+        # The anchors are what the new notes are positioned against, so their absence is an error
+        # rather than something to guess at
+        for old in [
+                "Some filler\n## 4.1\ncontent\n### 4.1.10.0\n<h4> Stuff </h4>\n### 4.1.9.0",
+                "Some filler\n\n{#release-4-1-10-0-mixed-mode-test-results}\n\n<h4> Stuff </h4>"
                 ]:
-            with self.subTest(new=new_version, line=line):
-                self.assertTrue(Version(new_version).greater_than_precise_version_header(line))
-        for (old_version, line) in [
-                ("3.9.20.0", "### 4.0.0.0"),
-                ("4.1.0.0", "### 4.1.3.0"),
-                ("4.0.1.0", "### 4.1.0.0"),
-                ("4.0.1.0", "### 4.0.1.1"),
-                ("4.0.1.0", "### 4.0.2.0")
-                ]:
-            with self.subTest(old=old_version, line=line):
-                self.assertFalse(Version(old_version).greater_than_precise_version_header(line))
-        for (old_version, line) in [
-                ("3.9.20.0", "Here is some text"),
-                ("4.1.3.0", "* boo"),
-                ("4.0.1.0", "<h4> far </h4>"),
-                ("4.0.1.0", "## 4.0"),
-                ("4.0.1.0", "## 3.0"),
-                ("4.0.1.0", "## 3.9")
-                ]:
-            with self.subTest(old=old_version, other_content=line):
-                self.assertFalse(Version(old_version).greater_than_precise_version_header(line))
+            with self.subTest(old=old):
+                with self.assertRaisesRegex(Exception, 'Could not find spot'):
+                    replace_note(old.split('\n'), Version('4.1.11.0'), 'banana')
 
-    def test_greater_than_minor_version_header(self) -> None:
+    def test_anchors(self) -> None:
+        for (version, minor_anchor, precise_anchor) in [
+                ("4.12.16.0", "{#release-4-12}", "{#release-4-12-16-0}"),
+                ("3.4.455.0", "{#release-3-4}", "{#release-3-4-455-0}"),
+                ("2.1.14.6", "{#release-2-1}", "{#release-2-1-14-6}")
+                ]:
+            with self.subTest(version=version):
+                self.assertEqual(minor_anchor, Version(version).minor_version_anchor())
+                self.assertEqual(precise_anchor, Version(version).precise_version_anchor())
+                # The anchors that get written have to be matched by the patterns that find them again
+                self.assertRegex(minor_anchor, Version.minor_anchor)
+                self.assertRegex(precise_anchor, Version.precise_anchor)
+                self.assertNotRegex(minor_anchor, Version.precise_anchor)
+                self.assertNotRegex(precise_anchor, Version.minor_anchor)
+
+    def test_greater_than_version_anchor(self) -> None:
         for (new_version, line) in [
-                ("4.1.1.0", "## 4.0"),
-                ("4.2.1.0", "## 4.1"),
-                ("4.0.1.0", "## 3.8"),
+                ("4.1.1.0", "{#release-4-0-10-0}"),
+                ("4.1.3.0", "{#release-4-1-0-0}"),
+                ("4.2.1.0", "{#release-4-1-18-0}"),
+                ("4.0.1.5", "{#release-4-0-1-4}"),
+                ("4.1.10.0", "{#release-4-1-9-0}"),
                 ]:
             with self.subTest(new=new_version, line=line):
-                self.assertTrue(Version(new_version).greater_than_minor_version_header(line))
+                self.assertTrue(Version(new_version).greater_than_precise_version_anchor(line))
+                self.assertFalse(Version(new_version).greater_than_minor_version_anchor(line))
+        for (new_version, line) in [
+                ("4.1.1.0", "{#release-4-0}"),
+                ("4.2.1.0", "{#release-4-1}"),
+                ("4.0.1.0", "{#release-3-8}"),
+                ("4.10.1.0", "{#release-4-9}"),
+                ]:
+            with self.subTest(new=new_version, line=line):
+                self.assertTrue(Version(new_version).greater_than_minor_version_anchor(line))
+                self.assertFalse(Version(new_version).greater_than_precise_version_anchor(line))
         for (old_version, line) in [
-                ("3.9.20.0", "## 4.0"),
-                ("4.1.3.0", "## 4.1"),
-                ("4.0.1.0", "## 4.1")
+                # Anchors for newer versions, which the new notes belong above rather than below
+                ("3.9.20.0", "{#release-4-0-0-0}"),
+                ("4.1.0.0", "{#release-4-1-3-0}"),
+                ("4.0.1.0", "{#release-4-0-1-1}"),
+                ("4.0.1.0", "{#release-4-0-2-0}"),
+                ("4.1.3.0", "{#release-4-1}"),
+                # Anchors of sub-sections, and lines that are not anchors at all
+                ("4.0.1.0", "{#release-3-8-1-0-mixed-mode-test-results}"),
+                ("4.0.1.0", "{#release-notes}"),
+                ("4.0.1.0", "### 3.8.1.0"),
+                ("4.0.1.0", "## 3.8"),
+                ("4.0.1.0", "Here is some text")
                 ]:
             with self.subTest(old=old_version, line=line):
-                self.assertFalse(Version(old_version).greater_than_minor_version_header(line))
-        for (old_version, line) in [
-                ("3.9.20.0", "Here is some text"),
-                ("4.1.3.0", "* boo"),
-                ("4.0.1.0", "<h4> far </h4>")
-                ]:
-            with self.subTest(old=old_version, other_content=line):
-                self.assertFalse(Version(old_version).greater_than_minor_version_header(line))
+                self.assertFalse(Version(old_version).greater_than_precise_version_anchor(line))
+                self.assertFalse(Version(old_version).greater_than_minor_version_anchor(line))
+
+    def test_format_notes_has_no_markdown_headings(self) -> None:
+        # Only versions should be markdown headings in ReleaseNotes.md, so that the table of contents
+        # lists the releases and nothing else. Categories are rendered as html here, and the mixed
+        # mode results already arrive with an html heading from publish-mixed-mode-results.py.
+        label_config = {'categories': [{'title': 'New Features', 'labels': ['enhancement']},
+                                       {'title': 'Build Improvements', 'labels': ['build'], 'collapsed': True}],
+                        'catch_all': 'Other Changes'}
+        notes = format_notes([('New Features', '* Something new'), ('Build Improvements', '* Something built'),
+                              ('Other Changes', '* Something else')],
+                             label_config, '4.1.8.0', '4.2.1.0', 'FoundationDB/fdb-record-layer',
+                             '<h4> Mixed Mode Test Results </h4>\n\n✅`4.1.8.0`')
+        self.assertNotRegex(notes, r'(?m)^#{1,6} ')
+        for title in ['New Features', 'Build Improvements', 'Other Changes', 'Mixed Mode Test Results']:
+            with self.subTest(title=title):
+                self.assertIn(f'<h4> {title}', notes)
+
     def test_minor_version(self) -> None:
         for (minor, full) in [
                 ("## 3.9", "3.9.10.0"),
@@ -407,6 +491,18 @@ class TestStringMethods(unittest.TestCase):
 
     def test_format_empty_notes(self) -> None:
         self.assertEqual('\n\n**[Full Changelog (4.1.8.0...4.2.1.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.1.8.0...4.2.1.0)**\n\n' +
+                         '<h4> Mixed Mode Test Results </h4>\n\nAgainst 4.1.8.0\n',
+                         format_notes([], self.simple_label_config(), '4.1.8.0', '4.2.1.0',
+                                      'FoundationDB/fdb-record-layer',
+                                      '<h4> Mixed Mode Test Results </h4>\n\nAgainst 4.1.8.0'))
+
+    def test_format_notes_with_headerless_mixed_mode_results(self) -> None:
+        self.assertEqual('\n\n**[Full Changelog (4.1.8.0...4.2.1.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.1.8.0...4.2.1.0)**\n\n' +
                          'Mixed Mode Results\n',
                          format_notes([], self.simple_label_config(), '4.1.8.0', '4.2.1.0',
                                       'FoundationDB/fdb-record-layer', 'Mixed Mode Results'))
+
+    def test_format_notes_without_mixed_mode_results(self) -> None:
+        self.assertEqual('\n\n**[Full Changelog (4.1.8.0...4.2.1.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.1.8.0...4.2.1.0)**',
+                         format_notes([], self.simple_label_config(), '4.1.8.0', '4.2.1.0',
+                                      'FoundationDB/fdb-record-layer', None))

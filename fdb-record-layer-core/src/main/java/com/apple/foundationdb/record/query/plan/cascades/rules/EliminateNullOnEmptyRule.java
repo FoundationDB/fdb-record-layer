@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
@@ -51,7 +52,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * tuple at that quantifier's alias. The rule fires once per matching {@code SelectExpression} and rewrites all
  * eligible null-on-empty quantifiers in a single yielded expression.
  */
-public class EliminateNullOnEmptyRule extends ExplorationCascadesRule<SelectExpression> {
+public class EliminateNullOnEmptyRule extends AbstractCascadesRule<SelectExpression> implements ExplorationCascadesRule<SelectExpression> {
 
     @Nonnull
     private static final CollectionMatcher<Quantifier.ForEach> nullOnEmptyQuantifiers =

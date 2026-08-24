@@ -516,7 +516,7 @@ public final class MetricsDiffAnalyzer {
         }
 
         private void appendStatisticalSummary(@Nonnull final StringBuilder report, @Nonnull final MetricsStatistics stats) {
-            for (final var fieldName : YamlExecutionContext.TRACKED_METRIC_FIELDS) {
+            for (final var fieldName : YamlMetricsMaintainer.TRACKED_METRIC_FIELDS) {
                 final var fieldStats = stats.getFieldStatistics(fieldName);
                 final var regressionFieldStats = stats.getRegressionStatistics(fieldName);
                 if (fieldStats.hasChanges() || regressionFieldStats.hasChanges()) {
@@ -663,7 +663,7 @@ public final class MetricsDiffAnalyzer {
                     final var newMetrics = change.newInfo.getCountersAndTimers();
                     final var descriptor = oldMetrics.getDescriptorForType();
 
-                    for (final var fieldName : YamlExecutionContext.TRACKED_METRIC_FIELDS) {
+                    for (final var fieldName : YamlMetricsMaintainer.TRACKED_METRIC_FIELDS) {
                         final var field = descriptor.findFieldByName(fieldName);
                         final var oldValue = (long)oldMetrics.getField(field);
                         final var newValue = (long)newMetrics.getField(field);
@@ -718,7 +718,7 @@ public final class MetricsDiffAnalyzer {
             final var newMetrics = change.newInfo.getCountersAndTimers();
             final var descriptor = oldMetrics.getDescriptorForType();
 
-            for (final var fieldName : YamlExecutionContext.TRACKED_METRIC_FIELDS) {
+            for (final var fieldName : YamlMetricsMaintainer.TRACKED_METRIC_FIELDS) {
                 final var field = descriptor.findFieldByName(fieldName);
                 final var oldValue = (long)oldMetrics.getField(field);
                 final var newValue = (long)newMetrics.getField(field);
@@ -753,7 +753,7 @@ public final class MetricsDiffAnalyzer {
 
             final var descriptor = oldMetrics.getDescriptorForType();
 
-            for (final var fieldName : YamlExecutionContext.TRACKED_METRIC_FIELDS) {
+            for (final var fieldName : YamlMetricsMaintainer.TRACKED_METRIC_FIELDS) {
                 final Descriptors.FieldDescriptor field = descriptor.findFieldByName(fieldName);
                 final long oldValue = (long)oldMetrics.getField(field);
                 final long newValue = (long)newMetrics.getField(field);

@@ -204,7 +204,14 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
         @SuppressWarnings("java:S6213")
         public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
             return Streams.stream(getChildren())
-                    .map(child -> child.eval(store, context))
+                    .map(child -> {
+                        // Reject null elements, as they are currently not supported (Issue #3646), and the null-hostile
+                        // `ImmutableList` would otherwise raise a `NullPointerException`.
+                        final Object element = child.eval(store, context);
+                        SemanticException.check(element != null, SemanticException.ErrorCode.UNSUPPORTED,
+                                "An ARRAY value cannot have NULL elements");
+                        return element;
+                    })
                     .collect(ImmutableList.toImmutableList());
         }
 
@@ -220,7 +227,6 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
                 }
                 return LightArrayConstructorValue.of(ImmutableList.copyOf(newChildren), getElementType());
             }
-            Verify.verify(resolveElementType(newChildren).equals(getElementType()));
             final var newChildrenPromoted = injectPromotions(newChildren, getElementType());
             if (elementsArePairwiseReferenceEqual(newChildrenPromoted, getChildren())) {
                 return this;
@@ -355,7 +361,7 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
     public static class ArrayFn extends BuiltInFunction<Value> {
         public ArrayFn() {
             super("array",
-                    ImmutableList.of(), new Type.Any(), (builtInFunction, typedArgs) -> encapsulateInternal(typedArgs));
+                    ImmutableList.of(), new Type.Any(), (builtInFunction, typedArgs) -> encapsulateInternal(typedArgs.getArgumentsList()));
         }
     }
 }

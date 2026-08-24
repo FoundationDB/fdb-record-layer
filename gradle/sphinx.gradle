@@ -25,7 +25,7 @@ var sphinxBuildDir = "${sphinxRoot}/.out"
 // Gives tasks access to an injected `ExecOperations` for running external processes from a `doLast` block.
 interface InjectedExecOps {
     @javax.inject.Inject
-    org.gradle.process.ExecOperations getExecOps()
+    ExecOperations getExecOps()
 }
 
 var documented_subprojects = [
@@ -42,7 +42,7 @@ var documented_subprojects = [
         "fdb-relational-jdbc",
 ]
 
-task sphinxEnv {
+tasks.register('sphinxEnv') {
     inputs.file("${sphinxRoot}/requirements.txt")
     outputs.dir(venvDir)
 
@@ -59,7 +59,7 @@ task sphinxEnv {
 
 // Create svg files for railroad diagrams from specification files. These images are included
 // in the docs
-task generateRailroadDiagrams(type: Exec) {
+tasks.register('generateRailroadDiagrams', Exec) {
     inputs.file("${sphinxRoot}/generate_railroad_svg.py")
     fileTree("${sphinxRoot}/source") {
         include("**/*.diagram")
@@ -76,7 +76,7 @@ task generateRailroadDiagrams(type: Exec) {
 // to link to. Create temporary placeholders for each one. Later, we will override the location
 // with the generated javadoc. Also, generates a table of contents so that we have all of the
 // subprojects listed
-task createSphinxApiPlaceholders {
+tasks.register('createSphinxApiPlaceholders') {
     var apiTemplatePath = "${sphinxRoot}/source/api/api.md.template"
     inputs.file(apiTemplatePath)
     var inputPath = "${sphinxRoot}/source/api/index.md.template"
@@ -110,7 +110,7 @@ task createSphinxApiPlaceholders {
 }
 
 // Build the sphinx documentation
-task sphinxDocs(type: Exec) {
+tasks.register('sphinxDocs', Exec) {
     inputs.dir(venvDir)
     inputs.dir("${sphinxRoot}/source")
     outputs.dir("${sphinxBuildDir}/html")
@@ -124,7 +124,7 @@ task sphinxDocs(type: Exec) {
 
 // Compile the final documentation site by copying the generated javadoc into the appropriate
 // location in the build
-task documentationSite(type: Copy) {
+tasks.register('documentationSite', Copy) {
     dependsOn(tasks.javadoc)
     dependsOn(tasks.sphinxDocs)
 
@@ -137,7 +137,7 @@ task documentationSite(type: Copy) {
 }
 
 // Clean the sphinx build
-task sphinxClean(type: Delete) {
+tasks.register('sphinxClean', Delete) {
     delete(sphinxBuildDir)
     delete fileTree("${sphinxRoot}/source") {
         include "**/*.diagram.svg"
@@ -148,4 +148,4 @@ task sphinxClean(type: Delete) {
         }
     }
 }
-clean.dependsOn(sphinxClean)
+clean.dependsOn('sphinxClean')

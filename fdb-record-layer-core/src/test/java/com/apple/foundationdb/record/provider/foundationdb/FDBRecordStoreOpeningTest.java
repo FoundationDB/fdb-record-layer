@@ -581,7 +581,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
 
         // Delete the record store, then insert a key at an unknown keyspace
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore.deleteStore(context, path);
+            FDBRecordStore.deleteStoreAsync(context, path).join();
             Subspace subspace = path.toSubspace(context);
             context.ensureActive().set(subspace.pack("unknown_keyspace"), Tuple.from("doesn't matter").pack());
             commit(context);
@@ -1108,7 +1108,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
             assertEquals(Map.of(index.getName(), Long.MAX_VALUE, countIndexName, Long.MAX_VALUE),
                     userVersionChecker.needRebuildIndexes);
             assertEquals(IndexState.DISABLED, recordStore.getAllIndexStates().get(index));
-            assertTrue(recordStore.isIndexDisabled(countIndexName));
+            assertTrue(recordStore.getIndexState(countIndexName).isDisabled());
             commit(context);
         }
     }

@@ -39,6 +39,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests that {@code explain} and {@code explainContains} checks fail correctly on a plan mismatch
@@ -109,31 +110,53 @@ class CheckExplainTest {
 
     /**
      * Runs a YAMSQL file that has no {@code explain:} block with {@code OPTION_ADD_EXPLAIN}, then
-     * verifies that the runner wrote an {@code explain:} line back into the file.  Any
-     * {@code explain:} line left by a previous run is stripped at the start so the test is
-     * self-resetting.  Skipped in CI because correction mode is not permitted there.
+     * verifies that the runner wrote an {@code explain:} line back into the file, together with the
+     * companion planner metrics files. None of those are checked in, so they are stripped and deleted
+     * again at the end of the test, whether it passed or not. Skipped in CI because correction mode is
+     * not permitted there.
      */
     @Test
     void addExplainInsertsExplainBlockIntoFile() throws Exception {
         Assumptions.assumeFalse(YamlExecutionContext.isInCI(), "Skipped in CI: cannot modify YAMSQL files");
 
         final String resourcePath = "check-explain/addExplain/add-explain.yamsql";
-        final Path filePath = Path.of(System.getProperty("user.dir"), "src", "test", "resources", resourcePath);
 
-        // Strip any explain: line left by a previous run so we always start without one.
-        final List<String> original = Files.readAllLines(filePath, StandardCharsets.UTF_8);
-        final List<String> stripped = original.stream()
-                .filter(line -> !line.stripLeading().startsWith("- explain:"))
-                .collect(Collectors.toList());
-        Files.write(filePath, stripped, StandardCharsets.UTF_8);
+        // The YamlRunner reads the file from the classpath, but writes the added explain back into the
+        // source tree, so both copies are cleaned up at the end of the test.
+        final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        final Path realFilePath = Path.of(System.getProperty("user.dir"), "src", "test", "resources", resourcePath);
+        final var resourcefilePath = Path.of(classLoader.resources(resourcePath).findFirst().orElseThrow().toURI());
+        final Path metricsYamlPath = realFilePath.resolveSibling("add-explain.metrics.yaml");
+        final Path metricsProtoPath = realFilePath.resolveSibling("add-explain.metrics.binpb");
 
         // Run with OPTION_ADD_EXPLAIN: the synthetic explain config is created and the
         // actual plan is written back into the file by replaceFilesIfRequired().
-        new YamlRunner(resourcePath, config.createConnectionFactory(),
-                YamlExecutionContext.ContextOptions.of(YamlExecutionContext.OPTION_ADD_EXPLAIN, true)).run();
+        try {
+            new YamlRunner(resourcePath, config.createConnectionFactory(),
+                    YamlExecutionContext.ContextOptions.of(YamlExecutionContext.OPTION_ADD_EXPLAIN, true)).run();
 
-        // Verify exactly one explain line was written into the file.
-        final List<String> updated = Files.readAllLines(filePath, StandardCharsets.UTF_8);
-        assertEquals(1, updated.stream().filter(line -> line.stripLeading().startsWith("- explain:")).count());
+            // Verify exactly one explain line was written into the file.
+            final List<String> updated = Files.readAllLines(realFilePath, StandardCharsets.UTF_8);
+            assertEquals(
+                    1,
+                    updated.stream().filter(line -> line.stripLeading().startsWith("- explain:")).count());
+
+            // Adding an explain also records the planner metrics of the query, saved next to the YAMSQL file in
+            // both the human-readable and the binary proto form.
+            assertTrue(Files.exists(metricsYamlPath), () -> "metrics file " + metricsYamlPath + " was not written");
+            assertTrue(Files.exists(metricsProtoPath), () -> "metrics file " + metricsProtoPath + " was not written");
+        } finally {
+            // Strip the added 'explain:' line and drop the generated metrics files, so that the next run starts
+            // from the checked-in state and a local run leaves the source tree clean. This has to happen even when
+            // the run above failed: an explain line left behind would make the next run take the compare path
+            // instead of the add path under test.
+            final List<String> stripped = Files.readAllLines(realFilePath, StandardCharsets.UTF_8).stream()
+                    .filter(line -> !line.stripLeading().startsWith("- explain:"))
+                    .collect(Collectors.toList());
+            Files.write(realFilePath, stripped, StandardCharsets.UTF_8);
+            Files.write(resourcefilePath, stripped, StandardCharsets.UTF_8);
+            Files.deleteIfExists(metricsYamlPath);
+            Files.deleteIfExists(metricsProtoPath);
+        }
     }
 }

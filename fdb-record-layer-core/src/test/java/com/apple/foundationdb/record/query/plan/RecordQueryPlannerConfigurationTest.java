@@ -174,4 +174,30 @@ class RecordQueryPlannerConfigurationTest {
             }
         }
     }
+
+    /**
+     * The vector index engine preference defaults to {@link VectorIndexEnginePreference#NO_PREFERENCE}, so that adding
+     * an index of one engine alongside an index of the other cannot move existing queries by itself.
+     */
+    @Test
+    void vectorIndexEnginePreferenceDefaultsToNoPreference() {
+        assertEquals(VectorIndexEnginePreference.NO_PREFERENCE,
+                RecordQueryPlannerConfiguration.defaultPlannerConfiguration().getVectorIndexEnginePreference());
+    }
+
+    @ParameterizedTest
+    @EnumSource(VectorIndexEnginePreference.class)
+    void vectorIndexEnginePreferenceCanBeSet(@Nonnull VectorIndexEnginePreference preference) {
+        final RecordQueryPlannerConfiguration built = RecordQueryPlannerConfiguration.builder()
+                .setVectorIndexEnginePreference(preference)
+                .build();
+        assertEquals(preference, built.getVectorIndexEnginePreference());
+
+        // Rebuild--value should be preserved
+        assertEquals(preference, built.asBuilder().build().getVectorIndexEnginePreference());
+
+        // Round trip through the proto representation--value should be preserved
+        assertEquals(preference,
+                RecordQueryPlannerConfiguration.fromProto(built.toProto()).getVectorIndexEnginePreference());
+    }
 }

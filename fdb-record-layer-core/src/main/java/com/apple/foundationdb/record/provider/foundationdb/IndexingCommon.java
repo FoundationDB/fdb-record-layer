@@ -21,24 +21,28 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
+import com.apple.foundationdb.tuple.Tuple;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
-import java.util.stream.Collectors;
 
 /**
  * Shared data structure to be used (only) by the Indexing* modules.
@@ -60,6 +64,7 @@ public class IndexingCommon {
 
     @Nonnull private Collection<RecordType> allRecordTypes;
     @Nonnull private final List<IndexContext> targetIndexContexts;
+    @Nonnull private List<Index> queuedIndexes = Collections.emptyList();
     /**
      * Constant indicating that there should be no limit to some usually limited operation.
      */
@@ -205,6 +210,27 @@ public class IndexingCommon {
         return allRecordTypes;
     }
 
+    @Nullable
+    public TupleRange computeRecordsRange() {
+        Tuple low = null;
+        Tuple high = null;
+        for (RecordType recordType : getAllRecordTypes()) {
+            if (!recordType.primaryKeyHasRecordTypePrefix() || recordType.isSynthetic()) {
+                // If any of the types to build for does not have a prefix, give up.
+                return null;
+            }
+            Tuple prefix = recordType.getRecordTypeKeyTuple();
+            if (low == null) {
+                low = high = prefix;
+            } else if (low.compareTo(prefix) > 0) {
+                low = prefix;
+            } else if (high.compareTo(prefix) < 0) {
+                high = prefix;
+            }
+        }
+        return low == null ? null : TupleRange.betweenInclusive(low, high);
+    }
+
     @Nonnull
     public List<IndexContext> getTargetIndexContexts() {
         return targetIndexContexts;
@@ -212,12 +238,30 @@ public class IndexingCommon {
 
     @Nonnull
     public List<Index> getTargetIndexes() {
-        return targetIndexContexts.stream().map(targetIndexContext -> targetIndexContext.index).collect(Collectors.toList());
+        return targetIndexContexts.stream().map(targetIndexContext -> targetIndexContext.index).toList();
+    }
+
+    /**
+     * Return a cached list of indexes that are in {@link IndexState#WRITE_ONLY_WITH_QUEUE} state. These
+     * indexes may require special handling (queue drain) during the indexing process.
+     * @return list of indexes
+     */
+    @Nonnull
+    public List<Index> getQueuedIndexes() {
+        return queuedIndexes;
+    }
+
+    /**
+     * Cache a list of indexes that are in {@link IndexState#WRITE_ONLY_WITH_QUEUE} state. These
+     * indexes may require special handling (queue drain) during the indexing process.
+     */
+    public void setQueuedIndexes(@Nonnull List<Index> queuedIndexes) {
+        this.queuedIndexes = queuedIndexes;
     }
 
     @Nonnull
     public List<String> getTargetIndexesNames() {
-        return getTargetIndexes().stream().map(Index::getName).collect(Collectors.toList());
+        return getTargetIndexes().stream().map(Index::getName).toList();
     }
 
     boolean isMultiTarget() {

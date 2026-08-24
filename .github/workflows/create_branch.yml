@@ -7,6 +7,8 @@ on:
         description: 'Base version to build off of (format: x.y.z)'
         required: true
 
+permissions:
+  contents: read
 
 jobs:
   # Simple workflow that creates a release branch off of a given tag.
@@ -21,14 +23,17 @@ jobs:
     steps:
       # Checkout the tag corresponding to patch 0 for the given version
       - name: Checkout sources
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ssh-key: ${{ secrets.DEPLOY_KEY }}
           fetch-tags: true
           ref: ${{ inputs.version }}.0
 
-      # Create and push the branch
       - name: Create Branch
-        run: git checkout -b ${{ inputs.version }}-release
+        env:
+          INPUTS_VERSION: ${{ inputs.version }}
+        run: git checkout -b "${INPUTS_VERSION}-release"
       - name: Push
-        run: git push -u origin ${{ inputs.version }}-release
+        env:
+          INPUTS_VERSION: ${{ inputs.version }}
+        run: git push -u origin "${INPUTS_VERSION}-release"

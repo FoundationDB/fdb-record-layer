@@ -23,9 +23,11 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexEngineKind;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanner.IndexScanPreference;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.query.plan.VectorIndexEnginePreference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinalities;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinality;
@@ -37,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartia
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
@@ -44,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveDfsJoi
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveLevelUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -51,6 +55,7 @@ import com.google.common.collect.Sets;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -178,6 +183,13 @@ public class PlanningCostModel implements CascadesCostModel {
                 flipFlop(() -> compareInOperator(a, b), () -> compareInOperator(b, a));
         if (inPlanVsOtherOptional.isPresent() && inPlanVsOtherOptional.getAsInt() != 0) {
             return inPlanVsOtherOptional.getAsInt();
+        }
+
+        // special case
+        // if a vector index engine is preferred and exactly one of the two scans an index of that engine
+        final OptionalInt vectorIndexEnginePreferenceCompare = compareVectorIndexEnginePreference(planOpsMapA, planOpsMapB);
+        if (vectorIndexEnginePreferenceCompare.isPresent()) {
+            return vectorIndexEnginePreferenceCompare.getAsInt();
         }
 
         final int typeFilterCountA = typeFilterCount().evaluate(a);
@@ -327,6 +339,83 @@ public class PlanningCostModel implements CascadesCostModel {
         }
 
         return 0;
+    }
+
+    /**
+     * Compares two group members by the vector index engine backing the vector index they scan, favoring the
+     * {@link VectorIndexEnginePreference preferred} engine. Abstains unless an engine is preferred and both members
+     * make exactly one vector index access, see {@link #singleVectorIndexEngineKindMaybe}.
+     *
+     * @param planOpsMapA the interesting operators of the first group member
+     * @param planOpsMapB the interesting operators of the second group member
+     * @return {@code -1} or {@code 1} if exactly one of the two scans an index of the preferred engine,
+     *         {@code OptionalInt.empty()} if the pair is not comparable on this criterion
+     */
+    @VisibleForTesting
+    OptionalInt compareVectorIndexEnginePreference(@Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapA,
+                                                   @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapB) {
+        final VectorIndexEngineKind preferredKind;
+        switch (configuration.getVectorIndexEnginePreference()) {
+            case PREFER_HNSW:
+                preferredKind = VectorIndexEngineKind.HNSW;
+                break;
+            case PREFER_GUARDIANN:
+                preferredKind = VectorIndexEngineKind.GUARDIANN;
+                break;
+            case NO_PREFERENCE:
+            default:
+                return OptionalInt.empty();
+        }
+
+        final var engineKindOfAMaybe = singleVectorIndexEngineKindMaybe(planOpsMapA);
+        final var engineKindOfBMaybe = singleVectorIndexEngineKindMaybe(planOpsMapB);
+
+        if (engineKindOfAMaybe.isEmpty() || engineKindOfBMaybe.isEmpty()) {
+            return OptionalInt.empty();
+        }
+
+        final VectorIndexEngineKind engineKindOfA = engineKindOfAMaybe.get();
+        final VectorIndexEngineKind engineKindOfB = engineKindOfBMaybe.get();
+        if (engineKindOfA == engineKindOfB) {
+            return OptionalInt.empty();
+        }
+        if (engineKindOfA == preferredKind) {
+            return OptionalInt.of(-1);
+        }
+        if (engineKindOfB == preferredKind) {
+            return OptionalInt.of(1);
+        }
+
+        return OptionalInt.empty();
+    }
+
+    /**
+     * The engine backing the vector index a group member scans, provided it scans exactly one. Taken from the index
+     * accesses already collected in {@code planOpsMap}.
+     *
+     * @param planOpsMap the interesting operators of a group member
+     * @return the engine backing the single vector index access, or {@code Optional.empty()} if the member makes no
+     *         vector index access, or more than one
+     */
+    @Nonnull
+    private static Optional<VectorIndexEngineKind> singleVectorIndexEngineKindMaybe(@Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMap) {
+        Optional<VectorIndexEngineKind> singleEngineKindMaybe = Optional.empty();
+        for (final var dataAccess : FindExpressionVisitor.slice(planOpsMap, RecordQueryPlanWithIndex.class)) {
+            if (!(dataAccess instanceof RecordQueryIndexPlan)) {
+                continue;
+            }
+            final var engineKindMaybe = ((RecordQueryIndexPlan)dataAccess).getMatchCandidateMaybe()
+                    .filter(VectorIndexScanMatchCandidate.class::isInstance)
+                    .map(matchCandidate -> ((VectorIndexScanMatchCandidate)matchCandidate).getIndexEngineKind());
+            if (engineKindMaybe.isEmpty()) {
+                continue;
+            }
+            if (singleEngineKindMaybe.isPresent()) {
+                return Optional.empty();
+            }
+            singleEngineKindMaybe = engineKindMaybe;
+        }
+        return singleEngineKindMaybe;
     }
 
     @Nonnull

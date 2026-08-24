@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.RecordPlannerConfigurationProto;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlanningRuleSet;
@@ -52,6 +53,9 @@ public class RecordQueryPlannerConfiguration {
     private static final BiMap<IndexFetchMethod, RecordPlannerConfigurationProto.PlannerConfiguration.IndexFetchMethod> FETCH_METHOD_BI_MAP =
             PlanSerialization.protoEnumBiMap(IndexFetchMethod.class, RecordPlannerConfigurationProto.PlannerConfiguration.IndexFetchMethod.class);
     @Nonnull
+    private static final BiMap<VectorIndexEnginePreference, RecordPlannerConfigurationProto.PlannerConfiguration.VectorIndexEnginePreference> VECTOR_INDEX_ENGINE_PREFERENCE_BI_MAP =
+            PlanSerialization.protoEnumBiMap(VectorIndexEnginePreference.class, RecordPlannerConfigurationProto.PlannerConfiguration.VectorIndexEnginePreference.class);
+    @Nonnull
     private static final RecordQueryPlannerConfiguration DEFAULT_PLANNER_CONFIGURATION = builder().build();
 
     // Masks used for encoding multiple Boolean flags into a single long
@@ -76,6 +80,8 @@ public class RecordQueryPlannerConfiguration {
     @Nonnull
     private final IndexFetchMethod indexFetchMethod;
     @Nonnull
+    private final VectorIndexEnginePreference vectorIndexEnginePreference;
+    @Nonnull
     private final Set<String> disabledTransformationRules;
     /**
      * The value index's names that {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan} with
@@ -91,6 +97,7 @@ public class RecordQueryPlannerConfiguration {
         this.proto = proto;
         this.indexScanPreference = SCAN_PREFERENCE_BI_MAP.inverse().get(proto.getIndexScanPreference());
         this.indexFetchMethod = FETCH_METHOD_BI_MAP.inverse().get(proto.getIndexFetchMethod());
+        this.vectorIndexEnginePreference = VECTOR_INDEX_ENGINE_PREFERENCE_BI_MAP.inverse().get(proto.getVectorIndexEnginePreference());
         this.disabledTransformationRules = ImmutableSet.copyOf(proto.getDisabledTransformationRulesList());
         this.valueIndexesOverScanNeeded = ImmutableSet.copyOf(proto.getValueIndexesOverScanNeededList());
         this.sortConfiguration = sortConfiguration;
@@ -321,6 +328,19 @@ public class RecordQueryPlannerConfiguration {
     @Nonnull
     public IndexFetchMethod getIndexFetchMethod() {
         return indexFetchMethod;
+    }
+
+    /**
+     * Which vector index engine the planner should favor when a query could be answered by more than one
+     * {@link com.apple.foundationdb.record.metadata.IndexTypes#VECTOR vector} index and the candidates are otherwise
+     * indistinguishable. Defaults to {@link VectorIndexEnginePreference#NO_PREFERENCE}, which leaves the choice to the
+     * cost model exactly as it was before this option existed.
+     * @return the vector index engine preference
+     * @see VectorIndexEnginePreference
+     */
+    @Nonnull
+    public VectorIndexEnginePreference getVectorIndexEnginePreference() {
+        return vectorIndexEnginePreference;
     }
 
     public boolean valueIndexOverScanNeeded(@Nonnull String indexName) {
@@ -637,9 +657,9 @@ public class RecordQueryPlannerConfiguration {
          */
         @CanIgnoreReturnValue
         @Nonnull
-        public Builder setDisabledTransformationRules(@Nonnull final Set<Class<? extends CascadesRule<?>>> disabledTransformationRules) {
+        public Builder setDisabledTransformationRules(@Nonnull final Set<Class<? extends AbstractCascadesRule<?>>> disabledTransformationRules) {
             protoBuilder.clearDisabledTransformationRules();
-            for (Class<? extends CascadesRule<?>> rule : disabledTransformationRules) {
+            for (Class<? extends AbstractCascadesRule<?>> rule : disabledTransformationRules) {
                 protoBuilder.addDisabledTransformationRules(rule.getSimpleName());
             }
             return this;
@@ -679,7 +699,7 @@ public class RecordQueryPlannerConfiguration {
         @Nonnull
         public Builder disableRewritingRules() {
             for (CascadesRule<?> rule : RewritingRuleSet.OPTIONAL_RULES) {
-                disableTransformationRule((Class<? extends CascadesRule<?>>) rule.getClass());
+                disableTransformationRule((Class<? extends AbstractCascadesRule<?>>) rule.getClass());
             }
             return this;
         }
@@ -691,7 +711,7 @@ public class RecordQueryPlannerConfiguration {
          */
         @CanIgnoreReturnValue
         @Nonnull
-        public Builder disableTransformationRule(@Nonnull Class<? extends CascadesRule<?>> ruleClass) {
+        public Builder disableTransformationRule(@Nonnull Class<? extends AbstractCascadesRule<?>> ruleClass) {
             protoBuilder.addDisabledTransformationRules(ruleClass.getSimpleName());
             return this;
         }
@@ -729,6 +749,23 @@ public class RecordQueryPlannerConfiguration {
         @Nonnull
         public Builder setIndexFetchMethod(@Nonnull final IndexFetchMethod indexFetchMethod) {
             protoBuilder.setIndexFetchMethod(FETCH_METHOD_BI_MAP.get(indexFetchMethod));
+            return this;
+        }
+
+        /**
+         * Set which vector index engine the planner should favor when a query could be answered by more than one
+         * vector index and the candidates are otherwise indistinguishable. See
+         * {@link #getVectorIndexEnginePreference()} for more details.
+         * @param vectorIndexEnginePreference the engine to favor, or
+         *        {@link VectorIndexEnginePreference#NO_PREFERENCE} to leave the choice to the cost model
+         * @return this builder
+         * @see #getVectorIndexEnginePreference()
+         */
+        @API(API.Status.EXPERIMENTAL)
+        @CanIgnoreReturnValue
+        @Nonnull
+        public Builder setVectorIndexEnginePreference(@Nonnull final VectorIndexEnginePreference vectorIndexEnginePreference) {
+            protoBuilder.setVectorIndexEnginePreference(VECTOR_INDEX_ENGINE_PREFERENCE_BI_MAP.get(vectorIndexEnginePreference));
             return this;
         }
 

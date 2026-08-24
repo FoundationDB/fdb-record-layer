@@ -27,6 +27,8 @@ import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.common.StorageHelpers;
+import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
@@ -150,7 +152,8 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
         }
 
         final AbstractNode<NodeReferenceWithVector> node =
-                getNodeFactory().create(primaryKey, null, nodeReferencesWithVectorBuilder.build());
+                getNodeFactory().create(primaryKey, null, null,
+                        nodeReferencesWithVectorBuilder.build());
         onReadListener.onNodeRead(layer, node);
         return node;
     }
@@ -205,7 +208,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
         //
         final Transformed<RealVector> neighborVector =
                 storageTransform.transform(
-                        StorageAdapter.vectorFromTuple(getConfig(), valueTuple)); // the entire value is the vector
+                        StorageHelpers.vectorFromTuple(getConfig(), valueTuple)); // the entire value is the vector
         return new NodeReferenceWithVector(neighborPrimaryKey, neighborVector);
     }
 
@@ -229,6 +232,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
     public void writeNodeInternal(@Nonnull final Transaction transaction, @Nonnull final Quantizer quantizer,
                                   final int layer, @Nonnull final AbstractNode<NodeReferenceWithVector> node,
                                   @Nonnull final NeighborsChangeSet<NodeReferenceWithVector> neighborsChangeSet) {
+        Verify.verify(node.isInliningNode());
         final InliningNode inliningNode = node.asInliningNode();
 
         neighborsChangeSet.writeDelta(this, transaction, quantizer, layer, inliningNode, t -> true);
@@ -282,7 +286,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
         final byte[] neighborKey = getNeighborKey(layer, node, neighbor.getPrimaryKey());
         // getting underlying vector is okay as it is only written to the database
         final byte[] value =
-                StorageAdapter.tupleFromVector(
+                StorageHelpers.tupleFromVector(
                         quantizer.encode(neighbor.getVector())).pack();
         transaction.set(neighborKey, value);
         getOnWriteListener().onNeighborWritten(layer, node, neighbor);
@@ -376,7 +380,8 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
             final Tuple nodePrimaryKeyFromNeighbor = neighborKeyTuple.getNestedTuple(1);
             if (nodePrimaryKey == null || !nodePrimaryKey.equals(nodePrimaryKeyFromNeighbor)) {
                 if (nodePrimaryKey != null) {
-                    nodeBuilder.add(getNodeFactory().create(nodePrimaryKey, null, neighborsBuilder.build()));
+                    nodeBuilder.add(getNodeFactory().create(nodePrimaryKey, null, null,
+                            neighborsBuilder.build()));
                 }
                 nodePrimaryKey = nodePrimaryKeyFromNeighbor;
                 neighborsBuilder = ImmutableList.builder();
@@ -392,7 +397,8 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
         // a node can have.
         //
         if (numRead < maxNumRead && nodePrimaryKey != null) {
-            nodeBuilder.add(getNodeFactory().create(nodePrimaryKey, null, neighborsBuilder.build()));
+            nodeBuilder.add(getNodeFactory().create(nodePrimaryKey, null, null,
+                    neighborsBuilder.build()));
         }
 
         return nodeBuilder.build();

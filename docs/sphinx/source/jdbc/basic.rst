@@ -1,13 +1,13 @@
-===========
-JDBC Guide
-===========
+==========
+JDBC guide
+==========
 
 .. important::
    The JDBC interface is experimental and not production-ready at this stage. APIs and behaviors are subject to change.
 
 This guide covers using JDBC to interact with the FoundationDB Record Layer's SQL interface.
 
-Driver Setup
+Driver setup
 ============
 
 The Record Layer provides two JDBC drivers depending on your deployment architecture:
@@ -51,7 +51,7 @@ The Record Layer provides two JDBC drivers depending on your deployment architec
 
       Replace ``VERSION_NUMBER`` with the appropriate version for your project.
 
-Connection Strings
+Connection strings
 ==================
 
 The connection string format differs between the embedded and server drivers:
@@ -120,12 +120,12 @@ The connection string format differs between the embedded and server drivers:
       - **Database path**: The path to the database (e.g., ``/__SYS``, ``/FRL/YCSB``)
       - **schema**: (Required) The schema to use for the connection
 
-Basic Usage
+Basic usage
 ===========
 
 Once you have a connection, all JDBC operations work the same way regardless of which driver you're using.
 
-Creating a Connection
+Creating a connection
 ---------------------
 
 .. tab-set::
@@ -172,7 +172,7 @@ Creating a Connection
              }
          }
 
-Executing Queries
+Executing queries
 -----------------
 
 Use ``Statement`` for simple queries:
@@ -183,7 +183,7 @@ Use ``Statement`` for simple queries:
    :end-before: // end::simple-query[]
    :dedent: 8
 
-Executing Updates
+Executing updates
 -----------------
 
 .. literalinclude:: ../../../../examples/src/main/java/com/apple/foundationdb/relational/jdbc/examples/BasicSnippets.java
@@ -192,7 +192,7 @@ Executing Updates
    :end-before: // end::simple-update[]
    :dedent: 8
 
-Prepared Statements
+Prepared statements
 ===================
 
 Prepared statements provide better security by using parameter binding to prevent SQL injection:
@@ -203,8 +203,8 @@ Prepared statements provide better security by using parameter binding to preven
    :end-before: // end::prepared-insert[]
    :dedent: 8
 
-Querying with Prepared Statements
-----------------------------------
+Querying with prepared statements
+---------------------------------
 
 .. literalinclude:: ../../../../examples/src/main/java/com/apple/foundationdb/relational/jdbc/examples/BasicSnippets.java
    :language: java
@@ -212,10 +212,10 @@ Querying with Prepared Statements
    :end-before: // end::prepared-query[]
    :dedent: 8
 
-Transaction Management
+Transaction management
 ======================
 
-Auto-Commit Mode
+Auto-commit mode
 ----------------
 
 By default, JDBC connections operate in auto-commit mode where each statement is automatically committed. You can check and modify this behavior:
@@ -226,8 +226,8 @@ By default, JDBC connections operate in auto-commit mode where each statement is
    :end-before: // end::autocommit[]
    :dedent: 8
 
-Manual Transaction Control
----------------------------
+Manual transaction control
+--------------------------
 
 For operations that need to execute as a unit, disable auto-commit and manually control transactions:
 
@@ -237,10 +237,10 @@ For operations that need to execute as a unit, disable auto-commit and manually 
    :end-before: // end::transaction[]
    :dedent: 8
 
-Working with ResultSets
-=======================
+Working with ``ResultSet``\ s
+=============================
 
-Retrieving Data
+Retrieving data
 ---------------
 
 .. literalinclude:: ../../../../examples/src/main/java/com/apple/foundationdb/relational/jdbc/examples/BasicSnippets.java
@@ -249,7 +249,7 @@ Retrieving Data
    :end-before: // end::resultset-basic[]
    :dedent: 8
 
-Handling Null Values
+Handling null values
 --------------------
 
 .. literalinclude:: ../../../../examples/src/main/java/com/apple/foundationdb/relational/jdbc/examples/BasicSnippets.java
@@ -258,8 +258,8 @@ Handling Null Values
    :end-before: // end::null-handling[]
    :dedent: 8
 
-ResultSet Metadata
-------------------
+``ResultSet`` metadata
+----------------------
 
 .. literalinclude:: ../../../../examples/src/main/java/com/apple/foundationdb/relational/jdbc/examples/BasicSnippets.java
    :language: java
@@ -267,7 +267,7 @@ ResultSet Metadata
    :end-before: // end::metadata[]
    :dedent: 8
 
-Error Handling
+Error handling
 ==============
 
 Proper error handling is essential for robust JDBC applications:
@@ -278,7 +278,7 @@ Proper error handling is essential for robust JDBC applications:
    :end-before: // end::error-handling[]
    :dedent: 8
 
-Database Metadata
+Database metadata
 =================
 
 Retrieve information about the database structure:
@@ -289,7 +289,7 @@ Retrieve information about the database structure:
    :end-before: // end::database-metadata[]
    :dedent: 8
 
-Complete Example
+Complete example
 ================
 
 Here's a complete example demonstrating common JDBC operations:
@@ -300,7 +300,7 @@ Here's a complete example demonstrating common JDBC operations:
    :end-before: // end::complete[]
    :dedent: 0
 
-See Also
+See also
 ========
 
 - :doc:`advanced` - Working with STRUCTs and ARRAYs

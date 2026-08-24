@@ -309,6 +309,8 @@ public enum LogMessageKeys {
     REBUILD_RECORD_COUNTS,
     SCANNED_SO_FAR,
     MAX_LIMIT,
+    MAX_QUEUE_SIZE,
+    INCARNATION,
     NEXT_CONTINUATION,
     SUCCESSFUL_TRANSACTIONS_COUNT,
     FAILED_TRANSACTIONS_COUNT,
@@ -348,6 +350,12 @@ public enum LogMessageKeys {
     // Store Lock State
     STORE_LOCK_STATE_REASON,
     STORE_LOCK_STATE_TIMESTAMP_MILLIS,
+    // function call-site options
+    OPTION_NAME,
+    OPTION_VALUE,
+
+    // Vector Index Maintainer
+    DEFERRED_TASK_COUNT
     ;
 
     private final String logKey;

@@ -58,9 +58,9 @@ class RelationalResultSetMetaDataFacade implements RelationalResultSetMetaData  
 
     @Override
     public StructMetaData getStructMetaData(int oneBasedColumn) {
-        return RelationalStructMetaData.of(TypeConversion.getStructDataType(
-                this.delegate.getColumnMetadata().getColumnMetadata(
-                        PositionalIndex.toProtobuf(oneBasedColumn)).getStructMetadata().getColumnMetadataList(), false));
+        final var structMetadata = this.delegate.getColumnMetadata().getColumnMetadata(
+                PositionalIndex.toProtobuf(oneBasedColumn)).getStructMetadata();
+        return RelationalStructMetaData.of(TypeConversion.getStructDataType(structMetadata, false));
     }
 
     @Override

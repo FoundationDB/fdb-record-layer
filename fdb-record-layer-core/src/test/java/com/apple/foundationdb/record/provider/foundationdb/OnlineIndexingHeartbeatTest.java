@@ -115,6 +115,56 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
         }
     }
 
+    @Test
+    void testRebuildNeverWritesHeartbeatToDb() {
+        // The rebuild path builds the whole index inline, on the caller's single (uncommitted) transaction.
+        // A heartbeat can only become durable via a commit, and the rebuild path issues none of its own (it also
+        // clears the heartbeat key in that same transaction). Hence, no heartbeat is ever written to the database,
+        final Index index = new Index("rebuildHeartbeatIndex", field("num_value_2"));
+        final List<Index> indexes = List.of(index);
+        populateData(50);
+        openSimpleMetaData(allIndexesHook(indexes));
+        disableAll(indexes);
+
+        // Metrics (records scanned) flow to the indexer's runner timer; commits flow to the context timer.
+        final FDBStoreTimer indexerTimer = new FDBStoreTimer();
+        final FDBStoreTimer contextTimer = new FDBStoreTimer();
+
+        try (OnlineIndexer indexer = newIndexerBuilder(index, indexerTimer).build()) {
+            try (FDBRecordContext context = fdb.openContext(null, contextTimer)) {
+                final FDBRecordStore store = FDBRecordStore.newBuilder()
+                        .setMetaDataProvider(metaData)
+                        .setFormatVersion(formatVersion)
+                        .setKeySpacePath(path)
+                        .setIndexMaintenanceFilter(getIndexMaintenanceFilter())
+                        .setContext(context)
+                        .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
+
+                indexer.rebuildIndexAsync(store).join();
+
+                // Assert no commits
+                Assertions.assertEquals(0, contextTimer.getCount(FDBStoreTimer.Events.COMMIT));
+                Assertions.assertEquals(0, indexerTimer.getCount(FDBStoreTimer.Events.COMMIT));
+
+                assertThat(indexerTimer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED))
+                        .isGreaterThan(0);
+
+                assertThat(IndexingHeartbeat.getIndexingHeartbeats(store, index, 0).join()).isEmpty();
+
+                context.commit();
+            }
+
+            // Our explicit commit is the one and only commit on that context.
+            Assertions.assertEquals(1, contextTimer.getCount(FDBStoreTimer.Events.COMMIT));
+        }
+
+        // Assert no left behind heartbeats
+        try (FDBRecordContext context = openContext()) {
+            assertThat(IndexingHeartbeat.getIndexingHeartbeats(recordStore, index, 0).join()).isEmpty();
+            context.commit();
+        }
+    }
+
     @ParameterizedTest
     @BooleanSource
     void testIndexersHeartbeatsClearAfterBuild(boolean mutualIndexing) {

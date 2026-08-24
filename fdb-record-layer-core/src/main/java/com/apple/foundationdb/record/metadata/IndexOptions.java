@@ -107,6 +107,15 @@ public class IndexOptions {
      * each store that meets the necessary criteria.
      * </p>
      *
+     * <p>
+     * The replacement must be {@link com.apple.foundationdb.record.IndexState#READABLE}, if the replacement is
+     * {@link com.apple.foundationdb.record.IndexState#READABLE_UNIQUE_PENDING}, the original will remain readable.
+     * </p>
+     * <p>
+     * Building indexes that have replacements will only be attempted if explicitly requested, even if the
+     * replacements are not readable and not being built at the same time.
+     * </p>
+     *
      * @see Index#getReplacedByIndexNames()
      */
     public static final String REPLACED_BY_OPTION_PREFIX = "replacedBy";
@@ -225,15 +234,77 @@ public class IndexOptions {
     public static final String RTREE_USE_NODE_SLOT_INDEX = "rtreeUseNodeSlotIndex";
 
     /**
+     * Selects which vector-structure engine backs a {@link IndexTypes#VECTOR} index. Valid values are {@code "HNSW"}
+     * and {@code "GUARDIANN"} (case-insensitive). When the option is absent the engine defaults to {@code HNSW}, so
+     * existing indexes created before this option existed keep using HNSW without any metadata migration.
+     */
+    public static final String VECTOR_ENGINE = "vectorEngine";
+
+    //
+    // Engine-neutral vector options. These cover the handful of concepts both the HNSW and the Guardiann engines share.
+    // Prefer these over the {@code hnsw*} keys of the same meaning: for backward compatibility the HNSW engine still
+    // reads the legacy {@code hnsw*} keys when the neutral key is absent, but new indexes (of either engine) should be
+    // created with the neutral keys. Options that are specific to one engine keep their engine-specific prefix
+    // ({@code hnsw*} / {@code guardiann*}).
+    //
+
+    /**
+     * The metric used to determine distances between vectors. Engine-neutral replacement for {@link #HNSW_METRIC}.
+     */
+    public static final String VECTOR_METRIC = "vectorMetric";
+
+    /**
+     * The number of dimensions used. All vectors must have exactly this number of dimensions. Engine-neutral
+     * replacement for {@link #HNSW_NUM_DIMENSIONS}. This option must be set when interacting with a vector index as
+     * there is no default.
+     */
+    public static final String VECTOR_NUM_DIMENSIONS = "vectorNumDimensions";
+
+    /**
+     * Probability of a written vector also being sampled for statistics computation. Engine-neutral replacement for
+     * {@link #HNSW_SAMPLE_VECTOR_STATS_PROBABILITY}.
+     */
+    public static final String VECTOR_SAMPLE_VECTOR_STATS_PROBABILITY = "vectorSampleVectorStatsProbability";
+
+    /**
+     * Probability of the sampled vectors being aggregated (rolled-up) on a write. Engine-neutral replacement for
+     * {@link #HNSW_MAINTAIN_STATS_PROBABILITY}.
+     */
+    public static final String VECTOR_MAINTAIN_STATS_PROBABILITY = "vectorMaintainStatsProbability";
+
+    /**
+     * Number of sampled vectors that triggers a statistics (centroid) computation. Engine-neutral replacement for
+     * {@link #HNSW_STATS_THRESHOLD}.
+     */
+    public static final String VECTOR_STATS_THRESHOLD = "vectorStatsThreshold";
+
+    /**
+     * Indicator whether RaBitQ quantization is used. Engine-neutral replacement for {@link #HNSW_USE_RABITQ}.
+     */
+    public static final String VECTOR_USE_RABITQ = "vectorUseRaBitQ";
+
+    /**
+     * Number of extra bits per dimension for RaBitQ encoding (only relevant iff {@link #VECTOR_USE_RABITQ} is set).
+     * Engine-neutral replacement for {@link #HNSW_RABITQ_NUM_EX_BITS}.
+     */
+    public static final String VECTOR_RABITQ_NUM_EX_BITS = "vectorRaBitQNumExBits";
+
+    //
+    // HNSW-only options. Each mirrors a field of the HNSW config; see
+    // {@link com.apple.foundationdb.async.hnsw.Config} for the semantics and default of each. Unset options fall
+    // back to the HNSW config defaults.
+    //
+
+    /**
      * HNSW-only: The metric that is used to determine distances between vectors. The default metric is
-     * {@link Config#DEFAULT_METRIC}. See {@link Config#getMetric()}.
+     * {@link Config#DEFAULT_METRIC}. See {@link Config#metric()}.
      */
     public static final String HNSW_METRIC = "hnswMetric";
 
     /**
      * HNSW-only: The number of dimensions used. All vectors must have exactly this number of dimensions. This option
      * must be set when interacting with a vector index as it there is no default.
-     * @see Config#getNumDimensions()
+     * @see Config#numDimensions()
      */
     public static final String HNSW_NUM_DIMENSIONS = "hnswNumDimensions";
 
@@ -243,7 +314,7 @@ public class IndexOptions {
      * inlining is not used, each node is persisted as exactly one key/value pair per node which stores its own vector
      * but specifically excludes the vectors of the neighbors. The default value is set to
      * {@link Config#DEFAULT_USE_INLINING}.
-     * @see Config#isUseInlining()
+     * @see Config#useInlining()
      */
     public static final String HNSW_USE_INLINING = "hnswUseInlining";
 
@@ -252,7 +323,7 @@ public class IndexOptions {
      * any layer. While by no means enforced or even enforceable, we strive to create and maintain exactly {@code m}
      * neighbors for a node. Due to insert/delete operations it is possible that the actual number of neighbors a node
      * references is not exactly {@code m} at any given time. The default value is set to {@link Config#DEFAULT_M}.
-     * @see Config#getM()
+     * @see Config#m()
      */
     public static final String HNSW_M = "hnswM";
 
@@ -262,7 +333,7 @@ public class IndexOptions {
      * neighbors of a node are pruned if the actual number of neighbors would otherwise exceed {@code mMax}. Note that
      * this option must be greater than or equal to {@link #HNSW_M}. The default value is set to
      * {@link Config#DEFAULT_M_MAX}.
-     * @see Config#getMMax()
+     * @see Config#mMax()
      */
     public static final String HNSW_M_MAX = "hnswMMax";
 
@@ -272,7 +343,7 @@ public class IndexOptions {
      * that layer. That means that we even prune the neighbors of a node if the actual number of neighbors would
      * otherwise exceed {@code mMax0}. Note that this option must be greater than or equal to {@link #HNSW_M_MAX}.
      * The default value is set to {@link Config#DEFAULT_M_MAX_0}.
-     * @see Config#getMMax0()
+     * @see Config#mMax0()
      */
     public static final String HNSW_M_MAX_0 = "hnswMMax0";
 
@@ -281,7 +352,7 @@ public class IndexOptions {
      * of a new node. If {@code HNSW_EF_CONSTRUCTION} is set to {@code 1}, the search naturally follows a greedy
      * approach (monotonous descent), whereas a high number for {@code HNSW_EF_CONSTRUCTION} allows for a more nuanced
      * search that can tolerate (false) local minima. The default value is set to {@link Config#DEFAULT_EF_CONSTRUCTION}.
-     * @see Config#getEfConstruction()
+     * @see Config#efConstruction()
      */
     public static final String HNSW_EF_CONSTRUCTION = "hnswEfConstruction";
 
@@ -291,7 +362,7 @@ public class IndexOptions {
      * which improves repair performance but decreases repair quality; a higher number results in qualitatively
      * better repairs at the expense of slower performance.
      * The default value is set to {@link Config#DEFAULT_EF_REPAIR}.
-     * @see Config#getEfRepair()
+     * @see Config#efRepair()
      */
     public static final String HNSW_EF_REPAIR = "hnswEfRepair";
 
@@ -299,16 +370,16 @@ public class IndexOptions {
      * HNSW-only: Indicator to signal if, during the insertion of a node, the set of nearest neighbors of that node is
      * to be extended by the actual neighbors of those neighbors to form a set of candidates that the new node may be
      * connected to during the insert operation. The default value is set to {@link Config#DEFAULT_EXTEND_CANDIDATES}.
-     * @see Config#isExtendCandidates()
+     * @see Config#extendCandidates()
      */
     public static final String HNSW_EXTEND_CANDIDATES = "hnswExtendCandidates";
 
     /**
      * HNSW-only: Indicator to signal if, during the insertion of a node, candidates that have been discarded due to not
      * satisfying the select-neighbor heuristic may get added back in to pad the set of neighbors if the new node would
-     * otherwise have too few neighbors (see {@link Config#getM()}). The default value is set to
+     * otherwise have too few neighbors (see {@link Config#m()}). The default value is set to
      * {@link Config#DEFAULT_KEEP_PRUNED_CONNECTIONS}.
-     * @see Config#isKeepPrunedConnections()
+     * @see Config#keepPrunedConnections()
      */
     public static final String HNSW_KEEP_PRUNED_CONNECTIONS = "hnswKeepPrunedConnections";
 
@@ -317,7 +388,7 @@ public class IndexOptions {
      * represents the probability of a vector being inserted to also be written into the samples subspace of the hnsw
      * structure. The vectors in that subspace are continuously aggregated until a total {@link #HNSW_STATS_THRESHOLD}
      * has been reached. The default value is set to {@link Config#DEFAULT_SAMPLE_VECTOR_STATS_PROBABILITY}. See
-     * @see Config#getSampleVectorStatsProbability()
+     * @see Config#sampleVectorStatsProbability()
      */
     public static final String HNSW_SAMPLE_VECTOR_STATS_PROBABILITY = "hnswSampleVectorStatsProbability";
 
@@ -327,7 +398,7 @@ public class IndexOptions {
      * inserted. The vectors in that subspace are continuously aggregated until a total
      * {@link #HNSW_STATS_THRESHOLD} has been reached. The default value is set to
      * {@link Config#DEFAULT_MAINTAIN_STATS_PROBABILITY}.
-     * @see Config#getMaintainStatsProbability()
+     * @see Config#maintainStatsProbability()
      */
     public static final String HNSW_MAINTAIN_STATS_PROBABILITY = "hnswMaintainStatsProbability";
 
@@ -337,14 +408,14 @@ public class IndexOptions {
      * compute the actual statistics (currently the centroid of the vectors that have been inserted to far). The result
      * is then inserted into the access info subspace of the index. The default value is set to
      * {@link Config#DEFAULT_STATS_THRESHOLD}.
-     * @see Config#getStatsThreshold()
+     * @see Config#statsThreshold()
      */
     public static final String HNSW_STATS_THRESHOLD = "hnswStatsThreshold";
 
     /**
      * HNSW-only: Indicator if we should RaBitQ quantization. See {@link com.apple.foundationdb.rabitq.RaBitQuantizer}
      * for more details. The default value is set to {@link Config#DEFAULT_USE_RABITQ}.
-     * @see Config#isUseRaBitQ()
+     * @see Config#useRaBitQ()
      */
     public static final String HNSW_USE_RABITQ = "hnswUseRaBitQ";
 
@@ -353,30 +424,131 @@ public class IndexOptions {
      * otherwise. If RaBitQ encoding is used, a vector is stored using roughly
      * {@code 25 + numDimensions * (numExBits + 1) / 8} bytes. The default value is set to
      * {@link Config#DEFAULT_RABITQ_NUM_EX_BITS}.
-     * @see Config#getRaBitQNumExBits()
+     * @see Config#raBitQNumExBits()
      */
     public static final String HNSW_RABITQ_NUM_EX_BITS = "hnswRaBitQNumExBits";
 
     /**
      * HNSW-only: Maximum number of concurrent node fetches during search and modification operations. The default value
      * is set to {@link Config#DEFAULT_MAX_NUM_CONCURRENT_NODE_FETCHES}.
-     * @see Config#getMaxNumConcurrentNodeFetches()
+     * @see Config#maxNumConcurrentNodeFetches()
      */
     public static final String HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES = "hnswMaxNumConcurrentNodeFetches";
 
     /**
      * HNSW-only: Maximum number of concurrent neighborhood fetches during modification operations when the neighbors
      * are pruned. The default value is set to {@link Config#DEFAULT_MAX_NUM_CONCURRENT_NEIGHBOR_FETCHES}.
-     * @see Config#getMaxNumConcurrentNeighborhoodFetches()
+     * @see Config#maxNumConcurrentNeighborhoodFetches()
      */
     public static final String HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES = "hnswMaxNumConcurrentNeighborhoodFetches";
 
     /**
      * HNSW-only: Maximum number of delete operations that can run concurrently in separate layers during the deletion
      * of a record. The default value is set to {@link Config#DEFAULT_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER}.
-     * @see Config#getMaxNumConcurrentDeleteFromLayer()
+     * @see Config#maxNumConcurrentDeleteFromLayer()
      */
     public static final String HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER = "hnswMaxNumConcurrentDeleteFromLayer";
+
+    //
+    // Guardiann-only options. Each mirrors a field of the Guardiann config; see
+    // {@link com.apple.foundationdb.async.guardiann.Config} for the semantics and default of each. Unset options fall
+    // back to the Guardiann config defaults. The nested construction-time search config is deliberately not exposed.
+    //
+
+    /** Guardiann-only: minimum number of primary vectors in a cluster before a merge is triggered. */
+    public static final String GUARDIANN_PRIMARY_CLUSTER_MIN = "guardiannPrimaryClusterMin";
+
+    /** Guardiann-only: maximum number of primary vectors in a cluster before a split is triggered. */
+    public static final String GUARDIANN_PRIMARY_CLUSTER_MAX = "guardiannPrimaryClusterMax";
+
+    /**
+     * Guardiann-only: hard cap on primary vectors in a cluster, above {@code guardiannPrimaryClusterMax}. When deferred
+     * maintenance tasks are not run in the writing transaction, an insert that would take a cluster above this cap is
+     * rejected with a back-pressure exception, so writers slow down while the background merge drains the split backlog.
+     */
+    public static final String GUARDIANN_PRIMARY_CLUSTER_HARD_MAX = "guardiannPrimaryClusterHardMax";
+
+    /** Guardiann-only: maximum number of under-replicated primary vectors before a reassign is triggered. */
+    public static final String GUARDIANN_UNDERREPLICATED_PRIMARY_CLUSTER_MAX = "guardiannUnderreplicatedPrimaryClusterMax";
+
+    /** Guardiann-only: maximum number of writes of replicated vectors to a cluster. */
+    public static final String GUARDIANN_REPLICATED_CLUSTER_MAX_WRITES = "guardiannReplicatedClusterMaxWrites";
+
+    /** Guardiann-only: number of replicated clusters targeted whenever a split/merge or reassign task runs. */
+    public static final String GUARDIANN_REPLICATED_CLUSTER_TARGET = "guardiannReplicatedClusterTarget";
+
+    /** Guardiann-only: minimum threshold for the replication priority score. */
+    public static final String GUARDIANN_REPLICATION_PRIORITY_MIN = "guardiannReplicationPriorityMin";
+
+    /** Guardiann-only: weight of the border-proximity distance-ratio term in the replication priority score. */
+    public static final String GUARDIANN_REPLICATION_DISTANCE_RATIO_WEIGHT = "guardiannReplicationDistanceRatioWeight";
+
+    /** Guardiann-only: weight of the distance z-score term in the replication priority score. */
+    public static final String GUARDIANN_REPLICATION_Z_SCORE_WEIGHT = "guardiannReplicationZScoreWeight";
+
+    /** Guardiann-only: minimum number of primary vectors before a cluster's distance statistics are trusted. */
+    public static final String GUARDIANN_REPLICATION_STATS_MIN_SAMPLE_SIZE = "guardiannReplicationStatsMinSampleSize";
+
+    /** Guardiann-only: whether randomness should always be deterministic (for debugging/replay). */
+    public static final String GUARDIANN_DETERMINISTIC_RANDOMNESS = "guardiannDeterministicRandomness";
+
+    /** Guardiann-only: number of sampled vectors consumed per statistics-computation pass. */
+    public static final String GUARDIANN_SAMPLE_BATCH_SIZE = "guardiannSampleBatchSize";
+
+    /** Guardiann-only: maximum clusters evaluated as insertion targets. */
+    public static final String GUARDIANN_INSERT_MAX_CANDIDATE_CLUSTERS = "guardiannInsertMaxCandidateClusters";
+
+    /** Guardiann-only: maximum clusters probed when locating a vector's references during delete. */
+    public static final String GUARDIANN_DELETE_MAX_CANDIDATE_CLUSTERS = "guardiannDeleteMaxCandidateClusters";
+
+    /** Guardiann-only: concurrency for parallel operations during delete. */
+    public static final String GUARDIANN_DELETE_CONCURRENCY = "guardiannDeleteConcurrency";
+
+    /** Guardiann-only: number of nearest clusters fetched for split candidate evaluation. */
+    public static final String GUARDIANN_SPLIT_NUM_NEAREST_CLUSTERS = "guardiannSplitNumNearestClusters";
+
+    /** Guardiann-only: number of nearest clusters fetched for merge candidate evaluation. */
+    public static final String GUARDIANN_MERGE_NUM_NEAREST_CLUSTERS = "guardiannMergeNumNearestClusters";
+
+    /** Guardiann-only: maximum Lloyd's iterations per k-means restart during split/merge. */
+    public static final String GUARDIANN_K_MEANS_MAX_ITERATIONS = "guardiannKMeansMaxIterations";
+
+    /** Guardiann-only: maximum number of random restarts for bounded k-means during split/merge. */
+    public static final String GUARDIANN_K_MEANS_MAX_RESTARTS = "guardiannKMeansMaxRestarts";
+
+    /** Guardiann-only: outer clusters considered as replication/migration targets during reassign. */
+    public static final String GUARDIANN_REASSIGN_NUM_NEIGHBORING_CLUSTERS = "guardiannReassignNumNeighboringClusters";
+
+    /** Guardiann-only: minimum identical vectors sharing a signature before collapse. */
+    public static final String GUARDIANN_COLLAPSE_MIN_DUPLICATES = "guardiannCollapseMinDuplicates";
+
+    /** Guardiann-only: concurrency for parallel operations during split/merge tasks. */
+    public static final String GUARDIANN_SPLIT_MERGE_CONCURRENCY = "guardiannSplitMergeConcurrency";
+
+    /** Guardiann-only: concurrency for parallel operations during reassign tasks. */
+    public static final String GUARDIANN_REASSIGN_CONCURRENCY = "guardiannReassignConcurrency";
+
+    /** Guardiann-only: concurrency for parallel operations during collapse tasks. */
+    public static final String GUARDIANN_COLLAPSE_CONCURRENCY = "guardiannCollapseConcurrency";
+
+    /** Guardiann-only: concurrency for parallel operations during bounce tasks. */
+    public static final String GUARDIANN_BOUNCE_CONCURRENCY = "guardiannBounceConcurrency";
+
+    /**
+     * Guardiann-only: the ring-search exploration factor for the centroid HNSW walk taken on the
+     * insert/delete/maintenance (construction) paths. This is the construction-time counterpart of the per-query
+     * {@code guardiannCentroidEfRingSearch} scan option, and is immutable once the index exists.
+     */
+    public static final String GUARDIANN_CONSTRUCTION_CENTROID_EF_RING_SEARCH =
+            "guardiannConstructionCentroidEfRingSearch";
+
+    /**
+     * Guardiann-only: the outward-search exploration factor for the centroid HNSW walk taken on the
+     * insert/delete/maintenance (construction) paths. This is the construction-time counterpart of the per-query
+     * {@code guardiannCentroidEfOutwardSearch} scan option, and is immutable once the index exists.
+     */
+    public static final String GUARDIANN_CONSTRUCTION_CENTROID_EF_OUTWARD_SEARCH =
+            "guardiannConstructionCentroidEfOutwardSearch";
 
     private IndexOptions() {
     }

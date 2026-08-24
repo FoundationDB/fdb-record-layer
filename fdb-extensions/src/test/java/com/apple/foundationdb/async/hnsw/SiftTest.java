@@ -22,8 +22,11 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.async.AsyncIterator;
-import com.apple.foundationdb.async.hnsw.TestHelpers.PrimaryKeyAndVector;
-import com.apple.foundationdb.async.hnsw.TestHelpers.PrimaryKeyVectorAndDistance;
+import com.apple.foundationdb.async.common.BaseTest;
+import com.apple.foundationdb.async.common.CommonTestHelpers;
+import com.apple.foundationdb.async.common.PrimaryKeyAndVector;
+import com.apple.foundationdb.async.common.PrimaryKeyVectorAndDistance;
+import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.async.hnsw.TestHelpers.TestOnReadListener;
 import com.apple.foundationdb.async.hnsw.TestHelpers.TestOnWriteListener;
 import com.apple.foundationdb.linear.DoubleRealVector;
@@ -159,7 +162,7 @@ class SiftTest implements BaseTest {
         final var queryVector = readQuery(queryIndex);
 
         final NavigableSet<PrimaryKeyVectorAndDistance> orderedByDistances =
-                TestHelpers.orderedByDistances(Metric.EUCLIDEAN_METRIC, insertedData, queryVector);
+                CommonTestHelpers.orderedByDistances(Metric.EUCLIDEAN_METRIC, insertedData, queryVector);
 
         // pick a random marker and a non-zero length
         final int minIndex = random.nextInt(insertedData.size());
@@ -181,12 +184,12 @@ class SiftTest implements BaseTest {
 
         if (logger.isInfoEnabled()) {
             logger.info("min index={}; min distance={}; primaryKey={}",
-                    minIndex, minVectorAndDistance.getDistance(), minVectorAndDistance.getPrimaryKey());
+                    minIndex, minVectorAndDistance.distance(), minVectorAndDistance.primaryKey());
             if (afterMaxVectorAndDistance == null) {
                 logger.info("after max index={}; after max distance=∞; after primaryKey=∞", afterMaxIndex);
             } else {
                 logger.info("max index={}; max distance={}; primaryKey={}",
-                        afterMaxIndex, afterMaxVectorAndDistance.getDistance(), afterMaxVectorAndDistance.getPrimaryKey());
+                        afterMaxIndex, afterMaxVectorAndDistance.distance(), afterMaxVectorAndDistance.primaryKey());
             }
         }
 
@@ -198,7 +201,8 @@ class SiftTest implements BaseTest {
                     final long startTs = System.nanoTime();
                     final AsyncIterator<ResultEntry> it =
                             hnsw.orderByDistance(tr, 100, 500, false, queryVector,
-                                    minVectorAndDistance.getDistance(), minVectorAndDistance.getPrimaryKey());
+                                    minVectorAndDistance.distance(), minVectorAndDistance.primaryKey(),
+                                    false);
 
                     final ImmutableList.Builder<ResultEntry> resultsBuilder = ImmutableList.builder();
                     for (int resultCounter = 0; resultCounter < length && it.hasNext(); resultCounter ++) {
@@ -220,7 +224,7 @@ class SiftTest implements BaseTest {
             final ResultEntry previous = results.get(i - 1);
             final ResultEntry current = results.get(i);
 
-            if (previous.getDistance() > current.getDistance()) {
+            if (previous.distance() > current.distance()) {
                 numInversions++;
             }
         }
@@ -231,7 +235,7 @@ class SiftTest implements BaseTest {
 
         final List<Tuple> groundTruth =
                 orderedByDistances.stream()
-                        .map(PrimaryKeyAndVector::getPrimaryKey)
+                        .map(PrimaryKeyVectorAndDistance::primaryKey)
                         .collect(ImmutableList.toImmutableList());
 
         final Stream<Tuple> groundTruthSkipped =
@@ -250,7 +254,7 @@ class SiftTest implements BaseTest {
 
         final ImmutableSet<Tuple> resultIds =
                 results.stream()
-                        .map(ResultEntry::getPrimaryKey)
+                        .map(ResultEntry::primaryKey)
                         .collect(ImmutableSet.toImmutableSet());
 
         final Set<Tuple> commonIds = Sets.intersection(groundTruthExpected, resultIds);

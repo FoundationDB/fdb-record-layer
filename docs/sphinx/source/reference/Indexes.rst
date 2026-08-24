@@ -8,8 +8,8 @@ Defining indexes
 ################
 
 It is possible to define indexes in the Relational Layer as materialized views of :doc:`SELECT <sql_commands/DQL/SELECT>`
-statements.To be used in an index, the query must able to be incrementally updated. That is, when a row on an indexed
-table is inserted, updated, or deleted, it must be possible to construct a finite set up modifications to the index
+statements. To be used in an index, the query must be able to be incrementally updated. That is, when a row on an indexed
+table is inserted, updated, or deleted, it must be possible to construct a finite set of modifications to the index
 structure to reflect the new query results.
 
 In practice, that means that indexes are translated into a Record Layer key expression and index type. Indexes currently
@@ -64,8 +64,8 @@ In each case, the fact that index entries are ordered by `fname` is leveraged, e
 the scan to a smaller range of index entries. The `lname` field can then be returned to the user without having to
 perform an additional lookup of the underlying row.
 
-Index Syntax Alternatives
-##########################
+Index syntax alternatives
+#########################
 
 The Relational Layer supports two equivalent syntaxes for creating indexes:
 
@@ -75,8 +75,8 @@ The Relational Layer supports two equivalent syntaxes for creating indexes:
 Both syntaxes produce identical index structures and have the same capabilities. The choice between them is primarily
 a matter of style and organizational preference.
 
-INDEX ON Syntax
-***************
+``INDEX ON`` syntax
+*******************
 
 The ``INDEX ON`` syntax provides a more traditional approach to index creation, specifying columns directly rather
 than through a SELECT query:
@@ -102,7 +102,7 @@ Using the same employee table from above, we can create an equivalent index usin
 This creates the same index structure as the INDEX AS SELECT example - a VALUE index with ``fname`` in the key
 and ``lname`` as a covered value.
 
-Syntax Comparison
+Syntax comparison
 *****************
 
 These two approaches create identical indexes:
@@ -122,13 +122,13 @@ These two approaches create identical indexes:
 
     CREATE INDEX fnameIdx ON employee(fname) INCLUDE(lname)
 
-Column Ordering and NULL Handling
-##################################
+Column ordering and ``NULL`` handling
+#####################################
 
 When creating indexes using either syntax, you can control how values are sorted in the index through ordering
 clauses and NULL semantics.
 
-Sorting Criteria
+Sorting criteria
 ****************
 
 Each key column in an INDEX ON definition supports explicit sort order:
@@ -138,8 +138,8 @@ Each key column in an INDEX ON definition supports explicit sort order:
 
 For INDEX AS SELECT, the sort order is specified in the ORDER BY clause.
 
-NULL Semantics
-**************
+``NULL`` semantics
+******************
 
 You can control where NULL values appear in the sort order:
 
@@ -151,8 +151,8 @@ You can control where NULL values appear in the sort order:
 * For ``ASC`` ordering: ``NULLS FIRST`` is the default
 * For ``DESC`` ordering: ``NULLS LAST`` is the default
 
-Ordering Syntax Examples
-*************************
+Ordering syntax examples
+************************
 
 The ordering clause for each column in INDEX ON can take several forms:
 
@@ -189,8 +189,42 @@ For INDEX AS SELECT syntax, the same ordering is specified in the ORDER BY claus
         FROM products
         ORDER BY rating ASC NULLS LAST
 
-Partitioning for Vector Indexes
-################################
+Indexes on unnested ``ARRAY`` fields
+####################################
+
+If the table underlying the index contains an ``ARRAY`` column, it is possible to define an index on the result of unnesting the array. (This is subject to certain constraints, as described under :ref:`index_rules`.)
+
+Let us consider a simple example. Suppose we have a table ``restaurant``:
+
+.. code-block:: sql
+
+    CREATE TYPE AS STRUCT restaurant_review (reviewer STRING, rating INT64);
+
+    CREATE TABLE restaurant (
+        rest_no INT64,
+        name STRING,
+        reviews restaurant_review ARRAY,
+        PRIMARY KEY(rest_no)
+    );
+
+To optimize queries involving restaurant ratings, it may make sense to have an index defined on the unnested ``rating`` array. To do so, use the constructs described under :doc:`Unnesting`:
+
+.. code-block:: sql
+
+    CREATE INDEX idx_review_rating AS
+        SELECT review.rating FROM restaurant AS RR, RR.reviews AS review;
+
+As a (less terse) alternative, the same index can also be written with an explicit subquery as follows:
+
+.. code-block:: sql
+
+    CREATE INDEX idx_review_rating AS
+        SELECT SQ.rating FROM restaurant AS RR, (SELECT rating FROM RR.reviews) SQ;
+
+Both forms produce the same underlying key expression, ``field("reviews", FAN_OUT).nest(field("rating"))``. For each row of ``restaurant``, the index emits one entry per element of ``reviews``, keyed on the ``rating`` of the element. The general translation rule is described under :ref:`Implementation details <implementation_details>` below.
+
+Partitioning for vector indexes
+###############################
 
 Vector indexes support an optional ``PARTITION BY`` clause that allows organizing vectors by category or tenant.
 This clause is **only applicable to vector indexes** created with the ``VECTOR INDEX`` syntax and is not supported
@@ -210,42 +244,18 @@ categories for better performance.
 **Important:** The ``PARTITION BY`` clause cannot be used with regular (non-vector) indexes created using either
 the INDEX AS SELECT or INDEX ON syntax.
 
-Indexes on nested fields
-########################
-
-The Relational Layer also offers a special version of indexes that can be used to describe how to index nested fields and
-:sql:`ARRAY` fields. They are defined using SQL, and they follow a strict set of rules, but before we get into the details, let
-us introduce them first by the following simple example. Suppose we have a table :sql:`restaurant` that is defined like this:
-
-.. code-block:: sql
-
-    CREATE TYPE AS STRUCT restaurant_review (reviewer STRING, rating INT64);
-    CREATE TABLE restaurant (
-        rest_no INT64, name STRING, reviews restaurant_review ARRAY, PRIMARY KEY(rest_no)
-    );
-
-Let us say we have too many queries involving restaurant ratings, so it makes sense to have an index defined on :sql:`rating`.
-We can define an index to do exactly that:
-
-.. code-block:: sql
-
-    CREATE INDEX mv AS
-        SELECT SQ.rating from restaurant AS RR, (select rating from RR.reviews) SQ;
-
-At first glance, it looks like the query is performing a join between :sql:`restaurant` and a subquery. However, if we
-take a closer look, we see that the table we select from in the subquery is nothing but the nested repeated field in
-:sql:`restaurant`. We use the alias :sql:`RR` to link the nested repeated field and its parent together.
-
+.. _index_rules:
 
 Index rules
 ###########
 
-Defining a index must adhere to these rules:
+Defining an index must adhere to these rules:
 
-* It must involve a single table only, correlated joins that navigate from one nested repeated field to another is possible.
+* The index body must involve only a single base table. Unnestings may be chained, however: an unnesting of a
+  nested repeated field may itself contain a further unnesting of another nested repeated field within it.
 * Predicates are not allowed in any (sub)query.
 * Each subquery can have a single _source_ and an arbitrary number of other nested subqueries. A source is effectively a
-  nested-repeated field. In the example above, :sql:`RR.reviews` is the source of the containing subquery.
+  nested-repeated field. In the examples above, :sql:`RR.reviews` is such a source.
 * The parent query must have the table itself as a source.
 * Propagation of selected fields from subqueries must follow the same order and clustering. Interleaving is not supported. For example, this is illegal:
 
@@ -258,6 +268,8 @@ Defining a index must adhere to these rules:
     .. code-block:: sql
 
         SELECT T1.a, T1.a, T2.c FROM T t, (SELECT a, b FROM t.X) T1, (SELECT c FROM t.Y) T2
+
+.. _implementation_details:
 
 Implementation details
 ######################
@@ -275,7 +287,8 @@ that resembles the structure of the SQL statement:
 * Projected nested fields (:sql:`f1`, :sql:`f2`, ... :sql:`fn`) from a repeated field :sql:`rf`, i.e. :sql:`select f1, f2, ... fn, ... from FOO.rf`
   maps to :sql:`field(rf, FAN_OUT).nest(field(f1), (field(f2), ..., field(fn)))`.
 
-See Also
+See also
 ########
 
 * :doc:`CREATE INDEX <sql_commands/DDL/CREATE/INDEX>` - Complete CREATE INDEX command reference with detailed syntax and examples
+* :doc:`Unnesting` - Array unnesting (used in the body of nested-field indexes)

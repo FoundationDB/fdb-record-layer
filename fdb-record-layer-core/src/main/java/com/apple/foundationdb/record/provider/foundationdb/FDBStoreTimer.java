@@ -476,6 +476,8 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_LOAD_LUCENE_PARTITION_METADATA("wait to load lucene partition metadata"),
         /** Wait to run all the postClose hooks. */
         WAIT_RUN_CLOSE_HOOKS("Wait to run all postClose hooks"),
+        /** Wait to delete a store. */
+        WAIT_DELETE_STORE("wait for delete store"),
         ;
 
         private final String title;
@@ -773,6 +775,20 @@ public class FDBStoreTimer extends StoreTimer {
         VECTOR_NODE_WRITE_BYTES("intermediate node bytes written", true),
         VECTOR_NODE0_WRITES("intermediate nodes written", false),
         VECTOR_NODE0_WRITE_BYTES("intermediate node bytes written", true),
+        /** Count of vector references materialized from the database (Guardiann engine). */
+        VECTOR_VECTOR_READS("vector references read", false),
+        /** Count of deferred maintenance tasks enqueued (Guardiann engine). */
+        VECTOR_TASK_ENQUEUED("vector maintenance tasks enqueued", false),
+        /** Count of deferred maintenance tasks executed (Guardiann engine). */
+        VECTOR_TASK_EXECUTED("vector maintenance tasks executed", false),
+        /** Count of vector indexes disabled because a deferred-task count decoded to a negative (corrupt) value. */
+        VECTOR_INDEX_DISABLED_ON_NEGATIVE_TASK_COUNT("vector indexes disabled on negative task count", false),
+        /** Count of the writes to a {@code PendingWritesQueue}. */
+        PENDING_WRITES_QUEUE_WRITE("pending writes queue writes", false),
+        /** Count of the entries cleared from a {@code PendingWritesQueue}. */
+        PENDING_WRITES_QUEUE_CLEAR("pending writes queue clears", false),
+        /** Count of the indexes disabled because their {@code PendingWritesQueue} overflowed. */
+        PENDING_WRITES_QUEUE_OVERFLOW_DISABLED_INDEX("indexes disabled on pending writes queue overflow", false),
         ;
 
         private final String title;
@@ -885,6 +901,38 @@ public class FDBStoreTimer extends StoreTimer {
         @Override
         public boolean isSize() {
             return isSize;
+        }
+    }
+
+    /**
+     * Size Events.
+     */
+    public enum SizeEvents implements StoreTimer.SizeEvent {
+
+        /** The size of a pending writes queue (recorded when getQueueSize is called).*/
+        PENDING_WRITES_QUEUE_SIZE("Pending writes queue size"),
+        ;
+
+        private final String title;
+        private final boolean delayedUntilCommit;
+
+        SizeEvents(@Nonnull String title) {
+            this(title, false);
+        }
+
+        SizeEvents(@Nonnull String title, boolean delayedUntilCommit) {
+            this.title = title;
+            this.delayedUntilCommit = delayedUntilCommit;
+        }
+
+        @Override
+        public String title() {
+            return title;
+        }
+
+        @Override
+        public boolean isDelayedUntilCommit() {
+            return delayedUntilCommit;
         }
     }
 

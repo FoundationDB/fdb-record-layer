@@ -1,6 +1,7 @@
 import java.util.regex.Matcher
 import java.util.regex.Pattern
 
+import org.gradle.api.tasks.testing.TestDescriptor
 import org.gradle.api.tasks.testing.TestListener
 
 /*
@@ -29,6 +30,19 @@ jacoco {
     toolVersion = libs.versions.jacoco.get()
 }
 
+// Resolved to the mockito-core jar so it can be installed as a -javaagent on every Test JVM.
+// Required on JDK 21+ because Mockito's inline mock maker can no longer self-attach to a
+// running VM (see https://javadoc.io/doc/org.mockito/mockito-core/latest/org.mockito/org/mockito/Mockito.html#0.3).
+// Under parallel JUnit class execution this also avoids the Byte-Buddy self-attach race that
+// manifests as `IllegalStateException: Could not initialize plugin: interface
+// org.mockito.plugins.MockMaker`. Hooked into every Test task in `tasks.withType(Test)` below.
+configurations {
+    mockitoAgent
+}
+dependencies {
+    mockitoAgent(libs.mockito) { transitive = false }
+}
+
 // if you add to or modify these testing configurations, make sure to update the CONTRIBUTING.md to include any updates
 test {
     useJUnitPlatform {
@@ -37,24 +51,24 @@ test {
     }
 }
 
-task destructiveTest(type: Test) {
+tasks.register('destructiveTest', Test) {
     useJUnitPlatform {
         includeTags 'WipesFDB'
         maxParallelForks = 1
     }
     reports {
-        junitXml.outputLocation = file("${buildDir}/test-results/destructive")
+        junitXml.outputLocation = layout.buildDirectory.dir("test-results/destructive")
     }
 }
 
-task performanceTest(type: Test) {
+tasks.register('performanceTest', Test) {
     useJUnitPlatform {
         includeTags 'Performance'
         enableAssertions = false
     }
 }
 
-task quickTest(type: Test) {
+tasks.register('quickTest', Test) {
     systemProperties["tests.runQuick"] = true
     useJUnitPlatform {
         excludeTags 'WipesFDB'
@@ -62,7 +76,7 @@ task quickTest(type: Test) {
 }
 
 // Tests that run similarly to quickTest, but with an embedded RPC server instead of embedded connection
-task rpcTest(type: Test) {
+tasks.register('rpcTest', Test) {
     systemProperties["tests.runRPC"] = true
     useJUnitPlatform {
         excludeTags 'WipesFDB'
@@ -70,7 +84,7 @@ task rpcTest(type: Test) {
 }
 
 // Tests that run a single version on multiple external servers
-task singleVersionTest(type: Test) {
+tasks.register('singleVersionTest', Test) {
     systemProperties["tests.singleVersion"] = true
     useJUnitPlatform {
         excludeTags 'WipesFDB'
@@ -79,7 +93,7 @@ task singleVersionTest(type: Test) {
 
 // if you add to or modify these testing configurations, make sure to update the CONTRIBUTING.md to include any updates
 
-def getMixedModeVersion(descriptor) {
+static def getMixedModeVersion(descriptor) {
     while (descriptor != null) {
         // don't display this or any of the parents. Let's assume that nobody ever
         // sets the display name in code to start with "Gradle Test Executor".
@@ -101,7 +115,7 @@ def getMixedModeVersion(descriptor) {
     return null
 }
 
-task mixedModeTest(type: Test) {
+tasks.register('mixedModeTest', Test) {
     useJUnitPlatform {
         includeTags 'MixedMode'
     }
@@ -120,10 +134,10 @@ task mixedModeTest(type: Test) {
         }
     }
     addTestListener([
-        beforeSuite: { suite -> },
-        afterSuite: { suite, result -> },
-        beforeTest: { descriptor -> },
-        afterTest: { descriptor, result ->
+        beforeSuite: { TestDescriptor suite -> },
+        afterSuite: { TestDescriptor suite, TestResult result -> },
+        beforeTest: { TestDescriptor descriptor -> },
+        afterTest: { TestDescriptor descriptor, TestResult result ->
             def version = getMixedModeVersion(descriptor)
             if (version == null) {
                 throw new RuntimeException("Could not find version " + getFullDisplayName(descriptor))
@@ -134,7 +148,7 @@ task mixedModeTest(type: Test) {
     ] as TestListener)
 }
 
-def getFullDisplayName(descriptor) {
+static def getFullDisplayName(TestDescriptor descriptor) {
     def fullName = descriptor.displayName
     descriptor = descriptor.parent
     while (descriptor != null) {
@@ -157,7 +171,16 @@ def getFullDisplayName(descriptor) {
     return fullName
 }
 
-def configureTestTask = { propertyPrefix, task ->
+// Use an injected `FileSystemOperations` service for deleting the per-task temp directory in `configureTestTask`
+// below (rather than `Project.delete()`, which is not compatible with the configuration cache).
+abstract class TestTmpDirCleaner {
+    @javax.inject.Inject
+    abstract org.gradle.api.file.FileSystemOperations getFs()
+}
+
+def testTmpDirCleaner = objects.newInstance(TestTmpDirCleaner)
+
+def configureTestTask = { String propertyPrefix, Task task ->
     def handled = [propertyPrefix + '.ignoreFailures',
                    propertyPrefix + '.debug',
                    propertyPrefix + '.single',
@@ -168,16 +191,17 @@ def configureTestTask = { propertyPrefix, task ->
         def prefix = "${propertyPrefix}.sysProp."
         if (!prop.key.startsWith(prefix.toString())) {
             return
-        };
+        }
         def setkey = prop.key.substring(prefix.length())
         task.systemProperties[setkey] = prop.value
         logger.debug "Set system property ${setkey} = ${prop.value} on ${propertyPrefix}"
         handled.add(prop.key)
+        return
     }
 
-    def tmpdir = file("$buildDir/tmp-${task.name}")
+    def tmpdir = layout.buildDirectory.dir("tmp-${task.name}").get().asFile
     task.doFirst {
-        delete tmpdir
+        testTmpDirCleaner.fs.delete { delete(tmpdir) }
         tmpdir.mkdirs()
     }
     task.systemProperties['java.io.tmpdir'] = tmpdir.absolutePath
@@ -217,6 +241,7 @@ def configureTestTask = { propertyPrefix, task ->
         if (prop.key.startsWith(propertyPrefix + '.') && !handled.contains(prop.key)) {
             logger.warn "Unknown system property that looks like it was intended to configure this task: ${prop.key}=${prop.value}"
         }
+        return
     }
 }
 
@@ -233,10 +258,13 @@ def betterException(String exception) {
     return skippedStackTraceEntries.matcher(exception).replaceAll("\n\${indent}... junit stack ...")
 }
 
-tasks.withType(Test) { theTask ->
+tasks.withType(Test).configureEach { Test theTask ->
     // Point the `Test` task at the compiled classes and the runtime classpath of the test source-set.
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
+
+    // Raise the default heap size for the forked worker JVMs that run the tests. (Gradle’s default is only 512 MB.)
+    maxHeapSize = '4g'
 
     configureTestTask('allTest', theTask)
     configureTestTask(theTask.name, theTask)
@@ -263,11 +291,11 @@ tasks.withType(Test) { theTask ->
     }
 
     addTestListener([
-        beforeSuite: { suite -> },
-        beforeTest: { descriptor ->
+        beforeSuite: { TestDescriptor suite -> },
+        beforeTest: { TestDescriptor descriptor ->
             println "${Instant.now()} ${getFullDisplayName(descriptor)} STARTED"
         },
-        afterTest: { descriptor, result ->
+        afterTest: { TestDescriptor descriptor, TestResult result ->
             def duration = String.format(Locale.ROOT, "%,d", result.endTime - result.startTime)
             println "${Instant.now()} ${getFullDisplayName(descriptor)} ${result.resultType} (${duration}ms)"
             println()
@@ -301,6 +329,24 @@ tasks.withType(Test) { theTask ->
 
 tasks.withType(Test).configureEach { task ->
     if (task.name != 'performanceTest') {
+        // Defensive: ensure the JUnit Platform framework is set before any code below reads
+        // `task.testFramework.options.excludeTags`. This callback fires at task-creation time, so
+        // tasks declared in subprojects that haven't yet had their configuration closure invoked
+        // would still be on the JUnit4 default (which has no excludeTags) without this. Calling
+        // useJUnitPlatform() here is a no-op for tasks that already have it.
+        task.useJUnitPlatform()
+
+        // Install Mockito as a JVM agent on every non-performance Test task. See the comment on the
+        // `mockitoAgent` configuration above for why this is necessary. Deferred to `doFirst`
+        // so that the `mockitoAgent` configuration is not resolved during evaluation (which
+        // would prevent the root build's `resolutionStrategy.eachDependency` callback from
+        // attaching to it).
+        // extract during configuration to be cache friendly
+        def mockitoAgent = configurations.mockitoAgent
+        task.doFirst {
+            task.jvmArgs("-javaagent:${mockitoAgent.asPath}")
+        }
+
         // Configure whether or not tests will validate that asyncToSync isn't being called in async
         // context.  See BlockingInAsyncDetection class for details on values.
         // disable BLOCKING_DETECTION to better simulate performance
@@ -347,15 +393,25 @@ tasks.withType(Test).configureEach { task ->
         task.testFramework.options.excludeTags.add('Performance')
 
         if (task.name == 'test') {
-            task.systemProperty('junit.jupiter.execution.parallel.enabled', 'false')
+            task.systemProperty('junit.jupiter.execution.parallel.enabled', 'true')
             task.systemProperty('junit.jupiter.execution.parallel.mode.default', 'same_thread')
-            task.systemProperty('junit.jupiter.execution.parallel.mode.classes.default', 'concurrent')
+            task.systemProperty('junit.jupiter.execution.parallel.mode.classes.default', 'same_thread')
+            // So far, using the dynamic strategy results in tests that should be fairly fast timing out
+            // at 5 minutes. The current theory is some thread pool is saturated and unable to unblock
+            // itself. In the meantime, try a fixed 2 threads.
+            task.systemProperty('junit.jupiter.execution.parallel.config.strategy', 'fixed')
+            task.systemProperty('junit.jupiter.execution.parallel.config.fixed.parallelism', '2')
+            // We use worker_thread_pool rather than fork_join_pool because we heavily depend on ForkJoinPool for
+            // FDB operations, which causes junit to incorrectly increase the number of concurrent tests to well
+            // beyond what we want.
+            task.systemProperty('junit.jupiter.execution.parallel.config.executor-service', 'worker_thread_pool')
         }
     }
 
 }
 
-task testJar(type: Jar, dependsOn: testClasses) {
+tasks.register('testJar', Jar) {
+    dependsOn 'testClasses'
     group = 'Build'
     description = 'Build a jar file of test classes as an exported artifact'
     archiveClassifier = 'test'
@@ -369,10 +425,10 @@ configurations {
 }
 
 artifacts {
-    tests testJar
+    tests tasks.named('testJar')
 }
 
-task quickCheck {
+tasks.register('quickCheck') {
     group = 'Verification'
     description = 'Perform fast build verification'
 

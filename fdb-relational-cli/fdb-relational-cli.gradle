@@ -46,14 +46,7 @@ dependencies {
     implementation project(":fdb-relational-jdbc")
     implementation project(":fdb-record-layer-debugger")
     implementation project(coreProject)
-    // we currently pack the Cascades debugger in this package, maybe in the future we should
-    // move it to a more appropriate package such as utils or something similar so we can
-    // consume it from there.
-    implementation project(path: coreProject, configuration: 'tests')
     implementation(libs.dropwizard) {
-        exclude group: 'org.slf4j'
-    }
-    implementation(libs.asciitable) {
         exclude group: 'org.slf4j'
     }
     implementation(libs.sqlline)
@@ -72,7 +65,6 @@ dependencies {
     testImplementation(libs.bundles.test.impl)
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)
-    testImplementation(libs.apache.commonsCollections)
 
     antlr(libs.antlr)
 }
@@ -83,7 +75,7 @@ def fdbEnvironmentYamlFile = new File("${rootProject.projectDir}/fdb-environment
 if (fdbEnvironmentYamlFile.exists()) {
     def firstClusterFile = new Yaml().loadAll(fdbEnvironmentYamlFile.newInputStream()).first().clusterFiles.first()
     allprojects {
-        tasks.withType(Test) { task ->
+        tasks.withType(Test).configureEach { task ->
             task.environment(FDB_CLUSTER_FILE: firstClusterFile)
         }
     }
@@ -103,12 +95,15 @@ shadowJar {
     application {
         mainClass = mainCliClass
     }
+    // Override the duplicates strategy from the EXCLUDE default to INCLUDE, so that duplicate `META-INF/services/*`
+    // files reach `mergeServiceFiles()` and their registries merge properly rather than collapse to a single provider.
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
     mergeServiceFiles()
 }
 
 build.dependsOn(shadowJar)
 
-tasks.withType(Jar) { task ->
+tasks.withType(Jar).configureEach { task ->
     dependsOn(tasks.withType(AntlrTask))
 }
 
@@ -157,10 +152,10 @@ distTar {
     archiveExtension = "tar.gz"
 }
 
-createDistribution.configure {
-    afterEvaluate {
-        dependsOn shadowJar
-        from tasks.shadowJar
+afterEvaluate {
+    tasks.named('createDistribution').configure {
+        dependsOn tasks.named('shadowJar')
+        from tasks.named('shadowJar')
     }
 }
 

@@ -1,7 +1,4 @@
-# Vector Index and HNSW Design Document
-## FoundationDB Record Layer
-
----
+# Vector indexes and HNSW design document
 
 ## Summary
 
@@ -44,11 +41,11 @@ including RaBitQ quantization, top-N approximate nearest neighbor searches, orde
 
 ---
 
-## 2. Detailed Component Analysis
+## 2. Detailed component analysis
 
-### 2.1 HNSW Implementation
+### 2.1 HNSW implementation
 
-#### **Core Algorithm Components**
+#### **Core algorithm components**
 
 **Key Features**:
 - **Hierarchical Structure**: Multi-layer graph with exponentially decreasing layer sizes
@@ -89,7 +86,7 @@ At each layer where the new node is inserted, the algorithm performs several cri
 
 The insertion process includes connection maintenance to prevent graph degradation over time. When adding the new node causes existing neighbors to exceed their maximum connection limits (`mMax` or `mMax0`), the algorithm prunes excess connections using selection heuristics that prioritize maintaining graph quality. All node updates are persisted atomically within the provided transaction context, ensuring consistency even in the presence of concurrent operations. The algorithm also handles special cases such as inserting the first node into an empty index or inserting a node whose layer exceeds the current maximum layer, which requires updating the entry point stored in ACCESS_INFO. When RaBitQ quantization is enabled, the insertion process probabilistically samples vectors for statistical analysis using `sampleVectorStatsProbability` and triggers periodic maintenance of quantization parameters when the sample count reaches `statsThreshold`.
 
-##### Delete/Repair
+##### Delete/repair
 
 The HNSW deletion algorithm implements a graph repair mechanism that maintains structural integrity and search performance after removing nodes from the hierarchical graph. The deletion process begins with layer discovery, where the algorithm fetches the target node from storage to determine which layers contain the node and to retrieve its complete neighbor lists across all layers. This initial phase also identifies the node's top layer, which is crucial for determining whether the deletion might affect the global entry point stored in ACCESS_INFO. The algorithm then determines the node's layer assignment using the same probabilistic method employed during insertion, ensuring consistent layer membership across operations and enabling proper cleanup of all node instances.
 
@@ -99,7 +96,7 @@ The repair mechanism operates by systematically reconnecting the orphaned neighb
 
 Throughout the repair process, the algorithm maintains careful coordination between the removal of the target node and the creation of replacement connections. The actual node deletion occurs only after all repair operations have been computed and prepared for persistence. When the deleted node was serving as the global entry point (the topmost node in the highest layer), the algorithm must identify and update the new entry point by finding the highest-layer node with the maximum number of layers. All repair operations are performed asynchronously with appropriate concurrency controls, and the entire deletion process completes within a single transaction context to maintain consistency. The algorithm also includes extensive logging and verification to ensure proper graph maintenance and to facilitate debugging of complex multi-layer repair scenarios.
 
-#### **Configuration Options**
+#### **Configuration options**
 
 The HNSW implementation provides extensive configuration through `IndexOptions` constants. Each parameter allows fine-tuning of performance, storage efficiency, and search quality characteristics.
 
@@ -134,7 +131,7 @@ The HNSW implementation provides extensive configuration through `IndexOptions` 
 
 ### 2.3 Integration with Record Layer
 
-#### **VectorIndexMaintainer**
+#### `VectorIndexMaintainer`
 
 **Key Features**:
 - **Extends StandardIndexMaintainer**: Inherits index lifecycle management
@@ -180,9 +177,9 @@ protected CompletableFuture<Void> updateIndexKeys(...) {
 
 ---
 
-## 3. Advanced Features
+## 3. Advanced features
 
-### 3.1 Vector Compression (RaBitQ)
+### 3.1 Vector compression (RaBitQ)
 
 **Benefits**:
 - **Storage Reduction**: 8-10x compression with minimal accuracy loss
@@ -193,7 +190,7 @@ protected CompletableFuture<Void> updateIndexKeys(...) {
 - **Encoded Vectors**: `EncodedRealVector` for compressed storage
 - **Estimation**: `RaBitEstimator` for fast approximate distances
 
-### 3.2 Linear Algebra Foundation
+### 3.2 Linear algebra foundation
 
 **Core Types**:
 - **RealVector**: Base interface with precision variants
@@ -206,9 +203,9 @@ protected CompletableFuture<Void> updateIndexKeys(...) {
 
 ---
 
-## 4. Performance Characteristics
+## 4. Performance characteristics
 
-### 4.1 HNSW Performance
+### 4.1 HNSW performance
 
 **Time Complexity**:
 - **Insert**: `O(log N × M × efConstruction)`
@@ -227,26 +224,26 @@ protected CompletableFuture<Void> updateIndexKeys(...) {
 
 ---
 
-## 5. Observability and Monitoring
+## 5. Observability and monitoring
 
-### 5.1 Instrumentation Architecture
+### 5.1 Instrumentation architecture
 
 The HNSW vector index implementation provides observability through a instrumentation system built on `OnReadListener` and `OnWriteListener` interfaces. These listeners integrate with the Record Layer's `FDBStoreTimer` to capture detailed metrics about vector index operations, providing visibility into performance characteristics, resource utilization, and operational patterns. The instrumentation operates asynchronously and has minimal performance impact, making it suitable for production monitoring without affecting index performance.
 
 The observability system distinguishes between different layers of the HNSW graph structure, providing separate metrics for layer 0 (the base layer containing all vectors) and higher layers (which contain sparse subsets for fast navigation). This layer-specific instrumentation allows operators to understand the performance characteristics of different algorithmic phases and identify bottlenecks in either the exhaustive search phase (layer 0) or the navigation phase (higher layers). All metrics are automatically aggregated and can be exported through the Record Layer's standard monitoring interfaces.
 
-### 5.2 Read Operation Metrics
+### 5.2 Read operation metrics
 
 The `OnReadListener` implementation captures comprehensive metrics about all read operations performed during vector searches, providing detailed visibility into the I/O patterns and computational overhead of HNSW operations. These metrics are essential for understanding query performance, identifying hotspots, and optimizing storage and caching strategies for vector workloads.
 
-#### Timing Events
+#### Timing events
 
 | Event              | Description | Usage Pattern |
 |--------------------|-------------|---------------|
 | `VECTOR_SCAN`      | Measures the total duration of vector search operations within a single partition, including node traversal, distance computations, and result compilation | Instrumented via `timer.instrument()` wrapper around async read futures, providing end-to-end timing for search operations |
 | `VECTOR_SKIP_SCAN` | Tracks the time spent performing prefix skip-scans when dealing with partitioned vector indexes, measuring the overhead of discovering distinct prefixes before performing actual vector searches | Applied during the prefix enumeration phase for multi-partition indexes, helping identify partitioning efficiency |
 
-#### Node-Level Counters
+#### Node-level counters
 
 The instrumentation system provides separate counters for layer 0 and higher layers to distinguish between the dense base layer operations and sparse upper layer navigation:
 
@@ -257,7 +254,7 @@ The instrumentation system provides separate counters for layer 0 and higher lay
 | `VECTOR_NODE0_READ_BYTES` | Layer 0 | Measures the total byte volume read from layer 0 nodes, including both vector data and neighbor connection information, helping assess storage I/O patterns and compression effectiveness |
 | `VECTOR_NODE_READ_BYTES` | Layers 1+ | Captures byte volume from upper layer nodes, typically much smaller than layer 0 due to reduced connectivity and potential storage optimizations |
 
-#### Storage I/O Counters
+#### Storage I/O counters
 
 The system tracks low-level key-value operations that underlie all HNSW operations, providing visibility into FoundationDB interaction patterns:
 
@@ -267,11 +264,11 @@ The system tracks low-level key-value operations that underlie all HNSW operatio
 | `LOAD_INDEX_KEY_BYTES` | Measures total bytes read from FoundationDB keys, including index metadata, node references, and encoded primary keys | Critical for capacity planning and understanding storage efficiency of different HNSW configurations |
 | `LOAD_INDEX_VALUE_BYTES` | Tracks bytes read from FoundationDB values, primarily consisting of vector data, neighbor lists, and node metadata | Indicates the effectiveness of vector compression (RaBitQ) and storage layout optimizations |
 
-### 5.3 Write Operation Metrics
+### 5.3 Write operation metrics
 
 The `OnWriteListener` implementation provides comprehensive instrumentation for all modification operations, including insertions, deletions, and graph maintenance activities. These metrics are crucial for understanding index maintenance overhead, identifying performance bottlenecks in write-heavy workloads, and monitoring the health of the graph structure during ongoing operations.
 
-#### Node Modification Counters
+#### Node modification counters
 
 Write operations are tracked separately by layer to provide insight into the distribution of maintenance overhead across the hierarchical structure:
 
@@ -282,7 +279,7 @@ Write operations are tracked separately by layer to provide insight into the dis
 | `VECTOR_NODE0_WRITE_BYTES` | Layer 0 | Measures total data volume written to layer 0, including new nodes, updated neighbor lists, and modified vector data, providing insight into storage amplification effects |
 | `VECTOR_NODE_WRITE_BYTES` | Layers 1+ | Captures write volume to upper layers, typically smaller due to reduced node connectivity and potential storage optimizations |
 
-#### Storage Persistence Counters
+#### Storage persistence counters
 
 The instrumentation tracks the underlying FoundationDB write operations that persist all HNSW modifications:
 
@@ -292,23 +289,23 @@ The instrumentation tracks the underlying FoundationDB write operations that per
 | `SAVE_INDEX_KEY_BYTES` | Measures bytes written to FoundationDB keys, encompassing index structure metadata and node reference information | Critical for understanding storage growth patterns and the efficiency of key encoding schemes |
 | `SAVE_INDEX_VALUE_BYTES` | Tracks bytes written to FoundationDB values, primarily consisting of vector data, neighbor connection lists, and graph metadata | Essential for capacity planning and evaluating the effectiveness of compression and storage optimizations |
 
-### 5.4 Operational Monitoring Best Practices
+### 5.4 Operational monitoring best practices
 
 The metrics provided by the HNSW instrumentation system enable monitoring and alerting strategies that can proactively identify performance issues and guide optimization efforts. Effective monitoring should focus on establishing baselines for normal operation and detecting deviations that indicate configuration problems, capacity issues, or algorithmic inefficiencies.
 
-#### Key Performance Indicators
+#### Key performance indicators
 
 Monitor the ratio of `VECTOR_NODE0_READS` to `VECTOR_NODE_READS` to assess the balance between exhaustive search effort and navigation efficiency. A high ratio indicates that searches are spending most of their effort in the base layer, which may suggest that `efSearch` is too large or that the graph structure lacks sufficient hierarchy. Conversely, a very low ratio might indicate that the graph is too sparse and may benefit from higher `M` values or more aggressive `efConstruction` settings.
 
 Track the relationship between `LOAD_INDEX_KEY` counts and search result quality to understand the I/O cost of achieving desired recall levels. This metric helps optimize the trade-off between `efSearch` values and query latency, particularly important for applications with strict performance requirements. Monitor `VECTOR_SCAN` timing distributions to identify queries with anomalous performance characteristics that might indicate data skew, hotspotting, or configuration issues.
 
-#### Storage and Capacity Planning
+#### Storage and capacity planning
 
 Use the byte-level counters (`LOAD_INDEX_KEY_BYTES`, `LOAD_INDEX_VALUE_BYTES`, `SAVE_INDEX_KEY_BYTES`, `SAVE_INDEX_VALUE_BYTES`) to understand storage growth patterns and plan capacity requirements. The ratio of read bytes to write bytes provides insight into read-write workload balance and can guide decisions about storage optimization strategies. When RaBitQ compression is enabled, monitor the effectiveness by comparing raw vector sizes to actual storage consumption indicated by the byte counters.
 
 Establish alerting thresholds based on sustained increases in write amplification (ratio of `SAVE_INDEX_KEY` to actual vector insertions) which may indicate graph quality degradation or suboptimal parameter settings. Monitor `MULTIDIMENSIONAL_SKIP_SCAN` timing for partitioned indexes to ensure that partition boundaries are well-chosen and that prefix enumeration overhead remains acceptable compared to search execution time.
 
-#### Performance Optimization Guidance
+#### Performance optimization guidance
 
 The layer-specific metrics enable targeted optimization of HNSW parameters. High `VECTOR_NODE0_READ_BYTES` relative to result set size may indicate inefficient layer 0 connectivity, suggesting evaluation of `mMax0` settings or consideration of RaBitQ compression. Elevated `VECTOR_NODE_WRITES` in upper layers during insertion operations may indicate excessive graph height, potentially addressed by adjusting the layer assignment probability or evaluating `M` values for better graph balance.
 

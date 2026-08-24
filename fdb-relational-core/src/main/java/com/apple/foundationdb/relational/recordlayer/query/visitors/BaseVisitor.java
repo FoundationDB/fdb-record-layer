@@ -252,12 +252,18 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     public Expression resolveFunction(@Nonnull String functionName, @Nonnull Expression... arguments) {
-        return getSemanticAnalyzer().resolveScalarFunction(functionName, Expressions.of(arguments), true);
+        return resolveFunction(functionName, Expressions.of(arguments));
+    }
+
+    @Nonnull
+    public Expression resolveFunction(@Nonnull String functionName, @Nonnull Expressions arguments) {
+        return getSemanticAnalyzer().resolveFunction(functionName, arguments.toCallSiteArguments(true), true);
     }
 
     @Nonnull
     public Expression resolveFunction(@Nonnull String functionName, boolean flattenSingleItemRecords, @Nonnull Expression... arguments) {
-        return getSemanticAnalyzer().resolveScalarFunction(functionName, Expressions.of(arguments), flattenSingleItemRecords);
+        return getSemanticAnalyzer().resolveFunction(functionName,
+                Expressions.of(arguments).toCallSiteArguments(flattenSingleItemRecords), flattenSingleItemRecords);
     }
 
     @Nonnull
@@ -282,7 +288,7 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return visitChildren(ctx);
     }
 
-    @Nonnull
+    @Nullable
     @Override
     public Object visitStatement(@Nonnull RelationalParser.StatementContext ctx) {
         return visitChildren(ctx);
@@ -404,12 +410,6 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
-    public DataType visitColumnType(@Nonnull RelationalParser.ColumnTypeContext ctx) {
-        return ddlVisitor.visitColumnType(ctx);
-    }
-
-    @Nonnull
-    @Override
     public Boolean visitNullColumnConstraint(@Nonnull RelationalParser.NullColumnConstraintContext ctx) {
         return ddlVisitor.visitNullColumnConstraint(ctx);
     }
@@ -487,13 +487,8 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
-    public Identifier visitUserDefinedScalarFunctionStatementBody(@Nonnull RelationalParser.UserDefinedScalarFunctionStatementBodyContext ctx) {
-        return identifierVisitor.visitFullId(ctx.fullId());
-    }
-
-    @Override
-    public Object visitExpressionBody(final RelationalParser.ExpressionBodyContext ctx) {
-        return visitChildren(ctx);
+    public Expression visitUserDefinedMacroFunctionStatementBody(@Nonnull RelationalParser.UserDefinedMacroFunctionStatementBodyContext ctx) {
+        return ddlVisitor.visitUserDefinedMacroFunctionStatementBody(ctx);
     }
 
     @Override
@@ -581,16 +576,6 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return visitChildren(ctx);
     }
 
-    @Override
-    public LogicalOperator visitSqlReturnStatement(final RelationalParser.SqlReturnStatementContext ctx) {
-        return ddlVisitor.visitSqlReturnStatement(ctx);
-    }
-
-    @Override
-    public LogicalOperator visitReturnValue(final RelationalParser.ReturnValueContext ctx) {
-        return ddlVisitor.visitReturnValue(ctx);
-    }
-
     @Nonnull
     @Override
     public Object visitCharSet(@Nonnull RelationalParser.CharSetContext ctx) {
@@ -663,8 +648,8 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     }
 
     @Override
-    public Expressions visitTableFunctionArgs(final RelationalParser.TableFunctionArgsContext ctx) {
-        return expressionVisitor.visitTableFunctionArgs(ctx);
+    public Expressions visitNamedOrUnnamedFunctionArgs(RelationalParser.NamedOrUnnamedFunctionArgsContext ctx) {
+        return expressionVisitor.visitNamedOrUnnamedFunctionArgs(ctx);
     }
 
     @Override
@@ -895,13 +880,13 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
-    public Object visitQueryOptions(@Nonnull RelationalParser.QueryOptionsContext ctx) {
+    public Object visitStatementOptions(@Nonnull RelationalParser.StatementOptionsContext ctx) {
         return visitChildren(ctx);
     }
 
     @Nonnull
     @Override
-    public Object visitQueryOption(@Nonnull RelationalParser.QueryOptionContext ctx) {
+    public Object visitStatementOption(@Nonnull RelationalParser.StatementOptionContext ctx) {
         return visitChildren(ctx);
     }
 
@@ -1391,13 +1376,13 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return expressionVisitor.visitExpressionWithOptionalName(ctx);
     }
 
-    @Nonnull
+    @Nullable
     @Override
     public Object visitIfExists(@Nonnull RelationalParser.IfExistsContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
+    @Nullable
     @Override
     public Object visitIfNotExists(@Nonnull RelationalParser.IfNotExistsContext ctx) {
         return visitChildren(ctx);
@@ -1527,6 +1512,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Override
     public Expression visitAggregateWindowedFunction(@Nonnull RelationalParser.AggregateWindowedFunctionContext ctx) {
         return expressionVisitor.visitAggregateWindowedFunction(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Boolean visitNullTreatmentClause(@Nonnull RelationalParser.NullTreatmentClauseContext ctx) {
+        return expressionVisitor.visitNullTreatmentClause(ctx);
     }
 
     @Nonnull
@@ -1747,6 +1738,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Nonnull
     @Override
     public Object visitFunctionNameBase(@Nonnull RelationalParser.FunctionNameBaseContext ctx) {
+        return visitChildren(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitFunctionNameKeyword(@Nonnull RelationalParser.FunctionNameKeywordContext ctx) {
         return visitChildren(ctx);
     }
 

@@ -1,0 +1,87 @@
+#
+# guardiann-semantic-search.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# End-to-end SQL coverage for a vector index backed by the Guardiann engine, created through the DDL
+# ('USING GUARDIANN' with the guardiann-only 'primary_cluster_*' options plus the shared 'metric' option). The dataset
+# is small and well-separated so it forms a single cluster per partition, making the k-nearest-neighbor results exact.
+#
+# supported_version is 4.12.18.0 because the Guardiann engine is new: no released server understands
+# 'USING GUARDIANN', so this file only runs against the current build (and is skipped in mixed-version mode).
+---
+options:
+  supported_version: 4.12.18.0
+---
+schema_template:
+    create table documents(zone string, docId string, bookshelf string, title string, embedding vector(3, half), primary key (zone, docId))
+    create view documentsView as select embedding, zone, bookshelf, docId, title from documents
+    create vector index documentsGuardiannIndex using guardiann on documentsView(embedding) partition by(zone, bookshelf) options (metric = euclidean_metric, primary_cluster_min = 1, primary_cluster_max = 100, collapse_min_duplicates = 50)
+---
+test_block:
+  name: guardiann-semantic-search-tests
+  preset: single_repetition_ordered
+  options:
+    statement_type: prepared
+  tests:
+    # Seed two partitions: (zone1, fiction) and (zone1, science).
+    -
+      - query: insert into documents values
+              ('zone1', 'd1', 'fiction', 'The Great Gatsby', !! !v16 [1.0, 0.0, 0.0] !!),
+              ('zone1', 'd2', 'fiction', '1984', !! !v16 [0.9, 0.1, 0.0] !!),
+              ('zone1', 'd3', 'fiction', 'To Kill a Mockingbird', !! !v16 [0.8, 0.2, 0.0] !!),
+              ('zone1', 'd6', 'science', 'A Brief History of Time', !! !v16 [0.0, 1.0, 0.0] !!),
+              ('zone1', 'd7', 'science', 'The Selfish Gene', !! !v16 [0.1, 0.9, 0.0] !!)
+      - count: 5
+
+    # Top-1 nearest neighbor in the fiction partition — an exact match, so distance is 0.
+    -
+      - query: select docId, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) as distance
+              from documents
+              where zone = 'zone1' and bookshelf = 'fiction'
+              qualify row_number() over (
+                    partition by zone, bookshelf
+                    order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc
+                ) <= 1
+      - explain: "ISCAN(DOCUMENTSGUARDIANNINDEX [EQUALS promote(@c16 AS STRING), EQUALS promote(@c20 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c44}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS DISTANCE)"
+      - result: [{docId: 'd1', distance: 0.0}]
+
+    # Top-3 nearest neighbors in the fiction partition.
+    -
+      - query: select docId, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) as distance
+              from documents
+              where zone = 'zone1' and bookshelf = 'fiction'
+              qualify row_number() over (
+                    partition by zone, bookshelf
+                    order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc
+                ) <= 3
+      - explain: "ISCAN(DOCUMENTSGUARDIANNINDEX [EQUALS promote(@c16 AS STRING), EQUALS promote(@c20 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c44}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS DISTANCE)"
+      - result: [{docId: 'd1', distance: 0.0},
+                 {docId: 'd2', distance: 0.14147317261689443},
+                 {docId: 'd3', distance: 0.28294634523378887}]
+
+    # Top-2 nearest neighbors in the science partition.
+    -
+      - query: select docId
+              from documents
+              where zone = 'zone1' and bookshelf = 'science'
+              qualify row_number() over (
+                    partition by zone, bookshelf
+                    order by euclidean_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc
+                ) <= 2
+      - explain: "ISCAN(DOCUMENTSGUARDIANNINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c35}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
+      - result: [{docId: 'd6'}, {docId: 'd7'}]
