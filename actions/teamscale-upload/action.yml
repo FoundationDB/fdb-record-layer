@@ -20,7 +20,7 @@ runs:
   - name: Upload coverage to teamscale
     # temporary until we validate that this is working correctly
     continue-on-error: true
-    uses: 'cqse/teamscale-upload-action@93b7b16c0c2a9ad962f82ce7f192e46084786353'
+    uses: 'cqse/teamscale-upload-action@93b7b16c0c2a9ad962f82ce7f192e46084786353' # v2.10.0
     with:
       server: 'https://fdb.teamscale.io'
       project: 'foundationdb-fdb-record-layer'
