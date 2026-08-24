@@ -36,6 +36,10 @@ import javax.annotation.Nonnull;
  *        enqueued
  * @param primaryClusterMax maximum number of primary vectors in a cluster, overflow will result in a split task to be
  *        enqueued
+ * @param primaryClusterHardMax hard cap on the number of primary vectors in a cluster, set above
+ *        {@code primaryClusterMax}: on insert, reaching it back-pressures the caller (an exception is thrown) when
+ *        deferred maintenance tasks are not run in the writing transaction, so the caller slows down while the
+ *        background merge drains the split backlog rather than letting an un-drained cluster grow without bound
  * @param underreplicatedPrimaryClusterMax maximum number of under-replicated primary vectors in a cluster, overflow
  *        will result in a reassign task to be enqueued
  * @param replicatedClusterMaxWrites maximum number of writes of replicated vectors to a cluster
@@ -76,6 +80,7 @@ public record Config(@Nonnull Metric metric,
                      int numDimensions,
                      int primaryClusterMin,
                      int primaryClusterMax,
+                     int primaryClusterHardMax,
                      int underreplicatedPrimaryClusterMax,
                      int replicatedClusterMaxWrites,
                      int replicatedClusterTarget,
@@ -115,6 +120,7 @@ public record Config(@Nonnull Metric metric,
     @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
     public static final int DEFAULT_PRIMARY_CLUSTER_MIN = 100;
     public static final int DEFAULT_PRIMARY_CLUSTER_MAX = 1000;
+    public static final int DEFAULT_PRIMARY_CLUSTER_HARD_MAX = 2 * DEFAULT_PRIMARY_CLUSTER_MAX;
     public static final int DEFAULT_UNDERREPLICATED_PRIMARY_CLUSTER_MAX = 50;
     public static final int DEFAULT_REPLICATED_CLUSTER_MAX_WRITES = 3 * DEFAULT_PRIMARY_CLUSTER_MAX / 10;
     public static final int DEFAULT_REPLICATED_CLUSTER_TARGET = DEFAULT_PRIMARY_CLUSTER_MAX / 10;
@@ -142,7 +148,6 @@ public record Config(@Nonnull Metric metric,
     public static final int DEFAULT_DELETE_CONCURRENCY = 10;
     // split/merge
     public static final int DEFAULT_SPLIT_NUM_NEAREST_CLUSTERS = 32;
-    // covers the largest merge candidate (3-to-2 dissolves 3 core clusters) plus ~8 absorbing neighbors
     public static final int DEFAULT_MERGE_NUM_NEAREST_CLUSTERS = 11;
     public static final int DEFAULT_KMEANS_MAX_ITERATIONS = 8;
     public static final int DEFAULT_KMEANS_MAX_RESTARTS = 3;
@@ -155,18 +160,20 @@ public record Config(@Nonnull Metric metric,
     public static final int DEFAULT_REASSIGN_CONCURRENCY = 10;
     public static final int DEFAULT_COLLAPSE_CONCURRENCY = 10;
     public static final int DEFAULT_BOUNCE_CONCURRENCY = 10;
-    // construction (centroid-walk tuning for the non-search insert/delete/maintenance paths): the all-defaults
-    // SearchConfig, whose centroidEf* match the values these paths used before they were made configurable
     @Nonnull
     public static final SearchConfig DEFAULT_CONSTRUCTION_SEARCH_CONFIG = new SearchConfig.SearchConfigBuilder().build();
 
     public Config {
         Preconditions.checkArgument(numDimensions >= 1, "numDimensions must be >= 1");
+        Preconditions.checkArgument(collapseMinDuplicates < primaryClusterMax,
+                "collapseMinDuplicates must be < primaryClusterMax");
+        Preconditions.checkArgument(primaryClusterHardMax > primaryClusterMax,
+                "primaryClusterHardMax must be > primaryClusterMax");
     }
 
     @Nonnull
     public ConfigBuilder toBuilder() {
-        return new ConfigBuilder(metric(), primaryClusterMin(), primaryClusterMax(),
+        return new ConfigBuilder(metric(), primaryClusterMin(), primaryClusterMax(), primaryClusterHardMax(),
                 underreplicatedPrimaryClusterMax(), replicatedClusterMaxWrites(), replicatedClusterTarget(),
                 replicationPriorityMin(), replicationDistanceRatioWeight(), replicationZScoreWeight(),
                 replicationStatsMinSampleSize(), sampleVectorStatsProbability(), maintainStatsProbability(),
@@ -186,6 +193,7 @@ public record Config(@Nonnull Metric metric,
     public String toString() {
         return "Config[metric=" + metric() + ", numDimensions=" + numDimensions() +
                 ", primaryClusterMin=" + primaryClusterMin() + ", primaryClusterMax=" + primaryClusterMax() +
+                ", primaryClusterHardMax=" + primaryClusterHardMax() +
                 ", underreplicatedPrimaryClusterMax=" + underreplicatedPrimaryClusterMax() +
                 ", replicatedClusterMaxWrites=" + replicatedClusterMaxWrites() +
                 ", replicatedClusterTarget=" + replicatedClusterTarget() +
@@ -227,6 +235,7 @@ public record Config(@Nonnull Metric metric,
         private Metric metric = DEFAULT_METRIC;
         private int primaryClusterMin = DEFAULT_PRIMARY_CLUSTER_MIN;
         private int primaryClusterMax = DEFAULT_PRIMARY_CLUSTER_MAX;
+        private int primaryClusterHardMax = DEFAULT_PRIMARY_CLUSTER_HARD_MAX;
         private int underreplicatedPrimaryClusterMax = DEFAULT_UNDERREPLICATED_PRIMARY_CLUSTER_MAX;
         private int replicatedClusterMaxWrites = DEFAULT_REPLICATED_CLUSTER_MAX_WRITES;
         private int replicatedClusterTarget = DEFAULT_REPLICATED_CLUSTER_TARGET;
@@ -272,6 +281,7 @@ public record Config(@Nonnull Metric metric,
         }
 
         public ConfigBuilder(@Nonnull final Metric metric, final int primaryClusterMin, final int primaryClusterMax,
+                             final int primaryClusterHardMax,
                              final int underreplicatedPrimaryClusterMax, final int replicatedClusterMaxWrites,
                              final int replicatedClusterTarget, final double replicationPriorityMin,
                              final double replicationDistanceRatioWeight, final double replicationZScoreWeight,
@@ -294,6 +304,7 @@ public record Config(@Nonnull Metric metric,
             this.metric = metric;
             this.primaryClusterMin = primaryClusterMin;
             this.primaryClusterMax = primaryClusterMax;
+            this.primaryClusterHardMax = primaryClusterHardMax;
             this.underreplicatedPrimaryClusterMax = underreplicatedPrimaryClusterMax;
             this.replicatedClusterMaxWrites = replicatedClusterMaxWrites;
             this.replicatedClusterTarget = replicatedClusterTarget;
@@ -355,6 +366,17 @@ public record Config(@Nonnull Metric metric,
         @Nonnull
         public ConfigBuilder setPrimaryClusterMax(final int primaryClusterMax) {
             this.primaryClusterMax = primaryClusterMax;
+            return this;
+        }
+
+        public int getPrimaryClusterHardMax() {
+            return primaryClusterHardMax;
+        }
+
+        @CanIgnoreReturnValue
+        @Nonnull
+        public ConfigBuilder setPrimaryClusterHardMax(final int primaryClusterHardMax) {
+            this.primaryClusterHardMax = primaryClusterHardMax;
             return this;
         }
 
@@ -669,6 +691,7 @@ public record Config(@Nonnull Metric metric,
 
         public Config build(final int numDimensions) {
             return new Config(getMetric(), numDimensions, getPrimaryClusterMin(), getPrimaryClusterMax(),
+                    getPrimaryClusterHardMax(),
                     getUnderreplicatedPrimaryClusterMax(), getReplicatedClusterMaxWrites(),
                     getReplicatedClusterTarget(), getReplicationPriorityMin(),
                     getReplicationDistanceRatioWeight(), getReplicationZScoreWeight(),

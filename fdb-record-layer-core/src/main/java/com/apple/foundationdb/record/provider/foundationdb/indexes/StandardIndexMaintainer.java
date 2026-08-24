@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
@@ -493,7 +494,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                     Tuple existingEntry = unpackKey(getIndexSubspace(), kv);
                     Tuple existingKey = state.index.getEntryPrimaryKey(existingEntry);
                     if (!TupleHelpers.equals(primaryKey, existingKey)) {
-                        if (state.store.isIndexWriteOnly(state.index)) {
+                        if (state.store.getIndexState(state.index).isWriteOnly()) {
                             addUniquenessViolation(valueKey, primaryKey, existingKey);
                             addUniquenessViolation(valueKey, existingKey, primaryKey);
                         } else {
@@ -506,7 +507,8 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     }
 
     private boolean isWriteOnlyOrUniquePending() {
-        return state.store.isIndexWriteOnly(state.index) || state.store.isIndexReadableUniquePending(state.index);
+        final IndexState indexState = state.store.getIndexState(state.index);
+        return indexState.isWriteOnly() || indexState.isReadableUniquePending();
     }
 
     /**

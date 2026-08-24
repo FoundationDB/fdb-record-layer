@@ -907,8 +907,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             recordStore.markIndexWriteOnly(indexName).get();
-            assertThat(recordStore.isIndexReadable(indexName), is(false));
-            assertThat(recordStore.isIndexWriteOnly(indexName), is(true));
+            assertThat(recordStore.getIndexState(indexName).isReadable(), is(false));
+            assertThat(recordStore.getIndexState(indexName).isWriteOnly(), is(true));
 
             try {
                 recordStore.scanIndexRecords(indexName);
@@ -939,8 +939,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             recordStore.uncheckedMarkIndexReadable(indexName).get();
-            assertThat(recordStore.isIndexReadable(indexName), is(true));
-            assertThat(recordStore.isIndexWriteOnly(indexName), is(false));
+            assertThat(recordStore.getIndexState(indexName).isReadable(), is(true));
+            assertThat(recordStore.getIndexState(indexName).isWriteOnly(), is(false));
             assertEquals(Collections.singletonList(1066L),
                     recordStore.scanIndexRecords(indexName)
                             .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).getRecNo()).asList().get());
@@ -978,13 +978,13 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             recordStore.markIndexWriteOnlyWithQueue(standardIndex).get();
             recordStore.markIndexWriteOnlyWithQueue(permissiveIndexName).get();
 
-            // Exercise both the Index and String overloads of isIndexWriteOnlyWithQueue.
-            assertThat(recordStore.isIndexWriteOnlyWithQueue(standardIndex), is(true));
-            assertThat(recordStore.isIndexWriteOnlyWithQueue(standardIndexName), is(true));
-            assertThat(recordStore.isIndexWriteOnlyWithQueue(permissiveIndex), is(true));
-            assertThat(recordStore.isIndexWriteOnlyWithQueue(permissiveIndexName), is(true));
-            assertThat(recordStore.isIndexWriteOnlyNoQueue(standardIndexName), is(false));
-            assertThat(recordStore.isIndexReadable(standardIndexName), is(false));
+            // Exercise both the Index and String overloads of getIndexState.
+            assertThat(recordStore.getIndexState(standardIndex).isWriteOnlyWithQueue(), is(true));
+            assertThat(recordStore.getIndexState(standardIndexName).isWriteOnlyWithQueue(), is(true));
+            assertThat(recordStore.getIndexState(permissiveIndex).isWriteOnlyWithQueue(), is(true));
+            assertThat(recordStore.getIndexState(permissiveIndexName).isWriteOnlyWithQueue(), is(true));
+            assertThat(recordStore.getIndexState(standardIndexName).isWriteOnlyNoQueue(), is(false));
+            assertThat(recordStore.getIndexState(standardIndexName).isReadable(), is(false));
 
             // The NoOp-backed permissive index does not allow the pending write queue, so saving a record while it is
             // in WRITE_ONLY_WITH_QUEUE is rejected: serializePendingWriteQueue throws UnsupportedOperationException.
@@ -1080,8 +1080,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             recordStore.markIndexDisabled(indexName).get();
-            assertThat(recordStore.isIndexReadable(indexName), is(false));
-            assertThat(recordStore.isIndexDisabled(indexName), is(true));
+            assertThat(recordStore.getIndexState(indexName).isReadable(), is(false));
+            assertThat(recordStore.getIndexState(indexName).isDisabled(), is(true));
 
             try {
                 recordStore.scanIndexRecords(indexName);
@@ -1112,8 +1112,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             recordStore.uncheckedMarkIndexReadable(indexName).get();
-            assertThat(recordStore.isIndexReadable(indexName), is(true));
-            assertThat(recordStore.isIndexDisabled(indexName), is(false));
+            assertThat(recordStore.getIndexState(indexName).isReadable(), is(true));
+            assertThat(recordStore.getIndexState(indexName).isDisabled(), is(false));
             assertEquals(0, (int)recordStore.scanIndexRecords(indexName).getCount().get());
             commit(context);
         }
@@ -1151,8 +1151,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             assertThat(recordStore.markIndexDisabled(indexName).join(), is(true));
-            assertThat(recordStore.isIndexReadable(indexName), is(false));
-            assertThat(recordStore.isIndexDisabled(indexName), is(true));
+            assertThat(recordStore.getIndexState(indexName).isReadable(), is(false));
+            assertThat(recordStore.getIndexState(indexName).isDisabled(), is(true));
             commit(context);
         }
 
@@ -1189,13 +1189,13 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         // uncommitted transaction.
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            assertTrue(recordStore.isIndexDisabled(disabledIndex));
-            assertTrue(recordStore.isIndexWriteOnly(writeOnlyIndex));
+            assertTrue(recordStore.getIndexState(disabledIndex).isDisabled());
+            assertTrue(recordStore.getIndexState(writeOnlyIndex).isWriteOnly());
             assertTrue(recordStore.recordExists(Tuple.from(1066L)));
 
             recordStore.deleteAllRecords();
-            assertTrue(recordStore.isIndexDisabled(disabledIndex));
-            assertTrue(recordStore.isIndexWriteOnly(writeOnlyIndex));
+            assertTrue(recordStore.getIndexState(disabledIndex).isDisabled());
+            assertTrue(recordStore.getIndexState(writeOnlyIndex).isWriteOnly());
             assertFalse(recordStore.recordExists(Tuple.from(1066L)));
             commit(context);
         }
@@ -1203,27 +1203,27 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         // Ensure that this is still true after the transaction commits.
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            assertTrue(recordStore.isIndexDisabled(disabledIndex));
-            assertTrue(recordStore.isIndexWriteOnly(writeOnlyIndex));
+            assertTrue(recordStore.getIndexState(disabledIndex).isDisabled());
+            assertTrue(recordStore.getIndexState(writeOnlyIndex).isWriteOnly());
             assertFalse(recordStore.recordExists(Tuple.from(1066L)));
         }
 
         // Rebuild all indexes to reset the index states.
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            assertTrue(recordStore.isIndexDisabled(disabledIndex));
-            assertTrue(recordStore.isIndexWriteOnly(writeOnlyIndex));
+            assertTrue(recordStore.getIndexState(disabledIndex).isDisabled());
+            assertTrue(recordStore.getIndexState(writeOnlyIndex).isWriteOnly());
             recordStore.rebuildAllIndexes().get();
-            assertTrue(recordStore.isIndexReadable(disabledIndex));
-            assertTrue(recordStore.isIndexReadable(writeOnlyIndex));
+            assertTrue(recordStore.getIndexState(disabledIndex).isReadable());
+            assertTrue(recordStore.getIndexState(writeOnlyIndex).isReadable());
             commit(context);
         }
 
         // Verify that the index states are, in fact, updated.
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            assertTrue(recordStore.isIndexReadable(disabledIndex));
-            assertTrue(recordStore.isIndexReadable(writeOnlyIndex));
+            assertTrue(recordStore.getIndexState(disabledIndex).isReadable());
+            assertTrue(recordStore.getIndexState(writeOnlyIndex).isReadable());
             commit(context);
         }
     }
@@ -1325,16 +1325,16 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         final String indexName = "MySimpleRecord$str_value_indexed";
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            assertThat(recordStore.isIndexWriteOnly(indexName), is(false));
+            assertThat(recordStore.getIndexState(indexName).isWriteOnly(), is(false));
             recordStore.clearAndMarkIndexWriteOnly(indexName).get();
-            assertThat(recordStore.isIndexWriteOnly(indexName), is(true));
+            assertThat(recordStore.getIndexState(indexName).isWriteOnly(), is(true));
             commit(context);
         }
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             Index index = recordStore.getRecordMetaData().getIndex(indexName);
-            assertThat(recordStore.isIndexReadable(index), is(false));
+            assertThat(recordStore.getIndexState(index).isReadable(), is(false));
             buildIndexAndCrashHalfway(indexName, 4);
             Optional<Range> firstUnbuilt = recordStore.firstUnbuiltRange(index).get();
             assertTrue(firstUnbuilt.isPresent());
@@ -1345,12 +1345,12 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                 assertThat(e.getCause(), instanceOf(FDBRecordStore.IndexNotBuiltException.class));
                 return null;
             }).get();
-            assertThat(recordStore.isIndexReadable(index), is(false));
+            assertThat(recordStore.getIndexState(index).isReadable(), is(false));
         }
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             Index index = recordStore.getRecordMetaData().getIndex(indexName);
-            assertThat(recordStore.isIndexReadable(index), is(false));
+            assertThat(recordStore.getIndexState(index).isReadable(), is(false));
             try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(recordStore).setIndex(index)
                     .build()) {
                 indexBuilder.buildIndex(false);
@@ -1360,39 +1360,39 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             Index index = recordStore.getRecordMetaData().getIndex(indexName);
-            assertThat(recordStore.isIndexReadable(index), is(false));
+            assertThat(recordStore.getIndexState(index).isReadable(), is(false));
             assertFalse(recordStore.firstUnbuiltRange(index).get().isPresent());
             assertTrue(recordStore.markIndexReadable(index).get());
             assertFalse(recordStore.markIndexReadable(index).get());
-            assertThat(recordStore.isIndexReadable(index), is(true));
+            assertThat(recordStore.getIndexState(index).isReadable(), is(true));
             commit(context);
         }
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            assertFalse(recordStore.isIndexWriteOnly(indexName));
+            assertFalse(recordStore.getIndexState(indexName).isWriteOnly());
             recordStore.markIndexDisabled(indexName).get();
-            assertTrue(recordStore.isIndexDisabled(indexName));
+            assertTrue(recordStore.getIndexState(indexName).isDisabled());
             commit(context);
         }
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             Index index = recordStore.getRecordMetaData().getIndex(indexName);
-            assertThat(recordStore.isIndexReadable(index), is(false));
+            assertThat(recordStore.getIndexState(index).isReadable(), is(false));
             buildIndexAndCrashHalfway(indexName, 7);
             Optional<Range> firstUnbuilt = recordStore.firstUnbuiltRange(index).get();
             assertTrue(firstUnbuilt.isPresent());
             assertTrue(recordStore.uncheckedMarkIndexReadable(index.getName()).get());
             assertFalse(recordStore.uncheckedMarkIndexReadable(index.getName()).get());
-            assertThat(recordStore.isIndexReadable(index), is(true));
+            assertThat(recordStore.getIndexState(index).isReadable(), is(true));
 
             // Purposefully, checking to mark an index readable that is already
             // readable does not throw an error.
             firstUnbuilt = recordStore.firstUnbuiltRange(index).get();
             assertTrue(firstUnbuilt.isPresent());
             assertFalse(recordStore.markIndexReadable(index.getName()).get());
-            assertThat(recordStore.isIndexReadable(index), is(true));
+            assertThat(recordStore.getIndexState(index).isReadable(), is(true));
         }
     }
 
@@ -1422,9 +1422,9 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            assertThat(recordStore.isIndexDisabled(indexName), is(false));
+            assertThat(recordStore.getIndexState(indexName).isDisabled(), is(false));
             recordStore.markIndexDisabled(indexName).get();
-            assertThat(recordStore.isIndexDisabled(indexName), is(true));
+            assertThat(recordStore.getIndexState(indexName).isDisabled(), is(true));
             context.commit();
         }
 
@@ -1458,7 +1458,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                 List<Index> shouldBeDisabled = new ArrayList<>();
                 // Expected contract: only use isIndexXXX and markIndexXXX and wait for all futures when done.
                 for (int i = 0; i < indexes.length; i++) {
-                    if ((i % 2 == 0) || (i == 99 && recordStore.isIndexDisabled(indexes[i]))) {
+                    if ((i % 2 == 0) || (i == 99 && recordStore.getIndexState(indexes[i]).isDisabled())) {
                         futures.add(recordStore.markIndexDisabled(indexes[i]));
                         shouldBeDisabled.add(indexes[i]);
                     }
@@ -1468,7 +1468,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                     assertThat(index, new TypeSafeMatcher<Index>() {
                         @Override
                         protected boolean matchesSafely(Index item) {
-                            return recordStore.isIndexDisabled(index);
+                            return recordStore.getIndexState(index).isDisabled();
                         }
 
                         @Override
@@ -1487,15 +1487,15 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            assertFalse(recordStore.isIndexWriteOnly(indexName));
+            assertFalse(recordStore.getIndexState(indexName).isWriteOnly());
             recordStore.markIndexWriteOnly(indexName).get();
-            assertTrue(recordStore.isIndexWriteOnly(indexName));
+            assertTrue(recordStore.getIndexState(indexName).isWriteOnly());
             commit(context);
         }
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            assertTrue(recordStore.isIndexWriteOnly(indexName));
+            assertTrue(recordStore.getIndexState(indexName).isWriteOnly());
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -1503,7 +1503,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             recordStore.rebuildIndex(recordStore.getRecordMetaData().getIndex(indexName), FDBRecordStore.RebuildIndexReason.TEST).get();
             assertEquals(1, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX_TEST), "should build new index");
             assertEquals(1, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX), "should build new index");
-            assertTrue(recordStore.isIndexReadable(indexName));
+            assertTrue(recordStore.getIndexState(indexName).isReadable());
             commit(context);
         }
 
@@ -1531,7 +1531,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook1);
             metaDataVersion1 = recordStore.getRecordMetaData().getVersion();
-            assertTrue(recordStore.isIndexReadable(indexName));
+            assertTrue(recordStore.getIndexState(indexName).isReadable());
             recordStore.markIndexDisabled(indexName).join();
             commit(context);
         }
@@ -1647,7 +1647,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context, hook1);
             metaDataVersion1 = recordStore.getRecordMetaData().getVersion();
             recordStore.markIndexWriteOnly(reusedIndexName).join();
-            assertTrue(recordStore.isIndexWriteOnly(reusedIndexName));
+            assertTrue(recordStore.getIndexState(reusedIndexName).isWriteOnly());
             commit(context);
         }
 
@@ -1678,7 +1678,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         //  2. If the desired index state is READABLE_UNIQUE_PENDING, then that also gets upgraded to READABLE as the
         //     index is not unique
         final IndexState expectedIndexState;
-        if (onNewType && desiredIndexState != IndexState.DISABLED || desiredIndexState == IndexState.READABLE_UNIQUE_PENDING) {
+        if (onNewType && !desiredIndexState.isDisabled() || desiredIndexState.isReadableUniquePending()) {
             expectedIndexState = IndexState.READABLE;
         } else {
             expectedIndexState = desiredIndexState;
@@ -1762,7 +1762,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             assertEquals(Tuple.from(saved.getStrValueIndexed(), saved.getRecNo()), indexedRecord.getIndexEntry().getKey());
 
             recordStore.markIndexWriteOnly(reusedIndexName).join();
-            assertTrue(recordStore.isIndexWriteOnly(reusedIndexName));
+            assertTrue(recordStore.getIndexState(reusedIndexName).isWriteOnly());
 
             commit(context);
         }
@@ -1796,9 +1796,9 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                 // index as read only (with no data) is confused by the index state not being set.
                 // This results in it falling back to alternative logic, which sets the index state
                 // to DISABLED just to get things to a more defined state.
-                assertTrue(recordStore.isIndexDisabled(reusedIndexName));
+                assertTrue(recordStore.getIndexState(reusedIndexName).isDisabled());
             } else {
-                assertTrue(recordStore.isIndexReadable(reusedIndexName));
+                assertTrue(recordStore.getIndexState(reusedIndexName).isReadable());
 
                 // Validate that we can scan the index, and that it contains the saved record with the new index's entry
                 final List<FDBIndexedRecord<Message>> records = recordStore.scanIndexRecords(reusedIndexName)
@@ -1914,12 +1914,12 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            assertTrue(recordStore.isIndexReadable(disabledIndex));
-            assertTrue(recordStore.isIndexReadable(writeOnlyIndex));
+            assertTrue(recordStore.getIndexState(disabledIndex).isReadable());
+            assertTrue(recordStore.getIndexState(writeOnlyIndex).isReadable());
             recordStore.markIndexDisabled(disabledIndex).get();
             recordStore.markIndexWriteOnly(writeOnlyIndex).get();
-            assertTrue(recordStore.isIndexDisabled(disabledIndex));
-            assertTrue(recordStore.isIndexWriteOnly(writeOnlyIndex));
+            assertTrue(recordStore.getIndexState(disabledIndex).isDisabled());
+            assertTrue(recordStore.getIndexState(writeOnlyIndex).isWriteOnly());
             recordStore.saveRecord(record);
             commit(context);
         }
@@ -1939,8 +1939,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             recordStore.rebuildAllIndexes().get();
-            assertTrue(recordStore.isIndexReadable(disabledIndex));
-            assertTrue(recordStore.isIndexReadable(writeOnlyIndex));
+            assertTrue(recordStore.getIndexState(disabledIndex).isReadable());
+            assertTrue(recordStore.getIndexState(writeOnlyIndex).isReadable());
             assertEquals(Collections.singletonList(record),
                     recordStore.scanIndexRecords(disabledIndex).map(FDBIndexedRecord::getRecord).asList().get());
             assertEquals(Collections.singletonList(record),
@@ -1951,8 +1951,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         // Validate that the index state updates carry over into the next transaction
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            assertTrue(recordStore.isIndexReadable(disabledIndex));
-            assertTrue(recordStore.isIndexReadable(writeOnlyIndex));
+            assertTrue(recordStore.getIndexState(disabledIndex).isReadable());
+            assertTrue(recordStore.getIndexState(writeOnlyIndex).isReadable());
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
         }
     }
@@ -2075,9 +2075,9 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            assertThat(recordStore.isIndexDisabled(indexName), is(false));
+            assertThat(recordStore.getIndexState(indexName).isDisabled(), is(false));
             recordStore.markIndexDisabled(indexName).get();
-            assertThat(recordStore.isIndexDisabled(indexName), is(true));
+            assertThat(recordStore.getIndexState(indexName).isDisabled(), is(true));
             commit(context);
         }
 
@@ -2104,9 +2104,9 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            assertThat(recordStore.isIndexWriteOnly(indexName), is(false));
+            assertThat(recordStore.getIndexState(indexName).isWriteOnly(), is(false));
             recordStore.markIndexWriteOnly(indexName).get();
-            assertThat(recordStore.isIndexWriteOnly(indexName), is(true));
+            assertThat(recordStore.getIndexState(indexName).isWriteOnly(), is(true));
             context.commit();
         }
 
@@ -2209,9 +2209,9 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            assertThat(recordStore.isIndexWriteOnly(index), is(false));
+            assertThat(recordStore.getIndexState(index).isWriteOnly(), is(false));
             recordStore.markIndexWriteOnly(index).get();
-            assertThat(recordStore.isIndexWriteOnly(index), is(true));
+            assertThat(recordStore.getIndexState(index).isWriteOnly(), is(true));
             context.commit();
         }
 
@@ -3176,7 +3176,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             assertThat(context.ensureActive().getRange(recordStore.getSubspace().range(Tuple.from(FDBRecordStoreKeyspace.INDEX.key(), subspaceKey1))).asList().join(), empty());
 
             // Make sure the new index subspace key is used for the index now
-            if (!recordStore.isIndexReadable(index2)) {
+            if (!recordStore.getIndexState(index2).isReadable()) {
                 recordStore.rebuildIndex(index2).join();
             }
             List<FDBIndexedRecord<Message>> indexedRecords = recordStore.scanIndexRecords(index1.getName())

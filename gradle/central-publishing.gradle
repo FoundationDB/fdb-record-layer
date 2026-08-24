@@ -1,0 +1,236 @@
+/*
+ * central-publishing.gradle
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import groovy.json.JsonSlurper
+
+// Configure publishing to the Maven Central repository.
+//
+// For this to work, the caller should set the following properties:
+//
+//  - `signingKey` to the GPG secret key used to sign artifacts
+//  - `signingPassword` to that GPG key's password
+//  - `sonatypeUsername` to the maven central publisher user name
+//  - `sonatypePassword` to the maven central publisher password
+//  - `publishBuild` to `true` (to indicate that we're publishing the artifacts at all)
+//  - `centralPublish` to `true` (to indicate that we're publishing to maven central)
+//
+// Note that some of those (like the GPG key and sonatype credentials) are secrets and
+// thus should be handled by the CI system's secret management system.
+//
+// This file should be applied in the root `build.gradle`, and then all the
+// subprojects should configure the artifacts they want published by applying
+// `gradle/publishing.gradle` in their project's gradle config. This results in the subproject
+// publishing to the staging repo. Those artifacts are bundled up in `createMavenCentralBundle`,
+// and then that bundle is uploaded by `publishMavenCentralBundle`. By default,
+// each subproject publishes a library, but this can be configured by adjusting the
+// publishLibrary variable.
+
+// Polls the Maven Central Portal status endpoint until the given deployment reaches the
+// terminal PUBLISHED state. If the portal reports that publishing FAILED, this throws an error
+// and reports back to the user what has gone wrong. If publishing has not completed before the
+// timeout elapses, this moves on to avoid blocking the build on a slow connection. Publishing
+// will then continue asynchronously on the portal server, and it is the user's responsibility
+// to monitor for success or failure.
+// See: https://central.sonatype.org/publish/publish-portal-api/#verify-status-of-the-deployment
+def waitForCentralDeploymentToPublish(String deploymentId, String encodedCredentials, int timeoutSeconds = 600, int pollIntervalSeconds = 10) {
+    logger.lifecycle("Validating ${deploymentId} deployment state")
+
+    def statusUrl = new URI("https://central.sonatype.com/api/v1/publisher/status?id=${deploymentId}").toURL()
+    def deadline = System.currentTimeMillis() + timeoutSeconds * 1000L
+    def lastKnownState = 'UNKNOWN'
+    def waiting = false
+
+    while (true) {
+        def connection = statusUrl.openConnection() as HttpURLConnection
+        try {
+            connection.setRequestMethod('POST')
+            connection.setRequestProperty('Authorization', "Bearer ${encodedCredentials}")
+            connection.setConnectTimeout(30_000)
+            connection.setReadTimeout(30_000)
+
+            def responseCode = connection.responseCode
+            if (responseCode != 200) {
+                def errorResponse = connection.errorStream?.text ?: connection.responseMessage
+                throw new GradleException("Failed to query deployment status (HTTP ${responseCode}): ${errorResponse}")
+            }
+
+            def status = new JsonSlurper().parseText(connection.inputStream.text)
+            def deploymentState = status.deploymentState
+            if (deploymentState != lastKnownState) {
+                if (waiting) {
+                    println()
+                    waiting = false
+                }
+                println("Deployment ${deploymentId} is now in state: ${deploymentState}")
+            } else {
+                if (!waiting) {
+                    print("Waiting for state update...")
+                    waiting = true
+                }
+                print(".")
+            }
+            lastKnownState = deploymentState
+
+            if (lastKnownState == 'PUBLISHED') {
+                return
+            }
+            if (lastKnownState == 'FAILED') {
+                throw new GradleException("Deployment ${deploymentId} failed to publish: ${status.errors}")
+            }
+        } catch (IOException e) {
+            // Transient network hiccups shouldn't abort the build while we're in a retry loop.
+            // Log a warning and let the loop below retry after the poll interval.
+            if (waiting) {
+                println()
+                waiting = false
+            }
+            logger.warn("Failed to query deployment status for ${deploymentId}, will retry: ${e.message}")
+        } finally {
+            connection.disconnect()
+        }
+
+        if (System.currentTimeMillis() > deadline) {
+            if (waiting) {
+                println()
+            }
+            logger.warn("Artifact deployment ${deploymentId} still publishing after ${timeoutSeconds} seconds " +
+                    "(last known state: ${lastKnownState}). Check status manually via: " +
+                    "https://central.sonatype.com/api/v1/publisher/status?id=${deploymentId}")
+            logger.warn("Publishing will continue asynchronously. Continuing on.")
+            return
+        }
+        Thread.sleep(pollIntervalSeconds * 1000L)
+    }
+}
+
+var stagingRepo = rootProject.layout.buildDirectory.dir(rootProject.ext.stagingRepoDirName)
+
+// Task to create a bundle zip of all published artifacts
+tasks.register('createMavenCentralBundle', Zip) {
+    description = "Creates a bundle zip of all artifacts for Maven Central upload"
+    group = "publishing"
+
+    dependsOn subprojects.collect { it.tasks.named('publish') }
+
+    archiveBaseName = "${rootProject.group}-${rootProject.name}"
+    archiveVersion = project.version
+    archiveClassifier = 'bundle'
+    destinationDirectory = layout.buildDirectory.dir('distributions')
+
+    from(stagingRepo) {
+        include "${rootProject.group.replace('.', '/')}/**/${project.version}/*"
+        exclude '**/maven-metadata*'
+    }
+
+    includeEmptyDirs = false
+}
+
+// Task to upload the bundle to Maven Central
+tasks.register('publishMavenCentralBundle') {
+    description = "Uploads the bundle zip to Maven Central Portal"
+    group = "publishing"
+
+    dependsOn tasks.named('createMavenCentralBundle')
+
+    doLast {
+        def sonatypeUsername = findProperty('sonatypeUsername')
+        def sonatypePassword = findProperty('sonatypePassword')
+
+        if (sonatypeUsername == null || sonatypePassword == null) {
+            throw new GradleException("sonatypeUsername and sonatypePassword properties must be set")
+        }
+
+        // Create base64 encoded credentials
+        def credentials = "${sonatypeUsername}:${sonatypePassword}"
+        def encodedCredentials = Base64.getEncoder().encodeToString(credentials.getBytes('UTF-8'))
+
+        // Get the bundle file
+        def bundleTask = tasks.named('createMavenCentralBundle').get()
+        def bundleFile = bundleTask.archiveFile.get().asFile
+
+        if (!bundleFile.exists()) {
+            throw new GradleException("Bundle file does not exist: ${bundleFile}")
+        }
+
+        logger.lifecycle("Uploading bundle: ${bundleFile.name} (${bundleFile.length() / 1024 / 1024} MB)")
+
+        // Upload using HttpURLConnection for multipart/form-data
+        def url = new URI('https://central.sonatype.com/api/v1/publisher/upload?publishingType=AUTOMATIC').toURL()
+        def connection = url.openConnection() as HttpURLConnection
+        def deploymentId = ""
+
+        try {
+            connection.setRequestMethod('POST')
+            connection.setDoOutput(true)
+            connection.setRequestProperty('Authorization', "Bearer ${encodedCredentials}")
+            // Connecting should be quick, but the read timeout also bounds how long we wait for
+            // the server to acknowledge the upload once the bundle has been fully streamed, so it
+            // needs to be generous enough to cover large bundles.
+            connection.setConnectTimeout(30_000)
+            connection.setReadTimeout(10 * 60_000)
+
+            def boundary = "----GradleBoundary${UUID.randomUUID().toString()}"
+            connection.setRequestProperty('Content-Type', "multipart/form-data; boundary=${boundary}")
+
+            // Use a chunked streaming mode to break data up into smaller chunks to avoid needing to load everything into memory
+            connection.setChunkedStreamingMode(8192)
+
+            // Use buffered output stream and write directly to avoid loading entire file into memory
+            connection.outputStream.withStream { output ->
+                def CRLF = "\r\n"
+
+                // Write multipart headers
+                output.write("--${boundary}${CRLF}".getBytes('UTF-8'))
+                output.write("Content-Disposition: form-data; name=\"bundle\"; filename=\"${bundleFile.name}\"${CRLF}".getBytes('UTF-8'))
+                output.write("Content-Type: application/octet-stream${CRLF}".getBytes('UTF-8'))
+                output.write(CRLF.getBytes('UTF-8'))
+
+                // Next write the bundle data to the stream
+                bundleFile.withInputStream { InputStream input -> output << input }
+
+                // Write multipart closing boundary
+                output.write(CRLF.getBytes('UTF-8'))
+                output.write("--${boundary}--${CRLF}".getBytes('UTF-8'))
+                output.flush()
+            }
+
+            def responseCode = connection.responseCode
+            def responseMessage = connection.responseMessage
+
+            if (responseCode >= 200 && responseCode < 300) {
+                deploymentId = connection.inputStream.text.trim()
+                logger.lifecycle("Upload successful!")
+                logger.lifecycle("Deployment ID: ${deploymentId}")
+            } else {
+                def errorResponse = connection.errorStream?.text ?: responseMessage
+                throw new GradleException("Upload failed with status ${responseCode}: ${errorResponse}")
+            }
+        } finally {
+            connection.disconnect()
+        }
+
+        // The upload endpoint only confirms that the bundle was received. With
+        // publishingType=AUTOMATIC, Central still validates the bundle and releases it
+        // asynchronously, so poll the status endpoint until it reaches a terminal state to
+        // catch validation failures instead of leaving this task green while the deployment
+        // silently fails behind the scenes.
+        waitForCentralDeploymentToPublish(deploymentId, encodedCredentials)
+    }
+}

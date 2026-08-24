@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.planprotos.PUserDefinedFunctionArgumentDefaultValue;
 import com.apple.foundationdb.record.planprotos.PUserDefinedMacroFunction;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
@@ -35,7 +34,6 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -69,14 +67,12 @@ public class UserDefinedMacroFunction extends UserDefinedFunction {
 
     @Nonnull
     @Override
-    public Value encapsulate(@Nonnull List<? extends Typed> arguments) {
-        return encapsulateFromArgumentValues(resolveParameterValuesFromArguments(arguments));
-    }
-
-    @Nonnull
-    @Override
-    public Value encapsulate(@Nonnull final Map<String, ? extends Typed> namedArguments) {
-        return encapsulateFromArgumentValues(resolveParameterValuesFromArguments(namedArguments));
+    public Value encapsulate(@Nonnull final CallSiteArguments arguments) {
+        if (arguments.isNamed()) {
+            return encapsulateFromArgumentValues(
+                    resolveParameterValuesFromArguments(arguments.asNamedArguments().namedArguments()));
+        }
+        return encapsulateFromArgumentValues(resolveParameterValuesFromArguments(arguments.getArgumentsList()));
     }
 
     private Value encapsulateFromArgumentValues(@Nonnull List<Value> resolvedArgumentValues) {

@@ -280,7 +280,6 @@ message PValue {
     PRowNumberValue row_number_value = 55;
     PEuclideanDistanceRowNumberValue euclidean_distance_row_number_value = 56;
     PCosineDistanceRowNumberValue cosine_distance_row_number_value = 57;
-    PRowNumberHighOrderValue row_number_high_order_value = 58;
     PDistanceValue distance_value = 59;
     PEuclideanSquareDistanceRowNumberValue euclidean_square_distance_row_number_value = 60;
     PDotProductDistanceRowNumberValue dot_product_distance_row_number_value = 61;
@@ -289,6 +288,8 @@ message PValue {
   }
   // Removed types that are no longer supported
   reserved 38;
+  // 58: PRowNumberHighOrderValue -- a compile-time-only value that was never persisted; retired.
+  reserved 58;
 }
 
 message PUserDefinedFunctionArgumentDefaultValue {
@@ -726,11 +727,6 @@ message PRecordConstructorValue {
 message PRecordTypeValue {
   optional string alias = 1; // deprecated
   optional PValue in = 2;
-}
-
-message PRowNumberHighOrderValue {
-  optional int32 efSearch = 2;
-  optional bool isReturningVectors = 3;
 }
 
 message PRowNumberValue {
@@ -1730,7 +1726,6 @@ message PRecordQueryPlan {
     PRecordQueryScanPlan scan_plan = 22;
     PRecordQueryScoreForRankPlan score_for_rank_plan = 23;
     PRecordQuerySortPlan sort_plan = 24;
-    PRecordQueryStreamingAggregationPlan streaming_aggregation_plan = 25;
     PRecordQueryTypeFilterPlan type_filter_plan = 26;
     PRecordQueryUnionOnKeyExpressionPlan union_on_key_expression_plan = 27;
     PRecordQueryUnionOnValuesPlan union_on_values_plan = 28;
@@ -1743,10 +1738,12 @@ message PRecordQueryPlan {
     PTempTableInsertPlan temp_table_insert_plan = 35;
     PRecordQueryRecursiveLevelUnionPlan recursive_level_union_plan = 36;
     PRecordQueryTableFunctionPlan table_function_plan = 37;
-    PRecordQueryStreamingAggregationPlan2 streaming_aggregation_plan2 = 38;
+    PRecordQueryStreamingAggregationPlan streaming_aggregation_plan = 38;
     PRecordQueryMultiIntersectionOnValuesPlan multi_intersection_on_values_plan = 39;
     PRecordQueryRecursiveDfsJoinPlan recursive_dfs_join_plan = 40;
   }
+  // 25: PRecordQueryStreamingAggregationPlan -- superseded by field 38 (same message type, incompatible wire format); retired.
+  reserved 25;
 }
 
 //
@@ -2251,16 +2248,6 @@ message PIndexAggregateFunction {
 // PRecordQueryStreamingAggregationPlan
 //
 message PRecordQueryStreamingAggregationPlan {
-    optional PPhysicalQuantifier inner = 1;
-    optional PValue aggregate_value = 2;
-    optional PValue grouping_key_value = 3;
-    optional string grouping_key_alias = 4;
-    optional string aggregate_alias = 5;
-    optional PValue complete_result_value = 6;
-    optional bool is_create_default_on_empty = 7;
-}
-
-message PRecordQueryStreamingAggregationPlan2 {
     optional PPhysicalQuantifier inner = 1;
     optional PValue aggregate_value = 2;
     optional PValue grouping_key_value = 3;

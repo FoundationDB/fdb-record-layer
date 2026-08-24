@@ -619,7 +619,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
 
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
 
-            assertTrue(recordStore.isIndexReadable("newIndex"));
+            assertTrue(recordStore.getIndexState("newIndex").isReadable());
 
             assertEquals(10, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
             assertEquals(10, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
@@ -658,7 +658,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             uncheckedOpenSimpleRecordStore(context, hook);
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
 
-            assertTrue(recordStore.isIndexDisabled("newIndex"));
+            assertTrue(recordStore.getIndexState("newIndex").isDisabled());
 
             timer.reset();
 
@@ -681,7 +681,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             uncheckedOpenSimpleRecordStore(context, hook);
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
 
-            assertTrue(recordStore.isIndexReadable("newIndex"));
+            assertTrue(recordStore.getIndexState("newIndex").isReadable());
 
             recordStore.clearAndMarkIndexWriteOnly("newIndex").join();
             context.commit();
@@ -735,9 +735,9 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             uncheckedOpenSimpleRecordStore(context, hook);
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
 
-            assertTrue(recordStore.isIndexDisabled("newIndex"));
-            assertTrue(recordStore.isIndexDisabled("newSumIndex"));
-            assertTrue(recordStore.isIndexDisabled("newMaxIndex"));
+            assertTrue(recordStore.getIndexState("newIndex").isDisabled());
+            assertTrue(recordStore.getIndexState("newSumIndex").isDisabled());
+            assertTrue(recordStore.getIndexState("newMaxIndex").isDisabled());
 
             context.commit();
         }
@@ -765,9 +765,9 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             uncheckedOpenSimpleRecordStore(context, hook);
 
-            assertTrue(recordStore.isIndexReadable("newIndex"));
-            assertTrue(recordStore.isIndexReadable("newSumIndex"));
-            assertTrue(recordStore.isIndexReadable("newMaxIndex"));
+            assertTrue(recordStore.getIndexState("newIndex").isReadable());
+            assertTrue(recordStore.getIndexState("newSumIndex").isReadable());
+            assertTrue(recordStore.getIndexState("newMaxIndex").isReadable());
 
             context.commit();
         }
@@ -810,7 +810,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             uncheckedOpenSimpleRecordStore(context, addIndex);
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
-            assertTrue(recordStore.isIndexDisabled("newIndex"));
+            assertTrue(recordStore.getIndexState("newIndex").isDisabled());
             context.commit();
         }
 
@@ -824,7 +824,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             uncheckedOpenSimpleRecordStore(context, addIndex);
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
-            assertTrue(recordStore.isIndexReadable("newIndex"));
+            assertTrue(recordStore.getIndexState("newIndex").isReadable());
             assertEquals(IntStream.range(0, numRecords).mapToObj(j -> Tuple.from(j, 0L, j)).collect(Collectors.toList()),
                     recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("newIndex"),
                             IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)

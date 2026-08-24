@@ -264,8 +264,16 @@ public final class TestBlock extends ConnectedBlock {
         public static Options parseConnectionOptions(@Nonnull final Map<?, ?> map) {
             final var optionsBuilder = Options.builder();
             for (final var entry : map.entrySet()) {
+                final var name = Options.Name.valueOf(Matchers.string(entry.getKey()));
                 try {
-                    optionsBuilder.withOption(Options.Name.valueOf(Matchers.string(entry.getKey())), entry.getValue());
+                    // YAML hands us the value in whatever type it parsed to, which lines up with the option's own type
+                    // for booleans and numbers but not for options that are typed as an enum or a collection. Route
+                    // strings through the option's string conversion so those can be spelled out in the yamsql file.
+                    if (entry.getValue() instanceof String) {
+                        optionsBuilder.withOptionFromString(name, (String)entry.getValue());
+                    } else {
+                        optionsBuilder.withOption(name, entry.getValue());
+                    }
                 } catch (SQLException e) {
                     throw new RuntimeException(e);
                 }

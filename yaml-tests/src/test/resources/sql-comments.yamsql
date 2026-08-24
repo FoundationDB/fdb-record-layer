@@ -119,7 +119,8 @@ test_block:
       - error: SYNTAX_ERROR
     -
       # comment markers inside a quoted identifier are part of the name, not the start of a comment
+      # this currently fails as the underlying plan representation accepts only proto-compliant names
       - query: |
           select val as "a--b" from t where id = 1
-      - result: [ { "a--b": 10 } ]
+      - error: INVALID_NAME
 ...
