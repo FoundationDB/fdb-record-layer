@@ -66,6 +66,7 @@ public class OptionsTestHelper {
         builder = builder.withOption(Options.Name.COMPRESS_WHEN_SERIALIZING, false);
         builder = builder.withOption(Options.Name.PLAN_RIGHT_DEEP, true);
         builder = builder.withOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT, true);
+        builder = builder.withOption(Options.Name.VECTOR_INDEX_ENGINE_PREFERENCE, Options.VectorIndexEnginePreference.PREFER_GUARDIANN);
         Options options = builder.build();
         for (Options.Name name : Options.Name.values()) {
             if (name != Options.Name.CONTINUATION) {    // See above on why CONTINUATION was skipped.

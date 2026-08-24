@@ -476,6 +476,8 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_LOAD_LUCENE_PARTITION_METADATA("wait to load lucene partition metadata"),
         /** Wait to run all the postClose hooks. */
         WAIT_RUN_CLOSE_HOOKS("Wait to run all postClose hooks"),
+        /** Wait to delete a store. */
+        WAIT_DELETE_STORE("wait for delete store"),
         ;
 
         private final String title;
@@ -779,6 +781,8 @@ public class FDBStoreTimer extends StoreTimer {
         VECTOR_TASK_ENQUEUED("vector maintenance tasks enqueued", false),
         /** Count of deferred maintenance tasks executed (Guardiann engine). */
         VECTOR_TASK_EXECUTED("vector maintenance tasks executed", false),
+        /** Count of vector indexes disabled because a deferred-task count decoded to a negative (corrupt) value. */
+        VECTOR_INDEX_DISABLED_ON_NEGATIVE_TASK_COUNT("vector indexes disabled on negative task count", false),
         /** Count of the writes to a {@code PendingWritesQueue}. */
         PENDING_WRITES_QUEUE_WRITE("pending writes queue writes", false),
         /** Count of the entries cleared from a {@code PendingWritesQueue}. */

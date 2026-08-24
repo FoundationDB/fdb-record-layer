@@ -50,7 +50,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       # Increment the version here so that the version used in the checks matches the eventually published version.
@@ -73,7 +73,7 @@ jobs:
     timeout-minutes: 40
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: Setup FDB
@@ -117,7 +117,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: Setup FDB
@@ -163,7 +163,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: Calculate versions
@@ -182,7 +182,7 @@ jobs:
     timeout-minutes: 40
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: Setup FDB
@@ -216,11 +216,11 @@ jobs:
       contents: read
     steps:
       - name: Checkout HEAD sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: 'Download results'
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: 'mixed-mode-*-test-reports'
       - name: Generate mixed mode results
@@ -245,7 +245,7 @@ jobs:
       pull-requests: write # We create a pull request if committing the release notes updates fails
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ssh-key: ${{ secrets.DEPLOY_KEY }}
           fetch-tags: true
@@ -281,7 +281,7 @@ jobs:
       # We want to do this before anything else, because if the later steps fail, we want to make sure that the full
       # change log includes all changes, even if they reference a release that was never actually published.
       - name: Download mixed mode results
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: mixed-mode-results
       - name: echo results
@@ -315,7 +315,7 @@ jobs:
         id: publish_artifacts
         uses: ./actions/run-gradle
         with:
-          gradle_command: publish closeAndReleaseStagingRepositories -PreleaseBuild=true -PpublishBuild=true -PgithubPublish=true -PcentralPublish=true
+          gradle_command: publish publishMavenCentralBundle -PreleaseBuild=true -PpublishBuild=true -PgithubPublish=true -PcentralPublish=true
         env:
           ORG_GRADLE_PROJECT_signingKey: ${{ secrets.GPG_PRIVATE_KEY }}
           ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.GPG_PASSPHRASE }}
@@ -335,16 +335,23 @@ jobs:
         run: python ./build/commit_yamsql_updates.py "${{ steps.get_new_version.outputs.version }}"
 
       # Push updates back to origin.
-      # We want to do this regardless of whether publishing actually succeeds or fails, as the
-      # publishing process itself can fail non-atomically. If that happens, we still want to update
-      # the gradle.properties version, the release notes, etc.
+      #
+      # We want to do this whenever publishing runs, regardless of whether it succeeds
+      # or fails, as the publishing process itself can fail non-atomically. If that happens, we still
+      # want to update the gradle.properties version, the release notes, etc. Note that we run this
+      # even if the workflow is cancelled during publishing, as we don't know where in the publishing
+      # step we are. (If the workflow is cancelled before publishing, then the `publish_arifacts` outcome
+      # will be `skipped`, and so we can safely skip this step as well.)
       #
       # We pull updates before doing this as there may be concurrent PRs. This can introduce
       # non-linearities into the history, but comparing tags should still correctly
       # identify all commits that are present in one version but absent in another
       - name: Push updates
         id: push_updates
-        if: steps.publish_artifacts.outcome != 'cancelled'
+        # `always()` is here because `if` conditions that don't reference a status-check function (success()/
+        # failure()/cancelled()/always()) get `success()` implicitly ANDed in by GitHub Actions, so without
+        # it, this would only get run if `publish_artifacts` succeeded, which defeats the purpose
+        if: ${{ always() && steps.publish_artifacts.outcome != 'skipped' }}
         shell: bash
         run: |
             # Remove the leading "refs/heads/" from the branch name stored in the GITHUB_REF environment variable
@@ -359,7 +366,7 @@ jobs:
         # Only create the PR if we've otherwise been successful, but the push failed. Note that
         # we're checking the .outcome of the push step, which is applied before continue-on-error.
         if: success() && steps.push_updates.outcome == 'failure'
-        uses: peter-evans/create-pull-request@bb88e27d3f9cc69c8bc689eba126096c6fe3dded
+        uses: peter-evans/create-pull-request@b99c9ae23bcf83f0f5aa571c2f0093de8aa85036
         id: pr_on_conflict
         with:
           branch: release-build
@@ -380,7 +387,7 @@ jobs:
         run: echo "${{ needs.get-update-type.outputs.update-type }}"
       - name: Cache Python Environment
         if: needs.get-update-type.outputs.update-type == 'BUILD'
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: docs/sphinx/.venv
           key: ${{ runner.os }}-sphinx-python-${{ steps.setup-base.outputs.python-version }}-${{ hashFiles('docs/sphinx/requirements.txt') }}

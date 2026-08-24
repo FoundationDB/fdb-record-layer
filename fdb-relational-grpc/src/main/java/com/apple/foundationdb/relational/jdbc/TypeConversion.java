@@ -739,6 +739,21 @@ public class TypeConversion {
                             ? com.apple.foundationdb.relational.jdbc.grpc.v1.Options.IsolationLevel.SNAPSHOT
                             : com.apple.foundationdb.relational.jdbc.grpc.v1.Options.IsolationLevel.SERIALIZABLE);
                     break;
+                case VECTOR_INDEX_ENGINE_PREFERENCE:
+                    switch ((Options.VectorIndexEnginePreference)entry.getValue()) {
+                        case NO_PREFERENCE:
+                            builder.setVectorIndexEnginePreference(com.apple.foundationdb.relational.jdbc.grpc.v1.Options.VectorIndexEnginePreference.NO_PREFERENCE);
+                            break;
+                        case PREFER_HNSW:
+                            builder.setVectorIndexEnginePreference(com.apple.foundationdb.relational.jdbc.grpc.v1.Options.VectorIndexEnginePreference.PREFER_HNSW);
+                            break;
+                        case PREFER_GUARDIANN:
+                            builder.setVectorIndexEnginePreference(com.apple.foundationdb.relational.jdbc.grpc.v1.Options.VectorIndexEnginePreference.PREFER_GUARDIANN);
+                            break;
+                        default:
+                            throw new SQLException("Unknown vector index engine preference");
+                    }
+                    break;
                 default:
                     throw new SQLException("Cannot encode option in protobuf");
             }
@@ -801,6 +816,23 @@ public class TypeConversion {
                     throw new SQLException("Unknown fetch method");
             }
             builder.withOption(Options.Name.INDEX_FETCH_METHOD, indexFetchMethod);
+        }
+        if (protoOptions.hasVectorIndexEnginePreference()) {
+            Options.VectorIndexEnginePreference vectorIndexEnginePreference;
+            switch (protoOptions.getVectorIndexEnginePreference()) {
+                case NO_PREFERENCE:
+                    vectorIndexEnginePreference = Options.VectorIndexEnginePreference.NO_PREFERENCE;
+                    break;
+                case PREFER_HNSW:
+                    vectorIndexEnginePreference = Options.VectorIndexEnginePreference.PREFER_HNSW;
+                    break;
+                case PREFER_GUARDIANN:
+                    vectorIndexEnginePreference = Options.VectorIndexEnginePreference.PREFER_GUARDIANN;
+                    break;
+                default:
+                    throw new SQLException("Unknown vector index engine preference");
+            }
+            builder.withOption(Options.Name.VECTOR_INDEX_ENGINE_PREFERENCE, vectorIndexEnginePreference);
         }
         if (protoOptions.getDisabledPlannerRulesCount() > 0) {
             builder.withOption(Options.Name.DISABLED_PLANNER_RULES, protoOptions.getDisabledPlannerRulesList());

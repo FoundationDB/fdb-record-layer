@@ -156,7 +156,7 @@ public class ExplainTests {
                     final var plannerMetrics = resultSet.getStruct("PLANNER_METRICS");
                     org.junit.jupiter.api.Assertions.assertNotNull(plannerMetrics);
                     RelationalStructAssert.assertThat(plannerMetrics)
-                            .hasValue("REWRITING_PHASE_TASK_COUNT", 44L)
+                            .hasValue("REWRITING_PHASE_TASK_COUNT", 42L)
                             .hasValue("PLANNING_PHASE_TASK_COUNT", 185L);
                     assertResult.hasNoNextRow();
                 }
@@ -184,7 +184,7 @@ public class ExplainTests {
                         final var plannerMetrics = resultSet.getStruct("PLANNER_METRICS");
                         org.junit.jupiter.api.Assertions.assertNotNull(plannerMetrics);
                         RelationalStructAssert.assertThat(plannerMetrics)
-                                .hasValue("REWRITING_PHASE_TASK_COUNT", 44L)
+                                .hasValue("REWRITING_PHASE_TASK_COUNT", 42L)
                                 .hasValue("PLANNING_PHASE_TASK_COUNT", 185L);
                         assertResult.hasNoNextRow();
                     }
@@ -271,7 +271,7 @@ public class ExplainTests {
                         final var plannerMetrics = resultSet.getStruct("PLANNER_METRICS");
                         org.junit.jupiter.api.Assertions.assertNotNull(plannerMetrics);
                         RelationalStructAssert.assertThat(plannerMetrics)
-                                .hasValue("REWRITING_PHASE_TASK_COUNT", 44L)
+                                .hasValue("REWRITING_PHASE_TASK_COUNT", 42L)
                                 .hasValue("PLANNING_PHASE_TASK_COUNT", 185L);
                         assertResult.hasNoNextRow();
                     }

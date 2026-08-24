@@ -114,6 +114,7 @@ GRANT:                               'GRANT';
 GROUP:                               'GROUP';
 HAVING:                              'HAVING';
 HNSW:                                'HNSW';
+GUARDIANN:                           'GUARDIANN';
 HIGH_PRIORITY:                       'HIGH_PRIORITY';
 HISTOGRAM:                           'HISTOGRAM';
 IF:                                  'IF';
@@ -339,6 +340,7 @@ JSON_OBJECTAGG:                      'JSON_OBJECTAGG';
 
 // Group function Keywords
 
+ARRAY_AGG:                           'ARRAY_AGG';
 AVG:                                 'AVG';
 BIT_AND:                             'BIT_AND';
 BITMAP_BIT_POSITION:                 'BITMAP_BIT_POSITION';
@@ -658,6 +660,7 @@ REPLICATE_WILD_DO_TABLE:             'REPLICATE_WILD_DO_TABLE';
 REPLICATE_WILD_IGNORE_TABLE:         'REPLICATE_WILD_IGNORE_TABLE';
 REPLICATION:                         'REPLICATION';
 RESET:                               'RESET';
+RESPECT:                             'RESPECT';
 RESUME:                              'RESUME';
 RETURNED_SQLSTATE:                   'RETURNED_SQLSTATE';
 RETURNING:                           'RETURNING';

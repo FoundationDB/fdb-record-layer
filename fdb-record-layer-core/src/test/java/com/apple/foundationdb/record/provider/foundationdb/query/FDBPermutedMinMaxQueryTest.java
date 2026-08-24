@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -196,7 +197,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     private static Quantifier maxByGroup(@Nonnull Quantifier selectWhere, @Nonnull FieldValue aggregatedFieldValue, @Nonnull List<Column<? extends Value>> groupingColumns) {
-        final Value maxUniqueValue = (Value) new NumericAggregationValue.MaxFn().encapsulate(List.of(aggregatedFieldValue));
+        final Value maxUniqueValue = (Value) new NumericAggregationValue.MaxFn().encapsulate(CallSiteArguments.ofPositional(aggregatedFieldValue));
         final RecordConstructorValue groupingValue = RecordConstructorValue.ofColumns(groupingColumns);
         final GroupByExpression groupByExpression = new GroupByExpression(groupingValue, RecordConstructorValue.ofUnnamed(List.of(maxUniqueValue)),
                 GroupByExpression::nestedResults, selectWhere);
@@ -1026,7 +1027,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                 var baseReference = FieldValue.ofOrdinalNumber(selectWhereQun.getFlowedObjectValue(), 0);
                 final FieldValue groupedValue = FieldValue.ofFieldName(baseReference, "num_value_unique");
                 var aggregatedFieldRef = FieldValue.ofFields(selectWhereQun.getFlowedObjectValue(), baseReference.getFieldPath().withSuffix(groupedValue.getFieldPath()));
-                final Value maxUniqueValue = (Value) new NumericAggregationValue.MaxFn().encapsulate(List.of(aggregatedFieldRef));
+                final Value maxUniqueValue = (Value) new NumericAggregationValue.MaxFn().encapsulate(CallSiteArguments.ofPositional(aggregatedFieldRef));
                 final var strValue = FieldValue.ofFieldNameAndFuseIfPossible(baseReference, "str_value_indexed");
                 final var num2Value = FieldValue.ofFieldNameAndFuseIfPossible(baseReference, "num_value_2");
                 final var num3ValueIndexed = FieldValue.ofFieldNameAndFuseIfPossible(baseReference, "num_value_3_indexed");

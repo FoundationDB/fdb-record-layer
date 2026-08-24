@@ -1,7 +1,7 @@
 ó
 V
 agg-empty-table-tests=EXPLAIN select sum(col2) / count(col2) from T2 group by col1;º
-™Õƒ≠É îÖ©(90ƒ‹8@‡AISCAN(T2_I6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ‚à© AISCAN(T2_I4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._1 / _._2 AS _0)∫digraph G {
+¶≈¢àÉ ﬁÏÁ(90œ€8@‡AISCAN(T2_I6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ‚à© AISCAN(T2_I4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._1 / _._2 AS _0)∫digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -19,7 +19,7 @@ V
 }´
 d
 agg-empty-table-testsKEXPLAIN select sum(col2), count(col2) from T2 where col1 < 2 group by col1;¬
-™˚ïÍÑ æ”÷(90”¨8@•AISCAN(T2_I6 [[LESS_THAN promote(@c15 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ‚à© AISCAN(T2_I4 [[LESS_THAN promote(@c15 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._1 AS _0, _._2 AS _1)˚digraph G {
+¶ßá÷Ñ àè¢(90Ü•8@•AISCAN(T2_I6 [[LESS_THAN promote(@c15 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ‚à© AISCAN(T2_I4 [[LESS_THAN promote(@c15 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._1 AS _0, _._2 AS _1)˚digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -37,7 +37,7 @@ d
 }Ê
 k
 agg-empty-table-testsREXPLAIN select sum(col2), count(col2) from T2 group by col1 having sum(col2) = 17;ˆ
-…Í«ìâ Ó°›(:0ß—&8"@êAISCAN(T2_I6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ‚à© AISCAN(T2_I4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | FILTER _._1 EQUALS promote(@c21 AS LONG) | MAP (_._1 AS _0, _._2 AS _1)ƒdigraph G {
+≈·Õøâ ÿÙâ(:0ôÁ8"@êAISCAN(T2_I6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ‚à© AISCAN(T2_I4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | FILTER _._1 EQUALS promote(@c21 AS LONG) | MAP (_._1 AS _0, _._2 AS _1)ƒdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -46,26 +46,6 @@ k
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Intersection</td></tr><tr><td align="left">COMPARE BY (_._0)</td></tr><tr><td align="left">RESULT (q113._0 AS _0, q113._1 AS _1, q115._1 AS _2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1, LONG AS _2)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2_I4</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2_I6</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
-  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ label=<&nbsp;q115> label="q115" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 3 [ label=<&nbsp;q113> label="q113" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Â
-z
-agg-empty-table-testsaEXPLAIN select sum(col2), count(col2) from T2 where col1 < 2 group by col1 having sum(col2) = 17;Ê
-…Îﬂéä á–ä(:0´Ë8"@–AISCAN(T2_I6 [[LESS_THAN promote(@c15 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ‚à© AISCAN(T2_I4 [[LESS_THAN promote(@c15 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | FILTER _._1 EQUALS promote(@c25 AS LONG) | MAP (_._1 AS _0, _._2 AS _1)Ùdigraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS _0, q6._2 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q6._1 EQUALS promote(@c25 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1, LONG AS _2)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Intersection</td></tr><tr><td align="left">COMPARE BY (_._0)</td></tr><tr><td align="left">RESULT (q113._0 AS _0, q113._1 AS _1, q115._1 AS _2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1, LONG AS _2)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c15 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c15 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2_I6</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2_I4</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
   3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -74,10 +54,30 @@ z
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Â
+z
+agg-empty-table-testsaEXPLAIN select sum(col2), count(col2) from T2 where col1 < 2 group by col1 having sum(col2) = 17;Ê
+≈Éö±ä …˝˛(:0∏Ö8"@–AISCAN(T2_I6 [[LESS_THAN promote(@c15 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ‚à© AISCAN(T2_I4 [[LESS_THAN promote(@c15 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | FILTER _._1 EQUALS promote(@c25 AS LONG) | MAP (_._1 AS _0, _._2 AS _1)Ùdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS _0, q6._2 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q6._1 EQUALS promote(@c25 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1, LONG AS _2)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Intersection</td></tr><tr><td align="left">COMPARE BY (_._0)</td></tr><tr><td align="left">RESULT (q113._0 AS _0, q113._1 AS _1, q115._1 AS _2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1, LONG AS _2)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c15 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c15 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2_I4</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2_I6</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2)" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q115> label="q115" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ label=<&nbsp;q113> label="q113" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }æ
 \
 agg-empty-table-testsCEXPLAIN select sum(col1) / count(col1), col2 from T1 group by col2;›
-›îÄŸ† ¢π±(70à∑|85@£AISCAN(T1_I2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ‚à© AISCAN(T1_I1 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | AGG sum_l(_._2) GROUP BY (_._0 AS _0) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._1 / _._2 AS _0, _._0 AS COL2)òdigraph G {
+ŸÂƒ≥† î¶∫(70∫ã.85@£AISCAN(T1_I2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ‚à© AISCAN(T1_I1 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | AGG sum_l(_._2) GROUP BY (_._0 AS _0) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | MAP (_._1 / _._2 AS _0, _._0 AS COL2)òdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -97,7 +97,7 @@ z
 }Ü$
 è
 agg-empty-table-testsvEXPLAIN select col2, sum(col1) / count(col1) from T1 where col2 < 2 group by col2 having sum(col1) = 17 order by col2;Ò"
-êƒÂµ´ Òˇ˜(90›ÿc8<@éAISCAN(T1_I2 [[LESS_THAN promote(@c17 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ‚à© AISCAN(T1_I1 [[LESS_THAN promote(@c17 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | AGG sum_l(_._2) GROUP BY (_._0 AS _0) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | FILTER _._1 EQUALS promote(@c27 AS LONG) | MAP (_._0 AS COL2, _._1 / _._2 AS _1)¡digraph G {
+å¿∂â	´ ŸòÎ(90¸Œ8<@éAISCAN(T1_I2 [[LESS_THAN promote(@c17 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) ‚à© AISCAN(T1_I1 [[LESS_THAN promote(@c17 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | AGG sum_l(_._2) GROUP BY (_._0 AS _0) COMPARE BY (_._0) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q1._1 AS _2) | FILTER _._1 EQUALS promote(@c27 AS LONG) | MAP (_._0 AS COL2, _._1 / _._2 AS _1)¡digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -119,7 +119,7 @@ z
 }é 
 á
 agg-empty-table-testsnEXPLAIN select col2, sum(col1) / count(col1) from T1 where col2 < 2 group by col2, col3 having sum(col1) = 17;Å
-ªƒÊ¸Å ¿‡¡(30ΩÑ8"@ÜAISCAN(T1_I4 [[LESS_THAN promote(@c17 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) ‚à© AISCAN(T1_I1 [[LESS_THAN promote(@c17 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) COMPARE BY (_._0, _._1) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q0._2 AS _2, q1._2 AS _3) | FILTER _._2 EQUALS promote(@c29 AS LONG) | MAP (_._0 AS COL2, _._2 / _._3 AS _1)Ÿdigraph G {
+∑∑‚ÙÅ ®òÔ(30î◊8"@ÜAISCAN(T1_I4 [[LESS_THAN promote(@c17 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) ‚à© AISCAN(T1_I1 [[LESS_THAN promote(@c17 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) COMPARE BY (_._0, _._1) WITH q0, q1 RETURN (q0._0 AS _0, q0._1 AS _1, q0._2 AS _2, q1._2 AS _3) | FILTER _._2 EQUALS promote(@c29 AS LONG) | MAP (_._0 AS COL2, _._2 / _._3 AS _1)Ÿdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -136,13 +136,13 @@ z
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¢
+}û
 _
-agg-empty-table-testsFEXPLAIN select col1, min(col2), max(col2) from T3 group by col1, col3;æ
-‰õ ‡e §´÷(20÷é<8!@πISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (min_l(_._0.COL2) AS _0, max_l(_._0.COL2) AS _1) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._0._0 AS COL1, _._1._0 AS _1, _._1._1 AS _2)‰digraph G {
+agg-empty-table-testsFEXPLAIN select col1, min(col2), max(col2) from T3 group by col1, col3;∫
+‡πçÔe ÎËØ(20Ú±8!@πISCAN(T3_I1 <,>) | MAP (_ AS _0) | AGG (min_l(_._0.COL2) AS _0, max_l(_._0.COL2) AS _1) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._0._0 AS COL1, _._1._0 AS _1, _._1._1 AS _2)‡digraph G {
   fontname=courier;
   rankdir=BT;
-  splines=polyline;
+  splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._0._0 AS COL1, q6._1._0 AS _1, q6._1._1 AS _2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, LONG AS _1, LONG AS _2)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (min_l(q84._0.COL2) AS _0, max_l(q84._0.COL2) AS _1)</td></tr><tr><td align="left">GROUP BY (q84._0.COL1 AS _0, q84._0.COL3 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1 AS _0, LONG AS _0, LONG AS _1 AS _1)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS COL1, LONG AS COL2, LONG AS COL3 AS _0)" ];
@@ -155,7 +155,7 @@ _
 }è
 }
 agg-empty-table-testsdEXPLAIN select col1 as "a", col1 as "b", sum(col2) as "a1", sum(col2) as "b1" from T2 group by col1;ç
-ÙøòÒz ÌÆÒ(40≥∑8@oAISCAN(T2_I6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS a, _._0 AS b, _._1 AS a1, _._1 AS b1)˛
+»…Éz ‘˚Ì(40≠¸	8@oAISCAN(T2_I6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS a, _._0 AS b, _._1 AS a1, _._1 AS b1)˛
 digraph G {
   fontname=courier;
   rankdir=BT;

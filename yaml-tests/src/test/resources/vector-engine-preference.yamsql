@@ -1,0 +1,256 @@
+#
+# vector-engine-preference.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Coverage for VECTOR_INDEX_ENGINE_PREFERENCE (issue #4421). When a field carries both an HNSW-backed and a
+# GuardiANN-backed vector index with the same metric, a k-nearest-neighbor query matches both and something has to
+# choose. With no preference the two candidate plans are identical apart from the index name, so the choice falls to the
+# cost model's plan-hash tie-break, which folds that name in; stable, but arbitrary. DOCUMENTS and ARTICLES are shaped
+# identically here and still land on different engines, which is the arbitrariness the option removes.
+#
+# Each block below sets one preference and asserts the plans it produces. A query appears in a block only where that
+# block's setting could plausibly change it, so the negative cases sit under the preference that would move them if the
+# option were too eager, not under all three.
+#
+# supported_version is 4.13.1.0 because 'USING GUARDIANN' is new: no released server understands it, so this file
+# only runs against the current build (and is skipped in mixed-version mode).
+---
+options:
+  supported_version: 4.13.1.0
+---
+# DOCUMENTS and ARTICLES carry both engines over the same field, so queries over them have a genuine choice. The other
+# three tables are the negative fixtures, each with exactly one index able to answer a given ordering: HNSWONLY and
+# GUARDIANNONLY have no alternative at all, and MIXEDMETRICS has one index per engine but over different metrics, so
+# whichever engine is preferred, only one of its indexes can serve any particular distance ordering.
+schema_template:
+    create table documents(zone string, docId string, bookshelf string, title string, embedding vector(3, half), primary key (zone, docId))
+    create view documentsView as select embedding, zone, bookshelf, docId, title from documents
+    create vector index documentsHnswIndex using hnsw on documentsView(embedding) partition by(zone, bookshelf) options (metric = euclidean_metric)
+    create vector index documentsGuardiannIndex using guardiann on documentsView(embedding) partition by(zone, bookshelf) options (metric = euclidean_metric, primary_cluster_min = 1, primary_cluster_max = 100, collapse_min_duplicates = 50)
+    create index documentsByTitle as select title from documents order by title
+    create table articles(zone string, articleId string, section string, headline string, embedding vector(3, half), primary key (zone, articleId))
+    create view articlesView as select embedding, zone, section, articleId, headline from articles
+    create vector index articlesHnswIndex using hnsw on articlesView(embedding) partition by(zone, section) options (metric = euclidean_metric)
+    create vector index articlesGuardiannIndex using guardiann on articlesView(embedding) partition by(zone, section) options (metric = euclidean_metric, primary_cluster_min = 1, primary_cluster_max = 100, collapse_min_duplicates = 50)
+    create table hnswOnly(zone string, docId string, bookshelf string, embedding vector(3, half), primary key (zone, docId))
+    create view hnswOnlyView as select embedding, zone, bookshelf, docId from hnswOnly
+    create vector index hnswOnlyIndex using hnsw on hnswOnlyView(embedding) partition by(zone, bookshelf) options (metric = euclidean_metric)
+    create table guardiannOnly(zone string, docId string, bookshelf string, embedding vector(3, half), primary key (zone, docId))
+    create view guardiannOnlyView as select embedding, zone, bookshelf, docId from guardiannOnly
+    create vector index guardiannOnlyIndex using guardiann on guardiannOnlyView(embedding) partition by(zone, bookshelf) options (metric = euclidean_metric, primary_cluster_min = 1, primary_cluster_max = 100, collapse_min_duplicates = 50)
+    create table mixedMetrics(zone string, docId string, bookshelf string, embedding vector(3, half), primary key (zone, docId))
+    create view mixedMetricsView as select embedding, zone, bookshelf, docId from mixedMetrics
+    create vector index mixedMetricsHnswEuclideanIndex using hnsw on mixedMetricsView(embedding) partition by(zone, bookshelf) options (metric = euclidean_metric)
+    create vector index mixedMetricsGuardiannCosineIndex using guardiann on mixedMetricsView(embedding) partition by(zone, bookshelf) options (metric = cosine_metric, primary_cluster_min = 1, primary_cluster_max = 100, collapse_min_duplicates = 50)
+---
+# One partition per table, small and well-separated so GuardiANN forms a single cluster and k-nearest-neighbor results
+# are exact for either engine.
+test_block:
+  name: vector-engine-preference-insert-data
+  preset: single_repetition_ordered
+  options:
+    statement_type: prepared
+  tests:
+    -
+      - query: insert into documents values
+              ('zone1', 'd1', 'fiction', 'The Great Gatsby', !! !v16 [1.0, 0.0, 0.0] !!),
+              ('zone1', 'd2', 'fiction', '1984', !! !v16 [0.9, 0.1, 0.0] !!),
+              ('zone1', 'd3', 'fiction', 'To Kill a Mockingbird', !! !v16 [0.8, 0.2, 0.0] !!)
+      - count: 3
+    -
+      - query: insert into articles values
+              ('zone1', 'a1', 'news', 'Market rallies', !! !v16 [1.0, 0.0, 0.0] !!),
+              ('zone1', 'a2', 'news', 'Election results', !! !v16 [0.9, 0.1, 0.0] !!),
+              ('zone1', 'a3', 'news', 'Storm warning', !! !v16 [0.8, 0.2, 0.0] !!)
+      - count: 3
+    -
+      - query: insert into hnswOnly values
+              ('zone1', 'h1', 'fiction', !! !v16 [1.0, 0.0, 0.0] !!),
+              ('zone1', 'h2', 'fiction', !! !v16 [0.9, 0.1, 0.0] !!)
+      - count: 2
+    -
+      - query: insert into guardiannOnly values
+              ('zone1', 'g1', 'fiction', !! !v16 [1.0, 0.0, 0.0] !!),
+              ('zone1', 'g2', 'fiction', !! !v16 [0.9, 0.1, 0.0] !!)
+      - count: 2
+    -
+      - query: insert into mixedMetrics values
+              ('zone1', 'm1', 'fiction', !! !v16 [1.0, 0.0, 0.0] !!),
+              ('zone1', 'm2', 'fiction', !! !v16 [0.9, 0.1, 0.0] !!)
+      - count: 2
+---
+# No preference: the plan-hash tie-break decides. The union query touches both tables, which is the only way to get
+# candidates from more than one table into one candidate set (MetaDataPlanContext builds them from the record types the
+# query touches), and it shows the arbitrariness plainly — two identically shaped tables, two different engines.
+test_block:
+  name: vector-engine-preference-default-planner
+  options:
+    statement_type: prepared
+  tests:
+    -
+      - query: select docId, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) as distance
+              from documents
+              where zone = 'zone1' and bookshelf = 'fiction'
+              qualify row_number() over (
+                    partition by zone, bookshelf
+                    order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc
+                ) <= 3
+      - explain: "ISCAN(DOCUMENTSGUARDIANNINDEX [EQUALS promote(@c16 AS STRING), EQUALS promote(@c20 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c44}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS DISTANCE)"
+      - result: [{docId: 'd1', distance: 0.0},
+                 {docId: 'd2', distance: 0.14147317261689443},
+                 {docId: 'd3', distance: 0.28294634523378887}]
+    -
+      - query: select docId as id from documents
+              where zone = 'zone1' and bookshelf = 'fiction'
+              qualify row_number() over (
+                    partition by zone, bookshelf
+                    order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc
+                ) <= 2
+              union all
+              select articleId as id from articles
+              where zone = 'zone1' and section = 'news'
+              qualify row_number() over (
+                    partition by zone, section
+                    order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc
+                ) <= 2
+      - explain: "ISCAN(DOCUMENTSGUARDIANNINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.DOCID AS ID) ⊎ ISCAN(ARTICLESHNSWINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c53 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.ARTICLEID AS ID)"
+      - unorderedResult: [{id: 'd1'}, {id: 'd2'}, {id: 'a1'}, {id: 'a2'}]
+---
+# PREFER_HNSW moves both queries onto the HNSW indexes, including the DOCUMENTS one the default sends to GuardiANN, and
+# both branches of the union independently. Its negatives are the two cases it could wrongly pull off GuardiANN: a table
+# with no HNSW index at all, and a cosine ordering that only the GuardiANN index can serve.
+test_block:
+  name: vector-engine-preference-prefer-hnsw
+  options:
+    statement_type: prepared
+    connection_options:
+      VECTOR_INDEX_ENGINE_PREFERENCE: PREFER_HNSW
+  tests:
+    -
+      - query: select docId, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) as distance
+              from documents
+              where zone = 'zone1' and bookshelf = 'fiction'
+              qualify row_number() over (
+                    partition by zone, bookshelf
+                    order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc
+                ) <= 3
+      - explain: "ISCAN(DOCUMENTSHNSWINDEX [EQUALS promote(@c16 AS STRING), EQUALS promote(@c20 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c44}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS DISTANCE)"
+      - result: [{docId: 'd1', distance: 0.0},
+                 {docId: 'd2', distance: 0.14147317261689443},
+                 {docId: 'd3', distance: 0.28294634523378887}]
+    -
+      - query: select docId as id from documents
+              where zone = 'zone1' and bookshelf = 'fiction'
+              qualify row_number() over (
+                    partition by zone, bookshelf
+                    order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc
+                ) <= 2
+              union all
+              select articleId as id from articles
+              where zone = 'zone1' and section = 'news'
+              qualify row_number() over (
+                    partition by zone, section
+                    order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc
+                ) <= 2
+      - explain: "ISCAN(DOCUMENTSHNSWINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.DOCID AS ID) ⊎ ISCAN(ARTICLESHNSWINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c53 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.ARTICLEID AS ID)"
+      - unorderedResult: [{id: 'd1'}, {id: 'd2'}, {id: 'a1'}, {id: 'a2'}]
+    -
+      # No HNSW index exists here, so the plan must be the GuardiANN one regardless.
+      - query: select docId as id from guardiannOnly
+              where zone = 'zone1' and bookshelf = 'fiction'
+              qualify row_number() over (
+                    partition by zone, bookshelf
+                    order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc
+                ) <= 2
+      - explain: "ISCAN(GUARDIANNONLYINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.DOCID AS ID)"
+      - unorderedResult: [{id: 'g1'}, {id: 'g2'}]
+    -
+      # An HNSW index does exist over this field, but it is euclidean and cannot answer a cosine ordering. Preferring
+      # HNSW must not reach for it.
+      - query: select docId as id from mixedMetrics
+              where zone = 'zone1' and bookshelf = 'fiction'
+              qualify row_number() over (
+                    partition by zone, bookshelf
+                    order by cosine_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc
+                ) <= 2
+      - explain: "ISCAN(MIXEDMETRICSGUARDIANNCOSINEINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.DOCID AS ID)"
+      - unorderedResult: [{id: 'm1'}, {id: 'm2'}]
+---
+# PREFER_GUARDIANN is the mirror image, plus the two negatives specific to it: a table with no GuardiANN index, and a
+# euclidean ordering only the HNSW index can serve. The last query makes no vector access at all — the preference is
+# about which engine backs one, so it must leave that plan alone.
+test_block:
+  name: vector-engine-preference-prefer-guardiann
+  options:
+    statement_type: prepared
+    connection_options:
+      VECTOR_INDEX_ENGINE_PREFERENCE: PREFER_GUARDIANN
+  tests:
+    -
+      - query: select docId, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) as distance
+              from documents
+              where zone = 'zone1' and bookshelf = 'fiction'
+              qualify row_number() over (
+                    partition by zone, bookshelf
+                    order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc
+                ) <= 3
+      - explain: "ISCAN(DOCUMENTSGUARDIANNINDEX [EQUALS promote(@c16 AS STRING), EQUALS promote(@c20 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c44}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS DISTANCE)"
+      - result: [{docId: 'd1', distance: 0.0},
+                 {docId: 'd2', distance: 0.14147317261689443},
+                 {docId: 'd3', distance: 0.28294634523378887}]
+    -
+      - query: select docId as id from documents
+              where zone = 'zone1' and bookshelf = 'fiction'
+              qualify row_number() over (
+                    partition by zone, bookshelf
+                    order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc
+                ) <= 2
+              union all
+              select articleId as id from articles
+              where zone = 'zone1' and section = 'news'
+              qualify row_number() over (
+                    partition by zone, section
+                    order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc
+                ) <= 2
+      - explain: "ISCAN(DOCUMENTSGUARDIANNINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.DOCID AS ID) ⊎ ISCAN(ARTICLESGUARDIANNINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c53 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.ARTICLEID AS ID)"
+      - unorderedResult: [{id: 'd1'}, {id: 'd2'}, {id: 'a1'}, {id: 'a2'}]
+    -
+      # No GuardiANN index exists here, so the plan must be the HNSW one regardless.
+      - query: select docId as id from hnswOnly
+              where zone = 'zone1' and bookshelf = 'fiction'
+              qualify row_number() over (
+                    partition by zone, bookshelf
+                    order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc
+                ) <= 2
+      - explain: "ISCAN(HNSWONLYINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.DOCID AS ID)"
+      - unorderedResult: [{id: 'h1'}, {id: 'h2'}]
+    -
+      # A GuardiANN index does exist over this field, but it is cosine and cannot answer a euclidean ordering.
+      - query: select docId as id from mixedMetrics
+              where zone = 'zone1' and bookshelf = 'fiction'
+              qualify row_number() over (
+                    partition by zone, bookshelf
+                    order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc
+                ) <= 2
+      - explain: "ISCAN(MIXEDMETRICSHNSWEUCLIDEANINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE) | MAP (_.DOCID AS ID)"
+      - unorderedResult: [{id: 'm1'}, {id: 'm2'}]
+    -
+      # A query over a table that has both engines but which makes no vector access.
+      - query: select docId from documents where title = 'The Great Gatsby'
+      - explain: "COVERING(DOCUMENTSBYTITLE [EQUALS promote(@c7 AS STRING)] -> [DOCID: KEY:[3], TITLE: KEY:[0], ZONE: KEY:[2]]) | MAP (_.DOCID AS DOCID)"
+      - unorderedResult: [{docId: 'd1'}]

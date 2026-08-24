@@ -260,7 +260,7 @@ test_block:
       # The result cardinality is bounded by the null-producing side, so the planner can satisfy the ordering by
       # scanning the inner side ordered by `emp$fname`.
       - query: SELECT "x"."c", "e"."fname", "e"."lname" FROM (SELECT COUNT(*) AS "c" FROM "dept") "x" LEFT OUTER JOIN "emp" "e" ON "e"."id" >= "x"."c" ORDER BY "e"."fname";
-      - explain: "ISCAN(dept$name <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | FLATMAP q0 -> { COVERING(emp$fname <,> -> [fname: KEY:[0], id: KEY:[2]]) | FILTER _.id GREATER_THAN_OR_EQUALS coalesce_long(q0._0._0, promote(0l AS LONG)) | FETCH | ON EMPTY NULL AS q1 RETURN (coalesce_long(q0._0._0, promote(0l AS LONG)) AS c, q1.fname AS fname, q1.lname AS lname) }"
+      - explain: "ISCAN(dept$name <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | FLATMAP q0 -> { COVERING(emp$fname <,> -> [fname: KEY:[0], id: KEY:[2]]) | FILTER _.id GREATER_THAN_OR_EQUALS promote(coalesce_long(q0._0._0, 0l) AS LONG) | FETCH | ON EMPTY NULL AS q1 RETURN (coalesce_long(q0._0._0, 0l) AS c, q1.fname AS fname, q1.lname AS lname) }"
       - result: [
           {!l 3, 'Carol', 'Lee'},
           {!l 3, 'Dave', 'Kim'}]
@@ -284,7 +284,7 @@ test_block:
     -
       # Scalar COUNT(*) over a LEFT JOIN.
       - query: SELECT COUNT(*) FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id";
-      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY NULL AS q1 RETURN ((q0.id AS _0, q0.fname AS _1, q0.lname AS _2, q0.dept_id AS _3, q1.id AS _4, q1.name AS _5) AS _0) } | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY NULL AS q1 RETURN ((q0.id AS _0, q0.fname AS _1, q0.lname AS _2, q0.dept_id AS _3, q1.id AS _4, q1.name AS _5) AS _0) } | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)"
       - result: [{!l 4}]
     -
       # LEFT JOIN with a derived table (subquery) as the right side.
@@ -303,7 +303,7 @@ test_block:
     -
       # COALESCE on a null-padded column.
       - query: SELECT "e"."fname", COALESCE("d"."name", 'None') FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id";
-      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY NULL AS q1 RETURN (q0.fname AS fname, coalesce_string(q1.name, promote(@c11 AS STRING)) AS _1) }"
+      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY NULL AS q1 RETURN (q0.fname AS fname, coalesce_string(q1.name, @c11) AS _1) }"
       - unorderedResult: [
           {'Alice', 'Engineering'},
           {'Bob', 'Engineering'},
@@ -488,7 +488,7 @@ test_block:
     -
       # RIGHT JOIN with COALESCE on a null-padded column from the SQL-left side.
       - query: SELECT COALESCE("e"."fname", 'None'), "d"."name" FROM "emp" "e" RIGHT JOIN "dept" "d" ON "e"."dept_id" = "d"."id";
-      - explain: "ISCAN(dept$name <,>) | FLATMAP q0 -> { ISCAN(emp$fname <,>) | FILTER _.dept_id EQUALS q0.id | ON EMPTY NULL AS q1 RETURN (coalesce_string(q1.fname, promote(@c7 AS STRING)) AS _0, q0.name AS name) }"
+      - explain: "ISCAN(dept$name <,>) | FLATMAP q0 -> { ISCAN(emp$fname <,>) | FILTER _.dept_id EQUALS q0.id | ON EMPTY NULL AS q1 RETURN (coalesce_string(q1.fname, @c7) AS _0, q0.name AS name) }"
       - unorderedResult: [
           {'Alice', 'Engineering'},
           {'Bob', 'Engineering'},

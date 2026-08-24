@@ -23,14 +23,12 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
-import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import com.google.common.base.Suppliers;
 
 import java.util.Arrays;
 import java.util.function.Supplier;
 
-@SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP2", justification = "Intentionally exposed for performance reasons")
 @API(API.Status.EXPERIMENTAL)
 public class ArrayRow extends AbstractRow {
     private final Object[] data;

@@ -237,7 +237,7 @@ class SplitMergeTask extends AbstractDeferredTask {
                         config.splitMergeConcurrency())
                 .thenCompose(nearestClusterMetadataWithDistances ->
                         selectSplitCandidate(transaction, random, storageTransform, estimator, numNearestClusters,
-                                targetClusterMetadata, nearestClusters, nearestClusterMetadataWithDistances))
+                                targetClusterMetadata, nearestClusterMetadataWithDistances))
                 .thenCompose(repartitioningCandidate ->
                         applyRepartitioning(transaction, random, storageTransform, quantizer, estimator,
                                 repartitioningCandidate));
@@ -320,7 +320,6 @@ class SplitMergeTask extends AbstractDeferredTask {
                                                                             @Nonnull final DistanceEstimator estimator,
                                                                             final int numNearestClusters,
                                                                             @Nonnull final ClusterMetadata targetClusterMetadata,
-                                                                            @Nonnull final List<ClusterReference> nearestClusters,
                                                                             @Nonnull final List<ClusterMetadataWithDistance> nearestClusterMetadataWithDistances) {
         final Config config = getConfig();
         final Executor executor = getLocator().getExecutor();
@@ -329,14 +328,15 @@ class SplitMergeTask extends AbstractDeferredTask {
         // Compute two candidate split configurations:
         // 1-to-2: split the target into 2 clusters (1 inner + rest outer)
         // 2-to-3: split the target and its nearest neighbor into 3 (2 inner + rest outer)
+        // A 1-to-2 split's single core cluster is the target, which always survives, so this is never null.
         final ClusterClassification classification1To2 =
-                classifyClusters(nearestClusterMetadataWithDistances,
+                Objects.requireNonNull(classifyClusters(nearestClusterMetadataWithDistances,
                         targetClusterMetadata, getCentroid(),
-                        1, numNearestClusters - 1);
+                        1, numNearestClusters - 1));
+        // Null when fewer than two core clusters (the target plus one surviving neighbor) remain, so an unviable
+        // 2-to-3 split drops out of the candidate set below.
         final ClusterClassification classification2To3 =
-                nearestClusters.size() < 2
-                ? null
-                : classifyClusters(nearestClusterMetadataWithDistances,
+                classifyClusters(nearestClusterMetadataWithDistances,
                         targetClusterMetadata, getCentroid(),
                         2, numNearestClusters - 2);
 
@@ -440,7 +440,7 @@ class SplitMergeTask extends AbstractDeferredTask {
                         config.splitMergeConcurrency())
                 .thenCompose(nearestClusterMetadataWithDistances ->
                         selectMergeCandidate(transaction, random, storageTransform, estimator, numNearestClusters,
-                                targetClusterMetadata, nearestClusters, nearestClusterMetadataWithDistances))
+                                targetClusterMetadata, nearestClusterMetadataWithDistances))
                 .thenCompose(repartitioningCandidate ->
                         applyRepartitioning(transaction, random, storageTransform, quantizer, estimator,
                                 repartitioningCandidate));
@@ -458,7 +458,6 @@ class SplitMergeTask extends AbstractDeferredTask {
                                                                             @Nonnull final DistanceEstimator estimator,
                                                                             final int numNearestClusters,
                                                                             @Nonnull final ClusterMetadata targetClusterMetadata,
-                                                                            @Nonnull final List<ClusterReference> nearestClusters,
                                                                             @Nonnull final List<ClusterMetadataWithDistance> nearestClusterMetadataWithDistances) {
         final Config config = getConfig();
         final Executor executor = getLocator().getExecutor();
@@ -472,15 +471,13 @@ class SplitMergeTask extends AbstractDeferredTask {
                         targetClusterMetadata, getCentroid(),
                         2, numNearestClusters - 2);
 
-        // 2->1 is the required fallback merge. Its core clusters are clamped to the
-        // clusters actually available, so it collapses to just the target (size 1) when
-        // there is no mergeable neighbor — e.g. the target is the last/only cluster, as
-        // happens when a structure is drained toward empty. The delete path normally avoids
-        // enqueuing a merge for a lone cluster (it gates on the centroid HNSW cardinality),
-        // so reaching here means the only neighbor disappeared between enqueue and execution.
-        // No merge is possible at all (k-means would be asked for k == 0), so as a backstop we
+        // 2->1 is the required fallback merge; it needs the target plus one mergeable neighbor. classifyClusters
+        // returns null when fewer than two core clusters remain — i.e. no mergeable neighbor, e.g. the target is the
+        // last/only cluster, as happens when a structure is drained toward empty. The delete path normally avoids
+        // enqueuing a merge for a lone cluster (it gates on the centroid HNSW cardinality), so reaching here means the
+        // only neighbor disappeared between enqueue and execution. No merge is possible at all, so as a backstop we
         // clear the SPLIT_MERGE flag (as runTask's false-alarm branch does) and stop.
-        if (classification2To1.coreClusters().size() < 2) {
+        if (classification2To1 == null) {
             if (logger.isDebugEnabled()) {
                 logger.debug("skipping merge: no mergeable neighbor for cluster {}; taskId={}",
                         targetClusterMetadata.id(), taskIdToString(getTaskId()));
@@ -492,10 +489,10 @@ class SplitMergeTask extends AbstractDeferredTask {
             return CompletableFuture.completedFuture(null);
         }
 
+        // Null when fewer than three core clusters (the target plus two surviving neighbors) remain, so an unviable
+        // 3-to-2 merge drops out of the candidate set below.
         final ClusterClassification classification3To2 =
-                nearestClusters.size() < 3
-                ? null
-                : classifyClusters(nearestClusterMetadataWithDistances,
+                classifyClusters(nearestClusterMetadataWithDistances,
                         targetClusterMetadata, getCentroid(),
                         3, numNearestClusters - 3);
 

@@ -42,7 +42,7 @@ tasks.register('checkstyleAll') {
 }
 
 tasks.withType(Checkstyle).configureEach { task ->
-    task.exclude '**/protogen/**'
+    task.exclude '**/generated/**'
     task.configProperties = ["projectDir" : rootProject.projectDir, 'bannedImports': BANNED_IMPORTS.join(',')]
     task.maxHeapSize.set("1g")
 }
@@ -128,7 +128,7 @@ pmd {
     ruleSetFiles = rootProject.files("gradle/codequality/pmd-rules.xml")
 }
 tasks.withType(Pmd) { task ->
-    task.exclude '**/protogen/**'
+    task.exclude '**/generated/**'
     task.exclude '**/generated-src/**'
     // the PMD plugin doesn't respect above exclusion, so we manually set the source directory instead
     task.setSource 'src/main/java'

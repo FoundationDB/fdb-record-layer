@@ -34,7 +34,9 @@ import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQu
 import com.apple.foundationdb.record.provider.foundationdb.queue.PendingWritesQueueEntry;
 import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.CursorFactory;
 import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.ThrottledRetryingIterator;
+import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.util.CloseException;
+import com.google.protobuf.InvalidProtocolBufferException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,6 +45,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.Serial;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 /**
  * Use {@link PendingWritesQueue} to defer index updates while an index is being built.
@@ -58,6 +61,8 @@ public final class IndexingPendingWriteQueue {
 
     private static final String DISABLE_INDEX_COMMIT_HOOK = "disableIndexPendingWriteQueueOverflow:";
 
+    private static final String HEARTBEAT_COMMIT_HOOK = "pendingWriteQueueDrainHeartbeat:";
+
     private final Index index;
     private final IndexingCommon common;
 
@@ -71,7 +76,7 @@ public final class IndexingPendingWriteQueue {
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    CompletableFuture<Void> drainPendingQueue() {
+    CompletableFuture<Void> drainPendingQueue(final Function<FDBRecordStore, CompletableFuture<Void>> heartbeatUpdater) {
         // Called by the indexer: update the index and then remove every queue item
         final FDBRecordContextConfig.Builder contextConfigBuilder =
                 FDBRecordContextConfig.newBuilder().setTimer(common.getRunner().getTimer());
@@ -79,7 +84,7 @@ public final class IndexingPendingWriteQueue {
                 ThrottledRetryingIterator.builder(
                                 common.getRunner().getDatabase(),
                                 contextConfigBuilder,
-                                cursorFactory(),
+                                cursorFactory(heartbeatUpdater),
                                 this::handleOneItem)
                         .withMaxRecordsDeletesPerSec(MAX_RECORDS_DELETE_PER_SECOND)
                         .build();
@@ -94,8 +99,13 @@ public final class IndexingPendingWriteQueue {
     }
 
     @Nonnull
-    private CursorFactory<PendingWritesQueueEntry<IndexBuildProto.PendingWritesQueueEntry>> cursorFactory() {
+    private CursorFactory<PendingWritesQueueEntry<IndexBuildProto.PendingWritesQueueEntry>> cursorFactory(
+            final Function<FDBRecordStore, CompletableFuture<Void>> heartbeatUpdater) {
         return (store, lastResult, rowLimit) -> {
+            // The iterator opens a transaction (and calls this factory) per drained range, so this registers the
+            // heartbeat update once per such transaction, to be written just before that transaction is committed.
+            store.getContext().getOrCreateCommitCheck(HEARTBEAT_COMMIT_HOOK + index.getName(),
+                    name -> () -> heartbeatUpdater.apply(store));
             final byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
             final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(props -> props.setReturnedRowLimit(rowLimit));
             return getIndexingQueue(store).getQueueCursor(store.getContext(), scanProperties, continuation);
@@ -111,11 +121,21 @@ public final class IndexingPendingWriteQueue {
             return AsyncUtil.DONE;
         }
         final IndexBuildProto.PendingWritesQueueEntry payload = entry.getPayload();
-        if (payload.getOperation() != IndexBuildProto.PendingWritesQueueEntry.Operation.UPDATE) { // currently the only operation
-            throw new RecordCoreException("unsupported pending write queue operation: " + payload.getOperation());
-        }
-        return store.getIndexMaintainer(index)
-                .updateFromQueue(payload.getData())
+        final IndexMaintainer maintainer = store.getIndexMaintainer(index);
+        final CompletableFuture<Void> future = switch (payload.getOperation()) {
+            case UPDATE -> maintainer.updateFromQueue(payload.getData());
+            case DELETE_WHERE -> {
+                final IndexBuildProto.DeleteWhere deleteWhere;
+                try {
+                    deleteWhere = payload.getData().unpack(IndexBuildProto.DeleteWhere.class);
+                } catch (InvalidProtocolBufferException ex) {
+                    throw new RecordCoreException("failed to parse pending write queue DELETE_WHERE entry data", ex);
+                }
+                final Tuple prefix = Tuple.fromBytes(deleteWhere.getPrefix().toByteArray());
+                yield maintainer.deleteWhere(store.ensureContextActive(), prefix);
+            }
+        };
+        return future
                 .thenAccept(ignore -> {
                     quotaManager.deleteCountInc();
                     getIndexingQueue(store).clearEntry(store.getContext(), entry);

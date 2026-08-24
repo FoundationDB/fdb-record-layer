@@ -28,7 +28,7 @@ import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
- * An predicate that tests for a match between quantifiers also taking into account an equivalence maps between
+ * A predicate that tests for a match between quantifiers also taking into account an equivalence maps between
  * {@link CorrelationIdentifier}s.
  *
  * @param <T> type

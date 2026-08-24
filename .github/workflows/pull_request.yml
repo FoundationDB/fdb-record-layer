@@ -36,7 +36,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: Run Gradle Build
@@ -57,7 +57,7 @@ jobs:
       run_other_tests: ${{ steps.plan.outputs.run_other_tests }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: Get Changed Files
@@ -100,7 +100,7 @@ jobs:
     timeout-minutes: 40
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: Setup FDB
@@ -141,7 +141,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
       - name: Setup FDB
@@ -188,7 +188,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout HEAD sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Full history so the PR's base and head commits (and their merge-base) are available locally for
           # the git-based diff below — `gh pr diff` caps at 20000 lines and fails with HTTP 406 on large PRs.
@@ -199,29 +199,40 @@ jobs:
       # so the coverage data (for e.g. lucene) does not end up in the appropirate subproject directory
       - name: 'Download lucene'
         if: contains(fromJSON(needs.plan.outputs.matrix), 'fdb-record-layer-lucene')
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: fdb-record-layer-lucene-coverage-data
       - name: 'Download extensions'
         if: contains(fromJSON(needs.plan.outputs.matrix), 'fdb-extensions')
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: fdb-extensions-coverage-data
       - name: 'Download core'
         if: contains(fromJSON(needs.plan.outputs.matrix), 'fdb-record-layer-core')
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: fdb-record-layer-core-coverage-data
       - name: 'Download yaml'
         if: contains(fromJSON(needs.plan.outputs.matrix), 'yaml-tests')
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: yaml-tests-coverage-data
       - name: 'Download other'
         if: needs.plan.outputs.run_other_tests == 'true'
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: other-coverage-data
+      # If this run tested no subprojects there are no jars or execution data to merge, so
+      # codeCoverageReport would be skipped and no coverage-report artifact would be produced.
+      # Build all jars and seed empty execution data so codeCoverageReport still emits a
+      # full-codebase 0% report. This must be a separate Gradle invocation from the report below:
+      # codeCoverageReport only mustRunAfter (not dependsOn) the jar tasks and evaluates which
+      # jars exist at configuration time, so the jars must already be on disk when it configures.
+      - name: Build jars and seed empty coverage data
+        if: needs.plan.outputs.run_all != 'true' && needs.plan.outputs.matrix == '[]' && needs.plan.outputs.run_other_tests != 'true'
+        uses: ./actions/run-gradle
+        with:
+          gradle_command: jar createEmptyCoverageData
       - name: Run JaCoCo Report
         uses: ./actions/run-gradle
         with:
