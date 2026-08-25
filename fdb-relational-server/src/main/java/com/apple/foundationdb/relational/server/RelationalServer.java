@@ -266,7 +266,7 @@ public class RelationalServer implements Closeable {
             System.exit(1);
         }
         if (cli.hasOption(help.getOpt())) {
-            HelpFormatter formatter = org.apache.commons.cli.help.HelpFormatter.builder().get();
+            HelpFormatter formatter = HelpFormatter.builder().get();
             formatter.printHelp("relational", null, options, null, true);
             return;
         }
