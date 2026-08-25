@@ -99,7 +99,6 @@ import java.util.stream.StreamSupport;
  * In addition to that, this class performs metadata resolution tasks, such as resolving tables, validating indexes, and
  * resolving built-in and user-defined functions, which arguably, should be handled in a separate catalog component.
  */
-@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
 public class SemanticAnalyzer {
 
@@ -307,26 +306,25 @@ public class SemanticAnalyzer {
      * Raises {@link ErrorCode#INVALID_COLUMN_REFERENCE} when the qualifier does not refer to a record/struct type,
      * e.g. when unnesting a scalar array.
      *
-     * @param optionalQualifier the optional qualifier preceding the {@code *}, or {@link Optional#empty()} for an
-     * unqualified {@code *}
+     * @param qualifier the qualifier preceding the {@code *}, or {@code null} for an unqualified {@code *}
      * @param operators the logical operators in scope for resolving the qualifier
      *
      * @return a {@link Star} expression capturing the expansion
      */
     @Nonnull
-    public Star expandStar(@Nonnull Optional<Identifier> optionalQualifier,
+    public Star expandStar(@Nullable Identifier qualifier,
                            @Nonnull LogicalOperators operators) {
         final var forEachOperators = operators.forEachOnly();
 
         // Case 1: no qualifier, e.g. SELECT * FROM T, R;
-        if (optionalQualifier.isEmpty()) {
+        if (qualifier == null) {
             final var expansion = forEachOperators.getExpressions().nonEphemeralVisible();
             return Star.overQuantifiers(Optional.empty(), Streams.stream(forEachOperators).map(LogicalOperator::getQuantifier)
                     .map(Quantifier::getFlowedObjectValue).collect(ImmutableList.toImmutableList()), "unknown", expansion);
         }
 
         // Case 2: qualifying a table, e.g. SELECT T.* FROM T, R;
-        final var qualifier = optionalQualifier.get();
+        final var optionalQualifier = Optional.of(qualifier);
         final var logicalTableMaybe = Streams.stream(forEachOperators)
                 .filter(table -> table.getName().isPresent() && table.getName().get().equals(qualifier))
                 .findFirst();
@@ -348,7 +346,7 @@ public class SemanticAnalyzer {
         // rather than adhering to what the user _can_ semantically describe in SQL.
         final var individualReferencedColumns = Expressions.of(forEachOperators.getExpressions().stream()
                 .filter(expr -> expr.getName().isPresent() && expr.getName().get().isQualified())
-                .filter(expr -> expr.getName().get().qualifiedWith(optionalQualifier.get()))
+                .filter(expr -> expr.getName().get().qualifiedWith(qualifier))
                 .collect(ImmutableList.toImmutableList()));
         if (!individualReferencedColumns.isEmpty()) {
             return Star.overIndividualExpressions(optionalQualifier, "unknown", individualReferencedColumns);
@@ -403,7 +401,7 @@ public class SemanticAnalyzer {
         return Streams.stream(operators.forEachOnly())
                 .filter(op -> op.getName().equals(identifierOptional))
                 .findFirst()
-                .map(ignored -> Expression.of(expandStar(identifierOptional, operators).getUnderlying(), identifier));
+                .map(ignored -> Expression.of(expandStar(identifier, operators).getUnderlying(), identifier));
     }
 
     @Nonnull
