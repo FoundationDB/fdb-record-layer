@@ -91,12 +91,6 @@ import java.util.concurrent.TimeUnit;
 class JDBCRelationalConnection implements RelationalConnection {
 
     /**
-     * We only currently support {@link Connection#TRANSACTION_SERIALIZABLE}.
-     * We support snapshot isolation via options, but that is most appropiate at the statement level, so it is
-     * exposed via {@link Options.Name#ISOLATION_LEVEL_SNAPSHOT}.
-     */
-    private final int transactionIsolationLevel = Connection.TRANSACTION_SERIALIZABLE;
-    /**
      * TODO: implement.
      */
     private volatile boolean readOnly;
@@ -389,9 +383,16 @@ class JDBCRelationalConnection implements RelationalConnection {
         return this.readOnly;
     }
 
+    /**
+     * We only currently support {@link Connection#TRANSACTION_SERIALIZABLE}.
+     * We support snapshot isolation via options, but that is most appropriate at the statement level, so it is
+     * exposed via {@link Options.Name#ISOLATION_LEVEL_SNAPSHOT}.
+     *
+     * @return always {@link Connection#TRANSACTION_SERIALIZABLE}
+     */
     @Override
     public int getTransactionIsolation() throws SQLException {
-        return this.transactionIsolationLevel;
+        return Connection.TRANSACTION_SERIALIZABLE;
     }
 
     @Override
