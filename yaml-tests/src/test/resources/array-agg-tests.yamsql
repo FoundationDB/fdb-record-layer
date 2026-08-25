@@ -262,6 +262,40 @@ test_block:
       # Variant with a STRING element type, i.e. a primitive other than the BIGINT used everywhere else in this file.
       - query: SELECT ARRAY_AGG(title) FROM doc_rev
       - result: [{['draft', 'final']}]
+    -
+      # The following tests aggregate rows as a whole by passing a bare table alias to ARRAY_AGG(). The alias resolves
+      # to the row as a struct (just like for `SELECT T FROM T`).
+      - query: SELECT ARRAY_AGG(a) FROM doc_asset a WHERE a.rid = 20
+      - supported_version: !current_version
+      - result: [{[{2, 20, 'b1.png'}, {3, 20, 'b2.png'}]}]
+    -
+      # Control: Outside an aggregate, the bare alias yields the whole row as a struct, as usual.
+      - query: SELECT a FROM doc_asset a WHERE a.rid = 20
+      - result: [{a: {2, 20, 'b1.png'}}, {a: {3, 20, 'b2.png'}}]
+    -
+      # The unaliased table name works the same way.
+      - query: SELECT ARRAY_AGG(doc_asset) FROM doc_asset WHERE rid = 20
+      - supported_version: !current_version
+      - result: [{[{2, 20, 'b1.png'}, {3, 20, 'b2.png'}]}]
+    -
+      # Bare alias with GROUP BY. This yields one array of rows per group.
+      - query: SELECT a.rid, ARRAY_AGG(a) FROM doc_asset a GROUP BY a.rid
+      - supported_version: !current_version
+      - result: [{10, [{1, 10, 'a1.png'}]}, {20, [{2, 20, 'b1.png'}, {3, 20, 'b2.png'}]}]
+    -
+      # In a join, each alias resolves to its own row.
+      - query: SELECT ARRAY_AGG(a), ARRAY_AGG(r) FROM doc_asset a, doc_rev r WHERE a.rid = r.rid AND r.rid = 20
+      - supported_version: !current_version
+      - result: [{[{2, 20, 'b1.png'}, {3, 20, 'b2.png'}], [{20, 'final', ['featured', 'public']}, {20, 'final', ['featured', 'public']}]}]
+    -
+      # A column of the same name takes precedence over the row alias. Here, `array_agg` resolves to the `keywords`
+      # table column, so the aggregate is over BIGINT rather than a struct.
+      - query: SELECT ARRAY_AGG(array_agg) FROM keywords AS array_agg
+      - result: [{[1]}]
+    -
+      # An identifier that names neither a column nor a table in scope fails with UNDEFINED_COLUMN, as usual.
+      - query: SELECT ARRAY_AGG(b) FROM doc_asset a
+      - error: UNDEFINED_COLUMN
 ---
 # ARRAY_AGG() over constant inputs.
 test_block:
