@@ -43,18 +43,29 @@ import java.util.stream.Collectors;
  * @param runningStandardDeviation running statistics of member distances to the centroid; its element count is the
  *        number of primary vectors
  * @param states the set of maintenance operations currently in flight for this cluster
+ * @param maxEverNumPrimaryVectors the high-water mark of {@link #getNumPrimaryVectors()} over this cluster's
+ *        lifetime. Maintained monotonically by the compact constructor (raised to the current primary count on
+ *        every construction, never decremented on shrink), so the merge trigger can fire when the current count
+ *        falls to a fraction of this peak rather than below a fixed absolute floor
  */
 record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, int numReplicatedVectors,
-                       @Nonnull RunningStats runningStandardDeviation, @Nonnull EnumSet<State> states) {
+                       @Nonnull RunningStats runningStandardDeviation, @Nonnull EnumSet<State> states,
+                       int maxEverNumPrimaryVectors) {
     public ClusterMetadata(@Nonnull final UUID id, final int numPrimaryUnderreplicatedVectors,
                            final int numReplicatedVectors,
-                           @Nonnull final RunningStats runningStandardDeviation, final int stateCode) {
+                           @Nonnull final RunningStats runningStandardDeviation, final int stateCode,
+                           final int maxEverNumPrimaryVectors) {
         this(id, numPrimaryUnderreplicatedVectors, numReplicatedVectors, runningStandardDeviation,
-                State.ofCode(stateCode));
+                State.ofCode(stateCode), maxEverNumPrimaryVectors);
     }
 
     ClusterMetadata {
         Preconditions.checkArgument(runningStandardDeviation.numElements() >= numPrimaryUnderreplicatedVectors);
+        // Monotonic high-water mark of the primary count: raised to the current count here and never decremented
+        // on shrink. Every with* passes the prior peak through, so growth past it raises it while a lower count
+        // leaves it untouched — including the reassign target, whose stats are rebuilt to a smaller count.
+        maxEverNumPrimaryVectors =
+                Math.max(maxEverNumPrimaryVectors, Math.toIntExact(runningStandardDeviation.numElements()));
     }
 
     public int getNumPrimaryVectors() {
@@ -84,7 +95,7 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
                                           @Nonnull final EnumSet<State> states) {
         final EnumSet<State> newStates = EnumSet.copyOf(states);
         return new ClusterMetadata(id(), numPrimaryUnderreplicatedVectors, numReplicatedVectors,
-                newStandardDeviation, newStates);
+                newStandardDeviation, newStates, maxEverNumPrimaryVectors());
     }
 
     @Nonnull
@@ -98,7 +109,7 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
     @Nonnull
     public ClusterMetadata withNewStates(@Nonnull final EnumSet<State> newStates) {
         return new ClusterMetadata(id(), numPrimaryUnderreplicatedVectors(), numReplicatedVectors(),
-                runningStandardDeviation(), newStates);
+                runningStandardDeviation(), newStates, maxEverNumPrimaryVectors());
     }
 
     @Nonnull
@@ -111,7 +122,7 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
         return new ClusterMetadata(id(),
                 numPrimaryUnderreplicatedVectors() + numPrimaryUnderreplicatedVectorsAdded,
                 numReplicatedVectors() + numReplicatedVectorsAdded, newStandardDeviation,
-                newStates);
+                newStates, maxEverNumPrimaryVectors());
     }
 
     @Override
@@ -119,6 +130,7 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
     public String toString() {
         return "CM[id=" + id() +
                 ", numPrimaryVectors=" + getNumPrimaryVectors() +
+                ", maxEverNumPrimaryVectors=" + maxEverNumPrimaryVectors() +
                 ", numPrimaryUnderreplicatedVectors=" + numPrimaryUnderreplicatedVectors() +
                 ", numReplicatedVectors=" + numReplicatedVectors() +
                 ", states=" + states() +

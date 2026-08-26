@@ -23,12 +23,15 @@ package com.apple.foundationdb.async.guardiann;
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.async.hnsw.HNSW;
+import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -182,6 +185,43 @@ public class GuardiannStructureAsserts {
                     .as("every replica in cluster %s must reference a live primary", cv.clusterId())
                     .allMatch(livePrimaries::contains, "references a live primary");
         }
+    }
+
+    /**
+     * For a test that has deleted <em>all</em> of its records: asserts that every reference still present in the
+     * structure is an <em>orphan</em> — the vector behind it has genuinely been deleted (no live per-vector
+     * {@link VectorMetadata} record for its primary key). This confirms the deletes were actually carried out even
+     * where their cluster references were left un-reaped: a lingering reference is acceptable garbage, but a lingering
+     * reference whose vector is still alive means a delete was missed. Collapsed representatives (keyed by
+     * {@code Tuple.from(signature)}) satisfy this trivially — they never have a per-vector metadata record.
+     */
+    static void assertAllReferencesAreOrphaned(@Nonnull final Database db, @Nonnull final Guardiann guardiann,
+                                               @Nullable final StructureSnapshot snapshot) {
+        if (snapshot == null) {
+            return;
+        }
+        final Subspace metadataSubspace = guardiann.getLocator().primitives().getVectorMetadataSubspace();
+        // One range scan of the per-vector metadata subspace gives the set of primary keys whose vector is still live.
+        final Set<Tuple> liveMetadataKeys = db.run(transaction -> {
+            final Set<Tuple> keys = new HashSet<>();
+            for (final var keyValue : transaction.getRange(metadataSubspace.range()).asList().join()) {
+                keys.add(metadataSubspace.unpack(keyValue.getKey()));
+            }
+            return keys;
+        });
+
+        final List<VectorId> liveReferences = Lists.newArrayList();
+        for (final ClusterView cv : snapshot.clusters().values()) {
+            for (final VectorReference reference : cv.references()) {
+                if (liveMetadataKeys.contains(reference.id().primaryKey())) {
+                    liveReferences.add(reference.id());
+                }
+            }
+        }
+        assertThat(liveReferences)
+                .as("after deleting all records, every remaining cluster reference must be an orphan (its vector's "
+                        + "metadata is gone); a reference whose vector is still alive means its delete was missed")
+                .isEmpty();
     }
 
     /**

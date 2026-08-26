@@ -350,7 +350,7 @@ class DataRecordsTest {
             stats = stats.add(random.nextDouble() * 10.0d);
         }
         return new ClusterMetadata(id, numPrimaryUnderreplicatedVectors, numReplicatedVectors, stats,
-                random.nextInt(8));
+                random.nextInt(8), numElements + random.nextInt(4));
     }
 
     @Nonnull

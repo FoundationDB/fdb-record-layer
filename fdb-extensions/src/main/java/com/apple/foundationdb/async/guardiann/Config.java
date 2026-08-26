@@ -74,6 +74,9 @@ import javax.annotation.Nonnull;
  * @param constructionSearchConfig centroid-walk tuning ({@link SearchConfig}) for the non-search insert/delete/maintenance
  *        paths, which probe the centroid HNSW without a per-query {@code SearchConfig}; only its {@code centroidEf*}
  *        knobs are consulted there
+ * @param mergeMaxEverFraction fraction of a cluster's max-ever primary count below which it becomes merge-eligible;
+ *        the effective merge threshold is
+ *        {@code max(primaryClusterMin, floor(mergeMaxEverFraction * maxEverNumPrimaryVectors))}
  */
 @SuppressWarnings("checkstyle:MemberName")
 public record Config(@Nonnull Metric metric,
@@ -115,12 +118,17 @@ public record Config(@Nonnull Metric metric,
                      int collapseConcurrency,
                      int bounceConcurrency,
                      // construction (centroid-walk tuning for the non-search insert/delete/maintenance paths)
-                     @Nonnull SearchConfig constructionSearchConfig) implements VectorEncodingConfig {
+                     @Nonnull SearchConfig constructionSearchConfig,
+                     // merge trigger (hysteresis relative to a cluster's max-ever primary count)
+                     double mergeMaxEverFraction) implements VectorEncodingConfig {
 
     @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
-    public static final int DEFAULT_PRIMARY_CLUSTER_MIN = 100;
+    public static final int DEFAULT_PRIMARY_CLUSTER_MIN = 50;
     public static final int DEFAULT_PRIMARY_CLUSTER_MAX = 1000;
     public static final int DEFAULT_PRIMARY_CLUSTER_HARD_MAX = 2 * DEFAULT_PRIMARY_CLUSTER_MAX;
+    // fraction of a cluster's max-ever primary count below which a merge is triggered (subject to the
+    // primaryClusterMin floor); see Config#mergeThreshold
+    public static final double DEFAULT_MERGE_MAX_EVER_FRACTION = 1.0d / 5.0d;
     public static final int DEFAULT_UNDERREPLICATED_PRIMARY_CLUSTER_MAX = 50;
     public static final int DEFAULT_REPLICATED_CLUSTER_MAX_WRITES = 3 * DEFAULT_PRIMARY_CLUSTER_MAX / 10;
     public static final int DEFAULT_REPLICATED_CLUSTER_TARGET = DEFAULT_PRIMARY_CLUSTER_MAX / 10;
@@ -169,6 +177,23 @@ public record Config(@Nonnull Metric metric,
                 "collapseMinDuplicates must be < primaryClusterMax");
         Preconditions.checkArgument(primaryClusterHardMax > primaryClusterMax,
                 "primaryClusterHardMax must be > primaryClusterMax");
+        Preconditions.checkArgument(mergeMaxEverFraction > 0.0d && mergeMaxEverFraction <= 1.0d,
+                "mergeMaxEverFraction must be in (0, 1]");
+    }
+
+    /**
+     * Computes the primary-vector count below which a cluster becomes merge-eligible: the larger of the absolute
+     * {@link #primaryClusterMin()} floor and {@code mergeMaxEverFraction} of the cluster's lifetime peak. Expressing
+     * the trigger relative to the peak gives hysteresis — a freshly split cluster (at 100% of its own peak) is never
+     * immediately merge-eligible, however lopsided the split — while still consolidating a cluster that has since
+     * shed most of its members.
+     *
+     * @param maxEverNumPrimaryVectors the cluster's {@link ClusterMetadata#maxEverNumPrimaryVectors() high-water}
+     *        primary count
+     * @return the merge threshold; a cluster with fewer current primaries than this wants to merge
+     */
+    public int mergeThreshold(final int maxEverNumPrimaryVectors) {
+        return Math.max(primaryClusterMin(), (int) Math.floor(mergeMaxEverFraction() * maxEverNumPrimaryVectors));
     }
 
     @Nonnull
@@ -185,7 +210,7 @@ public record Config(@Nonnull Metric metric,
                 reassignNumNeighboringClusters(),
                 collapseMinDuplicates(), splitMergeConcurrency(), reassignConcurrency(),
                 collapseConcurrency(), bounceConcurrency(),
-                constructionSearchConfig());
+                constructionSearchConfig(), mergeMaxEverFraction());
     }
 
     @Override
@@ -220,6 +245,7 @@ public record Config(@Nonnull Metric metric,
                 ", collapseConcurrency=" + collapseConcurrency() +
                 ", bounceConcurrency=" + bounceConcurrency() +
                 ", constructionSearchConfig=" + constructionSearchConfig() +
+                ", mergeMaxEverFraction=" + mergeMaxEverFraction() +
                 "]";
     }
 
@@ -276,6 +302,8 @@ public record Config(@Nonnull Metric metric,
         // construction (centroid-walk tuning for the non-search insert/delete/maintenance paths)
         @Nonnull
         private SearchConfig constructionSearchConfig = DEFAULT_CONSTRUCTION_SEARCH_CONFIG;
+        // merge trigger
+        private double mergeMaxEverFraction = DEFAULT_MERGE_MAX_EVER_FRACTION;
 
         public ConfigBuilder() {
         }
@@ -300,7 +328,8 @@ public record Config(@Nonnull Metric metric,
                              final int splitMergeConcurrency, final int reassignConcurrency,
                              final int collapseConcurrency,
                              final int bounceConcurrency,
-                             @Nonnull final SearchConfig constructionSearchConfig) {
+                             @Nonnull final SearchConfig constructionSearchConfig,
+                             final double mergeMaxEverFraction) {
             this.metric = metric;
             this.primaryClusterMin = primaryClusterMin;
             this.primaryClusterMax = primaryClusterMax;
@@ -333,6 +362,7 @@ public record Config(@Nonnull Metric metric,
             this.collapseConcurrency = collapseConcurrency;
             this.bounceConcurrency = bounceConcurrency;
             this.constructionSearchConfig = constructionSearchConfig;
+            this.mergeMaxEverFraction = mergeMaxEverFraction;
         }
 
         @Nonnull
@@ -355,6 +385,17 @@ public record Config(@Nonnull Metric metric,
         @Nonnull
         public ConfigBuilder setPrimaryClusterMin(final int primaryClusterMin) {
             this.primaryClusterMin = primaryClusterMin;
+            return this;
+        }
+
+        public double getMergeMaxEverFraction() {
+            return mergeMaxEverFraction;
+        }
+
+        @CanIgnoreReturnValue
+        @Nonnull
+        public ConfigBuilder setMergeMaxEverFraction(final double mergeMaxEverFraction) {
+            this.mergeMaxEverFraction = mergeMaxEverFraction;
             return this;
         }
 
@@ -705,7 +746,7 @@ public record Config(@Nonnull Metric metric,
                     getReassignNumNeighboringClusters(),
                     getCollapseMinDuplicates(), getSplitMergeConcurrency(), getReassignConcurrency(),
                     getCollapseConcurrency(), getBounceConcurrency(),
-                    getConstructionSearchConfig());
+                    getConstructionSearchConfig(), getMergeMaxEverFraction());
         }
     }
 }
