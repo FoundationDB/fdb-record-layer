@@ -21,8 +21,11 @@
 package com.apple.foundationdb.relational.api.ddl;
 
 import com.apple.foundationdb.linear.Metric;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexHelper;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionKeys;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
@@ -57,6 +60,7 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
 import java.util.Locale;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -154,6 +158,23 @@ public class IndexTest {
      */
     private void syntheticIndexIs(@Nonnull final String stmt, @Nonnull final String indexType, final int constituentCount,
                                   @Nonnull final BiFunction<String, List<String>, KeyExpression> expectedKey) throws Exception {
+        syntheticIndexIs(stmt, indexType, constituentCount, expectedKey, (syntheticTable, metaData) -> { });
+    }
+
+    /**
+     * As {@link #syntheticIndexIs(String, String, int, BiFunction)}, with an extra validator for assertions
+     * that go beyond the index key, such as the constituent tree or the synthetic primary key.
+     *
+     * @param stmt the DDL statement
+     * @param indexType the expected index type
+     * @param constituentCount the expected number of nested constituents
+     * @param expectedKey builds the expected key from the (parent alias, constituent aliases)
+     * @param validator further assertions on the synthetic table and the metadata it serializes to
+     * @throws Exception if planning fails
+     */
+    private void syntheticIndexIs(@Nonnull final String stmt, @Nonnull final String indexType, final int constituentCount,
+                                  @Nonnull final BiFunction<String, List<String>, KeyExpression> expectedKey,
+                                  @Nonnull final BiConsumer<RecordLayerUnnestedSyntheticTable, RecordMetaData> validator) throws Exception {
         shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
@@ -182,6 +203,7 @@ public class IndexTest {
                 Assertions.assertTrue(metaData.getSyntheticRecordTypes().containsKey(syntheticTable.getName()),
                         () -> "synthetic type '" + syntheticTable.getName() + "' missing from serialized metadata, got "
                                 + metaData.getSyntheticRecordTypes().keySet());
+                validator.accept(syntheticTable, metaData);
                 return txn -> {
                 };
             }
@@ -829,6 +851,40 @@ public class IndexTest {
     }
 
     /**
+     * As {@link #createIndexWithRepeatedNestedSplitByField()}, but over a table with a composite primary key,
+     * one of whose columns is also an index key column. A synthetic record is identified by its parent's
+     * primary key together with the position of each unnested element, so the parent's whole primary key
+     * expression has to reach the synthetic type: were only part of it to arrive, two stored records differing
+     * in the dropped column would share a synthetic primary key and index maintenance would clobber entries.
+     * A single-column primary key cannot show this, since most ways of getting it wrong still yield the one
+     * column.
+     */
+    @Test
+    void createIndexWithRepeatedNestedSplitByFieldOverCompositePrimaryKey() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1, col5)) " +
+                "CREATE INDEX mv1 AS SELECT X.col2, T1.col5, X.col3, X.col4 FROM T1, (SELECT col2, col3, col4 FROM T1.A) X ORDER BY X.col2, T1.col5, X.col3";
+        syntheticIndexIs(stmt, IndexTypes.VALUE, 1, (parent, constituents) -> keyWithValue(concat(
+                        field(constituents.get(0)).nest("COL2"),
+                        field(parent).nest("COL5"),
+                        field(constituents.get(0)).nest("COL3"),
+                        field(constituents.get(0)).nest("COL4")), 3),
+                (syntheticTable, metaData) -> {
+                    final var unnestedType = (UnnestedRecordType) metaData.getSyntheticRecordTypes()
+                            .get(syntheticTable.getName());
+                    final String constituent = syntheticTable.getConstituents().get(0).getAlias();
+                    Assertions.assertEquals(
+                            concat(Key.Expressions.recordType(), Key.Expressions.list(List.of(
+                                    field(syntheticTable.getAlias()).nest(concat(Key.Expressions.recordType(),
+                                            field("COL1"), field("COL5"))),
+                                    field(UnnestedRecordType.POSITIONS_FIELD).nest(constituent)))),
+                            unnestedType.getPrimaryKey(),
+                            "the parent's full composite primary key should reach the synthetic type");
+                });
+    }
+
+    /**
      * As {@link #createIndexWithRepeatedNestedSplitByField()}, but over an {@code ARRAY NOT NULL} column, which is
      * stored as a plain repeated field rather than wrapped in a {@code { repeated T values; }} message. The
      * constituent's nesting expression has to follow the declared storage form, so this only serializes if the
@@ -1310,6 +1366,48 @@ public class IndexTest {
                 field(constituents.get(0)).nest("X"),
                 field(parent).nest("K"),
                 field(constituents.get(0)).nest("X2")));
+    }
+
+    /**
+     * Constituents branch as well as chain: {@code b} and {@code d} both hang off the stored record, while
+     * {@code c} hangs off {@code b}. This is the shape the record layer builds in
+     * {@code UnnestedRecordTypeTest#addDoubleNestedType}, and it is the one that needs both lookup directions
+     * at once when the serializer resolves each constituent's array field: {@code P} and {@code R} on the
+     * stored record, {@code Q} on {@code b}'s element type. Resolving every constituent against the stored
+     * record would fail on {@code c}, and resolving each against the previously registered constituent would
+     * fail on {@code d}, so neither shortcut survives this case.
+     */
+    @Test
+    void createIndexWithBranchingAndChainedUnnestingUsesSyntheticTable() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT Q(y bigint, y2 bigint) " +
+                "CREATE TYPE AS STRUCT P(x bigint, x2 bigint, q Q array) " +
+                "CREATE TYPE AS STRUCT R(z bigint, z2 bigint) " +
+                "CREATE TABLE A(k bigint, p P array, r R array, primary key(k)) " +
+                "CREATE INDEX mv1 AS SELECT b.x, a.k, c.y, d.z FROM A AS a, (select * from a.p) as b, " +
+                "(select * from b.q) as c, (select * from a.r) as d ORDER BY b.x, a.k, c.y, d.z";
+        syntheticIndexIs(stmt, IndexTypes.VALUE, 3, (parent, constituents) -> concat(
+                        field(constituents.get(0)).nest("X"),
+                        field(parent).nest("K"),
+                        field(constituents.get(1)).nest("Y"),
+                        field(constituents.get(2)).nest("Z")),
+                (syntheticTable, metaData) -> {
+                    // The generic helper only checks that each parent alias is known, which cannot tell this
+                    // tree apart from a chain, so pin the actual parent of each constituent.
+                    final var constituents = syntheticTable.getConstituents();
+                    Assertions.assertEquals(
+                            List.of(syntheticTable.getAlias(), constituents.get(0).getAlias(), syntheticTable.getAlias()),
+                            constituents.stream()
+                                    .map(RecordLayerUnnestedSyntheticTable.NestedConstituent::getParentAlias)
+                                    .collect(Collectors.toList()),
+                            "constituents should branch at the stored record, with only the second one chained");
+                    Assertions.assertEquals(
+                            List.of(List.of("P", REPEATED_FIELD_NAME), List.of("Q", REPEATED_FIELD_NAME),
+                                    List.of("R", REPEATED_FIELD_NAME)),
+                            constituents.stream()
+                                    .map(RecordLayerUnnestedSyntheticTable.NestedConstituent::getFieldPath)
+                                    .collect(Collectors.toList()));
+                });
     }
 
     @Test
