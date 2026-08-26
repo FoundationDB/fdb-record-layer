@@ -75,6 +75,7 @@ import com.google.common.collect.Streams;
 import com.google.protobuf.ByteString;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTree;
+import org.antlr.v4.runtime.tree.TerminalNode;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -147,6 +148,63 @@ public class SemanticAnalyzer {
         } else {
             return string.toUpperCase(Locale.ROOT);
         }
+    }
+
+    /**
+     * Normalizes a string literal, decoding the doubled-quote escape that the lexer defines.
+     * <p>
+     * {@code RelationalLexer.g4} spells a single-quoted string as
+     * {@code fragment SQUOTA_STRING: '\'' ('\'\'' | ~('\''))* '\'';}. The {@code '\'\''} alternative
+     * admits a doubled quote as one unit <em>inside</em> the string, which is only meaningful if it
+     * denotes a single quote character. {@link #normalizeString} strips the outer delimiters and
+     * returns the remainder verbatim, so it leaves that escape undecoded and {@code 'it''s'} evaluates
+     * to the five characters {@code it''s} rather than the four characters {@code it's}.
+     * <p>
+     * This works from the literal TOKENS rather than from {@code getText()} because the text form is
+     * ambiguous: ANTLR's {@code getText()} concatenates tokens without their original spacing, so the
+     * two-token run {@code 'a' 'b'} and the single escaped literal {@code 'a''b'} both render as
+     * {@code 'a''b'} and cannot be told apart afterwards. Decoding each token and then joining is the
+     * only reading that is correct for both, and it also gives the adjacent-literal run the
+     * concatenation the grammar's {@code STRING_LITERAL+} implies.
+     * <p>
+     * Charset-prefixed, national and {@code COLLATE}-decorated literals are deliberately left to
+     * {@link #normalizeString}: they are rejected upstream of the value path and this method must not
+     * change what they produce.
+     *
+     * @param stringLiteral the {@code stringLiteral} context to decode
+     * @return the decoded string value
+     */
+    @Nullable
+    public static String normalizeStringLiteral(@Nonnull final RelationalParser.StringLiteralContext stringLiteral) {
+        if (stringLiteral.STRING_CHARSET_NAME() != null
+                || stringLiteral.START_NATIONAL_STRING_LITERAL() != null
+                || stringLiteral.COLLATE() != null) {
+            return normalizeString(stringLiteral.getText(), false);
+        }
+        final List<TerminalNode> parts = stringLiteral.STRING_LITERAL();
+        if (parts.isEmpty()) {
+            return normalizeString(stringLiteral.getText(), false);
+        }
+        final StringBuilder builder = new StringBuilder();
+        for (final TerminalNode part : parts) {
+            builder.append(unquoteSingleQuoted(part.getText()));
+        }
+        return builder.toString();
+    }
+
+    /**
+     * Removes the delimiters from one {@code STRING_LITERAL} token and decodes its doubled-quote
+     * escapes.
+     *
+     * @param token the raw token text, including its delimiters
+     * @return the decoded characters the token denotes
+     */
+    @Nonnull
+    private static String unquoteSingleQuoted(@Nonnull final String token) {
+        if (!isQuoted(token, "'") || token.length() < 2) {
+            return token;
+        }
+        return token.substring(1, token.length() - 1).replace("''", "'");
     }
 
     /**
