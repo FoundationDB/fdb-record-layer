@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers.T
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -194,7 +195,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                 PlannerGraph.fromNodeAndChildGraphs(
                         new PlannerGraph.DataNodeWithInfo(NodeInfo.BASE_DATA,
                                 getResultType(),
-                                ImmutableList.of(getTargetRecordType())),
+                                ImmutableList.of(ProtoUtils.toUserIdentifier(getTargetRecordType()))),
                         ImmutableList.of());
 
         return PlannerGraph.fromNodeInnerAndTargetForModifications(

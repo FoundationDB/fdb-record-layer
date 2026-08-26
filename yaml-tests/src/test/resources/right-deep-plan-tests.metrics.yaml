@@ -6,12 +6,12 @@ array-join-default-planner:
         T2, EQUALS q0]) } | FLATMAP q1 -> { SCAN([IS T1]) | FLATMAP q2 -> { EXPLODE
         q2.T2_REFS | FILTER _ EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2.NAME
         AS _0, q1.NAME AS _1) }'
-    task_count: 3321
-    task_total_time_ms: 351
+    task_count: 3317
+    task_total_time_ms: 209
     transform_count: 1485
-    transform_time_ms: 71
+    transform_time_ms: 42
     transform_yield_count: 186
-    insert_time_ms: 22
+    insert_time_ms: 14
     insert_new_count: 401
     insert_reused_count: 57
 array-join-right-deep-planner:
@@ -22,12 +22,12 @@ array-join-right-deep-planner:
         T2, EQUALS q0]) } | FLATMAP q1 -> { SCAN([IS T1]) | FLATMAP q2 -> { EXPLODE
         q2.T2_REFS | FILTER _ EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2.NAME
         AS _0, q1.NAME AS _1) }'
-    task_count: 1852
-    task_total_time_ms: 201
+    task_count: 1848
+    task_total_time_ms: 114
     transform_count: 763
-    transform_time_ms: 44
+    transform_time_ms: 26
     transform_yield_count: 108
-    insert_time_ms: 7
+    insert_time_ms: 3
     insert_new_count: 226
     insert_reused_count: 26
 array-join-right-deep-query-option:
@@ -38,11 +38,11 @@ array-join-right-deep-query-option:
         T2, EQUALS q0]) } | FLATMAP q1 -> { SCAN([IS T1]) | FLATMAP q2 -> { EXPLODE
         q2.T2_REFS | FILTER _ EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q2.NAME
         AS _0, q1.NAME AS _1) }'
-    task_count: 1852
-    task_total_time_ms: 201
+    task_count: 1848
+    task_total_time_ms: 114
     transform_count: 763
-    transform_time_ms: 44
+    transform_time_ms: 26
     transform_yield_count: 108
-    insert_time_ms: 7
+    insert_time_ms: 3
     insert_new_count: 226
     insert_reused_count: 26

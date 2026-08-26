@@ -52,6 +52,7 @@ import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -417,7 +418,10 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
                 new PlannerGraph.LogicalOperatorNodeWithInfo(this,
                         NodeInfo.TYPE_FILTER_OPERATOR,
                         ImmutableList.of("WHERE record IS {{types}}"),
-                        ImmutableMap.of("types", Attribute.gml(getRecordTypes().stream().map(Attribute::gml).collect(ImmutableList.toImmutableList())))),
+                        ImmutableMap.of("types", Attribute.gml(getRecordTypes().stream()
+                                .map(ProtoUtils::toUserIdentifier)
+                                .map(Attribute::gml)
+                                .collect(ImmutableList.toImmutableList())))),
                 childGraphs);
     }
 

@@ -1,11 +1,11 @@
-Ø
+´
 4
-orderby-tests#EXPLAIN select c from t1 order by bˆ
-Æ∞˜Â
-M ™˚ ($0†¶,8@fCOVERING(I1 <,> -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) | MAP (_.C AS C, _.B AS B) | MAP (_.C AS C)digraph G {
+orderby-tests#EXPLAIN select c from t1 order by bÚ
+™ç¿ˇ
+M ÒÑò($0ò«"8@fCOVERING(I1 <,> -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) | MAP (_.C AS C, _.B AS B) | MAP (_.C AS C)Ïdigraph G {
   fontname=courier;
   rankdir=BT;
-  splines=polyline;
+  splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6.C AS C)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q47.C AS C, q47.B AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C, LONG AS B)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, LONG AS C)" ];
@@ -13,13 +13,13 @@
   3 -> 2 [ label=<&nbsp;q47> label="q47" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}∞
+}´
 4
-orderby-tests#EXPLAIN select b from t1 order by c˜
-óïÚËr^ ê¬∏^(+0»·Á8)@fCOVERING(I2 <,> -> [A: KEY:[2], B: VALUE:[0], C: KEY:[0]]) | MAP (_.B AS B, _.C AS C) | MAP (_.B AS B)digraph G {
+orderby-tests#EXPLAIN select b from t1 order by cÚ
+ìØŒ∞^ ÷⁄â(+0õâ;8)@fCOVERING(I2 <,> -> [A: KEY:[2], B: VALUE:[0], C: KEY:[0]]) | MAP (_.B AS B, _.C AS C) | MAP (_.B AS B)Ïdigraph G {
   fontname=courier;
   rankdir=BT;
-  splines=polyline;
+  splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6.B AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS B)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q56.B AS B, q56.C AS C)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS B, LONG AS C)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, LONG AS C)" ];
@@ -27,13 +27,13 @@
   3 -> 2 [ label=<&nbsp;q56> label="q56" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ó
+}Í
 9
-orderby-tests(EXPLAIN select c from t1 order by b desc∞
-Æ…»çM ÇÖÚ($0¿•)8@nCOVERING(I1 <,> REVERSE -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) | MAP (_.C AS C, _.B AS B) | MAP (_.C AS C)¢digraph G {
+orderby-tests(EXPLAIN select c from t1 order by b desc¨
+™∞≠ÁM ◊éÆ($0íÀ&8@nCOVERING(I1 <,> REVERSE -> [A: KEY:[2], B: KEY:[0], C: VALUE:[0]]) | MAP (_.C AS C, _.B AS B) | MAP (_.C AS C)ûdigraph G {
   fontname=courier;
   rankdir=BT;
-  splines=polyline;
+  splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6.C AS C)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q47.C AS C, q47.B AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C, LONG AS B)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr><tr><td align="left">direction: reversed</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, LONG AS C)" ];
@@ -41,13 +41,14 @@
   3 -> 2 [ label=<&nbsp;q47> label="q47" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ó
+}Í
 9
-orderby-tests(EXPLAIN select b from t1 order by c desc∞
-ó˝ƒ≤^ €¿◊(+0é∑r8)@nCOVERING(I2 <,> REVERSE -> [A: KEY:[2], B: VALUE:[0], C: KEY:[0]]) | MAP (_.B AS B, _.C AS C) | MAP (_.B AS B)¢digraph G {
+orderby-tests(EXPLAIN select b from t1 order by c desc¨
+ìÃÚ£
+^ ∏º‰(+0∑—28)@nCOVERING(I2 <,> REVERSE -> [A: KEY:[2], B: VALUE:[0], C: KEY:[0]]) | MAP (_.B AS B, _.C AS C) | MAP (_.B AS B)ûdigraph G {
   fontname=courier;
   rankdir=BT;
-  splines=polyline;
+  splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6.B AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS B)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q56.B AS B, q56.C AS C)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS B, LONG AS C)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr><tr><td align="left">direction: reversed</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, LONG AS C)" ];
@@ -55,27 +56,27 @@
   3 -> 2 [ label=<&nbsp;q56> label="q56" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ö
+}Å
 @
-orderby-tests/EXPLAIN select c, b from t5 order by c, b desc;¿
-“˛—˜5 ÚÅ—(0©ó'8@xCOVERING(I8 <,> -> [A: KEY:[3], B: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), C: KEY:[0]]) | MAP (_.C AS C, _.B AS B)®
+orderby-tests/EXPLAIN select c, b from t5 order by c, b desc;º
+–Œ„Â5 ÃãΩ(0íº8@xCOVERING(I8 <,> -> [A: KEY:[3], B: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST), C: KEY:[0]]) | MAP (_.C AS C, _.B AS B)§
 digraph G {
   fontname=courier;
   rankdir=BT;
-  splines=polyline;
+  splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q32.C AS C, q32.B AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C, LONG AS B)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, LONG AS C)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I8</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, LONG AS C)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q32> label="q32" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Å
+}˝
 Z
-orderby-testsIEXPLAIN select q as "nested", q.a as "ordered" from t2 order by "ordered"¢
-¬£óÀ5 †≤ö(0Â¿%8@5ISCAN(I4 <,>) | MAP (_.Q AS nested, _.Q.A AS ordered)Õ
+orderby-testsIEXPLAIN select q as "nested", q.a as "ordered" from t2 order by "ordered"û
+¿ñÀÑ5 Üß¥(0˘Ù8@5ISCAN(I4 <,>) | MAP (_.Q AS nested, _.Q.A AS ordered)…
 digraph G {
   fontname=courier;
   rankdir=BT;
-  splines=polyline;
+  splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.Q AS nested, q2.Q.A AS ordered)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B AS nested, LONG AS ordered)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS P, LONG AS A, LONG AS B AS Q)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I4</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS P, LONG AS A, LONG AS B AS Q)" ];
@@ -84,8 +85,7 @@ digraph G {
 }©
 s
 orderby-testsbEXPLAIN select (T.*) from (select q as "nested", q.a as "ordered" from t2) as T order by "ordered"±
-€à≠Æ
-: ûåÒ(0±¶!8@<ISCAN(I4 <,>) | MAP ((_.Q AS nested, _.Q.A AS ordered) AS T)’
+◊ƒ≤™:  äù(0Ó—8@<ISCAN(I4 <,>) | MAP ((_.Q AS nested, _.Q.A AS ordered) AS T)’
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -98,7 +98,7 @@ digraph G {
 }ê
 E
 orderby-tests4EXPLAIN select (*) from t2_func() order by "ordered"∆
-€ôÌ¥: Ï≤ä(0åÛ'8@CISCAN(I4 <,>) | MAP ((_.Q AS nesting, _.Q.A AS ordered) AS T2_FUNC)„
+◊§µï	: ÔÏ˘(0ºæ8@CISCAN(I4 <,>) | MAP ((_.Q AS nesting, _.Q.A AS ordered) AS T2_FUNC)„
 digraph G {
   fontname=courier;
   rankdir=BT;

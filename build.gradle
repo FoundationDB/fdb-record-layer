@@ -218,7 +218,7 @@ subprojects {
     }
 
     def publishBuild = Boolean.parseBoolean(findProperty('publishBuild') ?: 'false')
-    def autoServiceVersion = publishBuild ? libs.versions.autoService.asProvider().get() : libs.versions.autoService.development.get()
+    def autoServiceVersion = publishBuild ? rootProject.libs.versions.autoService.asProvider().get() : rootProject.libs.versions.autoService.development.get()
 
     project.configurations.all {
         resolutionStrategy.eachDependency {details ->

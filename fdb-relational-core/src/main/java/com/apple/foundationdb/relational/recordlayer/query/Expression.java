@@ -380,8 +380,12 @@ public class Expression {
                 return Assert.optionalUnchecked(result);
             }
 
-            // Recognize `NullValue` as a null boolean `ConstantPredicate`.
-            if (value instanceof NullValue) {
+            // A NULL predicate matches nothing, so map it to `ConstantPredicate.NULL`.
+            // Check the class and the type, because one SQL NULL arrives in two shapes:
+            //   - `NULL` in the query text becomes a `NullValue` (`ExpressionVisitor.visitNullLiteral`)
+            //   - a parameter bound with `setNull` becomes a `ConstantObjectValue` of NULL type
+            //     (`MutablePlanGenerationContext.processNamedPreparedParam`, via `Type.fromObject(null)`)
+            if (value instanceof NullValue || value.getResultType().isNull()) {
                 return ConstantPredicate.NULL;
             }
 

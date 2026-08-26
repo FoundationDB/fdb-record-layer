@@ -74,7 +74,7 @@ public class IndexingMerger {
     }
 
     @SuppressWarnings("squid:S3776") // cognitive complexity is high, candidate for refactoring
-    CompletableFuture<Void> mergeIndex() {
+    CompletableFuture<Void> mergeIndex(final Function<FDBRecordStore, CompletableFuture<Void>> heartbeatUpdater) {
         final AtomicInteger failureCountLimit = new AtomicInteger(1000);
         AtomicReference<IndexDeferredMaintenanceControl> mergeControlRef = new AtomicReference<>();
         final FDBStoreTimer timer = common.getRunner().getTimer();
@@ -94,9 +94,8 @@ public class IndexingMerger {
                                     mergeControl.setRepartitionDocumentCount(repartitionDocumentCount);
                                     mergeControl.setLastStep(IndexDeferredMaintenanceControl.LastStep.NONE);
                                     mergeControl.setRepartitionCapped(false);
-                                    // Stable across this run's re-invocations and distinct per concurrent merge
-                                    // process, so a maintainer can hold a per-partition lease across transactions.
                                     mergeControl.setMergeSessionId(common.getIndexerId());
+                                    mergeControl.setPreCommitCallback(heartbeatUpdater);
                                     return store.getIndexMaintainer(index).mergeIndex();
                                 })
                                 .thenApply(ignore -> false)

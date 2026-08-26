@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
+import com.apple.foundationdb.record.query.plan.cascades.rules.PredicatePushDownRule;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
@@ -50,7 +51,7 @@ import java.util.stream.Collectors;
  * to determine which expression trees contain more predicates at a deeper level.
  * </p>
  * <p>
- * See also {@link com.apple.foundationdb.record.query.plan.cascades.rules.PredicatePushDownRule}.
+ * See also {@link PredicatePushDownRule}.
  * </p>
  */
 public class PredicateCountByLevelProperty implements ExpressionProperty<PredicateCountByLevelProperty.PredicateCountByLevelInfo> {

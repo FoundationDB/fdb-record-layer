@@ -165,6 +165,8 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
     @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<ComparisonRanges> comparisonRangesSupplier = Suppliers.memoize(this::computeComparisonRanges);
+    @Nonnull
+    private final KeyValueCursorBase.SerializationMode serializationMode;
 
     public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull final IndexScanParameters scanParameters, final boolean reverse) {
         this(indexName, null, scanParameters, IndexFetchMethod.SCAN_AND_FETCH, FetchIndexRecords.PRIMARY_KEY, reverse, false);
@@ -208,7 +210,6 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
     }
 
     @VisibleForTesting
-    @SuppressWarnings("this-escape")
     public RecordQueryIndexPlan(@Nonnull final String indexName,
                                 @Nullable final KeyExpression commonPrimaryKey,
                                 @Nonnull final IndexScanParameters scanParameters,
@@ -219,6 +220,22 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
                                 @Nonnull final Optional<? extends MatchCandidate> matchCandidateOptional,
                                 @Nonnull final Type resultType,
                                 @Nonnull final QueryPlanConstraint constraint) {
+        this(indexName, commonPrimaryKey, scanParameters, indexFetchMethod, fetchIndexRecords, reverse, strictlySorted, matchCandidateOptional, resultType, constraint, KeyValueCursorBase.SerializationMode.TO_NEW);
+    }
+
+    @VisibleForTesting
+    @SuppressWarnings("this-escape")
+    public RecordQueryIndexPlan(@Nonnull final String indexName,
+                                @Nullable final KeyExpression commonPrimaryKey,
+                                @Nonnull final IndexScanParameters scanParameters,
+                                @Nonnull final IndexFetchMethod indexFetchMethod,
+                                @Nonnull final FetchIndexRecords fetchIndexRecords,
+                                final boolean reverse,
+                                final boolean strictlySorted,
+                                @Nonnull final Optional<? extends MatchCandidate> matchCandidateOptional,
+                                @Nonnull final Type resultType,
+                                @Nonnull final QueryPlanConstraint constraint,
+                                @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) {
         this.indexName = indexName;
         this.commonPrimaryKey = commonPrimaryKey;
         this.scanParameters = scanParameters;
@@ -235,6 +252,7 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
             }
         }
         this.constraint = constraint;
+        this.serializationMode = serializationMode;
     }
 
     @Nonnull
@@ -332,7 +350,7 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
                                                                                     @Nonnull FDBRecordStoreBase<M> store, @Nonnull Index index,
                                                                                     @Nullable byte[] continuation, @Nonnull ExecuteProperties executeProperties) {
         final byte[] prefixBytes = getRangePrefixBytes(tupleScanRange);
-        final IndexScanContinuationConvertor continuationConvertor = new IndexScanContinuationConvertor(prefixBytes);
+        final IndexScanContinuationConvertor continuationConvertor = new IndexScanContinuationConvertor(prefixBytes, serializationMode);
 
         // Scan a wider range, and then halt when either this scans outside the given range
         final IndexScanRange newScanRange = new IndexScanRange(IndexScanType.BY_VALUE, widenedScanRange);
@@ -756,9 +774,12 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
     private static class IndexScanContinuationConvertor implements RecordCursor.ContinuationConvertor {
         @Nonnull
         private final byte[] prefixBytes;
+        @Nonnull
+        private final KeyValueCursorBase.SerializationMode serializationMode;
 
-        public IndexScanContinuationConvertor(@Nonnull byte[] prefixBytes) {
+        public IndexScanContinuationConvertor(@Nonnull byte[] prefixBytes, @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) {
             this.prefixBytes = prefixBytes;
+            this.serializationMode = serializationMode;
         }
 
         @Nullable
@@ -769,7 +790,7 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
             }
             // Add the prefix back to the inner continuation
             byte[] innerContinuation = KeyValueCursorBase.Continuation.getInnerContinuation(continuation);
-            return new KeyValueCursorBase.Continuation(ByteArrayUtil.join(prefixBytes, innerContinuation), 0).toBytes();
+            return new KeyValueCursorBase.Continuation(ByteArrayUtil.join(prefixBytes, innerContinuation), 0, serializationMode).toBytes();
         }
 
         @Override
@@ -781,7 +802,7 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
             if (continuationBytes != null && ByteArrayUtil.startsWith(continuationBytes, prefixBytes)) {
                 // Strip away the prefix. Note that ByteStrings re-use the underlying ByteArray, so this can
                 // save a copy.
-                return new IndexScanContinuationConvertor.PrefixRemovingContinuation(continuation, prefixBytes.length);
+                return new IndexScanContinuationConvertor.PrefixRemovingContinuation(continuation, prefixBytes.length, serializationMode);
             } else {
                 // This key does not begin with the prefix. Return an END continuation to indicate that the
                 // scan is over.
@@ -796,10 +817,13 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
             @SuppressWarnings("squid:S3077") // array immutable once initialized, so AtomicByteArray not necessary
             @Nullable
             private volatile byte[] bytes;
+            @Nonnull
+            private final KeyValueCursorBase.SerializationMode serializationMode;
 
-            private PrefixRemovingContinuation(RecordCursorContinuation baseContinuation, int prefixLength) {
+            private PrefixRemovingContinuation(RecordCursorContinuation baseContinuation, int prefixLength, @Nonnull KeyValueCursorBase.SerializationMode serializationMode) {
                 this.baseContinuation = baseContinuation;
                 this.prefixLength = prefixLength;
+                this.serializationMode = serializationMode;
             }
 
             @Nullable
@@ -808,7 +832,7 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
                 if (bytes == null) {
                     synchronized (this) {
                         if (bytes == null) {
-                            bytes = new KeyValueCursorBase.Continuation(KeyValueCursorBase.Continuation.getInnerContinuation(baseContinuation.toBytes()), prefixLength).toBytes();
+                            bytes = new KeyValueCursorBase.Continuation(KeyValueCursorBase.Continuation.getInnerContinuation(baseContinuation.toBytes()), prefixLength, serializationMode).toBytes();
                         }
                     }
                 }

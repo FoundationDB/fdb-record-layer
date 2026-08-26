@@ -25,6 +25,7 @@ import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
@@ -42,6 +43,7 @@ import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
+import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingHeartbeat;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
@@ -63,8 +65,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -72,6 +76,7 @@ import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -378,6 +383,69 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
         assertEquals(1, attemptCount.get());
     }
 
+    @Test
+    void testMergePreCommitCallbackUpdatesHeartbeatDuringBuild() {
+        final String indexType = "heartbeatDuringBuildIndex";
+        final AtomicBoolean callbackPresent = new AtomicBoolean(false);
+        final AtomicReference<Map<UUID, IndexBuildProto.IndexBuildHeartbeat>> heartbeatsSeen = new AtomicReference<>();
+        TestFactory.register(indexType, observeHeartbeatDuringMerge(callbackPresent, heartbeatsSeen), true);
+
+        final FDBRecordStore.Builder storeBuilder = createStoreWithUnbuiltIndex(indexType, 20);
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setRecordStoreBuilder(storeBuilder)
+                .setTargetIndexesByName(List.of(INDEX_NAME))
+                .build()) {
+            indexer.buildIndex();
+        }
+
+        assertThat(callbackPresent).isTrue();
+        // The write-only index of this ongoing build has exactly one heartbeat: this indexer's
+        assertThat(heartbeatsSeen.get()).hasSize(1);
+        final IndexBuildProto.IndexBuildHeartbeat heartbeat = heartbeatsSeen.get().values().iterator().next();
+        assertThat(heartbeat.getInfo()).isEqualTo(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS.toString());
+        assertThat(heartbeat.getHeartbeatTimeMilliseconds()).isPositive();
+        // And it is cleared once the index becomes readable
+        assertNoHeartbeatsLeft(storeBuilder);
+    }
+
+    @Test
+    void testMergePreCommitCallbackSkipsHeartbeatForRegularMerge() {
+        final String indexType = "heartbeatRegularMergeIndex";
+        final AtomicBoolean callbackPresent = new AtomicBoolean(false);
+        final AtomicReference<Map<UUID, IndexBuildProto.IndexBuildHeartbeat>> heartbeatsSeen = new AtomicReference<>();
+        TestFactory.register(indexType, observeHeartbeatDuringMerge(callbackPresent, heartbeatsSeen));
+
+        final FDBRecordStore.Builder storeBuilder = createStore(indexType);
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setRecordStoreBuilder(storeBuilder)
+                .setTargetIndexesByName(List.of(INDEX_NAME))
+                .build()) {
+            indexer.mergeIndex();
+        }
+
+        assertThat(callbackPresent).isTrue();
+        assertThat(heartbeatsSeen.get()).isEmpty();
+        assertNoHeartbeatsLeft(storeBuilder);
+    }
+
+    @Nonnull
+    private static Function<IndexMaintainerState, CompletableFuture<Void>> observeHeartbeatDuringMerge(
+            final AtomicBoolean callbackPresent,
+            final AtomicReference<Map<UUID, IndexBuildProto.IndexBuildHeartbeat>> heartbeatsSeen) {
+        return state -> {
+            adjustMergeControl(state);
+            final Function<FDBRecordStore, CompletableFuture<Void>> preCommitCallback =
+                    state.store.getIndexDeferredMaintenanceControl().getPreCommitCallback();
+            callbackPresent.set(preCommitCallback != null);
+            if (preCommitCallback == null) {
+                return AsyncUtil.DONE;
+            }
+            return preCommitCallback.apply(state.store)
+                    .thenCompose(ignore -> IndexingHeartbeat.getIndexingHeartbeats(state.store, state.index, 0))
+                    .thenAccept(heartbeatsSeen::set);
+        };
+    }
+
     @Nonnull
     private FDBRecordStore.Builder createStore(@Nonnull final String indexType) {
         Index index = new Index(INDEX_NAME, Key.Expressions.field("num_value_2"),
@@ -395,6 +463,36 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
         return storeBuilder;
     }
 
+    @Nonnull
+    private FDBRecordStore.Builder createStoreWithUnbuiltIndex(@Nonnull final String indexType, final int numRecords) {
+        final FDBRecordStore.Builder storeBuilder = createStore(indexType);
+        try (FDBRecordContext context = openContext(RecordLayerPropertyStorage.getEmptyInstance())) {
+            final FDBRecordStore store = storeBuilder.copyBuilder().setContext(context).open();
+            store.markIndexDisabled(INDEX_NAME).join();
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext(RecordLayerPropertyStorage.getEmptyInstance())) {
+            // The index is disabled, hence saving these records does not call its maintainer
+            final FDBRecordStore store = storeBuilder.copyBuilder().setContext(context).open();
+            for (int i = 0; i < numRecords; i++) {
+                store.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(i)
+                        .setNumValue2(i % 5)
+                        .build());
+            }
+            context.commit();
+        }
+        return storeBuilder;
+    }
+
+    private void assertNoHeartbeatsLeft(@Nonnull final FDBRecordStore.Builder storeBuilder) {
+        try (FDBRecordContext context = openContext(RecordLayerPropertyStorage.getEmptyInstance())) {
+            final FDBRecordStore store = storeBuilder.copyBuilder().setContext(context).open();
+            final Index index = store.getRecordMetaData().getIndex(INDEX_NAME);
+            assertThat(IndexingHeartbeat.getIndexingHeartbeats(store, index, 0).join()).isEmpty();
+        }
+    }
+
     private static <T> @Nonnull List<T> repeat(final T value, final int count) {
         return Stream.generate(() -> value).limit(count).collect(Collectors.toList());
     }
@@ -407,7 +505,12 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
     public static class TestFactory implements IndexMaintainerFactory {
         static Map<String, Function<IndexMaintainerState, IndexMaintainer>> maintainers = new HashMap<>();
 
-        static void register(String name, Function<IndexMaintainerState, CompletableFuture<Void>> mergeImplementation) {
+        private static void register(String name, Function<IndexMaintainerState, CompletableFuture<Void>> mergeImplementation) {
+            register(name, mergeImplementation, false);
+        }
+
+        private static void register(String name, Function<IndexMaintainerState, CompletableFuture<Void>> mergeImplementation,
+                             boolean buildable) {
             maintainers.put(name, state -> new IndexMaintainer(state) {
                 @Nonnull
                 @Override
@@ -418,13 +521,20 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
                 @Nonnull
                 @Override
                 public <M extends Message> CompletableFuture<Void> update(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
-                    throw new UnsupportedOperationException();
+                    if (!buildable) {
+                        throw new UnsupportedOperationException();
+                    }
+                    state.store.getIndexDeferredMaintenanceControl().setMergeRequiredIndexes(state.index);
+                    return AsyncUtil.DONE;
                 }
 
                 @Nonnull
                 @Override
                 public <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
-                    throw new UnsupportedOperationException();
+                    if (!buildable) {
+                        throw new UnsupportedOperationException();
+                    }
+                    return update(oldRecord, newRecord);
                 }
 
                 @Nonnull
@@ -480,7 +590,10 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
 
                 @Override
                 public boolean isIdempotent() {
-                    throw new UnsupportedOperationException();
+                    if (!buildable) {
+                        throw new UnsupportedOperationException();
+                    }
+                    return true;
                 }
 
                 @Nonnull
@@ -521,7 +634,9 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
                     "wrappedFdbExceptionIndex",
                     "mergeTimeoutIndex",
                     "timeoutExceptionIndex",
-                    "nonRetriableRepartitionIndex"
+                    "nonRetriableRepartitionIndex",
+                    "heartbeatDuringBuildIndex",
+                    "heartbeatRegularMergeIndex"
             );
         }
 

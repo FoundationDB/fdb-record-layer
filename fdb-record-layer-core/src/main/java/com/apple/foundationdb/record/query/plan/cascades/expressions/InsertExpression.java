@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAbstractDataModificationPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -146,7 +147,7 @@ public class InsertExpression extends AbstractRelationalExpressionWithChildren i
 
     @Override
     public String toString() {
-        return "Insert(" + targetRecordType + ")";
+        return "Insert(" + ProtoUtils.toUserIdentifier(targetRecordType) + ")";
     }
 
     /**
@@ -163,7 +164,7 @@ public class InsertExpression extends AbstractRelationalExpressionWithChildren i
                 PlannerGraph.fromNodeAndChildGraphs(
                         new PlannerGraph.DataNodeWithInfo(NodeInfo.BASE_DATA,
                                 getResultType(),
-                                ImmutableList.of(targetRecordType)),
+                                ImmutableList.of(ProtoUtils.toUserIdentifier(targetRecordType))),
                         ImmutableList.of());
 
         return PlannerGraph.fromNodeInnerAndTargetForModifications(

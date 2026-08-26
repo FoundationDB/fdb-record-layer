@@ -7,10 +7,10 @@ catalog-tests:
         -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP ((_._2 AS CNT, _._0 AS
         TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) AS _0) | AGG (sum_l(_._0.CNT) AS
         _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)'
-    task_count: 539
-    task_total_time_ms: 64
+    task_count: 529
+    task_total_time_ms: 47
     transform_count: 146
-    transform_time_ms: 29
+    transform_time_ms: 21
     transform_yield_count: 45
     insert_time_ms: 0
     insert_new_count: 54
@@ -24,10 +24,10 @@ catalog-tests:
         | MAP ((_._2 AS CNT, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) AS _0)
         | AGG (sum_l(_._0.CNT) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS
         _0)'
-    task_count: 539
-    task_total_time_ms: 70
+    task_count: 529
+    task_total_time_ms: 55
     transform_count: 146
-    transform_time_ms: 31
+    transform_time_ms: 28
     transform_yield_count: 45
     insert_time_ms: 0
     insert_new_count: 54

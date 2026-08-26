@@ -1,8 +1,8 @@
-ú
+õ
 +
-	unnamed-3EXPLAIN SELECT * From "TableA"Ï
+	unnamed-3EXPLAIN SELECT * From "TableA"Î
 
-ü–ëÔ) —í¡(0±⁄8@SCAN(<,>) | TFILTER TableA≤
+ù¢ﬂô) …˚q(0Äâ8@SCAN(<,>) | TFILTER TableA≤
 digraph G {
   fontname=courier;
   rankdir=BT;
