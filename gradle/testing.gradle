@@ -1,15 +1,9 @@
-import java.util.regex.Matcher
-import java.util.regex.Pattern
-
-import org.gradle.api.tasks.testing.TestDescriptor
-import org.gradle.api.tasks.testing.TestListener
-
 /*
  * testing.gradle
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +17,16 @@ import org.gradle.api.tasks.testing.TestListener
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import java.util.regex.Matcher
+import java.util.regex.Pattern
+
+import org.gradle.api.tasks.testing.TestDescriptor
+import org.gradle.api.tasks.testing.TestListener
+
+import static TestReporting.betterException
+import static TestReporting.getFullDisplayName
+import static TestReporting.getMixedModeVersion
 
 apply plugin: 'jacoco'
 // configure for test, other *Test are configured below
@@ -91,30 +95,70 @@ tasks.register('singleVersionTest', Test) {
     }
 }
 
-// if you add to or modify these testing configurations, make sure to update the CONTRIBUTING.md to include any updates
+// Helpers used from the test-listener closures below. (These live on a class rather than as script-level methods
+// because the listeners run at execution time, where a Groovy closure may no longer call back into the build script
+// under the Gradle configuration cache.)
+class TestReporting {
+    static final Pattern SKIPPED_STACK_TRACE_ENTRIES = Pattern.compile(
+            /(?s)/ +
+            /(?<indent>\s+)at java\.base\/jdk\.internal\.reflect\.NativeMethodAccessorImpl\.invoke0\(Native Method\)/ +
+            /\s+at java\.base\/jdk\.internal\.reflect\.NativeMethodAccessorImpl\.invoke\(NativeMethodAccessorImpl\.java:\d+\)/ +
+            /\s+at java\.base\/jdk\.internal\.reflect\.DelegatingMethodAccessorImpl\.invoke\(DelegatingMethodAccessorImpl\.java:\d+\)/ +
+            /\s+at java\.base\/java\.lang\.reflect\.Method\.invoke\(Method\.java:\d+\)/ +
+            /\s+at org\.junit\.platform\.commons\.util\.ReflectionUtils\.invokeMethod\(ReflectionUtils\.java:\d+\).*?/ +
+            /(?=\s+Suppressed:|\s+Caused by:|$)/)
 
-static def getMixedModeVersion(descriptor) {
-    while (descriptor != null) {
-        // don't display this or any of the parents. Let's assume that nobody ever
-        // sets the display name in code to start with "Gradle Test Executor".
-        // it appears to be suffixed with a number, but I didn't investigate why
-        if (descriptor.displayName.startsWith("Gradle Test Executor")) {
-            break
-        }
-
-        Matcher versionMatch = descriptor.displayName =~ /^MultiServer \((?:((?:\d+\.)+\d+) then JDBC In-Process|JDBC In-Process then ((?:\d+\.)+\d+))\)/
-        if (versionMatch.size() != 0) {
-            def version = versionMatch[0][1]
-            if (version == null) {
-                version = versionMatch[0][2]
-            }
-            return version
-        }
-        descriptor = descriptor.parent
+    static String betterException(String exception) {
+        return SKIPPED_STACK_TRACE_ENTRIES.matcher(exception).replaceAll("\n\${indent}... junit stack ...")
     }
-    return null
+
+    static def getMixedModeVersion(descriptor) {
+        while (descriptor != null) {
+            // don't display this or any of the parents. Let's assume that nobody ever
+            // sets the display name in code to start with "Gradle Test Executor".
+            // it appears to be suffixed with a number, but I didn't investigate why
+            if (descriptor.displayName.startsWith("Gradle Test Executor")) {
+                break
+            }
+
+            Matcher versionMatch = descriptor.displayName =~ /^MultiServer \((?:((?:\d+\.)+\d+) then JDBC In-Process|JDBC In-Process then ((?:\d+\.)+\d+))\)/
+            if (versionMatch.size() != 0) {
+                def version = versionMatch[0][1]
+                if (version == null) {
+                    version = versionMatch[0][2]
+                }
+                return version
+            }
+            descriptor = descriptor.parent
+        }
+        return null
+    }
+
+    static def getFullDisplayName(TestDescriptor descriptor) {
+        def fullName = descriptor.displayName
+        descriptor = descriptor.parent
+        while (descriptor != null) {
+            // don't display this or any of the parents. Let's assume that nobody ever
+            // sets the display name in code to start with "Gradle Test Executor".
+            // it appears to be suffixed with a number, but I didn't investigate why
+            if (descriptor.displayName.startsWith("Gradle Test Executor")) {
+                break
+            }
+            def openParen = descriptor.displayName.indexOf("(")
+            // in the case where someone sets the display name to include the method name, it's best
+            // to skip the method name itself, e.g.:
+            // LuceneIndexMaintenanceTest > randomizedRepartitionTest(boolean, boolean, boolean, int, int, int, long) > randomizedRepartitionTest(true, false, false, 13, 3, 20, 9237590782644) STARTED
+            // LuceneIndexMaintenanceTest > randomizedRepartitionTest(boolean, boolean, boolean, int, int, int, long) > randomizedRepartitionTest(true, false, false, 13, 3, 20, 9237590782644) SUCCESS (1985ms)
+            if (openParen < 0 || !fullName.startsWith(descriptor.displayName.substring(0, openParen))) {
+                fullName = "${descriptor.displayName}" + " > " + fullName
+            }
+            descriptor = descriptor.parent
+        }
+        return fullName
+    }
 }
 
+// Note: If you add to or modify these testing configurations, make sure to update `Building.md` accordingly.
 tasks.register('mixedModeTest', Test) {
     useJUnitPlatform {
         includeTags 'MixedMode'
@@ -146,29 +190,6 @@ tasks.register('mixedModeTest', Test) {
             }
         }
     ] as TestListener)
-}
-
-static def getFullDisplayName(TestDescriptor descriptor) {
-    def fullName = descriptor.displayName
-    descriptor = descriptor.parent
-    while (descriptor != null) {
-        // don't display this or any of the parents. Let's assume that nobody ever
-        // sets the display name in code to start with "Gradle Test Executor".
-        // it appears to be suffixed with a number, but I didn't investigate why
-        if (descriptor.displayName.startsWith("Gradle Test Executor")) {
-            break
-        }
-        def openParen = descriptor.displayName.indexOf("(")
-        // in the case where someone sets the display name to include the method name, it's best
-        // to skip the method name itself, e.g.:
-        // LuceneIndexMaintenanceTest > randomizedRepartitionTest(boolean, boolean, boolean, int, int, int, long) > randomizedRepartitionTest(true, false, false, 13, 3, 20, 9237590782644) STARTED
-        // LuceneIndexMaintenanceTest > randomizedRepartitionTest(boolean, boolean, boolean, int, int, int, long) > randomizedRepartitionTest(true, false, false, 13, 3, 20, 9237590782644) SUCCESS (1985ms)
-        if (openParen < 0 || !fullName.startsWith(descriptor.displayName.substring(0, openParen))) {
-            fullName = "${descriptor.displayName}" + " > " + fullName
-        }
-        descriptor = descriptor.parent
-    }
-    return fullName
 }
 
 // Use an injected `FileSystemOperations` service for deleting the per-task temp directory in `configureTestTask`
@@ -243,19 +264,6 @@ def configureTestTask = { String propertyPrefix, Task task ->
         }
         return
     }
-}
-
-ext.skippedStackTraceEntries = Pattern.compile(/(?s)/ +
-                                               /(?<indent>\s+)at java\.base\/jdk\.internal\.reflect\.NativeMethodAccessorImpl\.invoke0\(Native Method\)/ +
-                                               /\s+at java\.base\/jdk\.internal\.reflect\.NativeMethodAccessorImpl\.invoke\(NativeMethodAccessorImpl\.java:\d+\)/ +
-                                               /\s+at java\.base\/jdk\.internal\.reflect\.DelegatingMethodAccessorImpl\.invoke\(DelegatingMethodAccessorImpl\.java:\d+\)/ +
-                                               /\s+at java\.base\/java\.lang\.reflect\.Method\.invoke\(Method\.java:\d+\)/ +
-                                               /\s+at org\.junit\.platform\.commons\.util\.ReflectionUtils\.invokeMethod\(ReflectionUtils\.java:\d+\).*?/ +
-                                               /(?=\s+Suppressed:|\s+Caused by:|$)/)
-
-
-def betterException(String exception) {
-    return skippedStackTraceEntries.matcher(exception).replaceAll("\n\${indent}... junit stack ...")
 }
 
 tasks.withType(Test).configureEach { Test theTask ->
