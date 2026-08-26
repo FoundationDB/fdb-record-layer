@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -38,7 +39,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
+import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.IntStream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
@@ -48,16 +53,17 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Basic CRUD operation tests on {@link FDBRecordStore}.
  */
 @Tag(Tags.RequiresFDB)
 @Execution(ExecutionMode.CONCURRENT)
-public class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
+class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
 
     @Test
-    public void writeRead() throws Exception {
+    void writeRead() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
 
@@ -81,7 +87,7 @@ public class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void writeCheckExists() throws Exception {
+    void writeCheckExists() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
 
@@ -103,7 +109,7 @@ public class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void writeCheckExistsConcurrently() throws Exception {
+    void writeCheckExistsConcurrently() throws Exception {
         try (FDBRecordContext context1 = openContext(); FDBRecordContext context2 = openContext()) {
             openSimpleRecordStore(context1);
 
@@ -145,7 +151,7 @@ public class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void writeByteString() throws Exception {
+    void writeByteString() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openBytesRecordStore(context);
 
@@ -168,7 +174,7 @@ public class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void writeUuid() {
+    void writeUuid() {
         UUID uuid1 = UUID.fromString("710730ce-d9fd-417a-bb6e-27bcfefe3d4d");
         UUID uuid2 = UUID.fromString("03b9221a-e61b-4bee-8c47-34e1248ed273");
 
@@ -194,7 +200,7 @@ public class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void writeNotUnionType() throws Exception {
+    void writeNotUnionType() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);
 
@@ -209,7 +215,98 @@ public class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void readPreloaded() throws Exception {
+    void saveRecordsConcurrently() throws Exception {
+        final List<FDBStoredRecord<Message>> saved;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+
+            // Create 20 futures, each one saving a different record, and then run them concurrently
+            final List<CompletableFuture<FDBStoredRecord<Message>>> futures = IntStream.range(0, 100)
+                    .mapToObj(id -> TestRecords1Proto.MySimpleRecord.newBuilder()
+                            .setRecNo(id + 1000L)
+                            .setNumValue3Indexed(id % 3)
+                            .setNumValue2(id % 4)
+                            .setStrValueIndexed((id % 2L == 0L) ? "even" : "odd")
+                            .setNumValueUnique(id + 100)
+                            .build()
+                    )
+                    .map(recordStore::saveRecordAsync)
+                    .toList();
+            saved = AsyncUtil.getAll(futures).get();
+
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            final List<FDBStoredRecord<Message>> loaded = AsyncUtil.getAll(saved.stream()
+                    .map(FDBStoredRecord::getPrimaryKey)
+                    .map(recordStore::loadRecordAsync)
+                    .toList()
+            ).get();
+            assertEquals(saved.size(), loaded.size(), "saved and loaded lists should have the same size");
+            for (int i = 0; i < saved.size(); i++) {
+                FDBStoredRecord<Message> savedRecord = saved.get(i);
+                FDBStoredRecord<Message> loadedRecord = loaded.get(i);
+                assertEquals(savedRecord.getRecord(), loadedRecord.getRecord());
+            }
+            assertEquals(saved.size(), recordStore.getSnapshotRecordCount().get());
+            assertEquals(saved.size(), recordStore.getSnapshotRecordUpdateCount().get());
+        }
+    }
+
+    @Test
+    void saveSameRecordConcurrently() throws Exception {
+        final List<FDBStoredRecord<Message>> saved;
+        byte[] commitVersionstamp;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataBuilder -> metaDataBuilder.setStoreRecordVersions(true));
+
+            // Create 100 futures, each one saving the same record (i.e., the same primary key), but with
+            // different values. Only one of these will succeed at the end, so 
+            final List<CompletableFuture<FDBStoredRecord<Message>>> futures = IntStream.range(0, 100)
+                    .mapToObj(id -> TestRecords1Proto.MySimpleRecord.newBuilder()
+                            .setRecNo(1000L)
+                            .setNumValue3Indexed(id % 3)
+                            .setNumValue2(id)
+                            .setStrValueIndexed((id % 2L == 0L) ? "even" : "odd")
+                            .setNumValueUnique(id)
+                            .build()
+                    )
+                    .map(recordStore::saveRecordAsync)
+                    .toList();
+            saved = AsyncUtil.getAll(futures).get();
+
+            commit(context);
+            commitVersionstamp = Objects.requireNonNull(context.getVersionStamp());
+        }
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataBuilder -> metaDataBuilder.setStoreRecordVersions(true));
+
+            final List<FDBStoredRecord<Message>> loaded = AsyncUtil.getAll(saved.stream()
+                    .map(FDBStoredRecord::getPrimaryKey)
+                    .map(recordStore::loadRecordAsync)
+                    .toList()
+            ).get();
+            assertEquals(saved.size(), loaded.size(), "saved and loaded lists should have the same size");
+            boolean found = false;
+            for (int i = 0; i < saved.size(); i++) {
+                FDBStoredRecord<Message> savedRecord = saved.get(i);
+                FDBStoredRecord<Message> loadedRecord = loaded.get(i);
+                if (savedRecord.getRecord().equals(loadedRecord.getRecord())) {
+                    found = true;
+                    assertNotNull(loadedRecord.getVersion());
+                    assertNotNull(savedRecord.getVersion());
+                    assertEquals(savedRecord.getVersion().withCommittedVersion(commitVersionstamp), loadedRecord.getVersion());
+                }
+            }
+            assertTrue(found, "no record found that matched original set");
+            assertEquals(1L, recordStore.getSnapshotRecordCount().get());
+            assertEquals(saved.size(), recordStore.getSnapshotRecordUpdateCount().get());
+        }
+    }
+
+    @Test
+    void readPreloaded() throws Exception {
         byte[] versionstamp;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -243,7 +340,7 @@ public class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void readMissingPreloaded() throws Exception {
+    void readMissingPreloaded() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             // 4488 does not exist
@@ -262,7 +359,7 @@ public class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void readYourWritesPreloaded() throws Exception {
+    void readYourWritesPreloaded() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
 
@@ -288,7 +385,7 @@ public class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void deletePreloaded() throws Exception {
+    void deletePreloaded() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
 
@@ -309,7 +406,7 @@ public class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void deleteAllPreloaded() throws Exception {
+    void deleteAllPreloaded() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
 
@@ -330,7 +427,7 @@ public class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void saveOverPreloaded() throws Exception {
+    void saveOverPreloaded() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
 
@@ -362,7 +459,7 @@ public class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void preloadNonExisting() throws Exception {
+    void preloadNonExisting() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
 
@@ -372,7 +469,7 @@ public class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void delete() throws Exception {
+    void delete() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
 

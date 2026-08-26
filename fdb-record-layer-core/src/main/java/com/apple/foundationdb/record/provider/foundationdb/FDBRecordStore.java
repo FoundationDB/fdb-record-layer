@@ -68,6 +68,7 @@ import com.apple.foundationdb.record.UnknownStoreLockStateException;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.record.cursors.DedupCursor;
 import com.apple.foundationdb.record.cursors.ListCursor;
+import com.apple.foundationdb.record.locking.LockIdentifier;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.FormerIndex;
@@ -558,44 +559,46 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final Tuple primaryKey = primaryKeyExpression.evaluateSingleton(recordBuilder).toTuple();
         recordBuilder.setPrimaryKey(primaryKey);
 
-        final CompletableFuture<FDBStoredRecord<M>> result = loadExistingRecord(typedSerializer, primaryKey).thenCompose(oldRecord -> {
-            if (oldRecord == null) {
-                if (existenceCheck.errorIfNotExists()) {
-                    throw new RecordDoesNotExistException("record does not exist",
-                            LogMessageKeys.PRIMARY_KEY, primaryKey);
-                }
-            } else {
-                if (existenceCheck.errorIfExists()) {
-                    throw new RecordAlreadyExistsException("record already exists",
-                            LogMessageKeys.PRIMARY_KEY, primaryKey);
-                }
-                if (existenceCheck.errorIfTypeChanged() && oldRecord.getRecordType() != recordType) {
-                    throw new RecordTypeChangedException("record type changed",
-                            LogMessageKeys.PRIMARY_KEY, primaryKey,
-                            LogMessageKeys.ACTUAL_TYPE, oldRecord.getRecordType().getName(),
-                            LogMessageKeys.EXPECTED_TYPE, recordType.getName());
-                }
-            }
-            if (isDryRun) {
-                final FDBStoredRecord<M> newRecord = dryRunSetSizeInfo(typedSerializer, recordBuilder, metaData);
-                return CompletableFuture.completedFuture(newRecord);
-            }
-            return getRecordStoreStateAsync().thenCompose(recordStoreState -> {
-                if (!overrideLock) {
-                    validateRecordUpdateAllowed(recordStoreState);
-                }
-                final FDBStoredRecord<M> newRecord = serializeAndSaveRecord(typedSerializer, recordBuilder, metaData, oldRecord);
+        return context.doWithWriteLock(lockIdForRecord(primaryKey), () -> {
+            final CompletableFuture<FDBStoredRecord<M>> result = loadExistingRecord(typedSerializer, primaryKey).thenCompose(oldRecord -> {
                 if (oldRecord == null) {
-                    addRecordCount(metaData, newRecord, LITTLE_ENDIAN_INT64_ONE);
+                    if (existenceCheck.errorIfNotExists()) {
+                        throw new RecordDoesNotExistException("record does not exist",
+                                LogMessageKeys.PRIMARY_KEY, primaryKey);
+                    }
                 } else {
-                    if (getTimer() != null) {
-                        getTimer().increment(FDBStoreTimer.Counts.REPLACE_RECORD_VALUE_BYTES, oldRecord.getValueSize());
+                    if (existenceCheck.errorIfExists()) {
+                        throw new RecordAlreadyExistsException("record already exists",
+                                LogMessageKeys.PRIMARY_KEY, primaryKey);
+                    }
+                    if (existenceCheck.errorIfTypeChanged() && oldRecord.getRecordType() != recordType) {
+                        throw new RecordTypeChangedException("record type changed",
+                                LogMessageKeys.PRIMARY_KEY, primaryKey,
+                                LogMessageKeys.ACTUAL_TYPE, oldRecord.getRecordType().getName(),
+                                LogMessageKeys.EXPECTED_TYPE, recordType.getName());
                     }
                 }
-                return updateSecondaryIndexes(oldRecord, newRecord).thenApply(v -> newRecord);
+                if (isDryRun) {
+                    final FDBStoredRecord<M> newRecord = dryRunSetSizeInfo(typedSerializer, recordBuilder, metaData);
+                    return CompletableFuture.completedFuture(newRecord);
+                }
+                return getRecordStoreStateAsync().thenCompose(recordStoreState -> {
+                    if (!overrideLock) {
+                        validateRecordUpdateAllowed(recordStoreState);
+                    }
+                    final FDBStoredRecord<M> newRecord = serializeAndSaveRecord(typedSerializer, recordBuilder, metaData, oldRecord);
+                    if (oldRecord == null) {
+                        addRecordCount(metaData, newRecord, LITTLE_ENDIAN_INT64_ONE);
+                    } else {
+                        if (getTimer() != null) {
+                            getTimer().increment(FDBStoreTimer.Counts.REPLACE_RECORD_VALUE_BYTES, oldRecord.getValueSize());
+                        }
+                    }
+                    return updateSecondaryIndexes(oldRecord, newRecord).thenApply(v -> newRecord);
+                });
             });
+            return context.instrument(FDBStoreTimer.Events.SAVE_RECORD, result);
         });
-        return context.instrument(FDBStoreTimer.Events.SAVE_RECORD, result);
     }
 
     @SuppressWarnings("PMD.CloseResource")
@@ -1037,12 +1040,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_OPERATION, performIndexOperationAsync(indexName, operation));
     }
 
+    @Nonnull
+    private LockIdentifier lockIdForRecord(@Nonnull final Tuple primaryKey) {
+        return new LockIdentifier(recordsSubspace().subspace(primaryKey));
+    }
+
     @Override
     @Nonnull
     public CompletableFuture<FDBStoredRecord<Message>> loadRecordInternal(@Nonnull final Tuple primaryKey,
                                                                           @Nonnull ExecuteState executeState,
                                                                           final boolean snapshot) {
-        return loadTypedRecord(serializer, primaryKey, executeState, snapshot);
+        return context.doWithReadLock(lockIdForRecord(primaryKey),
+                () -> loadTypedRecord(serializer, primaryKey, executeState, snapshot));
     }
 
     @Nonnull
@@ -1238,15 +1247,16 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     public CompletableFuture<Void> preloadRecordAsync(@Nonnull final Tuple primaryKey) {
         FDBPreloadRecordCache.Future futureRecord = preloadCache.beginPrefetch(primaryKey);
-        return loadRawRecordAsync(primaryKey, null, false)
-                .whenComplete((rawRecord, ex) -> {
-                    if (ex != null) {
-                        futureRecord.cancel();
-                    } else {
-                        futureRecord.complete(rawRecord);
-                    }
-                })
-                .thenApply(rawRecord -> null);
+        return context.doWithReadLock(lockIdForRecord(primaryKey), () ->
+                loadRawRecordAsync(primaryKey, null, false)
+                        .whenComplete((rawRecord, ex) -> {
+                            if (ex != null) {
+                                futureRecord.cancel();
+                            } else {
+                                futureRecord.complete(rawRecord);
+                            }
+                        })
+        ).thenApply(ignore -> null);
     }
 
     @Override
@@ -1254,8 +1264,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public CompletableFuture<Boolean> recordExistsAsync(@Nonnull final Tuple primaryKey, @Nonnull final IsolationLevel isolationLevel) {
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
         final ReadTransaction tr = isolationLevel.isSnapshot() ? ensureContextActive().snapshot() : ensureContextActive();
-        return SplitHelper.keyExists(tr, context, recordsSubspace(),
-                primaryKey, metaData.isSplitLongRecords(), omitUnsplitRecordSuffix);
+        return context.doWithReadLock(lockIdForRecord(primaryKey),
+                () -> SplitHelper.keyExists(tr, context, recordsSubspace(), primaryKey, metaData.isSplitLongRecords(), omitUnsplitRecordSuffix));
     }
 
     @Nonnull
@@ -1758,6 +1768,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     protected <M extends Message> CompletableFuture<Boolean> deleteTypedRecord(@Nonnull RecordSerializer<M> typedSerializer,
                                                                                @Nonnull Tuple primaryKey, boolean isDryRun) {
+        return context.doWithWriteLock(lockIdForRecord(primaryKey),
+                () -> deleteTypedRecordImpl(typedSerializer, primaryKey, isDryRun));
+    }
+
+    @Nonnull
+    private <M extends Message> CompletableFuture<Boolean> deleteTypedRecordImpl(@Nonnull RecordSerializer<M> typedSerializer,
+                                                                                 @Nonnull Tuple primaryKey, boolean isDryRun) {
         if (isDryRun) {
             return loadTypedRecord(typedSerializer, primaryKey, false).thenCompose(oldRecord -> oldRecord == null ? AsyncUtil.READY_FALSE : AsyncUtil.READY_TRUE);
         }
