@@ -342,7 +342,8 @@ class StorageAdapter {
                 Math.toIntExact(valueTuple.getLong(1)),
                 Math.toIntExact(valueTuple.getLong(2)),
                 runningStandardDeviationFromTuple(valueTuple.getNestedTuple(3)),
-                Math.toIntExact(valueTuple.getLong(4)));
+                Math.toIntExact(valueTuple.getLong(4)),
+                Math.toIntExact(valueTuple.getLong(5)));
     }
 
     @Nonnull
@@ -350,7 +351,8 @@ class StorageAdapter {
         return Tuple.from(clusterMetadata.id(),
                 clusterMetadata.numPrimaryUnderreplicatedVectors(), clusterMetadata.numReplicatedVectors(),
                 valueTupleFromRunningStats(clusterMetadata.runningStandardDeviation()),
-                clusterMetadata.getStatesCode());
+                clusterMetadata.getStatesCode(),
+                clusterMetadata.maxEverNumPrimaryVectors());
     }
 
     @Nonnull
