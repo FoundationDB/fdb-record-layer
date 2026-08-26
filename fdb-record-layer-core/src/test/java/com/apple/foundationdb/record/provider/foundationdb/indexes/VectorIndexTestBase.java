@@ -307,6 +307,13 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
                                                                final int numRecords,
                                                                final double nullProbability) throws Exception {
         final var recordGenerator = getRecordGenerator(random, nullProbability);
+        return saveRandomRecords(useAsync, hook, numRecords, recordGenerator);
+    }
+
+    protected List<FDBStoredRecord<Message>> saveRandomRecords(final boolean useAsync,
+                                                               @Nonnull final RecordMetaDataHook hook,
+                                                               final int numRecords,
+                                                               @Nonnull Function<Long, VectorRecord> recordGenerator) throws Exception {
         if (useAsync) {
             return asyncBatch(hook, numRecords, 100,
                     recNo -> recordStore.saveRecordAsync(recordGenerator.apply(recNo)));
@@ -391,7 +398,7 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
                               @Nonnull final Metric metric) {
         return storedRecords.stream()
                 .map(storedRecord -> {
-                    final VectorRecord vectorRecord = (VectorRecord)storedRecord.getRecord();
+                    final VectorRecord vectorRecord = VectorRecord.newBuilder().mergeFrom(storedRecord.getRecord()).build();
                     final RealVector storedVector =
                             RealVector.fromBytes(vectorRecord.getVectorData().toByteArray());
                     return new NodeReferenceWithDistance(Tuple.from(vectorRecord.getRecNo()),

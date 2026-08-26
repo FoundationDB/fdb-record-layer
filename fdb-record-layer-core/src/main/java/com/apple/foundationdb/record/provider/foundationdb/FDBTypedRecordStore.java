@@ -578,6 +578,18 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
             return this;
         }
 
+        @Override
+        public boolean isConcurrencyManagementDisabled() {
+            return untypedStoreBuilder.isConcurrencyManagementDisabled();
+        }
+
+        @Nonnull
+        @Override
+        public Builder<M> setDisableConcurrencyManagement(final boolean disableConcurrencyManagement) {
+            untypedStoreBuilder.setDisableConcurrencyManagement(disableConcurrencyManagement);
+            return this;
+        }
+
         @Nullable
         @Override
         public String getBypassFullStoreLockReason() {

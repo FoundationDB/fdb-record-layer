@@ -82,6 +82,8 @@ import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
+import org.hamcrest.MatcherAssert;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.opentest4j.AssertionFailedError;
@@ -290,9 +292,14 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
     }
 
     public void loadRecords(final boolean useAsync, final boolean withNulls, @Nonnull final RecordMetaDataHook hook,
-                            final long seed, final List<String> calendarNames, final int numSamples)  {
+                            final long seed, final List<String> calendarNames, final int numSamples) {
         final Random random = new Random(seed);
         final var recordGenerator = withNulls ? getRecordWithNullGenerator(random, calendarNames) : getRecordGenerator(random, calendarNames);
+        loadRecords(useAsync, hook, numSamples, recordGenerator);
+    }
+
+    public void loadRecords(final boolean useAsync, @Nonnull final RecordMetaDataHook hook, final int numSamples,
+                            @Nonnull final Function<Integer, Message> recordGenerator) {
         if (useAsync) {
             Assertions.assertDoesNotThrow(() -> batch(hook, numSamples, 500, recNo -> recordStore.saveRecord(recordGenerator.apply(recNo))));
         } else {
@@ -491,6 +498,26 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         }
     }
 
+    void basicReadWithOverwritesTest(final boolean useAsync, @Nonnull final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
+        final RecordMetaDataHook additionalIndex = metaDataBuilder -> addMultidimensionalIndex(metaDataBuilder, storage,
+                storeHilbertValues, useNodeSlotIndex);
+        @Nonnull Random r = new Random(0);
+        @Nonnull Function<Integer, Message> baseGenerator = getRecordGenerator(r, ImmutableList.of("business", "home"));
+        loadRecords(useAsync, additionalIndex, 500, recNo -> baseGenerator.apply(recNo % 5));
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, additionalIndex);
+            for (long l = 0; l < 5; l++) {
+                FDBStoredRecord<Message> rec = recordStore.loadRecord(Tuple.from(null, l));
+                assertNotNull(rec);
+                TestRecordsMultidimensionalProto.MyMultidimensionalRecord.Builder recordBuilder =
+                        TestRecordsMultidimensionalProto.MyMultidimensionalRecord.newBuilder();
+                recordBuilder.mergeFrom(rec.getRecord());
+                MatcherAssert.assertThat(recordBuilder.getCalendarName(), Matchers.either(Matchers.equalTo("business")).or(Matchers.equalTo("home")));
+            }
+            commit(context);
+        }
+    }
+
     void indexReadTest(final boolean useAsync, final long seed, final int numRecords, @Nonnull final String storage,
                        final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         final RecordMetaDataHook additionalIndexes =
@@ -549,7 +576,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
     }
 
     void indexReadWithNullsTest(final boolean useAsync, final long seed, final int numRecords, @Nonnull final String storage,
-                            final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
+                                final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
                     addCalendarNameStartEpochIndex(metaDataBuilder);
@@ -602,6 +629,68 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                                                         .and(suffix(unbounded())))),
                                 indexPlan().where(indexName("calendarNameStartEpoch"))
                                 )));
+        actualResults = getResults(additionalIndexes, mdPlan);
+        Assertions.assertEquals(expectedResults, actualResults);
+    }
+
+    void indexReadWithOverwritesTest(final boolean useAsync, final long seed, final int numRecords, @Nonnull final String storage,
+                                     final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
+        RecordMetaDataHook additionalIndexes =
+                metaDataBuilder -> {
+                    addCalendarNameStartEpochIndex(metaDataBuilder);
+                    addMultidimensionalIndex(metaDataBuilder, storage, storeHilbertValues, useNodeSlotIndex);
+                };
+        final Random random = new Random(seed);
+        final Function<Integer, Message> baseRecordGenerator = getRecordGenerator(random, ImmutableList.of("business"));
+        loadRecords(useAsync, additionalIndexes, numRecords, recNo -> baseRecordGenerator.apply(recNo % 10));
+
+        final long intervalStartInclusive = epochMean + 3600L;
+        final long intervalEndInclusive = epochMean + 5L * 3600L;
+        final RecordQueryIndexPlan indexPlan =
+                new RecordQueryIndexPlan("EventIntervals",
+                        new HypercubeScanParameters("business",
+                                (Long)null, intervalEndInclusive,
+                                intervalStartInclusive, null),
+                        false);
+        Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
+        MatcherAssert.assertThat(actualResults.size(), Matchers.lessThanOrEqualTo(10));
+
+        final QueryComponent filter =
+                Query.and(
+                        Query.field("calendar_name").equalsValue("business"),
+                        Query.or(
+                                Query.field("start_epoch").isNull(),
+                                Query.field("start_epoch").lessThanOrEquals(intervalEndInclusive)),
+                        Query.field("end_epoch").greaterThanOrEquals(intervalStartInclusive));
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MyMultidimensionalRecord")
+                .setFilter(filter)
+                .setIndexQueryabilityFilter(noMultidimensionalIndexes)
+                .build();
+        final RecordQueryPlan plan = planQuery(query);
+        final Set<Message> expectedResults = getResults(additionalIndexes, plan);
+        Assertions.assertEquals(expectedResults, actualResults);
+
+        // run an un-hinted query -- make sure the planner picks up the md-index
+        query = RecordQuery.newBuilder()
+                .setRecordType("MyMultidimensionalRecord")
+                .setFilter(filter)
+                .build();
+        final RecordQueryPlan mdPlan = planQuery(query);
+
+        assertMatchesExactly(mdPlan,
+                unorderedPrimaryKeyDistinctPlan(
+                        unorderedUnionPlan(
+                                indexPlan()
+                                        .where(indexName("EventIntervals"))
+                                        .and(indexScanParameters(
+                                                multidimensional()
+                                                        .where(prefix(range("[[business],[business]]")))
+                                                        .and(dimensions(range("([null],[1690378647]]"), range("[[1690364247],>")))
+                                                        .and(suffix(unbounded())))),
+                                indexPlan().where(indexName("calendarNameStartEpoch"))
+                        )));
         actualResults = getResults(additionalIndexes, mdPlan);
         Assertions.assertEquals(expectedResults, actualResults);
     }
