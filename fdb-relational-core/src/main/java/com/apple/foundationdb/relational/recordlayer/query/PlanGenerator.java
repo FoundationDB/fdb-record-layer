@@ -538,6 +538,21 @@ public final class PlanGenerator {
                                        @Nonnull final RecordStoreState recordStoreState,
                                        @Nonnull final MetricCollector metricCollector,
                                        @Nonnull final Options options) throws RelationalException {
+        return create(cache, schemaTemplate, recordStoreState, metricCollector, options, PreparedParams.empty());
+    }
+
+    /**
+     * As {@link #create(Optional, RecordLayerSchemaTemplate, RecordStoreState, MetricCollector, Options)}, but with
+     * caller-supplied prepared parameters — used by stored-query warm-up to carry the declared parameter types
+     * ({@link PreparedParams#withDeclaredTypes}) so value-free named parameters are planned value-free.
+     */
+    @Nonnull
+    public static PlanGenerator create(@Nonnull final Optional<RelationalPlanCache> cache,
+                                       @Nonnull final RecordLayerSchemaTemplate schemaTemplate,
+                                       @Nonnull final RecordStoreState recordStoreState,
+                                       @Nonnull final MetricCollector metricCollector,
+                                       @Nonnull final Options options,
+                                       @Nonnull final PreparedParams preparedParams) throws RelationalException {
         final var metaData = schemaTemplate.toRecordMetadata();
         final var planContext = PlanContext.Builder.create()
                 .fromMetaDataAndState(metaData, recordStoreState, options)
@@ -546,6 +561,7 @@ public final class PlanGenerator {
                 .withConstantActionFactory(ThrowingMetadataOperationsFactory.INSTANCE)
                 .withDdlQueryFactory(ThrowingQueryFactory.INSTANCE)
                 .withDbUri(URI.create("embed:offline"))
+                .withPreparedParameters(preparedParams)
                 .build();
         return create(cache, planContext, metaData, recordStoreState,
                 IndexMaintainerFactoryRegistryImpl.instance(), options);
@@ -568,6 +584,20 @@ public final class PlanGenerator {
                                        @Nonnull final MetadataOperationsFactory metadataOperationsFactory,
                                        @Nonnull final MetricCollector metricCollector,
                                        @Nonnull final Options options) throws RelationalException {
+        return create(schemaTemplate, metadataOperationsFactory, metricCollector, options, PreparedParams.empty());
+    }
+
+    /**
+     * As {@link #create(RecordLayerSchemaTemplate, MetadataOperationsFactory, MetricCollector, Options)}, but with
+     * caller-supplied prepared parameters — used by stored-query warm-up so a temporary function planned here captures
+     * the declared parameter types ({@link PreparedParams#withDeclaredTypes}) for value-free planning.
+     */
+    @Nonnull
+    public static PlanGenerator create(@Nonnull final RecordLayerSchemaTemplate schemaTemplate,
+                                       @Nonnull final MetadataOperationsFactory metadataOperationsFactory,
+                                       @Nonnull final MetricCollector metricCollector,
+                                       @Nonnull final Options options,
+                                       @Nonnull final PreparedParams preparedParams) throws RelationalException {
         final var metaData = schemaTemplate.toRecordMetadata();
         final var recordStoreState = new RecordStoreState(null, null);
         final var planContext = PlanContext.Builder.create()
@@ -577,6 +607,7 @@ public final class PlanGenerator {
                 .withConstantActionFactory(metadataOperationsFactory)
                 .withDdlQueryFactory(ThrowingQueryFactory.INSTANCE)
                 .withDbUri(URI.create("embed:offline"))
+                .withPreparedParameters(preparedParams)
                 .build();
         return create(Optional.empty(), planContext, metaData, recordStoreState,
                 IndexMaintainerFactoryRegistryImpl.instance(), options);

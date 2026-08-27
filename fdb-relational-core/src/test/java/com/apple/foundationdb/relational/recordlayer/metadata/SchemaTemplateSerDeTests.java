@@ -336,6 +336,38 @@ public class SchemaTemplateSerDeTests {
     }
 
 
+    /**
+     * A stored query's declared parameters must survive the whole round trip: relational {@code StoredQuery} →
+     * {@code RecordMetaData.StoredQuery} → proto → back again. Each of those four hand-offs re-passes the parameters
+     * by hand, so a missed one would silently drop them and the only symptom at runtime would be a plan-cache miss.
+     */
+    @Test
+    void storedQueryParametersSurviveRoundTrip() {
+        final var template = RecordLayerSchemaTemplate.newBuilder()
+                .setName("TestSchemaTemplate")
+                .setVersion(42)
+                .addTable(RecordLayerTable.newBuilder(false)
+                        .setName("T1")
+                        .addColumn(RecordLayerColumn.newBuilder()
+                                .setName("COL1")
+                                .setDataType(DataType.Primitives.LONG.type())
+                                .build())
+                        .build())
+                .addStoredQuery("BY_SIG", "SELECT col1 FROM t1 WHERE col1 = ?param_a", List.of(),
+                        Map.of("param_a", "LONG", "param_b", "NULL", "param_c", "STRING"))
+                .build();
+
+        final var roundTripped = RecordLayerSchemaTemplate.fromRecordMetadata(
+                template.toRecordMetadata(), "TestSchemaTemplate", 42);
+
+        final var storedQuery = roundTripped.getStoredQueries().get("BY_SIG");
+        Assertions.assertNotNull(storedQuery);
+        Assertions.assertEquals("SELECT col1 FROM t1 WHERE col1 = ?param_a", storedQuery.getQuery());
+        // names and type codes all preserved.
+        Assertions.assertEquals(Map.of("param_a", "LONG", "param_b", "NULL", "param_c", "STRING"),
+                storedQuery.getParameters());
+    }
+
     @Test
     void deserializationTranslatesUserDefinedNameCorrectly() {
         final var metaDataBuilder = RecordMetaData.newBuilder();
