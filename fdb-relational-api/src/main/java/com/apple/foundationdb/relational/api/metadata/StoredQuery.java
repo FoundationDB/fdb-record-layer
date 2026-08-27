@@ -21,9 +21,11 @@
 package com.apple.foundationdb.relational.api.metadata;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A SELECT query persisted on a {@link SchemaTemplate}, paired with the
@@ -37,10 +39,21 @@ public final class StoredQuery {
     private final String query;
     @Nonnull
     private final List<String> tempFunctions;
+    @Nonnull
+    private final Map<String, String> parameters;
 
     public StoredQuery(@Nonnull final String storedQuery, @Nonnull final List<String> tempFunctions) {
+        this(storedQuery, tempFunctions, ImmutableMap.of());
+    }
+
+    public StoredQuery(@Nonnull final String storedQuery, @Nonnull final List<String> tempFunctions,
+                       @Nonnull final Map<String, String> parameters) {
         this.query = storedQuery;
         this.tempFunctions = ImmutableList.copyOf(tempFunctions);
+        // ImmutableMap rather than Map.copyOf: the latter randomizes iteration order per JVM run, which would make the
+        // same metadata serialize to different bytes each time. Parameters are looked up by name, so the order itself
+        // carries no meaning — only its stability matters.
+        this.parameters = ImmutableMap.copyOf(parameters);
     }
 
     @Nonnull
@@ -51,5 +64,15 @@ public final class StoredQuery {
     @Nonnull
     public List<String> getTempFunctions() {
         return tempFunctions;
+    }
+
+    /**
+     * The parameters this query declares, as a map from parameter name to the SQL text of its declaration: a type,
+     * optionally followed by a nullability clause, exactly as written. Empty if the query declares no parameters.
+     * @return the declared parameters, keyed by name.
+     */
+    @Nonnull
+    public Map<String, String> getParameters() {
+        return parameters;
     }
 }
