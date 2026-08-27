@@ -21,8 +21,10 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -44,7 +46,10 @@ public class EvaluationContext {
     @Nonnull
     private final TypeRepository typeRepository;
 
-    public static final EvaluationContext EMPTY = new EvaluationContext(Bindings.EMPTY_BINDINGS, TypeRepository.EMPTY_SCHEMA);
+    @Nonnull
+    private final ImmutableMap<String, FDBRecordStoreBase<?>> auxiliaryStores;
+
+    public static final EvaluationContext EMPTY = new EvaluationContext(Bindings.EMPTY_BINDINGS, TypeRepository.EMPTY_SCHEMA, ImmutableMap.of());
 
     /**
      * Get an empty evaluation context.
@@ -55,9 +60,11 @@ public class EvaluationContext {
         return EMPTY;
     }
 
-    private EvaluationContext(@Nonnull Bindings bindings, @Nonnull TypeRepository typeRepository) {
+    private EvaluationContext(@Nonnull Bindings bindings, @Nonnull TypeRepository typeRepository,
+                              @Nonnull ImmutableMap<String, FDBRecordStoreBase<?>> auxiliaryStores) {
         this.bindings = bindings;
         this.typeRepository = typeRepository;
+        this.auxiliaryStores = auxiliaryStores;
     }
 
     /**
@@ -68,7 +75,7 @@ public class EvaluationContext {
      */
     @Nonnull
     public static EvaluationContext forBindings(@Nonnull Bindings bindings) {
-        return new EvaluationContext(bindings, TypeRepository.EMPTY_SCHEMA);
+        return new EvaluationContext(bindings, TypeRepository.EMPTY_SCHEMA, ImmutableMap.of());
     }
 
     /**
@@ -80,12 +87,18 @@ public class EvaluationContext {
      */
     @Nonnull
     public static EvaluationContext forBindingsAndTypeRepository(@Nonnull Bindings bindings, @Nonnull TypeRepository typeRepository) {
-        return new EvaluationContext(bindings, typeRepository);
+        return new EvaluationContext(bindings, typeRepository, ImmutableMap.of());
+    }
+
+    @Nonnull
+    public static EvaluationContext forBindingsAndTypeRepository(@Nonnull Bindings bindings, @Nonnull TypeRepository typeRepository,
+                                                                 @Nonnull ImmutableMap<String, FDBRecordStoreBase<?>> auxiliaryStores) {
+        return new EvaluationContext(bindings, typeRepository, auxiliaryStores);
     }
 
     @Nonnull
     public static EvaluationContext forTypeRepository(@Nonnull TypeRepository typeRepository) {
-        return new EvaluationContext(Bindings.EMPTY_BINDINGS, typeRepository);
+        return new EvaluationContext(Bindings.EMPTY_BINDINGS, typeRepository, ImmutableMap.of());
     }
 
     /**
@@ -97,7 +110,7 @@ public class EvaluationContext {
      */
     @Nonnull
     public static EvaluationContext forBinding(@Nonnull String bindingName, @Nullable Object value) {
-        return new EvaluationContext(Bindings.newBuilder().set(bindingName, value).build(), TypeRepository.EMPTY_SCHEMA);
+        return new EvaluationContext(Bindings.newBuilder().set(bindingName, value).build(), TypeRepository.EMPTY_SCHEMA, ImmutableMap.of());
     }
 
     /**
@@ -198,6 +211,31 @@ public class EvaluationContext {
     }
 
     /**
+     * Returns the auxiliary store bound to the given schema name, or {@code null} if no such
+     * store has been injected. Used by {@code RecordQueryStoreBindingPlan} to redirect execution
+     * to a secondary schema's record store.
+     *
+     * @param schemaName the name of the secondary schema
+     * @return the bound store, or {@code null}
+     */
+    @Nullable
+    public FDBRecordStoreBase<?> getAuxiliaryStore(@Nonnull final String schemaName) {
+        return auxiliaryStores.get(schemaName);
+    }
+
+    /**
+     * Returns a new {@link EvaluationContext} identical to this one except that the given
+     * auxiliary stores are injected. Existing bindings and type repository are preserved.
+     *
+     * @param stores map from schema name to pre-opened record store
+     * @return new context with auxiliary stores
+     */
+    @Nonnull
+    public EvaluationContext withAuxiliaryStores(@Nonnull final ImmutableMap<String, FDBRecordStoreBase<?>> stores) {
+        return new EvaluationContext(bindings, typeRepository, stores);
+    }
+
+    /**
      * Construct a builder from this context. This allows the user to create
      * a new <code>EvaluationContext</code> that has all of the same data
      * as the current context except for a few modifications expressed as
@@ -232,7 +270,10 @@ public class EvaluationContext {
      */
     @Nonnull
     public EvaluationContext withBinding(@Nonnull String bindingName, @Nullable Object value) {
-        return childBuilder().setBinding(bindingName, value).build(typeRepository);
+        return new EvaluationContext(
+                bindings.childBuilder().set(bindingName, value).build(),
+                typeRepository,
+                auxiliaryStores);
     }
 
     /**
@@ -248,6 +289,6 @@ public class EvaluationContext {
      * @return a new <code>EvaluationContext</code> with the new binding
      */
     public EvaluationContext withBinding(final Bindings.Internal type, @Nonnull CorrelationIdentifier alias, @Nullable Object value) {
-        return childBuilder().setBinding(type.bindingName(alias.getId()), value).build(typeRepository);
+        return withBinding(type.bindingName(alias.getId()), value);
     }
 }

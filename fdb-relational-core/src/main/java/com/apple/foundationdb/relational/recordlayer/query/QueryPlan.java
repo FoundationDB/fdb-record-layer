@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.QueryPlanResult;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryStoreBindingPlan;
 import com.apple.foundationdb.record.query.plan.cascades.events.ExecutingTaskPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.InsertIntoMemoPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location;
@@ -83,6 +84,8 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
@@ -257,7 +260,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                 final String schemaName = conn.getSchema();
                 try (RecordLayerSchema recordLayerSchema = conn.getRecordLayerDatabase().loadSchema(schemaName)) {
                     final var evaluationContext = queryExecutionContext.getEvaluationContext();
-                    final var typedEvaluationContext = EvaluationContext.forBindingsAndTypeRepository(evaluationContext.getBindings(), typeRepository);
+                    var typedEvaluationContext = EvaluationContext.forBindingsAndTypeRepository(evaluationContext.getBindings(), typeRepository);
+                    typedEvaluationContext = injectSecondaryStores(typedEvaluationContext, recordQueryPlan, conn);
                     final ContinuationImpl parsedContinuation;
                     try {
                         parsedContinuation = ContinuationImpl.parseContinuation(queryExecutionContext.getContinuation());
@@ -273,6 +277,43 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                 }
             } catch (SQLException sqle) {
                 throw new RelationalException(sqle);
+            }
+        }
+
+        @Nonnull
+        private static EvaluationContext injectSecondaryStores(@Nonnull final EvaluationContext base,
+                                                               @Nonnull final RecordQueryPlan plan,
+                                                               @Nonnull final EmbeddedRelationalConnection conn) throws RelationalException {
+            final var schemaNames = collectSecondarySchemaNames(plan);
+            if (schemaNames.isEmpty()) {
+                return base;
+            }
+            final ImmutableMap.Builder<String, FDBRecordStoreBase<?>> storeMapBuilder = ImmutableMap.builder();
+            for (final var secondarySchemaName : schemaNames) {
+                try (RecordLayerSchema secondarySchema = conn.getRecordLayerDatabase().loadSchema(secondarySchemaName)) {
+                    storeMapBuilder.put(secondarySchemaName, secondarySchema.loadStore().unwrap(FDBRecordStoreBase.class));
+                }
+            }
+            return base.withAuxiliaryStores(storeMapBuilder.build());
+        }
+
+        @Nonnull
+        private static Set<String> collectSecondarySchemaNames(@Nonnull final RecordQueryPlan plan) {
+            final ImmutableSet.Builder<String> builder = ImmutableSet.builder();
+            collectSecondarySchemaNames(plan, builder);
+            return builder.build();
+        }
+
+        private static void collectSecondarySchemaNames(@Nonnull final RecordQueryPlan plan,
+                                                        @Nonnull final ImmutableSet.Builder<String> builder) {
+            if (plan instanceof RecordQueryStoreBindingPlan) {
+                final var schemaId = ((RecordQueryStoreBindingPlan) plan).getSchemaId();
+                if (!schemaId.isCurrentSchema() && schemaId.getSchemaName() != null) {
+                    builder.add(schemaId.getSchemaName());
+                }
+            }
+            for (final RecordQueryPlan child : plan.getChildren()) {
+                collectSecondarySchemaNames(child, builder);
             }
         }
 
@@ -643,11 +684,21 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                 final var typedEvaluationContext = EvaluationContext.forBindingsAndTypeRepository(evaluationContext.getBindings(), builder.build());
                 final QueryPlanResult planResult;
                 try {
-                    planResult = planner.planGraph(() ->
-                                    Reference.initialOf(relationalExpression),
-                            planContext.getReadableIndexes().map(s -> s),
-                            IndexQueryabilityFilter.TRUE,
-                            typedEvaluationContext);
+                    final var additionalSchemas = planContext.getAdditionalSchemas();
+                    if (additionalSchemas.isEmpty()) {
+                        planResult = planner.planGraph(() ->
+                                        Reference.initialOf(relationalExpression),
+                                planContext.getReadableIndexes().map(s -> s),
+                                IndexQueryabilityFilter.TRUE,
+                                typedEvaluationContext);
+                    } else {
+                        planResult = planner.planGraph(() ->
+                                        Reference.initialOf(relationalExpression),
+                                planContext.getReadableIndexes().map(s -> s),
+                                IndexQueryabilityFilter.TRUE,
+                                typedEvaluationContext,
+                                additionalSchemas);
+                    }
                 } catch (RecordCoreException ex) {
                     throw ExceptionUtil.toRelationalException(ex);
                 }
