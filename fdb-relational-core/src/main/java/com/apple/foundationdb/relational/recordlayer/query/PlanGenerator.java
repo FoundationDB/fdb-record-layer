@@ -538,6 +538,29 @@ public final class PlanGenerator {
                                        @Nonnull final RecordStoreState recordStoreState,
                                        @Nonnull final MetricCollector metricCollector,
                                        @Nonnull final Options options) throws RelationalException {
+        return create(cache, schemaTemplate, recordStoreState, metricCollector, options, PreparedParams.empty());
+    }
+
+    /**
+     * Offline DQL planning variant that supplies prepared parameters &mdash; used to warm up a stored query whose
+     * signature declares parameter types/ranges (supplied as {@link PreparedParams#ofDeclared}) rather than values.
+     *
+     * @param cache             optional plan cache
+     * @param schemaTemplate    schema template
+     * @param recordStoreState  record store state
+     * @param metricCollector   metric collector
+     * @param options           planner options
+     * @param preparedParams    prepared parameters (declared parameters for a stored query signature, or values)
+     * @return a new plan generator
+     * @throws RelationalException if creation fails
+     */
+    @Nonnull
+    public static PlanGenerator create(@Nonnull final Optional<RelationalPlanCache> cache,
+                                       @Nonnull final RecordLayerSchemaTemplate schemaTemplate,
+                                       @Nonnull final RecordStoreState recordStoreState,
+                                       @Nonnull final MetricCollector metricCollector,
+                                       @Nonnull final Options options,
+                                       @Nonnull final PreparedParams preparedParams) throws RelationalException {
         final var metaData = schemaTemplate.toRecordMetadata();
         final var planContext = PlanContext.Builder.create()
                 .fromMetaDataAndState(metaData, recordStoreState, options)
@@ -545,6 +568,7 @@ public final class PlanGenerator {
                 .withMetricsCollector(metricCollector)
                 .withConstantActionFactory(ThrowingMetadataOperationsFactory.INSTANCE)
                 .withDdlQueryFactory(ThrowingQueryFactory.INSTANCE)
+                .withPreparedParameters(preparedParams)
                 .withDbUri(URI.create("embed:offline"))
                 .build();
         return create(cache, planContext, metaData, recordStoreState,
