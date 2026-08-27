@@ -62,6 +62,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -228,7 +229,7 @@ public class FRL implements AutoCloseable {
                     setStatementOptions(options, statement);
                     if (relationalStatement.execute(sql)) {
                         try (RelationalResultSet rs = relationalStatement.getResultSet()) {
-                            resultSet = TypeConversion.toProtobuf(rs);
+                            resultSet = Objects.requireNonNull(TypeConversion.toProtobuf(rs));
                             return Response.query(resultSet);
                         }
                     } else {
@@ -246,7 +247,7 @@ public class FRL implements AutoCloseable {
             setStatementOptions(options, statement);
             if (statement.execute()) {
                 try (RelationalResultSet rs = statement.getResultSet()) {
-                    resultSet = TypeConversion.toProtobuf(rs);
+                    resultSet = Objects.requireNonNull(TypeConversion.toProtobuf(rs));
                     return Response.query(resultSet);
                 }
             } else {
