@@ -30,7 +30,6 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSetMetadata;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.PositionalIndex;
 
-import javax.annotation.Nonnull;
 import java.sql.JDBCType;
 import java.sql.SQLException;
 
@@ -50,7 +49,6 @@ class RelationalResultSetMetaDataFacade implements RelationalResultSetMetaData  
         throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
-    @Nonnull
     @Override
     public DataType.StructType getRelationalDataType() throws SQLException {
         throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());

@@ -44,6 +44,7 @@ public class GrpcSQLExceptionUtilTest {
         com.google.rpc.Status status = GrpcSQLExceptionUtil.create(new SQLException(message));
         StatusRuntimeException statusRuntimeException = StatusProto.toStatusRuntimeException(status);
         SQLException sqlException = GrpcSQLExceptionUtil.map(statusRuntimeException);
+        Assertions.assertNotNull(sqlException);
         Assertions.assertEquals(message, sqlException.getMessage());
     }
 
@@ -59,9 +60,12 @@ public class GrpcSQLExceptionUtilTest {
         com.google.rpc.Status status = GrpcSQLExceptionUtil.create(new SQLNonTransientException(message, cause));
         StatusRuntimeException statusRuntimeException = StatusProto.toStatusRuntimeException(status);
         SQLException sqlException = GrpcSQLExceptionUtil.map(statusRuntimeException);
+        Assertions.assertNotNull(sqlException);
         Assertions.assertEquals(message, sqlException.getMessage());
         Assertions.assertTrue(sqlException instanceof SQLNonTransientException);
-        Assertions.assertTrue(sqlException.getCause() instanceof IOException);
-        Assertions.assertEquals(sqlException.getCause().getMessage(), message);
+        Throwable sqlExceptionCause = sqlException.getCause();
+        Assertions.assertNotNull(sqlExceptionCause);
+        Assertions.assertTrue(sqlExceptionCause instanceof IOException);
+        Assertions.assertEquals(sqlExceptionCause.getMessage(), message);
     }
 }

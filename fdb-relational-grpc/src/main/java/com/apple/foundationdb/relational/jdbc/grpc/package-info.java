@@ -21,4 +21,7 @@
 /**
  * Common Utilities used by the Relational gRPC client and server.
  */
+@NullMarked
 package com.apple.foundationdb.relational.jdbc.grpc;
+
+import org.jspecify.annotations.NullMarked;

@@ -23,7 +23,8 @@ package com.apple.foundationdb.relational.jdbc;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
+
 import java.sql.SQLException;
 import java.util.Iterator;
 
@@ -33,10 +34,11 @@ import java.util.Iterator;
  */
 public class MockResultSet extends AbstractMockResultSet {
     private final Iterator<? extends MockResultSetRow> rowIterator;
+    @Nullable
     private final Continuation continuation;
     private int currentRowPosition;
 
-    public MockResultSet(MockResultSetMetadata metadata, Iterator<MockResultSetRow> rowIterator, Continuation continuation) {
+    public MockResultSet(MockResultSetMetadata metadata, Iterator<MockResultSetRow> rowIterator, @Nullable Continuation continuation) {
         super(metadata);
         this.rowIterator = rowIterator;
         this.continuation = continuation;
@@ -49,6 +51,7 @@ public class MockResultSet extends AbstractMockResultSet {
     }
 
     @Override
+    @Nullable
     protected MockResultSetRow advanceRow() throws RelationalException {
         if (!hasNext()) {
             return null;
@@ -57,8 +60,8 @@ public class MockResultSet extends AbstractMockResultSet {
         return rowIterator.next();
     }
 
-    @Nonnull
     @Override
+    @SuppressWarnings("NullAway") // deliberately returns whatever was stored, including null, so tests can exercise callers that (mis)trust RelationalResultSet.getContinuation()'s @Nonnull contract.
     public Continuation getContinuation() throws SQLException {
         return continuation;
     }

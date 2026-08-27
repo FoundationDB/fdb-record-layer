@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.jdbc;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.UUID;
 
@@ -34,10 +33,9 @@ import java.util.UUID;
  * throw IndexOutOfBoundsException
  */
 public class MockResultSetRow {
-    @Nonnull
     private final List<?> row;
 
-    public MockResultSetRow(@Nonnull List<?> row) {
+    public MockResultSetRow(List<?> row) {
         this.row = row;
     }
 

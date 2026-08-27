@@ -22,7 +22,8 @@ package com.apple.foundationdb.relational.jdbc;
 
 import com.apple.foundationdb.relational.api.Continuation;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
@@ -30,15 +31,18 @@ import java.util.Arrays;
  * A testing implementation of a continuation.
  */
 public class MockContinuation implements Continuation {
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently recognize @Nullable on array (byte[]) parameters.
     public static final MockContinuation BEGIN = new MockContinuation(null, null, true, false);
     public static final MockContinuation END = new MockContinuation(null, new byte[0], false, true);
 
+    @Nullable
     private final Reason reason;
+    @Nullable
     private final byte[] executionState;
     private final boolean atBeginning;
     private final boolean atEnd;
 
-    public MockContinuation(Reason reason, byte[] executionState, boolean atBeginning, boolean atEnd) {
+    public MockContinuation(@Nullable Reason reason, @Nullable byte[] executionState, boolean atBeginning, boolean atEnd) {
         this.reason = reason;
         this.executionState = executionState;
         this.atBeginning = atBeginning;
@@ -46,12 +50,14 @@ public class MockContinuation implements Continuation {
     }
 
     @Override
+    @Nullable
     public Reason getReason() {
         return reason;
     }
 
     @Nullable
     @Override
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return types across this unannotated-interface boundary.
     public byte[] getExecutionState() {
         return executionState;
     }

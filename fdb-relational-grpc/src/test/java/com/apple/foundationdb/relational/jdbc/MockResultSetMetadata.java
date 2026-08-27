@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
-import javax.annotation.Nonnull;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.List;
@@ -60,7 +59,6 @@ public class MockResultSetMetadata implements RelationalResultSetMetaData {
         throw new SQLException("Unsupported operation", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
-    @Nonnull
     @Override
     public DataType.StructType getRelationalDataType() throws SQLException {
         return type;

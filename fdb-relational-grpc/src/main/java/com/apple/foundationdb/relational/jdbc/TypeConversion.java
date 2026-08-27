@@ -55,7 +55,8 @@ import com.apple.foundationdb.relational.util.PositionalIndex;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
+
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -65,6 +66,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.BiFunction;
+
+import static com.apple.foundationdb.relational.api.Continuation.Reason;
 
 /**
  * Utility for converting types used by JDBC from Relational and FDB such as KeySet, RelationalStruct and RelationalArray.
@@ -82,6 +85,7 @@ public class TypeConversion {
      * @return {@link RelationalStruct} instance pulled from <code>resultSet</code>
      * @throws SQLException If failed get of <code>resultSet</code> metadata.
      */
+    @Nullable
     static RelationalStruct getStruct(ResultSet resultSet, int rowIndex, int oneBasedColumn) {
         int index = PositionalIndex.toProtobuf(oneBasedColumn);
         var metadata =
@@ -90,6 +94,7 @@ public class TypeConversion {
         return column.hasStruct() ? new RelationalStructFacade(metadata, column.getStruct()) : null;
     }
 
+    @Nullable
     static UUID getUUID(ResultSet resultSet, int rowIndex, int oneBasedColumn) {
         int index = PositionalIndex.toProtobuf(oneBasedColumn);
         Column column = resultSet.getRow(rowIndex).getColumns().getColumn(index);
@@ -203,17 +208,17 @@ public class TypeConversion {
         return columnMetadataBuilder.build();
     }
 
-    private static EnumMetadata toEnumMetadata(@Nonnull DataType.EnumType enumType) {
+    private static EnumMetadata toEnumMetadata(DataType.EnumType enumType) {
         final var builder = EnumMetadata.newBuilder().setName(enumType.getName());
         enumType.getValues().forEach(v -> builder.addValues(v.getName()));
         return builder.build();
     }
 
-    private static VectorMetadata toVectorMetadata(@Nonnull DataType.VectorType vectorType) {
+    private static VectorMetadata toVectorMetadata(DataType.VectorType vectorType) {
         return VectorMetadata.newBuilder().setDimensions(vectorType.getDimensions()).setPrecision(vectorType.getPrecision()).build();
     }
 
-    private static Type toProtobufType(@Nonnull DataType type) {
+    private static Type toProtobufType(DataType type) {
         switch (type.getCode()) {
             case LONG:
                 return Type.LONG;
@@ -249,7 +254,7 @@ public class TypeConversion {
     /**
      * The below is about making an Array.
      */
-    private static ColumnMetadata toColumnMetadata(@Nonnull ArrayMetaData metadata)
+    private static ColumnMetadata toColumnMetadata(ArrayMetaData metadata)
             throws SQLException {
         var columnMetadataBuilder = ColumnMetadata.newBuilder()
                 .setName(metadata.getElementName())
@@ -279,7 +284,7 @@ public class TypeConversion {
         return columnMetadataBuilder.build();
     }
 
-    private static StructMetadata toStructMetadataProtobuf(@Nonnull StructMetaData metadata) throws SQLException {
+    private static StructMetadata toStructMetadataProtobuf(StructMetaData metadata) throws SQLException {
         var structMetadataBuilder = StructMetadata.newBuilder();
         for (int oneBasedIndex = 1; oneBasedIndex <= metadata.getColumnCount(); oneBasedIndex++) {
             var columnMetadata = toColumnMetadata(metadata, oneBasedIndex, oneBasedIndex - 1 + metadata.getLeadingPhantomColumnCount());
@@ -384,7 +389,7 @@ public class TypeConversion {
      * @param array the SQL array
      * @return the resulting protobuf array
      */
-    public static Array toArray(@Nonnull java.sql.Array array) throws SQLException {
+    public static Array toArray(java.sql.Array array) throws SQLException {
         Array.Builder builder = Array.newBuilder();
         builder.setElementType(array.getBaseType());
         for (Object o: (Object[])array.getArray()) {
@@ -405,7 +410,7 @@ public class TypeConversion {
      * @return the created column
      * @throws SQLException in case of error
      */
-    public static Column toColumn(int columnType, @Nonnull Object obj) throws SQLException {
+    public static Column toColumn(int columnType, Object obj) throws SQLException {
         if (columnType != DataType.getDataTypeFromObject(obj).getJdbcSqlCode()) {
             throw new SQLException("Column element type does not match object type: " + columnType + " / " + obj.getClass().getSimpleName(),
                     ErrorCode.WRONG_OBJECT_TYPE.getErrorCode());
@@ -454,7 +459,7 @@ public class TypeConversion {
         return builder.build();
     }
 
-    private static Column toColumn(@Nonnull DataType.StructType.Field field, @Nonnull Object value, boolean wasNull) throws SQLException {
+    private static Column toColumn(DataType.StructType.Field field, Object value, boolean wasNull) throws SQLException {
         Column column;
         switch (field.getType().getCode()) {
             case STRUCT:
@@ -533,10 +538,11 @@ public class TypeConversion {
      * @return Column instance made from <code>p</code> whether null or not.
      */
     @VisibleForTesting
-    static <P> Column toColumn(P p, BiFunction<P, Column.Builder, Column.Builder> f) {
+    static <P> Column toColumn(@Nullable P p, BiFunction<P, Column.Builder, Column.Builder> f) {
         return f.apply(p, Column.newBuilder()).build();
     }
 
+    @Nullable
     public static ResultSet toProtobuf(RelationalResultSet relationalResultSet) throws SQLException {
         if (relationalResultSet == null) {
             return null;
@@ -554,7 +560,7 @@ public class TypeConversion {
         return resultSetBuilder.build();
     }
 
-    private static RpcContinuation toContinuation(@Nonnull Continuation existingContinuation) {
+    private static RpcContinuation toContinuation(Continuation existingContinuation) {
         RpcContinuation.Builder builder = RpcContinuation.newBuilder()
                 .setVersion(RelationalRpcContinuation.CURRENT_VERSION)
                 .setAtBeginning(existingContinuation.atBeginning())
@@ -565,14 +571,18 @@ public class TypeConversion {
         if (state != null) {
             builder.setInternalState(ByteString.copyFrom(state));
         }
-        Continuation.Reason reason = existingContinuation.getReason();
+        Reason reason = existingContinuation.getReason();
         if (reason != null) {
-            builder.setReason(toReason(reason));
+            RpcContinuationReason rpcContinuationReason = toReason(reason);
+            if (rpcContinuationReason != null) {
+                builder.setReason(rpcContinuationReason);
+            }
         }
         return builder.build();
     }
 
-    public static RpcContinuationReason toReason(Continuation.Reason reason) {
+    @Nullable
+    public static RpcContinuationReason toReason(Reason reason) {
         if (reason == null) {
             return null;
         }
@@ -588,17 +598,17 @@ public class TypeConversion {
         }
     }
 
-    public static Continuation.Reason toReason(RpcContinuationReason reason) {
+    public static @Nullable Reason toReason(RpcContinuationReason reason) {
         if (reason == null) {
             return null;
         }
         switch (reason) {
             case TRANSACTION_LIMIT_REACHED:
-                return Continuation.Reason.TRANSACTION_LIMIT_REACHED;
+                return Reason.TRANSACTION_LIMIT_REACHED;
             case QUERY_EXECUTION_LIMIT_REACHED:
-                return Continuation.Reason.QUERY_EXECUTION_LIMIT_REACHED;
+                return Reason.QUERY_EXECUTION_LIMIT_REACHED;
             case CURSOR_AFTER_LAST:
-                return Continuation.Reason.CURSOR_AFTER_LAST;
+                return Reason.CURSOR_AFTER_LAST;
             default:
                 throw new IllegalStateException("Unrecognized continuation reason: " + reason);
         }
@@ -606,7 +616,7 @@ public class TypeConversion {
 
     @VisibleForTesting
     @SuppressWarnings("unchecked")
-    static com.apple.foundationdb.relational.jdbc.grpc.v1.Options.Builder toProtobuf(@Nonnull Options options) throws SQLException {
+    static com.apple.foundationdb.relational.jdbc.grpc.v1.Options.Builder toProtobuf(Options options) throws SQLException {
         final var builder = com.apple.foundationdb.relational.jdbc.grpc.v1.Options.newBuilder();
         for (Map.Entry<Options.Name, ?> entry : options.entries()) {
             switch (entry.getKey()) {
@@ -917,7 +927,7 @@ public class TypeConversion {
         }
     }
 
-    private static DataType.EnumType getEnumDataType(@Nonnull EnumMetadata enumMetadata, boolean nullable) {
+    private static DataType.EnumType getEnumDataType(EnumMetadata enumMetadata, boolean nullable) {
         final var enumValues = new ArrayList<DataType.EnumType.EnumValue>();
         int i = 1;
         for (var value: enumMetadata.getValuesList()) {
@@ -926,11 +936,11 @@ public class TypeConversion {
         return DataType.EnumType.from(enumMetadata.getName(), enumValues, nullable);
     }
 
-    private static DataType.VectorType getVectorType(@Nonnull VectorMetadata vectorMetadata, boolean nullable) {
+    private static DataType.VectorType getVectorType(VectorMetadata vectorMetadata, boolean nullable) {
         return DataType.VectorType.of(vectorMetadata.getPrecision(), vectorMetadata.getDimensions(), nullable);
     }
 
-    static DataType getDataType(@Nonnull Type type, @Nonnull ColumnMetadata columnMetadata, boolean nullable) {
+    static DataType getDataType(Type type, ColumnMetadata columnMetadata, boolean nullable) {
         switch (type) {
             case LONG:
                 return nullable ? DataType.Primitives.NULLABLE_LONG.type() : DataType.Primitives.LONG.type();
@@ -965,8 +975,7 @@ public class TypeConversion {
         }
     }
 
-    @Nonnull
-    public static RealVector parseVector(@Nonnull final byte[] bytes, int precision) throws SQLException {
+    public static RealVector parseVector(final byte[] bytes, int precision) throws SQLException {
         if (precision == 16) {
             return HalfRealVector.fromBytes(bytes);
         }

@@ -27,6 +27,8 @@ import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
+import org.jspecify.annotations.Nullable;
+
 import java.sql.SQLException;
 import java.util.UUID;
 
@@ -36,6 +38,7 @@ import java.util.UUID;
  */
 public abstract class AbstractMockResultSet implements RelationalResultSet {
     private final RelationalResultSetMetaData metadata;
+    @Nullable
     private MockResultSetRow currentRow;
 
     protected AbstractMockResultSet(RelationalResultSetMetaData metadata) {
@@ -44,6 +47,7 @@ public abstract class AbstractMockResultSet implements RelationalResultSet {
 
     protected abstract boolean hasNext();
 
+    @Nullable
     protected abstract MockResultSetRow advanceRow() throws RelationalException;
 
     @Override
@@ -62,74 +66,62 @@ public abstract class AbstractMockResultSet implements RelationalResultSet {
 
     @Override
     public boolean wasNull() throws SQLException {
-        checkCurrentRow();
-        return currentRow.wasNull();
+        return requireCurrentRow().wasNull();
     }
 
     @Override
     public String getString(int columnIndex) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getString(columnIndex);
+        return requireCurrentRow().getString(columnIndex);
     }
 
     @Override
     public boolean getBoolean(int columnIndex) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getBoolean(columnIndex);
+        return requireCurrentRow().getBoolean(columnIndex);
     }
 
     @Override
     public int getInt(int columnIndex) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getInt(columnIndex);
+        return requireCurrentRow().getInt(columnIndex);
     }
 
     @Override
     public long getLong(int columnIndex) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getLong(columnIndex);
+        return requireCurrentRow().getLong(columnIndex);
     }
 
     @Override
     public float getFloat(int columnIndex) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getFloat(columnIndex);
+        return requireCurrentRow().getFloat(columnIndex);
     }
 
     @Override
     public double getDouble(int columnIndex) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getDouble(columnIndex);
+        return requireCurrentRow().getDouble(columnIndex);
     }
 
     @Override
     public byte[] getBytes(int columnIndex) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getBytes(columnIndex);
+        return requireCurrentRow().getBytes(columnIndex);
     }
 
     @Override
     public Object getObject(int columnIndex) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getObject(columnIndex);
+        return requireCurrentRow().getObject(columnIndex);
     }
 
     @Override
     public RelationalStruct getStruct(int oneBasedPosition) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getStruct(oneBasedPosition);
+        return requireCurrentRow().getStruct(oneBasedPosition);
     }
 
     @Override
     public RelationalArray getArray(int oneBasedPosition) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getArray(oneBasedPosition);
+        return requireCurrentRow().getArray(oneBasedPosition);
     }
 
     @Override
     public UUID getUUID(int oneBasedPosition) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getUUID(oneBasedPosition);
+        return requireCurrentRow().getUUID(oneBasedPosition);
     }
 
     @Override
@@ -197,9 +189,10 @@ public abstract class AbstractMockResultSet implements RelationalResultSet {
         return false;
     }
 
-    private void checkCurrentRow() throws SQLException {
+    private MockResultSetRow requireCurrentRow() throws SQLException {
         if (currentRow == null) {
             throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
         }
+        return currentRow;
     }
 }

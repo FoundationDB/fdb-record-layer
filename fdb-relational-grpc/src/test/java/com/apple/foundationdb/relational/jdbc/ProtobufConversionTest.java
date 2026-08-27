@@ -83,11 +83,13 @@ public class ProtobufConversionTest {
 
     @Test
     void testResultSetWithContinuation() throws Exception {
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently recognize @Nullable on array (byte[]) parameters.
         MockContinuation continuation = new MockContinuation(Continuation.Reason.TRANSACTION_LIMIT_REACHED, null, false, false);
         RelationalResultSet resultSet = TestUtils.resultSet(
                 continuation,
                 TestUtils.row(1, 2, 3), TestUtils.row(4, 5, 6));
         ResultSet converted = TypeConversion.toProtobuf(resultSet);
+        Assertions.assertNotNull(converted);
 
         Assertions.assertEquals(2, converted.getRowCount());
         assertRow(List.of(1, 2, 3), converted.getRow(0));
