@@ -49,6 +49,8 @@ import com.apple.foundationdb.relational.transactionbound.catalog.HollowStoreCat
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * There can only be 1 Database object per Connection instance, and its lifecycle is managed by the connection
@@ -66,6 +68,7 @@ public class TransactionBoundDatabase extends AbstractDatabase {
     @Nullable
     private final KeySpace keySpace;
     BackingStore store;
+    Map<String, BackingStore> storesBySchemaName = new HashMap<>();
     URI uri;
 
     private static final MetadataOperationsFactory onlyTemporaryFunctionOperationsFactory = new AbstractMetadataOperationsFactory() {
@@ -97,6 +100,9 @@ public class TransactionBoundDatabase extends AbstractDatabase {
         }
         final var recordStoreAndRecordContextTx = transaction.unwrap(RecordStoreAndRecordContextTransaction.class);
         store = BackingRecordStore.fromTransactionWithStore(recordStoreAndRecordContextTx);
+        storesBySchemaName.clear();
+        recordStoreAndRecordContextTx.getAdditionalStores().forEach((schemaName, additionalStore) ->
+                storesBySchemaName.put(schemaName, BackingRecordStore.fromTransactionAndStore(recordStoreAndRecordContextTx, additionalStore)));
         final var boundSchemaTemplate = recordStoreAndRecordContextTx.getBoundSchemaTemplate();
         EmbeddedRelationalConnection connection = new EmbeddedRelationalConnection(this, new HollowStoreCatalog(boundSchemaTemplate, keySpace),
                 ((RecordStoreAndRecordContextTransaction) transaction).getRecordContextTransaction(), options);
@@ -106,7 +112,7 @@ public class TransactionBoundDatabase extends AbstractDatabase {
 
     @Override
     public BackingStore loadRecordStore(@Nonnull String schemaId, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
-        return store;
+        return storesBySchemaName.getOrDefault(schemaId, store);
     }
 
     @Override

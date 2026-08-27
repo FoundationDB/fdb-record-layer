@@ -33,6 +33,8 @@ import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -45,6 +47,7 @@ import java.util.Optional;
 public class RecordStoreAndRecordContextTransaction implements Transaction {
     FDBRecordStoreBase<Message> store;
     RecordContextTransaction transaction;
+    Map<String, FDBRecordStoreBase<Message>> additionalStores = new HashMap<>();
 
     /**
      * the schema template this transaction is bound to. This is mainly needed when accessing the plan cache
@@ -103,6 +106,18 @@ public class RecordStoreAndRecordContextTransaction implements Transaction {
 
     public FDBRecordStoreBase<Message> getRecordStore() {
         return store;
+    }
+
+    @Nonnull
+    public Map<String, FDBRecordStoreBase<Message>> getAdditionalStores() {
+        return additionalStores;
+    }
+
+    @Nonnull
+    public RecordStoreAndRecordContextTransaction withAdditionalStore(@Nonnull String schemaName,
+                                                                      @Nonnull FDBRecordStoreBase<Message> additionalStore) {
+        this.additionalStores.put(schemaName, additionalStore);
+        return this;
     }
 
     @Nonnull
