@@ -53,35 +53,54 @@ class ArrayAggValueTest {
     private static final Type LONG_TYPE = Type.primitiveType(Type.TypeCode.LONG, false);
 
     /**
-     * Restores a new accumulator from the partial state of the given one, in the way a continuation would.
+     * A value together with the type repository its accumulators resolve descriptors against, i.e. the pair that a
+     * single plan execution works with. Restoring from a continuation <em>within</em> one execution reuses that one
+     * repository, which is what makes a restored element share its descriptor with a freshly collected one.
      */
-    @Nonnull
-    private static ArrayAggValue.ArrayAccumulator restore(@Nonnull final Type elementType,
-                                                          final boolean ignoreNulls,
-                                                          @Nonnull final ArrayAggValue.ArrayAccumulator accumulator) {
-        final List<RecordCursorProto.AccumulatorState> states = accumulator.getAccumulatorStates();
-        assertThat(states).hasSize(1);
-        return new ArrayAggValue.ArrayAccumulator(ArrayAggValue.wrapperDescriptorFor(elementType),
-                repositoryFor(elementType), elementType, ignoreNulls, states.get(0));
-    }
+    private static final class Fixture {
+        @Nonnull
+        private final ArrayAggValue value;
+        @Nonnull
+        private final TypeRepository typeRepository;
 
-    /**
-     * Returns a type repository the given element type is registered in, as the accumulator converts its elements
-     * against it.
-     */
-    @Nonnull
-    private static TypeRepository repositoryFor(@Nonnull final Type elementType) {
-        return TypeRepository.newBuilder().addTypeIfNeeded(elementType).build();
-    }
+        private Fixture(@Nonnull final Type elementType, final boolean ignoreNulls) {
+            // The element type is derived from the child, and `notNullable()` is a no-op for the non-nullable types
+            // used here, so the child type doubles as the element type.
+            this.value = new ArrayAggValue(new LiteralValue<>(elementType, null), ignoreNulls);
+            // Mirrors the plan-wide repository, which is built from the plan's used types. Registering the value's
+            // (nullable) array result type registers both the wrapper record the accumulator serializes its partial
+            // state through and the element type it converts its elements against.
+            this.typeRepository = TypeRepository.newBuilder().addTypeIfNeeded(value.getResultType()).build();
+        }
 
-    /**
-     * Returns a new accumulator for the given element type.
-     */
-    @Nonnull
-    private static ArrayAggValue.ArrayAccumulator accumulator(@Nonnull final Type elementType,
-                                                             final boolean ignoreNulls) {
-        return new ArrayAggValue.ArrayAccumulator(ArrayAggValue.wrapperDescriptorFor(elementType),
-                repositoryFor(elementType), elementType, ignoreNulls);
+        @Nonnull
+        private Accumulator accumulator() {
+            return value.createAccumulatorWithInitialState(typeRepository, null);
+        }
+
+        /**
+         * Restores a new accumulator from the partial state of the given one, in the way a continuation would.
+         */
+        @Nonnull
+        private Accumulator restore(@Nonnull final Accumulator accumulator) {
+            final List<RecordCursorProto.AccumulatorState> states = accumulator.getAccumulatorStates();
+            assertThat(states).hasSize(1);
+            return value.createAccumulatorWithInitialState(typeRepository, states);
+        }
+
+        /**
+         * Builds a two-field record message against this fixture's repository, i.e. the way an element arriving from
+         * the input would already be represented.
+         */
+        @Nonnull
+        private Message record(@Nonnull final Type.Record recordType, final long a, final long b) {
+            final Descriptors.Descriptor descriptor = typeRepository.getMessageDescriptor(recordType);
+            assertThat(descriptor).isNotNull();
+            return DynamicMessage.newBuilder(descriptor)
+                    .setField(descriptor.findFieldByName("a"), a)
+                    .setField(descriptor.findFieldByName("b"), b)
+                    .build();
+        }
     }
 
     /**
@@ -89,8 +108,18 @@ class ArrayAggValueTest {
      */
     @Nonnull
     @SuppressWarnings("unchecked")
-    private static List<Object> finish(@Nonnull final ArrayAggValue.ArrayAccumulator accumulator) {
+    private static List<Object> finish(@Nonnull final Accumulator accumulator) {
         return (List<Object>)accumulator.finish();
+    }
+
+    /**
+     * The two-field record type used by the record-element tests.
+     */
+    @Nonnull
+    private static Type.Record recordElementType() {
+        return Type.Record.fromFields(false, List.of(
+                Type.Record.Field.of(LONG_TYPE, Optional.of("a")),
+                Type.Record.Field.of(LONG_TYPE, Optional.of("b"))));
     }
 
     /**
@@ -99,7 +128,7 @@ class ArrayAggValueTest {
      */
     @Test
     void getAccumulatorStatesWithoutRowsReturnsNoState() {
-        final var accumulator = accumulator(LONG_TYPE, true);
+        final var accumulator = new Fixture(LONG_TYPE, true).accumulator();
 
         assertThat(accumulator.getAccumulatorStates()).isEmpty();
         assertThat(finish(accumulator)).isEmpty();
@@ -111,13 +140,14 @@ class ArrayAggValueTest {
      */
     @Test
     void getAccumulatorStatesWithOnlyNullRowsReturnsState() {
-        final var accumulator = accumulator(LONG_TYPE, true);
+        final var fixture = new Fixture(LONG_TYPE, true);
+        final var accumulator = fixture.accumulator();
         accumulator.accumulate(null);
 
         assertThat(accumulator.getAccumulatorStates()).hasSize(1);
         assertThat(finish(accumulator)).isEmpty();
 
-        final var restored = restore(LONG_TYPE, true, accumulator);
+        final var restored = fixture.restore(accumulator);
         assertThat(restored.getAccumulatorStates()).hasSize(1);
         assertThat(finish(restored)).isEmpty();
     }
@@ -128,11 +158,12 @@ class ArrayAggValueTest {
      */
     @Test
     void accumulateAfterRestoringStatePreservesElementsAndOrder() {
-        final var accumulator = accumulator(LONG_TYPE, true);
+        final var fixture = new Fixture(LONG_TYPE, true);
+        final var accumulator = fixture.accumulator();
         accumulator.accumulate(100L);
         accumulator.accumulate(200L);
 
-        final var restored = restore(LONG_TYPE, true, accumulator);
+        final var restored = fixture.restore(accumulator);
         assertThat(finish(restored)).containsExactly(100L, 200L);
 
         restored.accumulate(300L);
@@ -145,10 +176,11 @@ class ArrayAggValueTest {
      */
     @Test
     void accumulateAfterRestoringStateRepeatedlyPreservesElements() {
-        var accumulator = accumulator(LONG_TYPE, true);
+        final var fixture = new Fixture(LONG_TYPE, true);
+        var accumulator = fixture.accumulator();
         for (long i = 1L; i <= 5L; i++) {
             accumulator.accumulate(i);
-            accumulator = restore(LONG_TYPE, true, accumulator);
+            accumulator = fixture.restore(accumulator);
         }
 
         assertThat(finish(accumulator)).containsExactly(1L, 2L, 3L, 4L, 5L);
@@ -159,13 +191,14 @@ class ArrayAggValueTest {
      */
     @Test
     void accumulateNullWithIgnoreNullsSkipsElement() {
-        final var accumulator = accumulator(LONG_TYPE, true);
+        final var fixture = new Fixture(LONG_TYPE, true);
+        final var accumulator = fixture.accumulator();
         accumulator.accumulate(100L);
         accumulator.accumulate(null);
         accumulator.accumulate(200L);
 
         assertThat(finish(accumulator)).containsExactly(100L, 200L);
-        assertThat(finish(restore(LONG_TYPE, true, accumulator))).containsExactly(100L, 200L);
+        assertThat(finish(fixture.restore(accumulator))).containsExactly(100L, 200L);
     }
 
     /**
@@ -174,7 +207,7 @@ class ArrayAggValueTest {
      */
     @Test
     void accumulateNullWithRespectNullsThrowsUnsupported() {
-        final var accumulator = accumulator(LONG_TYPE, false);
+        final var accumulator = new Fixture(LONG_TYPE, false).accumulator();
         accumulator.accumulate(100L);
 
         assertThatThrownBy(() -> accumulator.accumulate(null))
@@ -189,23 +222,43 @@ class ArrayAggValueTest {
      */
     @Test
     void accumulateAfterRestoringStateWithRecordElementsPreservesElements() {
-        final Type.Record elementType = Type.Record.fromFields(false, List.of(
-                Type.Record.Field.of(LONG_TYPE, Optional.of("a")),
-                Type.Record.Field.of(LONG_TYPE, Optional.of("b"))));
-        final Message first = record(elementType, 1L, 2L);
-        final Message second = record(elementType, 3L, 4L);
+        final Type.Record elementType = recordElementType();
+        final var fixture = new Fixture(elementType, true);
+        final Message first = fixture.record(elementType, 1L, 2L);
+        final Message second = fixture.record(elementType, 3L, 4L);
 
-        final var accumulator = accumulator(elementType, true);
+        final var accumulator = fixture.accumulator();
         accumulator.accumulate(first);
-        final var restored = restore(elementType, true, accumulator);
+        final var restored = fixture.restore(accumulator);
         restored.accumulate(second);
 
-        // A restored element is parsed against the accumulator’s own descriptor, so it is compared on the wire rather
-        // than by identity of its descriptor.
+        // The wrapper the partial state is parsed against comes from the same repository the elements are converted
+        // against, so a restored element is backed by the same descriptor as the original and compares equal outright.
+        assertThat(finish(restored)).containsExactly(first, second);
+    }
+
+    /**
+     * Tests that a restored record-typed element is backed by the very same descriptor as a freshly collected one, and
+     * not by one from a repository built on the side. Only then can the enclosing {@link RecordConstructorValue} set
+     * both on the same repeated field of the nullable-array wrapper without a descriptor mismatch.
+     */
+    @Test
+    void restoredRecordElementSharesDescriptorWithFreshlyCollectedOne() {
+        final Type.Record elementType = recordElementType();
+        final var fixture = new Fixture(elementType, true);
+
+        final var accumulator = fixture.accumulator();
+        accumulator.accumulate(fixture.record(elementType, 1L, 2L));
+        // The first element is restored from the partial state, the second is collected directly.
+        final var restored = fixture.restore(accumulator);
+        restored.accumulate(fixture.record(elementType, 3L, 4L));
+
         final List<Object> elements = finish(restored);
         assertThat(elements).hasSize(2);
-        assertThat(((Message)elements.get(0)).toByteString()).isEqualTo(first.toByteString());
-        assertThat(((Message)elements.get(1)).toByteString()).isEqualTo(second.toByteString());
+        assertThat(((Message)elements.get(0)).getDescriptorForType())
+                .isSameAs(((Message)elements.get(1)).getDescriptorForType());
+        assertThat(((Message)elements.get(0)).getDescriptorForType())
+                .isSameAs(fixture.typeRepository.getMessageDescriptor(elementType));
     }
 
     /**
@@ -256,8 +309,9 @@ class ArrayAggValueTest {
     }
 
     /**
-     * Tests that a value survives a round-trip through its proto representation, null treatment and element type
-     * included.
+     * Tests that a value survives a round-trip through its proto representation, null treatment included. The element
+     * type is not serialized: it is re-derived from the deserialized child and the null treatment, which is what the
+     * result-type assertion below pins down.
      */
     @Test
     void serializationRoundTripPreservesValue() {
@@ -301,19 +355,5 @@ class ArrayAggValueTest {
         assertThatThrownBy(() -> new ArrayAggValue.ArrayAggFn()
                 .encapsulate(CallSiteArguments.ofPositional(child, notABooleanLiteral)))
                 .isInstanceOf(RecordCoreException.class);
-    }
-
-    /**
-     * Builds a two-field record message of the given type.
-     */
-    @Nonnull
-    private static Message record(@Nonnull final Type.Record recordType, final long a, final long b) {
-        final TypeRepository typeRepository = TypeRepository.newBuilder().addTypeIfNeeded(recordType).build();
-        final Descriptors.Descriptor descriptor = typeRepository.getMessageDescriptor(recordType);
-        assertThat(descriptor).isNotNull();
-        return DynamicMessage.newBuilder(descriptor)
-                .setField(descriptor.findFieldByName("a"), a)
-                .setField(descriptor.findFieldByName("b"), b)
-                .build();
     }
 }
