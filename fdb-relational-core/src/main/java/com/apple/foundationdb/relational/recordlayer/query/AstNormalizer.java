@@ -405,6 +405,15 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                 processStructParameter((Struct) param, currentUnnamedParameterIndex, null, ctx.getStart().getTokenIndex());
                 allowTokenAddition = true;
             }
+        } else if (ctx.TYPED_PARAMETER() != null) {
+            // ?{type} — a value-free typed positional parameter (stored query body). Canonicalize it to a plain '?'
+            // (so it shares the plan-cache key with a runtime 'col > ?') and neither pull nor register a value, so its
+            // constant id stays unbound. The declared type is applied during planning (see ExpressionVisitor).
+            if (allowTokenAddition) {
+                sqlCanonicalizer.append("?").append(" ");
+                parameterHash.putInt(Objects.hash("?"));
+            }
+            param = null;
         } else {
             // Note we preserve named parameters in canonical representation, otherwise we could mix up different queries
             // if we use '?' ubiquitously.

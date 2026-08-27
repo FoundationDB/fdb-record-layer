@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.WithMetadata;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.util.Assert;
@@ -57,6 +58,7 @@ import java.sql.Struct;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -371,9 +373,25 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         // add literal evaluation for specific values to enable
         // triggering constant folding internally.
         final var evaluationContext = getEvaluationContext();
-        constantObjectValues.forEach(cov ->
-                predicateBuilder.add(new ValuePredicate(EvaluatesToValue.of(cov, evaluationContext),
-                        new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true))));
+        constantObjectValues.forEach(cov -> {
+            final EvaluatesToValue evaluatesTo;
+            if (evaluationContext.containsConstantBinding(cov.getAlias(), cov.getConstantId())) {
+                evaluatesTo = EvaluatesToValue.of(cov, evaluationContext);
+            } else if (cov.getResultType().isNull()) {
+                // Value-free ?{NULL} stored-query parameter: it warms the plan for a runtime parameter bound to
+                // NULL (e.g. JDBC setNull), so its constraint is IS_NULL. The type is the nullable NULL type, so
+                // dereferencing to null in ConstantObjectValue.eval is allowed.
+                evaluatesTo = EvaluatesToValue.isNull(cov);
+            } else {
+                // Value-free (unbound) constant, e.g. a ?{type} stored-query parameter: there is no value at
+                // plan time. Emit IS_NOT_NULL directly rather than dereferencing to null — that would yield
+                // an IS_NULL constraint (making runtime non-null values miss) and would trip the
+                // non-nullable-type check in ConstantObjectValue.eval.
+                evaluatesTo = EvaluatesToValue.isNotNull(cov);
+            }
+            predicateBuilder.add(new ValuePredicate(evaluatesTo,
+                    new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true)));
+        });
 
         return QueryPlanConstraint.ofPredicates(predicateBuilder.build());
     }
@@ -480,6 +498,61 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
             param = preparedParams.nextUnnamedParamValue();
         }
         return processPreparedStatementParameter(param, getObjectType(param), currentUnnamedParameterIndex, null, tokenIndex);
+    }
+
+    /**
+     * Processes an inline typed positional parameter (grammar token {@code ?{type}}) of a stored query body: it carries
+     * a declared type but no bound value at planning (warmup) time. It becomes a {@link ConstantObjectValue} of the
+     * declared type at this token's constant id, but — unlike a bound {@code ?} — is <em>not</em> registered as a
+     * literal, so its constant id stays unbound in the evaluation context ({@code containsConstantBinding == false}).
+     * Downstream value-derived planning therefore treats it as value-free (no folding/dedup/filtered-index enclosure on
+     * a phantom value) instead of dereferencing it to {@code null}. At runtime the same query is issued with a plain
+     * {@code ?} bound to a value at the identical constant id, so the warmed plan is reused.
+     *
+     * @param typeName the declared primitive type name captured between the braces (e.g. {@code bigint})
+     * @param tokenIndex the token position, which determines the constant id
+     * @return a value-free {@link ConstantObjectValue} of the declared type
+     */
+    @Nonnull
+    public Value processTypedPreparedParam(@Nonnull final String typeName, final int tokenIndex) {
+        final var type = primitiveTypeForName(typeName);
+        final var result = ConstantObjectValue.of(Quantifier.constant(), OrderedLiteral.constantId(tokenIndex), type);
+        addLiteralReference(result);
+        return result;
+    }
+
+    /**
+     * Resolves the inline type name of a {@code ?{type}} parameter to a record-layer {@link Type}. Ordinary types are
+     * non-nullable so their {@code OfType} plan constraint matches the raw type produced at runtime by
+     * {@code Type.fromObject(value)} for a bound value (which yields a non-nullable primitive type). The special
+     * {@code ?{NULL}} resolves to the nullable {@link Type#nullType()}: it warms the plan for a runtime parameter bound
+     * to {@code NULL} (e.g. JDBC {@code setNull}), whose runtime type is likewise {@code NULL}.
+     */
+    @Nonnull
+    private static Type primitiveTypeForName(@Nonnull final String typeName) {
+        switch (typeName.toUpperCase(Locale.ROOT)) {
+            case "BOOLEAN":
+                return Type.primitiveType(Type.TypeCode.BOOLEAN, false);
+            case "INTEGER":
+                return Type.primitiveType(Type.TypeCode.INT, false);
+            case "BIGINT":
+                return Type.primitiveType(Type.TypeCode.LONG, false);
+            case "FLOAT":
+                return Type.primitiveType(Type.TypeCode.FLOAT, false);
+            case "DOUBLE":
+                return Type.primitiveType(Type.TypeCode.DOUBLE, false);
+            case "STRING":
+                return Type.primitiveType(Type.TypeCode.STRING, false);
+            case "BYTES":
+                return Type.primitiveType(Type.TypeCode.BYTES, false);
+            case "UUID":
+                return Type.uuidType(false);
+            case "NULL":
+                return Type.nullType();
+            default:
+                throw new RelationalException("unsupported stored query parameter type '" + typeName + "'",
+                        ErrorCode.UNSUPPORTED_OPERATION).toUncheckedWrappedException();
+        }
     }
 
     @Nonnull
