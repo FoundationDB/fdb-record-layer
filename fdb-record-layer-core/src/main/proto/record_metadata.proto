@@ -230,6 +230,22 @@ message PStoredQuery {
   optional string name = 1;
   optional string query = 2;
   repeated string temp_functions = 3;
+
+  // One declared parameter of a stored query.
+  // Compatible with map<string, string> on the wire; a repeated entry is used instead so that further
+  // per-parameter attributes can be added; see user_field for the same pattern.
+  message PStoredQueryParameter {
+    optional string name = 1;
+    // The SQL text of the parameter's declaration, exactly as written after the parameter name: a type, optionally
+    // followed by a nullability clause. For example `BIGINT`, `BIGINT NOT NULL`, `VECTOR(128, FLOAT)` or
+    // `TYPE my_struct ARRAY`. Text rather than a serialized type, so that neither the record layer nor the
+    // relational API representation of a stored query depends on the other's type system, and so that a type
+    // naming a schema template type can be resolved against the template it is warmed with.
+    optional string declared_type = 2;
+  }
+  // The query's declared parameters. Empty when the query declares none. Used at warm-up to type the query's
+  // value-free named parameters.
+  repeated PStoredQueryParameter parameters = 4;
 }
 
 message JoinedRecordType {
