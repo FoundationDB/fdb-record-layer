@@ -55,6 +55,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * A separate class to support (@link GenerateVisitorAnnotationProcessor) so that dependency on javapoet does not leak to anyone
@@ -98,15 +99,42 @@ class GenerateVisitorAnnotationHelper {
             final var rootTypeMirror = rootTypeElement.asType();
 
             final var packageOfRoot = elementUtils.getPackageOf(rootTypeElement);
-            final var subClassTypeMirrors = moduleElement
+            final var candidateElements = moduleElement
                     .getEnclosedElements()
                     .stream()
-                    .flatMap(packageElement -> packageElement.getEnclosedElements().stream())
+                    .flatMap(GenerateVisitorAnnotationHelper::enclosedTypesRecursively)
                     .filter(element -> element.getKind() == ElementKind.CLASS &&
                             !element.getModifiers().contains(Modifier.ABSTRACT))
+                    .filter(element -> {
+                        final var mirror = element.asType();
+                        return mirror.getKind() == TypeKind.DECLARED && typeUtils.isSubtype(mirror, rootTypeMirror);
+                    })
+                    .collect(Collectors.toList());
+
+            //
+            // The generated visitor lives in the package of the annotated root, so it cannot name a subclass that is
+            // not public, or that is nested inside a type that is not. Silently skipping such a subclass would leave it
+            // without a visitation method and quietly route it to the default one, which is exactly the kind of gap
+            // this generator exists to prevent -- so it is an error instead.
+            //
+            final var inaccessibleElements = candidateElements
+                    .stream()
+                    .filter(element -> !isPublicIncludingEnclosingTypes(element))
+                    .collect(Collectors.toList());
+            if (!inaccessibleElements.isEmpty()) {
+                for (final var inaccessibleElement : inaccessibleElements) {
+                    error(messager, inaccessibleElement,
+                            "%s is a non-public subclass of %s, so the generated visitor cannot name it; make it and "
+                                    + "all of its enclosing types public, or move it out of its enclosing type",
+                            ((TypeElement)inaccessibleElement).getQualifiedName().toString(),
+                            rootTypeElement.getQualifiedName().toString());
+                }
+                return true;
+            }
+
+            final var subClassTypeMirrors = candidateElements
+                    .stream()
                     .map(Element::asType)
-                    .filter(mirror -> mirror.getKind() == TypeKind.DECLARED)
-                    .filter(mirror -> typeUtils.isSubtype(mirror, rootTypeMirror))
                     .collect(Collectors.toList());
 
             try {
@@ -160,19 +188,30 @@ class GenerateVisitorAnnotationHelper {
                                 WildcardTypeName.subtypeOf(Object.class))),
                 "jumpMap", Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL);
 
-        final var initializerStrings = subClassTypeMirrors.stream()
-                .map(typeMirror -> {
-                    final var typeElement = (TypeElement)typeUtils.asElement(typeMirror);
-                    return "Map.entry(" + typeElement.getSimpleName() + ".class, (visitor, element) -> visitor." + methodNameOfVisitMethod(generateVisitor, typeElement) + "((" + typeElement.getSimpleName() + ")element))";
-                })
-                .collect(Collectors.joining(", \n"));
-
-        final var initializerBlock = CodeBlock.builder()
-                .add("$T.ofEntries(" + initializerStrings + ")", ClassName.get(Map.class))
-                .build();
+        //
+        // Emitted through JavaPoet type placeholders rather than by concatenating simple names: a nested type has to be
+        // named as Outer.Inner and needs an import for Outer, and a generic type has to be cast to its
+        // wildcard-parameterized form so that the cast is checked rather than raw.
+        //
+        final var initializerBuilder = CodeBlock.builder();
+        initializerBuilder.add("$T.ofEntries(", ClassName.get(Map.class));
+        boolean firstEntry = true;
+        for (final var typeMirror : subClassTypeMirrors) {
+            final var typeElement = (TypeElement)typeUtils.asElement(typeMirror);
+            if (!firstEntry) {
+                initializerBuilder.add(", \n");
+            }
+            firstEntry = false;
+            initializerBuilder.add("$T.entry($T.class, (visitor, element) -> visitor.$L(($T)element))",
+                    ClassName.get(Map.class),
+                    ClassName.get(typeElement),
+                    methodNameOfVisitMethod(generateVisitor, typeElement),
+                    visitableTypeName(typeElement));
+        }
+        initializerBuilder.add(")");
 
         typeBuilder.addField(jumpMapBuilder
-                .initializer(initializerBlock)
+                .initializer(initializerBuilder.build())
                 .build());
 
         for (final var typeMirror : subClassTypeMirrors) {
@@ -183,7 +222,7 @@ class GenerateVisitorAnnotationHelper {
                             .methodBuilder(methodName)
                             .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
                             .addAnnotation(Nonnull.class)
-                            .addParameter(ParameterSpec.builder(TypeName.get(typeMirror), parameterName).addAnnotation(Nonnull.class).build())
+                            .addParameter(ParameterSpec.builder(visitableTypeName(typeElement), parameterName).addAnnotation(Nonnull.class).build())
                             .returns(typeVariableName);
             typeBuilder.addMethod(specificVisitMethodBuilder.build());
         }
@@ -240,7 +279,7 @@ class GenerateVisitorAnnotationHelper {
                             .addModifiers(Modifier.PUBLIC, Modifier.DEFAULT)
                             .addAnnotation(Nonnull.class)
                             .addAnnotation(Override.class)
-                            .addParameter(ParameterSpec.builder(TypeName.get(typeMirror), parameterName).addAnnotation(Nonnull.class).build())
+                            .addParameter(ParameterSpec.builder(visitableTypeName(typeElement), parameterName).addAnnotation(Nonnull.class).build())
                             .returns(typeVariableName)
                             .addCode(CodeBlock.builder()
                                     .addStatement("return " + defaultMethodName + "(" + parameterName + ")")
@@ -256,6 +295,73 @@ class GenerateVisitorAnnotationHelper {
 
     private static String methodNameOfVisitMethod(@Nonnull final GenerateVisitor generateVisitor, @Nonnull TypeElement typeElement) {
         return generateVisitor.methodPrefix() + typeElement.getSimpleName().toString().replace(generateVisitor.stripPrefix(), "");
+    }
+
+    /**
+     * Returns the given element together with every type nested inside it, at any depth. The original implementation
+     * only looked at the types directly enclosed by a package, which silently skipped every nested subclass of an
+     * annotated root.
+     * <p>
+     * The enclosing type is included alongside its nested types, not replaced by them: a type is routinely both a
+     * dispatch target and a container of nested helpers -- almost every {@code Value}, for instance, nests its own
+     * {@code Deserializer} -- so descending into a type must not remove the type itself from consideration.
+     * </p>
+     *
+     * @param element the element to descend into, a package or a type
+     *
+     * @return a stream of the types enclosed by {@code element}, recursively
+     */
+    @Nonnull
+    private static Stream<Element> enclosedTypesRecursively(@Nonnull final Element element) {
+        return element.getEnclosedElements()
+                .stream()
+                .filter(enclosed -> enclosed.getKind().isClass() || enclosed.getKind().isInterface())
+                .flatMap(enclosed -> Stream.concat(Stream.of(enclosed), enclosedTypesRecursively(enclosed)));
+    }
+
+    /**
+     * Returns whether the given type and all of the types enclosing it are public. A nested type that is not, or that
+     * is nested inside one that is not, cannot be named by the generated visitor interface, which lives in the package
+     * of the annotated root rather than inside the enclosing type.
+     *
+     * @param element the type to check
+     *
+     * @return {@code true} if the type is visible to generated code
+     */
+    private static boolean isPublicIncludingEnclosingTypes(@Nonnull final Element element) {
+        for (Element current = element; current != null && !(current instanceof PackageElement);
+                current = current.getEnclosingElement()) {
+            if (!current.getModifiers().contains(Modifier.PUBLIC)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * The name to use when the generated code needs to refer to the given type.
+     * <p>
+     * A generic type has to be named with a wildcard for each of its type parameters. Using the type as declared would
+     * leak its type variables into the visitor interface, where they are out of scope and, if a type parameter happens
+     * to be named like the visitor's own result variable, silently capture it instead -- {@code LiteralValue<T>} in a
+     * {@code ValueVisitor<T>} reads as "a literal whose type is the visitor's result type", which is not what is meant.
+     * </p>
+     *
+     * @param typeElement the type to name
+     *
+     * @return the type name to emit, wildcard-parameterized if the type is generic
+     */
+    @Nonnull
+    private static TypeName visitableTypeName(@Nonnull final TypeElement typeElement) {
+        final var className = ClassName.get(typeElement);
+        final var typeParameters = typeElement.getTypeParameters();
+        if (typeParameters.isEmpty()) {
+            return className;
+        }
+        final var wildcards = typeParameters.stream()
+                .map(ignored -> (TypeName)WildcardTypeName.subtypeOf(Object.class))
+                .toArray(TypeName[]::new);
+        return ParameterizedTypeName.get(className, wildcards);
     }
 
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")

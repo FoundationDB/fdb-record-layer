@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.GenerateVisitor;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
@@ -92,6 +93,7 @@ import java.util.function.Supplier;
  * A scalar value type.
  */
 @API(API.Status.EXPERIMENTAL)
+@GenerateVisitor
 public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEquivalence<Value>, PlanHashable, Typed, Narrowable<Value>, PlanSerializable {
 
     @Nonnull
@@ -782,6 +784,22 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
                             }
                             return null;
                         }));
+    }
+
+
+    /**
+     * Apply the given visitor to this value and its children. Returns {@code null} if
+     * {@link SimpleValueVisitor#shouldVisit(Value)} called on this value returns {@code false}.
+     * @param simpleValueVisitor a {@link ValueVisitor} to evaluate
+     * @param <U> the type of the evaluated property
+     * @return the result of evaluating the property on the subtree rooted at this expression
+     */
+    @Nullable
+    default <U> U acceptVisitor(@Nonnull SimpleValueVisitor<U> simpleValueVisitor) {
+        if (simpleValueVisitor.shouldVisit(this)) {
+            return simpleValueVisitor.visit(this);
+        }
+        return null;
     }
 
     @Nonnull
