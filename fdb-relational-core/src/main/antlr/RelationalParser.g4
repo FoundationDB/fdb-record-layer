@@ -250,7 +250,15 @@ viewDefinition
     ;
 
 storedQueryDefinition
-    : STORED QUERY queryName=uid declareBlock? AS storedQuery=query
+    : STORED QUERY queryName=uid storedQuerySignature? declareBlock? AS storedQuery=query
+    ;
+
+storedQuerySignature
+    : '(' (storedQueryParameter (',' storedQueryParameter)*)? ')'
+    ;
+
+storedQueryParameter
+    : parameterName=uid parameterType=functionColumnType nullNotnull?
     ;
 
 declareBlock
