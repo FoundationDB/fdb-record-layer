@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.record.util.MapUtils;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
 
@@ -717,6 +718,11 @@ public class RecordMetaData implements RecordMetaDataProvider {
             if (!storedQuery.getTempFunctions().isEmpty()) {
                 storedQueryBuilder.addAllTempFunctions(storedQuery.getTempFunctions());
             }
+            for (final Map.Entry<String, String> parameter : storedQuery.getParameters().entrySet()) {
+                storedQueryBuilder.addParameters(RecordMetaDataProto.PStoredQuery.PStoredQueryParameter.newBuilder()
+                        .setName(parameter.getKey())
+                        .setDeclaredType(parameter.getValue()));
+            }
             builder.addStoredQueries(storedQueryBuilder.build());
         }
         builder.setSplitLongRecords(splitLongRecords);
@@ -758,10 +764,21 @@ public class RecordMetaData implements RecordMetaDataProvider {
         private final String query;
         @Nonnull
         private final List<String> tempFunctions;
+        @Nonnull
+        private final Map<String, String> parameters;
 
         public StoredQuery(@Nonnull final String storedQuery, @Nonnull final List<String> tempFunctions) {
+            this(storedQuery, tempFunctions, ImmutableMap.of());
+        }
+
+        public StoredQuery(@Nonnull final String storedQuery, @Nonnull final List<String> tempFunctions,
+                           @Nonnull final Map<String, String> parameters) {
             this.query = storedQuery;
             this.tempFunctions = List.copyOf(tempFunctions);
+            // ImmutableMap rather than Map.copyOf: the latter randomizes iteration order per JVM run, which would make
+            // the same metadata serialize to different bytes each time. Parameters are looked up by name, so the order
+            // itself carries no meaning — only its stability matters.
+            this.parameters = ImmutableMap.copyOf(parameters);
         }
 
         @Nonnull
@@ -772,6 +789,16 @@ public class RecordMetaData implements RecordMetaDataProvider {
         @Nonnull
         public List<String> getTempFunctions() {
             return tempFunctions;
+        }
+
+        /**
+         * The parameters this query declares, as a map from parameter name to the SQL text of its declaration: a type,
+         * optionally followed by a nullability clause, exactly as written. Empty if the query declares no parameters.
+         * @return the declared parameters, keyed by name.
+         */
+        @Nonnull
+        public Map<String, String> getParameters() {
+            return parameters;
         }
     }
 
