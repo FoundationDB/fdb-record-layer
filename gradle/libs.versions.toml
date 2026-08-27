@@ -40,6 +40,7 @@ guava = "33.6.0-jre"
 icu = "78.3"
 lucene = "8.11.1"
 javaPoet = "1.13.0"
+jspecify = "1.0.0"
 jsr305 = "3.0.2"
 jts = "1.20.0"
 log4j = "2.26.1"
@@ -64,7 +65,9 @@ snakeyaml = "2.6"
 
 # Static analysis dependency versions
 
+errorprone = "2.38.0"
 jacoco = "0.8.14"
+nullaway = "0.12.6"
 spotbugs = "4.10.3"
 
 [libraries]
@@ -92,6 +95,7 @@ gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
 icu = { module = "com.ibm.icu:icu4j", version.ref = "icu" }
 javaPoet = { module = "com.squareup:javapoet", version.ref = "javaPoet" }
+jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
 jsr305 = { module = "com.google.code.findbugs:jsr305", version.ref = "jsr305" }
 jts = { module = "org.locationtech.jts.io:jts-io-common", version.ref = "jts" }
 log4j-api = { module = "org.apache.logging.log4j:log4j-api", version.ref = "log4j" }
@@ -132,6 +136,8 @@ hamcrest = { module = "org.hamcrest:hamcrest", version.ref = "hamcrest" }
 mockito = { module = "org.mockito:mockito-core", version.ref = "mockito" }
 snakeyaml = { module = "org.yaml:snakeyaml", version.ref = "snakeyaml" }
 spotbugs-annotations = { module = "com.github.spotbugs:spotbugs-annotations", version.ref = "spotbugs" }
+errorprone-core = { module = "com.google.errorprone:error_prone_core", version.ref = "errorprone" }
+nullaway = { module = "com.uber.nullaway:nullaway", version.ref = "nullaway" }
 
 [bundles]
 
@@ -142,6 +148,7 @@ test-compileOnly = [ "autoService", "jsr305" ]
 [plugins]
 
 download = { id = "de.undercouch.download", version = "5.7.0" }
+errorprone = { id = "net.ltgt.errorprone", version = "4.1.0" }
 gitversion = { id = "com.palantir.git-version", version = "5.0.0" }
 jmh = { id = "me.champeau.jmh", version = "0.7.3" }
 protobuf = { id = "com.google.protobuf", version = "0.10.0" }

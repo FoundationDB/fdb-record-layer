@@ -25,4 +25,7 @@
  * List of {@link com.apple.foundationdb.relational.api.RelationalStruct} into a {@link com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet}
  * and so on.
  */
+@NullMarked
 package com.apple.foundationdb.relational.jdbc;
+
+import org.jspecify.annotations.NullMarked;

@@ -23,17 +23,15 @@ package com.apple.foundationdb.relational.jdbc;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.RpcContinuation;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 
 public class RelationalRpcContinuation implements Continuation {
     public static final int CURRENT_VERSION = 1;
 
-    @Nonnull
     private final RpcContinuation proto;
 
-    public RelationalRpcContinuation(@Nonnull RpcContinuation proto) {
+    public RelationalRpcContinuation(RpcContinuation proto) {
         this.proto = proto;
     }
 
@@ -47,6 +45,7 @@ public class RelationalRpcContinuation implements Continuation {
 
     @Nullable
     @Override
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return types across this unannotated-interface boundary; genuinely returns null, same as before this migration.
     public byte[] getExecutionState() {
         if (proto.hasInternalState()) {
             return proto.getInternalState().toByteArray();
@@ -56,6 +55,7 @@ public class RelationalRpcContinuation implements Continuation {
     }
 
     @Override
+    @Nullable
     public Reason getReason() {
         if (proto.hasReason()) {
             return TypeConversion.toReason(proto.getReason());
@@ -74,7 +74,6 @@ public class RelationalRpcContinuation implements Continuation {
         return proto.getAtEnd();
     }
 
-    @Nonnull
     public RpcContinuation getProto() {
         return proto;
     }

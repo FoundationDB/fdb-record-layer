@@ -18,6 +18,10 @@
  * limitations under the License.
  */
 
+plugins {
+    alias(libs.plugins.errorprone)
+}
+
 apply from: rootProject.file('gradle/proto.gradle')
 apply from: rootProject.file('gradle/publishing.gradle')
 
@@ -46,7 +50,7 @@ dependencies {
     // server and client, both of which depend on grpc and api.
     implementation project(":fdb-relational-api")
     implementation project(":fdb-extensions")
-    compileOnly(libs.jsr305)
+    compileOnly(libs.jspecify)
     implementation(libs.generatedAnnotation)
     implementation(libs.grpc.commonProtos)
     implementation(libs.grpc.netty)
@@ -59,10 +63,27 @@ dependencies {
     // slf4j binding. Allows RL dependencies to log to same place as Relational
     runtimeOnly(libs.log4j.slf4jBinding)
 
+    errorprone(libs.errorprone.core)
+    errorprone(libs.nullaway)
+
     testImplementation(testFixtures(project(":fdb-relational-api")))
     testImplementation(libs.bundles.test.impl)
     testRuntimeOnly(libs.bundles.test.runtime)
     testImplementation(libs.grpc.testing)
+}
+
+// Pilot: jspecify + NullAway, scoped to this module only. See @NullMarked package-info.java
+// files in com.apple.foundationdb.relational.jdbc / .jdbc.grpc. Generated protobuf/grpc code
+// (com.apple.foundationdb.relational.jdbc.grpc.v1) is carved out via UnannotatedSubPackages.
+tasks.withType(JavaCompile).configureEach {
+    options.errorprone {
+        disableAllChecks = true
+        error("NullAway")
+        option("NullAway:AnnotatedPackages", "com.apple.foundationdb.relational.jdbc")
+        option("NullAway:UnannotatedSubPackages", "com.apple.foundationdb.relational.jdbc.grpc.v1")
+        option("NullAway:JSpecifyMode", "true")
+        option("NullAway:AcknowledgeRestrictiveAnnotations", "true")
+    }
 }
 
 javadoc {

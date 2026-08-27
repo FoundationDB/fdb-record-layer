@@ -23,11 +23,13 @@ package com.apple.foundationdb.relational.jdbc;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.List;
 
 public class TestUtils {
-    public static RelationalResultSet resultSet(Continuation continuation, MockResultSetRow... rows) {
+    public static RelationalResultSet resultSet(@Nullable Continuation continuation, MockResultSetRow... rows) {
         return new MockResultSet(
                 new MockResultSetMetadata(),
                 Arrays.stream(rows).iterator(),

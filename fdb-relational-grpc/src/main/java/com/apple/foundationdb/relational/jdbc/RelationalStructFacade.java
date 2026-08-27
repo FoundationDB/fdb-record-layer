@@ -42,8 +42,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.protobuf.ByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
@@ -200,6 +200,8 @@ class RelationalStructFacade implements RelationalStruct {
     }
 
     @Override
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return types across this unannotated-interface boundary; genuinely returns null for a SQL NULL column, same as before this migration.
+    @Nullable
     public byte[] getBytes(int oneBasedColumn) throws SQLException {
         Column c = getColumnInternal(oneBasedColumn);
         if (wasNull) {
@@ -213,11 +215,13 @@ class RelationalStructFacade implements RelationalStruct {
     }
 
     @Override
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return types across this unannotated-interface boundary; getBytes(int) genuinely returns null for a SQL NULL column, same as before this migration.
     public byte[] getBytes(String fieldName) throws SQLException {
         return getBytes(RelationalStruct.getOneBasedPosition(fieldName, this));
     }
 
     @Override
+    @Nullable
     public String getString(int oneBasedColumn) throws SQLException {
         Column c = getColumnInternal(oneBasedColumn);
         if (wasNull) {
@@ -231,11 +235,13 @@ class RelationalStructFacade implements RelationalStruct {
     }
 
     @Override
+    @Nullable
     public String getString(String fieldName) throws SQLException {
         return getString(RelationalStruct.getOneBasedPosition(fieldName, this));
     }
 
     @Override
+    @Nullable
     public Object getObject(int oneBasedColumn) throws SQLException {
         int type = getMetaData().getColumnType(oneBasedColumn);
         Object obj = null;
@@ -288,11 +294,13 @@ class RelationalStructFacade implements RelationalStruct {
     }
 
     @Override
+    @Nullable
     public Object getObject(String fieldName) throws SQLException {
         return getObject(RelationalStruct.getOneBasedPosition(fieldName, this));
     }
 
     @Override
+    @Nullable
     public RelationalStruct getStruct(int oneBasedColumn) throws SQLException {
         Column c = getColumnInternal(oneBasedColumn);
         if (wasNull) {
@@ -312,6 +320,7 @@ class RelationalStructFacade implements RelationalStruct {
     }
 
     @Override
+    @Nullable
     public RelationalArray getArray(int oneBasedColumn) throws SQLException {
         Column c = getColumnInternal(oneBasedColumn);
         if (wasNull) {
@@ -329,6 +338,7 @@ class RelationalStructFacade implements RelationalStruct {
     }
 
     @Override
+    @Nullable
     public UUID getUUID(final int oneBasedPosition) throws SQLException {
         Column c = getColumnInternal(oneBasedPosition);
         if (wasNull) {
@@ -341,7 +351,7 @@ class RelationalStructFacade implements RelationalStruct {
     }
 
     @Nullable
-    private RealVector getVector(final int oneBasedPosition, @Nonnull final DataType.VectorType type) throws SQLException {
+    private RealVector getVector(final int oneBasedPosition, final DataType.VectorType type) throws SQLException {
         Column c = getColumnInternal(oneBasedPosition);
         if (wasNull) {
             return null;
@@ -353,6 +363,7 @@ class RelationalStructFacade implements RelationalStruct {
     }
 
     @Override
+    @Nullable
     public UUID getUUID(final String fieldName) throws SQLException {
         return getUUID(RelationalStruct.getOneBasedPosition(fieldName, this));
     }
@@ -520,7 +531,7 @@ class RelationalStructFacade implements RelationalStruct {
         }
 
         @Override
-        public RelationalStructBuilder addStruct(String fieldName, @Nonnull RelationalStruct struct) throws SQLException {
+        public RelationalStructBuilder addStruct(String fieldName, RelationalStruct struct) throws SQLException {
             // We're building. Must be a RelationalStructFacade instance of RelationalStruct when here. Unwrap.
             // This will allow us to access the backing data and metadata protobufs.
             // Insert the data portion of RelationalStruct here.
@@ -533,7 +544,7 @@ class RelationalStructFacade implements RelationalStruct {
         }
 
         @Override
-        public RelationalStructBuilder addArray(String fieldName, @Nonnull RelationalArray array) throws SQLException {
+        public RelationalStructBuilder addArray(String fieldName, RelationalArray array) throws SQLException {
             // We're building. Must be a RelationalArrayFacade instance of RelationalArray when here. Unwrap.
             // This will allow us to access the backing data and metadata protobufs.
             // Insert the data portion of RelationalStruct here.

@@ -35,7 +35,8 @@ import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.PositionalIndex;
 import com.google.common.base.Suppliers;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
+
 import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.sql.Types;
@@ -103,15 +104,16 @@ class RelationalResultSetFacade implements RelationalResultSet {
         return this.wasNull;
     }
 
-    private <R> R get(int oneBasedIndex, Function<Column, R> s) {
+    private <R extends @Nullable Object> R get(int oneBasedIndex, Function<Column, R> s) {
         int index = PositionalIndex.toProtobuf(oneBasedIndex);
         Column column = this.delegate.getRow(rowIndex).getColumns().getColumn(index);
         return s.apply(column);
     }
 
     @Override
+    @Nullable
     public String getString(final int oneBasedColumn) throws SQLException {
-        return get(oneBasedColumn, column -> {
+        Function<Column, @Nullable String> f = column -> {
             if (column.hasString()) {
                 // Do I need to update lastColumnReadWasNull for String type?
                 // For primitives only?
@@ -120,7 +122,8 @@ class RelationalResultSetFacade implements RelationalResultSet {
             }
             this.wasNull = true;
             return null;
-        });
+        };
+        return this.<@Nullable String>get(oneBasedColumn, f);
     }
 
     @Override
@@ -184,6 +187,8 @@ class RelationalResultSetFacade implements RelationalResultSet {
     }
 
     @Override
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return types across this unannotated-interface boundary; genuinely returns null for a SQL NULL column, same as before this migration.
+    @Nullable
     public byte[] getBytes(int oneBasedColumn) throws SQLException {
         return get(oneBasedColumn, column -> {
             if (column.hasBinary()) {
@@ -210,6 +215,7 @@ class RelationalResultSetFacade implements RelationalResultSet {
     }
 
     @Override
+    @Nullable
     public String getString(String columnLabel) throws SQLException {
         // TOOD: Do getName for now.
         return getString(
@@ -261,6 +267,7 @@ class RelationalResultSetFacade implements RelationalResultSet {
     }
 
     @Override
+    @Nullable
     public SQLWarning getWarnings() throws SQLException {
         // TODO: Does nothing for now.
         return null;
@@ -277,7 +284,6 @@ class RelationalResultSetFacade implements RelationalResultSet {
     }
 
     @Override
-    @Nonnull
     public Continuation getContinuation() throws SQLException {
         if (hasNext()) {
             throw new SQLException("Continuation can only be returned for the last row");
@@ -293,8 +299,9 @@ class RelationalResultSetFacade implements RelationalResultSet {
     }
 
     @Override
+    @Nullable
     public RelationalStruct getStruct(int oneBasedColumn) throws SQLException {
-        RelationalStruct s = TypeConversion.getStruct(this.delegate, this.rowIndex, oneBasedColumn);
+        @Nullable RelationalStruct s = TypeConversion.getStruct(this.delegate, this.rowIndex, oneBasedColumn);
         wasNull = s == null;
         return s;
     }
@@ -308,16 +315,19 @@ class RelationalResultSetFacade implements RelationalResultSet {
 
     @Override
     @ExcludeFromJacocoGeneratedReport
+    @Nullable
     public UUID getUUID(int oneBasedColumn) throws SQLException {
-        UUID s = TypeConversion.getUUID(this.delegate, this.rowIndex, oneBasedColumn);
+        @Nullable UUID s = TypeConversion.getUUID(this.delegate, this.rowIndex, oneBasedColumn);
         wasNull = s == null;
         return s;
     }
 
     @Override
+    @Nullable
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently narrow @Nullable array (byte[]) locals across this call into TypeConversion.parseVector, despite the explicit null-check above.
     public Object getObject(int oneBasedColumn) throws SQLException {
         int type = getMetaData().getColumnType(oneBasedColumn);
-        final Object o;
+        final @Nullable Object o;
         switch (type) {
             case Types.VARCHAR:
                 o = getString(oneBasedColumn);
@@ -359,7 +369,7 @@ class RelationalResultSetFacade implements RelationalResultSet {
                         break;
                     case VECTOR: {
                         final var bytes = getBytes(oneBasedColumn);
-                        if (wasNull()) {
+                        if (bytes == null) {
                             return null;
                         }
                         o = TypeConversion.parseVector(bytes, ((DataType.VectorType)relationalType).getPrecision());
@@ -380,16 +390,18 @@ class RelationalResultSetFacade implements RelationalResultSet {
     }
 
     @Override
+    @Nullable
     public Object getObject(String columnLabel) throws SQLException {
         return getObject(RelationalStruct.getOneBasedPosition(columnLabel, this));
     }
 
     @Override
+    @Nullable
     public RelationalArray getArray(int oneBasedColumn) throws SQLException {
         int index = PositionalIndex.toProtobuf(oneBasedColumn);
         ColumnMetadata columnMetadata = this.delegate.getMetadata().getColumnMetadata().getColumnMetadata(index);
         Column column = this.delegate.getRow(rowIndex).getColumns().getColumn(index);
-        RelationalArrayFacade array = column == null || !column.hasArray() ? null :
+        @Nullable RelationalArrayFacade array = column == null || !column.hasArray() ? null :
                 new RelationalArrayFacade(columnMetadata.getArrayMetadata(), column.getArray());
         wasNull = array == null;
         return array;

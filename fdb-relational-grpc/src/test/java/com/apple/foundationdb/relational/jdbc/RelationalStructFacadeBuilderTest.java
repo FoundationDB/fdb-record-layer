@@ -41,6 +41,7 @@ public class RelationalStructFacadeBuilderTest {
                 (RelationalStructFacade.RelationalStructFacadeBuilder) RelationalStructFacade.newBuilder();
         SQLException thrown = Assertions.assertThrows(SQLException.class,
                 () -> builder.getZeroBasedOffsetOrThrow("NO SUCH FIELD"));
+        Assertions.assertNotNull(thrown.getMessage());
         Assertions.assertTrue(thrown.getMessage().contains("Unknown"));
     }
 }

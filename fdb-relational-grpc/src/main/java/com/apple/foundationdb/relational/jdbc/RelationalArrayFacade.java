@@ -43,7 +43,8 @@ import com.apple.foundationdb.relational.util.PositionalIndex;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
+
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Types;
@@ -71,7 +72,7 @@ class RelationalArrayFacade implements RelationalArray {
      */
     private final Array delegate;
 
-    RelationalArrayFacade(@Nonnull ColumnMetadata delegateMetadata, Array array) {
+    RelationalArrayFacade(ColumnMetadata delegateMetadata, Array array) {
         this.delegateMetadata = delegateMetadata;
         this.type = Suppliers.memoize(this::computeType);
         this.delegate = array;
@@ -207,6 +208,7 @@ class RelationalArrayFacade implements RelationalArray {
          * Column metadata for the Array Structs.
          * Package-private so protobuf is available to serializer (in same package).
          */
+        @Nullable
         private ColumnMetadata metadata;
 
         RelationalArrayFacadeBuilder() {
@@ -214,36 +216,39 @@ class RelationalArrayFacade implements RelationalArray {
 
         @Override
         public RelationalArray build() {
+            if (metadata == null) {
+                throw new IllegalStateException("Cannot build a RelationalArray with no elements added");
+            }
             return new RelationalArrayFacade(this.metadata, this.builder.build());
         }
 
         @Override
-        public RelationalArrayBuilder addAll(@Nonnull Object... value) throws SQLException {
+        public RelationalArrayBuilder addAll(Object... value) throws SQLException {
             throw new SQLFeatureNotSupportedException();
         }
 
         @Override
-        public RelationalArrayBuilder addBytes(@Nonnull byte[] value) throws SQLException {
+        public RelationalArrayBuilder addBytes(byte[] value) throws SQLException {
             throw new SQLFeatureNotSupportedException();
         }
 
         @Override
-        public RelationalArrayBuilder addString(@Nonnull String value) throws SQLException {
+        public RelationalArrayBuilder addString(String value) throws SQLException {
             throw new SQLFeatureNotSupportedException();
         }
 
         @Override
-        public RelationalArrayBuilder addLong(@Nonnull long value) throws SQLException {
+        public RelationalArrayBuilder addLong(long value) throws SQLException {
             throw new SQLFeatureNotSupportedException();
         }
 
         @Override
-        public RelationalArrayBuilder addUuid(@Nonnull final UUID value) throws SQLException {
+        public RelationalArrayBuilder addUuid(final UUID value) throws SQLException {
             throw new SQLFeatureNotSupportedException();
         }
 
         @Override
-        public RelationalArrayBuilder addObject(@Nonnull final Object value) throws SQLException {
+        public RelationalArrayBuilder addObject(final Object value) throws SQLException {
             throw new SQLFeatureNotSupportedException();
         }
 
