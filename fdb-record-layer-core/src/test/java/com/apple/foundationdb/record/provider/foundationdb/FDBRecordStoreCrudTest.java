@@ -31,24 +31,44 @@ import com.apple.foundationdb.record.TestRecordsUuidProto;
 import com.apple.foundationdb.record.TestRecordsWithUnionProto;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.RandomSeedSource;
 import com.apple.test.Tags;
+import com.google.common.base.Strings;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.params.ParameterizedTest;
 
+import javax.annotation.Nonnull;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Queue;
+import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.core.Is.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -61,6 +81,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Tag(Tags.RequiresFDB)
 @Execution(ExecutionMode.CONCURRENT)
 class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
+    @Nonnull
+    private final String longString = Strings.repeat("x", 101_000);
 
     @Test
     void writeRead() throws Exception {
@@ -279,6 +301,7 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
             commit(context);
             commitVersionstamp = Objects.requireNonNull(context.getVersionStamp());
         }
+
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, metaDataBuilder -> metaDataBuilder.setStoreRecordVersions(true));
 
@@ -306,8 +329,270 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void onlyOneConcurrentInsertSucceeds() throws Exception {
+        final List<FDBStoredRecord<Message>> inserted;
+        byte[] commitVersionstamp;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataBuilder -> metaDataBuilder.setStoreRecordVersions(true));
+
+            final List<CompletableFuture<FDBStoredRecord<Message>>> futures = IntStream.range(0, 100)
+                    .mapToObj(id -> TestRecords1Proto.MySimpleRecord.newBuilder()
+                            .setRecNo(1000L + (id % 10))
+                            .setNumValue3Indexed(id % 3)
+                            .setNumValue2(id)
+                            .setStrValueIndexed((id % 2L == 0L) ? "even" : "odd")
+                            .build())
+                    .map(rec -> recordStore.insertRecordAsync(rec).handle((saved, err) -> {
+                        if (err != null) {
+                            if (err instanceof CompletionException) {
+                                err = err.getCause();
+                            }
+                            assertInstanceOf(RecordAlreadyExistsException.class, err);
+                            return null;
+                        }
+                        return saved;
+                    }))
+                    .toList();
+            final List<FDBStoredRecord<Message>> savedRecords = AsyncUtil.getAll(futures).get();
+            inserted = savedRecords.stream().filter(Objects::nonNull).toList();
+            assertEquals(10, inserted.size());
+            final Set<Tuple> savedPrimaryKeys = inserted.stream().map(FDBStoredRecord::getPrimaryKey).collect(Collectors.toSet());
+            assertEquals(10, savedPrimaryKeys.size());
+
+            assertEquals(10, recordStore.getSnapshotRecordCount().get());
+            assertEquals(10, recordStore.getSnapshotRecordUpdateCount().get());
+
+            commit(context);
+            commitVersionstamp = Objects.requireNonNull(context.getVersionStamp());
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataBuilder -> metaDataBuilder.setStoreRecordVersions(true));
+
+            inserted.forEach(insertedRecord -> {
+                final FDBStoredRecord<Message> stored = recordStore.loadRecord(insertedRecord.getPrimaryKey());
+                assertNotNull(stored);
+                assertEquals(insertedRecord.getRecord(), stored.getRecord());
+                assertEquals(Objects.requireNonNull(insertedRecord.getVersion()).withCommittedVersion(commitVersionstamp), stored.getVersion());
+            });
+        }
+    }
+
+    @Test
+    void deleteSameRecordConcurrently() throws Exception {
+        // Save a single record
+        final FDBStoredRecord<Message> saved;
+        byte[] commitVersionstamp;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataBuilder -> metaDataBuilder.setStoreRecordVersions(true));
+            saved = recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1805L)
+                    .setNumValue2(3)
+                    .setStrValueIndexed("blah")
+                    .setNumValue3Indexed(4)
+                    .build());
+            commit(context);
+            commitVersionstamp = Objects.requireNonNull(context.getVersionStamp());
+        }
+
+        // Attempt to delete that record from multiple places, interspersed with concurrent reads.
+        // Exactly one delete should succeed, and all the reads should occur either strictly before
+        // or strictly after the delete
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataBuilder -> metaDataBuilder.setStoreRecordVersions(true));
+
+            // Fire off some reads before the first delete call
+            final List<CompletableFuture<FDBStoredRecord<Message>>> readFutures = new ArrayList<>();
+            Stream.generate(() -> recordStore.loadRecordAsync(saved.getPrimaryKey()))
+                    .limit(30)
+                    .forEach(readFutures::add);
+
+            // Now, issue multiple deletes
+            final List<CompletableFuture<Boolean>> deleteFutures = Stream.generate(() -> recordStore.deleteRecordAsync(saved.getPrimaryKey()))
+                    .limit(30)
+                    .toList();
+
+            // Add additional reads after the first delete
+            Stream.generate(() -> recordStore.loadRecordAsync(saved.getPrimaryKey()))
+                    .limit(30)
+                    .forEach(readFutures::add);
+
+            final List<FDBStoredRecord<Message>> readResults = AsyncUtil.getAll(readFutures).get();
+            final List<Boolean> deleteResults = AsyncUtil.getAll(deleteFutures).get();
+
+            // Exactly one of the deletes should return true
+            assertEquals(1, deleteResults.stream()
+                    .filter(deleted -> deleted)
+                    .count());
+
+            // All the read results should either be null (if they happened after the delete) or they should match the original record
+            readResults.stream()
+                    .filter(Objects::nonNull)
+                    .forEach(readRecord -> {
+                        assertEquals(saved.getRecord(), readRecord.getRecord());
+                        assertEquals(Objects.requireNonNull(saved.getVersion()).withCommittedVersion(commitVersionstamp), readRecord.getVersion());
+                    });
+
+            assertEquals(0L, recordStore.getSnapshotRecordCount().get());
+
+            commit(context);
+        }
+    }
+
+    private static class TaskState {
+        private int taskNumber;
+        private int updates;
+        private int completed;
+        @Nonnull
+        private final Map<Tuple, Deque<Pair<Integer, Message>>> historyByRecord = new ConcurrentHashMap<>();
+    }
+
+    /**
+     * Create a random sequence of single-record operations and run them with concurrency. Each
+     * operation can do some kind of single-record operation (e.g., read or update one record).
+     * Those are spread across a small number of record primary keys. With each operation, we
+     * check to make sure (1) there are no exceptions hit executing the operation and (2) we
+     * the value is consistent with the operation history. Because of the concurrency, we
+     * are not able to fix the reads to a single possible value, but we should be able to assert
+     * that the value is one of a consistent set of values.
+     *
+     * @param seed a seed to use in the random number generator used to create test cases
+     * @throws Exception any problem hit while running the test
+     */
+    @ParameterizedTest
+    @RandomSeedSource
+    void concurrentRecordOperationStressTest(long seed) throws Exception {
+        final int concurrentTasks = 100;
+        final int totalTasks = 1000;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.setStoreRecordVersions(true);
+                metaDataBuilder.setSplitLongRecords(true);
+                metaDataBuilder.removeIndex("MySimpleRecord$str_value_indexed");
+            });
+            final Random random = new Random(seed);
+            final Queue<CompletableFuture<Void>> tasks = new ArrayDeque<>();
+            TaskState taskState = new TaskState();
+            while (taskState.completed < totalTasks) {
+                while (tasks.size() < concurrentTasks && taskState.taskNumber < totalTasks) {
+                    taskState.taskNumber++;
+                    tasks.add(createRandomRecordOperation(random, taskState));
+                }
+                // Wait for the head of the queue to complete, then remove the leading head of tasks that have already completed
+                tasks.peek().get();
+                while (!tasks.isEmpty() && tasks.peek().isDone()) {
+                    tasks.remove().get();
+                    taskState.completed++;
+                }
+            }
+            assertTrue(tasks.isEmpty());
+            assertEquals(taskState.updates, recordStore.getSnapshotRecordUpdateCount().get());
+            commit(context);
+        }
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> createRandomRecordOperation(@Nonnull Random random, @Nonnull TaskState taskState) {
+        final int taskNumber = taskState.taskNumber;
+        final int completed = taskState.completed;
+        double choice = random.nextDouble();
+        final long recNo = random.nextLong(20);
+        final Tuple primaryKey = Tuple.from(recNo);
+        Deque<Pair<Integer, Message>> recordHistory = taskState.historyByRecord.computeIfAbsent(primaryKey, ignored -> new ConcurrentLinkedDeque<>());
+        if (choice < 0.3) {
+            // Read the record at this primary key.
+            return recordStore.loadRecordAsync(primaryKey).thenApply(stored -> {
+                Set<Message> possibleValues = possibleValuesForRecord(recordHistory, completed);
+                Message storedRec = stored == null ? null : stored.getRecord();
+                assertThat(storedRec, in(possibleValues));
+                if (stored != null) {
+                    assertEquals(primaryKey, stored.getPrimaryKey());
+                }
+                return null;
+            });
+        } else if (choice < 0.5) {
+            // Check if the record at this primary key exists
+            return recordStore.recordExistsAsync(primaryKey).thenApply(exists -> {
+                Set<Message> possibleValues = possibleValuesForRecord(recordHistory, completed);
+                if (exists) {
+                    assertTrue(anyNonNull(possibleValues), "record exists, so there should be at least one non-null possible value");
+                } else {
+                    assertTrue(canBeNull(possibleValues), "record does not exist, so null must be a possible value");
+                }
+                return null;
+            });
+        } else if (choice < 0.6) {
+            // Preload the record from the database. This will populate the preload cache with a value
+            // read from the database. Later reads from the database will use this preloaded value if
+            // it is set, so this is important for making sure that we later clean up that state. That is,
+            // the presence of "preload" events in the history should not change the behavior of the other
+            // operations
+            return recordStore.preloadRecordAsync(primaryKey);
+        } else if (choice < 0.9) {
+            // Insert a new value for a record
+            TestRecords1Proto.MySimpleRecord rec = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(recNo)
+                    .setNumValueUnique(taskNumber)
+                    .setStrValueIndexed(random.nextDouble() < 0.05 ? longString : "blah")
+                    .setNumValue3Indexed(random.nextInt(3))
+                    .build();
+            recordHistory.addFirst(Pair.of(taskNumber, rec));
+            taskState.updates++;
+            return recordStore.saveRecordAsync(rec).thenApply(ignored -> null);
+        } else {
+            // Delete the record.
+            recordHistory.addFirst(Pair.of(taskNumber, null));
+            return recordStore.deleteRecordAsync(primaryKey).thenApply(deleted -> {
+                final Set<Message> possibleValues = possibleValuesForRecord(recordHistory, completed);
+                if (deleted) {
+                    assertTrue(anyNonNull(possibleValues), "record previously existed, so some non-null value must be possible");
+                }
+                return null;
+            });
+        }
+    }
+
+    /**
+     * Compute the set of possible values for a record given its history. The history array should be sorted
+     * in reverse chronological order with the latest writes to the history coming at the front. When a
+     * task is started, some tail of the history is already completed. Any read must therefore be some
+     * value that was either (1) begun after all the completed tasks or (2) was the final write completed.
+     * Note that we're relying here on the way that write locks are managed in the {@link com.apple.foundationdb.record.locking.LockRegistry}.
+     * That is to say, that we always enqueue later writes on top of older writes, so they end up executing
+     * in the order in which they are created.
+     *
+     * @param history the history of values for the record in descending version order
+     * @param completedAtStart the final update that is guaranteed to have completed after the read started
+     * @return a set of possible values the read could be
+     */
+    @Nonnull
+    private static Set<Message> possibleValuesForRecord(@Nonnull Deque<Pair<Integer, Message>> history, int completedAtStart) {
+        Set<Message> possibleValues = new HashSet<>();
+        boolean foundOldest = false;
+        for (final Pair<Integer, Message> pair : history) {
+            possibleValues.add(pair.getRight());
+            if (Objects.requireNonNull(pair.getLeft()) < completedAtStart) {
+                foundOldest = true;
+                break;
+            }
+        }
+        if (!foundOldest) {
+            possibleValues.add(null);
+        }
+        return possibleValues;
+    }
+
+    private static boolean canBeNull(@Nonnull Set<?> possibleValues) {
+        return possibleValues.contains(null);
+    }
+
+    private static boolean anyNonNull(@Nonnull Set<?> possibleValues) {
+        return possibleValues.stream().anyMatch(Objects::nonNull);
+    }
+
+    @Test
     void readPreloaded() throws Exception {
-        byte[] versionstamp;
+        byte[] commitVersionstamp;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
 
@@ -317,8 +602,8 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(rec);
 
             commit(context);
-            versionstamp = context.getVersionStamp();
-            assertNotNull(versionstamp);
+            commitVersionstamp = context.getVersionStamp();
+            assertNotNull(commitVersionstamp);
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -329,7 +614,7 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
             assertNotNull(record);
             assertSame(TestRecords1Proto.MySimpleRecord.getDescriptor(), record.getRecordType().getDescriptor());
             assertEquals(1066L, record.getRecord().getField(TestRecords1Proto.MySimpleRecord.getDescriptor().findFieldByNumber(TestRecords1Proto.MySimpleRecord.REC_NO_FIELD_NUMBER)));
-            assertEquals(FDBRecordVersion.complete(versionstamp, 0), record.getVersion());
+            assertEquals(FDBRecordVersion.complete(commitVersionstamp, 0), record.getVersion());
 
             FDBExceptions.FDBStoreException e = assertThrows(FDBExceptions.FDBStoreException.class, context::commit);
             assertNotNull(e.getCause());
