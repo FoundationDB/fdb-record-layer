@@ -47,6 +47,7 @@ import io.grpc.protobuf.StatusProto;
 import io.grpc.stub.StreamObserver;
 
 import java.sql.SQLException;
+import java.util.Objects;
 
 /**
  * Field the Relational JDBC Service.
@@ -202,7 +203,7 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
         }
         try (RelationalResultSet rs = frl.get(request.getDatabase(), request.getSchema(), request.getTableName(),
                     TypeConversion.fromProtobuf(request.getKeySet()), TypeConversion.fromProtobuf(request.getOptions()))) {
-            GetResponse getResponse = GetResponse.newBuilder().setResultSet(TypeConversion.toProtobuf(rs)).build();
+            GetResponse getResponse = GetResponse.newBuilder().setResultSet(Objects.requireNonNull(TypeConversion.toProtobuf(rs))).build();
             responseObserver.onNext(getResponse);
             responseObserver.onCompleted();
         } catch (SQLException e) {
@@ -248,7 +249,7 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
         }
         try (RelationalResultSet rs = this.frl.scan(request.getDatabase(), request.getSchema(), request.getTableName(),
                     TypeConversion.fromProtobuf(request.getKeySet()), TypeConversion.fromProtobuf(request.getOptions()))) {
-            ScanResponse scanResponse = ScanResponse.newBuilder().setResultSet(TypeConversion.toProtobuf(rs)).build();
+            ScanResponse scanResponse = ScanResponse.newBuilder().setResultSet(Objects.requireNonNull(TypeConversion.toProtobuf(rs))).build();
             responseObserver.onNext(scanResponse);
             responseObserver.onCompleted();
         } catch (SQLException e) {

@@ -22,6 +22,7 @@ plugins {
     id 'java-test-fixtures'
     id 'application'
     alias(libs.plugins.shadow)
+    alias(libs.plugins.errorprone)
 }
 
 apply from: rootProject.file('gradle/publishing.gradle')
@@ -96,6 +97,7 @@ dependencies {
     implementation project(":fdb-relational-api")
     implementation project(":fdb-relational-core")
     implementation project(":fdb-relational-grpc")
+    compileOnly(libs.jspecify)
     implementation(libs.grpc.inprocess)
     implementation(libs.grpc.netty)
     implementation(libs.grpc.protobuf)
@@ -113,6 +115,9 @@ dependencies {
     runtimeOnly(libs.log4j.slf4jBinding)
     runtimeOnly(libs.log4j.core)
 
+    errorprone(libs.errorprone.core)
+    errorprone(libs.nullaway)
+
     testFixturesImplementation(project(":fdb-java-annotations")) {
         exclude(group: "com.squareup", module: "javapoet")
     }
@@ -127,6 +132,20 @@ dependencies {
     testCompileOnly(libs.bundles.test.compileOnly)
     testImplementation(libs.grpc.testing)
     testImplementation(libs.apache.httpclient)
+}
+
+// jspecify + NullAway, scoped to this module only. See @NullMarked package-info.java files in
+// com.apple.foundationdb.relational.server / .server.jdbc.v1 (the latter is a subpackage of the
+// former so is covered by the same AnnotatedPackages prefix). Companion change to the
+// fdb-relational-grpc and fdb-relational-jdbc null-checking adoption.
+tasks.withType(JavaCompile).configureEach {
+    options.errorprone {
+        disableAllChecks = true
+        error("NullAway")
+        option("NullAway:AnnotatedPackages", "com.apple.foundationdb.relational.server")
+        option("NullAway:JSpecifyMode", "true")
+        option("NullAway:AcknowledgeRestrictiveAnnotations", "true")
+    }
 }
 
 application {

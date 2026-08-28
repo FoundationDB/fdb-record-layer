@@ -48,7 +48,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -129,6 +130,7 @@ public class RelationalServerTest {
             update(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "create database \"" + testdb + "\"");
             update(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "create schema \"" + testdb + "/test_schema\" with template test_template");
             ResultSet resultSet = execute(stub, sysDbPath, RelationalKeyspaceProvider.CATALOG, "select * from databases");
+            Assertions.assertNotNull(resultSet);
             Assertions.assertEquals(2, resultSet.getRowCount());
             Assertions.assertEquals(1, resultSet.getRow(0).getColumns().getColumnCount());
             Assertions.assertEquals(1, resultSet.getRow(1).getColumns().getColumnCount());

@@ -23,4 +23,7 @@
  * {@link com.apple.foundationdb.relational.server.RelationalServer} stands up a GRPC Server hosting GRPC Services
  * Relational JDBC Service and GRPC Health Service.
  */
+@NullMarked
 package com.apple.foundationdb.relational.server;
+
+import org.jspecify.annotations.NullMarked;

@@ -76,9 +76,10 @@ public final class ServerTestUtil {
             } catch (IOException ioe) {
                 // GRPC throws an IOE w/ a message that begins with the below when BindException.
                 // HTTPServer will throw a BindException. Handle both.
+                final String message = ioe.getMessage();
                 if (ioe instanceof BindException ||
                         (ioe.getCause() != null && ioe.getCause() instanceof  BindException) ||
-                        ioe.getMessage().contains("Failed to bind to address")) {
+                        (message != null && message.contains("Failed to bind to address"))) {
                     final int portToLog = port;
                     logger.info("BindException on port={}, trying the next port", portToLog, ioe);
                     relationalServer.close();
@@ -87,6 +88,10 @@ public final class ServerTestUtil {
                 }
                 throw ioe;
             }
+        }
+        if (relationalServer == null) {
+            throw new IOException("Could not start RelationalServer on any port in [" + preferredPort + ", "
+                    + (preferredPort + PORT_RETRY_MAX) + "]");
         }
         return relationalServer;
     }

@@ -22,9 +22,12 @@ package com.apple.foundationdb.relational.server;
 
 import com.apple.foundationdb.relational.api.RelationalConnection;
 
+import org.jspecify.annotations.Nullable;
+
 import java.sql.SQLException;
 
 public class TransactionalToken {
+    @Nullable
     private RelationalConnection transactionalConnection;
 
     TransactionalToken(final RelationalConnection transactionalConnection) {
@@ -32,6 +35,9 @@ public class TransactionalToken {
     }
 
     public RelationalConnection getConnection() {
+        if (transactionalConnection == null) {
+            throw new IllegalStateException("Cannot get connection of an expired TransactionalToken");
+        }
         return transactionalConnection;
     }
 
@@ -40,7 +46,7 @@ public class TransactionalToken {
     }
 
     public void close() throws SQLException {
-        if (!expired()) {
+        if (transactionalConnection != null) {
             transactionalConnection.close();
             transactionalConnection = null;
         }
