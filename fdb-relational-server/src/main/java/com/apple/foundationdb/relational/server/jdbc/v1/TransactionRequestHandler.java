@@ -39,6 +39,7 @@ import com.apple.foundationdb.relational.server.TransactionalToken;
 import com.google.protobuf.Any;
 import com.google.rpc.Status;
 import io.grpc.stub.StreamObserver;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,6 +58,7 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
 
     private final StreamObserver<TransactionalResponse> responseObserver;
     private final FRL frl;
+    @Nullable
     private TransactionalToken transactionalToken;
 
     public TransactionRequestHandler(final StreamObserver<TransactionalResponse> responseObserver, final FRL frl) {

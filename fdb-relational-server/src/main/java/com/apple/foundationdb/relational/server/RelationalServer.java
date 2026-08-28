@@ -48,11 +48,13 @@ import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.help.HelpFormatter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jspecify.annotations.Nullable;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.time.Instant;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -78,31 +80,35 @@ public class RelationalServer implements Closeable {
     private static final Logger logger = LogManager.getLogger(RelationalServer.class.getName());
     private static final int DEFAULT_HTTP_PORT = GrpcConstants.DEFAULT_SERVER_PORT + 1;
 
+    @Nullable
     private Server grpcServer;
     private final int grpcPort;
     private final int httpPort;
+    @Nullable
     private FRL frl;
     private final CollectorRegistry collectorRegistry;
+    @Nullable
     private final String clusterFile;
 
     // Visible for the test fixture only so it can pass a CollectorRegistry.
 
     @VisibleForTesting
-    RelationalServer(int grpcPort, int httpPort, CollectorRegistry collectorRegistry, String clusterFile) {
+    RelationalServer(int grpcPort, int httpPort, CollectorRegistry collectorRegistry, @Nullable String clusterFile) {
         this.grpcPort = grpcPort;
         this.httpPort = httpPort;
         this.collectorRegistry = collectorRegistry;
         this.clusterFile = clusterFile;
     }
 
-    public RelationalServer(int grpcPort, int httpPort, String clusterFile) {
+    public RelationalServer(int grpcPort, int httpPort, @Nullable String clusterFile) {
         this(grpcPort, httpPort, CollectorRegistry.defaultRegistry, clusterFile);
     }
 
     @Override
     public String toString() {
-        return "listening=" + this.grpcServer.getListenSockets() +
-                ", services=" + this.grpcServer.getServices().stream().map(m -> m.getServiceDescriptor().getName())
+        Server server = requireStartedGrpcServer();
+        return "listening=" + server.getListenSockets() +
+                ", services=" + server.getServices().stream().map(m -> m.getServiceDescriptor().getName())
                 .collect(Collectors.toList()) +
                 ", httpPort=" + this.httpPort;
     }
@@ -113,7 +119,17 @@ public class RelationalServer implements Closeable {
      * @return The port GRPC is listening on
      */
     public int getGrpcPort() {
-        return this.grpcServer.getPort();
+        return requireStartedGrpcServer().getPort();
+    }
+
+    /**
+     * Narrow {@link #grpcServer} to non-null.
+     * @return {@link #grpcServer}, narrowed to non-null.
+     * @throws NullPointerException if called before {@link #start()} completes; see the javadoc on
+     * {@link #getGrpcPort()} and {@link #toString()}.
+     */
+    private Server requireStartedGrpcServer() {
+        return Objects.requireNonNull(this.grpcServer, "RelationalServer has not been started");
     }
 
     /**
@@ -180,7 +196,9 @@ public class RelationalServer implements Closeable {
                 // Use stderr here since the logger may have been reset by its JVM shutdown hook.
                 System.err.println(Instant.now() + " Waiting on Server termination");
                 try {
-                    RelationalServer.this.grpcServer.shutdown();
+                    if (RelationalServer.this.grpcServer != null) {
+                        RelationalServer.this.grpcServer.shutdown();
+                    }
                     RelationalServer.this.awaitTermination();
                 } catch (InterruptedIOException e) {
                     throw new RuntimeException(e);
@@ -258,20 +276,22 @@ public class RelationalServer implements Closeable {
                 .desc("Path to the cluster file; default=null.").get();
         options.addOption(clusterFileOption);
         CommandLineParser parser = new DefaultParser();
-        CommandLine cli = null;
+        @Nullable CommandLine parsedCli = null;
         try {
-            cli = parser.parse(options, args);
+            parsedCli = parser.parse(options, args);
         } catch (ParseException pe) {
             System.err.println("Parse of command-line failed: " + pe.getMessage());
             System.exit(1);
         }
+        // System.exit() above does not return, but the compiler/NullAway can't know that.
+        final CommandLine cli = Objects.requireNonNull(parsedCli);
         if (cli.hasOption(help.getOpt())) {
             HelpFormatter formatter = HelpFormatter.builder().get();
             formatter.printHelp("relational", null, options, null, true);
             return;
         }
 
-        final String clusterFile;
+        final @Nullable String clusterFile;
         if (cli.hasOption(clusterFileOption)) {
             clusterFile = cli.getOptionValue(clusterFileOption);
         } else {
