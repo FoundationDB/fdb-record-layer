@@ -58,7 +58,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -84,9 +83,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.j
  * expression that makes sense.
  */
 public class PredicatePushDownRuleTest {
-    @Nonnull
     private static final PredicatePushDownRule rule = new PredicatePushDownRule();
-    @Nonnull
     private static final RuleTestHelper testHelper = new RuleTestHelper(rule, PlannerPhase.REWRITING);
 
     @BeforeEach
@@ -979,7 +976,7 @@ public class PredicatePushDownRuleTest {
         testHelper.assertYields(topSelect, newTopSelect);
     }
 
-    private <R extends RelationalExpression> void pushThroughSingleton(@Nonnull Function<Quantifier, R> wrap) {
+    private <R extends RelationalExpression> void pushThroughSingleton(Function<Quantifier, R> wrap) {
         // Simple case: select on top of wrapped base. Push predicate through expression
         final Quantifier base = baseT();
 

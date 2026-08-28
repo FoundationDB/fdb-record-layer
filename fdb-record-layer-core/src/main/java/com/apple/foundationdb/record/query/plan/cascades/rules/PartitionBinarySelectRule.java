@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
@@ -102,7 +101,7 @@ public class PartitionBinarySelectRule extends AbstractCascadesRule<SelectExpres
 
     @SuppressWarnings("java:S135")
     @Override
-    public void onMatch(@Nonnull final ExplorationCascadesRuleCall call) {
+    public void onMatch(final ExplorationCascadesRuleCall call) {
         final var bindings = call.getBindings();
 
         final var selectExpression = bindings.get(root);

@@ -23,8 +23,8 @@ package com.apple.foundationdb.record.query.plan.cascades.events;
 
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -51,8 +51,8 @@ public final class PlannerEventListeners {
      * @param listenerClass the class that the provided listener is an instance of.
      * @param listener the new listener instance to use
      */
-    public static <T extends EventListener, T1 extends T> void addListener(@Nonnull final Class<T> listenerClass,
-                                                                           @Nonnull final T1 listener) {
+    public static <T extends EventListener, T1 extends T> void addListener(final Class<T> listenerClass,
+                                                                           final T1 listener) {
         THREAD_LOCAL.get().put(listenerClass, listener);
     }
 
@@ -60,7 +60,7 @@ public final class PlannerEventListeners {
      * Remove the {@link EventListener} instance associated with the provided {@code listenerClass}, if it is set.
      * @param listenerClass the listener class to remove the listener instance of.
      */
-    public static void removeListener(@Nonnull final Class<? extends EventListener> listenerClass) {
+    public static void removeListener(final Class<? extends EventListener> listenerClass) {
         THREAD_LOCAL.get().remove(listenerClass);
     }
 
@@ -77,7 +77,7 @@ public final class PlannerEventListeners {
      * @return the instance that is currently set for the provided {@code listenerClass}, null otherwise.
      */
     @Nullable
-    public static <T extends EventListener> T getListener(@Nonnull final Class<T> listenerClass) {
+    public static <T extends EventListener> T getListener(final Class<T> listenerClass) {
         return listenerClass.cast(THREAD_LOCAL.get().getOrDefault(listenerClass, null));
     }
 
@@ -85,7 +85,7 @@ public final class PlannerEventListeners {
      * Runs the {@link Runnable} in case any {@link EventListener}s exist.
      * @param runnable the {@link Runnable} to run.
      */
-    public static void withListeners(@Nonnull final Runnable runnable) {
+    public static void withListeners(final Runnable runnable) {
         if (!THREAD_LOCAL.get().isEmpty()) {
             runnable.run();
         }

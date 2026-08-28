@@ -32,7 +32,6 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -43,8 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ImplementDistinctUnionRuleTest {
 
-    @Nonnull
-    private static SetMultimap<Value, Binding> bindingMap(@Nonnull final Object... valueObjectPairs) {
+    private static SetMultimap<Value, Binding> bindingMap(final Object... valueObjectPairs) {
         final var resultBindingMap = ImmutableSetMultimap.<Value, Binding>builder();
         int i;
         for (i = 0; i < valueObjectPairs.length;) {
@@ -63,7 +61,6 @@ class ImplementDistinctUnionRuleTest {
         return resultBindingMap.build();
     }
 
-    @Nonnull
     private static Comparisons.Comparison eq(int value) {
         return new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, value);
     }

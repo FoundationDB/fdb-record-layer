@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFuncti
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableFunctionPlan;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.tableFunctionExpression;
 
@@ -45,7 +44,7 @@ public class ImplementTableFunctionRule extends AbstractCascadesRule<TableFuncti
     }
 
     @Override
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final var tableFunctionExpression = call.get(root);
         call.yieldPlan(new RecordQueryTableFunctionPlan(tableFunctionExpression.getValue()));
     }

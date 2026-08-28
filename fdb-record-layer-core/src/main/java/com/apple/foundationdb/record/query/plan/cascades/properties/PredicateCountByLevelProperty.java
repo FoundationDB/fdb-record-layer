@@ -31,7 +31,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -55,7 +54,6 @@ import java.util.stream.Collectors;
  * </p>
  */
 public class PredicateCountByLevelProperty implements ExpressionProperty<PredicateCountByLevelProperty.PredicateCountByLevelInfo> {
-    @Nonnull
     private static final PredicateCountByLevelProperty PREDICATE_COUNT_BY_LEVEL = new PredicateCountByLevelProperty();
 
     private PredicateCountByLevelProperty() {
@@ -67,7 +65,6 @@ public class PredicateCountByLevelProperty implements ExpressionProperty<Predica
      *
      * @return the singleton instance of {@link PredicateCountByLevelProperty}
      */
-    @Nonnull
     public static PredicateCountByLevelProperty predicateCountByLevel() {
         return PREDICATE_COUNT_BY_LEVEL;
     }
@@ -79,7 +76,6 @@ public class PredicateCountByLevelProperty implements ExpressionProperty<Predica
      *
      * @return a {@link SimpleExpressionVisitor} that produces {@link PredicateCountByLevelInfo} results.
      */
-    @Nonnull
     @Override
     public SimpleExpressionVisitor<PredicateCountByLevelInfo> createVisitor() {
         return PredicateCountByLevelVisitor.VISITOR;
@@ -92,7 +88,6 @@ public class PredicateCountByLevelProperty implements ExpressionProperty<Predica
      * @return a {@link PredicateCountByLevelInfo} containing the predicate count at each level
      *         of the expression tree.
      */
-    @Nonnull
     public PredicateCountByLevelInfo evaluate(RelationalExpression expression) {
         return Objects.requireNonNull(expression.acceptVisitor(createVisitor()));
     }
@@ -123,7 +118,6 @@ public class PredicateCountByLevelProperty implements ExpressionProperty<Predica
          * @param heightInfos a collection of {@link PredicateCountByLevelInfo} instances.
          * @return a new instance of {@link PredicateCountByLevelInfo} with the combined count.
          */
-        @Nonnull
         public static PredicateCountByLevelInfo combine(Collection<PredicateCountByLevelInfo> heightInfos) {
             return new PredicateCountByLevelInfo(heightInfos
                     .stream()
@@ -143,7 +137,6 @@ public class PredicateCountByLevelProperty implements ExpressionProperty<Predica
          *
          * @return a {@link SortedMap} of level heights to the count of query predicates at that level.
          */
-        @Nonnull
         public SortedMap<Integer, Integer> getLevelToPredicateCount() {
             return levelToPredicateCount;
         }
@@ -195,17 +188,15 @@ public class PredicateCountByLevelProperty implements ExpressionProperty<Predica
     }
 
     private static final class PredicateCountByLevelVisitor implements SimpleExpressionVisitor<PredicateCountByLevelInfo> {
-        @Nonnull
         private static final PredicateCountByLevelVisitor VISITOR = new PredicateCountByLevelVisitor();
 
         private PredicateCountByLevelVisitor() {
             // prevent outside instantiation
         }
 
-        @Nonnull
         @Override
-        public PredicateCountByLevelInfo evaluateAtExpression(@Nonnull final RelationalExpression expression,
-                                                              @Nonnull final List<PredicateCountByLevelInfo> childResults) {
+        public PredicateCountByLevelInfo evaluateAtExpression(final RelationalExpression expression,
+                                                              final List<PredicateCountByLevelInfo> childResults) {
             final var newLevelToPredicateCountMap = ImmutableMap.<Integer, Integer>builder()
                     .putAll(PredicateCountByLevelInfo.combine(childResults).getLevelToPredicateCount());
             final var currentLevel = childResults
@@ -219,9 +210,8 @@ public class PredicateCountByLevelProperty implements ExpressionProperty<Predica
             return new PredicateCountByLevelInfo(newLevelToPredicateCountMap.put(currentLevel, currentLevelPredicates).build());
         }
 
-        @Nonnull
         @Override
-        public PredicateCountByLevelInfo evaluateAtRef(@Nonnull final Reference reference, @Nonnull final List<PredicateCountByLevelInfo> memberResults) {
+        public PredicateCountByLevelInfo evaluateAtRef(final Reference reference, final List<PredicateCountByLevelInfo> memberResults) {
             Verify.verify(memberResults.size() == 1);
             return Iterables.getOnlyElement(memberResults);
         }

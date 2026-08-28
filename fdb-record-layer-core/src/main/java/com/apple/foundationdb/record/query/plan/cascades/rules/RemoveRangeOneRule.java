@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.RangeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
@@ -44,14 +43,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class RemoveRangeOneRule extends AbstractCascadesRule<SelectExpression> implements ExplorationCascadesRule<SelectExpression> {
-    @Nonnull
     private static final BindingMatcher<TableFunctionExpression> tfExpression = tableFunctionExpression();
-    @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> middleQun = forEachQuantifierOverRef(exploratoryMember(tfExpression));
-    @Nonnull
     private static final BindingMatcher<SelectExpression> root = selectExpression(any(middleQun));
 
-    @Nonnull
     private static final RangeValue EXPECTED = (RangeValue) new RangeValue.RangeFn().encapsulate(CallSiteArguments.ofPositional(LiteralValue.ofScalar(1L)));
 
     public RemoveRangeOneRule() {
@@ -59,7 +54,7 @@ public class RemoveRangeOneRule extends AbstractCascadesRule<SelectExpression> i
     }
 
     @Override
-    public void onMatch(@Nonnull final ExplorationCascadesRuleCall call) {
+    public void onMatch(final ExplorationCascadesRuleCall call) {
         final SelectExpression select = call.get(root);
         if (select.getQuantifiers().size() == 1) {
             // There must be at least one other quantifier. Otherwise, removing this quantifier

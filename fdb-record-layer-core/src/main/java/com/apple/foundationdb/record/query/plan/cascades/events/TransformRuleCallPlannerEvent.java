@@ -28,30 +28,25 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PTransformRuleCallPlannerEvent;
 
-import javax.annotation.Nonnull;
 import java.util.Deque;
 
 /**
  * Events of this class are generated when the planner calls a transformation rule.
  */
 public class TransformRuleCallPlannerEvent extends AbstractPlannerEventWithState implements PlannerEventWithCurrentGroupReference, PlannerEventWithRule {
-    @Nonnull
     private final Reference currentGroupReference;
-    @Nonnull
     private final Object bindable;
-    @Nonnull
     private final CascadesRule<?> rule;
-    @Nonnull
     private final CascadesRuleCall ruleCall;
 
-    public TransformRuleCallPlannerEvent(@Nonnull final PlannerPhase plannerPhase,
-                                         @Nonnull final Reference rootReference,
-                                         @Nonnull final Deque<CascadesPlanner.Task> taskStack,
-                                         @Nonnull final Location location,
-                                         @Nonnull final Reference currentGroupReference,
-                                         @Nonnull final Object bindable,
-                                         @Nonnull final CascadesRule<?> rule,
-                                         @Nonnull final CascadesRuleCall ruleCall) {
+    public TransformRuleCallPlannerEvent(final PlannerPhase plannerPhase,
+                                         final Reference rootReference,
+                                         final Deque<CascadesPlanner.Task> taskStack,
+                                         final Location location,
+                                         final Reference currentGroupReference,
+                                         final Object bindable,
+                                         final CascadesRule<?> rule,
+                                         final CascadesRuleCall ruleCall) {
         super(plannerPhase, rootReference, taskStack, location);
         this.currentGroupReference = currentGroupReference;
         this.bindable = bindable;
@@ -60,40 +55,33 @@ public class TransformRuleCallPlannerEvent extends AbstractPlannerEventWithState
     }
 
     @Override
-    @Nonnull
     public String getDescription() {
         return "transform rule call";
     }
 
-    @Nonnull
     @Override
     public Shorthand getShorthand() {
         return Shorthand.RULECALL;
     }
 
     @Override
-    @Nonnull
     public Reference getCurrentReference() {
         return currentGroupReference;
     }
 
-    @Nonnull
     public Object getBindable() {
         return bindable;
     }
 
-    @Nonnull
     @Override
     public CascadesRule<?> getRule() {
         return rule;
     }
 
-    @Nonnull
     public CascadesRuleCall getRuleCall() {
         return ruleCall;
     }
 
-    @Nonnull
     @Override
     public PTransformRuleCallPlannerEvent toProto() {
         return PTransformRuleCallPlannerEvent.newBuilder()
@@ -104,7 +92,6 @@ public class TransformRuleCallPlannerEvent extends AbstractPlannerEventWithState
                 .build();
     }
 
-    @Nonnull
     @Override
     public PPlannerEvent.Builder toEventBuilder() {
         return PPlannerEvent.newBuilder()

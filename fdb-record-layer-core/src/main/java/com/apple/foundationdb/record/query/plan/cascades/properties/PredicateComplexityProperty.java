@@ -31,7 +31,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
@@ -41,66 +40,59 @@ import java.util.function.Function;
  associated with {@link RelationalExpressionWithPredicates} implementations.
  */
 public class PredicateComplexityProperty implements ExpressionProperty<Integer> {
-    @Nonnull
     private static final PredicateComplexityProperty PREDICATE_COMPLEXITY = newInstance();
 
     private final boolean isTracked;
     private final Function<? super RelationalExpression, Integer> scoringFunction;
 
-    private PredicateComplexityProperty(@Nonnull final Function<? super RelationalExpression, Integer> scoringFunction,
+    private PredicateComplexityProperty(final Function<? super RelationalExpression, Integer> scoringFunction,
                                         final boolean isTracked) {
         this.scoringFunction = scoringFunction;
         this.isTracked = isTracked;
     }
 
-    @Nonnull
     @Override
     public PredicateComplexityVisitor createVisitor() {
         return new PredicateComplexityVisitor(scoringFunction, this);
     }
 
-    public int evaluate(@Nonnull final Reference reference) {
+    public int evaluate(final Reference reference) {
         return evaluate(reference.get());
     }
 
-    public int evaluate(@Nonnull final RelationalExpression expression) {
+    public int evaluate(final RelationalExpression expression) {
         return Objects.requireNonNull(createVisitor().visit(expression));
     }
 
-    @Nonnull
     public static PredicateComplexityProperty predicateComplexity() {
         return PREDICATE_COMPLEXITY;
     }
 
     public static class PredicateComplexityVisitor implements RelationalExpressionVisitorWithDefaults<Integer> {
-        @Nonnull
         private final Function<? super RelationalExpression, Integer> filter;
-        @Nonnull
         private final PredicateComplexityProperty property;
 
-        private PredicateComplexityVisitor(@Nonnull final Function<? super RelationalExpression, Integer> filter,
-                                           @Nonnull final PredicateComplexityProperty property) {
+        private PredicateComplexityVisitor(final Function<? super RelationalExpression, Integer> filter,
+                                           final PredicateComplexityProperty property) {
             this.filter = filter;
             this.property = property;
         }
 
-        @Nonnull
         @Override
-        public Integer visitDefault(@Nonnull final RelationalExpression expression) {
+        public Integer visitDefault(final RelationalExpression expression) {
             final var nodeMax = filter.apply(expression);
             final var nodeChildrenMax = fromChildren(expression).stream().mapToInt(Integer::intValue).max().orElse(0);
             return Math.max(nodeMax, nodeChildrenMax);
         }
 
-        @Nonnull
-        private List<Integer> fromChildren(@Nonnull final RelationalExpression expression) {
+        private List<Integer> fromChildren(final RelationalExpression expression) {
             return expression.getQuantifiers()
                     .stream()
                     .map(quantifier -> forReference(quantifier.getRangesOver()))
                     .collect(ImmutableList.toImmutableList());
         }
 
-        private int forReference(@Nonnull final Reference reference) {
+        private int forReference(final Reference reference) {
             final var finalExpressions = reference.getFinalExpressions();
             Verify.verify(finalExpressions.size() == 1);
             if (property.isTracked) {
@@ -112,7 +104,6 @@ public class PredicateComplexityProperty implements ExpressionProperty<Integer> 
         }
     }
 
-    @Nonnull
     private static PredicateComplexityProperty newInstance() {
         return new PredicateComplexityProperty(
                 expr -> expr instanceof RelationalExpressionWithPredicates

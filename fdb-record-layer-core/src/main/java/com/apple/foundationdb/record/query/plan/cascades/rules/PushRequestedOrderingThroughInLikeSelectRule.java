@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Coll
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -63,7 +62,7 @@ public class PushRequestedOrderingThroughInLikeSelectRule extends AbstractCascad
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(final CascadesRuleCall call) {
         final var requestedOrderingsOptional = call.getPlannerConstraintMaybe(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingsOptional.isEmpty()) {
             return;
@@ -106,10 +105,9 @@ public class PushRequestedOrderingThroughInLikeSelectRule extends AbstractCascad
                 requestedOrderings);
     }
 
-    @Nonnull
-    public static Optional<Quantifier.ForEach> findInnerQuantifier(@Nonnull final SelectExpression selectExpression,
-                                                                   @Nonnull final Collection<? extends Quantifier> explodeQuantifiers,
-                                                                   @Nonnull final Set<CorrelationIdentifier> explodeAliases) {
+    public static Optional<Quantifier.ForEach> findInnerQuantifier(final SelectExpression selectExpression,
+                                                                   final Collection<? extends Quantifier> explodeQuantifiers,
+                                                                   final Set<CorrelationIdentifier> explodeAliases) {
         final List<? extends Quantifier> quantifiers = selectExpression.getQuantifiers();
 
         //

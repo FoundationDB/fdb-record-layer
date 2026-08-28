@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -51,53 +50,46 @@ public class ExpressionDepthProperty implements ExpressionProperty<Integer> {
     private static final ExpressionDepthProperty FETCH_DEPTH = new ExpressionDepthProperty(
             ImmutableSet.of(RecordQueryFetchFromPartialRecordPlan.class, RecordQueryPlanWithIndex.class));
 
-    @Nonnull
     private final Set<Class<? extends RelationalExpression>> types;
 
-    private ExpressionDepthProperty(@Nonnull Set<Class<? extends RelationalExpression>> types) {
+    private ExpressionDepthProperty(Set<Class<? extends RelationalExpression>> types) {
         this.types = ImmutableSet.copyOf(types);
     }
 
-    @Nonnull
     @Override
     public ExpressionDepthVisitor createVisitor() {
         return new ExpressionDepthVisitor(types);
     }
 
-    public int evaluate(@Nonnull final Reference reference) {
+    public int evaluate(final Reference reference) {
         return Objects.requireNonNull(reference.acceptVisitor(createVisitor()));
     }
 
-    public int evaluate(@Nonnull final RelationalExpression expression) {
+    public int evaluate(final RelationalExpression expression) {
         return Objects.requireNonNull(expression.acceptVisitor(createVisitor()));
     }
 
-    @Nonnull
     public static ExpressionDepthProperty typeFilterDepth() {
         return TYPE_FILTER_DEPTH;
     }
 
-    @Nonnull
     public static ExpressionDepthProperty distinctDepth() {
         return DISTINCT_DEPTH;
     }
 
-    @Nonnull
     public static ExpressionDepthProperty fetchDepth() {
         return FETCH_DEPTH;
     }
 
     public static class ExpressionDepthVisitor implements SimpleExpressionVisitor<Integer> {
-        @Nonnull
         private final Set<Class<? extends RelationalExpression>> types;
 
-        public ExpressionDepthVisitor(@Nonnull Set<Class<? extends RelationalExpression>> types) {
+        public ExpressionDepthVisitor(Set<Class<? extends RelationalExpression>> types) {
             this.types = ImmutableSet.copyOf(types);
         }
 
-        @Nonnull
         @Override
-        public Integer evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Integer> childResults) {
+        public Integer evaluateAtExpression(RelationalExpression expression, List<Integer> childResults) {
             for (Class<? extends RelationalExpression> type : types) {
                 if (type.isInstance(expression)) {
                     return 0;
@@ -113,9 +105,8 @@ public class ExpressionDepthProperty implements ExpressionProperty<Integer> {
             return min == Integer.MAX_VALUE ? Integer.MAX_VALUE : min + 1;
         }
 
-        @Nonnull
         @Override
-        public Integer evaluateAtRef(@Nonnull Reference ref, @Nonnull List<Integer> memberResults) {
+        public Integer evaluateAtRef(Reference ref, List<Integer> memberResults) {
             return Collections.min(memberResults);
         }
     }

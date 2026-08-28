@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Rela
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 
@@ -56,7 +55,7 @@ public class PushRequestedOrderingThroughInsertRule extends AbstractCascadesRule
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(final CascadesRuleCall call) {
         final var requestedOrderingsOptional = call.getPlannerConstraintMaybe(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingsOptional.isEmpty()) {
             return;

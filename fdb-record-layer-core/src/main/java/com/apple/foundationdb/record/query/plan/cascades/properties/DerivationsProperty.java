@@ -103,7 +103,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -126,7 +125,6 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
         // prevent outside instantiation
     }
 
-    @Nonnull
     @Override
     public RelationalExpressionVisitor<Derivations> createVisitor() {
         return ExpressionProperty.toExpressionVisitor(new DerivationsVisitor());
@@ -137,17 +135,14 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
         return getClass().getSimpleName();
     }
 
-    @Nonnull
-    public Derivations evaluate(@Nonnull final Reference reference) {
+    public Derivations evaluate(final Reference reference) {
         return evaluate(reference.getOnlyElementAsPlan());
     }
 
-    @Nonnull
-    public Derivations evaluate(@Nonnull final RecordQueryPlan recordQueryPlan) {
+    public Derivations evaluate(final RecordQueryPlan recordQueryPlan) {
         return createVisitor().visit(recordQueryPlan);
     }
 
-    @Nonnull
     public static DerivationsProperty derivations() {
         return DERIVATIONS;
     }
@@ -158,9 +153,8 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
     @API(API.Status.EXPERIMENTAL)
     @SuppressWarnings("java:S3776")
     public static class DerivationsVisitor implements RecordQueryPlanVisitor<Derivations> {
-        @Nonnull
         @Override
-        public Derivations visitUpdatePlan(@Nonnull final RecordQueryUpdatePlan updatePlan) {
+        public Derivations visitUpdatePlan(final RecordQueryUpdatePlan updatePlan) {
             final Quantifier rangesOver = Iterables.getOnlyElement(updatePlan.getQuantifiers());
             final var childDerivations = derivationsFromQuantifier(rangesOver);
             final var childResultValues = childDerivations.getResultValues();
@@ -188,9 +182,8 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             return new Derivations(resultValuesBuilder.build(), localValuesBuilder.build());
         }
 
-        @Nonnull
         @Override
-        public Derivations visitPredicatesFilterPlan(@Nonnull final RecordQueryPredicatesFilterPlan predicatesFilterPlan) {
+        public Derivations visitPredicatesFilterPlan(final RecordQueryPredicatesFilterPlan predicatesFilterPlan) {
             final var childDerivations = derivationsFromSingleChild(predicatesFilterPlan);
             final var childResultValues = childDerivations.getResultValues();
 
@@ -215,7 +208,6 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             return new Derivations(childDerivations.getResultValues(), localValuesBuilder.build());
         }
 
-        @Nonnull
         private static TreeLike.NonnullBiFunction<List<Value>, Iterable<? extends List<Value>>, List<Value>> combineValuesInChildren() {
             return (values, childrenValuesLists) -> {
                 final ImmutableList.Builder<Value> valuesBuilder = ImmutableList.builder();
@@ -225,7 +217,6 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             };
         }
 
-        @Nonnull
         private static TreeLike.NonnullFunction<QueryPredicate, List<Value>> valuesInPredicate() {
             return p -> {
                 final ImmutableList.Builder<Value> valuesBuilder = ImmutableList.builder();
@@ -243,52 +234,44 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             };
         }
 
-        @Nonnull
         @Override
-        public Derivations visitLoadByKeysPlan(@Nonnull final RecordQueryLoadByKeysPlan element) {
+        public Derivations visitLoadByKeysPlan(final RecordQueryLoadByKeysPlan element) {
             return derivationsFromSingleChild(element);
         }
 
-        @Nonnull
         @Override
-        public Derivations visitInValuesJoinPlan(@Nonnull final RecordQueryInValuesJoinPlan inValuesJoinPlan) {
+        public Derivations visitInValuesJoinPlan(final RecordQueryInValuesJoinPlan inValuesJoinPlan) {
             return visitInJoinPlan(inValuesJoinPlan);
         }
 
-        @Nonnull
         @Override
-        public Derivations visitInComparandJoinPlan(@Nonnull final RecordQueryInComparandJoinPlan inComparandJoinPlan) {
+        public Derivations visitInComparandJoinPlan(final RecordQueryInComparandJoinPlan inComparandJoinPlan) {
             return visitInJoinPlan(inComparandJoinPlan);
         }
 
-        @Nonnull
         @Override
-        public Derivations visitAggregateIndexPlan(@Nonnull final RecordQueryAggregateIndexPlan aggregateIndexPlan) {
+        public Derivations visitAggregateIndexPlan(final RecordQueryAggregateIndexPlan aggregateIndexPlan) {
             final var localValues = localValuesForComparisons(aggregateIndexPlan.getComparisons());
             return new Derivations(ImmutableList.of(), localValues);
         }
 
-        @Nonnull
         @Override
-        public Derivations visitCoveringIndexPlan(@Nonnull final RecordQueryCoveringIndexPlan coveringIndexPlan) {
+        public Derivations visitCoveringIndexPlan(final RecordQueryCoveringIndexPlan coveringIndexPlan) {
             return visit(coveringIndexPlan.getIndexPlan());
         }
 
-        @Nonnull
         @Override
-        public Derivations visitDeletePlan(@Nonnull final RecordQueryDeletePlan deletePlan) {
+        public Derivations visitDeletePlan(final RecordQueryDeletePlan deletePlan) {
             return derivationsFromSingleChild(deletePlan);
         }
 
-        @Nonnull
         @Override
-        public Derivations visitIntersectionOnKeyExpressionPlan(@Nonnull final RecordQueryIntersectionOnKeyExpressionPlan intersectionPlan) {
+        public Derivations visitIntersectionOnKeyExpressionPlan(final RecordQueryIntersectionOnKeyExpressionPlan intersectionPlan) {
             throw new RecordCoreException("unsupported plan operator");
         }
 
-        @Nonnull
         @Override
-        public Derivations visitMapPlan(@Nonnull final RecordQueryMapPlan mapPlan) {
+        public Derivations visitMapPlan(final RecordQueryMapPlan mapPlan) {
             final var rangesOver = Iterables.getOnlyElement(mapPlan.getQuantifiers());
             final var childDerivations = derivationsFromQuantifier(rangesOver);
             final var childResultValues = childDerivations.getResultValues();
@@ -305,40 +288,34 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             return new Derivations(resultValuesBuilder.build(), localValuesBuilder.build());
         }
 
-        @Nonnull
         @Override
-        public Derivations visitComparatorPlan(@Nonnull final RecordQueryComparatorPlan element) {
+        public Derivations visitComparatorPlan(final RecordQueryComparatorPlan element) {
             throw new RecordCoreException("unsupported plan operator");
         }
 
-        @Nonnull
         @Override
-        public Derivations visitUnorderedDistinctPlan(@Nonnull final RecordQueryUnorderedDistinctPlan unorderedDistinctPlan) {
+        public Derivations visitUnorderedDistinctPlan(final RecordQueryUnorderedDistinctPlan unorderedDistinctPlan) {
             return derivationsFromSingleChild(unorderedDistinctPlan);
         }
 
-        @Nonnull
         @Override
-        public Derivations visitSelectorPlan(@Nonnull final RecordQuerySelectorPlan element) {
+        public Derivations visitSelectorPlan(final RecordQuerySelectorPlan element) {
             throw new RecordCoreException("unsupported plan operator");
         }
 
-        @Nonnull
         @Override
-        public Derivations visitRangePlan(@Nonnull final RecordQueryRangePlan rangePlan) {
+        public Derivations visitRangePlan(final RecordQueryRangePlan rangePlan) {
             final var values = ImmutableList.of(rangePlan.getResultValue());
             return new Derivations(values, values);
         }
 
-        @Nonnull
         @Override
-        public Derivations visitTempTableScanPlan(@Nonnull final TempTableScanPlan tempTableScanPlan) {
+        public Derivations visitTempTableScanPlan(final TempTableScanPlan tempTableScanPlan) {
             return new Derivations(ImmutableList.of(tempTableScanPlan.getResultValue()), ImmutableList.of());
         }
 
-        @Nonnull
         @Override
-        public Derivations visitExplodePlan(@Nonnull final RecordQueryExplodePlan explodePlan) {
+        public Derivations visitExplodePlan(final RecordQueryExplodePlan explodePlan) {
             final Value collectionValue = explodePlan.getCollectionValue();
             final Type elementType = explodePlan.getElementType();
             // Use `FirstOrDefaultValue` as a representative for “some” element of the array.
@@ -356,9 +333,8 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             return new Derivations(values, values);
         }
 
-        @Nonnull
         @Override
-        public Derivations visitInsertPlan(@Nonnull final RecordQueryInsertPlan insertPlan) {
+        public Derivations visitInsertPlan(final RecordQueryInsertPlan insertPlan) {
             final Quantifier rangesOver = Iterables.getOnlyElement(insertPlan.getQuantifiers());
             final var childDerivations = derivationsFromQuantifier(rangesOver);
             final var childResultValues = childDerivations.getResultValues();
@@ -377,67 +353,58 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             return new Derivations(resultValuesBuilder.build(), localValuesBuilder.build());
         }
 
-        @Nonnull
         @Override
-        public Derivations visitTableFunctionPlan(@Nonnull final RecordQueryTableFunctionPlan tableFunctionPlan) {
+        public Derivations visitTableFunctionPlan(final RecordQueryTableFunctionPlan tableFunctionPlan) {
             final var streamingValue = tableFunctionPlan.getValue();
             final var elementType = streamingValue.getResultType();
             final var values = ImmutableList.<Value>of(new FirstOrDefaultStreamingValue(streamingValue, new ThrowsValue(elementType)));
             return new Derivations(values, values);
         }
 
-        @Nonnull
         @Override
-        public Derivations visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan tempTableInsertPlan) {
+        public Derivations visitTempTableInsertPlan(final TempTableInsertPlan tempTableInsertPlan) {
             return derivationsFromSingleChild(tempTableInsertPlan);
         }
 
-        @Nonnull
         @Override
-        public Derivations visitIntersectionOnValuesPlan(@Nonnull final RecordQueryIntersectionOnValuesPlan intersectionOnValuePlan) {
+        public Derivations visitIntersectionOnValuesPlan(final RecordQueryIntersectionOnValuesPlan intersectionOnValuePlan) {
             return visitSetPlan(intersectionOnValuePlan);
         }
 
-        @Nonnull
         @Override
-        public Derivations visitScoreForRankPlan(@Nonnull final RecordQueryScoreForRankPlan element) {
+        public Derivations visitScoreForRankPlan(final RecordQueryScoreForRankPlan element) {
             throw new RecordCoreException("unsupported plan operator");
         }
 
-        @Nonnull
         @Override
-        public Derivations visitIndexPlan(@Nonnull final RecordQueryIndexPlan indexPlan) {
+        public Derivations visitIndexPlan(final RecordQueryIndexPlan indexPlan) {
             final var matchCandidate = indexPlan.getMatchCandidate();
             return visitPlanWithComparisons(indexPlan, matchCandidate.getQueriedRecordTypeNames());
         }
 
-        @Nonnull
         @Override
-        public Derivations visitRecursiveLevelUnionPlan(@Nonnull final RecordQueryRecursiveLevelUnionPlan recursiveLevelUnionPlan) {
+        public Derivations visitRecursiveLevelUnionPlan(final RecordQueryRecursiveLevelUnionPlan recursiveLevelUnionPlan) {
             // todo this is still not entirely correct: https://github.com/FoundationDB/fdb-record-layer/issues/2974
             return Derivations.EMPTY;
         }
 
-        @Nonnull
-        private Derivations visitPlanWithComparisons(@Nonnull final RecordQueryPlanWithComparisons planWithComparisons,
-                                                     @Nonnull final Iterable<String> recordTypeNames) {
+        private Derivations visitPlanWithComparisons(final RecordQueryPlanWithComparisons planWithComparisons,
+                                                     final Iterable<String> recordTypeNames) {
             final var comparisonValues = localValuesForComparisons(planWithComparisons.getComparisons());
             final var resultValueFromPlan = planWithComparisons.getResultValue();
             final var resultValue = new QueriedValue(resultValueFromPlan.getResultType(), recordTypeNames);
             return new Derivations(ImmutableList.of(resultValue), comparisonValues);
         }
 
-        @Nonnull
-        private List<Value> localValuesForComparisons(@Nonnull final Iterable<Comparisons.Comparison> comparisons) {
+        private List<Value> localValuesForComparisons(final Iterable<Comparisons.Comparison> comparisons) {
             return Streams.stream(comparisons)
                     .map(Comparisons.Comparison::getValue)
                     .filter(Objects::nonNull)
                     .collect(ImmutableList.toImmutableList());
         }
 
-        @Nonnull
         @Override
-        public Derivations visitFirstOrDefaultPlan(@Nonnull final RecordQueryFirstOrDefaultPlan firstOrDefaultPlan) {
+        public Derivations visitFirstOrDefaultPlan(final RecordQueryFirstOrDefaultPlan firstOrDefaultPlan) {
             final Quantifier rangesOver = Iterables.getOnlyElement(firstOrDefaultPlan.getQuantifiers());
             final var childDerivations = derivationsFromSingleChild(firstOrDefaultPlan);
             final var childResultValues = childDerivations.getResultValues();
@@ -453,9 +420,8 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             return new Derivations(childDerivations.getResultValues(), localValuesBuilder.build());
         }
 
-        @Nonnull
         @Override
-        public Derivations visitDefaultOnEmptyPlan(@Nonnull final RecordQueryDefaultOnEmptyPlan defaultOnEmptyPlan) {
+        public Derivations visitDefaultOnEmptyPlan(final RecordQueryDefaultOnEmptyPlan defaultOnEmptyPlan) {
             final Quantifier rangesOver = Iterables.getOnlyElement(defaultOnEmptyPlan.getQuantifiers());
             final var childDerivations = derivationsFromSingleChild(defaultOnEmptyPlan);
             final var childResultValues = childDerivations.getResultValues();
@@ -471,9 +437,8 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             return new Derivations(childDerivations.getResultValues(), localValuesBuilder.build());
         }
 
-        @Nonnull
         @SuppressWarnings("java:S135")
-        public Derivations visitInJoinPlan(@Nonnull final RecordQueryInJoinPlan inJoinPlan) {
+        public Derivations visitInJoinPlan(final RecordQueryInJoinPlan inJoinPlan) {
             final var outerAlias = inJoinPlan.getInAlias();
             final var innerQuantifier = inJoinPlan.getInner();
             final var innerDerivations = derivationsFromQuantifier(innerQuantifier);
@@ -511,39 +476,33 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             return new Derivations(innerDecorrelatedResultValuesBuilder.build(), innerDecorrelatedLocalValuesBuilder.build());
         }
 
-        @Nonnull
         @Override
-        public Derivations visitFilterPlan(@Nonnull final RecordQueryFilterPlan filterPlan) {
+        public Derivations visitFilterPlan(final RecordQueryFilterPlan filterPlan) {
             throw new RecordCoreException("unsupported plan operator");
         }
 
-        @Nonnull
         @Override
-        public Derivations visitUnorderedPrimaryKeyDistinctPlan(@Nonnull final RecordQueryUnorderedPrimaryKeyDistinctPlan unorderedPrimaryKeyDistinctPlan) {
+        public Derivations visitUnorderedPrimaryKeyDistinctPlan(final RecordQueryUnorderedPrimaryKeyDistinctPlan unorderedPrimaryKeyDistinctPlan) {
             return derivationsFromSingleChild(unorderedPrimaryKeyDistinctPlan);
         }
 
-        @Nonnull
         @Override
-        public Derivations visitUnionOnKeyExpressionPlan(@Nonnull final RecordQueryUnionOnKeyExpressionPlan unionOnKeyExpressionPlan) {
+        public Derivations visitUnionOnKeyExpressionPlan(final RecordQueryUnionOnKeyExpressionPlan unionOnKeyExpressionPlan) {
             throw new RecordCoreException("unsupported plan operator");
         }
 
-        @Nonnull
         @Override
-        public Derivations visitTextIndexPlan(@Nonnull final RecordQueryTextIndexPlan element) {
+        public Derivations visitTextIndexPlan(final RecordQueryTextIndexPlan element) {
             throw new RecordCoreException("unsupported plan operator");
         }
 
-        @Nonnull
         @Override
-        public Derivations visitFetchFromPartialRecordPlan(@Nonnull final RecordQueryFetchFromPartialRecordPlan element) {
+        public Derivations visitFetchFromPartialRecordPlan(final RecordQueryFetchFromPartialRecordPlan element) {
             return derivationsFromSingleChild(element);
         }
 
-        @Nonnull
         @Override
-        public Derivations visitTypeFilterPlan(@Nonnull final RecordQueryTypeFilterPlan typeFilterPlan) {
+        public Derivations visitTypeFilterPlan(final RecordQueryTypeFilterPlan typeFilterPlan) {
             final var childDerivations = derivationsFromSingleChild(typeFilterPlan);
             final var childResultValues = childDerivations.getResultValues();
 
@@ -573,15 +532,13 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             return new Derivations(resultValuesBuilder.build(), childDerivations.getLocalValues());
         }
 
-        @Nonnull
         @Override
-        public Derivations visitInUnionOnKeyExpressionPlan(@Nonnull final RecordQueryInUnionOnKeyExpressionPlan inUnionOnKeyExpressionPlan) {
+        public Derivations visitInUnionOnKeyExpressionPlan(final RecordQueryInUnionOnKeyExpressionPlan inUnionOnKeyExpressionPlan) {
             throw new RecordCoreException("unsupported plan operator");
         }
 
-        @Nonnull
         @Override
-        public Derivations visitMultiIntersectionOnValuesPlan(@Nonnull final RecordQueryMultiIntersectionOnValuesPlan multiIntersectionOnValuesPlan) {
+        public Derivations visitMultiIntersectionOnValuesPlan(final RecordQueryMultiIntersectionOnValuesPlan multiIntersectionOnValuesPlan) {
             final var intersectionResultValue = multiIntersectionOnValuesPlan.getResultValue();
             final var resultValuesBuilder = ImmutableList.<Value>builder();
             final var localValuesBuilder = ImmutableList.<Value>builder();
@@ -617,15 +574,13 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
 
         }
 
-        @Nonnull
         @Override
-        public Derivations visitInParameterJoinPlan(@Nonnull final RecordQueryInParameterJoinPlan inParameterJoinPlan) {
+        public Derivations visitInParameterJoinPlan(final RecordQueryInParameterJoinPlan inParameterJoinPlan) {
             return visitInJoinPlan(inParameterJoinPlan);
         }
 
-        @Nonnull
         @Override
-        public Derivations visitFlatMapPlan(@Nonnull final RecordQueryFlatMapPlan flatMapPlan) {
+        public Derivations visitFlatMapPlan(final RecordQueryFlatMapPlan flatMapPlan) {
             final var outerQuantifier = flatMapPlan.getOuterQuantifier();
             final var innerQuantifier = flatMapPlan.getInnerQuantifier();
             final var outerDerivations = derivationsFromQuantifier(outerQuantifier);
@@ -687,9 +642,8 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
                             .build());
         }
 
-        @Nonnull
         @Override
-        public Derivations visitStreamingAggregationPlan(@Nonnull final RecordQueryStreamingAggregationPlan streamingAggregationPlan) {
+        public Derivations visitStreamingAggregationPlan(final RecordQueryStreamingAggregationPlan streamingAggregationPlan) {
             //
             // get the result value and translate the groupings and aggregations into it
             //
@@ -727,14 +681,12 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
                             .build());
         }
 
-        @Nonnull
         @Override
-        public Derivations visitUnionOnValuesPlan(@Nonnull final RecordQueryUnionOnValuesPlan unionOnValuesPlan) {
+        public Derivations visitUnionOnValuesPlan(final RecordQueryUnionOnValuesPlan unionOnValuesPlan) {
             return visitSetPlan(unionOnValuesPlan);
         }
 
-        @Nonnull
-        private Derivations visitSetPlan(@Nonnull final RecordQuerySetPlan setPlan) {
+        private Derivations visitSetPlan(final RecordQuerySetPlan setPlan) {
             Verify.verify(!(setPlan instanceof RecordQueryInUnionPlan)); // dealt with by specific logic
             final var resultValuesBuilder = ImmutableList.<Value>builder();
             final var localValuesBuilder = ImmutableList.<Value>builder();
@@ -752,8 +704,8 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             return new Derivations(resultValues, localValuesBuilder.build());
         }
 
-        private static List<Value> derivationsFromComparisonKeyValues(@Nonnull final RecordQuerySetPlan setPlan,
-                                                                      @Nonnull final ImmutableList<Value> resultValues) {
+        private static List<Value> derivationsFromComparisonKeyValues(final RecordQuerySetPlan setPlan,
+                                                                      final ImmutableList<Value> resultValues) {
             final var resultBuilder = ImmutableList.<Value>builder();
             if (setPlan instanceof RecordQueryPlanWithComparisonKeyValues) {
                 for (final var comparisonKeyValue : ((RecordQueryPlanWithComparisonKeyValues)setPlan).getComparisonKeyValues()) {
@@ -768,15 +720,13 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             return resultBuilder.build();
         }
 
-        @Nonnull
         @Override
-        public Derivations visitUnorderedUnionPlan(@Nonnull final RecordQueryUnorderedUnionPlan unorderedUnionPlan) {
+        public Derivations visitUnorderedUnionPlan(final RecordQueryUnorderedUnionPlan unorderedUnionPlan) {
             return visitSetPlan(unorderedUnionPlan);
         }
 
-        @Nonnull
         @Override
-        public Derivations visitScanPlan(@Nonnull final RecordQueryScanPlan scanPlan) {
+        public Derivations visitScanPlan(final RecordQueryScanPlan scanPlan) {
             final var matchCandidate = scanPlan.getMatchCandidate();
             final Set<String> recordTypeNames = matchCandidate.hasAndOrderedByRecordTypeKey()
                                                 ? matchCandidate.getQueriedRecordTypeNames()
@@ -784,9 +734,8 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             return visitPlanWithComparisons(scanPlan, Objects.requireNonNull(recordTypeNames));
         }
 
-        @Nonnull
         @Override
-        public Derivations visitInUnionOnValuesPlan(@Nonnull final RecordQueryInUnionOnValuesPlan inUnionOnValuePlan) {
+        public Derivations visitInUnionOnValuesPlan(final RecordQueryInUnionOnValuesPlan inUnionOnValuePlan) {
             final var outerAliases = inUnionOnValuePlan.getInSources()
                     .stream()
                     .map(inUnionOnValuePlan::getInAlias)
@@ -840,39 +789,33 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             return new Derivations(innerDecorrelatedResultValues, innerDecorrelatedLocalValuesBuilder.build());
         }
 
-        @Nonnull
         @Override
-        public Derivations visitComposedBitmapIndexQueryPlan(@Nonnull final ComposedBitmapIndexQueryPlan element) {
+        public Derivations visitComposedBitmapIndexQueryPlan(final ComposedBitmapIndexQueryPlan element) {
             throw new RecordCoreException("unsupported plan operator");
         }
 
-        @Nonnull
         @Override
-        public Derivations visitDamPlan(@Nonnull final RecordQueryDamPlan damPlan) {
+        public Derivations visitDamPlan(final RecordQueryDamPlan damPlan) {
             return derivationsFromSingleChild(damPlan);
         }
 
-        @Nonnull
         @Override
-        public Derivations visitSortPlan(@Nonnull final RecordQuerySortPlan sortPlan) {
+        public Derivations visitSortPlan(final RecordQuerySortPlan sortPlan) {
             return derivationsFromSingleChild(sortPlan);
         }
 
-        @Nonnull
         @Override
-        public Derivations visitRecursiveDfsJoinPlan(@Nonnull final RecordQueryRecursiveDfsJoinPlan recursiveDfsJoinPlan) {
+        public Derivations visitRecursiveDfsJoinPlan(final RecordQueryRecursiveDfsJoinPlan recursiveDfsJoinPlan) {
             // todo: https://github.com/FoundationDB/fdb-record-layer/issues/2974
             return Derivations.EMPTY;
         }
 
-        @Nonnull
         @Override
-        public Derivations visitDefault(@Nonnull final RecordQueryPlan element) {
+        public Derivations visitDefault(final RecordQueryPlan element) {
             throw new RecordCoreException("unsupported plan operator");
         }
 
-        @Nonnull
-        private Derivations derivationsFromSingleChild(@Nonnull final RelationalExpression expression) {
+        private Derivations derivationsFromSingleChild(final RelationalExpression expression) {
             final var quantifiers = expression.getQuantifiers();
             if (quantifiers.size() == 1) {
                 return derivationsFromQuantifier(Iterables.getOnlyElement(quantifiers));
@@ -880,13 +823,11 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             throw new RecordCoreException("cannot derive derivations for more than one quantifier");
         }
 
-        @Nonnull
-        private Derivations derivationsFromQuantifier(@Nonnull final Quantifier quantifier) {
+        private Derivations derivationsFromQuantifier(final Quantifier quantifier) {
             return evaluateForReference(quantifier.getRangesOver());
         }
 
-        @Nonnull
-        private Derivations evaluateForReference(@Nonnull Reference reference) {
+        private Derivations evaluateForReference(Reference reference) {
             final RelationalExpression expression = reference.get();
             return visit((RecordQueryPlan)expression);
         }
@@ -899,9 +840,7 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
     public static class Derivations {
         private static final Derivations EMPTY = new Derivations(ImmutableList.of(), ImmutableList.of());
 
-        @Nonnull
         private final List<Value> resultValues;
-        @Nonnull
         private final List<Value> localValues;
 
         public Derivations(final List<Value> resultValues, final List<Value> localValues) {
@@ -909,17 +848,14 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             this.localValues = ImmutableList.copyOf(localValues);
         }
 
-        @Nonnull
         public List<Value> getResultValues() {
             return resultValues;
         }
 
-        @Nonnull
         public List<Value> getLocalValues() {
             return localValues;
         }
 
-        @Nonnull
         public List<Value> simplifyLocalValues() {
             final var simplifiedLocalValuesBuilder = ImmutableList.<Value>builder();
             for (final var localValue : getLocalValues()) {
@@ -930,7 +866,6 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             return simplifiedLocalValuesBuilder.build();
         }
 
-        @Nonnull
         public static Derivations empty() {
             return EMPTY;
         }

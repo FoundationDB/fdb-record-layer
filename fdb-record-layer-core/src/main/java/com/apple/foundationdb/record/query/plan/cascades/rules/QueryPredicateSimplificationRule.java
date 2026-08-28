@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.simplification.S
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
 
 import java.util.List;
 
@@ -92,9 +91,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @SuppressWarnings({"PMD.TooManyStaticImports", "PMD.CompareObjectsWithEquals"})
 public class QueryPredicateSimplificationRule extends AbstractCascadesRule<SelectExpression> implements ExplorationCascadesRule<SelectExpression> {
-    @Nonnull
     private static final CollectionMatcher<QueryPredicate> predicateMatcher = atLeastOne(anyPredicate());
-    @Nonnull
     private static final BindingMatcher<SelectExpression> rootMatcher = selectExpression(predicateMatcher, all(anyQuantifier())).where(isExploratoryExpression());
 
     public QueryPredicateSimplificationRule() {
@@ -102,7 +99,7 @@ public class QueryPredicateSimplificationRule extends AbstractCascadesRule<Selec
     }
 
     @Override
-    public void onMatch(@Nonnull final ExplorationCascadesRuleCall call) {
+    public void onMatch(final ExplorationCascadesRuleCall call) {
         final var selectExpression = call.get(rootMatcher);
         final var predicates = call.get(predicateMatcher);
         final var conjunction = AndPredicate.and(predicates);

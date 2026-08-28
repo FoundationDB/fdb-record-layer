@@ -26,44 +26,38 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PExploreGroupPlannerEvent;
 
-import javax.annotation.Nonnull;
 import java.util.Deque;
 
 /**
  * Events of this class are generated when the planner explores a group.
  */
 public class ExploreGroupPlannerEvent extends AbstractPlannerEventWithState implements PlannerEventWithCurrentGroupReference {
-    @Nonnull
     private final Reference currentGroupReference;
 
-    public ExploreGroupPlannerEvent(@Nonnull final PlannerPhase plannerPhase,
-                                    @Nonnull final Reference rootReference,
-                                    @Nonnull final Deque<CascadesPlanner.Task> taskStack,
-                                    @Nonnull final Location location,
-                                    @Nonnull final Reference currentGroupReference) {
+    public ExploreGroupPlannerEvent(final PlannerPhase plannerPhase,
+                                    final Reference rootReference,
+                                    final Deque<CascadesPlanner.Task> taskStack,
+                                    final Location location,
+                                    final Reference currentGroupReference) {
         super(plannerPhase, rootReference, taskStack, location);
         this.currentGroupReference = currentGroupReference;
     }
 
     @Override
-    @Nonnull
     public String getDescription() {
         return "explore group";
     }
 
-    @Nonnull
     @Override
     public Shorthand getShorthand() {
         return Shorthand.EXPGROUP;
     }
 
     @Override
-    @Nonnull
     public Reference getCurrentReference() {
         return currentGroupReference;
     }
 
-    @Nonnull
     @Override
     public PExploreGroupPlannerEvent toProto() {
         return PExploreGroupPlannerEvent.newBuilder()
@@ -72,7 +66,6 @@ public class ExploreGroupPlannerEvent extends AbstractPlannerEventWithState impl
                 .build();
     }
 
-    @Nonnull
     @Override
     public PPlannerEvent.Builder toEventBuilder() {
         return PPlannerEvent.newBuilder()

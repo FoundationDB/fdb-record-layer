@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
 
 /**
  * Tag interface used for overloads for matchers.
@@ -31,7 +30,6 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface ContainerMatcher<T, C extends Iterable<? extends T>> extends BindingMatcher<C> {
-    @Nonnull
     @Override
     @SuppressWarnings("unchecked")
     default Class<C> getRootClass() {

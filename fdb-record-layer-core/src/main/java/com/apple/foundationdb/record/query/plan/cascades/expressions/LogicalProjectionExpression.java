@@ -37,7 +37,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -48,18 +47,15 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public class LogicalProjectionExpression extends AbstractRelationalExpressionWithChildren implements PlannerGraphRewritable {
-    @Nonnull
     private final List<? extends Value> projectedValues;
-    @Nonnull
     private final Quantifier inner;
 
-    public LogicalProjectionExpression(@Nonnull final List<? extends Value> projectedValues,
-                                       @Nonnull final Quantifier inner) {
+    public LogicalProjectionExpression(final List<? extends Value> projectedValues,
+                                       final Quantifier inner) {
         this.projectedValues = ImmutableList.copyOf(projectedValues);
         this.inner = inner;
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
@@ -70,13 +66,11 @@ public class LogicalProjectionExpression extends AbstractRelationalExpressionWit
         return 1;
     }
 
-    @Nonnull
     @VisibleForTesting
     public Quantifier getInner() {
         return inner;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return projectedValues.stream()
@@ -84,11 +78,10 @@ public class LogicalProjectionExpression extends AbstractRelationalExpressionWit
                 .collect(ImmutableSet.toImmutableSet());
     }
 
-    @Nonnull
     @Override
-    public LogicalProjectionExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public LogicalProjectionExpression translateCorrelations(final TranslationMap translationMap,
                                                              final boolean shouldSimplifyValues,
-                                                             @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                             final List<? extends Quantifier> translatedQuantifiers) {
         final List<? extends Value> rebasedValue =
                 getProjectedValues().stream()
                         .map(projectedValue -> projectedValue.translateCorrelations(translationMap,
@@ -99,21 +92,19 @@ public class LogicalProjectionExpression extends AbstractRelationalExpressionWit
                 Iterables.getOnlyElement(translatedQuantifiers));
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return inner.getFlowedObjectValue();
     }
 
-    @Nonnull
     public List<? extends Value> getProjectedValues() {
         return projectedValues;
     }
 
     @Override
     @SuppressWarnings({"UnstableApiUsage", "PMD.CompareObjectsWithEquals"})
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -147,8 +138,7 @@ public class LogicalProjectionExpression extends AbstractRelationalExpressionWit
     }
 
     @Override
-    @Nonnull
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNodeWithInfo(
                         this,

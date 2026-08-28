@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -40,12 +39,10 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public class LogicalUnionExpression extends AbstractRelationalExpressionWithChildren implements RelationalExpressionWithChildren.ChildrenAsSet {
-    @Nonnull
     private final List<? extends Quantifier> quantifiers;
-    @Nonnull
     private final Value resultValue;
 
-    public LogicalUnionExpression(@Nonnull List<? extends Quantifier> quantifiers) {
+    public LogicalUnionExpression(List<? extends Quantifier> quantifiers) {
         this.quantifiers = quantifiers;
         this.resultValue = RecordQuerySetPlan.mergeValues(quantifiers);
     }
@@ -55,27 +52,23 @@ public class LogicalUnionExpression extends AbstractRelationalExpressionWithChil
         return quantifiers.size();
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return quantifiers;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
-    public LogicalUnionExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public LogicalUnionExpression translateCorrelations(final TranslationMap translationMap,
                                                         final boolean shouldSimplifyValues,
-                                                        @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                        final List<? extends Quantifier> translatedQuantifiers) {
         return new LogicalUnionExpression(translatedQuantifiers);
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return resultValue;
@@ -83,7 +76,7 @@ public class LogicalUnionExpression extends AbstractRelationalExpressionWithChil
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap equivalences) {
+    public boolean equalsWithoutChildren(final RelationalExpression otherExpression, final AliasMap equivalences) {
         if (this == otherExpression) {
             return true;
         }

@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 import java.util.Set;
 
@@ -66,14 +65,13 @@ public class MatchLeafRule extends AbstractCascadesRule<RelationalExpression> {
      * utilized we return {@code Optional.empty()} here.
      * @return {@code Optional.empty()}
      */
-    @Nonnull
     @Override
     public Optional<Class<?>> getRootOperator() {
         return Optional.empty();
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(final CascadesRuleCall call) {
         final PlanContext context = call.getContext();
         final RelationalExpression expression = call.get(root);
         // iterate through all candidates known to the context
@@ -110,9 +108,9 @@ public class MatchLeafRule extends AbstractCascadesRule<RelationalExpression> {
      * @return an {@link Iterable} of bound {@link MatchInfo}s where each match info represents a math under the bound
      *         mappings (between query expression and candidate expression).
      */
-    private Iterable<BoundMatch<MatchInfo>> matchWithCandidate(@Nonnull RelationalExpression expression,
-                                                               @Nonnull RelationalExpression candidateExpression,
-                                                               @Nonnull final EvaluationContext context) {
+    private Iterable<BoundMatch<MatchInfo>> matchWithCandidate(RelationalExpression expression,
+                                                               RelationalExpression candidateExpression,
+                                                               final EvaluationContext context) {
         // Enumerate all possibilities for aliases that this expression and the candidate expression are correlated to.
         final Iterable<AliasMap> boundCorrelatedIterable =
                 expression.enumerateUnboundCorrelatedTo(AliasMap.emptyMap(), candidateExpression);

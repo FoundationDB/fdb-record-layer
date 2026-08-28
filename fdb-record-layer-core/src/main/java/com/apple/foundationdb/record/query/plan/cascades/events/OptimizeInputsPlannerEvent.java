@@ -27,53 +27,45 @@ import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PPla
 import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.POptimizeInputsPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
-import javax.annotation.Nonnull;
 import java.util.Deque;
 
 /**
  * Events of this class are generated when the planner optimizes inputs.
  */
 public class OptimizeInputsPlannerEvent extends AbstractPlannerEventWithState implements PlannerEventWithCurrentGroupReference {
-    @Nonnull
     private final Reference currentGroupReference;
-    @Nonnull
     private final RelationalExpression expression;
 
-    public OptimizeInputsPlannerEvent(@Nonnull final PlannerPhase plannerPhase,
-                                      @Nonnull final Reference rootReference,
-                                      @Nonnull final Deque<CascadesPlanner.Task> taskStack,
-                                      @Nonnull final Location location,
-                                      @Nonnull final Reference currentGroupReference,
-                                      @Nonnull final RelationalExpression expression) {
+    public OptimizeInputsPlannerEvent(final PlannerPhase plannerPhase,
+                                      final Reference rootReference,
+                                      final Deque<CascadesPlanner.Task> taskStack,
+                                      final Location location,
+                                      final Reference currentGroupReference,
+                                      final RelationalExpression expression) {
         super(plannerPhase, rootReference, taskStack, location);
         this.currentGroupReference = currentGroupReference;
         this.expression = expression;
     }
 
     @Override
-    @Nonnull
     public String getDescription() {
         return "optimize inputs";
     }
 
-    @Nonnull
     @Override
     public Shorthand getShorthand() {
         return Shorthand.OPTINPUTS;
     }
 
     @Override
-    @Nonnull
     public Reference getCurrentReference() {
         return currentGroupReference;
     }
 
-    @Nonnull
     public RelationalExpression getExpression() {
         return expression;
     }
 
-    @Nonnull
     @Override
     public POptimizeInputsPlannerEvent toProto() {
         return POptimizeInputsPlannerEvent.newBuilder()
@@ -83,7 +75,6 @@ public class OptimizeInputsPlannerEvent extends AbstractPlannerEventWithState im
                 .build();
     }
 
-    @Nonnull
     @Override
     public PPlannerEvent.Builder toEventBuilder() {
         return PPlannerEvent.newBuilder()

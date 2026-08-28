@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -45,29 +44,26 @@ public class UsedTypesProperty implements ExpressionProperty<Set<Type>> {
         // prevent outside instantiation
     }
 
-    @Nonnull
     @Override
     public UsedTypesVisitor createVisitor() {
         return new UsedTypesVisitor();
     }
 
-    public Set<Type> evaluate(@Nonnull final Reference ref) {
+    public Set<Type> evaluate(final Reference ref) {
         return Objects.requireNonNull(ref.acceptVisitor(createVisitor()));
     }
 
-    public Set<Type> evaluate(@Nonnull final RelationalExpression expression) {
+    public Set<Type> evaluate(final RelationalExpression expression) {
         return Objects.requireNonNull(expression.acceptVisitor(createVisitor()));
     }
 
-    @Nonnull
     public static UsedTypesProperty usedTypes() {
         return USED_TYPES;
     }
 
     public static class UsedTypesVisitor implements SimpleExpressionVisitor<Set<Type>> {
-        @Nonnull
         @Override
-        public Set<Type> evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Set<Type>> childResults) {
+        public Set<Type> evaluateAtExpression(RelationalExpression expression, List<Set<Type>> childResults) {
             final ImmutableSet.Builder<Type> resultBuilder = ImmutableSet.builder();
             for (final Set<Type> childResult : childResults) {
                 resultBuilder.addAll(childResult);
@@ -78,14 +74,12 @@ public class UsedTypesProperty implements ExpressionProperty<Set<Type>> {
             return resultBuilder.build();
         }
 
-        @Nonnull
         @Override
-        public Set<Type> evaluateAtRef(@Nonnull Reference ref, @Nonnull List<Set<Type>> memberResults) {
+        public Set<Type> evaluateAtRef(Reference ref, List<Set<Type>> memberResults) {
             return unionTypes(memberResults);
         }
 
-        @Nonnull
-        private static Set<Type> unionTypes(@Nonnull final Collection<Set<Type>> types) {
+        private static Set<Type> unionTypes(final Collection<Set<Type>> types) {
             final ImmutableSet.Builder<Type> resultBuilder = ImmutableSet.builder();
             for (final Set<Type> childResult : types) {
                 resultBuilder.addAll(childResult);

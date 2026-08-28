@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 
-import javax.annotation.Nonnull;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -38,26 +37,19 @@ import java.util.function.Supplier;
  * {@link PlannerPhase} and {@link com.apple.foundationdb.record.query.plan.cascades.PlannerRule}.
  */
 public class PlannerEventStatsMaps {
-    @Nonnull
     private final Map<Class<? extends PlannerEvent>, ? extends PlannerEventStats> eventWithoutStateClassStatsMap;
-    @Nonnull
     private final Map<PlannerPhase, Map<Class<? extends PlannerEventWithState>, ? extends PlannerEventStats>> eventWithStateClassStatsByPlannerPhaseMap;
-    @Nonnull
     private final Map<Class<? extends CascadesRule<?>>, ? extends PlannerEventStats> plannerRuleClassStatsMap;
 
-    @Nonnull
     private final Supplier<Map<Class<? extends PlannerEvent>, PlannerEventStats>> immutableEventClassStatsMapSupplier;
-    @Nonnull
     private final Supplier<Map<Class<? extends PlannerEvent>, PlannerEventStats>> immutableEventWithoutStateClassStatsMapSupplier;
-    @Nonnull
     private final Supplier<Map<PlannerPhase, Map<Class<? extends PlannerEventWithState>, PlannerEventStats>>> immutableEventWithStateClassStatsByPlannerPhaseMapSupplier;
-    @Nonnull
     private final Supplier<Map<Class<? extends CascadesRule<?>>, PlannerEventStats>> immutablePlannerRuleClassStatsMapSupplier;
 
 
-    public <T extends PlannerEventStats> PlannerEventStatsMaps(@Nonnull final Map<Class<? extends PlannerEvent>, T> eventWithoutStateClassStatsMap,
-                                 @Nonnull final Map<PlannerPhase, Map<Class<? extends PlannerEventWithState>, T>> eventWithStateClassStatsByPlannerPhaseMap,
-                                 @Nonnull final Map<Class<? extends CascadesRule<?>>, T> plannerRuleClassStatsMap) {
+    public <T extends PlannerEventStats> PlannerEventStatsMaps(final Map<Class<? extends PlannerEvent>, T> eventWithoutStateClassStatsMap,
+                                 final Map<PlannerPhase, Map<Class<? extends PlannerEventWithState>, T>> eventWithStateClassStatsByPlannerPhaseMap,
+                                 final Map<Class<? extends CascadesRule<?>>, T> plannerRuleClassStatsMap) {
 
         this.eventWithoutStateClassStatsMap = ImmutableMap.copyOf(eventWithoutStateClassStatsMap);
         this.eventWithStateClassStatsByPlannerPhaseMap = ImmutableMap.copyOf(eventWithStateClassStatsByPlannerPhaseMap);
@@ -74,7 +66,6 @@ public class PlannerEventStatsMaps {
      * @return a {@link Map} of classes implementing the {@link PlannerEvent} interface to {@link PlannerEventStats}
      *         instances.
      */
-    @Nonnull
     public Map<Class<? extends PlannerEvent>, PlannerEventStats> getEventClassStatsMap() {
         return immutableEventClassStatsMapSupplier.get();
     }
@@ -83,7 +74,6 @@ public class PlannerEventStatsMaps {
      * Retrieves statistics about all {@link PlannerEvent}s associated with a certain planner {@link CascadesRule}.
      * @return a {@link Map} of {@link CascadesRule} classes to {@link PlannerEventStats} instances.
      */
-    @Nonnull
     public Map<Class<? extends CascadesRule<?>>, PlannerEventStats> getPlannerRuleClassStatsMap() {
         return immutablePlannerRuleClassStatsMapSupplier.get();
     }
@@ -94,7 +84,6 @@ public class PlannerEventStatsMaps {
      * @return a {@link Map} from classes implementing the {@link PlannerEvent} interface to
      *         {@link PlannerEventStats} instances.
      */
-    @Nonnull
     public Map<Class<? extends PlannerEvent>, PlannerEventStats> getEventWithoutStateClassStatsMap() {
         return immutableEventWithoutStateClassStatsMapSupplier.get();
     }
@@ -106,12 +95,10 @@ public class PlannerEventStatsMaps {
      * @return a {@link Map} of classes extending the interface {@link PlannerEventWithState} to
      *         {@link PlannerEventStats} instances.
      */
-    @Nonnull
-    public Optional<Map<Class<? extends PlannerEventWithState>, PlannerEventStats>> getEventWithStateClassStatsMapByPlannerPhase(@Nonnull PlannerPhase plannerPhase) {
+    public Optional<Map<Class<? extends PlannerEventWithState>, PlannerEventStats>> getEventWithStateClassStatsMapByPlannerPhase(PlannerPhase plannerPhase) {
         return Optional.ofNullable(immutableEventWithStateClassStatsByPlannerPhaseMapSupplier.get().get(plannerPhase));
     }
 
-    @Nonnull
     private Map<Class<? extends PlannerEvent>, PlannerEventStats> computeImmutableEventWithoutStateClassStatsMap() {
         final var eventWithoutStateClassStatsMapBuilder =
                 ImmutableMap.<Class<? extends PlannerEvent>, PlannerEventStats>builder();
@@ -123,7 +110,6 @@ public class PlannerEventStatsMaps {
         return eventWithoutStateClassStatsMapBuilder.build();
     }
 
-    @Nonnull
     private Map<Class<? extends PlannerEvent>, PlannerEventStats> computeImmutableEventClassStatsMap() {
         // Add all events not tied to a specific planner phase first
         Map<Class<? extends PlannerEvent>, PlannerEventStats> result = new LinkedHashMap<>(this.immutableEventWithoutStateClassStatsMapSupplier.get());
@@ -141,7 +127,6 @@ public class PlannerEventStatsMaps {
         return ImmutableMap.copyOf(result);
     }
 
-    @Nonnull
     private Map<PlannerPhase, Map<Class<? extends PlannerEventWithState>, PlannerEventStats>> computeImmutableEventWithStateClassStatsByPlannerPhaseMap() {
         final var eventClassStatsByPlannerPhaseMapBuilder =
                 ImmutableMap.<PlannerPhase, Map<Class<? extends PlannerEventWithState>, PlannerEventStats>>builder();
@@ -155,7 +140,6 @@ public class PlannerEventStatsMaps {
         return eventClassStatsByPlannerPhaseMapBuilder.build();
     }
 
-    @Nonnull
     private Map<Class<? extends CascadesRule<?>>, PlannerEventStats> computeImmutablePlannerRuleClassStatsMap() {
         final var plannerRuleClassStatsMapBuilder =
                 ImmutableMap.<Class<? extends CascadesRule<?>>, PlannerEventStats>builder();

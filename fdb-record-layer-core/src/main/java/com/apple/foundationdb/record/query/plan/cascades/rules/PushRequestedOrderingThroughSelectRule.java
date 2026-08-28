@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
@@ -47,11 +46,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class PushRequestedOrderingThroughSelectRule extends AbstractCascadesRule<SelectExpression> implements PreOrderRule {
-    @Nonnull
     private static final BindingMatcher<Reference> lowerRefMatcher = ReferenceMatchers.anyRef();
-    @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(lowerRefMatcher);
-    @Nonnull
     private static final BindingMatcher<SelectExpression> root =
             selectExpression(any(innerQuantifierMatcher));
 
@@ -60,7 +56,7 @@ public class PushRequestedOrderingThroughSelectRule extends AbstractCascadesRule
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(final CascadesRuleCall call) {
         final var bindings = call.getBindings();
         final var selectExpression = bindings.get(root);
         final var innerQuantifier = bindings.get(innerQuantifierMatcher);

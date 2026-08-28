@@ -40,7 +40,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -53,46 +52,39 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public class TempTableScanExpression extends AbstractRelationalExpressionWithoutChildren implements PlannerGraphRewritable {
-    @Nonnull
     private final Value tempTableReferenceValue;
-    @Nonnull
     private final QueriedValue resultValue;
 
-    private TempTableScanExpression(@Nonnull final Value tempTableReferenceValue) {
+    private TempTableScanExpression(final Value tempTableReferenceValue) {
         this.tempTableReferenceValue = tempTableReferenceValue;
         final var innerType = ((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType();
         this.resultValue = new QueriedValue(Objects.requireNonNull(innerType));
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return resultValue;
     }
 
-    @Nonnull
     public Value getTempTableReferenceValue() {
         return tempTableReferenceValue;
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of();
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return tempTableReferenceValue.getCorrelatedTo();
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public TempTableScanExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public TempTableScanExpression translateCorrelations(final TranslationMap translationMap,
                                                          final boolean shouldSimplifyValues,
-                                                         @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                         final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.isEmpty());
         if (translationMap.definesOnlyIdentities()) {
             return this;
@@ -107,7 +99,7 @@ public class TempTableScanExpression extends AbstractRelationalExpressionWithout
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(final RelationalExpression otherExpression, final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -139,9 +131,8 @@ public class TempTableScanExpression extends AbstractRelationalExpressionWithout
         return "TempTableScan";
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         Verify.verify(childGraphs.isEmpty());
 
         final PlannerGraph.DataNodeWithInfo dataNodeWithInfo = new PlannerGraph
@@ -166,10 +157,9 @@ public class TempTableScanExpression extends AbstractRelationalExpressionWithout
      * @param type The type of the temporary table records.
      * @return A new {@link TempTableScanExpression} that adds records to a constant-bound {@link TempTable}.
      */
-    @Nonnull
-    public static TempTableScanExpression ofConstant(@Nonnull final CorrelationIdentifier constantAlias,
-                                                     @Nonnull final String constantId,
-                                                     @Nonnull final Type type) {
+    public static TempTableScanExpression ofConstant(final CorrelationIdentifier constantAlias,
+                                                     final String constantId,
+                                                     final Type type) {
         return new TempTableScanExpression(ConstantObjectValue.of(constantAlias, constantId, new Type.Relation(type)));
     }
 
@@ -181,9 +171,8 @@ public class TempTableScanExpression extends AbstractRelationalExpressionWithout
      * @param type The type of the temporary table records.
      * @return A new {@link TempTableScanExpression} that adds records to a correlated {@link TempTable}.
      */
-    @Nonnull
-    public static TempTableScanExpression ofCorrelated(@Nonnull final CorrelationIdentifier correlation,
-                                                       @Nonnull final Type type) {
+    public static TempTableScanExpression ofCorrelated(final CorrelationIdentifier correlation,
+                                                       final Type type) {
         return new TempTableScanExpression(QuantifiedObjectValue.of(correlation, new Type.Relation(type)));
     }
 }

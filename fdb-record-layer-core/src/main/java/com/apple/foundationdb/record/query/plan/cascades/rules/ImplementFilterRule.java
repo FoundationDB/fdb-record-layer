@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
@@ -52,20 +51,15 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementFilterRule extends AbstractCascadesRule<LogicalFilterExpression> implements ImplementationCascadesRule<LogicalFilterExpression> {
-    @Nonnull
     private static final BindingMatcher<PlanPartition> innerPlanPartitionMatcher = anyPlanPartition();
 
-    @Nonnull
     private static final BindingMatcher<Reference> innerReferenceMatcher =
             planPartitions(any(innerPlanPartitionMatcher));
 
-    @Nonnull
     private static final BindingMatcher<QueryPredicate> predicateMatcher = anyCompensatablePredicate();
 
-    @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> quantifierMatcher = forEachQuantifierOverRef(innerReferenceMatcher);
 
-    @Nonnull
     private static final BindingMatcher<LogicalFilterExpression> root =
             logicalFilterExpression(all(predicateMatcher), only(quantifierMatcher));
 
@@ -74,7 +68,7 @@ public class ImplementFilterRule extends AbstractCascadesRule<LogicalFilterExpre
     }
 
     @Override
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final var bindings = call.getBindings();
         final var innerPlanPartition = call.get(innerPlanPartitionMatcher);
         final var innerReference = call.get(innerReferenceMatcher);

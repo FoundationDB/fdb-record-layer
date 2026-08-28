@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.DistinctReco
 import com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyProperty;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
@@ -50,16 +49,13 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementUniqueRule extends AbstractCascadesRule<LogicalUniqueExpression> implements ImplementationCascadesRule<LogicalUniqueExpression> {
 
-    @Nonnull
     private static final CollectionMatcher<PlanPartition> anyPlanPartitionMatcher = all(anyPlanPartition());
 
-    @Nonnull
     private static final BindingMatcher<Reference> innerReferenceMatcher = planPartitions(
             filterPlanPartitions(planPartition -> planPartition.getPartitionPropertiesMap().containsKey(DistinctRecordsProperty.distinctRecords())
                                    && planPartition.getPartitionPropertyValue(PrimaryKeyProperty.primaryKey()).isPresent(),
                     rollUpPartitions(anyPlanPartitionMatcher)));
 
-    @Nonnull
     private static final BindingMatcher<LogicalUniqueExpression> root = logicalUniqueExpression(only(forEachQuantifierOverRef(innerReferenceMatcher)));
 
     public ImplementUniqueRule() {
@@ -67,7 +63,7 @@ public class ImplementUniqueRule extends AbstractCascadesRule<LogicalUniqueExpre
     }
 
     @Override
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final var innerPlanPartitions = call.get(anyPlanPartitionMatcher);
         innerPlanPartitions.forEach(partition -> call.yieldPlans(partition.getPlans()));
     }

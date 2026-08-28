@@ -27,27 +27,23 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PTransformPlannerEvent;
 
-import javax.annotation.Nonnull;
 import java.util.Deque;
 
 /**
  * Events of this class are generated when the planner transforms an expression using a rule.
  */
 public class TransformPlannerEvent extends AbstractPlannerEventWithState implements PlannerEventWithCurrentGroupReference, PlannerEventWithRule {
-    @Nonnull
     private final Reference currentGroupReference;
-    @Nonnull
     private final Object bindable;
-    @Nonnull
     private final CascadesRule<?> rule;
 
-    public TransformPlannerEvent(@Nonnull final PlannerPhase plannerPhase,
-                                 @Nonnull final Reference rootReference,
-                                 @Nonnull final Deque<CascadesPlanner.Task> taskStack,
-                                 @Nonnull final Location location,
-                                 @Nonnull final Reference currentGroupReference,
-                                 @Nonnull final Object bindable,
-                                 @Nonnull final CascadesRule<?> rule) {
+    public TransformPlannerEvent(final PlannerPhase plannerPhase,
+                                 final Reference rootReference,
+                                 final Deque<CascadesPlanner.Task> taskStack,
+                                 final Location location,
+                                 final Reference currentGroupReference,
+                                 final Object bindable,
+                                 final CascadesRule<?> rule) {
         super(plannerPhase, rootReference, taskStack, location);
         this.currentGroupReference = currentGroupReference;
         this.bindable = bindable;
@@ -55,35 +51,29 @@ public class TransformPlannerEvent extends AbstractPlannerEventWithState impleme
     }
 
     @Override
-    @Nonnull
     public String getDescription() {
         return "transform";
     }
 
-    @Nonnull
     @Override
     public Shorthand getShorthand() {
         return Shorthand.TRANSFORM;
     }
 
     @Override
-    @Nonnull
     public Reference getCurrentReference() {
         return currentGroupReference;
     }
 
-    @Nonnull
     public Object getBindable() {
         return bindable;
     }
 
-    @Nonnull
     @Override
     public CascadesRule<?> getRule() {
         return rule;
     }
 
-    @Nonnull
     @Override
     public PTransformPlannerEvent toProto() {
         return PTransformPlannerEvent.newBuilder()
@@ -94,7 +84,6 @@ public class TransformPlannerEvent extends AbstractPlannerEventWithState impleme
                 .build();
     }
 
-    @Nonnull
     @Override
     public PPlannerEvent.Builder toEventBuilder() {
         return PPlannerEvent.newBuilder()

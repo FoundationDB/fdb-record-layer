@@ -39,7 +39,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -55,7 +54,6 @@ public class ComparisonsProperty implements ExpressionProperty<Set<Comparisons.C
         // prevent outside instantiation
     }
 
-    @Nonnull
     @Override
     public ComparisonsVisitor createVisitor() {
         return new ComparisonsVisitor();
@@ -66,17 +64,14 @@ public class ComparisonsProperty implements ExpressionProperty<Set<Comparisons.C
         return getClass().getSimpleName();
     }
 
-    @Nonnull
-    public Set<Comparisons.Comparison> evaluate(@Nonnull final Reference reference) {
+    public Set<Comparisons.Comparison> evaluate(final Reference reference) {
         return Objects.requireNonNull(reference.acceptVisitor(createVisitor()));
     }
 
-    @Nonnull
-    public Set<Comparisons.Comparison> evaluate(@Nonnull final RelationalExpression expression) {
+    public Set<Comparisons.Comparison> evaluate(final RelationalExpression expression) {
         return Objects.requireNonNull(expression.acceptVisitor(createVisitor()));
     }
 
-    @Nonnull
     public static ComparisonsProperty comparisons() {
         return COMPARISONS;
     }
@@ -85,10 +80,9 @@ public class ComparisonsProperty implements ExpressionProperty<Set<Comparisons.C
      * Visitor implementation.
      */
     public static class ComparisonsVisitor implements SimpleExpressionVisitor<Set<Comparisons.Comparison>> {
-        @Nonnull
         @Override
-        public Set<Comparisons.Comparison> evaluateAtExpression(@Nonnull RelationalExpression expression,
-                                                                @Nonnull final List<Set<Comparisons.Comparison>> childResults) {
+        public Set<Comparisons.Comparison> evaluateAtExpression(RelationalExpression expression,
+                                                                final List<Set<Comparisons.Comparison>> childResults) {
             final ImmutableSet.Builder<Comparisons.Comparison> resultBuilder = ImmutableSet.builder();
             for (final var childResult : childResults) {
                 if (childResult != null) {
@@ -110,20 +104,17 @@ public class ComparisonsProperty implements ExpressionProperty<Set<Comparisons.C
             return resultBuilder.build();
         }
 
-        @Nonnull
         @Override
-        public Set<Comparisons.Comparison> visitRecordQueryIntersectionOnKeyExpressionPlan(@Nonnull final RecordQueryIntersectionOnKeyExpressionPlan intersectionOnKeyExpressionPlan) {
+        public Set<Comparisons.Comparison> visitRecordQueryIntersectionOnKeyExpressionPlan(final RecordQueryIntersectionOnKeyExpressionPlan intersectionOnKeyExpressionPlan) {
             return visitRecordQueryIntersectionPlan(intersectionOnKeyExpressionPlan);
         }
 
-        @Nonnull
         @Override
-        public Set<Comparisons.Comparison> visitRecordQueryIntersectionOnValuesPlan(@Nonnull final RecordQueryIntersectionOnValuesPlan intersectionOnValuesPlan) {
+        public Set<Comparisons.Comparison> visitRecordQueryIntersectionOnValuesPlan(final RecordQueryIntersectionOnValuesPlan intersectionOnValuesPlan) {
             return visitRecordQueryIntersectionPlan(intersectionOnValuesPlan);
         }
 
-        @Nonnull
-        private Set<Comparisons.Comparison> visitRecordQueryIntersectionPlan(@Nonnull final RecordQueryIntersectionPlan intersectionPlan) {
+        private Set<Comparisons.Comparison> visitRecordQueryIntersectionPlan(final RecordQueryIntersectionPlan intersectionPlan) {
             //TODO revisit this logic if we ever implement skipping intersections
             final var comparisonsFromQuantifiers = visitQuantifiers(intersectionPlan);
             Verify.verify(!comparisonsFromQuantifiers.isEmpty());
@@ -140,18 +131,16 @@ public class ComparisonsProperty implements ExpressionProperty<Set<Comparisons.C
             return intersected;
         }
 
-        @Nonnull
         @Override
-        public Set<Comparisons.Comparison> visitRecordQueryScoreForRankPlan(@Nonnull final RecordQueryScoreForRankPlan scoreForRankPlan) {
+        public Set<Comparisons.Comparison> visitRecordQueryScoreForRankPlan(final RecordQueryScoreForRankPlan scoreForRankPlan) {
             final var ranks = scoreForRankPlan.getRanks();
             return ranks.stream()
                     .flatMap(rank -> rank.getComparisons().stream())
                     .collect(ImmutableSet.toImmutableSet());
         }
 
-        @Nonnull
         @Override
-        public Set<Comparisons.Comparison> visitRecordQueryTextIndexPlan(@Nonnull final RecordQueryTextIndexPlan textIndexPlan) {
+        public Set<Comparisons.Comparison> visitRecordQueryTextIndexPlan(final RecordQueryTextIndexPlan textIndexPlan) {
             final ImmutableSet.Builder<Comparisons.Comparison> resultBuilder = ImmutableSet.builder();
             final var scanComparisons = textIndexPlan.getTextScan().getGroupingComparisons();
             if (scanComparisons != null) {
@@ -163,9 +152,8 @@ public class ComparisonsProperty implements ExpressionProperty<Set<Comparisons.C
             return resultBuilder.build();
         }
 
-        @Nonnull
         @Override
-        public Set<Comparisons.Comparison> evaluateAtRef(@Nonnull Reference ref, @Nonnull List<Set<Comparisons.Comparison>> memberResults) {
+        public Set<Comparisons.Comparison> evaluateAtRef(Reference ref, List<Set<Comparisons.Comparison>> memberResults) {
             final var resultBuilder = ImmutableSet.<Comparisons.Comparison>builder();
             for (final var memberResult : memberResults) {
                 if (memberResult != null) {

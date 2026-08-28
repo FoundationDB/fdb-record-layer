@@ -48,7 +48,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
@@ -70,26 +69,26 @@ public class RelationalExpressionMatchers {
         return typed(RelationalExpression.class);
     }
 
-    public static <R extends RelationalExpression> TypedMatcher<R> ofType(@Nonnull final Class<R> bindableClass) {
+    public static <R extends RelationalExpression> TypedMatcher<R> ofType(final Class<R> bindableClass) {
         return typed(bindableClass);
     }
 
-    public static <R extends RelationalExpression> BindingMatcher<R> ofType(@Nonnull final Class<R> bindableClass,
-                                                                            @Nonnull final BindingMatcher<R> downstream) {
+    public static <R extends RelationalExpression> BindingMatcher<R> ofType(final Class<R> bindableClass,
+                                                                            final BindingMatcher<R> downstream) {
         return typedWithDownstream(bindableClass,
                 Extractor.identity(),
                 downstream);
     }
 
-    public static <R extends RelationalExpressionWithPredicates, C extends Collection<? extends Quantifier>> BindingMatcher<R> ofTypeWithPredicates(@Nonnull final Class<R> bindableClass,
-                                                                                                                                                    @Nonnull final BindingMatcher<C> downstream) {
+    public static <R extends RelationalExpressionWithPredicates, C extends Collection<? extends Quantifier>> BindingMatcher<R> ofTypeWithPredicates(final Class<R> bindableClass,
+                                                                                                                                                    final BindingMatcher<C> downstream) {
         return typedWithDownstream(bindableClass,
                 Extractor.of(RelationalExpressionWithPredicates::getPredicates, name -> "predicates(" + name + ")"),
                 downstream);
     }
 
-    public static <R extends RelationalExpression, C extends Collection<? extends Quantifier>> BindingMatcher<R> ofTypeOwning(@Nonnull final Class<R> bindableClass,
-                                                                                                                              @Nonnull final BindingMatcher<C> downstream) {
+    public static <R extends RelationalExpression, C extends Collection<? extends Quantifier>> BindingMatcher<R> ofTypeOwning(final Class<R> bindableClass,
+                                                                                                                              final BindingMatcher<C> downstream) {
         return typedWithDownstream(bindableClass,
                 Extractor.of(RelationalExpression::getQuantifiers, name -> "quantifiers(" + name + ")"),
                 downstream);
@@ -102,9 +101,9 @@ public class RelationalExpressionMatchers {
                         .noneMatch(quantifier -> quantifier.getRangesOver().getFinalExpressions().isEmpty()));
     }
 
-    public static <R extends RelationalExpressionWithPredicates, C1 extends Collection<? extends QueryPredicate>, C2 extends Collection<? extends Quantifier>> BindingMatcher<R> ofTypeWithPredicatesAndOwning(@Nonnull final Class<R> bindableClass,
-                                                                                                                                                                                                               @Nonnull final BindingMatcher<C1> downstreamPredicates,
-                                                                                                                                                                                                               @Nonnull final BindingMatcher<C2> downstreamQuantifiers) {
+    public static <R extends RelationalExpressionWithPredicates, C1 extends Collection<? extends QueryPredicate>, C2 extends Collection<? extends Quantifier>> BindingMatcher<R> ofTypeWithPredicatesAndOwning(final Class<R> bindableClass,
+                                                                                                                                                                                                               final BindingMatcher<C1> downstreamPredicates,
+                                                                                                                                                                                                               final BindingMatcher<C2> downstreamQuantifiers) {
         return typedWithDownstream(bindableClass,
                 Extractor.identity(),
                 AllOfMatcher.matchingAllOf(RelationalExpressionWithPredicates.class,
@@ -118,7 +117,7 @@ public class RelationalExpressionMatchers {
     }
 
     public static <Q extends Collection<? extends Quantifier>> BindingMatcher<RelationalExpression>
-            anyExploratoryExpression(@Nonnull final BindingMatcher<Q> downstreamQuantifiers) {
+            anyExploratoryExpression(final BindingMatcher<Q> downstreamQuantifiers) {
         return typedWithDownstream(RelationalExpression.class,
                 Extractor.identity(),
                 AllOfMatcher.matchingAllOf(RelationalExpression.class,
@@ -140,143 +139,116 @@ public class RelationalExpressionMatchers {
                 (expression, currentReference) -> currentReference.isFinal(expression));
     }
 
-    @Nonnull
     public static BindingMatcher<FullUnorderedScanExpression> fullUnorderedScanExpression() {
         return ofTypeOwning(FullUnorderedScanExpression.class, CollectionMatcher.empty());
     }
 
-    @Nonnull
-    public static BindingMatcher<LogicalDistinctExpression> logicalDistinctExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+    public static BindingMatcher<LogicalDistinctExpression> logicalDistinctExpression(final BindingMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(LogicalDistinctExpression.class, any(downstream));
     }
 
-    @Nonnull
-    public static BindingMatcher<LogicalDistinctExpression> logicalDistinctExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+    public static BindingMatcher<LogicalDistinctExpression> logicalDistinctExpression(final CollectionMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(LogicalDistinctExpression.class, downstream);
     }
 
-    @Nonnull
-    public static BindingMatcher<LogicalFilterExpression> logicalFilterExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+    public static BindingMatcher<LogicalFilterExpression> logicalFilterExpression(final BindingMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(LogicalFilterExpression.class, any(downstream));
     }
 
-    @Nonnull
-    public static BindingMatcher<LogicalFilterExpression> logicalFilterExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+    public static BindingMatcher<LogicalFilterExpression> logicalFilterExpression(final CollectionMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(LogicalFilterExpression.class, downstream);
     }
 
-    @Nonnull
-    public static BindingMatcher<LogicalFilterExpression> logicalFilterExpression(@Nonnull final BindingMatcher<? extends QueryPredicate> downstreamPredicates,
-                                                                                  @Nonnull final BindingMatcher<? extends Quantifier> downstreamQuantifiers) {
+    public static BindingMatcher<LogicalFilterExpression> logicalFilterExpression(final BindingMatcher<? extends QueryPredicate> downstreamPredicates,
+                                                                                  final BindingMatcher<? extends Quantifier> downstreamQuantifiers) {
         return ofTypeWithPredicatesAndOwning(LogicalFilterExpression.class, any(downstreamPredicates), any(downstreamQuantifiers));
     }
 
-    @Nonnull
-    public static BindingMatcher<LogicalFilterExpression> logicalFilterExpression(@Nonnull final CollectionMatcher<? extends QueryPredicate> downstreamPredicates,
-                                                                                  @Nonnull final CollectionMatcher<? extends Quantifier> downstreamQuantifiers) {
+    public static BindingMatcher<LogicalFilterExpression> logicalFilterExpression(final CollectionMatcher<? extends QueryPredicate> downstreamPredicates,
+                                                                                  final CollectionMatcher<? extends Quantifier> downstreamQuantifiers) {
         return ofTypeWithPredicatesAndOwning(LogicalFilterExpression.class, downstreamPredicates, downstreamQuantifiers);
     }
 
-    @Nonnull
-    public static BindingMatcher<LogicalProjectionExpression> logicalProjectionExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+    public static BindingMatcher<LogicalProjectionExpression> logicalProjectionExpression(final BindingMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(LogicalProjectionExpression.class, any(downstream));
     }
 
-    @Nonnull
-    public static BindingMatcher<LogicalProjectionExpression> logicalProjectionExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+    public static BindingMatcher<LogicalProjectionExpression> logicalProjectionExpression(final CollectionMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(LogicalProjectionExpression.class, downstream);
     }
 
-    @Nonnull
-    public static BindingMatcher<LogicalSortExpression> logicalSortExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+    public static BindingMatcher<LogicalSortExpression> logicalSortExpression(final BindingMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(LogicalSortExpression.class, any(downstream));
     }
 
-    @Nonnull
-    public static BindingMatcher<LogicalSortExpression> logicalSortExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+    public static BindingMatcher<LogicalSortExpression> logicalSortExpression(final CollectionMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(LogicalSortExpression.class, downstream);
     }
 
-    @Nonnull
-    public static BindingMatcher<LogicalTypeFilterExpression> logicalTypeFilterExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+    public static BindingMatcher<LogicalTypeFilterExpression> logicalTypeFilterExpression(final BindingMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(LogicalTypeFilterExpression.class, any(downstream));
     }
 
-    @Nonnull
-    public static BindingMatcher<LogicalTypeFilterExpression> logicalTypeFilterExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+    public static BindingMatcher<LogicalTypeFilterExpression> logicalTypeFilterExpression(final CollectionMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(LogicalTypeFilterExpression.class, downstream);
     }
 
-    @Nonnull
-    public static BindingMatcher<LogicalUnionExpression> logicalUnionExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+    public static BindingMatcher<LogicalUnionExpression> logicalUnionExpression(final BindingMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(LogicalUnionExpression.class, any(downstream));
     }
 
-    @Nonnull
-    public static BindingMatcher<LogicalUnionExpression> logicalUnionExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+    public static BindingMatcher<LogicalUnionExpression> logicalUnionExpression(final CollectionMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(LogicalUnionExpression.class, downstream);
     }
 
-    @Nonnull
-    public static BindingMatcher<LogicalUniqueExpression> logicalUniqueExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+    public static BindingMatcher<LogicalUniqueExpression> logicalUniqueExpression(final CollectionMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(LogicalUniqueExpression.class, downstream);
     }
 
-    @Nonnull
     public static BindingMatcher<SelectExpression> selectExpression() {
         return ofType(SelectExpression.class);
     }
 
-    @Nonnull
     public static BindingMatcher<RelationalExpressionWithPredicates> withPredicatesExpression() {
         return ofType(RelationalExpressionWithPredicates.class);
     }
 
-    @Nonnull
-    public static BindingMatcher<SelectExpression> selectExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+    public static BindingMatcher<SelectExpression> selectExpression(final BindingMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(SelectExpression.class, any(downstream));
     }
 
-    @Nonnull
-    public static BindingMatcher<SelectExpression> selectExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+    public static BindingMatcher<SelectExpression> selectExpression(final CollectionMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(SelectExpression.class, downstream);
     }
 
-    @Nonnull
-    public static BindingMatcher<SelectExpression> selectExpression(@Nonnull final BindingMatcher<? extends QueryPredicate> downstreamPredicates,
-                                                                    @Nonnull final BindingMatcher<? extends Quantifier> downstreamQuantifiers) {
+    public static BindingMatcher<SelectExpression> selectExpression(final BindingMatcher<? extends QueryPredicate> downstreamPredicates,
+                                                                    final BindingMatcher<? extends Quantifier> downstreamQuantifiers) {
         return ofTypeWithPredicatesAndOwning(SelectExpression.class, any(downstreamPredicates), any(downstreamQuantifiers));
     }
 
-    @Nonnull
-    public static BindingMatcher<SelectExpression> selectExpression(@Nonnull final CollectionMatcher<? extends QueryPredicate> downstreamPredicates,
-                                                                    @Nonnull final CollectionMatcher<? extends Quantifier> downstreamQuantifiers) {
+    public static BindingMatcher<SelectExpression> selectExpression(final CollectionMatcher<? extends QueryPredicate> downstreamPredicates,
+                                                                    final CollectionMatcher<? extends Quantifier> downstreamQuantifiers) {
         return ofTypeWithPredicatesAndOwning(SelectExpression.class, downstreamPredicates, downstreamQuantifiers);
     }
 
-    @Nonnull
     public static BindingMatcher<OuterJoinExpression> outerJoinExpression() {
         return ofType(OuterJoinExpression.class);
     }
 
-    @Nonnull
     public static BindingMatcher<ExplodeExpression> explodeExpression() {
         return ofTypeOwning(ExplodeExpression.class, CollectionMatcher.empty());
     }
 
-    @Nonnull
     public static BindingMatcher<TableFunctionExpression> tableFunctionExpression() {
         return ofTypeOwning(TableFunctionExpression.class, CollectionMatcher.empty());
     }
 
-    @Nonnull
-    public static BindingMatcher<GroupByExpression> groupByExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+    public static BindingMatcher<GroupByExpression> groupByExpression(final BindingMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(GroupByExpression.class, only(downstream));
     }
 
-    @Nonnull
-    public static BindingMatcher<GroupByExpression> groupByExpression(@Nonnull final BindingMatcher<? extends RecordConstructorValue> downstreamAggregation,
-                                                                      @Nonnull final CollectionMatcher<? extends Quantifier> downstreamQuantifiers) {
+    public static BindingMatcher<GroupByExpression> groupByExpression(final BindingMatcher<? extends RecordConstructorValue> downstreamAggregation,
+                                                                      final CollectionMatcher<? extends Quantifier> downstreamQuantifiers) {
         return typedWithDownstream(GroupByExpression.class,
                 Extractor.identity(),
                 AllOfMatcher.matchingAllOf(GroupByExpression.class,
@@ -289,39 +261,32 @@ public class RelationalExpressionMatchers {
                                         downstreamQuantifiers))));
     }
 
-    @Nonnull
-    public static BindingMatcher<DeleteExpression> deleteExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+    public static BindingMatcher<DeleteExpression> deleteExpression(final BindingMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(DeleteExpression.class, only(downstream));
     }
 
-    @Nonnull
-    public static BindingMatcher<InsertExpression> insertExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+    public static BindingMatcher<InsertExpression> insertExpression(final BindingMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(InsertExpression.class, only(downstream));
     }
 
-    @Nonnull
-    public static BindingMatcher<TempTableInsertExpression> tempTableInsertExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+    public static BindingMatcher<TempTableInsertExpression> tempTableInsertExpression(final BindingMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(TempTableInsertExpression.class, only(downstream));
     }
 
-    @Nonnull
-    public static BindingMatcher<UpdateExpression> updateExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+    public static BindingMatcher<UpdateExpression> updateExpression(final BindingMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(UpdateExpression.class, only(downstream));
     }
 
-    @Nonnull
     public static BindingMatcher<TempTableScanExpression> tempTableScanExpression() {
         return ofTypeOwning(TempTableScanExpression.class, CollectionMatcher.empty());
     }
 
-    @Nonnull
-    public static BindingMatcher<RecursiveUnionExpression> recursiveUnionExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+    public static BindingMatcher<RecursiveUnionExpression> recursiveUnionExpression(final CollectionMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(RecursiveUnionExpression.class, downstream);
     }
 
-    @Nonnull
-    public static BindingMatcher<RecursiveUnionExpression> recursiveUnionExpression(@Nonnull final BindingMatcher<? extends Quantifier> initialDownstream,
-                                                                                    @Nonnull final BindingMatcher<? extends Quantifier> recursiveDownstream) {
+    public static BindingMatcher<RecursiveUnionExpression> recursiveUnionExpression(final BindingMatcher<? extends Quantifier> initialDownstream,
+                                                                                    final BindingMatcher<? extends Quantifier> recursiveDownstream) {
         return typedWithDownstream(RecursiveUnionExpression.class,
                 Extractor.identity(),
                 AllOfMatcher.matchingAllOf(RecursiveUnionExpression.class,

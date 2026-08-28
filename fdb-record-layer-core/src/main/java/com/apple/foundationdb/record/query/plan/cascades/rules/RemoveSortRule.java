@@ -43,7 +43,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -61,18 +60,14 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class RemoveSortRule extends AbstractCascadesRule<LogicalSortExpression> implements ImplementationCascadesRule<LogicalSortExpression> {
-    @Nonnull
     private static final BindingMatcher<PlanPartition> innerPlanPartitionMatcher = PlanPartitionMatchers.anyPlanPartition();
 
-    @Nonnull
     private static final BindingMatcher<Reference> innerReferenceMatcher =
             planPartitions(rollUpPartitionsTo(any(innerPlanPartitionMatcher), ImmutableSet.of(OrderingProperty.ordering(),
                     DistinctRecordsProperty.distinctRecords(),
                     PrimaryKeyProperty.primaryKey())));
 
-    @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(innerReferenceMatcher);
-    @Nonnull
     private static final BindingMatcher<LogicalSortExpression> root = logicalSortExpression(exactly(innerQuantifierMatcher));
 
     public RemoveSortRule() {
@@ -80,7 +75,7 @@ public class RemoveSortRule extends AbstractCascadesRule<LogicalSortExpression> 
     }
 
     @Override
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final LogicalSortExpression sortExpression = call.get(root);
         final PlanPartition innerPlanPartition = call.get(innerPlanPartitionMatcher);
 
@@ -142,7 +137,7 @@ public class RemoveSortRule extends AbstractCascadesRule<LogicalSortExpression> 
         call.yieldPlans(resultExpressions);
     }
 
-    private static boolean strictlyOrderedIfUnique(@Nonnull RecordQueryPlan orderedPlan, final int numKeys) {
+    private static boolean strictlyOrderedIfUnique(RecordQueryPlan orderedPlan, final int numKeys) {
         if (orderedPlan instanceof RecordQueryCoveringIndexPlan) {
             orderedPlan = ((RecordQueryCoveringIndexPlan)orderedPlan).getIndexPlan();
         }

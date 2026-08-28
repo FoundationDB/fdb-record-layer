@@ -40,7 +40,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -53,21 +52,17 @@ import java.util.function.Supplier;
  */
 @API(API.Status.EXPERIMENTAL)
 public class LogicalFilterExpression extends AbstractRelationalExpressionWithChildren implements RelationalExpressionWithPredicates, InternalPlannerGraphRewritable {
-    @Nonnull
     private final List<QueryPredicate> queryPredicates;
-    @Nonnull
     private final Quantifier inner;
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<QueryPredicate> conjunctedPredicateSupplier = Suppliers.memoize(this::computeConjunctedPredicate);
 
-    public LogicalFilterExpression(@Nonnull Iterable<? extends QueryPredicate> queryPredicates,
-                                   @Nonnull Quantifier inner) {
+    public LogicalFilterExpression(Iterable<? extends QueryPredicate> queryPredicates,
+                                   Quantifier inner) {
         this.queryPredicates = ImmutableList.copyOf(queryPredicates);
         this.inner = inner;
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
@@ -78,29 +73,24 @@ public class LogicalFilterExpression extends AbstractRelationalExpressionWithChi
         return 1;
     }
 
-    @Nonnull
     @Override
     public List<? extends QueryPredicate> getPredicates() {
         return queryPredicates;
     }
 
-    @Nonnull
     @VisibleForTesting
     public Quantifier getInner() {
         return inner;
     }
 
-    @Nonnull
     public QueryPredicate getConjunctedPredicate() {
         return conjunctedPredicateSupplier.get();
     }
 
-    @Nonnull
     private QueryPredicate computeConjunctedPredicate() {
         return AndPredicate.and(getPredicates());
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return queryPredicates.stream()
@@ -108,11 +98,10 @@ public class LogicalFilterExpression extends AbstractRelationalExpressionWithChi
                 .collect(ImmutableSet.toImmutableSet());
     }
 
-    @Nonnull
     @Override
-    public LogicalFilterExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public LogicalFilterExpression translateCorrelations(final TranslationMap translationMap,
                                                          final boolean shouldSimplifyValues,
-                                                         @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                         final List<? extends Quantifier> translatedQuantifiers) {
         final List<QueryPredicate> rebasedQueryPredicates =
                 queryPredicates.stream()
                         .map(queryPredicate -> queryPredicate.translateCorrelations(translationMap,
@@ -123,7 +112,6 @@ public class LogicalFilterExpression extends AbstractRelationalExpressionWithChi
                 Iterables.getOnlyElement(translatedQuantifiers));
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return inner.getFlowedObjectValue();
@@ -131,8 +119,8 @@ public class LogicalFilterExpression extends AbstractRelationalExpressionWithChi
 
     @Override
     @SuppressWarnings({"UnstableApiUsage", "PMD.CompareObjectsWithEquals"})
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -165,9 +153,8 @@ public class LogicalFilterExpression extends AbstractRelationalExpressionWithChi
         return Objects.hash(getPredicates());
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewriteInternalPlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         final var explainFormatter =
                 WithIndentationsExplainFormatter.forDot(7);
 

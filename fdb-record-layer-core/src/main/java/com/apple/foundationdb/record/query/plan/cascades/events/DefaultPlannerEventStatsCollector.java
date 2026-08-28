@@ -23,8 +23,8 @@ package com.apple.foundationdb.record.query.plan.cascades.events;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.google.common.annotations.VisibleForTesting;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 import java.util.Optional;
 
@@ -60,7 +60,6 @@ public class DefaultPlannerEventStatsCollector implements PlannerEventStatsColle
         reset();
     }
 
-    @Nonnull
     @Override
     public Optional<PlannerEventStatsMaps> getStatsMaps() {
         if (currentPlannerEventStatsCollectorState != null) {
@@ -73,7 +72,6 @@ public class DefaultPlannerEventStatsCollector implements PlannerEventStatsColle
      * Get the current state of this collector.
      * @return an instance of {@link PlannerEventStatsCollectorState}
      */
-    @Nonnull
     @VisibleForTesting
     PlannerEventStatsCollectorState getCurrentState() {
         return Objects.requireNonNull(currentPlannerEventStatsCollectorState);

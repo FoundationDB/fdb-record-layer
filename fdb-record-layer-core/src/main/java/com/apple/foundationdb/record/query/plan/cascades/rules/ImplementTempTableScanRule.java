@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableSc
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.tempTableScanExpression;
 
@@ -36,7 +35,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 public class ImplementTempTableScanRule extends AbstractCascadesRule<TempTableScanExpression> implements ImplementationCascadesRule<TempTableScanExpression> {
 
-    @Nonnull
     private static final BindingMatcher<TempTableScanExpression> root = tempTableScanExpression();
 
     public ImplementTempTableScanRule() {
@@ -44,7 +42,7 @@ public class ImplementTempTableScanRule extends AbstractCascadesRule<TempTableSc
     }
 
     @Override
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final var tempTableScanExpression = call.get(root);
         call.yieldPlan(new TempTableScanPlan(tempTableScanExpression.getTempTableReferenceValue()));
     }

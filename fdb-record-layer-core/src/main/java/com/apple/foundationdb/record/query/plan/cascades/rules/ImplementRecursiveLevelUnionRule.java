@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUn
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveLevelUnionPlan;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
@@ -50,21 +49,16 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementRecursiveLevelUnionRule extends AbstractCascadesRule<RecursiveUnionExpression> implements ImplementationCascadesRule<RecursiveUnionExpression> {
 
-    @Nonnull
     private static final BindingMatcher<PlanPartition> initialPlanPartitionsMatcher = anyPlanPartition();
 
-    @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> initialQunMatcher =
             forEachQuantifierOverRef(planPartitions(rollUpPartitions(any(initialPlanPartitionsMatcher))));
 
-    @Nonnull
     private static final BindingMatcher<PlanPartition> recursivePlanPartitionsMatcher = anyPlanPartition();
 
-    @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> recursiveQunMatcher =
             forEachQuantifierOverRef(planPartitions(rollUpPartitions(any(recursivePlanPartitionsMatcher))));
 
-    @Nonnull
     private static final BindingMatcher<RecursiveUnionExpression> root = recursiveUnionExpression(initialQunMatcher, recursiveQunMatcher)
             .where(levelTraversalIsAllowed());
 
@@ -73,7 +67,7 @@ public class ImplementRecursiveLevelUnionRule extends AbstractCascadesRule<Recur
     }
 
     @Override
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final var bindings = call.getBindings();
         final var recursiveUnionExpression = bindings.get(root);
 

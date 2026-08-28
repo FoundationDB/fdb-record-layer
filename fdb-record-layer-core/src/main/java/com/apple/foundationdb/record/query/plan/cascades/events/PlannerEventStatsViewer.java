@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.BrowserHelper;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.collect.ImmutableMap;
 
-import javax.annotation.Nonnull;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -50,7 +49,7 @@ final class PlannerEventStatsViewer {
         // prevent outside instantiation
     }
 
-    public static String showStats(@Nonnull final PlannerEventStatsCollector plannerEventStatsCollector) {
+    public static String showStats(final PlannerEventStatsCollector plannerEventStatsCollector) {
         final var statsMaps = plannerEventStatsCollector.getStatsMaps();
 
         if (statsMaps.isEmpty()) {
@@ -106,7 +105,7 @@ final class PlannerEventStatsViewer {
                         "$PLANNER_RULE_PROFILING", plannerRuleProfilingString));
     }
 
-    private static void tableHeader(@Nonnull final StringBuilder stringBuilder, @Nonnull final String category) {
+    private static void tableHeader(final StringBuilder stringBuilder, final String category) {
         stringBuilder.append("<thead>");
         stringBuilder.append("<tr>");
         stringBuilder.append("<th scope=\"col\">").append(category).append("</th>");
@@ -120,7 +119,7 @@ final class PlannerEventStatsViewer {
         stringBuilder.append("</thead>");
     }
 
-    private static void tableBody(@Nonnull final StringBuilder stringBuilder, @Nonnull final Map<String, PlannerEventStats> statsMap) {
+    private static void tableBody(final StringBuilder stringBuilder, final Map<String, PlannerEventStats> statsMap) {
         stringBuilder.append("<tbody class=\"table-group-divider\">");
         for (final Map.Entry<String, PlannerEventStats> entry : statsMap.entrySet()) {
             final PlannerEventStats stats = entry.getValue();
@@ -148,7 +147,6 @@ final class PlannerEventStatsViewer {
         stringBuilder.append("</tbody>");
     }
 
-    @Nonnull
     private static String formatNsInMicros(final long ns) {
         final long micros = TimeUnit.NANOSECONDS.toMicros(ns);
         return String.format(Locale.ROOT, "%,d", micros);

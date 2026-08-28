@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
 
@@ -64,7 +63,7 @@ public class PushReferencedFieldsThroughSelectRule extends AbstractCascadesRule<
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(final CascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
         final SelectExpression selectExpression = bindings.get(root);
         final List<? extends QueryPredicate> predicates = bindings.getAll(predicateMatcher);
@@ -92,7 +91,7 @@ public class PushReferencedFieldsThroughSelectRule extends AbstractCascadesRule<
      * Return all {@link FieldValue}s contained in the result values of this expression.
      * @return a set of {@link FieldValue}s
      */
-    private ImmutableSet<FieldValue> getFieldValuesFromResultValues(@Nonnull final SelectExpression selectExpression) {
+    private ImmutableSet<FieldValue> getFieldValuesFromResultValues(final SelectExpression selectExpression) {
         return selectExpression.getResultValue().preOrderStream()
                 .filter(FieldValue.class::isInstance)
                 .map(value -> (FieldValue)value)

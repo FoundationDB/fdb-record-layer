@@ -33,7 +33,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -48,47 +47,40 @@ public class ExpressionCountProperty implements ExpressionProperty<Integer> {
      * Counts "select-like" relational expressions in a subtree. This is used by {@link SelectMergeRule} to estimate
      * the complexity of a child branch when choosing merge candidates.
      */
-    @Nonnull
     private static final ExpressionCountProperty SELECT_COUNT = ofTrackedTypes(SelectExpression.class, LogicalFilterExpression.class);
-    @Nonnull
     private static final ExpressionCountProperty OUTER_JOIN_COUNT = ofTrackedTypes(OuterJoinExpression.class);
-    @Nonnull
     private static final ExpressionCountProperty TABLE_FUNCTION_COUNT = ofTrackedTypes(TableFunctionExpression.class);
 
     private final boolean isTracked;
     private final Predicate<? super RelationalExpression> filter;
 
-    private ExpressionCountProperty(@Nonnull final Predicate<? super RelationalExpression> filter,
+    private ExpressionCountProperty(final Predicate<? super RelationalExpression> filter,
                                     final boolean isTracked) {
         this.filter = filter;
         this.isTracked = isTracked;
     }
 
-    @Nonnull
     @Override
     public ExpressionCountVisitor createVisitor() {
         return new ExpressionCountVisitor();
     }
 
-    public int evaluate(@Nonnull final Reference reference) {
+    public int evaluate(final Reference reference) {
         return evaluate(reference.get());
     }
 
-    public int evaluate(@Nonnull final RelationalExpression expression) {
+    public int evaluate(final RelationalExpression expression) {
         return Objects.requireNonNull(createVisitor().visit(expression));
     }
 
-    @Nonnull
     public static ExpressionCountProperty selectCount() {
         return SELECT_COUNT;
     }
 
-    @Nonnull
     public static ExpressionCountProperty outerJoinCount() {
         return OUTER_JOIN_COUNT;
     }
 
-    @Nonnull
     public static ExpressionCountProperty tableFunctionCount() {
         return TABLE_FUNCTION_COUNT;
     }
@@ -96,22 +88,20 @@ public class ExpressionCountProperty implements ExpressionProperty<Integer> {
     public class ExpressionCountVisitor implements RelationalExpressionVisitorWithDefaults<Integer> {
         // Note: This inner class is not static. It relies on state that is contained within the parent class
 
-        @Nonnull
         @Override
-        public Integer visitDefault(@Nonnull final RelationalExpression expression) {
+        public Integer visitDefault(final RelationalExpression expression) {
             return fromChildren(expression).stream().mapToInt(Integer::intValue).sum() +
                     (filter.test(expression) ? 1 : 0);
         }
 
-        @Nonnull
-        private List<Integer> fromChildren(@Nonnull final RelationalExpression expression) {
+        private List<Integer> fromChildren(final RelationalExpression expression) {
             return expression.getQuantifiers()
                     .stream()
                     .map(quantifier -> forReference(quantifier.getRangesOver()))
                     .collect(ImmutableList.toImmutableList());
         }
 
-        private int forReference(@Nonnull final Reference reference) {
+        private int forReference(final Reference reference) {
             final var finalExpressions = reference.getFinalExpressions();
             Verify.verify(finalExpressions.size() == 1);
             if (isTracked) {
@@ -123,13 +113,11 @@ public class ExpressionCountProperty implements ExpressionProperty<Integer> {
         }
     }
 
-    @Nonnull
     @SafeVarargs
     private static ExpressionCountProperty ofTrackedTypes(Class<? extends RelationalExpression>... expressionTypes) {
         return ofTypes(true, expressionTypes);
     }
 
-    @Nonnull
     @SafeVarargs
     @SuppressWarnings("varargs")
     private static ExpressionCountProperty ofTypes(final boolean isTracked,

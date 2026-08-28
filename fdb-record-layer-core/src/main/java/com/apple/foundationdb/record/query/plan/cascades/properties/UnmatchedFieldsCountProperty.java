@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithCompari
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 
@@ -63,29 +62,26 @@ public class UnmatchedFieldsCountProperty implements ExpressionProperty<Integer>
         // prevent outside instantiation
     }
 
-    @Nonnull
     @Override
     public UnmatchedFieldsCountVisitor createVisitor() {
         return new UnmatchedFieldsCountVisitor();
     }
 
-    public int evaluate(@Nonnull final Reference reference) {
+    public int evaluate(final Reference reference) {
         return Objects.requireNonNull(reference.acceptVisitor(createVisitor()));
     }
 
-    public int evaluate(@Nonnull final RelationalExpression expression) {
+    public int evaluate(final RelationalExpression expression) {
         return Objects.requireNonNull(expression.acceptVisitor(createVisitor()));
     }
 
-    @Nonnull
     public static UnmatchedFieldsCountProperty unmatchedFieldsCount() {
         return UNMATCHED_FIELDS_COUNT;
     }
 
     public static class UnmatchedFieldsCountVisitor implements SimpleExpressionVisitor<Integer> {
-        @Nonnull
         @Override
-        public Integer evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Integer> childResults) {
+        public Integer evaluateAtExpression(RelationalExpression expression, List<Integer> childResults) {
             int total = 0;
             for (Integer result : childResults) {
                 if (result != null) {
@@ -122,9 +118,8 @@ public class UnmatchedFieldsCountProperty implements ExpressionProperty<Integer>
             }
         }
 
-        @Nonnull
         @Override
-        public Integer evaluateAtRef(@Nonnull Reference ref, @Nonnull List<Integer> memberResults) {
+        public Integer evaluateAtRef(Reference ref, List<Integer> memberResults) {
             int min = Integer.MAX_VALUE;
             for (Integer memberResult : memberResults) {
                 if (memberResult != null && memberResult < min) {

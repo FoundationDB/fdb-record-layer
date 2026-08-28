@@ -54,7 +54,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -187,18 +186,14 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression> implements ImplementationCascadesRule<SelectExpression>, CascadesRule.OnPrunedInputsRule<SelectExpression> {
-    @Nonnull
     private static final BindingMatcher<RelationalExpression> childExpressionMatcher = anyExpression();
 
-    @Nonnull
     private static final BindingMatcher<ExpressionPartition<RelationalExpression>> childPartitionsMatcher =
             expressions(only(childExpressionMatcher));
 
-    @Nonnull
     private static final BindingMatcher<Reference> childReferenceMatcher =
             expressionPartitions(rollUpPartitionsTo(only(childPartitionsMatcher), SelectMergeableProperty.selectMergeable()));
 
-    @Nonnull
     private static final CollectionMatcher<Quantifier.ForEach> quantifiersMatcher =
             atLeastOne(forEachQuantifierWithoutDefaultOnEmptyOverRef(childReferenceMatcher));
 
@@ -210,7 +205,7 @@ public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression
     }
 
     @Override
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final var bindings = call.getBindings();
         final var selectExpression = bindings.get(root);
 
@@ -312,33 +307,27 @@ public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression
     }
 
     private static class PushToVisitor implements RelationalExpressionVisitorWithDefaults<Optional<? extends RelationalExpression>> {
-        @Nonnull
         private final FinalMemoizer memoizer;
-        @Nonnull
         private final Set<? extends QueryPredicate> originalPredicates;
-        @Nonnull
         private final CorrelationIdentifier pushAlias;
 
-        public PushToVisitor(@Nonnull FinalMemoizer memoizer,
-                             @Nonnull final Set<? extends QueryPredicate> originalPredicates,
-                             @Nonnull final CorrelationIdentifier pushAlias) {
+        public PushToVisitor(FinalMemoizer memoizer,
+                             final Set<? extends QueryPredicate> originalPredicates,
+                             final CorrelationIdentifier pushAlias) {
             this.memoizer = memoizer;
             this.originalPredicates = originalPredicates;
             this.pushAlias = pushAlias;
         }
 
-        @Nonnull
         private Set<? extends QueryPredicate> getOriginalPredicates() {
             return originalPredicates;
         }
 
-        @Nonnull
         private CorrelationIdentifier getPushAlias() {
             return pushAlias;
         }
 
-        @Nonnull
-        private List<QueryPredicate> updatedPredicates(@Nonnull TranslationMap translationMap, @Nonnull Collection<? extends QueryPredicate> preExistingPredicates) {
+        private List<QueryPredicate> updatedPredicates(TranslationMap translationMap, Collection<? extends QueryPredicate> preExistingPredicates) {
             var predicatesBuilder = ImmutableList.<QueryPredicate>builderWithExpectedSize(getOriginalPredicates().size() + preExistingPredicates.size())
                     .addAll(preExistingPredicates);
             for (QueryPredicate originalPredicate : getOriginalPredicates()) {
@@ -347,13 +336,11 @@ public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression
             return predicatesBuilder.build();
         }
 
-        @Nonnull
-        private List<QueryPredicate> updatedPredicates(@Nonnull TranslationMap translationMap) {
+        private List<QueryPredicate> updatedPredicates(TranslationMap translationMap) {
             return updatedPredicates(translationMap, ImmutableList.of());
         }
 
-        @Nonnull
-        public Quantifier.ForEach pushOverChild(@Nonnull final Quantifier.ForEach child) {
+        public Quantifier.ForEach pushOverChild(final Quantifier.ForEach child) {
             final var translationMap =
                     TranslationMap.rebaseWithAliasMap(AliasMap.ofAliases(getPushAlias(),
                             child.getAlias()));
@@ -362,8 +349,7 @@ public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression
             return Quantifier.forEach(memoizer.memoizeFinalExpression(newSelect));
         }
 
-        @Nonnull
-        public Optional<List<Quantifier>> pushOverChildren(@Nonnull final RelationalExpressionWithChildren expressionWithChildren) {
+        public Optional<List<Quantifier>> pushOverChildren(final RelationalExpressionWithChildren expressionWithChildren) {
             var newChildrenBuilder = ImmutableList.<Quantifier>builderWithExpectedSize(expressionWithChildren.getRelationalChildCount());
             for (Quantifier childQuantifier : expressionWithChildren.getQuantifiers()) {
                 if (!(childQuantifier instanceof Quantifier.ForEach)) {
@@ -374,8 +360,7 @@ public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression
             return Optional.of(newChildrenBuilder.build());
         }
 
-        @Nonnull
-        public Optional<Quantifier> pushOverChildSingleChild(@Nonnull final RelationalExpressionWithChildren expressionWithChildren) {
+        public Optional<Quantifier> pushOverChildSingleChild(final RelationalExpressionWithChildren expressionWithChildren) {
             var oldChildren = expressionWithChildren.getQuantifiers();
             if (oldChildren.size() != 1) {
                 return Optional.empty();
@@ -387,9 +372,8 @@ public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression
             return Optional.of(pushOverChild((Quantifier.ForEach) oldChild));
         }
 
-        @Nonnull
         @Override
-        public Optional<SelectExpression> visitLogicalFilterExpression(@Nonnull final LogicalFilterExpression logicalFilterExpression) {
+        public Optional<SelectExpression> visitLogicalFilterExpression(final LogicalFilterExpression logicalFilterExpression) {
             //
             // Replace the logical filter expression with a SelectExpression. It should combine the original
             // predicates (now applied to expression's child quantifier) with the expressions original predicates.
@@ -408,9 +392,8 @@ public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression
                             newPredicates));
         }
 
-        @Nonnull
         @Override
-        public Optional<SelectExpression> visitSelectExpression(@Nonnull final SelectExpression selectExpression) {
+        public Optional<SelectExpression> visitSelectExpression(final SelectExpression selectExpression) {
             //
             // Push down the original predicates by translating them to apply to the select expression's inner
             // predicates, and then combine them with the select's original predicates
@@ -426,17 +409,15 @@ public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression
                             newPredicates));
         }
 
-        @Nonnull
         @Override
-        public Optional<GroupByExpression> visitGroupByExpression(@Nonnull final GroupByExpression groupByExpression) {
+        public Optional<GroupByExpression> visitGroupByExpression(final GroupByExpression groupByExpression) {
             // We have to be a little careful here. In particular, we can push down any predicates on a
             // grouping column, but not any on the aggregate value. For now, just don't push anything down
             return Optional.empty();
         }
 
-        @Nonnull
         @Override
-        public Optional<LogicalUnionExpression> visitLogicalUnionExpression(@Nonnull final LogicalUnionExpression unionExpression) {
+        public Optional<LogicalUnionExpression> visitLogicalUnionExpression(final LogicalUnionExpression unionExpression) {
             //
             // Push the original predicates through the union. For each leg of the union, translate the predicates
             // to apply to that child, and then create a new SelectExpression over the original child to hold
@@ -446,9 +427,8 @@ public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression
             return pushOverChildren(unionExpression).map(LogicalUnionExpression::new);
         }
 
-        @Nonnull
         @Override
-        public Optional<LogicalSortExpression> visitLogicalSortExpression(@Nonnull final LogicalSortExpression sortExpression) {
+        public Optional<LogicalSortExpression> visitLogicalSortExpression(final LogicalSortExpression sortExpression) {
             //
             // Note: there are Values in the sort expression's requested ordering. However, they are all defined on current (or constant)
             // aliases, neither of which need translating when we push the predicates down to a new select below the sort
@@ -457,21 +437,18 @@ public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression
         }
 
 
-        @Nonnull
         @Override
-        public Optional<LogicalDistinctExpression> visitLogicalDistinctExpression(@Nonnull final LogicalDistinctExpression element) {
+        public Optional<LogicalDistinctExpression> visitLogicalDistinctExpression(final LogicalDistinctExpression element) {
             return pushOverChildSingleChild(element).map(LogicalDistinctExpression::new);
         }
 
-        @Nonnull
         @Override
-        public Optional<LogicalUniqueExpression> visitLogicalUniqueExpression(@Nonnull final LogicalUniqueExpression element) {
+        public Optional<LogicalUniqueExpression> visitLogicalUniqueExpression(final LogicalUniqueExpression element) {
             return pushOverChildSingleChild(element).map(LogicalUniqueExpression::new);
         }
 
-        @Nonnull
         @Override
-        public Optional<RelationalExpression> visitDefault(@Nonnull final RelationalExpression element) {
+        public Optional<RelationalExpression> visitDefault(final RelationalExpression element) {
             //
             // By default, we cannot push things down. Return nothing
             //

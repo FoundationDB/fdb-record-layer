@@ -35,7 +35,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
 
@@ -48,14 +47,13 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public class LogicalDistinctExpression extends AbstractRelationalExpressionWithChildren implements InternalPlannerGraphRewritable {
-    @Nonnull
     private final Quantifier inner;
 
-    public LogicalDistinctExpression(@Nonnull Reference innerRef) {
+    public LogicalDistinctExpression(Reference innerRef) {
         this(Quantifier.forEach(innerRef));
     }
 
-    public LogicalDistinctExpression(@Nonnull Quantifier inner) {
+    public LogicalDistinctExpression(Quantifier inner) {
         this.inner = inner;
     }
 
@@ -64,27 +62,23 @@ public class LogicalDistinctExpression extends AbstractRelationalExpressionWithC
         return 1;
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
-    public LogicalDistinctExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public LogicalDistinctExpression translateCorrelations(final TranslationMap translationMap,
                                                            final boolean shouldSimplifyValues,
-                                                           @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                           final List<? extends Quantifier> translatedQuantifiers) {
         return new LogicalDistinctExpression(Iterables.getOnlyElement(translatedQuantifiers));
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return inner.getFlowedObjectValue();
@@ -92,7 +86,7 @@ public class LogicalDistinctExpression extends AbstractRelationalExpressionWithC
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap equivalences) {
+    public boolean equalsWithoutChildren(final RelationalExpression otherExpression, final AliasMap equivalences) {
         if (this == otherExpression) {
             return true;
         }
@@ -115,9 +109,8 @@ public class LogicalDistinctExpression extends AbstractRelationalExpressionWithC
         return semanticHashCode();
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewriteInternalPlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNodeWithInfo(this,
                         NodeInfo.UNORDERED_DISTINCT_OPERATOR,

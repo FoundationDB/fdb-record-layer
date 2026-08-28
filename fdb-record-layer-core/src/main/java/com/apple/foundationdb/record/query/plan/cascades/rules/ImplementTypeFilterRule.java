@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
@@ -58,15 +57,12 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementTypeFilterRule extends AbstractCascadesRule<LogicalTypeFilterExpression> implements ImplementationCascadesRule<LogicalTypeFilterExpression> {
-    @Nonnull
     private static final BindingMatcher<PlanPartition> innerPlanPartitionMatcher = anyPlanPartition();
 
-    @Nonnull
     private static final BindingMatcher<Reference> innerReferenceMatcher =
             planPartitions(filterPlanPartitions(planPartition -> planPartition.getPartitionPropertyValue(StoredRecordProperty.storedRecord()),
                     any(innerPlanPartitionMatcher)));
 
-    @Nonnull
     private static final BindingMatcher<LogicalTypeFilterExpression> root =
             logicalTypeFilterExpression(exactly(forEachQuantifierOverRef(innerReferenceMatcher)));
 
@@ -75,7 +71,7 @@ public class ImplementTypeFilterRule extends AbstractCascadesRule<LogicalTypeFil
     }
 
     @Override
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final var logicalTypeFilterExpression = call.get(root);
         final var innerReference = call.get(innerReferenceMatcher);
         final var planPartition = call.get(innerPlanPartitionMatcher);

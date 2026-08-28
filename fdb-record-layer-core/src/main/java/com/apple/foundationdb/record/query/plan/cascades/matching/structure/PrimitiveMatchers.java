@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Set;
 import java.util.function.BiPredicate;
@@ -46,8 +45,7 @@ public class PrimitiveMatchers {
      * @param <T> type of the object
      * @return a new matcher
      */
-    @Nonnull
-    public static <T> BindingMatcher<T> equalsObject(@Nonnull final T object) {
+    public static <T> BindingMatcher<T> equalsObject(final T object) {
         return testObject(object, Object::equals);
     }
 
@@ -58,10 +56,8 @@ public class PrimitiveMatchers {
      * @param <T> type of the object
      * @return a new matcher
      */
-    @Nonnull
-    public static <T> BindingMatcher<T> testObject(@Nonnull final T object, @Nonnull BiPredicate<Object, T> testBiPredicate) {
+    public static <T> BindingMatcher<T> testObject(final T object, BiPredicate<Object, T> testBiPredicate) {
         return new BindingMatcher<>() {
-            @Nonnull
             @Override
             public Class<T> getRootClass() {
                 // Note: We should have the caller pass in a class object as we do for many other matchers. However,
@@ -70,18 +66,16 @@ public class PrimitiveMatchers {
                 throw new RecordCoreException("this should return T.class");
             }
 
-            @Nonnull
             @Override
-            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final T in) {
+            public Stream<PlannerBindings> bindMatchesSafely(RecordQueryPlannerConfiguration plannerConfiguration, final PlannerBindings outerBindings, final T in) {
                 // The normal contract for all binding matchers is that only bindMatches() or an override of this method
                 // should ever invoke this method. As we also override bindMatches(), this place is not reachable without
                 // breaking that mentioned contract.
                 throw new RecordCoreException("this should never be called");
             }
 
-            @Nonnull
             @Override
-            public Stream<PlannerBindings> bindMatches(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final Object in) {
+            public Stream<PlannerBindings> bindMatches(RecordQueryPlannerConfiguration plannerConfiguration, final PlannerBindings outerBindings, final Object in) {
                 return
                         Stream.of(PlannerBindings.from(this, object))
                                 .flatMap(bindings -> {
@@ -94,18 +88,16 @@ public class PrimitiveMatchers {
             }
 
             @Override
-            public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+            public String explainMatcher(final Class<?> atLeastType, final String boundId, final String indentation) {
                 return "match " + boundId + " { case test(" + object + ") => success }";
             }
         };
     }
 
-    @Nonnull
-    public static <T> CollectionMatcher<T> containsAll(@Nonnull final Set<? extends T> elements) {
+    public static <T> CollectionMatcher<T> containsAll(final Set<? extends T> elements) {
         return new CollectionMatcher<>() {
-            @Nonnull
             @Override
-            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final Collection<T> in) {
+            public Stream<PlannerBindings> bindMatchesSafely(RecordQueryPlannerConfiguration plannerConfiguration, final PlannerBindings outerBindings, final Collection<T> in) {
                 return Stream.of(PlannerBindings.from(this, in))
                         .flatMap(bindings -> {
                             if (in.containsAll(elements)) {
@@ -117,16 +109,14 @@ public class PrimitiveMatchers {
             }
 
             @Override
-            public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+            public String explainMatcher(final Class<?> atLeastType, final String boundId, final String indentation) {
                 return "match " + boundId + " { case {" + elements.stream().map(Object::toString).collect(Collectors.joining(", ")) + "} in " + boundId + " => success }";
             }
         };
     }
 
-    @Nonnull
-    public static <T> BindingMatcher<T> satisfies(@Nonnull final Predicate<T> predicate) {
+    public static <T> BindingMatcher<T> satisfies(final Predicate<T> predicate) {
         return new BindingMatcher<>() {
-            @Nonnull
             @Override
             public Class<T> getRootClass() {
                 // Note: We should have the caller pass in a class object as we do for many other matchers. However,
@@ -135,17 +125,15 @@ public class PrimitiveMatchers {
                 throw new RecordCoreException("this should return T.class");
             }
 
-            @Nonnull
             @Override
             @SuppressWarnings("unchecked")
-            public Stream<PlannerBindings> bindMatches(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final Object object) {
+            public Stream<PlannerBindings> bindMatches(RecordQueryPlannerConfiguration plannerConfiguration, final PlannerBindings outerBindings, final Object object) {
                 final T in = (T)object;
                 return bindMatchesSafely(plannerConfiguration, outerBindings, in);
             }
 
-            @Nonnull
             @Override
-            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final T in) {
+            public Stream<PlannerBindings> bindMatchesSafely(RecordQueryPlannerConfiguration plannerConfiguration, final PlannerBindings outerBindings, final T in) {
                 if (predicate.test(in)) {
                     return Stream.of(PlannerBindings.from(this, in));
                 }
@@ -153,17 +141,15 @@ public class PrimitiveMatchers {
             }
 
             @Override
-            public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+            public String explainMatcher(final Class<?> atLeastType, final String boundId, final String indentation) {
                 return "match " + boundId + " { case { predicate.test(" + boundId + ") => success }";
             }
         };
     }
 
-    @Nonnull
-    public static <T, T1> BindingMatcher<T> satisfiesWithOuterBinding(@Nonnull final BindingMatcher<T1> outerBindingMatcher,
-                                                                      @Nonnull final BiPredicate<T, T1> predicate) {
+    public static <T, T1> BindingMatcher<T> satisfiesWithOuterBinding(final BindingMatcher<T1> outerBindingMatcher,
+                                                                      final BiPredicate<T, T1> predicate) {
         return new BindingMatcher<>() {
-            @Nonnull
             @Override
             public Class<T> getRootClass() {
                 // Note: We should have the caller pass in a class object as we do for many other matchers. However,
@@ -172,21 +158,19 @@ public class PrimitiveMatchers {
                 throw new RecordCoreException("this should return T.class");
             }
 
-            @Nonnull
             @Override
             @SuppressWarnings("unchecked")
-            public Stream<PlannerBindings> bindMatches(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
-                                                       @Nonnull final PlannerBindings outerBindings,
-                                                       @Nonnull final Object object) {
+            public Stream<PlannerBindings> bindMatches(final RecordQueryPlannerConfiguration plannerConfiguration,
+                                                       final PlannerBindings outerBindings,
+                                                       final Object object) {
                 final T in = (T)object;
                 return bindMatchesSafely(plannerConfiguration, outerBindings, in);
             }
 
-            @Nonnull
             @Override
-            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
-                                                             @Nonnull final PlannerBindings outerBindings,
-                                                             @Nonnull final T in) {
+            public Stream<PlannerBindings> bindMatchesSafely(final RecordQueryPlannerConfiguration plannerConfiguration,
+                                                             final PlannerBindings outerBindings,
+                                                             final T in) {
                 final T1 outerBinding = outerBindings.get(outerBindingMatcher);
                 if (predicate.test(in, outerBinding)) {
                     return Stream.of(PlannerBindings.from(this, in));
@@ -195,13 +179,12 @@ public class PrimitiveMatchers {
             }
 
             @Override
-            public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+            public String explainMatcher(final Class<?> atLeastType, final String boundId, final String indentation) {
                 return "match " + boundId + " { case { predicate.test(" + boundId + " with outer binding) => success }";
             }
         };
     }
 
-    @Nonnull
     public static <T> BindingMatcher<T> anyObject() {
         return satisfies(t -> true);
     }

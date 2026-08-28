@@ -43,7 +43,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -62,23 +61,18 @@ public class UpdateExpression extends AbstractRelationalExpressionWithChildren i
     private static final String OLD_FIELD_NAME = "old";
     private static final String NEW_FIELD_NAME = "new";
 
-    @Nonnull
     private final Quantifier.ForEach inner;
-    @Nonnull
     private final String targetRecordType;
-    @Nonnull
     private final Type.Record targetType;
 
-    @Nonnull
     private final Value resultValue;
 
-    @Nonnull
     private final Map<FieldValue.FieldPath, Value> transformMap;
 
-    public UpdateExpression(@Nonnull final Quantifier.ForEach inner,
-                            @Nonnull final String targetRecordType,
-                            @Nonnull final Type.Record targetType,
-                            @Nonnull final Map<FieldValue.FieldPath, Value> transformMap) {
+    public UpdateExpression(final Quantifier.ForEach inner,
+                            final String targetRecordType,
+                            final Type.Record targetType,
+                            final Map<FieldValue.FieldPath, Value> transformMap) {
         this.inner = inner;
         this.targetRecordType = targetRecordType;
         this.targetType = targetType;
@@ -86,7 +80,6 @@ public class UpdateExpression extends AbstractRelationalExpressionWithChildren i
         this.transformMap = ImmutableMap.copyOf(transformMap);
     }
 
-    @Nonnull
     public Type.Record getTargetType() {
         return targetType;
     }
@@ -96,7 +89,6 @@ public class UpdateExpression extends AbstractRelationalExpressionWithChildren i
         return 1;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return transformMap.values()
@@ -105,17 +97,15 @@ public class UpdateExpression extends AbstractRelationalExpressionWithChildren i
                 .collect(ImmutableSet.toImmutableSet());
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
     }
 
-    @Nonnull
     @Override
-    public UpdateExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public UpdateExpression translateCorrelations(final TranslationMap translationMap,
                                                   final boolean shouldSimplifyValues,
-                                                  @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                  final List<? extends Quantifier> translatedQuantifiers) {
         final var translatedTransformMapBuilder = ImmutableMap.<FieldValue.FieldPath, Value>builder();
         for (final var entry : transformMap.entrySet()) {
             translatedTransformMapBuilder.put(entry.getKey(),
@@ -125,14 +115,12 @@ public class UpdateExpression extends AbstractRelationalExpressionWithChildren i
                 targetRecordType, targetType, translatedTransformMapBuilder.build());
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return resultValue;
     }
 
-    @Nonnull
-    public RecordQueryUpdatePlan toPlan(@Nonnull final Quantifier.Physical physicalInner) {
+    public RecordQueryUpdatePlan toPlan(final Quantifier.Physical physicalInner) {
         Verify.verify(inner.getAlias().equals(physicalInner.getAlias()));
         return RecordQueryUpdatePlan.updatePlan(physicalInner,
                 targetRecordType,
@@ -143,8 +131,8 @@ public class UpdateExpression extends AbstractRelationalExpressionWithChildren i
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -186,9 +174,8 @@ public class UpdateExpression extends AbstractRelationalExpressionWithChildren i
      * @return the rewritten planner graph that models the target as a separate node that is connected to the
      *         update expression node.
      */
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         Verify.verify(!childGraphs.isEmpty());
 
         final var graphForTarget =
@@ -206,15 +193,13 @@ public class UpdateExpression extends AbstractRelationalExpressionWithChildren i
                 Iterables.getOnlyElement(childGraphs), graphForTarget);
     }
 
-    @Nonnull
-    private static Type.Record computeResultType(@Nonnull final Type inType, @Nonnull final Type targetType) {
+    private static Type.Record computeResultType(final Type inType, final Type targetType) {
         return Type.Record.fromFields(false,
                 ImmutableList.of(Type.Record.Field.of(inType, Optional.of(OLD_FIELD_NAME)),
                         Type.Record.Field.of(targetType, Optional.of(NEW_FIELD_NAME))));
     }
 
-    @Nonnull
-    public static Value makeComputationValue(@Nonnull final Quantifier inner, @Nonnull final Type targetType) {
+    public static Value makeComputationValue(final Quantifier inner, final Type targetType) {
         final var oldColumn =
                 Column.of(Optional.of(OLD_FIELD_NAME), inner.getFlowedObjectValue());
         final var newColumn =
@@ -222,9 +207,9 @@ public class UpdateExpression extends AbstractRelationalExpressionWithChildren i
         return RecordConstructorValue.ofColumns(ImmutableList.of(oldColumn, newColumn));
     }
 
-    private static boolean semanticEqualsForTransformMap(@Nonnull final Map<FieldValue.FieldPath, Value> self,
-                                                         @Nonnull final Map<FieldValue.FieldPath, Value> other,
-                                                         @Nonnull final AliasMap equivalencesMap) {
+    private static boolean semanticEqualsForTransformMap(final Map<FieldValue.FieldPath, Value> self,
+                                                         final Map<FieldValue.FieldPath, Value> other,
+                                                         final AliasMap equivalencesMap) {
         if (self.size() != other.size()) {
             return false;
         }

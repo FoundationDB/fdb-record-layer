@@ -40,7 +40,6 @@ import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 
 import java.util.Collection;
 
@@ -66,49 +65,36 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementRecursiveDfsJoinRule extends AbstractCascadesRule<RecursiveUnionExpression> implements ImplementationCascadesRule<RecursiveUnionExpression> {
 
-    @Nonnull
     private static final BindingMatcher<RecordQueryPlan> initialInnerPlanMatcher = anyPlan();
 
-    @Nonnull
     private static final BindingMatcher<Reference> initialInnerPlanRefMatcher = finalMember(initialInnerPlanMatcher);
 
-    @Nonnull
     private static final BindingMatcher<TempTableInsertPlan> initialPlanMatcher = tempTableInsertPlanOverQuantifier(physicalQuantifierOverRef(initialInnerPlanRefMatcher));
 
-    @Nonnull
     private static final BindingMatcher<PlanPartition> recursiveInnerPlanPartitionMatcher = anyPlanPartition();
 
-    @Nonnull
     private static final BindingMatcher<Collection<PlanPartition>> recursiveInnerPlanPartitionsMatcher = rollUpPartitions(any(recursiveInnerPlanPartitionMatcher));
 
-    @Nonnull
     private static final BindingMatcher<Reference> recursiveInnerReferenceMatcher = planPartitions(recursiveInnerPlanPartitionsMatcher);
 
-    @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> recursiveInnerQunMatcher = forEachQuantifierOverRef(recursiveInnerReferenceMatcher);
 
-    @Nonnull
     private static final BindingMatcher<SelectExpression> recursiveSelectFromTempTableScanMatcher = selectExpression(forEachQuantifier(tempTableScanExpression())).where(hasNoPredicates());
 
-    @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> recursiveSelectFromTempTableScanQunMatcher = forEachQuantifier(recursiveSelectFromTempTableScanMatcher);
 
-    @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> recursiveTempTableScanQunMatcher = forEachQuantifier(tempTableScanExpression());
 
     // Match temp table scan expressions with or without a select layer on top.
     // This accommodates a known limitation where select merge cannot merge correlated selects
     // with the recursive union's upper select. See: https://github.com/FoundationDB/fdb-record-layer/issues/3649
     // When resolved, this pattern can be simplified to match only temp table scan expressions.
-    @Nonnull
     private static final BindingMatcher<SelectExpression> recursiveInnerSelectMatcher = selectExpression(
             exactlyInAnyOrder(recursiveInnerQunMatcher, recursiveTempTableScanQunMatcher.or(recursiveSelectFromTempTableScanQunMatcher)));
 
-    @Nonnull
     private static final BindingMatcher<TempTableInsertExpression> recursiveSelectExpressionMatcher = tempTableInsertExpression(
             forEachQuantifierOverRef(exploratoryMember(recursiveInnerSelectMatcher)));
 
-    @Nonnull
     private static final BindingMatcher<RecursiveUnionExpression> recursiveUnionExpressionMatcher = recursiveUnionExpression(forEachQuantifier(initialPlanMatcher),
             forEachQuantifier(recursiveSelectExpressionMatcher)).where(dfsTraversalAllowed());
 
@@ -117,7 +103,7 @@ public class ImplementRecursiveDfsJoinRule extends AbstractCascadesRule<Recursiv
     }
 
     @Override
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final var recursiveUnionExpression = call.get(recursiveUnionExpressionMatcher);
         final var initialStateAlias = recursiveUnionExpression.getInitialStateQuantifier().getAlias();
         final var recursiveStateAlias = recursiveUnionExpression.getRecursiveStateQuantifier().getAlias();
@@ -191,8 +177,7 @@ public class ImplementRecursiveDfsJoinRule extends AbstractCascadesRule<Recursiv
      * @throws RecordCoreException if the recursive union expression specifies a non-DFS traversal strategy
      *         (e.g., {@link RecursiveUnionExpression.TraversalStrategy#LEVEL})
      */
-    @Nonnull
-    private static RecordQueryRecursiveDfsJoinPlan.DfsTraversalStrategy getDfsTraversalStrategy(@Nonnull RecursiveUnionExpression recursiveUnionExpression) {
+    private static RecordQueryRecursiveDfsJoinPlan.DfsTraversalStrategy getDfsTraversalStrategy(RecursiveUnionExpression recursiveUnionExpression) {
         if (recursiveUnionExpression.preOrderTraversalAllowed()) {
             return RecordQueryRecursiveDfsJoinPlan.DfsTraversalStrategy.PREORDER;
         }

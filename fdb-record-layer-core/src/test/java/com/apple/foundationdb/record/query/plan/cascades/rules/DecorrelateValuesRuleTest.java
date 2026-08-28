@@ -61,7 +61,6 @@ import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Optional;
 
@@ -87,9 +86,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
  * the values are pushed down into the tree.
  */
 class DecorrelateValuesRuleTest {
-    @Nonnull
     private static final DecorrelateValuesRule rule = new DecorrelateValuesRule();
-    @Nonnull
     private static final RuleTestHelper testHelper = new RuleTestHelper(rule, PlannerPhase.REWRITING);
 
     @BeforeEach
@@ -927,7 +924,7 @@ class DecorrelateValuesRuleTest {
         testHelper.assertYields(selectHaving, newSelectHaving);
     }
 
-    private void doNotTreatQuantifierAsValuesBox(@Nonnull Quantifier notQuiteValuesQun) {
+    private void doNotTreatQuantifierAsValuesBox(Quantifier notQuiteValuesQun) {
         final Quantifier base = baseT();
         final Quantifier correlatedSelect = forEach(selectWithPredicates(base,
                 ImmutableList.of("b", "c", "d"),

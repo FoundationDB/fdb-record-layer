@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 
 /**
@@ -36,7 +35,6 @@ public abstract class AbstractRelationalExpressionWithoutChildren extends Abstra
      * This override makes {@code getCorrelatedTo} final.
      * @return a set of aliases this object is considered to be correlated to.
      */
-    @Nonnull
     @Override
     public final Set<CorrelationIdentifier> getCorrelatedTo() {
         return getCorrelatedToWithoutChildren();

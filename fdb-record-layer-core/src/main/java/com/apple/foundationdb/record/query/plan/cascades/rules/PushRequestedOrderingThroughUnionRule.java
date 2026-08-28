@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Refe
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -61,7 +60,7 @@ public class PushRequestedOrderingThroughUnionRule extends AbstractCascadesRule<
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(final CascadesRuleCall call) {
         final Optional<Set<RequestedOrdering>> requestedOrderingsOptional =
                 call.getPlannerConstraintMaybe(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingsOptional.isEmpty()) {

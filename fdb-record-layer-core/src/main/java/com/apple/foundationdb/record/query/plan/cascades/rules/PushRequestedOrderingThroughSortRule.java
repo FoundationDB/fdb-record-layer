@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Refe
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
@@ -60,7 +59,7 @@ public class PushRequestedOrderingThroughSortRule extends AbstractCascadesRule<L
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(final CascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
 
         final LogicalSortExpression logicalSortExpression = bindings.get(root);

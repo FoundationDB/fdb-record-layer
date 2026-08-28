@@ -24,49 +24,41 @@ import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PPla
 import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PTranslateCorrelationsPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
-import javax.annotation.Nonnull;
 
 /**
  * Events of this class are generated when the planner creates new expressions as part of rebasing or as part of
  * a translation of correlations in a graph.
  */
 public class TranslateCorrelationsPlannerEvent implements PlannerEvent {
-    @Nonnull
     private final RelationalExpression expression;
 
-    @Nonnull
     private final Location location;
 
-    public TranslateCorrelationsPlannerEvent(@Nonnull final RelationalExpression expression,
-                                             @Nonnull final Location location) {
+    public TranslateCorrelationsPlannerEvent(final RelationalExpression expression,
+                                             final Location location) {
         this.expression = expression;
         this.location = location;
     }
 
     @Override
-    @Nonnull
     public String getDescription() {
         return "translate correlations";
     }
 
-    @Nonnull
     @Override
     public Shorthand getShorthand() {
         return Shorthand.TRANSLATE_CORRELATIONS;
     }
 
-    @Nonnull
     public RelationalExpression getExpression() {
         return expression;
     }
 
-    @Nonnull
     @Override
     public Location getLocation() {
         return location;
     }
 
-    @Nonnull
     @Override
     public PTranslateCorrelationsPlannerEvent toProto() {
         return PTranslateCorrelationsPlannerEvent.newBuilder()
@@ -75,7 +67,6 @@ public class TranslateCorrelationsPlannerEvent implements PlannerEvent {
                 .build();
     }
 
-    @Nonnull
     @Override
     public PPlannerEvent.Builder toEventBuilder() {
         return PPlannerEvent.newBuilder()

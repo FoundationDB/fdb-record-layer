@@ -43,7 +43,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -126,7 +125,6 @@ public class MatchableSortExpression extends AbstractRelationalExpressionWithChi
      * restricts the expressiveness of this operator to only use index keys (or non-repeateds in primary scans) to
      * express order.
      */
-    @Nonnull
     private final List<CorrelationIdentifier> sortParameterIds;
 
     /**
@@ -138,7 +136,6 @@ public class MatchableSortExpression extends AbstractRelationalExpressionWithChi
     /**
      * Quantifier over expression dag that produces the stream this expression sorts.
      */
-    @Nonnull
     private final Quantifier inner;
 
     /**
@@ -148,9 +145,9 @@ public class MatchableSortExpression extends AbstractRelationalExpressionWithChi
      *        {@link #sortParameterIds} ascending (forward) or descending (backward or reverse).
      * @param innerExpression expression dag that produces the stream this expression sorts
      */
-    public MatchableSortExpression(@Nonnull final List<CorrelationIdentifier> sortParameterIds,
+    public MatchableSortExpression(final List<CorrelationIdentifier> sortParameterIds,
                                    final boolean isReverse,
-                                   @Nonnull final RelationalExpression innerExpression) {
+                                   final RelationalExpression innerExpression) {
         this(sortParameterIds, isReverse, Quantifier.forEach(Reference.initialOf(innerExpression)));
     }
 
@@ -161,15 +158,14 @@ public class MatchableSortExpression extends AbstractRelationalExpressionWithChi
      *        {@link #sortParameterIds} ascending (forward) or descending (backward or reverse).
      * @param inner quantifier ranging over an expression dag that produces the stream this expression sorts
      */
-    public MatchableSortExpression(@Nonnull final List<CorrelationIdentifier> sortParameterIds,
+    public MatchableSortExpression(final List<CorrelationIdentifier> sortParameterIds,
                                    final boolean isReverse,
-                                   @Nonnull final Quantifier inner) {
+                                   final Quantifier inner) {
         this.sortParameterIds = ImmutableList.copyOf(sortParameterIds);
         this.isReverse = isReverse;
         this.inner = inner;
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(getInner());
@@ -180,7 +176,6 @@ public class MatchableSortExpression extends AbstractRelationalExpressionWithChi
         return 1;
     }
 
-    @Nonnull
     public List<CorrelationIdentifier> getSortParameterIds() {
         return sortParameterIds;
     }
@@ -189,30 +184,26 @@ public class MatchableSortExpression extends AbstractRelationalExpressionWithChi
         return isReverse;
     }
 
-    @Nonnull
     private Quantifier getInner() {
         return inner;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
-    public MatchableSortExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public MatchableSortExpression translateCorrelations(final TranslationMap translationMap,
                                                          final boolean shouldSimplifyValues,
-                                                         @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                         final List<? extends Quantifier> translatedQuantifiers) {
         return new MatchableSortExpression(getSortParameterIds(),
                 isReverse(),
                 Iterables.getOnlyElement(translatedQuantifiers));
     }
 
-    @Nonnull
     @Override
-    public Optional<MatchInfo> adjustMatch(@Nonnull final PartialMatch partialMatch) {
+    public Optional<MatchInfo> adjustMatch(final PartialMatch partialMatch) {
         final var childMatchInfo = partialMatch.getMatchInfo();
         final var maxMatchMap = childMatchInfo.getMaxMatchMap();
         final var adjustedMaxMatchMapOptional =
@@ -235,13 +226,11 @@ public class MatchableSortExpression extends AbstractRelationalExpressionWithChi
      * @return a list of bound key parts that express the order of the outgoing data stream and their respective mappings
      *         between query and match candidate
      */
-    @Nonnull
-    private List<MatchedOrderingPart> forPartialMatch(@Nonnull PartialMatch partialMatch) {
+    private List<MatchedOrderingPart> forPartialMatch(PartialMatch partialMatch) {
         final var matchCandidate = partialMatch.getMatchCandidate();
         return matchCandidate.computeMatchedOrderingParts(partialMatch.getMatchInfo(), getSortParameterIds(), isReverse());
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return inner.getFlowedObjectValue();
@@ -249,8 +238,8 @@ public class MatchableSortExpression extends AbstractRelationalExpressionWithChi
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -280,9 +269,8 @@ public class MatchableSortExpression extends AbstractRelationalExpressionWithChi
         return Objects.hash(getSortParameterIds(), isReverse());
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewriteInternalPlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNodeWithInfo(this,
                         NodeInfo.SORT_OPERATOR,

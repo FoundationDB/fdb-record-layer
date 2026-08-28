@@ -26,57 +26,47 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PAbstractPlannerEventWithState;
 
-import javax.annotation.Nonnull;
 import java.util.Deque;
 
 /**
  * Abstract event class to capture {@code rootReference} amd {@code taskStack}.
  */
 abstract class AbstractPlannerEventWithState implements PlannerEventWithState {
-    @Nonnull
     private final PlannerPhase plannerPhase;
-    @Nonnull
     private final Reference rootReference;
-    @Nonnull
     private final Deque<CascadesPlanner.Task> taskStack;
-    @Nonnull
     private final PlannerEvent.Location location;
 
-    protected AbstractPlannerEventWithState(@Nonnull final PlannerPhase plannerPhase,
-                                            @Nonnull final Reference rootReference,
-                                            @Nonnull final Deque<CascadesPlanner.Task> taskStack,
-                                            @Nonnull final PlannerEvent.Location location) {
+    protected AbstractPlannerEventWithState(final PlannerPhase plannerPhase,
+                                            final Reference rootReference,
+                                            final Deque<CascadesPlanner.Task> taskStack,
+                                            final PlannerEvent.Location location) {
         this.plannerPhase = plannerPhase;
         this.rootReference = rootReference;
         this.taskStack = taskStack;
         this.location = location;
     }
 
-    @Nonnull
     @Override
     public PlannerPhase getPlannerPhase() {
         return plannerPhase;
     }
 
     @Override
-    @Nonnull
     public Reference getRootReference() {
         return rootReference;
     }
 
-    @Nonnull
     @Override
     public Deque<CascadesPlanner.Task> getTaskStack() {
         return taskStack;
     }
 
-    @Nonnull
     @Override
     public PlannerEvent.Location getLocation() {
         return location;
     }
 
-    @Nonnull
     public PAbstractPlannerEventWithState toAbstractPlannerEventWithStateProto() {
         return PAbstractPlannerEventWithState.newBuilder()
                 .setPlannerPhase(plannerPhase.toProto())

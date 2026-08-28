@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Plan
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
@@ -57,7 +56,7 @@ public class PushReferencedFieldsThroughUniqueRule extends AbstractCascadesRule<
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(final CascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
         final Reference lowerRef = bindings.get(lowerRefMatcher);
         final Optional<ReferencedFields> referencedFieldsOptional = call.getPlannerConstraintMaybe(ReferencedFieldsConstraint.REFERENCED_FIELDS);

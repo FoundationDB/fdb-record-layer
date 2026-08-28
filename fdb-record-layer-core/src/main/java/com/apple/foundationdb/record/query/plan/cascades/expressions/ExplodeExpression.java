@@ -42,8 +42,8 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -59,7 +59,6 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildren implements InternalPlannerGraphRewritable {
-    @Nonnull
     private final Value collectionValue;
 
     /**
@@ -70,16 +69,14 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
     /**
      * The element type of the collection value.
      */
-    @Nonnull
     private final Type elementType;
 
     /**
      * The type of the explode result.
      */
-    @Nonnull
     private final Type explodeResultType;
 
-    public ExplodeExpression(@Nonnull final Value collectionValue, final boolean withOrdinality) {
+    public ExplodeExpression(final Value collectionValue, final boolean withOrdinality) {
         this.collectionValue = collectionValue;
         this.withOrdinality = withOrdinality;
         Verify.verify(collectionValue.getResultType().isArray());
@@ -87,14 +84,13 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
         this.explodeResultType = explodeResultType(elementType, withOrdinality);
     }
 
-    public ExplodeExpression(@Nonnull final Value collectionValue) {
+    public ExplodeExpression(final Value collectionValue) {
         this(collectionValue, false);
     }
 
     /**
      * Returns the element type of the collection value.
      */
-    @Nonnull
     public Type getElementType() {
         return elementType;
     }
@@ -103,8 +99,7 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
      * Returns the type of the explode result. For the {@code WITH ORDINALITY} variant, builds an anonymous-field
      * struct result type holding the element and the 1-based ordinal.
      */
-    @Nonnull
-    public static Type explodeResultType(@Nonnull final Type elementType, boolean withOrdinality) {
+    public static Type explodeResultType(final Type elementType, boolean withOrdinality) {
         if (withOrdinality) {
             return Type.Record.fromFields(ImmutableList.of(
                     Type.Record.Field.of(elementType, Optional.empty()),
@@ -117,18 +112,15 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
     /**
      * Returns the type of the explode result.
      */
-    @Nonnull
     public Type getExplodeResultType() {
         return explodeResultType;
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return new QueriedValue(getExplodeResultType());
     }
 
-    @Nonnull
     public Value getCollectionValue() {
         return collectionValue;
     }
@@ -137,13 +129,11 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
         return withOrdinality;
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return Collections.emptyList();
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return collectionValue.getCorrelatedTo();
@@ -151,8 +141,8 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -172,12 +162,11 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
                : Objects.hash(collectionValue);
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public ExplodeExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public ExplodeExpression translateCorrelations(final TranslationMap translationMap,
                                                    final boolean shouldSimplifyValues,
-                                                   @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                   final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.isEmpty());
         final Value translatedCollectionValue =
                 collectionValue.translateCorrelations(translationMap, shouldSimplifyValues);
@@ -188,12 +177,11 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
         return this;
     }
 
-    @Nonnull
     @Override
-    public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
-                                          @Nonnull final AliasMap bindingAliasMap,
-                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
-                                          @Nonnull final EvaluationContext evaluationContext) {
+    public Iterable<MatchInfo> subsumedBy(final RelationalExpression candidateExpression,
+                                          final AliasMap bindingAliasMap,
+                                          final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                          final EvaluationContext evaluationContext) {
         if (!isCompatiblyAndCompletelyBound(bindingAliasMap, candidateExpression.getQuantifiers())) {
             return ImmutableList.of();
         }
@@ -201,20 +189,18 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
         return exactlySubsumedBy(candidateExpression, bindingAliasMap, partialMatchMap, TranslationMap.empty());
     }
 
-    @Nonnull
     @Override
-    public Compensation compensate(@Nonnull final PartialMatch partialMatch,
-                                   @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+    public Compensation compensate(final PartialMatch partialMatch,
+                                   final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                    @Nullable final PullUp pullUp,
-                                   @Nonnull final CorrelationIdentifier candidateAlias) {
+                                   final CorrelationIdentifier candidateAlias) {
         // subsumedBy() is based on equality and this expression is always a leaf, thus we return empty here as
         // if there is a match, it's exact
         return Compensation.noCompensation();
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewriteInternalPlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNode(this,
                         "Explode",
@@ -230,8 +216,8 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
                : collectionValue.toString();
     }
 
-    public static ExplodeExpression explodeField(@Nonnull final Quantifier.ForEach baseQuantifier,
-                                                 @Nonnull final List<String> fieldNames) {
+    public static ExplodeExpression explodeField(final Quantifier.ForEach baseQuantifier,
+                                                 final List<String> fieldNames) {
         return new ExplodeExpression(FieldValue.ofFieldNames(baseQuantifier.getFlowedObjectValue(), fieldNames));
     }
 }

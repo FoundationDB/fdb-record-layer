@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -43,21 +42,18 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
-    @Nonnull
     private final BindingMatcher<T> downstream;
 
-    protected MultiMatcher(@Nonnull final BindingMatcher<T> downstream) {
+    protected MultiMatcher(final BindingMatcher<T> downstream) {
         this.downstream = downstream;
     }
 
-    @Nonnull
     protected BindingMatcher<T> getDownstream() {
         return downstream;
     }
 
-    @Nonnull
     @Override
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull PlannerBindings outerBindings, @Nonnull Collection<T> in) {
+    public Stream<PlannerBindings> bindMatchesSafely(RecordQueryPlannerConfiguration plannerConfiguration, PlannerBindings outerBindings, Collection<T> in) {
         final ImmutableList.Builder<T> items = ImmutableList.builder();
         Stream<PlannerBindings> bindingStream = Stream.of(PlannerBindings.empty());
 
@@ -85,10 +81,9 @@ public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
         return onNumberOfMatches(counter, bindingStream);
     }
 
-    @Nonnull
-    protected abstract Optional<Stream<PlannerBindings>> onEmptyIndividualBindings(@Nonnull Stream<PlannerBindings> accumulatedStream);
+    protected abstract Optional<Stream<PlannerBindings>> onEmptyIndividualBindings(Stream<PlannerBindings> accumulatedStream);
 
-    protected abstract Stream<PlannerBindings> onNumberOfMatches(int numberOfMatches, @Nonnull Stream<PlannerBindings> accumulatedStream);
+    protected abstract Stream<PlannerBindings> onNumberOfMatches(int numberOfMatches, Stream<PlannerBindings> accumulatedStream);
 
     /**
      * A multi matcher that binds a sub collection of objects of the collection it is being matched. That includes the empty
@@ -97,18 +92,17 @@ public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
      * @param <T> type param
      */
     public static class SomeMatcher<T> extends MultiMatcher<T> {
-        private SomeMatcher(@Nonnull final BindingMatcher<T> downstream) {
+        private SomeMatcher(final BindingMatcher<T> downstream) {
             super(downstream);
         }
 
-        @Nonnull
         @Override
-        protected Optional<Stream<PlannerBindings>> onEmptyIndividualBindings(@Nonnull final Stream<PlannerBindings> accumulatedStream) {
+        protected Optional<Stream<PlannerBindings>> onEmptyIndividualBindings(final Stream<PlannerBindings> accumulatedStream) {
             return Optional.of(accumulatedStream);
         }
 
         @Override
-        public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+        public String explainMatcher(final Class<?> atLeastType, final String boundId, final String indentation) {
             final String nestedIndentation = indentation + INDENTATION;
             final String nestedId = getDownstream().identifierFromMatcher();
             return "some " + nestedId + " in " + boundId + " that match {" + newLine(nestedIndentation) +
@@ -118,7 +112,7 @@ public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
 
         @Override
         protected Stream<PlannerBindings> onNumberOfMatches(final int numberOfMatches,
-                                                            @Nonnull final Stream<PlannerBindings> accumulatedStream) {
+                                                            final Stream<PlannerBindings> accumulatedStream) {
             return accumulatedStream;
         }
     }
@@ -129,18 +123,17 @@ public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
      * @param <T> type param
      */
     public static class AllMatcher<T> extends MultiMatcher<T> {
-        private AllMatcher(@Nonnull final BindingMatcher<T> downstream) {
+        private AllMatcher(final BindingMatcher<T> downstream) {
             super(downstream);
         }
 
-        @Nonnull
         @Override
-        protected Optional<Stream<PlannerBindings>> onEmptyIndividualBindings(@Nonnull final Stream<PlannerBindings> accumulatedStream) {
+        protected Optional<Stream<PlannerBindings>> onEmptyIndividualBindings(final Stream<PlannerBindings> accumulatedStream) {
             return Optional.empty();
         }
 
         @Override
-        public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+        public String explainMatcher(final Class<?> atLeastType, final String boundId, final String indentation) {
             final String nestedIndentation = indentation + INDENTATION;
             final String nestedId = getDownstream().identifierFromMatcher();
             return "all " + nestedId + " in " + boundId + " {" + newLine(nestedIndentation) +
@@ -150,7 +143,7 @@ public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
 
         @Override
         protected Stream<PlannerBindings> onNumberOfMatches(final int numberOfMatches,
-                                                            @Nonnull final Stream<PlannerBindings> accumulatedStream) {
+                                                            final Stream<PlannerBindings> accumulatedStream) {
             return accumulatedStream;
         }
     }
@@ -164,20 +157,19 @@ public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
 
         private final int minNumberOfRequiredMatches;
 
-        private AtLeastMatcher(@Nonnull final BindingMatcher<T> downstream, int minNumberOfRequiredMatches) {
+        private AtLeastMatcher(final BindingMatcher<T> downstream, int minNumberOfRequiredMatches) {
             super(downstream);
             Verify.verify(minNumberOfRequiredMatches >= 0);
             this.minNumberOfRequiredMatches = minNumberOfRequiredMatches;
         }
 
-        @Nonnull
         @Override
-        protected Optional<Stream<PlannerBindings>> onEmptyIndividualBindings(@Nonnull final Stream<PlannerBindings> accumulatedStream) {
+        protected Optional<Stream<PlannerBindings>> onEmptyIndividualBindings(final Stream<PlannerBindings> accumulatedStream) {
             return Optional.of(accumulatedStream);
         }
 
         @Override
-        public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+        public String explainMatcher(final Class<?> atLeastType, final String boundId, final String indentation) {
             final String nestedIndentation = indentation + INDENTATION;
             final String nestedId = getDownstream().identifierFromMatcher();
             return "atLeast(" + minNumberOfRequiredMatches + ")" + nestedId + " in " + boundId + " that match {" + newLine(nestedIndentation) +
@@ -187,7 +179,7 @@ public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
 
         @Override
         protected Stream<PlannerBindings> onNumberOfMatches(final int numberOfMatches,
-                                                            @Nonnull final Stream<PlannerBindings> accumulatedStream) {
+                                                            final Stream<PlannerBindings> accumulatedStream) {
             if (numberOfMatches >= minNumberOfRequiredMatches) {
                 return accumulatedStream;
             }
@@ -195,23 +187,19 @@ public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
         }
     }
 
-    @Nonnull
-    public static <T> AllMatcher<T> all(@Nonnull final BindingMatcher<T> downstream) {
+    public static <T> AllMatcher<T> all(final BindingMatcher<T> downstream) {
         return new AllMatcher<>(downstream);
     }
 
-    @Nonnull
-    public static <T> SomeMatcher<T> some(@Nonnull final BindingMatcher<T> downstream) {
+    public static <T> SomeMatcher<T> some(final BindingMatcher<T> downstream) {
         return new SomeMatcher<>(downstream);
     }
 
-    @Nonnull
-    public static <T> AtLeastMatcher<T> atLeastOne(@Nonnull final BindingMatcher<T> downstream) {
+    public static <T> AtLeastMatcher<T> atLeastOne(final BindingMatcher<T> downstream) {
         return new AtLeastMatcher<>(downstream, 1);
     }
 
-    @Nonnull
-    public static <T> AtLeastMatcher<T> atLeastTwo(@Nonnull final BindingMatcher<T> downstream) {
+    public static <T> AtLeastMatcher<T> atLeastTwo(final BindingMatcher<T> downstream) {
         return new AtLeastMatcher<>(downstream, 2);
     }
 }

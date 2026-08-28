@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PIns
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.List;
 
@@ -40,15 +40,13 @@ public class InsertIntoMemoPlannerEvent implements PlannerEvent {
     @Nullable
     private final RelationalExpression expression;
 
-    @Nonnull
     private final Location location;
 
-    @Nonnull
     private final List<Reference> reusedExpressionReferences;
 
-    private InsertIntoMemoPlannerEvent(@Nonnull final Location location,
+    private InsertIntoMemoPlannerEvent(final Location location,
                                        @Nullable final RelationalExpression expression,
-                                       @Nonnull final Collection<Reference> reusedExpressionReferences) {
+                                       final Collection<Reference> reusedExpressionReferences) {
         if (expression != null) {
             Debugger.registerExpression(expression);
         }
@@ -60,12 +58,10 @@ public class InsertIntoMemoPlannerEvent implements PlannerEvent {
     }
 
     @Override
-    @Nonnull
     public String getDescription() {
         return "insert into memo";
     }
 
-    @Nonnull
     @Override
     public Shorthand getShorthand() {
         return Shorthand.INSERT_INTO_MEMO;
@@ -76,18 +72,15 @@ public class InsertIntoMemoPlannerEvent implements PlannerEvent {
         return expression;
     }
 
-    @Nonnull
     public Collection<Reference> getReusedExpressionReferences() {
         return reusedExpressionReferences;
     }
 
-    @Nonnull
     @Override
     public Location getLocation() {
         return location;
     }
 
-    @Nonnull
     @Override
     public PInsertIntoMemoPlannerEvent toProto() {
         final var builder = PInsertIntoMemoPlannerEvent.newBuilder()
@@ -101,36 +94,30 @@ public class InsertIntoMemoPlannerEvent implements PlannerEvent {
         return builder.build();
     }
 
-    @Nonnull
     @Override
     public PPlannerEvent.Builder toEventBuilder() {
         return PPlannerEvent.newBuilder()
                 .setInsertIntoMemoPlannerEvent(toProto());
     }
 
-    @Nonnull
     public static InsertIntoMemoPlannerEvent begin() {
         return new InsertIntoMemoPlannerEvent(Location.BEGIN, null, ImmutableList.of());
     }
 
-    @Nonnull
     public static InsertIntoMemoPlannerEvent end() {
         return new InsertIntoMemoPlannerEvent(Location.END, null, ImmutableList.of());
     }
 
-    @Nonnull
-    public static InsertIntoMemoPlannerEvent newExp(@Nonnull final RelationalExpression expression) {
+    public static InsertIntoMemoPlannerEvent newExp(final RelationalExpression expression) {
         return new InsertIntoMemoPlannerEvent(Location.NEW, expression, ImmutableList.of());
     }
 
-    @Nonnull
-    public static InsertIntoMemoPlannerEvent reusedExp(@Nonnull final RelationalExpression expression) {
+    public static InsertIntoMemoPlannerEvent reusedExp(final RelationalExpression expression) {
         return new InsertIntoMemoPlannerEvent(Location.REUSED, expression, ImmutableList.of());
     }
 
-    @Nonnull
-    public static InsertIntoMemoPlannerEvent reusedExpWithReferences(@Nonnull final RelationalExpression expression,
-                                                                     @Nonnull final List<Reference> references) {
+    public static InsertIntoMemoPlannerEvent reusedExpWithReferences(final RelationalExpression expression,
+                                                                     final List<Reference> references) {
         return new InsertIntoMemoPlannerEvent(Location.REUSED, expression, references);
     }
 }

@@ -45,7 +45,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilte
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
@@ -77,20 +76,15 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementSimpleSelectRule extends AbstractCascadesRule<SelectExpression> implements ImplementationCascadesRule<SelectExpression> {
-    @Nonnull
     private static final BindingMatcher<PlanPartition> innerPlanPartitionMatcher = anyPlanPartition();
 
-    @Nonnull
     private static final BindingMatcher<Reference> innerReferenceMatcher =
             planPartitions(any(innerPlanPartitionMatcher));
 
-    @Nonnull
     private static final BindingMatcher<Quantifier> innerQuantifierMatcher = anyQuantifierOverRef(innerReferenceMatcher);
 
-    @Nonnull
     private static final BindingMatcher<QueryPredicate> predicateMatcher = anyCompensatablePredicate();
 
-    @Nonnull
     private static final BindingMatcher<SelectExpression> root =
             selectExpression(all(predicateMatcher), exactly(innerQuantifierMatcher));
 
@@ -99,7 +93,7 @@ public class ImplementSimpleSelectRule extends AbstractCascadesRule<SelectExpres
     }
 
     @Override
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final var bindings = call.getBindings();
         final var selectExpression = bindings.get(root);
         final var planPartition = bindings.get(innerPlanPartitionMatcher);
@@ -111,13 +105,12 @@ public class ImplementSimpleSelectRule extends AbstractCascadesRule<SelectExpres
         call.yieldPlans(referenceBuilder.members());
     }
 
-    @Nonnull
-    public static Memoizer.ReferenceOfPlansBuilder implementSelectExpression(@Nonnull final ImplementationCascadesRuleCall call,
-                                                                             @Nonnull final Value result,
-                                                                             @Nonnull final List<? extends QueryPredicate> predicates,
-                                                                             @Nonnull final Reference innerReference,
-                                                                             @Nonnull final Quantifier innerQuantifier,
-                                                                             @Nonnull final PlanPartition innerPlanPartition) {
+    public static Memoizer.ReferenceOfPlansBuilder implementSelectExpression(final ImplementationCascadesRuleCall call,
+                                                                             final Value result,
+                                                                             final List<? extends QueryPredicate> predicates,
+                                                                             final Reference innerReference,
+                                                                             final Quantifier innerQuantifier,
+                                                                             final PlanPartition innerPlanPartition) {
         Value resultValue = result;
         Memoizer.ReferenceOfPlansBuilder builder = call.memoizeMemberPlansBuilder(innerReference, innerPlanPartition.getPlans());
 

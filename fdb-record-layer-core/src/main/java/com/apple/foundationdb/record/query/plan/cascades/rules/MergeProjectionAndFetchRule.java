@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
@@ -48,11 +47,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class MergeProjectionAndFetchRule extends AbstractCascadesRule<LogicalProjectionExpression> implements ImplementationCascadesRule<LogicalProjectionExpression> {
-    @Nonnull
     private static final BindingMatcher<RecordQueryFetchFromPartialRecordPlan> innerPlanMatcher = fetchFromPartialRecordPlan(anyPlan());
-    @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifier(innerPlanMatcher);
-    @Nonnull
     private static final BindingMatcher<LogicalProjectionExpression> root = logicalProjectionExpression(exactly(innerQuantifierMatcher));
 
     public MergeProjectionAndFetchRule() {
@@ -60,7 +56,7 @@ public class MergeProjectionAndFetchRule extends AbstractCascadesRule<LogicalPro
     }
 
     @Override
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final LogicalProjectionExpression projectionExpression = call.get(root);
 
         // if the fetch is able to push all values we can eliminate the fetch as well

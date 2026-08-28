@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher.typed;
@@ -73,20 +72,20 @@ public class QueryPredicateMatchers {
         return ofType(PredicateWithValue.class);
     }
 
-    public static <V extends Value> TypedMatcher<ValuePredicate> valuePredicate(@Nonnull final BindingMatcher<V> downstream) {
+    public static <V extends Value> TypedMatcher<ValuePredicate> valuePredicate(final BindingMatcher<V> downstream) {
         return typedWithDownstream(ValuePredicate.class,
                 Extractor.of(p -> Verify.verifyNotNull(p.getValue()), name -> "comparand(" + name + ")"),
                         downstream);
     }
 
-    public static BindingMatcher<RangeConstraints> rangeConstraint(@Nonnull final BindingMatcher<? extends Collection<? extends Comparisons.Comparison>> comparisonBindingMatcher) {
+    public static BindingMatcher<RangeConstraints> rangeConstraint(final BindingMatcher<? extends Collection<? extends Comparisons.Comparison>> comparisonBindingMatcher) {
         return typedWithDownstream(RangeConstraints.class,
                 Extractor.of(RangeConstraints::getComparisons, name -> "comparisons(" + name + ")"),
                 comparisonBindingMatcher);
     }
 
-    public static <V extends Value, R extends RangeConstraints> TypedMatcher<PredicateWithValueAndRanges> predicateWithValueAndRanges(@Nonnull final BindingMatcher<V> downstreamValueMatcher,
-                                                                                                                                      @Nonnull final BindingMatcher<Collection<R>> downstreamRangesMatcher) {
+    public static <V extends Value, R extends RangeConstraints> TypedMatcher<PredicateWithValueAndRanges> predicateWithValueAndRanges(final BindingMatcher<V> downstreamValueMatcher,
+                                                                                                                                      final BindingMatcher<Collection<R>> downstreamRangesMatcher) {
         return typedWithDownstream(PredicateWithValueAndRanges.class,
                 Extractor.identity(),
                 AllOfMatcher.matchingAllOf(PredicateWithValueAndRanges.class,
@@ -99,18 +98,18 @@ public class QueryPredicateMatchers {
                                         downstreamRangesMatcher))));
     }
 
-    public static <P extends QueryPredicate> TypedMatcher<P> ofType(@Nonnull final Class<P> bindableClass) {
+    public static <P extends QueryPredicate> TypedMatcher<P> ofType(final Class<P> bindableClass) {
         return typed(bindableClass);
     }
 
-    public static <P extends QueryPredicate, C extends Collection<? extends QueryPredicate>> BindingMatcher<P> ofTypeWithChildren(@Nonnull final Class<P> bindableClass,
-                                                                                                                                  @Nonnull final BindingMatcher<C> downstream) {
+    public static <P extends QueryPredicate, C extends Collection<? extends QueryPredicate>> BindingMatcher<P> ofTypeWithChildren(final Class<P> bindableClass,
+                                                                                                                                  final BindingMatcher<C> downstream) {
         return typedWithDownstream(bindableClass,
                 Extractor.of(QueryPredicate::getChildren, name -> "children(" + name + ")"),
                 downstream);
     }
 
-    public static <C extends Collection<? extends QueryPredicate>> BindingMatcher<AndPredicate> andPredicate(@Nonnull final BindingMatcher<C> downstream) {
+    public static <C extends Collection<? extends QueryPredicate>> BindingMatcher<AndPredicate> andPredicate(final BindingMatcher<C> downstream) {
         return ofTypeWithChildren(AndPredicate.class, downstream);
     }
 
@@ -118,7 +117,7 @@ public class QueryPredicateMatchers {
         return typed(Comparisons.Comparison.class);
     }
 
-    public static TypedMatcher<Comparisons.Comparison> anyComparisonOfType(@Nonnull final Comparisons.Type type) {
+    public static TypedMatcher<Comparisons.Comparison> anyComparisonOfType(final Comparisons.Type type) {
         return typedWithDownstream(Comparisons.Comparison.class,
                 Extractor.of(Comparisons.Comparison::getType, name -> "type(" + name + ")"),
                 PrimitiveMatchers.equalsObject(type));
@@ -132,21 +131,19 @@ public class QueryPredicateMatchers {
         return typedMatcherWithPredicate(Comparisons.Comparison.class, comparison -> comparison.getType().isUnary());
     }
 
-    public static <V extends Value> TypedMatcher<Comparisons.ValueComparison> anyValueComparison(@Nonnull final BindingMatcher<V> downstreamValue) {
+    public static <V extends Value> TypedMatcher<Comparisons.ValueComparison> anyValueComparison(final BindingMatcher<V> downstreamValue) {
         return typedWithDownstream(Comparisons.ValueComparison.class,
                 Extractor.of(Comparisons.ValueComparison::getValue, name -> "operand(" + name + ")"),
                 downstreamValue);
     }
 
-    @Nonnull
-    public static <V extends Value> BindingMatcher<ValuePredicate> valuePredicate(@Nonnull final BindingMatcher<V> downstreamValue,
-                                                                                  @Nonnull final Comparisons.Comparison comparison) {
+    public static <V extends Value> BindingMatcher<ValuePredicate> valuePredicate(final BindingMatcher<V> downstreamValue,
+                                                                                  final Comparisons.Comparison comparison) {
         return valuePredicate(downstreamValue, PrimitiveMatchers.equalsObject(comparison));
     }
 
-    @Nonnull
-    public static <V extends Value, C extends Comparisons.Comparison> BindingMatcher<ValuePredicate> valuePredicate(@Nonnull final BindingMatcher<V> downstreamValue,
-                                                                                                                    @Nonnull final BindingMatcher<C> downstreamComparison) {
+    public static <V extends Value, C extends Comparisons.Comparison> BindingMatcher<ValuePredicate> valuePredicate(final BindingMatcher<V> downstreamValue,
+                                                                                                                    final BindingMatcher<C> downstreamComparison) {
         return typedWithDownstream(ValuePredicate.class,
                 Extractor.identity(),
                 AllOfMatcher.matchingAllOf(ValuePredicate.class,
@@ -159,15 +156,13 @@ public class QueryPredicateMatchers {
                                         downstreamComparison))));
     }
 
-    @Nonnull
-    public static <P extends QueryPredicate> BindingMatcher<OrPredicate> orPredicate(@Nonnull final CollectionMatcher<P> downstream) {
+    public static <P extends QueryPredicate> BindingMatcher<OrPredicate> orPredicate(final CollectionMatcher<P> downstream) {
         return typedWithDownstream(OrPredicate.class,
                 Extractor.of(OrPredicate::getChildren, name -> "children(" + name + ")"),
                 downstream);
     }
 
-    @Nonnull
-    public static <P extends QueryPredicate> BindingMatcher<NotPredicate> notPredicate(@Nonnull final CollectionMatcher<P> downstream) {
+    public static <P extends QueryPredicate> BindingMatcher<NotPredicate> notPredicate(final CollectionMatcher<P> downstream) {
         return typedWithDownstream(NotPredicate.class,
                 Extractor.of(NotPredicate::getChildren, name -> "children(" + name + ")"),
                 downstream);

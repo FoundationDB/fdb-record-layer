@@ -51,7 +51,6 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 
@@ -76,10 +75,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementDistinctUnionRule extends AbstractCascadesRule<LogicalDistinctExpression> implements ImplementationCascadesRule<LogicalDistinctExpression> {
 
-    @Nonnull
     private static final CollectionMatcher<PlanPartition> unionLegPlanPartitionsMatcher = all(anyPlanPartition());
 
-    @Nonnull
     private static final BindingMatcher<Reference> unionLegReferenceMatcher =
             planPartitions(filterPlanPartitions(planPartition -> planPartition.getPartitionPropertyValue(StoredRecordProperty.storedRecord()) &&
                                                   planPartition.getPartitionPropertyValue(PrimaryKeyProperty.primaryKey()).isPresent(),
@@ -88,13 +85,10 @@ public class ImplementDistinctUnionRule extends AbstractCascadesRule<LogicalDist
     private static final CollectionMatcher<Quantifier.ForEach> allForEachQuantifiersMatcher =
             all(forEachQuantifierOverRef(unionLegReferenceMatcher));
 
-    @Nonnull
     private static final BindingMatcher<LogicalUnionExpression> unionExpressionMatcher =
             logicalUnionExpression(allForEachQuantifiersMatcher);
 
-    @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> unionForEachQuantifierMatcher = forEachQuantifier(unionExpressionMatcher);
-    @Nonnull
     private static final BindingMatcher<LogicalDistinctExpression> root =
             logicalDistinctExpression(exactly(unionForEachQuantifierMatcher));
 
@@ -104,7 +98,7 @@ public class ImplementDistinctUnionRule extends AbstractCascadesRule<LogicalDist
 
     @Override
     @SuppressWarnings({"java:S135", "UnstableApiUsage"})
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final var requestedOrderingsOptional = call.getPlannerConstraintMaybe(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingsOptional.isEmpty()) {
             return;
@@ -246,8 +240,7 @@ public class ImplementDistinctUnionRule extends AbstractCascadesRule<LogicalDist
      * @param providedOrderings the list of orderings from each union leg
      * @return a new list of orderings with common equality-bound parts removed from each ordering
      */
-    @Nonnull
-    static ImmutableList<Ordering> removeCommonEqualityBoundParts(@Nonnull final ImmutableList<Ordering> providedOrderings) {
+    static ImmutableList<Ordering> removeCommonEqualityBoundParts(final ImmutableList<Ordering> providedOrderings) {
         if (providedOrderings.isEmpty()) {
             return providedOrderings;
         }
@@ -282,10 +275,10 @@ public class ImplementDistinctUnionRule extends AbstractCascadesRule<LogicalDist
                 .collect(ImmutableList.toImmutableList());
     }
 
-    private void pushInterestingOrders(@Nonnull final ImplementationCascadesRuleCall call,
-                                       @Nonnull final Quantifier unionForEachQuantifier,
-                                       @Nonnull final ImmutableList<Ordering> providedOrderings,
-                                       @Nonnull final RequestedOrdering requestedOrdering) {
+    private void pushInterestingOrders(final ImplementationCascadesRuleCall call,
+                                       final Quantifier unionForEachQuantifier,
+                                       final ImmutableList<Ordering> providedOrderings,
+                                       final RequestedOrdering requestedOrdering) {
         final var unionRef = unionForEachQuantifier.getRangesOver();
         final var providedOrderingWithoutCommonEqualityBoundParts = removeCommonEqualityBoundParts(providedOrderings);
         for (final var providedOrdering : providedOrderingWithoutCommonEqualityBoundParts) {
@@ -295,8 +288,8 @@ public class ImplementDistinctUnionRule extends AbstractCascadesRule<LogicalDist
         }
     }
 
-    private boolean isPrimaryKeyCompatibleWithOrdering(@Nonnull final List<Value> primaryKeyValues,
-                                                       @Nonnull final Ordering ordering) {
+    private boolean isPrimaryKeyCompatibleWithOrdering(final List<Value> primaryKeyValues,
+                                                       final Ordering ordering) {
         final var orderingValues =
                 ordering.getOrderingSet().getSet();
         for (final var primaryKeyValue : primaryKeyValues) {

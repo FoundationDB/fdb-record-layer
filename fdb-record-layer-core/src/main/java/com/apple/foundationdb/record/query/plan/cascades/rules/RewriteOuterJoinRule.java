@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.translation.Tran
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
 
@@ -68,7 +67,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 public class RewriteOuterJoinRule extends AbstractCascadesRule<OuterJoinExpression> implements ExplorationCascadesRule<OuterJoinExpression> {
 
-    @Nonnull
     private static final BindingMatcher<OuterJoinExpression> root =
             outerJoinExpression().where(isExploratoryExpression());
 
@@ -77,7 +75,7 @@ public class RewriteOuterJoinRule extends AbstractCascadesRule<OuterJoinExpressi
     }
 
     @Override
-    public void onMatch(@Nonnull final ExplorationCascadesRuleCall call) {
+    public void onMatch(final ExplorationCascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
         final OuterJoinExpression outerJoinExpression = bindings.get(root);
 
@@ -118,9 +116,8 @@ public class RewriteOuterJoinRule extends AbstractCascadesRule<OuterJoinExpressi
      * it. Otherwise, wrap the null-supplying quantifier in a fresh passthrough {@code SELECT} carrying just the
      * {@code ON} predicates.
      */
-    @Nonnull
-    private static SelectExpression buildInnerSelect(@Nonnull final OuterJoinExpression outerJoinExpression,
-                                                     @Nonnull final Quantifier.ForEach nullSupplyingQun) {
+    private static SelectExpression buildInnerSelect(final OuterJoinExpression outerJoinExpression,
+                                                     final Quantifier.ForEach nullSupplyingQun) {
         final Set<RelationalExpression> exploratory = nullSupplyingQun.getRangesOver().getExploratoryExpressions();
         if (exploratory.size() == 1 && exploratory.iterator().next() instanceof SelectExpression existingSelect) {
             // Translate the ON predicates so any leaf reference to `nullSupplyingQun.alias` is replaced by

@@ -31,8 +31,8 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayDeque;
 import java.util.Iterator;
 
@@ -43,10 +43,9 @@ import java.util.Iterator;
 public class TestRuleExecution {
     private final int ruleMatchedCount;
     private final boolean hasYielded;
-    @Nonnull
     private final Reference result;
 
-    private TestRuleExecution(int ruleMatchedCount, boolean hasYielded, @Nonnull Reference result) {
+    private TestRuleExecution(int ruleMatchedCount, boolean hasYielded, Reference result) {
         this.ruleMatchedCount = ruleMatchedCount;
         this.hasYielded = hasYielded;
         this.result = result;
@@ -64,14 +63,13 @@ public class TestRuleExecution {
         return hasYielded;
     }
 
-    @Nonnull
     public Reference getResult() {
         return result;
     }
 
     @SuppressWarnings("unchecked")
     @Nullable
-    public <T> T getResultMemberWithClass(@Nonnull Class<T> clazz) {
+    public <T> T getResultMemberWithClass(Class<T> clazz) {
         for (RelationalExpression member : result.getAllMemberExpressions()) {
             if (clazz.isInstance(member)) {
                 return (T) member;
@@ -80,11 +78,11 @@ public class TestRuleExecution {
         return null;
     }
 
-    public static TestRuleExecution applyRule(@Nonnull PlanContext context,
-                                              @Nonnull AbstractCascadesRule<? extends RelationalExpression> rule,
-                                              @Nonnull Reference group,
-                                              @Nonnull final EvaluationContext evaluationContext,
-                                              @Nonnull final PlannerPhase plannerPhase) {
+    public static TestRuleExecution applyRule(PlanContext context,
+                                              AbstractCascadesRule<? extends RelationalExpression> rule,
+                                              Reference group,
+                                              final EvaluationContext evaluationContext,
+                                              final PlannerPhase plannerPhase) {
         int matchesCount = 0;
         boolean hasYielded = false;
         for (RelationalExpression expression : group.getAllMemberExpressions()) {
