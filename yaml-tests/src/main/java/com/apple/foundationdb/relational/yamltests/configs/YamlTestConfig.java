@@ -24,8 +24,6 @@ import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.YamlRunner;
 
-import javax.annotation.Nonnull;
-
 /**
  * Interface for configuring how to run a {@code .yamsql} file.
  * <p>
@@ -45,7 +43,6 @@ public interface YamlTestConfig {
      * A list of options to be provided to {@link YamlRunner}.
      * @return the options for this config
      */
-    @Nonnull
     YamlExecutionContext.ContextOptions getRunnerOptions();
 
     void beforeAll() throws Exception;

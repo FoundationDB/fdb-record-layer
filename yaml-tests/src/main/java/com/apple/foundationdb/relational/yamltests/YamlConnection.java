@@ -30,8 +30,7 @@ import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnectio
 import com.apple.foundationdb.relational.yamltests.command.SQLFunction;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -46,7 +45,7 @@ public interface YamlConnection extends AutoCloseable {
     @Override
     void close() throws SQLException;
 
-    void setConnectionOptions(@Nonnull Options connectionOptions) throws SQLException;
+    void setConnectionOptions(Options connectionOptions) throws SQLException;
 
     /**
      * Creates a statement (see {@link RelationalConnection#createStatement()}).
@@ -91,7 +90,6 @@ public interface YamlConnection extends AutoCloseable {
      * </p>
      * @return the ordered list of versions
      */
-    @Nonnull
     List<SemanticVersion> getVersions();
 
     /**
@@ -104,10 +102,9 @@ public interface YamlConnection extends AutoCloseable {
      *
      * @return the first version that an underlying connection will represent
      */
-    @Nonnull
     SemanticVersion getInitialVersion();
 
-    <T> T executeTransactionally(SQLFunction<YamlConnection, T> transactionalWork) throws SQLException, RelationalException;
+    <T extends @Nullable Object> T executeTransactionally(SQLFunction<YamlConnection, T> transactionalWork) throws SQLException, RelationalException;
 
     /**
      * The Cluster File that this connection is connected to, so that other connections can point to the same

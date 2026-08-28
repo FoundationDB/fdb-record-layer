@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.YamlReference;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
@@ -72,8 +71,8 @@ public interface Block {
      * @param executionContext information needed to carry out the execution
      * @return zero of more blocks
      */
-    static List<Block> parse(@Nonnull YamlReference.YamlResource resource, @Nonnull Object region, int blockNumber,
-                             @Nonnull YamlExecutionContext executionContext, boolean isTopLevel) {
+    static List<Block> parse(YamlReference.YamlResource resource, Object region, int blockNumber,
+                             YamlExecutionContext executionContext, boolean isTopLevel) {
         final var blockObject = Matchers.map(region, "block");
         Assert.thatUnchecked(blockObject.size() == 1,
                 "Illegal Format: A block is expected to be a map of size 1 ({" + resource + "}) keys: " + blockObject.keySet());
@@ -112,7 +111,6 @@ public interface Block {
      * stack that has led to the execution of this block.
      * @return the {@link YamlReference} of the current block.
      */
-    @Nonnull
     YamlReference getReference();
 
     /**
@@ -126,7 +124,6 @@ public interface Block {
      * decide the lifecycle of the resources.
      * @return the list of {@link Block}
      */
-    @Nonnull
     default List<Block> getAndClearFinalizingBlocks() {
         return List.of();
     }

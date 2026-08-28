@@ -21,10 +21,11 @@
 package com.apple.foundationdb.relational.yamltests.command;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import org.jspecify.annotations.Nullable;
 
 import java.sql.SQLException;
 
 @FunctionalInterface
-public interface SQLFunction<T, R> {
+public interface SQLFunction<T, R extends @Nullable Object> {
     R apply(T t) throws SQLException, RelationalException;
 }

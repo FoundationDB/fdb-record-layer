@@ -27,19 +27,15 @@ import org.yaml.snakeyaml.constructor.Construct;
 import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.Tag;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 @AutoService(CustomTag.class)
 public final class IsNullTag implements CustomTag {
 
-    @Nonnull
     private static final Tag tag = new Tag("!null");
 
-    @Nonnull
     private static final Matchable INSTANCE = new IsNullMatcher();
 
-    @Nonnull
     private static final Construct CONSTRUCT_INSTANCE = new AbstractConstruct() {
         @Override
         public Object construct(Node node) {
@@ -50,27 +46,23 @@ public final class IsNullTag implements CustomTag {
     public IsNullTag() {
     }
 
-    @Nonnull
     @Override
     public Tag getTag() {
         return tag;
     }
 
-    @Nonnull
     @Override
     public Construct getConstruct() {
         return CONSTRUCT_INSTANCE;
     }
 
-    @Nonnull
     public static String usage() {
         return tag + " _";
     }
 
     public static final class IsNullMatcher implements Matchable {
-        @Nonnull
         @Override
-        public Matchers.ResultSetMatchResult matches(@Nullable final Object other, final int rowNumber, @Nonnull final String cellRef) {
+        public Matchers.ResultSetMatchResult matches(@Nullable final Object other, final int rowNumber, final String cellRef) {
             if (other == null) {
                 return Matchers.ResultSetMatchResult.success();
             }

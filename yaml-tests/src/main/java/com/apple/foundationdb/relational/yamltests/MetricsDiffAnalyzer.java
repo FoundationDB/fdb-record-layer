@@ -35,8 +35,7 @@ import com.google.protobuf.Descriptors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -44,6 +43,7 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.TreeMap;
 
 /**
@@ -54,11 +54,8 @@ import java.util.TreeMap;
 public final class MetricsDiffAnalyzer {
     private static final Logger logger = LogManager.getLogger(MetricsDiffAnalyzer.class);
 
-    @Nonnull
     private final String baseRef;
-    @Nonnull
     private final String headRef;
-    @Nonnull
     private final Path repositoryRoot;
     @Nullable
     private final String urlBase;
@@ -77,21 +74,24 @@ public final class MetricsDiffAnalyzer {
         public String repositoryRoot = ".";
 
         @Parameter(names = {"--output", "-o"}, description = "Output file path (writes to stdout if not specified)", order = 2)
+        @Nullable
         public String outputPath;
 
         @Parameter(names = {"--outlier-queries"}, description = "Output file path to specifically list data for outlier queries", order = 5)
+        @Nullable
         public String outlierQueryPath;
 
         @Parameter(names = {"--url-base"}, description = "Base of the URL to use for linking to queries", order = 6)
+        @Nullable
         public String urlBase;
 
         @Parameter(names = {"--help", "-h"}, description = "Show help message", help = true, order = 4)
         public boolean help;
     }
 
-    public MetricsDiffAnalyzer(@Nonnull final String baseRef,
-                               @Nonnull final String headRef,
-                               @Nonnull final Path repositoryRoot,
+    public MetricsDiffAnalyzer(final String baseRef,
+                               final String headRef,
+                               final Path repositoryRoot,
                                @Nullable final String urlBase) {
         this.baseRef = baseRef;
         this.headRef = headRef;
@@ -122,7 +122,6 @@ public final class MetricsDiffAnalyzer {
             commander.usage();
             return;
         }
-
 
         try {
             final Path repositoryRoot = arguments.repositoryRoot == null ? Paths.get(".") : Paths.get(arguments.repositoryRoot);
@@ -167,7 +166,6 @@ public final class MetricsDiffAnalyzer {
      * @return analysis results
      * @throws RelationalException if analysis fails
      */
-    @Nonnull
     public MetricsAnalysisResult analyze() throws RelationalException {
         if (logger.isInfoEnabled()) {
             logger.info(KeyValueLogMessage.of("Starting metrics diff analysis",
@@ -195,8 +193,8 @@ public final class MetricsDiffAnalyzer {
     /**
      * Analyzes a single metrics file for changes.
      */
-    private void analyzeYamlFile(@Nonnull final Path yamlPath,
-                                 @Nonnull final MetricsAnalysisResult.Builder analysisBuilder) throws RelationalException {
+    private void analyzeYamlFile(final Path yamlPath,
+                                 final MetricsAnalysisResult.Builder analysisBuilder) throws RelationalException {
         if (logger.isDebugEnabled()) {
             logger.debug(KeyValueLogMessage.of("Analyzing YAML metrics file",
                     "path", yamlPath));
@@ -217,8 +215,7 @@ public final class MetricsDiffAnalyzer {
         compareMetrics(baseMetrics, headMetrics, yamlPath, analysisBuilder);
     }
 
-    @Nonnull
-    private Map<PlannerMetricsProto.Identifier, MetricsInfo> loadMetricsAtRef(@Nonnull Path yamlPath, @Nonnull String ref) throws RelationalException {
+    private Map<PlannerMetricsProto.Identifier, MetricsInfo> loadMetricsAtRef(Path yamlPath, String ref) throws RelationalException {
         try {
             final var yamlFile = GitMetricsFileFinder.getFileAtReference(
                     repositoryRoot.relativize(yamlPath).toString(), ref, repositoryRoot);
@@ -239,10 +236,10 @@ public final class MetricsDiffAnalyzer {
      * Compares metrics between base and head versions.
      */
     @VisibleForTesting
-    public void compareMetrics(@Nonnull final Map<PlannerMetricsProto.Identifier, MetricsInfo> baseMetrics,
-                               @Nonnull final Map<PlannerMetricsProto.Identifier, MetricsInfo> headMetrics,
-                               @Nonnull final Path filePath,
-                               @Nonnull final MetricsAnalysisResult.Builder analysisBuilder) {
+    public void compareMetrics(final Map<PlannerMetricsProto.Identifier, MetricsInfo> baseMetrics,
+                               final Map<PlannerMetricsProto.Identifier, MetricsInfo> headMetrics,
+                               final Path filePath,
+                               final MetricsAnalysisResult.Builder analysisBuilder) {
 
         // Find new and updated queries
         int newCount = 0;
@@ -258,8 +255,8 @@ public final class MetricsDiffAnalyzer {
             } else {
                 // Query in both old and new. Mark as changed
                 changedCount++;
-                final MetricsInfo baseInfo = baseMetrics.get(identifier);
-                final MetricsInfo headInfo = headMetrics.get(identifier);
+                final MetricsInfo baseInfo = baseMetricInfo;
+                final MetricsInfo headInfo = headMetricInfo;
 
                 final var planChanged = !baseInfo.getExplain().equals(headInfo.getExplain());
                 final var metricsChanged = MetricsInfo.areMetricsDifferent(baseInfo, headInfo);
@@ -298,7 +295,6 @@ public final class MetricsDiffAnalyzer {
         }
     }
 
-    @Nonnull
     public MetricsAnalysisResult.Builder newAnalysisBuilder() {
         return new MetricsAnalysisResult.Builder(baseRef, headRef, repositoryRoot, urlBase);
     }
@@ -314,22 +310,19 @@ public final class MetricsDiffAnalyzer {
         private final List<QueryChange> droppedQueries;
         private final List<QueryChange> planAndMetricsChanged;
         private final List<QueryChange> metricsOnlyChanged;
-        @Nonnull
         private final String baseRef;
-        @Nonnull
         private final String headRef;
-        @Nonnull
         private final Path repositoryRoot;
         @Nullable
         private final String urlBase;
 
-        private MetricsAnalysisResult(@Nonnull final List<QueryChange> newQueries,
-                                      @Nonnull final List<QueryChange> droppedQueries,
-                                      @Nonnull final List<QueryChange> planAndMetricsChanged,
-                                      @Nonnull final List<QueryChange> metricsOnlyChanged,
-                                      @Nonnull final String baseRef,
-                                      @Nonnull final String headRef,
-                                      @Nonnull final Path repositoryRoot,
+        private MetricsAnalysisResult(final List<QueryChange> newQueries,
+                                      final List<QueryChange> droppedQueries,
+                                      final List<QueryChange> planAndMetricsChanged,
+                                      final List<QueryChange> metricsOnlyChanged,
+                                      final String baseRef,
+                                      final String headRef,
+                                      final Path repositoryRoot,
                                       @Nullable final String urlBase) {
             this.newQueries = newQueries;
             this.droppedQueries = droppedQueries;
@@ -357,21 +350,18 @@ public final class MetricsDiffAnalyzer {
             return metricsOnlyChanged;
         }
 
-        @Nonnull
-        private Path relativePath(@Nonnull Path path) {
+        private Path relativePath(Path path) {
             return repositoryRoot.relativize(path);
         }
 
-        @Nonnull
-        private String formatQueryDisplay(@Nonnull final QueryChange change) {
+        private String formatQueryDisplay(final QueryChange change) {
             return formatQueryDisplay(change, true);
         }
 
         /**
          * Helper method to format a query change for display with relative path and line number.
          */
-        @Nonnull
-        private String formatQueryDisplay(@Nonnull final QueryChange change, boolean asLink) {
+        private String formatQueryDisplay(final QueryChange change, boolean asLink) {
             int lineNumber = -1;
             String ref = null;
             if (change.newInfo != null) {
@@ -401,7 +391,6 @@ public final class MetricsDiffAnalyzer {
          *
          * @return the contents of a report comparing query metrics
          */
-        @Nonnull
         public String generateReport() {
             final var report = new StringBuilder();
             report.append("# 📊 Metrics Diff Analysis Report\n\n");
@@ -422,7 +411,6 @@ public final class MetricsDiffAnalyzer {
                     .append(" - **Metrics only changed**: Same plan but different metrics\n\n")
                     .append("The last category in particular may indicate planner regressions that should be investigated.\n\n")
                     .append("</details>\n\n");
-
 
             if (!newQueries.isEmpty()) {
                 // Only list a count of new queries by file type. Having more test cases is generally a good thing,
@@ -485,7 +473,6 @@ public final class MetricsDiffAnalyzer {
          *
          * @return a report of outlier queries
          */
-        @Nonnull
         public String generateOutlierQueryReport() {
             final List<QueryChange> outliers = findAllOutliers();
             if (outliers.isEmpty()) {
@@ -502,20 +489,18 @@ public final class MetricsDiffAnalyzer {
             return report.toString();
         }
 
-        @Nonnull
         private String sign(double d) {
             // For adding an explicit plus to positive values. Rely on usual toString of negative values
             // to add the minus sign
             return d > 0 ? "+" : "";
         }
 
-        @Nonnull
         private String sign(long l) {
             // See: sign(double)
             return l > 0 ? "+" : "";
         }
 
-        private void appendStatisticalSummary(@Nonnull final StringBuilder report, @Nonnull final MetricsStatistics stats) {
+        private void appendStatisticalSummary(final StringBuilder report, final MetricsStatistics stats) {
             for (final var fieldName : YamlMetricsMaintainer.TRACKED_METRIC_FIELDS) {
                 final var fieldStats = stats.getFieldStatistics(fieldName);
                 final var regressionFieldStats = stats.getRegressionStatistics(fieldName);
@@ -549,9 +534,9 @@ public final class MetricsDiffAnalyzer {
             }
         }
 
-        private void appendHistogram(@Nonnull final StringBuilder report,
-                                     @Nonnull final String fieldName,
-                                     @Nonnull final List<Double> sortedPercentDiffs) {
+        private void appendHistogram(final StringBuilder report,
+                                     final String fieldName,
+                                     final List<Double> sortedPercentDiffs) {
             if (sortedPercentDiffs.size() < 3) {
                 return;
             }
@@ -559,8 +544,7 @@ public final class MetricsDiffAnalyzer {
             report.append(formatHistogram(fieldName, sortedPercentDiffs.size(), bins));
         }
 
-        @Nonnull
-        private static Map<Double, Integer> computeHistogramBins(@Nonnull final List<Double> sortedPercentDiffs) {
+        private static Map<Double, Integer> computeHistogramBins(final List<Double> sortedPercentDiffs) {
             final double lo = Math.floor(sortedPercentDiffs.get(0) / BIN_WIDTH) * BIN_WIDTH;
             final double hi = (Math.floor(sortedPercentDiffs.get(sortedPercentDiffs.size() - 1) / BIN_WIDTH) + 1) * BIN_WIDTH;
 
@@ -575,8 +559,7 @@ public final class MetricsDiffAnalyzer {
             return bins;
         }
 
-        @Nonnull
-        private static String formatHistogram(@Nonnull final String fieldName, final int totalCount, @Nonnull final Map<Double, Integer> bins) {
+        private static String formatHistogram(final String fieldName, final int totalCount, final Map<Double, Integer> bins) {
             final int labelWidth = bins.keySet().stream().mapToInt(b -> binLabel(b).length()).max().orElse(0);
             final int maxCount = bins.values().stream().mapToInt(Integer::intValue).max().orElse(1);
 
@@ -595,12 +578,11 @@ public final class MetricsDiffAnalyzer {
             return histogram.toString();
         }
 
-        @Nonnull
         private static String binLabel(final double b) {
             return String.format(Locale.ROOT, "[%+.0f%%, %+.0f%%)", b, b + BIN_WIDTH);
         }
 
-        private void appendChangesList(@Nonnull final StringBuilder report, @Nonnull List<QueryChange> changes, @Nonnull String title, @Nonnull String explanation) {
+        private void appendChangesList(final StringBuilder report, List<QueryChange> changes, String title, String explanation) {
             if (changes.isEmpty()) {
                 return;
             }
@@ -654,7 +636,7 @@ public final class MetricsDiffAnalyzer {
             }
         }
 
-        private MetricsStatistics calculateMetricsStatistics(@Nonnull final List<QueryChange> changes) {
+        private MetricsStatistics calculateMetricsStatistics(final List<QueryChange> changes) {
             final var statisticsBuilder = new MetricsStatistics.Builder();
 
             for (final var change : changes) {
@@ -678,7 +660,6 @@ public final class MetricsDiffAnalyzer {
             return statisticsBuilder.build();
         }
 
-        @Nonnull
         public List<QueryChange> findAllOutliers() {
             return ImmutableList.<QueryChange>builder()
                     .addAll(findOutliers(planAndMetricsChanged))
@@ -686,14 +667,12 @@ public final class MetricsDiffAnalyzer {
                     .build();
         }
 
-        @Nonnull
-        private List<QueryChange> findOutliers(@Nonnull final List<QueryChange> changes) {
+        private List<QueryChange> findOutliers(final List<QueryChange> changes) {
             final MetricsStatistics summary = calculateMetricsStatistics(changes);
             return findOutliers(changes, summary);
         }
 
-        @Nonnull
-        private List<QueryChange> findOutliers(@Nonnull final List<QueryChange> changes, @Nonnull final MetricsStatistics stats) {
+        private List<QueryChange> findOutliers(final List<QueryChange> changes, final MetricsStatistics stats) {
             if (changes.size() < 3) {
                 // Not enough data for meaningful outlier detection
                 return changes;
@@ -710,7 +689,7 @@ public final class MetricsDiffAnalyzer {
             return outliers.build();
         }
 
-        private boolean isOutlier(@Nonnull QueryChange change, @Nonnull MetricsStatistics stats) {
+        private boolean isOutlier(QueryChange change, MetricsStatistics stats) {
             if (change.oldInfo == null || change.newInfo == null) {
                 return false;
             }
@@ -743,13 +722,14 @@ public final class MetricsDiffAnalyzer {
             return zScore > 2.0 || isLargeAbsoluteChange;
         }
 
-        private void appendMetricsDiff(@Nonnull final StringBuilder report,
-                                       @Nonnull final QueryChange queryChange) {
+        private void appendMetricsDiff(final StringBuilder report,
+                                       final QueryChange queryChange) {
             Assert.thatUnchecked(queryChange.oldInfo != null, "old info must be set to display metrics diff");
             Assert.thatUnchecked(queryChange.newInfo != null, "new info must be set to display metrics diff");
-
-            final PlannerMetricsProto.CountersAndTimers oldMetrics = queryChange.oldInfo.getCountersAndTimers();
-            final PlannerMetricsProto.CountersAndTimers newMetrics = queryChange.newInfo.getCountersAndTimers();
+            // Assert.thatUnchecked above throws if either is null, but NullAway can't infer that, so re-assert
+            // non-null explicitly here.
+            final PlannerMetricsProto.CountersAndTimers oldMetrics = Objects.requireNonNull(queryChange.oldInfo).getCountersAndTimers();
+            final PlannerMetricsProto.CountersAndTimers newMetrics = Objects.requireNonNull(queryChange.newInfo).getCountersAndTimers();
 
             final var descriptor = oldMetrics.getDescriptorForType();
 
@@ -771,57 +751,49 @@ public final class MetricsDiffAnalyzer {
             private final ImmutableList.Builder<QueryChange> droppedQueries = ImmutableList.builder();
             private final ImmutableList.Builder<QueryChange> planAndMetricsChanged = ImmutableList.builder();
             private final ImmutableList.Builder<QueryChange> metricsOnlyChanged = ImmutableList.builder();
-            @Nonnull
             private final String baseRef;
-            @Nonnull
             private final String headRef;
-            @Nonnull
             private final Path repositoryRoot;
             @Nullable
             private final String urlBase;
 
-            public Builder(@Nonnull String baseRef, @Nonnull String headRef, @Nonnull final Path repositoryRoot, @Nullable final String urlBase) {
+            public Builder(String baseRef, String headRef, final Path repositoryRoot, @Nullable final String urlBase) {
                 this.baseRef = baseRef;
                 this.headRef = headRef;
                 this.repositoryRoot = repositoryRoot;
                 this.urlBase = urlBase;
             }
 
-            @Nonnull
-            public Builder addNewQuery(@Nonnull final Path filePath,
-                                       @Nonnull final PlannerMetricsProto.Identifier identifier,
-                                       @Nonnull final MetricsInfo info) {
+            public Builder addNewQuery(final Path filePath,
+                                       final PlannerMetricsProto.Identifier identifier,
+                                       final MetricsInfo info) {
                 newQueries.add(new QueryChange(filePath, identifier, null, info));
                 return this;
             }
 
-            @Nonnull
-            public Builder addDroppedQuery(@Nonnull final Path filePath,
-                                           @Nonnull final PlannerMetricsProto.Identifier identifier,
-                                           @Nonnull final MetricsInfo info) {
+            public Builder addDroppedQuery(final Path filePath,
+                                           final PlannerMetricsProto.Identifier identifier,
+                                           final MetricsInfo info) {
                 droppedQueries.add(new QueryChange(filePath, identifier, info, null));
                 return this;
             }
 
-            @Nonnull
-            public Builder addPlanAndMetricsChanged(@Nonnull final Path filePath,
-                                                    @Nonnull final PlannerMetricsProto.Identifier identifier,
-                                                    @Nonnull final MetricsInfo oldInfo,
-                                                    @Nonnull final MetricsInfo newInfo) {
+            public Builder addPlanAndMetricsChanged(final Path filePath,
+                                                    final PlannerMetricsProto.Identifier identifier,
+                                                    final MetricsInfo oldInfo,
+                                                    final MetricsInfo newInfo) {
                 planAndMetricsChanged.add(new QueryChange(filePath, identifier, oldInfo, newInfo));
                 return this;
             }
 
-            @Nonnull
-            public Builder addMetricsOnlyChanged(@Nonnull final Path filePath,
-                                                 @Nonnull final PlannerMetricsProto.Identifier identifier,
-                                                 @Nonnull final MetricsInfo oldInfo,
-                                                 @Nonnull final MetricsInfo newInfo) {
+            public Builder addMetricsOnlyChanged(final Path filePath,
+                                                 final PlannerMetricsProto.Identifier identifier,
+                                                 final MetricsInfo oldInfo,
+                                                 final MetricsInfo newInfo) {
                 metricsOnlyChanged.add(new QueryChange(filePath, identifier, oldInfo, newInfo));
                 return this;
             }
 
-            @Nonnull
             public MetricsAnalysisResult build() {
                 return new MetricsAnalysisResult(
                         newQueries.build(),
@@ -848,8 +820,8 @@ public final class MetricsDiffAnalyzer {
         @Nullable
         public final MetricsInfo newInfo;
 
-        public QueryChange(@Nonnull final Path filePath,
-                           @Nonnull final PlannerMetricsProto.Identifier identifier,
+        public QueryChange(final Path filePath,
+                           final PlannerMetricsProto.Identifier identifier,
                            @Nullable final MetricsInfo oldInfo,
                            @Nullable final MetricsInfo newInfo) {
             this.filePath = filePath;

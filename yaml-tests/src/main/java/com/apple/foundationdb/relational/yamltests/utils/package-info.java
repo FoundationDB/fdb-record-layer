@@ -21,4 +21,7 @@
 /**
  * Utility methods to be used in conjunction with the YAML testing framework.
  */
+@NullMarked
 package com.apple.foundationdb.relational.yamltests.utils;
+
+import org.jspecify.annotations.NullMarked;

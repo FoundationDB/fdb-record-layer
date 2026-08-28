@@ -23,4 +23,7 @@
  * running the tests. This package holds all the blocks.
  */
 
+@NullMarked
 package com.apple.foundationdb.relational.yamltests.block;
+
+import org.jspecify.annotations.NullMarked;

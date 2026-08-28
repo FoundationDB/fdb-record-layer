@@ -35,8 +35,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -64,20 +63,16 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
      */
     public enum ConnectionSelectionPolicy { DEFAULT, ALTERNATE }
 
-    @Nonnull
     private final ConnectionSelectionPolicy connectionSelectionPolicy;
-    @Nonnull
     private final YamlConnectionFactory defaultFactory;
-    @Nonnull
     private final List<YamlConnectionFactory> alternateFactories;
     private final int totalFactories;
-    @Nonnull
     private final AtomicInteger currentConnectionSelector;
 
-    public MultiServerConnectionFactory(@Nonnull final ConnectionSelectionPolicy connectionSelectionPolicy,
+    public MultiServerConnectionFactory(final ConnectionSelectionPolicy connectionSelectionPolicy,
                                         final int initialConnection,
-                                        @Nonnull final YamlConnectionFactory defaultFactory,
-                                        @Nonnull final List<YamlConnectionFactory> alternateFactories) {
+                                        final YamlConnectionFactory defaultFactory,
+                                        final List<YamlConnectionFactory> alternateFactories) {
         this.connectionSelectionPolicy = connectionSelectionPolicy;
         this.defaultFactory = defaultFactory;
         this.alternateFactories = alternateFactories;
@@ -92,7 +87,7 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
     }
 
     @Override
-    public YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException {
+    public YamlConnection getNewConnection(URI connectPath, int clusterIndex) throws SQLException {
         if (connectionSelectionPolicy == ConnectionSelectionPolicy.DEFAULT) {
             return defaultFactory.getNewConnection(connectPath, clusterIndex);
         } else {
@@ -117,7 +112,6 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
         return defaultFactory.getAvailableClusterCount();
     }
 
-    @Nonnull
     private List<YamlConnection> alternateConnections(URI connectPath, int clusterIndex) {
         return alternateFactories.stream().map(factory -> {
             try {
@@ -155,17 +149,14 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
 
         private int currentConnectionSelector;
 
-        @Nonnull
         private final ConnectionSelectionPolicy connectionSelectionPolicy;
-        @Nonnull
         private final List<YamlConnection> underlyingConnections;
-        @Nonnull
         private final List<SemanticVersion> versions;
 
-        public MultiServerConnection(@Nonnull ConnectionSelectionPolicy connectionSelectionPolicy,
+        public MultiServerConnection(ConnectionSelectionPolicy connectionSelectionPolicy,
                                      final int initialConnecion,
-                                     @Nonnull final YamlConnection defaultConnection,
-                                     @Nonnull List<YamlConnection> alternateConnections) throws SQLException {
+                                     final YamlConnection defaultConnection,
+                                     List<YamlConnection> alternateConnections) throws SQLException {
             this.connectionSelectionPolicy = connectionSelectionPolicy;
             this.currentConnectionSelector = initialConnecion;
             underlyingConnections = new ArrayList<>();
@@ -198,20 +189,18 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
             return null;
         }
 
-        @Nonnull
         @Override
         public List<SemanticVersion> getVersions() {
             return this.versions;
         }
 
-        @Nonnull
         @Override
         public SemanticVersion getInitialVersion() {
             return versions.get(0);
         }
 
         @Override
-        public <T> T executeTransactionally(final SQLFunction<YamlConnection, T> transactionalWork)
+        public <T extends @Nullable Object> T executeTransactionally(final SQLFunction<YamlConnection, T> transactionalWork)
                 throws SQLException, RelationalException {
             return getCurrentConnection(true, "transactional work").executeTransactionally(transactionalWork);
         }
@@ -225,7 +214,7 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
         }
 
         @Override
-        public void setConnectionOptions(@Nonnull final Options connectionOptions) throws SQLException {
+        public void setConnectionOptions(final Options connectionOptions) throws SQLException {
             logger.info("Sending operation {} to all connections", "setConnectionOptions");
             for (var connection : underlyingConnections) {
                 connection.setConnectionOptions(connectionOptions);

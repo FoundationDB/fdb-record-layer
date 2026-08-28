@@ -29,7 +29,6 @@ import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.Clusters;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.EmbeddedYamlConnectionFactory;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 
@@ -40,17 +39,15 @@ import java.util.Objects;
  * (using {@code connect: { cluster: N }}) can route to the correct cluster.
  */
 public class EmbeddedConfig implements YamlTestConfig {
-    @Nonnull
     private final List<String> clusterFiles;
-    @Nonnull
     private Clusters<Clusters.Entry<FRL>> clusters = Clusters.empty();
 
     @API(API.Status.DEPRECATED)
-    public EmbeddedConfig(@Nonnull final String clusterFile) {
+    public EmbeddedConfig(final String clusterFile) {
         this(List.of(clusterFile));
     }
 
-    public EmbeddedConfig(@Nonnull final List<String> clusterFiles) {
+    public EmbeddedConfig(final List<String> clusterFiles) {
         this.clusterFiles = clusterFiles;
     }
 
@@ -91,7 +88,6 @@ public class EmbeddedConfig implements YamlTestConfig {
         return new EmbeddedYamlConnectionFactory(clusters.map(e -> Clusters.mapEntry(e, FRL::getDriver)));
     }
 
-    @Nonnull
     @Override
     public YamlExecutionContext.ContextOptions getRunnerOptions() {
         return YamlExecutionContext.ContextOptions.EMPTY_OPTIONS;

@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.google.protobuf.util.JsonFormat;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -48,7 +47,7 @@ public class ExportSchemaTemplateUtil {
      * @param exportLocation path to export location
      * @throws IOException any problem encountered writing the file
      */
-    public static void export(@Nonnull RecordMetaData metaData, @Nonnull Path exportLocation) throws IOException {
+    public static void export(RecordMetaData metaData, Path exportLocation) throws IOException {
         final RecordMetaDataProto.MetaData metaDataProto = metaData.toProto();
 
         // Ensure parent directory exists

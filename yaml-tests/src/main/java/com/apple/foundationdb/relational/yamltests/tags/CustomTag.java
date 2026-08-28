@@ -23,18 +23,15 @@ package com.apple.foundationdb.relational.yamltests.tags;
 import org.yaml.snakeyaml.constructor.Construct;
 import org.yaml.snakeyaml.nodes.Tag;
 
-import javax.annotation.Nonnull;
 import java.util.function.BiConsumer;
 
 public interface CustomTag {
 
-    default void accept(@Nonnull BiConsumer<Tag, Construct> visitor) {
+    default void accept(BiConsumer<Tag, Construct> visitor) {
         visitor.accept(getTag(), getConstruct());
     }
 
-    @Nonnull
     Tag getTag();
 
-    @Nonnull
     Construct getConstruct();
 }

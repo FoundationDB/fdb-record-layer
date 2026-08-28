@@ -33,7 +33,6 @@ import com.apple.foundationdb.relational.yamltests.YamlReference;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.Array;
 import java.sql.SQLException;
@@ -73,17 +72,16 @@ public class CopyBlock extends ReferencedBlock implements Block {
     public static final String COPY_BLOCK = "copy_block";
     private static final URI CATALOG_URI = URI.create("jdbc:embed:/__SYS?schema=CATALOG");
 
-    @Nonnull
     private final YamlExecutionContext executionContext;
     private final CopyInfoForCluster sourceInfo;
     private final CopyInfoForCluster destInfo;
 
     record CopyInfoForCluster(int cluster, String path, int chunkSize) { }
 
-    private CopyBlock(@Nonnull final YamlReference reference,
-                      @Nonnull final CopyInfoForCluster sourceInfo,
-                      @Nonnull final CopyInfoForCluster destInfo,
-                      @Nonnull final YamlExecutionContext executionContext) {
+    private CopyBlock(final YamlReference reference,
+                      final CopyInfoForCluster sourceInfo,
+                      final CopyInfoForCluster destInfo,
+                      final YamlExecutionContext executionContext) {
         super(reference);
         this.sourceInfo = sourceInfo;
         this.destInfo = destInfo;
@@ -98,9 +96,8 @@ public class CopyBlock extends ReferencedBlock implements Block {
      * @param executionContext the execution context
      * @return a singleton list containing the parsed {@link CopyBlock}
      */
-    @Nonnull
-    public static List<Block> parse(@Nonnull final YamlReference reference, @Nonnull final Object document,
-                                    @Nonnull final YamlExecutionContext executionContext) {
+    public static List<Block> parse(final YamlReference reference, final Object document,
+                                    final YamlExecutionContext executionContext) {
         try {
             final Map<?, ?> blockMap = CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(document, COPY_BLOCK));
 
@@ -122,20 +119,18 @@ public class CopyBlock extends ReferencedBlock implements Block {
                 getIntOrDefault(map, chunkSizeName, 0));
     }
 
-    @Nonnull
-    private static String getString(@Nonnull final Map<?, ?> sourceMap, @Nonnull final String key,
-                                    @Nonnull final String description) {
+    private static String getString(final Map<?, ?> sourceMap, final String key,
+                                    final String description) {
         final String fullDescription = COPY_BLOCK + " " + description;
         return Matchers.notNull(Matchers.string(sourceMap.get(key), fullDescription), fullDescription);
     }
 
-    private static int getIntOrDefault(@Nonnull final Map<?, ?> sourceMap, @Nonnull final String key,
+    private static int getIntOrDefault(final Map<?, ?> sourceMap, final String key,
                                        final int defaultValue) {
         return sourceMap.containsKey(key) ? ((Number)sourceMap.get(key)).intValue() : defaultValue;
     }
 
-    @Nonnull
-    private static Map<?, ?> getMap(@Nonnull final Map<?, ?> blockMap, @Nonnull final String name) {
+    private static Map<?, ?> getMap(final Map<?, ?> blockMap, final String name) {
         return CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(blockMap.get(name), COPY_BLOCK + " " + name));
     }
 
@@ -156,7 +151,6 @@ public class CopyBlock extends ReferencedBlock implements Block {
         }
     }
 
-    @Nonnull
     private List<byte[]> executeExport() throws SQLException {
         try (YamlConnection conn = executionContext.getConnectionFactory().getNewConnection(CATALOG_URI, sourceInfo.cluster)) {
             final List<byte[]> allData = new ArrayList<>();
@@ -180,9 +174,8 @@ public class CopyBlock extends ReferencedBlock implements Block {
         }
     }
 
-    @Nonnull
-    private Continuation executeContinuation(@Nonnull final YamlConnection conn, @Nonnull final Continuation continuation,
-                                             @Nonnull final List<byte[]> allData) throws SQLException {
+    private Continuation executeContinuation(final YamlConnection conn, final Continuation continuation,
+                                             final List<byte[]> allData) throws SQLException {
         try (RelationalPreparedStatement ps = conn.prepareStatement("EXECUTE CONTINUATION ?")) {
             ps.setBytes(1, continuation.serialize());
             // we'll only ever have a continuation if this was limited previously, no need to check chunkSize>0
@@ -193,9 +186,8 @@ public class CopyBlock extends ReferencedBlock implements Block {
         }
     }
 
-    @Nonnull
-    private Continuation collectExportBatch(@Nonnull RelationalResultSet rs,
-                                            @Nonnull List<byte[]> allData) throws SQLException {
+    private Continuation collectExportBatch(RelationalResultSet rs,
+                                            List<byte[]> allData) throws SQLException {
         final int sizeBefore = allData.size();
         while (rs.next()) {
             allData.add(rs.getBytes(1));
@@ -214,7 +206,7 @@ public class CopyBlock extends ReferencedBlock implements Block {
         return rs.getContinuation();
     }
 
-    private void executeImport(@Nonnull final List<byte[]> data) throws SQLException {
+    private void executeImport(final List<byte[]> data) throws SQLException {
         try (YamlConnection conn = executionContext.getConnectionFactory().getNewConnection(CATALOG_URI, destInfo.cluster)) {
             final List<List<byte[]>> chunks = partition(data);
             int totalCount = 0;
@@ -225,7 +217,7 @@ public class CopyBlock extends ReferencedBlock implements Block {
         }
     }
 
-    private int importChunk(@Nonnull final List<byte[]> chunk, @Nonnull final YamlConnection conn, int totalCount) throws SQLException {
+    private int importChunk(final List<byte[]> chunk, final YamlConnection conn, int totalCount) throws SQLException {
         try (RelationalPreparedStatement ps = conn.prepareStatement("COPY " + destInfo.path + " FROM ?")) {
             Array array = ps.getConnection().createArrayOf("BINARY", chunk.toArray(new byte[0][]));
             ps.setArray(1, array);
@@ -241,8 +233,7 @@ public class CopyBlock extends ReferencedBlock implements Block {
         return totalCount;
     }
 
-    @Nonnull
-    private List<List<byte[]>> partition(@Nonnull final List<byte[]> data) {
+    private List<List<byte[]>> partition(final List<byte[]> data) {
         if (destInfo.chunkSize <= 0 || destInfo.chunkSize >= data.size()) {
             return List.of(data);
         }

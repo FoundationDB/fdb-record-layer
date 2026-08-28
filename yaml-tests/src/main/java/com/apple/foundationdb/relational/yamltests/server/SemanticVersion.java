@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.yamltests.server;
 
-
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -114,7 +112,6 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
         MAX("!max_version", true),
         ;
 
-        @Nonnull
         private final String text;
         private final boolean singleton;
 
@@ -123,7 +120,6 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
             this.singleton = singleton;
         }
 
-        @Nonnull
         public String getText() {
             return text;
         }
@@ -133,7 +129,6 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
         }
     }
 
-    @Nonnull
     private static final EnumMap<SemanticVersionType, SemanticVersion> SINGLETONS = new EnumMap<>(SemanticVersionType.class);
 
     static {
@@ -150,7 +145,6 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
      *
      * @see SemanticVersionType
      */
-    @Nonnull
     private final SemanticVersionType type;
 
     /**
@@ -160,7 +154,6 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
      *     class supports any number of version components.
      *     When comparing, these are compared in order.
      */
-    @Nonnull
     private final List<Integer> versionNumbers;
     /**
      * The prerelease metadata, but only {@code SNAPSHOT} is supported.
@@ -169,10 +162,9 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
      *     and gradle and maven have complicated comparison that disagrees. A version that has the same value
      *     {@link #versionNumbers} but an empty {@code prerelease} is greater than one with a non-empty {@code prerelease}.
      */
-    @Nonnull
     private final List<String> prerelease;
 
-    private SemanticVersion(@Nonnull SemanticVersionType type, @Nonnull List<Integer> versionNumbers, @Nonnull List<String> prerelease) {
+    private SemanticVersion(SemanticVersionType type, List<Integer> versionNumbers, List<String> prerelease) {
         this.type = type;
         this.versionNumbers = versionNumbers;
         this.prerelease = prerelease;
@@ -183,9 +175,9 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
      *
      * @return a special version that is less than all other versions
      */
-    @Nonnull
     public static SemanticVersion min() {
-        return SINGLETONS.get(SemanticVersionType.MIN);
+        // MIN is a singleton type, so it is always populated by the static initializer above.
+        return Objects.requireNonNull(SINGLETONS.get(SemanticVersionType.MIN));
     }
 
     /**
@@ -194,9 +186,9 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
      *
      * @return a special version that represents the current (potentially unreleased) code version
      */
-    @Nonnull
     public static SemanticVersion current() {
-        return SINGLETONS.get(SemanticVersionType.CURRENT);
+        // CURRENT is a singleton type, so it is always populated by the static initializer above.
+        return Objects.requireNonNull(SINGLETONS.get(SemanticVersionType.CURRENT));
     }
 
     /**
@@ -204,9 +196,9 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
      *
      * @return a special version that is greater than all other versions
      */
-    @Nonnull
     public static SemanticVersion max() {
-        return SINGLETONS.get(SemanticVersionType.MAX);
+        // MAX is a singleton type, so it is always populated by the static initializer above.
+        return Objects.requireNonNull(SINGLETONS.get(SemanticVersionType.MAX));
     }
 
     /**
@@ -214,11 +206,11 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
      * @param versionString a version in string form
      * @return a parsed version
      */
-    @Nonnull
-    public static SemanticVersion parse(@Nonnull String versionString) {
+    public static SemanticVersion parse(String versionString) {
         for (SemanticVersionType type : SemanticVersionType.values()) {
             if (type.isSingleton() && type.getText().equals(versionString)) {
-                return SINGLETONS.get(type);
+                // type.isSingleton() guarantees it was populated by the static initializer above.
+                return Objects.requireNonNull(SINGLETONS.get(type));
             }
         }
 
@@ -243,13 +235,11 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
      * @return the type of this version
      * @see SemanticVersionType
      */
-    @Nonnull
     public SemanticVersionType getType() {
         return type;
     }
 
-    @Nonnull
-    private static String dotSeparated(@Nonnull String part) {
+    private static String dotSeparated(String part) {
         return part + "(." + part + ")*";
     }
 
@@ -284,15 +274,14 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
         return Objects.hash(type.name(), versionNumbers, prerelease);
     }
 
-    @Nonnull
-    public List<SemanticVersion> lesserVersions(@Nonnull Collection<SemanticVersion> rawVersions) {
+    public List<SemanticVersion> lesserVersions(Collection<SemanticVersion> rawVersions) {
         return rawVersions.stream()
                 .filter(other -> other.compareTo(this) < 0)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public int compareTo(@Nonnull SemanticVersion o) {
+    public int compareTo(SemanticVersion o) {
         // First, compare by type using ordinal position. Values in the enum are sorted according
         // to their expected precedence
         int typeCompare = type.compareTo(o.type);
@@ -313,7 +302,7 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
         return comparePrerelease(o);
     }
 
-    private int compareVersionNumbers(@Nonnull SemanticVersion o) {
+    private int compareVersionNumbers(SemanticVersion o) {
         // semver only allows 3, we only use 4.
         // gradle supports an arbitrary number, but it gets complicated if there is a pre-release or build info
         if (versionNumbers.size() != o.versionNumbers.size()) {
@@ -329,7 +318,7 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
         return 0;
     }
 
-    private int comparePrerelease(@Nonnull SemanticVersion o) {
+    private int comparePrerelease(SemanticVersion o) {
         if (!prerelease.isEmpty() && o.prerelease.isEmpty()) {
             return -1;
         } else if (prerelease.isEmpty() && !o.prerelease.isEmpty()) {

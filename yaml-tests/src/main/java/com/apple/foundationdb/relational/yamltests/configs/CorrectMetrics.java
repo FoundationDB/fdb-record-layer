@@ -22,8 +22,6 @@ package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 
-import javax.annotation.Nonnull;
-
 /**
  * A configuration that runs an underlying configuration, but heals expected explains in YAML files where
  * expected and actual explains differ.
@@ -32,7 +30,7 @@ import javax.annotation.Nonnull;
  * </p>
  */
 public class CorrectMetrics extends ConfigWithOptions {
-    public CorrectMetrics(@Nonnull final YamlTestConfig underlying) {
+    public CorrectMetrics(final YamlTestConfig underlying) {
         super(underlying, YamlExecutionContext.ContextOptions.of(YamlExecutionContext.OPTION_CORRECT_METRICS, true));
     }
 }

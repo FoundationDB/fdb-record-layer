@@ -22,8 +22,7 @@ package com.apple.foundationdb.relational.yamltests.command.parameterinjection;
 
 import com.apple.foundationdb.relational.recordlayer.util.Hex;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.sql.Connection;
 import java.util.Random;
 import java.util.UUID;
@@ -39,7 +38,6 @@ public class PrimitiveParameter implements Parameter {
         this.object = object;
     }
 
-    @Nonnull
     @Override
     public String getSqlText() {
         if (object == null) {
@@ -53,9 +51,8 @@ public class PrimitiveParameter implements Parameter {
         }
     }
 
-    @Nonnull
     @Override
-    public PrimitiveParameter bind(@Nonnull Random random) {
+    public PrimitiveParameter bind(Random random) {
         return this;
     }
 

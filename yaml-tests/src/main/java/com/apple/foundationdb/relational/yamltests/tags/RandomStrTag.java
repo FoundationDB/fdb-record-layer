@@ -30,8 +30,7 @@ import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.ScalarNode;
 import org.yaml.snakeyaml.nodes.Tag;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Locale;
 
 /**
@@ -66,25 +65,20 @@ import java.util.Locale;
 @AutoService(CustomTag.class)
 public class RandomStrTag implements CustomTag {
 
-    @Nonnull
     private static final Tag tag = new Tag("!randomStr");
 
-    @Nonnull
     @Override
     public Tag getTag() {
         return tag;
     }
 
-    @Nonnull
     private static final Construct CONSTRUCT_INSTANCE = new AbstractConstruct() {
         @Override
-        @Nonnull
         public Matchable construct(Node node) {
             return new RandomStrMatcher(node);
         }
     };
 
-    @Nonnull
     @Override
     public Construct getConstruct() {
         return CONSTRUCT_INSTANCE;
@@ -93,13 +87,11 @@ public class RandomStrTag implements CustomTag {
     public static final class RandomStrMatcher implements Matchable {
         private static final int DIFF_CONTEXT = 10;
 
-        @Nonnull
         private final ScalarNode yamlNode;
 
-        @Nonnull
         private final String randomString;
 
-        public RandomStrMatcher(@Nonnull final Node node) {
+        public RandomStrMatcher(final Node node) {
             this.yamlNode = Assert.castUnchecked(node, ScalarNode.class);
             this.randomString = Matchers.constructRandomString(yamlNode);
         }
@@ -109,9 +101,8 @@ public class RandomStrTag implements CustomTag {
             return tag + " " + yamlNode.getValue() + " → " + Matchers.limitString(randomString);
         }
 
-        @Nonnull
         @Override
-        public Matchers.ResultSetMatchResult matches(@Nullable Object other, int rowNumber, @Nonnull String cellRef) {
+        public Matchers.ResultSetMatchResult matches(@Nullable Object other, int rowNumber, String cellRef) {
             final var maybeNull = Matchable.shouldNotBeNull(other, rowNumber, cellRef);
             if (maybeNull.isPresent()) {
                 return maybeNull.get();
@@ -123,8 +114,7 @@ public class RandomStrTag implements CustomTag {
             return Matchable.prettyPrintError(stringDiff(randomString, actual), rowNumber, cellRef);
         }
 
-        @Nonnull
-        private static String stringDiff(@Nonnull final String expected, @Nonnull final String actual) {
+        private static String stringDiff(final String expected, final String actual) {
             final int expLen = expected.length();
             final int actLen = actual.length();
             int firstDiff = -1;

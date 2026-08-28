@@ -22,8 +22,6 @@ package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 
-import javax.annotation.Nonnull;
-
 /**
  * A configuration that runs an underlying configuration, but shows the dots of the expected and the actual plan where
  * expected and actual explains differ.
@@ -32,7 +30,7 @@ import javax.annotation.Nonnull;
  * </p>
  */
 public class ShowPlanOnDiff extends ConfigWithOptions {
-    public ShowPlanOnDiff(@Nonnull final YamlTestConfig underlying) {
+    public ShowPlanOnDiff(final YamlTestConfig underlying) {
         super(underlying, YamlExecutionContext.ContextOptions.of(YamlExecutionContext.OPTION_SHOW_PLAN_ON_DIFF, true));
     }
 }

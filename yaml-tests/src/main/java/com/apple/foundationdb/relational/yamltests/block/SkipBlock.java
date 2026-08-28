@@ -24,17 +24,14 @@ import com.apple.foundationdb.relational.yamltests.YamlReference;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import javax.annotation.Nonnull;
-
 /**
  * A block that does nothing.
  */
 class SkipBlock extends ReferencedBlock implements Block {
     private static final Logger logger = LogManager.getLogger(SkipBlock.class);
-    @Nonnull
     private final String message;
 
-    SkipBlock(@Nonnull final YamlReference reference, @Nonnull String message) {
+    SkipBlock(final YamlReference reference, String message) {
         super(reference);
         this.message = message;
     }

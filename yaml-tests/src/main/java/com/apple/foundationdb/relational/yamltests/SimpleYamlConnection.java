@@ -30,8 +30,7 @@ import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnectio
 import com.apple.foundationdb.relational.yamltests.command.SQLFunction;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
@@ -41,27 +40,22 @@ import java.util.Map;
  * A simple version of {@link YamlConnection} for interacting with a single {@link RelationalConnection}.
  */
 public class SimpleYamlConnection implements YamlConnection {
-    @Nonnull
     private final RelationalConnection underlying;
-    @Nonnull
     private final List<SemanticVersion> versions;
-    @Nonnull
     private final String connectionLabel;
-    @Nonnull
     private final String clusterFile;
 
-    public SimpleYamlConnection(@Nonnull Connection connection, @Nonnull SemanticVersion version, @Nonnull String clusterFile) throws SQLException {
+    public SimpleYamlConnection(Connection connection, SemanticVersion version, String clusterFile) throws SQLException {
         this(connection, version, version.toString(), clusterFile);
     }
 
-    public SimpleYamlConnection(@Nonnull Connection connection, @Nonnull SemanticVersion version, @Nonnull String connectionLabel, @Nonnull String clusterFile) throws SQLException {
+    public SimpleYamlConnection(Connection connection, SemanticVersion version, String connectionLabel, String clusterFile) throws SQLException {
         underlying = connection.unwrap(RelationalConnection.class);
         this.versions = List.of(version);
         this.connectionLabel = connectionLabel;
         this.clusterFile = clusterFile;
     }
 
-    @Nonnull
     protected RelationalConnection getUnderlying() {
         return underlying;
     }
@@ -73,7 +67,7 @@ public class SimpleYamlConnection implements YamlConnection {
 
     @Override
     @SuppressWarnings("PMD.CloseResource")
-    public void setConnectionOptions(@Nonnull final Options connectionOptions) throws SQLException {
+    public void setConnectionOptions(final Options connectionOptions) throws SQLException {
         final RelationalConnection underlying = getUnderlying();
         for (Map.Entry<Options.Name, ?> entry : connectionOptions.entries()) {
             underlying.setOption(entry.getKey(), entry.getValue());
@@ -111,20 +105,18 @@ public class SimpleYamlConnection implements YamlConnection {
         }
     }
 
-    @Nonnull
     @Override
     public List<SemanticVersion> getVersions() {
         return versions;
     }
 
-    @Nonnull
     @Override
     public SemanticVersion getInitialVersion() {
         return versions.get(0);
     }
 
     @Override
-    public <T> T executeTransactionally(final SQLFunction<YamlConnection, T> transactionalWork) throws SQLException, RelationalException {
+    public <T extends @Nullable Object> T executeTransactionally(final SQLFunction<YamlConnection, T> transactionalWork) throws SQLException, RelationalException {
         underlying.setAutoCommit(false);
         T result;
         try {

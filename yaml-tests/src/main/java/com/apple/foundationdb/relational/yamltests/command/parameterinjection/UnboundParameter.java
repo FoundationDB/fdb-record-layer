@@ -22,10 +22,10 @@ package com.apple.foundationdb.relational.yamltests.command.parameterinjection;
 
 import com.apple.foundationdb.relational.util.Assert;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.sql.Connection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -56,7 +56,6 @@ public abstract class UnboundParameter implements Parameter {
     /**
      * Invalid operation since this parameter is not bound.
      */
-    @Nonnull
     @Override
     public String getSqlText() {
         ensureBoundedness();
@@ -67,16 +66,14 @@ public abstract class UnboundParameter implements Parameter {
      * Given a set of {@link Parameter}s, {@link RandomSetParameter} chooses one of them and return it bound.
      */
     public static class RandomSetParameter extends UnboundParameter {
-        @Nonnull
         List<Parameter> items;
 
-        public RandomSetParameter(@Nonnull List<Parameter> items) {
+        public RandomSetParameter(List<Parameter> items) {
             this.items = items;
         }
 
-        @Nonnull
         @Override
-        public Parameter bind(@Nonnull Random random) {
+        public Parameter bind(Random random) {
             var idx = random.ints(1, 0, items.size()).findFirst().orElseThrow();
             return items.get(idx).bind(random);
         }
@@ -94,20 +91,18 @@ public abstract class UnboundParameter implements Parameter {
     public static class RandomRangeParameter extends UnboundParameter {
         @Nullable
         Parameter lowerBound;
-        @Nonnull
         Parameter upperBound;
 
-        public RandomRangeParameter(@Nonnull Parameter upperBound) {
+        public RandomRangeParameter(Parameter upperBound) {
             this(null, upperBound);
         }
 
-        public RandomRangeParameter(@Nullable Parameter lowerBound, @Nonnull Parameter upperBound) {
+        public RandomRangeParameter(@Nullable Parameter lowerBound, Parameter upperBound) {
             this.lowerBound = lowerBound;
             this.upperBound = upperBound;
         }
 
-        @Nonnull
-        private static Number bindAndVerifyNumberParameter(@Nullable Parameter parameter, @Nonnull Random random) {
+        private static Number bindAndVerifyNumberParameter(@Nullable Parameter parameter, Random random) {
             if (parameter == null) {
                 return 0;
             }
@@ -115,12 +110,12 @@ public abstract class UnboundParameter implements Parameter {
             Assert.thatUnchecked(bound instanceof PrimitiveParameter, "Expecting a Primitive or Random{Range/Set} Parameter");
             var sqlObject = ((PrimitiveParameter) bound).getSqlObject(null);
             Assert.thatUnchecked(sqlObject instanceof Integer || sqlObject instanceof Long || sqlObject instanceof Double, "The expected bound parameter of type Double, Integer or Long");
-            return (Number) sqlObject;
+            // The instanceof checks above imply sqlObject is non-null, but Assert.thatUnchecked doesn't tell NullAway that.
+            return (Number) Objects.requireNonNull(sqlObject);
         }
 
         @Override
-        @Nonnull
-        public Parameter bind(@Nonnull Random random) {
+        public Parameter bind(Random random) {
             final var lb = bindAndVerifyNumberParameter(lowerBound, random);
             final var ub = bindAndVerifyNumberParameter(upperBound, random);
             if (lb instanceof Double || ub instanceof Double) {
@@ -146,25 +141,24 @@ public abstract class UnboundParameter implements Parameter {
      * evaluates the multiplicity and returns a list of "bound" element repeated multiplicity number of time.
      */
     public static class ElementMultiplicityListParameter extends UnboundParameter {
-        @Nonnull
         Parameter element;
-        @Nonnull
         Parameter multiplicity;
 
-        public ElementMultiplicityListParameter(@Nonnull Parameter element, @Nonnull Parameter multiplicity) {
+        public ElementMultiplicityListParameter(Parameter element, Parameter multiplicity) {
             this.element = element;
             this.multiplicity = multiplicity;
         }
 
-        @Nonnull
         @Override
-        public ListParameter bind(@Nonnull Random random) {
+        public ListParameter bind(Random random) {
             var boundMultiplicity = multiplicity.bind(random);
             Assert.thatUnchecked(boundMultiplicity instanceof PrimitiveParameter, "The multiplicity in ElementMultiplicityListParameter can only be Primitive or Random{Range/Set} Parameter");
             var sqlTypeMultiplicity = ((PrimitiveParameter) boundMultiplicity).getSqlObject(null);
             Assert.thatUnchecked(sqlTypeMultiplicity instanceof Integer || sqlTypeMultiplicity instanceof Long || sqlTypeMultiplicity instanceof Double, "The multiplicity in ElementMultiplicityListParameter only allows Double, Integer or Long");
-            Assert.thatUnchecked(((Number) sqlTypeMultiplicity).intValue() > 0, "The multiplicity in ElementMultiplicityListParameter should be > 0");
-            return new ListParameter(IntStream.range(0, ((Number) sqlTypeMultiplicity).intValue())
+            // The instanceof checks above imply sqlTypeMultiplicity is non-null, but Assert.thatUnchecked doesn't tell NullAway that.
+            final Number multiplicity = (Number) Objects.requireNonNull(sqlTypeMultiplicity);
+            Assert.thatUnchecked(multiplicity.intValue() > 0, "The multiplicity in ElementMultiplicityListParameter should be > 0");
+            return new ListParameter(IntStream.range(0, multiplicity.intValue())
                     .mapToObj(ignored -> element.bind(random))
                     .collect(Collectors.toList()));
         }
@@ -182,21 +176,19 @@ public abstract class UnboundParameter implements Parameter {
     public static class ListRangeParameter extends UnboundParameter {
         @Nullable
         private final Parameter lowerBound;
-        @Nonnull
         private final Parameter upperBound;
 
-        public ListRangeParameter(@Nonnull Parameter upperbound) {
+        public ListRangeParameter(Parameter upperbound) {
             this(null, upperbound);
         }
 
-        public ListRangeParameter(@Nullable Parameter lowerBound, @Nonnull Parameter upperBound) {
+        public ListRangeParameter(@Nullable Parameter lowerBound, Parameter upperBound) {
             this.lowerBound = lowerBound;
             this.upperBound = upperBound;
         }
 
-        @Nonnull
         @Override
-        public ListParameter bind(@Nonnull Random random) {
+        public ListParameter bind(Random random) {
             final var lb = RandomRangeParameter.bindAndVerifyNumberParameter(lowerBound, random);
             final var ub = RandomRangeParameter.bindAndVerifyNumberParameter(upperBound, random);
             if (lb instanceof Double || ub instanceof Double) {

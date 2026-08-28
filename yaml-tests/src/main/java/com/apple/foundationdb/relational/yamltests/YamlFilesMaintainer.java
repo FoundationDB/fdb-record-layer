@@ -28,7 +28,6 @@ import org.apache.logging.log4j.Logger;
 import org.assertj.core.util.VisibleForTesting;
 import org.junit.jupiter.api.Assertions;
 
-import javax.annotation.Nonnull;
 import java.io.BufferedReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -61,36 +60,32 @@ import java.util.stream.Collectors;
 public class YamlFilesMaintainer {
     private static final Logger logger = LogManager.getLogger(YamlFilesMaintainer.class);
 
-    @Nonnull
     private final Map<YamlReference.YamlResource, List<String>> editedFileStream = new HashMap<>();
-    @Nonnull
     private final Map<YamlReference.YamlResource, Boolean> isDirty = new HashMap<>();
     /**
      * Pending corrections (explain and result-metadata), buffered so they can be applied in descending
      * line-number order to avoid stale-offset corruption when multiple corrections target the same file.
      */
-    @Nonnull
     private final Map<YamlReference.YamlResource, List<YamlCorrection>> pendingCorrections = new HashMap<>();
 
     @VisibleForTesting
-    @Nonnull
-    List<YamlCorrection> getPendingCorrections(@Nonnull final YamlReference.YamlResource resource) {
+    List<YamlCorrection> getPendingCorrections(final YamlReference.YamlResource resource) {
         final List<YamlCorrection> corrections = pendingCorrections.get(resource);
         return corrections != null ? corrections : List.of();
     }
 
-    public void loadFile(@Nonnull YamlReference.YamlResource resource) throws RelationalException {
+    public void loadFile(YamlReference.YamlResource resource) throws RelationalException {
         this.editedFileStream.put(resource, loadYamlResource(resource));
     }
 
-    private void verifyFileLoaded(@Nonnull final YamlReference reference) {
+    private void verifyFileLoaded(final YamlReference reference) {
         if (editedFileStream.get(reference.getResource()) == null) {
             throw new IllegalStateException("‼️ YAMSQL file not loaded for resource: " + reference.getResource());
         }
     }
 
-    public void correctResultMetadata(@Nonnull final YamlReference reference,
-                                      @Nonnull final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns) {
+    public void correctResultMetadata(final YamlReference reference,
+                                      final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns) {
         verifyFileLoaded(reference);
         synchronized (this) {
             pendingCorrections
@@ -100,8 +95,8 @@ public class YamlFilesMaintainer {
         }
     }
 
-    public void addResultMetadata(@Nonnull final YamlReference queryReference,
-                                  @Nonnull final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns) {
+    public void addResultMetadata(final YamlReference queryReference,
+                                  final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns) {
         verifyFileLoaded(queryReference);
         synchronized (this) {
             final List<YamlCorrection> corrections = pendingCorrections
@@ -120,7 +115,7 @@ public class YamlFilesMaintainer {
         }
     }
 
-    public void correctExplain(@Nonnull final YamlReference reference, @Nonnull String actual) {
+    public void correctExplain(final YamlReference reference, String actual) {
         verifyFileLoaded(reference);
         synchronized (this) {
             pendingCorrections
@@ -130,7 +125,7 @@ public class YamlFilesMaintainer {
         }
     }
 
-    public void addExplain(@Nonnull final YamlReference queryReference, @Nonnull String actual) {
+    public void addExplain(final YamlReference queryReference, String actual) {
         verifyFileLoaded(queryReference);
         synchronized (this) {
             final List<YamlCorrection> corrections = pendingCorrections
@@ -145,7 +140,7 @@ public class YamlFilesMaintainer {
         }
     }
 
-    private void applyPendingCorrections(@Nonnull final YamlReference.YamlResource resource) {
+    private void applyPendingCorrections(final YamlReference.YamlResource resource) {
         final List<YamlCorrection> corrections = pendingCorrections.get(resource);
         if (corrections == null || corrections.isEmpty()) {
             return;
@@ -184,10 +179,12 @@ public class YamlFilesMaintainer {
         }
     }
 
-    private void saveYamlFile(@Nonnull final YamlReference.YamlResource resource) {
+    private void saveYamlFile(final YamlReference.YamlResource resource) {
         try {
             try (var writer = new PrintWriter(new FileWriter(Path.of(System.getProperty("user.dir")).resolve(Path.of("src", "test", "resources", resource.getPath())).toAbsolutePath().toString(), StandardCharsets.UTF_8))) {
-                for (var line : editedFileStream.get(resource)) {
+                // resource always comes from editedFileStream.keySet() (see saveIfNeeded()), so it is guaranteed
+                // to have an associated value here.
+                for (var line : Objects.requireNonNull(editedFileStream.get(resource))) {
                     writer.println(line);
                 }
             }
@@ -198,8 +195,7 @@ public class YamlFilesMaintainer {
         }
     }
 
-    @Nonnull
-    private static List<String> loadYamlResource(@Nonnull final YamlReference.YamlResource resource) throws RelationalException {
+    private static List<String> loadYamlResource(final YamlReference.YamlResource resource) throws RelationalException {
         final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         final List<String> inMemoryFile = new ArrayList<>();
         try (BufferedReader bufferedReader =
@@ -216,12 +212,10 @@ public class YamlFilesMaintainer {
     }
 
     static final class ExplainCorrection implements YamlCorrection {
-        @Nonnull
         private final YamlReference reference;
-        @Nonnull
         private final String actual;
 
-        ExplainCorrection(@Nonnull final YamlReference reference, @Nonnull final String actual) {
+        ExplainCorrection(final YamlReference reference, final String actual) {
             this.reference = reference;
             this.actual = actual;
         }
@@ -232,7 +226,7 @@ public class YamlFilesMaintainer {
         }
 
         @Override
-        public void apply(@Nonnull final List<String> lines) {
+        public void apply(final List<String> lines) {
             final int idx = reference.getLineNumber() - 1;
             if (idx >= 0 && idx < lines.size()) {
                 final String itemPrefix = " ".repeat(indentOf(lines.get(idx)));
@@ -242,12 +236,10 @@ public class YamlFilesMaintainer {
     }
 
     static final class AddExplainCorrection implements YamlCorrection {
-        @Nonnull
         private final YamlReference queryReference;
-        @Nonnull
         private final String actual;
 
-        public AddExplainCorrection(@Nonnull final YamlReference queryReference, @Nonnull final String actual) {
+        public AddExplainCorrection(final YamlReference queryReference, final String actual) {
             this.queryReference = queryReference;
             this.actual = actual;
         }
@@ -258,7 +250,7 @@ public class YamlFilesMaintainer {
         }
 
         @Override
-        public void apply(@Nonnull final List<String> lines) {
+        public void apply(final List<String> lines) {
             final int queryLineIdx = queryReference.getLineNumber() - 1; // 1-based → 0-based
             if (queryLineIdx < 0 || queryLineIdx >= lines.size()) {
                 return;
@@ -273,13 +265,11 @@ public class YamlFilesMaintainer {
     }
 
     static final class MetadataCorrection implements YamlCorrection {
-        @Nonnull
         private final YamlReference reference;
-        @Nonnull
         private final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns;
 
-        MetadataCorrection(@Nonnull final YamlReference reference,
-                           @Nonnull final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns) {
+        MetadataCorrection(final YamlReference reference,
+                           final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns) {
             this.reference = reference;
             this.actualColumns = actualColumns;
         }
@@ -290,7 +280,7 @@ public class YamlFilesMaintainer {
         }
 
         @Override
-        public void apply(@Nonnull final List<String> lines) {
+        public void apply(final List<String> lines) {
             final int startIdx = reference.getLineNumber() - 1; // 1-based → 0-based
             if (startIdx < 0 || startIdx >= lines.size()) {
                 return;
@@ -326,13 +316,11 @@ public class YamlFilesMaintainer {
     }
 
     static final class AddMetadataCorrection implements YamlCorrection {
-        @Nonnull
         private final YamlReference queryReference;
-        @Nonnull
         private final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns;
 
-        AddMetadataCorrection(@Nonnull final YamlReference queryReference,
-                              @Nonnull final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns) {
+        AddMetadataCorrection(final YamlReference queryReference,
+                              final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns) {
             this.queryReference = queryReference;
             this.actualColumns = actualColumns;
         }
@@ -343,7 +331,7 @@ public class YamlFilesMaintainer {
         }
 
         @Override
-        public void apply(@Nonnull final List<String> lines) {
+        public void apply(final List<String> lines) {
             final int queryLineIdx = queryReference.getLineNumber() - 1; // 1-based → 0-based
             if (queryLineIdx < 0 || queryLineIdx >= lines.size()) {
                 return;
@@ -359,7 +347,7 @@ public class YamlFilesMaintainer {
         }
     }
 
-    private static int indentOf(@Nonnull final String line) {
+    private static int indentOf(final String line) {
         int indent = 0;
         while (indent < line.length() && line.charAt(indent) == ' ') {
             indent++;
@@ -367,9 +355,9 @@ public class YamlFilesMaintainer {
         return indent;
     }
 
-    private static int findInsertionPoint(@Nonnull final List<String> lines, final int startIdx,
-                                  @Nonnull final String itemPrefix,
-                                  @Nonnull final Predicate<String> stopAt) {
+    private static int findInsertionPoint(final List<String> lines, final int startIdx,
+                                  final String itemPrefix,
+                                  final Predicate<String> stopAt) {
         for (int i = startIdx; i < lines.size(); i++) {
             final String line = lines.get(i);
             if (stopAt.test(line)) {
@@ -394,7 +382,7 @@ public class YamlFilesMaintainer {
      *   <li>Array-of-struct column (with type name): {@code {NAME: {array: [structTypeName, {FIELD: TYPE}, ...]}}}</li>
      * </ul>
      */
-    private static String buildInlineDescriptor(@Nonnull final CheckResultMetadataConfig.ColumnDescriptor col) {
+    private static String buildInlineDescriptor(final CheckResultMetadataConfig.ColumnDescriptor col) {
         if (col.isArray && col.fields != null) {
             final String typePrefix = col.structTypeName != null ? col.structTypeName + ", " : "";
             final String fields = col.fields.stream().map(YamlFilesMaintainer::buildInlineDescriptor)
@@ -419,7 +407,7 @@ public class YamlFilesMaintainer {
      *   <li>{@code "BIGINT"} → {@code "BIGINT"}</li>
      * </ul>
      */
-    private static String typeNameToInlineValue(@Nonnull final String typeName) {
+    private static String typeNameToInlineValue(final String typeName) {
         if (typeName.startsWith("ARRAY(") && typeName.endsWith(")")) {
             final String inner = typeName.substring(6, typeName.length() - 1);
             return "{array: " + typeNameToInlineValue(inner) + "}";

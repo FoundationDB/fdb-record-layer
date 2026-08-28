@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.yamltests.block.TestBlock;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,14 +41,12 @@ public final class YamlRunner {
     static final String TEST_SEED = "tests.yaml.seed";
     static final String TEST_NIGHTLY_REPETITION = "tests.yaml.iterations";
 
-    @Nonnull
     private final YamlReference.YamlResource baseResource;
 
-    @Nonnull
     private final YamlExecutionContext executionContext;
 
-    public YamlRunner(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory,
-                      @Nonnull final YamlExecutionContext.ContextOptions additionalOptions) throws RelationalException {
+    public YamlRunner(String resourcePath, YamlConnectionFactory factory,
+                      final YamlExecutionContext.ContextOptions additionalOptions) throws RelationalException {
         this.baseResource = YamlReference.YamlResource.base(resourcePath);
         this.executionContext = new YamlExecutionContext(baseResource, factory, additionalOptions);
     }

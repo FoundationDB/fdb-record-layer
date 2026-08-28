@@ -27,19 +27,17 @@ import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.ScalarNode;
 import org.yaml.snakeyaml.nodes.SequenceNode;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.stream.Collectors;
 
 public abstract class AbstractVectorTag implements CustomTag {
 
     public static final class VectorMatcher<V> implements Matchable {
-        @Nonnull
         private final SequenceNode yamlNode;
 
         private final int precision;
 
-        public VectorMatcher(@Nonnull final Node node, int precision) {
+        public VectorMatcher(final Node node, int precision) {
             this.yamlNode = Assert.castUnchecked(node, SequenceNode.class);
             this.precision = precision;
         }
@@ -49,10 +47,9 @@ public abstract class AbstractVectorTag implements CustomTag {
             return prettyPrintYamlNode(yamlNode);
         }
 
-        @Nonnull
         @Override
         @SuppressWarnings("unchecked")
-        public Matchers.ResultSetMatchResult matches(@Nullable Object other, int rowNumber, @Nonnull String cellRef) {
+        public Matchers.ResultSetMatchResult matches(@Nullable Object other, int rowNumber, String cellRef) {
             final var maybeNull = Matchable.shouldNotBeNull(other, rowNumber, cellRef);
             if (maybeNull.isPresent()) {
                 return maybeNull.get();
@@ -64,8 +61,7 @@ public abstract class AbstractVectorTag implements CustomTag {
             return Matchable.prettyPrintError("expected vector '" + prettyPrintYamlNode(yamlNode) + "' got '" + other + "' instead", rowNumber, cellRef);
         }
 
-        @Nonnull
-        private static String prettyPrintYamlNode(@Nonnull final SequenceNode sequenceNode) {
+        private static String prettyPrintYamlNode(final SequenceNode sequenceNode) {
             return sequenceNode.getTag() + sequenceNode.getValue().stream()
                     .map(v -> Assert.castUnchecked(v, ScalarNode.class).getValue()).collect(Collectors.joining(",", "[", "]"));
         }

@@ -30,7 +30,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assumptions;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Map;
 
@@ -50,8 +50,7 @@ public class PreambleBlock extends SupportBlock {
 
     }
 
-    @Nonnull
-    public static List<Block> parse(@Nonnull final Object document, @Nonnull final YamlExecutionContext executionContext) {
+    public static List<Block> parse(final Object document, final YamlExecutionContext executionContext) {
         final Map<?, ?> optionsMap = CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(document, OPTIONS));
 
         // read the supported version option, and immediately abort the test if the version check fails.
@@ -81,8 +80,7 @@ public class PreambleBlock extends SupportBlock {
         return List.of();
     }
 
-    @Nonnull
-    public static SemanticVersion parseVersion(Object rawVersion) {
+    public static SemanticVersion parseVersion(@Nullable Object rawVersion) {
         if (rawVersion instanceof CurrentVersion) {
             return SemanticVersion.current();
         } else if (rawVersion instanceof String) {

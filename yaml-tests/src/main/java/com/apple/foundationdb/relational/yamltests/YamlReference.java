@@ -24,8 +24,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -33,20 +32,16 @@ import java.util.function.Supplier;
  * This represents a location in a YAMSQL file.
  */
 public class YamlReference implements Comparable<YamlReference> {
-    @Nonnull
     private final YamlResource resource;
     private final int lineNumber;
-    @Nonnull
     private final Supplier<Tuple> tupleSupplier;
 
-
-    private YamlReference(@Nonnull final YamlResource resource, int lineNumber) {
+    private YamlReference(final YamlResource resource, int lineNumber) {
         this.resource = resource;
         this.lineNumber = lineNumber;
         this.tupleSupplier = () -> resource.tupleSupplier.get().add(lineNumber);
     }
 
-    @Nonnull
     public YamlResource getResource() {
         return resource;
     }
@@ -69,18 +64,17 @@ public class YamlReference implements Comparable<YamlReference> {
         return builder.build();
     }
 
-    public YamlResource newResource(@Nonnull String path) {
+    public YamlResource newResource(String path) {
         return new YamlResource(this, path);
     }
 
     @Override
-    @Nonnull
     public String toString() {
         return (getResource().parentRef == null ? "" : getResource().parentRef + " > ") + getResource().getFileName() + ":" + getLineNumber();
     }
 
     @Override
-    public boolean equals(Object object) {
+    public boolean equals(@Nullable Object object) {
         if (object == null) {
             return false;
         }
@@ -109,12 +103,10 @@ public class YamlReference implements Comparable<YamlReference> {
     public static class YamlResource {
         @Nullable
         private final YamlReference parentRef;
-        @Nonnull
         private final String path;
-        @Nonnull
         private final Supplier<Tuple> tupleSupplier;
 
-        private YamlResource(@Nullable final YamlReference parentRef, @Nonnull final String path) {
+        private YamlResource(@Nullable final YamlReference parentRef, final String path) {
             if (parentRef != null) {
                 assertNotCyclic(parentRef, path);
             }
@@ -136,19 +128,17 @@ public class YamlReference implements Comparable<YamlReference> {
             return parentRef;
         }
 
-        @Nonnull
         public String getPath() {
             return path;
         }
 
         @Override
-        @Nonnull
         public String toString() {
             return path + ((parentRef == null) ? "" : " via (" + parentRef + ")");
         }
 
         @Override
-        public boolean equals(Object object) {
+        public boolean equals(@Nullable Object object) {
             if (object == null) {
                 return false;
             }
@@ -170,7 +160,7 @@ public class YamlReference implements Comparable<YamlReference> {
             return Objects.hash(parentRef, path);
         }
 
-        public static YamlResource base(@Nonnull final String path) {
+        public static YamlResource base(final String path) {
             return new YamlResource(null, path);
         }
 
@@ -185,7 +175,7 @@ public class YamlReference implements Comparable<YamlReference> {
             return fileName;
         }
 
-        private static void assertNotCyclic(@Nonnull final YamlReference parentRef, @Nonnull final String path) {
+        private static void assertNotCyclic(final YamlReference parentRef, final String path) {
             final var asTuple = parentRef.tupleSupplier.get().getItems();
             Assert.thatUnchecked(asTuple.stream().noneMatch(path::equals), "Cyclic path detected at: " + parentRef);
         }

@@ -29,16 +29,15 @@ import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.ScalarNode;
 import org.yaml.snakeyaml.nodes.Tag;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
+import java.util.Objects;
 
 @AutoService(CustomTag.class)
 public final class StringContainsTag implements CustomTag {
 
-    @Nonnull
     private static final Tag tag = new Tag("!sc");
 
-    @Nonnull
     private static final Construct CONSTRUCT_INSTANCE = new AbstractConstruct() {
         @Override
         public Matchable construct(final Node node) {
@@ -52,38 +51,35 @@ public final class StringContainsTag implements CustomTag {
     public StringContainsTag() {
     }
 
-    @Nonnull
     @Override
     public Tag getTag() {
         return tag;
     }
 
-    @Nonnull
     @Override
     public Construct getConstruct() {
         return CONSTRUCT_INSTANCE;
     }
 
     public static final class StringContainsMatcher implements Matchable {
-        @Nonnull
         private final String value;
 
-        public StringContainsMatcher(@Nonnull final String value) {
+        public StringContainsMatcher(final String value) {
             this.value = value;
         }
 
-        @Nonnull
         public String getValue() {
             return value;
         }
 
-        @Nonnull
         @Override
-        public Matchers.ResultSetMatchResult matches(@Nullable final Object other, int rowNumber, @Nonnull final String cellRef) {
+        public Matchers.ResultSetMatchResult matches(@Nullable Object other, int rowNumber, final String cellRef) {
             final var maybeNull = Matchable.shouldNotBeNull(other, rowNumber, cellRef);
             if (maybeNull.isPresent()) {
                 return maybeNull.get();
             }
+            // shouldNotBeNull() above only returns an empty Optional when other is non-null.
+            other = Objects.requireNonNull(other);
             if (other instanceof String) {
                 final var otherStr = (String)other;
                 if (otherStr.contains(value)) {

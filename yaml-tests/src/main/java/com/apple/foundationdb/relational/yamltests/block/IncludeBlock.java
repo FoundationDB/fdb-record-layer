@@ -35,7 +35,6 @@ import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.representer.Representer;
 import org.yaml.snakeyaml.resolver.Resolver;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
@@ -67,9 +66,8 @@ public class IncludeBlock extends SupportBlock {
 
     }
 
-    @Nonnull
-    public static List<Block> parse(@Nonnull final YamlReference reference, @Nonnull final Object document,
-                                    @Nonnull final YamlExecutionContext executionContext) {
+    public static List<Block> parse(final YamlReference reference, final Object document,
+                                    final YamlExecutionContext executionContext) {
         try {
             final var resourceName = Matchers.string(document, "resource name");
             return parse(reference.newResource(Objects.requireNonNull(resourceName)), executionContext);
@@ -78,8 +76,7 @@ public class IncludeBlock extends SupportBlock {
         }
     }
 
-    @Nonnull
-    public static List<Block> parse(@Nonnull final YamlReference.YamlResource resource, @Nonnull final YamlExecutionContext executionContext)
+    public static List<Block> parse(final YamlReference.YamlResource resource, final YamlExecutionContext executionContext)
             throws Exception {
         try {
             final var allBlocks = ImmutableList.<Block>builder();
@@ -105,8 +102,7 @@ public class IncludeBlock extends SupportBlock {
         }
     }
 
-    @Nonnull
-    private static InputStream getInputStream(@Nonnull final YamlReference.YamlResource resource) throws RelationalException {
+    private static InputStream getInputStream(final YamlReference.YamlResource resource) throws RelationalException {
         final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         InputStream inputStream = classLoader.getResourceAsStream(resource.getPath());
         Assert.notNull(inputStream, String.format(Locale.ROOT, "could not find '%s' in resources bundle", resource.getPath()));

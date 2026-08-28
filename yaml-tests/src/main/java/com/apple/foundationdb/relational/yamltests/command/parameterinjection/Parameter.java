@@ -24,8 +24,7 @@ import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalExcep
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.command.QueryCommand;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.sql.Array;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -67,8 +66,7 @@ public interface Parameter {
      * @param random the {@link Random} instance used to bind the parameters
      * @return {@code this} if the parameter is already bound, else the bound {@link Parameter}
      */
-    @Nonnull
-    Parameter bind(@Nonnull Random random);
+    Parameter bind(Random random);
 
     /**
      * Returns {@code true} if this parameter is bound, else {@code false}.
@@ -100,6 +98,5 @@ public interface Parameter {
      * Returns the {@link String} that is the textual SQL representation of the value of this parameter.
      * @return the string
      */
-    @Nonnull
     String getSqlText();
 }
