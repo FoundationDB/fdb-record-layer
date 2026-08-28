@@ -116,19 +116,19 @@
     rankDir=LR;
     2 -> 6 [ color="red" style="invis" ];
   }
-}“=
-π
-array-agg-scenarioΩEXPLAIN SELECT m.mid, r.rid, sq.assets FROM doc_meta m, doc_rev r, (SELECT ARRAY_AGG((a.aid, a.url)) AS assets FROM doc_asset a WHERE a.rid = r.rid) sq WHERE m.owner IS NOT NULL AND 'featured' IN r.tags AND r.rid = 20;
-η‡Ϋ~Ώ ¥ό*(0·†8Ά@,–SCAN([IS doc_rev, EQUALS promote(@c66 AS LONG)]) | FILTER @c56 IN _.tags | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0) | AGG (array_agg((_._0.aid AS aid, _._0.url AS url)) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (q0 AS _0, q0 AS _1) } | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2.mid AS mid, q1._0.rid AS rid, q1._1._0._0 AS assets) }γ7digraph G {
+}β=
+η
+array-agg-scenarioΠEXPLAIN SELECT m.mid, r.rid, sq.assets FROM doc_meta m, doc_rev r, (SELECT ARRAY_AGG((a.*)) AS assets FROM doc_asset a WHERE a.rid = r.rid) sq WHERE m.owner IS NOT NULL AND 'featured' IN r.tags AND r.rid = 20υ;
+η‡Ψ }Ώ …ών((0•τ8Ά@,§SCAN([IS doc_rev, EQUALS promote(@c62 AS LONG)]) | FILTER @c52 IN _.tags | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0) | AGG (array_agg((_._0.aid AS aid, _._0.rid AS rid, _._0.url AS url)) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (q0 AS _0, q0 AS _1) } | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2.mid AS mid, q1._0.rid AS rid, q1._1._0._0 AS assets) }ª8digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.mid AS mid, q102._0.rid AS rid, q102._1._0._0 AS assets)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, LONG AS rid, ARRAY(LONG AS aid, STRING AS url) AS assets)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q6 AS _0, q14 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags AS _0, ARRAY(LONG AS aid, STRING AS url) AS _0 AS _0 AS _1)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE @c56 IN q6.tags</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q14 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(LONG AS aid, STRING AS url) AS _0 AS _0)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS doc_rev, EQUALS promote(@c66 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (array_agg((q94._0.aid AS aid, q94._0.url AS url)) AS _0)</td></tr><tr><td align="left">GROUP BY ()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(LONG AS aid, STRING AS url) AS _0 AS _0)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.mid AS mid, q102._0.rid AS rid, q102._1._0._0 AS assets)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS mid, LONG AS rid, ARRAY(LONG AS aid, LONG AS rid, STRING AS url) AS assets)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q6 AS _0, q14 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags AS _0, ARRAY(LONG AS aid, LONG AS rid, STRING AS url) AS _0 AS _0 AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE @c52 IN q6.tags</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">$q14 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(LONG AS aid, LONG AS rid, STRING AS url) AS _0 AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS doc_rev, EQUALS promote(@c62 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (array_agg((q94._0.aid AS aid, q94._0.rid AS rid, q94._0.url AS url)) AS _0)</td></tr><tr><td align="left">GROUP BY ()</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(LONG AS aid, LONG AS rid, STRING AS url) AS _0 AS _0)" ];
   7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [parent, keywords, doc_rev, doc_asset, doc_meta, T1, T2, child, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS rid, STRING AS title, ARRAY(STRING) AS tags)" ];
   8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q10 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS aid, LONG AS rid, STRING AS url AS _0)" ];
   9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q6.rid]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS aid, LONG AS rid, STRING AS url)" ];
@@ -149,6 +149,14 @@
   13 -> 12 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   11 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
+    11 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 11 [ color="red" style="invis" ];
+  }
+  {
     3 -> 2 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -158,13 +166,5 @@
     rank=same;
     rankDir=LR;
     3 -> 4 [ color="red" style="invis" ];
-  }
-  {
-    11 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    2 -> 11 [ color="red" style="invis" ];
   }
 }

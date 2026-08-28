@@ -408,17 +408,15 @@ test_block:
       - explain: "ISCAN(doc_asset_by_rid <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.url) AS _0) GROUP BY (_._0.rid AS _0) | FLATMAP q0 -> { SCAN([IS doc_rev, EQUALS promote(@c63 AS LONG)]) | FILTER @c53 IN _.tags AND q0._0._0 EQUALS _.rid | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.mid AS mid, q3._1.rid AS rid, q0._1._0 AS assets) }"
       - result: [{1, 20, ['b1.png', 'b2.png']}]
     -
-      # Variant 5: Collects the detail rows as a whole into an array of structs, by constructing a record from the
-      # columns of interest. Note that neither `ARRAY_AGG(a)` nor `ARRAY_AGG(a.*)` currently works for this, since an
-      # aggregate argument has to be an expression. So the columns have to be enumerated explicitly.
+      # Variant 5: Collects the detail rows as a whole into an array of structs, via a star-derived record constructor.
       - query: SELECT m.mid, r.rid, sq.assets
                  FROM doc_meta m,
                       doc_rev r,
-                      (SELECT ARRAY_AGG((a.aid, a.url)) AS assets FROM doc_asset a WHERE a.rid = r.rid) sq
+                      (SELECT ARRAY_AGG((a.*)) AS assets FROM doc_asset a WHERE a.rid = r.rid) sq
                 WHERE m.owner IS NOT NULL
                   AND 'featured' IN r.tags
                   AND r.rid = 20
-      - resultMetadata: [{mid: BIGINT}, {rid: BIGINT}, {assets: {array: [{aid: BIGINT}, {url: STRING}]}}]
-      - explain: "SCAN([IS doc_rev, EQUALS promote(@c66 AS LONG)]) | FILTER @c56 IN _.tags | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0) | AGG (array_agg((_._0.aid AS aid, _._0.url AS url)) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (q0 AS _0, q0 AS _1) } | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2.mid AS mid, q1._0.rid AS rid, q1._1._0._0 AS assets) }"
-      - result: [{1, 20, [{2, 'b1.png'}, {3, 'b2.png'}]}]
+      - resultMetadata: [{mid: BIGINT}, {rid: BIGINT}, {assets: {array: [{aid: BIGINT}, {rid: BIGINT}, {url: STRING}]}}]
+      - explain: "SCAN([IS doc_rev, EQUALS promote(@c62 AS LONG)]) | FILTER @c52 IN _.tags | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0) | AGG (array_agg((_._0.aid AS aid, _._0.rid AS rid, _._0.url AS url)) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (q0 AS _0, q0 AS _1) } | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2.mid AS mid, q1._0.rid AS rid, q1._1._0._0 AS assets) }"
+      - result: [{1, 20, [{2, 20, 'b1.png'}, {3, 20, 'b2.png'}]}]
 ...
