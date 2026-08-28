@@ -25,7 +25,8 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDriver;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
+
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.DriverManager;
@@ -58,13 +59,15 @@ public class JDBCRelationalDriver implements RelationalDriver {
     }
 
     @Override
+    @Nullable
     public RelationalConnection connect(String url, Properties info) throws SQLException {
         return connect(URI.create(url), Options.fromProperties(info));
     }
 
     @Override
-    public RelationalConnection connect(@Nonnull URI url,
-                                        @Nonnull Options connectionOptions) throws SQLException {
+    @Nullable
+    public RelationalConnection connect(URI url,
+                                        Options connectionOptions) throws SQLException {
         final var urlString = url.toString();
         if (!acceptsURL(urlString)) {
             return null;

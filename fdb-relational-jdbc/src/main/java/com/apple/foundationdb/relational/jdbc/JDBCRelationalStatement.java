@@ -38,8 +38,8 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementResponse;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import io.grpc.StatusRuntimeException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
@@ -48,11 +48,11 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 
 class JDBCRelationalStatement implements RelationalStatement {
     private volatile boolean closed;
-    @Nonnull
     private final JDBCRelationalConnection connection;
     @Nullable
     private RelationalResultSet currentResultSet;
@@ -81,7 +81,7 @@ class JDBCRelationalStatement implements RelationalStatement {
     private Options options;
 
     @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "Should consider refactoring but throwing exceptions for now")
-    JDBCRelationalStatement(@Nonnull final JDBCRelationalConnection connection) throws SQLException {
+    JDBCRelationalStatement(final JDBCRelationalConnection connection) throws SQLException {
         this.connection = connection;
         this.options = connection.getOptions().withChild(Options.NONE);
     }
@@ -101,9 +101,9 @@ class JDBCRelationalStatement implements RelationalStatement {
     }
 
     @Override
-    public RelationalResultSet executeQuery(@Nonnull String sql) throws SQLException {
+    public RelationalResultSet executeQuery(String sql) throws SQLException {
         if (execute(sql)) {
-            return this.currentResultSet;
+            return Objects.requireNonNull(this.currentResultSet);
         } else {
             throw new SQLException("Cannot call executeQuery with an update statement", ErrorCode.INVALID_PARAMETER.getErrorCode());
         }
@@ -116,16 +116,16 @@ class JDBCRelationalStatement implements RelationalStatement {
      * @return ResultSet object that contains the data produced by the given query; never null
      * @throws SQLException if a database access error occurs or this method is called on a closed Statement
      */
-    RelationalResultSet executeQuery(@Nonnull String sql, Collection<Parameter> parameters) throws SQLException {
+    RelationalResultSet executeQuery(String sql, @Nullable Collection<Parameter> parameters) throws SQLException {
         if (execute(sql, parameters)) {
-            return currentResultSet;
+            return Objects.requireNonNull(currentResultSet);
         } else {
             throw new SQLException(String.format(Locale.ROOT, "query '%s' does not return result set, use JDBC executeUpdate method instead", sql), ErrorCode.NO_RESULT_SET.getErrorCode());
         }
     }
 
     @Override
-    public int executeUpdate(@Nonnull String sql) throws SQLException {
+    public int executeUpdate(String sql) throws SQLException {
         return executeUpdate(sql, (Collection<Parameter>) null);
     }
 
@@ -137,7 +137,7 @@ class JDBCRelationalStatement implements RelationalStatement {
      *  that return nothing
      * @throws SQLException if a database access error occurs or this method is called on a closed Statement
      */
-    int executeUpdate(@Nonnull String sql, Collection<Parameter> parameters) throws SQLException {
+    int executeUpdate(String sql, @Nullable Collection<Parameter> parameters) throws SQLException {
         if (execute(sql, parameters)) {
             throw new SQLException(String.format(Locale.ROOT, "query '%s' returns a result set, use JDBC executeQuery method instead", sql), ErrorCode.EXECUTE_UPDATE_RETURNED_RESULT_SET.getErrorCode());
         }
@@ -151,7 +151,7 @@ class JDBCRelationalStatement implements RelationalStatement {
      * @return true if the execution produced a result set, false otherwise
      * @throws SQLException if a database access error occurs or this method is called on a closed Statement
      */
-    boolean execute(@Nonnull String sql, Collection<Parameter> parameters) throws SQLException {
+    boolean execute(String sql, @Nullable Collection<Parameter> parameters) throws SQLException {
         StatementResponse response = execute(sql, this.options, parameters);
         this.currentResultSet = response.hasResultSet() ?
                 new RelationalResultSetFacade(response.getResultSet()) : RelationalResultSetFacade.EMPTY;
@@ -169,7 +169,7 @@ class JDBCRelationalStatement implements RelationalStatement {
      * @throws SQLException if a database access error occurs or this method is called on a closed Statement
      */
     @SuppressWarnings({"PMD.UnusedFormalParameter"}) // Will use it later.
-    private StatementResponse execute(@Nonnull String sql, @Nonnull Options options, Collection<Parameter> parameters)
+    private StatementResponse execute(String sql, Options options, @Nullable Collection<Parameter> parameters)
             throws SQLException {
         checkOpen();
         // Punt on transaction/autocommit consideration for now (autocommit==true).
@@ -204,6 +204,7 @@ class JDBCRelationalStatement implements RelationalStatement {
     }
 
     @Override
+    @Nullable
     public SQLWarning getWarnings() throws SQLException {
         // TODO: For now just return null.
         return null;
@@ -245,17 +246,17 @@ class JDBCRelationalStatement implements RelationalStatement {
         return this.closed;
     }
 
-    @Nonnull
     @Override
+    @SuppressWarnings("NullAway") // returns null, violating the @Nonnull contract of RelationalDirectAccessStatement#executeGet. Temporary until implemented; see the SpotBugsSuppressWarnings below.
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "Temporary until implemented.")
-    public RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet keySet, @Nonnull Options options) throws SQLException {
+    public RelationalResultSet executeGet(String tableName, KeySet keySet, Options options) throws SQLException {
         checkOpen();
         GetResponse getResponse;
         try {
             getResponse = this.connection.getStub().get(GetRequest.newBuilder()
                     .setKeySet(TypeConversion.toProtobuf(keySet))
                     .setDatabase(this.connection.getDatabase())
-                    .setSchema(this.connection.getSchema())
+                    .setSchema(Objects.requireNonNullElse(this.connection.getSchema(), ""))
                     .setTableName(tableName)
                     .build());
         } catch (StatusRuntimeException statusRuntimeException) {
@@ -270,10 +271,10 @@ class JDBCRelationalStatement implements RelationalStatement {
         return getResponse == null ? null : new RelationalResultSetFacade(getResponse.getResultSet());
     }
 
-    @Nonnull
     @Override
+    @SuppressWarnings("NullAway") // returns null, violating the @Nonnull contract of RelationalDirectAccessStatement#executeScan. Temporary until implemented; see the SpotBugsSuppressWarnings below.
     @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "Temporary until implemented.")
-    public RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet keySet, @Nonnull Options options)
+    public RelationalResultSet executeScan(String tableName, KeySet keySet, Options options)
             throws SQLException {
         checkOpen();
         ScanResponse response;
@@ -281,7 +282,7 @@ class JDBCRelationalStatement implements RelationalStatement {
             response = this.connection.getStub().scan(ScanRequest.newBuilder()
                     .setKeySet(TypeConversion.toProtobuf(keySet))
                     .setDatabase(this.connection.getDatabase())
-                    .setSchema(this.connection.getSchema())
+                    .setSchema(Objects.requireNonNullElse(this.connection.getSchema(), ""))
                     .setTableName(tableName)
                     .build());
         } catch (StatusRuntimeException statusRuntimeException) {
@@ -296,7 +297,7 @@ class JDBCRelationalStatement implements RelationalStatement {
     }
 
     @Override
-    public int executeInsert(@Nonnull String tableName, @Nonnull List<RelationalStruct> data, @Nonnull Options options)
+    public int executeInsert(String tableName, List<RelationalStruct> data, Options options)
             throws SQLException {
         checkOpen();
         InsertResponse insertResponse = connection.insert(tableName, data);
@@ -305,13 +306,13 @@ class JDBCRelationalStatement implements RelationalStatement {
     }
 
     @Override
-    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws SQLException {
+    public int executeDelete(String tableName, Iterator<KeySet> keys, Options options) throws SQLException {
         checkOpen();
         return -1;
     }
 
     @Override
-    public void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet keyPrefix, @Nonnull Options options) throws SQLException {
+    public void executeDeleteRange(String tableName, KeySet keyPrefix, Options options) throws SQLException {
         checkOpen();
     }
 }

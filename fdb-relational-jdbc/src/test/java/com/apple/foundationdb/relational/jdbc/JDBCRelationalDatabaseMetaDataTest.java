@@ -30,6 +30,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
+import java.util.Objects;
 import java.util.Properties;
 
 public class JDBCRelationalDatabaseMetaDataTest {
@@ -40,7 +41,7 @@ public class JDBCRelationalDatabaseMetaDataTest {
     public static void beforeAll() throws SQLException {
         DatabaseMetaDataResponse response = DatabaseMetaDataResponse.newBuilder().build();
         JDBCRelationalDriver driver = new JDBCRelationalDriver();
-        connection = driver.connect(JDBCURI.JDBC_BASE_URL + "example.com", new Properties()).unwrap(RelationalConnection.class);
+        connection = Objects.requireNonNull(driver.connect(JDBCURI.JDBC_BASE_URL + "example.com", new Properties())).unwrap(RelationalConnection.class);
         databaseMetaData = new JDBCRelationalDatabaseMetaData(connection, response);
     }
 

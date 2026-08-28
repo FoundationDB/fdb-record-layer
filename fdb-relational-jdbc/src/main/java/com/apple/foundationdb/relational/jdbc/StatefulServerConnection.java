@@ -24,10 +24,11 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.TransactionalRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.TransactionalResponse;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -51,6 +52,7 @@ public final class StatefulServerConnection implements StreamObserver<Transactio
     /**
      * An RPC observer for outgoing requests.
      */
+    @Nullable
     private StreamObserver<TransactionalRequest> requestSender;
 
     /**
@@ -79,7 +81,7 @@ public final class StatefulServerConnection implements StreamObserver<Transactio
     public TransactionalResponse sendRequest(TransactionalRequest request) {
         checkClosed();
         try {
-            requestSender.onNext(request);
+            Objects.requireNonNull(requestSender).onNext(request);
         } catch (StatusRuntimeException ex) {
             // Close the connection when failed to send to server
             close(ex);
