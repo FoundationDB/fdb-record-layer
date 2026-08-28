@@ -36,7 +36,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.annotations.VisibleForTesting;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.util.concurrent.CompletableFuture;
 
@@ -73,22 +72,19 @@ public class RelationalKeyspaceProvider {
     }
 
     public static class RelationalDomainPath extends KeySpacePathWrapper {
-        public RelationalDomainPath(@Nonnull KeySpacePath inner) {
+        public RelationalDomainPath(KeySpacePath inner) {
             super(inner);
         }
 
-        @Nonnull
         public String getDomainName() {
             return inner.getDirectoryName();
         }
 
-        @Nonnull
-        public RelationalDatabasePath database(@Nonnull String dbName) {
+        public RelationalDatabasePath database(String dbName) {
             Assert.thatUnchecked(INTERNING_LAYER.equals(dbName), ErrorCode.INVALID_DATABASE, () -> "Invalid database name: " + dbName);
             return (RelationalDatabasePath) inner.add(DB_NAME_DIR, dbName);
         }
 
-        @Nonnull
         public KeySpacePath internedStrings() {
             return inner.add(INTERNING_LAYER);
         }
@@ -100,8 +96,7 @@ public class RelationalKeyspaceProvider {
          * @param context the FDB transaction context to use to resolve paths here
          * @return a future that will contain a {@link LocatableResolver} used by this domain
          */
-        @Nonnull
-        public CompletableFuture<LocatableResolver> generateScopeAsync(@Nonnull FDBRecordContext context) {
+        public CompletableFuture<LocatableResolver> generateScopeAsync(FDBRecordContext context) {
             return internedStrings().toResolvedPathAsync(context)
                     // Use ScopedInterningLayer here instead of a ScopedDirectoryLayer because it is more tailored to the job of shortening strings
                     .thenApply(resolvedPath -> new ScopedInterningLayer(context.getDatabase(), resolvedPath));
@@ -114,12 +109,10 @@ public class RelationalKeyspaceProvider {
             super(inner);
         }
 
-        @Nonnull
         public RelationalSchemaPath schemaPath(String schemaName) {
             return (RelationalSchemaPath) this.inner.add(RelationalKeyspaceProvider.SCHEMA_DIR, schemaName);
         }
 
-        @Nonnull
         public URI toUri() {
             return KeySpaceUtils.pathToUri(inner);
         }
@@ -130,15 +123,13 @@ public class RelationalKeyspaceProvider {
             super(inner);
         }
 
-        @Nonnull
         @Override
         public String getDomainName() {
             return SYS;
         }
 
-        @Nonnull
         @Override
-        public RelationalSystemDatabasePath database(@Nonnull String dbName) {
+        public RelationalSystemDatabasePath database(String dbName) {
             Assert.thatUnchecked(SYS.equals(dbName), ErrorCode.UNDEFINED_DATABASE, "Unknown system database name: " + dbName);
             return (RelationalSystemDatabasePath) super.database(dbName);
         }
@@ -151,14 +142,12 @@ public class RelationalKeyspaceProvider {
         }
 
         @Override
-        @Nonnull
         public RelationalSchemaPath schemaPath(String schemaName) {
             Assert.thatUnchecked(CATALOG.equals(schemaName), ErrorCode.UNDEFINED_SCHEMA, "Unknown system schema name: " + schemaName);
             return (RelationalSchemaPath) inner.add(CATALOG);
         }
 
         @Override
-        @Nonnull
         public URI toUri() {
             return URI.create("/" + SYS);
         }
@@ -188,7 +177,7 @@ public class RelationalKeyspaceProvider {
                 .addSubdirectory(new KeySpaceDirectory(INTERNING_LAYER, KeySpaceDirectory.KeyType.STRING, INTERNING_LAYER_VALUE));
     }
 
-    public void registerDomainIfNotExists(@Nonnull String domainName) {
+    public void registerDomainIfNotExists(String domainName) {
         final var keySpaceRoot = getKeySpace().getRoot();
         final var exists = keySpaceRoot.getSubdirectories().stream()
                 .map(KeySpaceDirectory::getName)
@@ -214,11 +203,11 @@ public class RelationalKeyspaceProvider {
         return keyspace;
     }
 
-    public RelationalKeyspaceProvider.RelationalDatabasePath toDatabasePath(@Nonnull URI url) throws RelationalException {
+    public RelationalKeyspaceProvider.RelationalDatabasePath toDatabasePath(URI url) throws RelationalException {
         return toDatabasePath(url, getKeySpace());
     }
 
-    public static RelationalKeyspaceProvider.RelationalDatabasePath toDatabasePath(@Nonnull URI url, KeySpace keyspace) throws RelationalException {
+    public static RelationalKeyspaceProvider.RelationalDatabasePath toDatabasePath(URI url, KeySpace keyspace) throws RelationalException {
         final var keySpacePath = KeySpaceUtils.toKeySpacePath(url, keyspace);
         // KeySpacePath is to the System database directory
         if (keySpacePath instanceof RelationalSystemDatabasePath) {
@@ -231,13 +220,11 @@ public class RelationalKeyspaceProvider {
         throw new RelationalException("<" + url + "> is an invalid database path", ErrorCode.INVALID_PATH);
     }
 
-    @Nonnull
     public static RelationalKeyspaceProvider instance() {
         return INSTANCE;
     }
 
     @VisibleForTesting
-    @Nonnull
     public static RelationalKeyspaceProvider newInstanceForTesting() {
         return new RelationalKeyspaceProvider();
     }

@@ -26,11 +26,10 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.relational.api.Options;
 
-import javax.annotation.Nonnull;
 
 @API(API.Status.EXPERIMENTAL)
 public final class QueryPropertiesUtils {
-    static ExecuteProperties getExecuteProperties(@Nonnull Options options) {
+    static ExecuteProperties getExecuteProperties(Options options) {
         ExecuteProperties.Builder builder = ExecuteProperties.newBuilder();
         Integer rowLimit = options.getOption(Options.Name.MAX_ROWS);
         if (rowLimit != null) {
@@ -39,7 +38,7 @@ public final class QueryPropertiesUtils {
         return builder.build();
     }
 
-    public static ScanProperties getScanProperties(@Nonnull Options options) {
+    public static ScanProperties getScanProperties(Options options) {
         ExecuteProperties executeProperties = getExecuteProperties(options);
         return new ScanProperties(executeProperties);
     }

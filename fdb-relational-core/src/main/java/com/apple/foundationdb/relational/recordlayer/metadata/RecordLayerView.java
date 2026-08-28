@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.metadata.View;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.util.Assert;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -38,13 +37,11 @@ public class RecordLayerView implements com.apple.foundationdb.relational.api.me
      * The SQL query definition of the view (e.g., "SELECT * FROM employees WHERE salary > 50000").
      * This contains only the query portion, not the CREATE VIEW DDL statement.
      */
-    @Nonnull
     private final String description;
 
     /**
      * The SQL name of the view as it appears in queries (e.g., "employee_view").
      */
-    @Nonnull
     private final String name;
 
     /**
@@ -57,13 +54,12 @@ public class RecordLayerView implements com.apple.foundationdb.relational.api.me
      * The boolean parameter indicates whether to compile with the view with case-sensitive processing
      * of identifiers, see {@code Options.Name.CASE_SENSITIVE_IDENTIFIERS} for more information.
      */
-    @Nonnull
     private final Function<Boolean, LogicalOperator> compilableViewSupplier;
 
-    public RecordLayerView(@Nonnull final String description,
-                           @Nonnull final String name,
+    public RecordLayerView(final String description,
+                           final String name,
                            final boolean isTemporary,
-                           @Nonnull final Function<Boolean, LogicalOperator> compilableViewSupplier) {
+                           final Function<Boolean, LogicalOperator> compilableViewSupplier) {
         this.description = description;
         this.name = name;
         this.isTemporary = isTemporary;
@@ -71,7 +67,6 @@ public class RecordLayerView implements com.apple.foundationdb.relational.api.me
 
     }
 
-    @Nonnull
     @Override
     public String getDescription() {
         return description;
@@ -82,23 +77,19 @@ public class RecordLayerView implements com.apple.foundationdb.relational.api.me
         return isTemporary;
     }
 
-    @Nonnull
     public Function<Boolean, LogicalOperator> getCompilableViewSupplier() {
         return compilableViewSupplier;
     }
 
-    @Nonnull
     @Override
     public String getName() {
         return name;
     }
 
-    @Nonnull
     public static Builder newBuilder() {
         return new Builder();
     }
 
-    @Nonnull
     public View asRawView() {
         return new View(getName(), getDescription());
     }
@@ -126,7 +117,6 @@ public class RecordLayerView implements com.apple.foundationdb.relational.api.me
         return "view (name '" + name + "', definition '" + description + "', temporary=" + isTemporary + ")";
     }
 
-    @Nonnull
     public Builder toBuilder() {
         return newBuilder()
                 .setName(getName())
@@ -144,31 +134,26 @@ public class RecordLayerView implements com.apple.foundationdb.relational.api.me
         private Builder() {
         }
 
-        @Nonnull
-        public Builder setDescription(@Nonnull final String description) {
+        public Builder setDescription(final String description) {
             this.description = description;
             return this;
         }
 
-        @Nonnull
-        public Builder setName(@Nonnull final String name) {
+        public Builder setName(final String name) {
             this.name = name;
             return this;
         }
 
-        @Nonnull
         public Builder setTemporary(boolean isTemporary) {
             this.isTemporary = isTemporary;
             return this;
         }
 
-        @Nonnull
-        public Builder setViewCompiler(@Nonnull final Function<Boolean, LogicalOperator> compilableViewSupplier) {
+        public Builder setViewCompiler(final Function<Boolean, LogicalOperator> compilableViewSupplier) {
             this.compilableViewSupplier = compilableViewSupplier;
             return this;
         }
 
-        @Nonnull
         public RecordLayerView build() {
             Assert.notNullUnchecked(name);
             Assert.notNullUnchecked(description);

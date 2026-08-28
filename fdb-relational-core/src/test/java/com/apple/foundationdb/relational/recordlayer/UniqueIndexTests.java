@@ -32,7 +32,6 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -76,7 +75,7 @@ public class UniqueIndexTests {
     @Order(3)
     public final RelationalStatementRule statement = new RelationalStatementRule(connection);
 
-    private void insertUniqueRecordsToTable(@Nonnull List<RelationalStruct> toInsert, @Nonnull String tableName) {
+    private void insertUniqueRecordsToTable(List<RelationalStruct> toInsert, String tableName) {
         try {
             final var count = statement.executeInsert(tableName, toInsert);
             Assertions.assertEquals(count, toInsert.size());
@@ -85,7 +84,7 @@ public class UniqueIndexTests {
         }
     }
 
-    private void checkErrorOnNonUniqueInsertionsToTable(@Nonnull List<RelationalStruct> toInsert, @Nonnull String tableName) {
+    private void checkErrorOnNonUniqueInsertionsToTable(List<RelationalStruct> toInsert, String tableName) {
         boolean foundError = false;
         try {
             final var count = statement.executeInsert(tableName, toInsert);

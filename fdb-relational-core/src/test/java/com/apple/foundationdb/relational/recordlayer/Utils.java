@@ -33,7 +33,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Environment;
 
-import javax.annotation.Nonnull;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -140,8 +139,8 @@ public final class Utils {
         Debugger.setup();
     }
 
-    public static void setConnectionOptions(@Nonnull final Connection connection,
-                                             @Nonnull final Options connectionOptions) throws SQLException {
+    public static void setConnectionOptions(final Connection connection,
+                                             final Options connectionOptions) throws SQLException {
         final var relationalConnection = connection.unwrap(RelationalConnection.class);
         for (final var option : connectionOptions.entries()) {
             relationalConnection.setOption(option.getKey(), option.getValue());

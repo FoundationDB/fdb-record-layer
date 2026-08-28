@@ -63,8 +63,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
@@ -128,10 +127,10 @@ public class BackingLocatableResolverStoreTest {
         private final StoreCatalog catalog;
         private Transaction txn;
 
-        public TransactionBoundLocatableResolverDatabase(@Nonnull URI dbPath,
-                                                         @Nonnull StorageCluster cluster,
-                                                         @Nonnull LocatableResolver resolver,
-                                                         @Nonnull StoreCatalog catalog) {
+        public TransactionBoundLocatableResolverDatabase(URI dbPath,
+                                                         StorageCluster cluster,
+                                                         LocatableResolver resolver,
+                                                         StoreCatalog catalog) {
             super(NoOpMetadataOperationsFactory.INSTANCE, NoOpQueryFactory.INSTANCE, null, Options.NONE);
             this.dbPath = dbPath;
             this.transactionManager = cluster.getTransactionManager();
@@ -155,7 +154,7 @@ public class BackingLocatableResolverStoreTest {
         }
 
         @Override
-        public BackingStore loadRecordStore(@Nonnull String schemaId, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
+        public BackingStore loadRecordStore(String schemaId, FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
             return BackingLocatableResolverStore.create(resolver, getCurrentTransaction());
         }
 
@@ -669,12 +668,10 @@ public class BackingLocatableResolverStoreTest {
         statement.executeInsert(LocatableResolverMetaDataProvider.RESOLVER_STATE_TYPE_NAME, struct, options);
     }
 
-    @Nonnull
     private RelationalResultSet scanResolverStates(RelationalStatement statement) throws SQLException {
         return scanResolverStates(statement, 0, ContinuationImpl.BEGIN);
     }
 
-    @Nonnull
     private RelationalResultSet scanResolverStates(RelationalStatement statement, int maxRows, Continuation continuation) throws SQLException {
         Options options = Options.builder()
                 .withOption(Options.Name.MAX_ROWS, maxRows)

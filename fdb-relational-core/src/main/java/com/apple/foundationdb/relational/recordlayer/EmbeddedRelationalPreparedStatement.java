@@ -33,7 +33,6 @@ import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 
 import com.apple.foundationdb.relational.util.Assert;
 
-import javax.annotation.Nonnull;
 import java.sql.Array;
 import java.sql.SQLException;
 import java.util.Locale;
@@ -43,14 +42,11 @@ import java.util.UUID;
 
 @API(API.Status.EXPERIMENTAL)
 public class EmbeddedRelationalPreparedStatement extends AbstractEmbeddedStatement implements RelationalPreparedStatement {
-    @Nonnull
     private final String sql;
-    @Nonnull
     private final Map<Integer, Object> parameters = new TreeMap<>();
-    @Nonnull
     private final Map<String, Object> namedParameters = new TreeMap<>();
 
-    public EmbeddedRelationalPreparedStatement(@Nonnull String sql, @Nonnull EmbeddedRelationalConnection conn) throws SQLException {
+    public EmbeddedRelationalPreparedStatement(String sql, EmbeddedRelationalConnection conn) throws SQLException {
         super(conn);
         this.sql = sql;
     }
@@ -216,8 +212,7 @@ public class EmbeddedRelationalPreparedStatement extends AbstractEmbeddedStateme
     }
 
     @Override
-    @Nonnull
-    PlanContext createPlanContext(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final Options options) throws RelationalException {
+    PlanContext createPlanContext(final FDBRecordStoreBase<?> store, final Options options) throws RelationalException {
         return PlanContext.builder()
                 .fromRecordStore(store, options)
                 .fromDatabase(conn.getRecordLayerDatabase())

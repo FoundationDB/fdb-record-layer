@@ -32,8 +32,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.Supplier;
 import com.codahale.metrics.MetricRegistry;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
@@ -60,10 +59,9 @@ import java.util.function.Function;
 @API(API.Status.EXPERIMENTAL)
 public final class StoreTimerMetricCollector implements MetricCollector {
 
-    @Nonnull
     private final Function<StoreTimer.Event, StoreTimer> timerLookup;
 
-    private StoreTimerMetricCollector(@Nonnull final Function<StoreTimer.Event, StoreTimer> timerLookup) {
+    private StoreTimerMetricCollector(final Function<StoreTimer.Event, StoreTimer> timerLookup) {
         this.timerLookup = timerLookup;
     }
 
@@ -75,8 +73,7 @@ public final class StoreTimerMetricCollector implements MetricCollector {
      * <p>If {@code context} has no timer attached (e.g. a transaction-bound database context),
      * the lookup returns {@code null} and the collector silently drops writes; reads throw.</p>
      */
-    @Nonnull
-    public static StoreTimerMetricCollector fromFDBRecordContext(@Nonnull final FDBRecordContext context) {
+    public static StoreTimerMetricCollector fromFDBRecordContext(final FDBRecordContext context) {
         return new StoreTimerMetricCollector(context::getTimerForEvent);
     }
 
@@ -84,14 +81,13 @@ public final class StoreTimerMetricCollector implements MetricCollector {
      * Builds a fresh {@link MetricRegistryStoreTimer} over {@code registry} once, and hands it
      * back for every event lookup. All metrics land on the supplied Codahale registry.
      */
-    @Nonnull
-    public static StoreTimerMetricCollector fromMetricRegistry(@Nonnull final MetricRegistry registry) {
+    public static StoreTimerMetricCollector fromMetricRegistry(final MetricRegistry registry) {
         final StoreTimer timer = new MetricRegistryStoreTimer(registry);
         return new StoreTimerMetricCollector(event -> timer);
     }
 
     @Override
-    public void increment(@Nonnull final RelationalMetric.RelationalCount count, final int val) {
+    public void increment(final RelationalMetric.RelationalCount count, final int val) {
         @Nullable final StoreTimer timer = timerLookup.apply(count);
         if (timer != null) {
             timer.increment(count, val);
@@ -99,7 +95,7 @@ public final class StoreTimerMetricCollector implements MetricCollector {
     }
 
     @Override
-    public <T> T clock(@Nonnull final RelationalMetric.RelationalEvent event, final Supplier<T> supplier) throws RelationalException {
+    public <T> T clock(final RelationalMetric.RelationalEvent event, final Supplier<T> supplier) throws RelationalException {
         final long startNanos = System.nanoTime();
         try {
             return supplier.get();
@@ -112,7 +108,7 @@ public final class StoreTimerMetricCollector implements MetricCollector {
     }
 
     @Override
-    public double getAverageTimeMicrosForEvent(@Nonnull final RelationalMetric.RelationalEvent event) {
+    public double getAverageTimeMicrosForEvent(final RelationalMetric.RelationalEvent event) {
         @Nullable final StoreTimer timer = timerLookup.apply(event);
         Assert.notNullUnchecked(timer, ErrorCode.INTERNAL_ERROR,
                 "Cannot read metrics: no backing store timer for event %s", event.title());
@@ -126,7 +122,7 @@ public final class StoreTimerMetricCollector implements MetricCollector {
     }
 
     @Override
-    public long getCountsForCounter(@Nonnull final RelationalMetric.RelationalCount count) {
+    public long getCountsForCounter(final RelationalMetric.RelationalCount count) {
         @Nullable final StoreTimer timer = timerLookup.apply(count);
         Assert.notNullUnchecked(timer, ErrorCode.INTERNAL_ERROR,
                 "Cannot read metrics: no backing store timer for count %s", count.title());
@@ -139,7 +135,7 @@ public final class StoreTimerMetricCollector implements MetricCollector {
     }
 
     @Override
-    public boolean hasCounter(@Nonnull final RelationalMetric.RelationalCount count) {
+    public boolean hasCounter(final RelationalMetric.RelationalCount count) {
         @Nullable final StoreTimer timer = timerLookup.apply(count);
         return timer != null && timer.getCounter(count) != null;
     }

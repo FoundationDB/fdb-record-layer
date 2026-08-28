@@ -62,8 +62,7 @@ import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.google.common.base.Throwables;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -211,18 +210,17 @@ public final class BackingRecordStore implements BackingStore {
         }
     }
 
-    @Nonnull
     @Override
     public RecordMetaData getRecordMetaData() {
         return recordStore.getRecordMetaData();
     }
 
-    public static BackingRecordStore fromTransactionWithStore(@Nonnull RecordStoreAndRecordContextTransaction txn) {
+    public static BackingRecordStore fromTransactionWithStore(RecordStoreAndRecordContextTransaction txn) {
         return new BackingRecordStore(txn, txn.getRecordStore());
     }
 
     @SuppressWarnings("PMD.PreserveStackTrace")
-    public static BackingRecordStore load(@Nonnull Transaction txn, @Nonnull StoreConfig config, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
+    public static BackingRecordStore load(Transaction txn, StoreConfig config, FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
         //TODO(bfines) error handling if this store doesn't exist
         try {
             FDBRecordStore recordStore = FDBRecordStore.newBuilder()

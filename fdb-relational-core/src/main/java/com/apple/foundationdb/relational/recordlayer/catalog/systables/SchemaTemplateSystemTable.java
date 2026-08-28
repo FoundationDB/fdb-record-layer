@@ -29,7 +29,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 @API(API.Status.EXPERIMENTAL)
@@ -43,14 +42,13 @@ public class SchemaTemplateSystemTable implements SystemTable {
      */
     public static final String METADATA = "META_DATA";
 
-    @Nonnull
     @Override
     public String getName() {
         return TABLE_NAME;
     }
 
     @Override
-    public void addDefinition(@Nonnull final RecordLayerSchemaTemplate.Builder schemaBuilder) {
+    public void addDefinition(final RecordLayerSchemaTemplate.Builder schemaBuilder) {
         // construct the table type.
         schemaBuilder.addTable(getType());
     }
@@ -68,7 +66,6 @@ public class SchemaTemplateSystemTable implements SystemTable {
                 .build();
     }
 
-    @Nonnull
     @Override
     public KeyExpression getPrimaryKeyDefinition() {
         return Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.concatenateFields(TEMPLATE_NAME, TEMPLATE_VERSION));

@@ -31,8 +31,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.function.Function;
 
 @API(API.Status.EXPERIMENTAL)
@@ -43,7 +42,7 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
     private Continuation continuation;
     private RecordCursor.NoNextReason noNextReason = null;
 
-    private RecordLayerIterator(@Nonnull RecordCursor<T> cursor, @Nonnull Function<T, Row> transform) throws RelationalException {
+    private RecordLayerIterator(RecordCursor<T> cursor, Function<T, Row> transform) throws RelationalException {
         this.recordCursor = cursor;
         this.transform = transform;
         // TODO(sfines,yhatem) perform this in a non-blocking manner for more efficiency.

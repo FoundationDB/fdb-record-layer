@@ -39,8 +39,7 @@ import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 import org.junit.jupiter.params.support.ParameterDeclarations;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -173,7 +172,7 @@ public class PlanGenerationStackTest {
 
     @ParameterizedTest(name = "[{0}] {1}")
     @ArgumentsSource(RandomQueryProvider.class)
-    void queryTestHarness(int ignored, @Nonnull String query, @Nullable String error) throws Exception {
+    void queryTestHarness(int ignored, String query, @Nullable String error) throws Exception {
         final String schemaName = connection.getSchema();
         final EmbeddedRelationalConnection embeddedConnection = (EmbeddedRelationalConnection) connection.connection;
         embeddedConnection.setAutoCommit(false);

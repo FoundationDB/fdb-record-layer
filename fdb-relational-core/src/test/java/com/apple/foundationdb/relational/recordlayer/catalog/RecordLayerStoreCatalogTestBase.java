@@ -42,7 +42,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -286,30 +285,28 @@ public abstract class RecordLayerStoreCatalogTestBase {
     }
 
     @SuppressWarnings({"SameParameterValue"})
-    static RecordLayerSchema generateTestSchema(@Nonnull final String schemaName,
-                                                @Nonnull final String databaseId,
-                                                @Nonnull final String schemaTemplateName,
+    static RecordLayerSchema generateTestSchema(final String schemaName,
+                                                final String databaseId,
+                                                final String schemaTemplateName,
                                                 final int schemaTemplateVersion) {
         return generateTestSchema(schemaName, databaseId, schemaTemplateName, schemaTemplateVersion, false);
     }
 
     @SuppressWarnings({"SameParameterValue"})
-    static RecordLayerSchema generateTestSchema(@Nonnull final String schemaName,
-                                                @Nonnull final String databaseId,
-                                                @Nonnull final String schemaTemplateName,
+    static RecordLayerSchema generateTestSchema(final String schemaName,
+                                                final String databaseId,
+                                                final String schemaTemplateName,
                                                 final int schemaTemplateVersion,
                                                 boolean withViews) {
         final var template = generateTestSchemaTemplate(schemaTemplateName, schemaTemplateVersion, withViews);
         return template.generateSchema(databaseId, schemaName);
     }
 
-    @Nonnull
-    static RecordLayerSchemaTemplate generateTestSchemaTemplate(@Nonnull final String schemaTemplateName, int version) {
+    static RecordLayerSchemaTemplate generateTestSchemaTemplate(final String schemaTemplateName, int version) {
         return generateTestSchemaTemplate(schemaTemplateName, version, false);
     }
 
-    @Nonnull
-    static RecordLayerSchemaTemplate generateTestSchemaTemplate(@Nonnull final String schemaTemplateName, int version, boolean withViews) {
+    static RecordLayerSchemaTemplate generateTestSchemaTemplate(final String schemaTemplateName, int version, boolean withViews) {
         final var builder = RecordLayerSchemaTemplate
                 .newBuilder()
                 .addTable(

@@ -24,4 +24,7 @@
  * an interface that can then also be backed by other data structures, like a
  * {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver}.
  */
+@NullMarked
 package com.apple.foundationdb.relational.recordlayer.storage;
+
+import org.jspecify.annotations.NullMarked;

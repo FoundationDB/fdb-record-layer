@@ -52,7 +52,6 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import javax.annotation.Nonnull;
 import java.sql.SQLException;
 
 import static org.assertj.core.api.Assertions.fail;
@@ -240,7 +239,7 @@ public class TransactionBoundDatabaseWithEnumTest {
         return metaDataBuilder.build();
     }
 
-    private static FDBRecordStoreBase<Message> getStore(@Nonnull EmbeddedRelationalConnection connection, @Nonnull FDBRecordContext context) throws RelationalException, SQLException {
+    private static FDBRecordStoreBase<Message> getStore(EmbeddedRelationalConnection connection, FDBRecordContext context) throws RelationalException, SQLException {
         connection.setAutoCommit(false);
         connection.createNewTransaction();
         SubspaceProvider subspaceProvider = connection.getRecordLayerDatabase().loadRecordStore("TEST_SCHEMA", FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NO_INFO_AND_NOT_EMPTY)

@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 
-import javax.annotation.Nonnull;
 
 /**
  * This interface provides an abstraction for a database system table (view).
@@ -49,7 +48,6 @@ public interface SystemTable {
      * Returns the name of the system table.
      * @return The name of the system table.
      */
-    @Nonnull
     String getName();
 
     /**
@@ -63,7 +61,7 @@ public interface SystemTable {
      *
      * @param schemaBuilder The current schema builder used to populate schema template information.
      */
-    void addDefinition(@Nonnull RecordLayerSchemaTemplate.Builder schemaBuilder);
+    void addDefinition(RecordLayerSchemaTemplate.Builder schemaBuilder);
 
     RecordLayerTable getType();
 
@@ -71,7 +69,6 @@ public interface SystemTable {
      * Returns the primary key definition of the system table. Each system table must have a primary key.
      * @return The primary key.
      */
-    @Nonnull
     KeyExpression getPrimaryKeyDefinition();
 
 }

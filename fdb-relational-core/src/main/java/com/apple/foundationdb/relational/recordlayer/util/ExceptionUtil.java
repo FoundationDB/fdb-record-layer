@@ -35,7 +35,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.google.common.base.VerifyException;
 
-import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.Map;
 
@@ -84,8 +83,7 @@ public final class ExceptionUtil {
         return new RelationalException(code, re).withContext(extraContext);
     }
 
-    @Nonnull
-    private static ErrorCode translateErrorCode(@Nonnull final SemanticException semanticException) {
+    private static ErrorCode translateErrorCode(final SemanticException semanticException) {
         final var semanticErrorCode = semanticException.getErrorCode();
 
         switch (semanticErrorCode) {

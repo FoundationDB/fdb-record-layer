@@ -30,8 +30,7 @@ import com.apple.foundationdb.relational.recordlayer.HollowTransactionManager;
 import com.apple.foundationdb.relational.recordlayer.catalog.TransactionBoundDatabase;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 
 /**
@@ -53,7 +52,7 @@ public class TransactionBoundStorageCluster implements StorageCluster {
 
     @Nullable
     @Override
-    public RelationalDatabase loadDatabase(@Nonnull URI url, @Nonnull Options connOptions) {
+    public RelationalDatabase loadDatabase(URI url, Options connOptions) {
         return new TransactionBoundDatabase(url, connOptions, planCache, keySpace);
     }
 

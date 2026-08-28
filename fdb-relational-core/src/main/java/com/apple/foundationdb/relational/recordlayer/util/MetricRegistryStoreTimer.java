@@ -28,8 +28,7 @@ import com.apple.foundationdb.record.util.MapUtils;
 import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.MetricRegistry;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -52,7 +51,7 @@ public class MetricRegistryStoreTimer extends FDBStoreTimer {
 
     @Nullable
     @Override
-    protected Counter getCounter(@Nonnull Event event, boolean createIfNotExists) {
+    protected Counter getCounter(Event event, boolean createIfNotExists) {
         if (event instanceof Aggregate) {
             @Nullable Counter counter = ((Aggregate) event).compute(this);
             if (counter == null && createIfNotExists) {
@@ -77,7 +76,7 @@ public class MetricRegistryStoreTimer extends FDBStoreTimer {
 
     @Nullable
     @Override
-    protected Counter getTimeoutCounter(@Nonnull Event event, boolean createIfNotExists) {
+    protected Counter getTimeoutCounter(Event event, boolean createIfNotExists) {
         if (event instanceof Count) {
             return MapUtils.computeIfAbsent(counters, event,
                     evignore -> new RegistryCounter(event.title(), registry.counter(event.title())));
@@ -97,7 +96,7 @@ public class MetricRegistryStoreTimer extends FDBStoreTimer {
         private final com.codahale.metrics.Counter counter;
         private final String name;
 
-        public RegistryCounter(@Nonnull String name, com.codahale.metrics.Counter counter) {
+        public RegistryCounter(String name, com.codahale.metrics.Counter counter) {
             super(false);
             this.name = name;
             this.counter = counter;
@@ -121,7 +120,7 @@ public class MetricRegistryStoreTimer extends FDBStoreTimer {
 
         private final String name;
 
-        public RegistryTimer(@Nonnull String name, com.codahale.metrics.Timer timer) {
+        public RegistryTimer(String name, com.codahale.metrics.Timer timer) {
             super(false);
             this.name = name;
             this.timer = timer;

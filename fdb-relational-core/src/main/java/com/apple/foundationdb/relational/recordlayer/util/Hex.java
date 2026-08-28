@@ -25,7 +25,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;

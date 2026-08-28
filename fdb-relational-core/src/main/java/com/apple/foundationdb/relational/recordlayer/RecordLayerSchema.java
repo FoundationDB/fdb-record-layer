@@ -30,7 +30,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
 import com.apple.foundationdb.relational.util.Assert;
 
-import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
 import java.util.HashMap;
 import java.util.Map;
@@ -42,7 +41,6 @@ public class RecordLayerSchema implements DatabaseSchema {
     private final AbstractDatabase db;
     //could be accessed through the database, but this seems convenient
     final EmbeddedRelationalConnection conn;
-    @Nonnull
     private final String schemaName;
 
     private final FDBRecordStoreBase.StoreExistenceCheck existenceCheck;
@@ -55,22 +53,20 @@ public class RecordLayerSchema implements DatabaseSchema {
      */
     private final Map<String, RecordTypeTable> loadedTables = new HashMap<>();
 
-    public RecordLayerSchema(@Nonnull String schemaName, AbstractDatabase database, EmbeddedRelationalConnection connection) throws RelationalException {
+    public RecordLayerSchema(String schemaName, AbstractDatabase database, EmbeddedRelationalConnection connection) throws RelationalException {
         this.schemaName = schemaName;
         this.db = database;
         this.conn = connection;
         this.existenceCheck = FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS;
     }
 
-    @Nonnull
     @Override
     public String getSchemaName() {
         return schemaName;
     }
 
     @SuppressWarnings("PMD.CloseResource") // false positive as resource not closed is null
-    @Nonnull
-    public Table loadTable(@Nonnull String tableName) throws RelationalException {
+    public Table loadTable(String tableName) throws RelationalException {
         //TODO(bfines) load the record type index, rather than just the generic type, then
         // return an index object instead
         RecordTypeTable t = loadedTables.get(tableName);
@@ -95,7 +91,6 @@ public class RecordLayerSchema implements DatabaseSchema {
         loadedTables.clear();
     }
 
-    @Nonnull
     public BackingStore loadStore() throws RelationalException {
         // loadStore() expects an active transaction which should be taken care by the caller.
         Assert.thatUnchecked(conn.inActiveTransaction(), ErrorCode.INTERNAL_ERROR, "No active transaction!");

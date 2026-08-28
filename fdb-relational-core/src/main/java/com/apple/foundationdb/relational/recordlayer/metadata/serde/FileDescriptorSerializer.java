@@ -33,7 +33,6 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
 import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
@@ -43,16 +42,12 @@ import java.util.stream.Collectors;
 @API(API.Status.EXPERIMENTAL)
 public class FileDescriptorSerializer extends SkeletonVisitor {
 
-    @Nonnull
     private final DescriptorProtos.FileDescriptorProto.Builder fileBuilder;
 
-    @Nonnull
     private final DescriptorProtos.DescriptorProto.Builder unionDescriptorBuilder;
 
-    @Nonnull
     private final Set<String> descriptorNames;
 
-    @Nonnull
     private final Set<String> enumNames;
 
     // FileDescriptorSerializer operates in 2 modes. With `assignGenerations`=true, the serializer assumes that the
@@ -71,7 +66,7 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
         this(DescriptorProtos.FileDescriptorProto.newBuilder());
     }
 
-    public FileDescriptorSerializer(@Nonnull DescriptorProtos.FileDescriptorProto.Builder fileBuilder) {
+    public FileDescriptorSerializer(DescriptorProtos.FileDescriptorProto.Builder fileBuilder) {
         this.fileBuilder = fileBuilder;
         this.fileBuilder.addAllDependency(TypeRepository.DEPENDENCIES.stream().map(Descriptors.FileDescriptor::getFullName).collect(Collectors.toList()));
         this.unionDescriptorBuilder = DescriptorProtos.DescriptorProto.newBuilder().setName("RecordTypeUnion");
@@ -84,12 +79,12 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
     }
 
     @Override
-    public void visit(@Nonnull Metadata metadata) {
+    public void visit(Metadata metadata) {
         Assert.failUnchecked(String.format(Locale.ROOT, "unexpected call on %s", metadata.getClass().getName()));
     }
 
     @Override
-    public void visit(@Nonnull final Table table) {
+    public void visit(final Table table) {
         Assert.thatUnchecked(table instanceof RecordLayerTable);
         final RecordLayerTable recordLayerTable = (RecordLayerTable) table;
         final Type.Record type = recordLayerTable.getType();
@@ -114,8 +109,7 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
     }
 
     // (yhatem) this is temporary, we use rec layer typing also as a bridge to PB serialization for now.
-    @Nonnull
-    private String registerTypeDescriptors(@Nonnull final Type.Record type) {
+    private String registerTypeDescriptors(final Type.Record type) {
         final var builder = TypeRepository.newBuilder();
         type.defineProtoType(builder);
         final var typeDescriptors = builder.build();
@@ -140,12 +134,12 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
     }
 
     @Override
-    public void startVisit(@Nonnull SchemaTemplate schemaTemplate) {
+    public void startVisit(SchemaTemplate schemaTemplate) {
         fileBuilder.setName(schemaTemplate.getName());
     }
 
     @Override
-    public void finishVisit(@Nonnull SchemaTemplate schemaTemplate) {
+    public void finishVisit(SchemaTemplate schemaTemplate) {
         finish();
     }
 
@@ -154,12 +148,11 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
         fileBuilder.addMessageType(unionDescriptor);
     }
 
-    @Nonnull
     public DescriptorProtos.FileDescriptorProto.Builder getFileBuilder() {
         return fileBuilder;
     }
 
-    private void checkTableGenerations(@Nonnull Map<Integer, DescriptorProtos.FieldOptions> generations) {
+    private void checkTableGenerations(Map<Integer, DescriptorProtos.FieldOptions> generations) {
         // Determine the mode by generations map of the first table.
         if (assignGenerations == null) {
             assignGenerations = generations.isEmpty();

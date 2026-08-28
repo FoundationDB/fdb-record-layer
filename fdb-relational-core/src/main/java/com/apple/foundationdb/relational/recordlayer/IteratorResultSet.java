@@ -27,7 +27,6 @@ import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
-import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.Iterator;
 
@@ -51,7 +50,6 @@ public class IteratorResultSet extends AbstractRecordLayerResultSet {
         this.currentRowPosition = initialRowPosition;
     }
 
-    @Nonnull
     @Override
     public Continuation getContinuation() throws SQLException {
         boolean hasNext = rowIter.hasNext();

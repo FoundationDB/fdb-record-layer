@@ -43,7 +43,6 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -251,7 +250,6 @@ class OfflinePlanGenerationTest {
                 .isNotEqualTo(planV1.getRecordQueryPlan().semanticHashCode());
     }
 
-    @Nonnull
     private static RecordLayerSchemaTemplate booksTemplate(boolean withIndex, int version) {
         final var tableBuilder = RecordLayerTable.newBuilder(false)
                 .setName("BOOKS")

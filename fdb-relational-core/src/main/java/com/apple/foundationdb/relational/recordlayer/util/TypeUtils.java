@@ -28,24 +28,21 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Optional;
 
 public final class TypeUtils {
 
-    @Nonnull
-    public static Type setFieldNames(@Nonnull final Type input,
-                                     @Nonnull final CompatibleTypeEvolutionPredicate.FieldAccessTrieNode fieldAccessTrieNode) {
+    public static Type setFieldNames(final Type input,
+                                     final CompatibleTypeEvolutionPredicate.FieldAccessTrieNode fieldAccessTrieNode) {
         return setFieldNamesInternal(input, fieldAccessTrieNode);
     }
 
-    @Nonnull
     // PMD incorrectly thinks that comparing array sizes it deemed to be object reference comparison requiring equals() instead.
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private static Type setFieldNamesInternal(@Nonnull final Type input,
-                                              @Nonnull final CompatibleTypeEvolutionPredicate.FieldAccessTrieNode trie) {
+    private static Type setFieldNamesInternal(final Type input,
+                                              final CompatibleTypeEvolutionPredicate.FieldAccessTrieNode trie) {
         if (input.isPrimitive()) {
             return input;
         }

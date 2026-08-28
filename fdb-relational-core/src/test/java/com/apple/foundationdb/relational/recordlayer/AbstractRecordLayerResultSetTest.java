@@ -37,7 +37,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 
-import javax.annotation.Nonnull;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.sql.SQLException;
@@ -185,7 +184,6 @@ class AbstractRecordLayerResultSetTest {
             }
 
             @Override
-            @Nonnull
             public Continuation getContinuation() {
                 return ContinuationImpl.BEGIN;
             }

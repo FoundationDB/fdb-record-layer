@@ -23,7 +23,7 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 import org.junit.jupiter.api.extension.Extension;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 public interface RelationalExtension extends Extension {
 

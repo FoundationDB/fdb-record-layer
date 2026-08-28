@@ -42,27 +42,25 @@ import com.apple.foundationdb.relational.util.Assert;
 
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
 
 @API(API.Status.EXPERIMENTAL)
 public class RecordMetadataSerializer extends SkeletonVisitor {
 
-    @Nonnull
     private final RecordMetaDataBuilder builder;
 
     private int recordTypeCounter;
 
-    public RecordMetadataSerializer(@Nonnull final Descriptors.FileDescriptor fileDescriptor) {
+    public RecordMetadataSerializer(final Descriptors.FileDescriptor fileDescriptor) {
         this(RecordMetaData.newBuilder().setRecords(fileDescriptor));
     }
 
-    public RecordMetadataSerializer(@Nonnull final RecordMetaDataBuilder builder) {
+    public RecordMetadataSerializer(final RecordMetaDataBuilder builder) {
         this.builder = builder;
         this.recordTypeCounter = 0;
     }
 
     @Override
-    public void visit(@Nonnull Table table) {
+    public void visit(Table table) {
         Assert.thatUnchecked(table instanceof RecordLayerTable);
         final var recLayerTable = (RecordLayerTable) table;
         final KeyExpression keyExpression = recLayerTable.getPrimaryKey();
@@ -72,7 +70,7 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
     }
 
     @Override
-    public void visit(@Nonnull com.apple.foundationdb.relational.api.metadata.Index index) {
+    public void visit(com.apple.foundationdb.relational.api.metadata.Index index) {
         // Note: this does not preserve the index added and lest modified version, necessary
         // correctly handling index rebuilds when the template is updated. This also results
         // in the RecordMetaData builder updating its version, so the resulting meta-data will not
@@ -89,7 +87,7 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
     }
 
     @Override
-    public void visit(@Nonnull final InvokedRoutine invokedRoutine) {
+    public void visit(final InvokedRoutine invokedRoutine) {
         // do not serialize temporary routines in the record metadata.
         if (invokedRoutine.isTemporary()) {
             return;
@@ -99,13 +97,13 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
     }
 
     @Override
-    public void visit(@Nonnull final View view) {
+    public void visit(final View view) {
         Assert.thatUnchecked(view instanceof RecordLayerView);
         getBuilder().addView(((RecordLayerView)view).asRawView());
     }
 
     @Override
-    public void visit(@Nonnull SchemaTemplate schemaTemplate) {
+    public void visit(SchemaTemplate schemaTemplate) {
         Assert.thatUnchecked(schemaTemplate instanceof RecordLayerSchemaTemplate);
         final var recLayerSchemaTemplate = (RecordLayerSchemaTemplate) schemaTemplate;
         getBuilder().setSplitLongRecords(schemaTemplate.isEnableLongRows());
@@ -117,7 +115,6 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
         }
     }
 
-    @Nonnull
     public RecordMetaDataBuilder getBuilder() {
         return builder;
     }

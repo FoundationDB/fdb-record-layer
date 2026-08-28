@@ -54,8 +54,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
@@ -241,7 +240,6 @@ public final class BackingLocatableResolverStore implements BackingStore {
         throw new OperationUnsupportedException("Cannot scan indexes in interning layer store");
     }
 
-    @Nonnull
     @Override
     public RecordMetaData getRecordMetaData() {
         return metaDataProvider.getRecordMetaData();

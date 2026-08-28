@@ -44,7 +44,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
@@ -70,7 +69,6 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         this.conn = conn;
     }
 
-    @Nonnull
     @Override
     public RelationalResultSet getSchemas() throws SQLException {
         return getSchemas(conn.getPath().getPath(), null);
@@ -103,7 +101,6 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         });
     }
 
-    @Nonnull
     @Override
     public RelationalResultSet getTables(String database, String schema, String tableName, String[] types) throws SQLException {
         /*
@@ -175,7 +172,6 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         });
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.PreserveStackTrace") //we actually can't here, it will violate RecordLayer isolation laws
     public RelationalResultSet getColumns(String database, String schema, String tablePattern, String columnPattern) throws SQLException {
@@ -338,8 +334,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         });
     }
 
-    @Nonnull
-    private RecordMetaDataProto.MetaData loadSchemaMetadata(@Nonnull final String database, @Nonnull final String schema) throws RelationalException {
+    private RecordMetaDataProto.MetaData loadSchemaMetadata(final String database, final String schema) throws RelationalException {
         final var recLayerSchema = this.catalog.loadSchema(conn.getTransaction(), URI.create(database), schema);
         Assert.thatUnchecked(recLayerSchema instanceof RecordLayerSchema);
         return (recLayerSchema.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toRecordMetadata().toProto());

@@ -35,7 +35,6 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import javax.annotation.Nonnull;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -70,7 +69,7 @@ public class SystemCatalogQueryTest {
         runDdl("DROP SCHEMA TEMPLATE st");
     }
 
-    private static void runDdl(@Nonnull final String ddl) throws Exception {
+    private static void runDdl(final String ddl) throws Exception {
         try (final var conn = DriverManager.getConnection("jdbc:embed:/__SYS")) {
             conn.setSchema("CATALOG");
             try (final var statement = conn.createStatement()) {
@@ -79,15 +78,15 @@ public class SystemCatalogQueryTest {
         }
     }
 
-    private static void createDb(@Nonnull final String dbName) throws Exception {
+    private static void createDb(final String dbName) throws Exception {
         runDdl(String.format(Locale.ROOT, "CREATE DATABASE %s", dbName));
     }
 
-    private static void createSchema(@Nonnull final String dbName, @Nonnull final String schemaName) throws Exception {
+    private static void createSchema(final String dbName, final String schemaName) throws Exception {
         runDdl(String.format(Locale.ROOT, "CREATE SCHEMA %s%s WITH TEMPLATE st", dbName, schemaName));
     }
 
-    private static void dropDb(@Nonnull final String dbName) throws Exception {
+    private static void dropDb(final String dbName) throws Exception {
         runDdl(String.format(Locale.ROOT, "DROP DATABASE %s", dbName));
     }
 
@@ -157,7 +156,7 @@ public class SystemCatalogQueryTest {
         }
     }
 
-    private static void shouldBe(@Nonnull final ResultSet resultSet, @Nonnull final Set<List<String>> expected) throws SQLException {
+    private static void shouldBe(final ResultSet resultSet, final Set<List<String>> expected) throws SQLException {
         assert !expected.isEmpty();
         final int colCount = expected.stream().findFirst().get().size();
         final ImmutableSet.Builder<List<String>> actual = ImmutableSet.builder();

@@ -27,14 +27,13 @@ import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nonnull;
 
 @API(API.Status.EXPERIMENTAL)
 public class HollowTransactionManager implements TransactionManager {
     public static final HollowTransactionManager INSTANCE = new HollowTransactionManager();
 
     @Override
-    public Transaction createTransaction(@Nonnull Options options) throws RelationalException {
+    public Transaction createTransaction(Options options) throws RelationalException {
         throw new OperationUnsupportedException("This Transaction manager is hollow and does not support calls.");
     }
 

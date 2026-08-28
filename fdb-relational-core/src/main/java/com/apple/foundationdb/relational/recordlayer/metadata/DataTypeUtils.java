@@ -29,7 +29,6 @@ import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -38,7 +37,6 @@ import java.util.stream.Collectors;
 @API(API.Status.EXPERIMENTAL)
 public class DataTypeUtils {
 
-    @Nonnull
     private static final BiMap<DataType, Type> primitivesMap;
 
     /**
@@ -49,8 +47,7 @@ public class DataTypeUtils {
      * @param type The Relational data type.
      * @return The corresponding Record Layer type.
      */
-    @Nonnull
-    public static DataType toRelationalType(@Nonnull final Type type) {
+    public static DataType toRelationalType(final Type type) {
         if (primitivesMap.containsValue(type)) {
             return primitivesMap.inverse().get(type);
         }
@@ -100,8 +97,7 @@ public class DataTypeUtils {
      */
     @SpotBugsSuppressWarnings(value = {"NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"},
             justification = "should never happen, there is failUnchecked directly before that.")
-    @Nonnull
-    public static Type toRecordLayerType(@Nonnull final DataType type) {
+    public static Type toRecordLayerType(final DataType type) {
         if (primitivesMap.containsKey(type)) {
             return primitivesMap.get(type);
         }

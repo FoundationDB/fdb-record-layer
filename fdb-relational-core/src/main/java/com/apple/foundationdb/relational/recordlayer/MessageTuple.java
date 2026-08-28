@@ -32,7 +32,6 @@ import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -77,7 +76,7 @@ public class MessageTuple extends AbstractRow {
         }
     }
 
-    public static Object sanitizeField(@Nonnull final Object field, @Nonnull final DescriptorProtos.FieldOptions fieldOptions) {
+    public static Object sanitizeField(final Object field, final DescriptorProtos.FieldOptions fieldOptions) {
         if (field instanceof Message && ((Message) field).getDescriptorForType().equals(TupleFieldsProto.UUID.getDescriptor())) {
             return TupleFieldsHelper.fromProto((Message) field, TupleFieldsProto.UUID.getDescriptor());
         }

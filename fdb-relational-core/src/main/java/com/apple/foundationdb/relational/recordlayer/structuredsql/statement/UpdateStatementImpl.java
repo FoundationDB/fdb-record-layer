@@ -56,8 +56,7 @@ import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
 import org.antlr.v4.runtime.tree.TerminalNodeImpl;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -75,40 +74,33 @@ import java.util.stream.Collectors;
 @API(API.Status.EXPERIMENTAL)
 public class UpdateStatementImpl implements UpdateStatement {
 
-    @Nonnull
     private final Table table;
 
-    @Nonnull
     private final String originalTableName;
 
-    @Nonnull
     private final Map<Field<?>, Expression<?>> setClauses;
 
     @Nullable
     private final BooleanExpressionTrait whereClause;
 
-    @Nonnull
     private final List<Expression<?>> returning;
 
-    @Nonnull
     private final Set<QueryOptions> queryOptions;
 
-    @Nonnull
     private final Supplier<String> sqlGenerationMemoizer;
 
-    @Nonnull
     private final RelationalConnection connection;
 
     private final boolean caseSensitive;
 
     @SuppressWarnings("this-escape")
-    public UpdateStatementImpl(@Nonnull Table table,
-                               @Nonnull final String originalTableName,
-                               @Nonnull Map<Field<?>, Expression<?>> setClauses,
+    public UpdateStatementImpl(Table table,
+                               final String originalTableName,
+                               Map<Field<?>, Expression<?>> setClauses,
                                @Nullable BooleanExpressionTrait whereClause,
-                               @Nonnull List<Expression<?>> returning,
-                               @Nonnull Set<QueryOptions> queryOptions,
-                               @Nonnull RelationalConnection connection) {
+                               List<Expression<?>> returning,
+                               Set<QueryOptions> queryOptions,
+                               RelationalConnection connection) {
         this.table = table;
         this.originalTableName = originalTableName;
         this.setClauses = ImmutableMap.copyOf(setClauses);
@@ -120,25 +112,21 @@ public class UpdateStatementImpl implements UpdateStatement {
         this.caseSensitive = connection.getOptions().getOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS);
     }
 
-    @Nonnull
     @Override
     public PreparedStatement getPreparedStatement() throws SQLException {
         return connection.prepareStatement(getSqlQuery());
     }
 
-    @Nonnull
     @Override
     public String getSqlQuery() {
         return sqlGenerationMemoizer.get();
     }
 
-    @Nonnull
     @Override
     public Map<Field<?>, Expression<?>> getSetClauses() {
         return ImmutableMap.copyOf(setClauses);
     }
 
-    @Nonnull
     @Override
     public List<Expression<?>> getReturning() {
         return ImmutableList.copyOf(returning);
@@ -150,19 +138,16 @@ public class UpdateStatementImpl implements UpdateStatement {
         return whereClause;
     }
 
-    @Nonnull
     @Override
     public Set<QueryOptions> getOptions() {
         return ImmutableSet.copyOf(queryOptions);
     }
 
-    @Nonnull
     @Override
     public String getTable() {
         return table.getName();
     }
 
-    @Nonnull
     private String generateQuery() {
         final var sb = new StringBuilder();
         final var sqlVisitor = new SqlVisitor();
@@ -201,32 +186,27 @@ public class UpdateStatementImpl implements UpdateStatement {
 
     public static class BuilderImpl implements UpdateStatement.Builder {
 
-        @Nonnull
         private final RelationalConnection connection;
 
-        @Nonnull
         private final SchemaTemplate schemaTemplate;
 
         private Table table;
 
         private String originalTableName;
 
-        @Nonnull
         private Map<Field<?>, Expression<?>> setClauses;
 
         @Nullable
         private BooleanExpressionTrait whereClause;
 
-        @Nonnull
         private final List<Expression<?>> returning;
 
-        @Nonnull
         private final ImmutableSet.Builder<QueryOptions> queryOptionsBuilder;
 
         private final boolean isCaseSensitive;
 
-        public BuilderImpl(@Nonnull final RelationalConnection connection,
-                             @Nonnull final SchemaTemplate schemaTemplate) {
+        public BuilderImpl(final RelationalConnection connection,
+                             final SchemaTemplate schemaTemplate) {
             this.connection = connection;
             this.schemaTemplate = schemaTemplate;
             this.setClauses = new LinkedHashMap<>();
@@ -235,47 +215,40 @@ public class UpdateStatementImpl implements UpdateStatement {
             this.isCaseSensitive = connection.getOptions().getOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS);
         }
 
-        @Nonnull
         @Override
         public Map<Field<?>, Expression<?>> getSetClauses() {
             return setClauses;
         }
 
-        @Nonnull
         @Override
-        public Builder addSetClause(@Nonnull Field<?> field, @Nonnull Expression<?> newValue) {
+        public Builder addSetClause(Field<?> field, Expression<?> newValue) {
             setClauses.put(field, newValue);
             return this;
         }
 
-        @Nonnull
         @Override
         public Builder clearSetClauses() {
             this.setClauses.clear();
             return this;
         }
 
-        @Nonnull
         @Override
-        public Builder removeSetClause(@Nonnull Field<?> field) {
+        public Builder removeSetClause(Field<?> field) {
             setClauses = setClauses.entrySet().stream().filter(pair -> !pair.getKey().equals(field)).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
             return this;
         }
 
-        @Nonnull
         @Override
         public List<Expression<?>> getReturning() {
             return returning;
         }
 
-        @Nonnull
         @Override
-        public Builder addReturning(@Nonnull Expression<?> expression) {
+        public Builder addReturning(Expression<?> expression) {
             this.returning.add(expression);
             return this;
         }
 
-        @Nonnull
         @Override
         public Builder clearReturning() {
             this.returning.clear();
@@ -288,9 +261,8 @@ public class UpdateStatementImpl implements UpdateStatement {
             return whereClause;
         }
 
-        @Nonnull
         @Override
-        public Builder addWhereClause(@Nonnull BooleanExpressionTrait expression) {
+        public Builder addWhereClause(BooleanExpressionTrait expression) {
             if (whereClause != null) {
                 whereClause = whereClause.and(expression);
             } else {
@@ -299,22 +271,19 @@ public class UpdateStatementImpl implements UpdateStatement {
             return this;
         }
 
-        @Nonnull
         @Override
         public Builder clearWhereClause() {
             this.whereClause = null;
             return this;
         }
 
-        @Nonnull
         @Override
         public String getTable() {
             return originalTableName;
         }
 
-        @Nonnull
         @Override
-        public Builder setTable(@Nonnull final String table) {
+        public Builder setTable(final String table) {
             final var normalizedTableName =
                     Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(table, isCaseSensitive));
             Optional<Table> maybeTable;
@@ -330,9 +299,8 @@ public class UpdateStatementImpl implements UpdateStatement {
             return this;
         }
 
-        @Nonnull
         @Override
-        public Builder resolveSetFields(@Nonnull final ExpressionFactory expressionFactory) {
+        public Builder resolveSetFields(final ExpressionFactory expressionFactory) {
             if (setClauses.entrySet().stream().allMatch(entry -> entry.getKey() instanceof FieldImpl<?>)) {
                 return this;
             }
@@ -348,20 +316,17 @@ public class UpdateStatementImpl implements UpdateStatement {
             return this;
         }
 
-        @Nonnull
         @Override
-        public Builder withOption(@Nonnull final QueryOptions... options) {
+        public Builder withOption(final QueryOptions... options) {
             Arrays.stream(options).forEach(queryOptionsBuilder::add);
             return this;
         }
 
-        @Nonnull
         @Override
         public Set<QueryOptions> getOptions() {
             return queryOptionsBuilder.build();
         }
 
-        @Nonnull
         @Override
         public UpdateStatement build() throws RelationalException {
             Assert.notNull(table, ErrorCode.UNDEFINED_TABLE, "table is not set");
@@ -371,28 +336,25 @@ public class UpdateStatementImpl implements UpdateStatement {
 
         @SuppressWarnings("PMD.FormalParameterNamingConventions")
         private static final class UpdateVisitor extends RelationalParserBaseVisitor<Void> {
-            @Nonnull
             @SuppressWarnings("PMD.AvoidStringBufferField") // the visitor is used within the builder, it should be very short-lived.
             private final StringBuilder queryStringScratchpad;
 
-            @Nonnull
             private final Builder updateBuilder;
 
-            @Nonnull
             private final ExpressionFactory expressionFactory;
 
             private boolean isUpdateStatement;
 
-            public UpdateVisitor(@Nonnull final RelationalConnection connection,
-                                 @Nonnull final SchemaTemplate schemaTemplate,
-                                 @Nonnull final ParseTree ast) {
+            public UpdateVisitor(final RelationalConnection connection,
+                                 final SchemaTemplate schemaTemplate,
+                                 final ParseTree ast) {
                 this(connection, schemaTemplate, ast, Map.of());
             }
 
-            public UpdateVisitor(@Nonnull final RelationalConnection connection,
-                                 @Nonnull final SchemaTemplate schemaTemplate,
-                                 @Nonnull final ParseTree ast,
-                                 @Nonnull final Map<String, List<String>> columnSynonyms) {
+            public UpdateVisitor(final RelationalConnection connection,
+                                 final SchemaTemplate schemaTemplate,
+                                 final ParseTree ast,
+                                 final Map<String, List<String>> columnSynonyms) {
                 this.queryStringScratchpad = new StringBuilder();
                 this.updateBuilder = new BuilderImpl(connection, schemaTemplate);
                 try {
@@ -412,13 +374,11 @@ public class UpdateStatementImpl implements UpdateStatement {
                 }
             }
 
-            @Nonnull
             Builder getUpdateBuilder() {
                 return updateBuilder;
             }
 
-            @Nonnull
-            private String withNewScratchPad(@Nonnull final Consumer<Void> consumer) {
+            private String withNewScratchPad(final Consumer<Void> consumer) {
                 queryStringScratchpad.setLength(0);
                 consumer.accept(null);
                 return queryStringScratchpad.toString().trim();
@@ -472,13 +432,11 @@ public class UpdateStatementImpl implements UpdateStatement {
                 return null;
             }
 
-            @Nonnull
             private List<String> handleFullId(RelationalParser.FullIdContext ctx) {
                 Assert.thatUnchecked(!ctx.uid().isEmpty());
                 return ctx.uid().stream().map(this::handleUid).map(Assert::notNullUnchecked).collect(Collectors.toList());
             }
 
-            @Nonnull
             private String handleUid(RelationalParser.UidContext ctx) {
                 if (ctx.simpleId() != null) {
                     return Assert.notNullUnchecked(ctx.simpleId().getText());
@@ -487,7 +445,6 @@ public class UpdateStatementImpl implements UpdateStatement {
                 }
             }
 
-            @Nonnull
             private List<String> handleReturningSelectElements(RelationalParser.SelectElementsContext selectElementsContext) {
                 final ImmutableList.Builder<String> result = ImmutableList.builder();
                 selectElementsContext.selectElement().forEach(selectElement -> result.add(withNewScratchPad(Null -> visit(selectElement))));
@@ -506,7 +463,7 @@ public class UpdateStatementImpl implements UpdateStatement {
 
         public static final class CustomSimpleId extends RelationalParser.UidContext {
 
-            public CustomSimpleId(ParserRuleContext parent, int invokingState, @Nonnull final String name) {
+            public CustomSimpleId(ParserRuleContext parent, int invokingState, final String name) {
                 super(parent, invokingState);
                 addChild(new TerminalNodeImpl(new CustomCommonToken(name)));
             }
@@ -515,10 +472,9 @@ public class UpdateStatementImpl implements UpdateStatement {
 
                 private static final long serialVersionUID = 3459762348795L;
 
-                @Nonnull
                 private final String name;
 
-                public CustomCommonToken(@Nonnull final String name) {
+                public CustomCommonToken(final String name) {
                     super(0); // maybe use something else.
                     this.name = name;
                 }
@@ -532,12 +488,11 @@ public class UpdateStatementImpl implements UpdateStatement {
 
         private static final class UidReplacer extends RelationalParserBaseVisitor<Void> {
 
-            @Nonnull
             private final ImmutableMap<String, List<String>> synonymsMap;
 
             private final boolean isCaseSensitive;
 
-            private UidReplacer(@Nonnull final Map<String, List<String>> symnonymsMap, boolean isCaseSensitive) {
+            private UidReplacer(final Map<String, List<String>> symnonymsMap, boolean isCaseSensitive) {
                 ImmutableMap.Builder<String, List<String>> normalizedSynonymsMap = ImmutableMap.builder();
                 for (final var synonymsPair : symnonymsMap.entrySet()) {
                     final var normalizedKey = Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(synonymsPair.getKey(), isCaseSensitive));
@@ -583,21 +538,19 @@ public class UpdateStatementImpl implements UpdateStatement {
             }
         }
 
-        @Nonnull
-        public static Builder fromQuery(@Nonnull final RelationalConnection relationalConnection,
-                                        @Nonnull final SchemaTemplate schemaTemplate,
-                                        @Nonnull final String updateQuery,
-                                        @Nonnull final Map<String, List<String>> columnSynonyms) {
+        public static Builder fromQuery(final RelationalConnection relationalConnection,
+                                        final SchemaTemplate schemaTemplate,
+                                        final String updateQuery,
+                                        final Map<String, List<String>> columnSynonyms) {
             final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(updateQuery));
             final var parseTree = new RelationalParser(new CommonTokenStream(tokenSource));
             return fromParseTreeInfoImpl(relationalConnection, schemaTemplate, ParseTreeInfoImpl.from(parseTree.root()), columnSynonyms);
         }
 
-        @Nonnull
-        public static Builder fromParseTreeInfoImpl(@Nonnull final RelationalConnection relationalConnection,
-                                                    @Nonnull final SchemaTemplate schemaTemplate,
-                                                    @Nonnull final ParseTreeInfoImpl parseTreeInfo,
-                                                    @Nonnull final Map<String, List<String>> columnSynonyms) {
+        public static Builder fromParseTreeInfoImpl(final RelationalConnection relationalConnection,
+                                                    final SchemaTemplate schemaTemplate,
+                                                    final ParseTreeInfoImpl parseTreeInfo,
+                                                    final Map<String, List<String>> columnSynonyms) {
             Assert.thatUnchecked(parseTreeInfo.getQueryType().equals(ParseTreeInfo.QueryType.UPDATE),
                     String.format(Locale.ROOT, "Expecting update statement, got '%s' statement", parseTreeInfo.getQueryType().name()));
             final var updateVisitor = new UpdateVisitor(relationalConnection, schemaTemplate, parseTreeInfo.getRootContext(), columnSynonyms);

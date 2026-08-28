@@ -29,7 +29,6 @@ import com.apple.foundationdb.relational.continuation.ContinuationProto;
 import com.apple.foundationdb.relational.continuation.CopyPlan;
 import com.google.protobuf.ByteString;
 
-import javax.annotation.Nonnull;
 
 /**
  * A Builder class for an implementation of a {@link com.apple.foundationdb.relational.api.Continuation}.
@@ -38,49 +37,42 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public class ContinuationBuilder {
-    @Nonnull
     private final ContinuationProto.Builder proto;
 
     public ContinuationBuilder() {
         this.proto = ContinuationProto.newBuilder();
     }
 
-    public ContinuationBuilder(@Nonnull ContinuationProto proto) {
+    public ContinuationBuilder(ContinuationProto proto) {
         this.proto = proto.toBuilder();
     }
 
-    @Nonnull
     public ContinuationBuilder withExecutionState(byte[] executionState) {
         this.proto.setExecutionState(ByteString.copyFrom(executionState));
         return this;
     }
 
-    @Nonnull
     public ContinuationBuilder withBindingHash(int hash) {
         proto.setBindingHash(hash);
         return this;
     }
 
-    @Nonnull
     public ContinuationBuilder withPlanHash(int hash) {
         proto.setPlanHash(hash);
         return this;
     }
 
-    @Nonnull
-    public ContinuationBuilder withCompiledStatement(@Nonnull final CompiledStatement compiledStatementProto) {
+    public ContinuationBuilder withCompiledStatement(final CompiledStatement compiledStatementProto) {
         proto.setCompiledStatement(compiledStatementProto);
         return this;
     }
 
-    @Nonnull
-    public ContinuationBuilder withCopyPlan(@Nonnull final CopyPlan copyPlan) {
+    public ContinuationBuilder withCopyPlan(final CopyPlan copyPlan) {
         proto.setCopyPlan(copyPlan);
         return this;
     }
 
-    @Nonnull
-    public ContinuationBuilder withReason(@Nonnull final Continuation.Reason reason) {
+    public ContinuationBuilder withReason(final Continuation.Reason reason) {
         proto.setReason(ContinuationProto.Reason.valueOf(reason.name()));
         return this;
     }

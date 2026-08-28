@@ -39,8 +39,7 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 
 final class LocatableResolverMetaDataProvider implements RecordMetaDataProvider {
@@ -104,20 +103,17 @@ final class LocatableResolverMetaDataProvider implements RecordMetaDataProvider 
                     .build())
             .build();
 
-    @Nonnull
     private final RecordMetaData metaData;
-    @Nonnull
     private final Object interningTypeKey;
-    @Nonnull
     private final Object resolverStateTypeKey;
 
-    private LocatableResolverMetaDataProvider(@Nonnull RecordMetaData metaData) {
+    private LocatableResolverMetaDataProvider(RecordMetaData metaData) {
         this.metaData = metaData;
         interningTypeKey = metaData.getRecordType(INTERNING_TYPE_NAME).getRecordTypeKey();
         resolverStateTypeKey = metaData.getRecordType(RESOLVER_STATE_TYPE_NAME).getRecordTypeKey();
     }
 
-    Message wrapInterning(@Nonnull String key, long value, @Nullable byte[] metaData) {
+    Message wrapInterning(String key, long value, @Nullable byte[] metaData) {
         Descriptors.Descriptor descriptor = this.metaData.getRecordType(INTERNING_TYPE_NAME).getDescriptor();
         DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor)
                 .setField(descriptor.findFieldByName(KEY_FIELD_NAME), key)
@@ -129,14 +125,13 @@ final class LocatableResolverMetaDataProvider implements RecordMetaDataProvider 
     }
 
     @Nullable
-    Message wrapResolverResult(@Nonnull String key, @Nullable ResolverResult result) {
+    Message wrapResolverResult(String key, @Nullable ResolverResult result) {
         if (result == null) {
             return null;
         }
         return wrapInterning(key, result.getValue(), result.getMetadata());
     }
 
-    @Nonnull
     Message wrapResolverState(ResolverStateProto.State state) {
         Descriptors.Descriptor descriptor = metaData.getRecordType(RESOLVER_STATE_TYPE_NAME).getDescriptor();
         return DynamicMessage.newBuilder(descriptor)
@@ -161,18 +156,15 @@ final class LocatableResolverMetaDataProvider implements RecordMetaDataProvider 
         return SCHEMA_TEMPLATE;
     }
 
-    @Nonnull
     @Override
     public RecordMetaData getRecordMetaData() {
         return metaData;
     }
 
-    @Nonnull
     public Object getInterningTypeKey() {
         return interningTypeKey;
     }
 
-    @Nonnull
     public Object getResolverStateTypeKey() {
         return resolverStateTypeKey;
     }

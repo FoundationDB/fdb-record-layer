@@ -32,7 +32,6 @@ import com.apple.foundationdb.relational.recordlayer.util.MetricRegistryStoreTim
 
 import com.codahale.metrics.MetricRegistry;
 
-import javax.annotation.Nonnull;
 
 @API(API.Status.EXPERIMENTAL)
 public class RecordLayerTransactionManager implements TransactionManager {
@@ -45,7 +44,7 @@ public class RecordLayerTransactionManager implements TransactionManager {
     }
 
     @Override
-    public Transaction createTransaction(@Nonnull Options connectionOptions) throws RelationalException {
+    public Transaction createTransaction(Options connectionOptions) throws RelationalException {
         return new RecordContextTransaction(fdbDb.openContext(getFDBRecordContextConfig(connectionOptions, metricRegistry)));
     }
 
@@ -59,7 +58,7 @@ public class RecordLayerTransactionManager implements TransactionManager {
         txn.commit();
     }
 
-    private FDBRecordContextConfig getFDBRecordContextConfig(@Nonnull Options options, MetricRegistry metricRegistry) {
+    private FDBRecordContextConfig getFDBRecordContextConfig(Options options, MetricRegistry metricRegistry) {
         FDBRecordContextConfig.Builder builder = FDBRecordContextConfig.newBuilder()
                 .setTimer(new MetricRegistryStoreTimer(metricRegistry));
         Long transactionTimeout = options.getOption(Options.Name.TRANSACTION_TIMEOUT);

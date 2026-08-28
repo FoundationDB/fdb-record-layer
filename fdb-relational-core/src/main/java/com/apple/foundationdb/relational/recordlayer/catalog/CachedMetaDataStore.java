@@ -28,7 +28,6 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
 
-import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
 import java.net.URI;
 import java.util.HashMap;
@@ -52,7 +51,7 @@ public class CachedMetaDataStore implements RecordMetaDataStore {
     }
 
     @Override
-    public RecordMetaDataProvider loadMetaData(@Nonnull Transaction txn, @Nonnull URI dbUri, @Nonnull String schemaName) throws RelationalException {
+    public RecordMetaDataProvider loadMetaData(Transaction txn, URI dbUri, String schemaName) throws RelationalException {
         String key = (dbUri.getPath() + "/" + schemaName).toUpperCase(Locale.ROOT);
         CacheCell cacheCell = cachedProviders.get(key);
         if (cacheCell == null) {

@@ -24,7 +24,6 @@ import com.google.common.base.Function;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -36,7 +35,6 @@ public class MemoizedFunctionTest {
 
         private Set<U> seenValues;
 
-        @Nonnull
         private final Function<U, T> underlying;
 
         private StatefulFunction(Function<U, T> underlying) {

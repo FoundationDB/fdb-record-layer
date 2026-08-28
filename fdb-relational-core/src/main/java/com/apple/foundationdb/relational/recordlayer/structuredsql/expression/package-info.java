@@ -22,4 +22,7 @@
  * Implementation of structured query expression API.
  */
 
+@NullMarked
 package com.apple.foundationdb.relational.recordlayer.structuredsql.expression;
+
+import org.jspecify.annotations.NullMarked;

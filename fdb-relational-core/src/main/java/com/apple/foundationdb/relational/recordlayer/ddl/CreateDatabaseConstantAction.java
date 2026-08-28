@@ -30,7 +30,6 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 
 @API(API.Status.EXPERIMENTAL)
@@ -40,9 +39,9 @@ public class CreateDatabaseConstantAction implements ConstantAction {
     private final StoreCatalog storeCatalog;
     private final KeySpace keySpace;
 
-    public CreateDatabaseConstantAction(@Nonnull URI dbUrl,
-                                        @Nonnull StoreCatalog storeCatalog,
-                                        @Nonnull KeySpace keySpace) {
+    public CreateDatabaseConstantAction(URI dbUrl,
+                                        StoreCatalog storeCatalog,
+                                        KeySpace keySpace) {
         this.dbUrl = dbUrl;
         this.storeCatalog = storeCatalog;
         this.keySpace = keySpace;

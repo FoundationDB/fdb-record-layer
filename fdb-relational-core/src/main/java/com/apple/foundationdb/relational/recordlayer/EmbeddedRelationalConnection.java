@@ -53,8 +53,7 @@ import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.relational.util.Supplier;
 import com.google.common.annotations.VisibleForTesting;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.sql.Array;
 import java.sql.Connection;
@@ -89,9 +88,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     private static final int DEFAULT_TRANSACTION_LEVEL = Connection.TRANSACTION_SERIALIZABLE;
 
     private boolean isClosed;
-    @Nonnull
     private final AbstractDatabase frl;
-    @Nonnull
     private final StoreCatalog backingCatalog;
     @Nullable
     private MetricCollector metricCollector;
@@ -103,16 +100,15 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     private final boolean usingAnExternalTransaction;
     private final TransactionManager txnManager;
 
-    @Nonnull
     private Options options;
 
     private int transactionIsolation;
 
     @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "May be refactored as embedded takes over transaction lifetime")
-    public EmbeddedRelationalConnection(@Nonnull AbstractDatabase frl,
-                                      @Nonnull StoreCatalog backingCatalog,
+    public EmbeddedRelationalConnection(AbstractDatabase frl,
+                                      StoreCatalog backingCatalog,
                                       @Nullable Transaction transaction,
-                                      @Nonnull Options options) throws InternalErrorException {
+                                      Options options) throws InternalErrorException {
         this.frl = frl;
         this.txnManager = frl.getTransactionManager();
         this.transaction = transaction;
@@ -257,7 +253,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         this.currentSchemaLabel = schema;
     }
 
-    private void checkSchemaExists(@Nonnull String schema) throws SQLException {
+    private void checkSchemaExists(String schema) throws SQLException {
         runIsolatedInTransactionIfPossible(() -> {
             if (!this.backingCatalog.doesSchemaExist(getTransaction(), getRecordLayerDatabase().getURI(), schema)) {
                 throw new RelationalException(String.format(Locale.ROOT, "Schema %s does not exist in %s", schema, getPath()), ErrorCode.UNDEFINED_SCHEMA);
@@ -266,7 +262,6 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         });
     }
 
-    @Nonnull
     public SchemaTemplate getSchemaTemplate() throws RelationalException {
         try {
             return backingCatalog.loadSchema(getTransaction(), getPath(), getSchema()).getSchemaTemplate();
@@ -316,7 +311,6 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         return isClosed;
     }
 
-    @Nonnull
     @Override
     public RelationalDatabaseMetaData getMetaData() throws SQLException {
         return new CatalogMetaData(this, this.backingCatalog) {
@@ -407,7 +401,6 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         }
     }
 
-    @Nonnull
     @Override
     public Options getOptions() {
         return options;
@@ -425,7 +418,6 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         return getRecordLayerDatabase().getURI();
     }
 
-    @Nonnull
     public StoreCatalog getBackingCatalog() {
         return backingCatalog;
     }
@@ -436,7 +428,6 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
      * @return the current transaction.
      * @throws RelationalException if there is no active transaction.
      */
-    @Nonnull
     public Transaction getTransaction() throws RelationalException {
         if (transaction == null) {
             throw new RelationalException("No Active Transaction!", ErrorCode.INVALID_TRANSACTION_STATE);
@@ -455,11 +446,10 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         return transaction != null;
     }
 
-    void addCloseListener(@Nonnull Runnable closeListener) throws RelationalException {
+    void addCloseListener(Runnable closeListener) throws RelationalException {
         this.transaction.unwrap(RecordContextTransaction.class).addTerminationListener(closeListener);
     }
 
-    @Nonnull
     public AbstractDatabase getRecordLayerDatabase() {
         return frl;
     }
@@ -503,7 +493,6 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         ensureTransactionActive();
     }
 
-    @Nonnull
     public ExecuteProperties getExecuteProperties() {
         return executeProperties;
     }
@@ -533,19 +522,16 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         }
     }
 
-    @Nonnull
     @Override
     public <T> T unwrap(Class<T> iface) throws SQLException {
         return iface.cast(this);
     }
 
-    @Nonnull
     @Override
     public StatementBuilderFactory createStatementBuilderFactory() throws SQLException {
         return runIsolatedInTransactionIfPossible(() -> new StatementBuilderFactoryImpl(getSchemaTemplate(), this));
     }
 
-    @Nonnull
     @Override
     public ExpressionFactory createExpressionBuilderFactory() throws SQLException {
         return runIsolatedInTransactionIfPossible(() -> new ExpressionFactoryImpl(getSchemaTemplate(), getOptions()));

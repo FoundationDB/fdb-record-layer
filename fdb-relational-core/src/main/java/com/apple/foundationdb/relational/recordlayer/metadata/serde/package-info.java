@@ -22,4 +22,7 @@
  * Serialization and Deserialization APIs for Relational metadata.
  */
 
+@NullMarked
 package com.apple.foundationdb.relational.recordlayer.metadata.serde;
+
+import org.jspecify.annotations.NullMarked;

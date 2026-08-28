@@ -34,19 +34,17 @@ import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.util.catalog.KeySpaceProvider;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 
 @API(API.Status.EXPERIMENTAL)
 public class HollowStoreCatalog implements StoreCatalog, KeySpaceProvider {
 
-    @Nonnull
     public final SchemaTemplate schemaTemplate;
     @Nullable
     private final KeySpace keySpace;
 
-    public HollowStoreCatalog(@Nonnull final SchemaTemplate schemaTemplate, @Nullable final KeySpace keySpace) {
+    public HollowStoreCatalog(final SchemaTemplate schemaTemplate, @Nullable final KeySpace keySpace) {
         this.schemaTemplate = schemaTemplate;
         this.keySpace = keySpace;
     }
@@ -56,62 +54,61 @@ public class HollowStoreCatalog implements StoreCatalog, KeySpaceProvider {
         return null;
     }
 
-    @Nonnull
     @Override
-    public Schema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException {
+    public Schema loadSchema(Transaction txn, URI databaseId, String schemaName) throws RelationalException {
         return schemaTemplate.generateSchema(databaseId.toString(), schemaName);
     }
 
     @Override
-    public void saveSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite, boolean createDatabaseIfNecessary,
-                           @Nonnull SchemaExistsBehavior existsBehavior) throws RelationalException {
+    public void saveSchema(Transaction txn, Schema dataToWrite, boolean createDatabaseIfNecessary,
+                           SchemaExistsBehavior existsBehavior) throws RelationalException {
         throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
     }
 
     @Override
-    public void repairSchema(@Nonnull Transaction txn, @Nonnull String databaseId, @Nonnull String schemaName) throws RelationalException {
+    public void repairSchema(Transaction txn, String databaseId, String schemaName) throws RelationalException {
         throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
     }
 
     @Override
-    public void createDatabase(@Nonnull Transaction txn, @Nonnull URI dbUri) throws RelationalException {
+    public void createDatabase(Transaction txn, URI dbUri) throws RelationalException {
         throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
     }
 
     @Override
-    public RelationalResultSet listDatabases(@Nonnull Transaction txn, @Nonnull Continuation continuation) throws RelationalException {
+    public RelationalResultSet listDatabases(Transaction txn, Continuation continuation) throws RelationalException {
         throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
     }
 
     @Override
-    public RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull Continuation continuation) throws RelationalException {
+    public RelationalResultSet listSchemas(Transaction txn, Continuation continuation) throws RelationalException {
         throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
     }
 
     @Override
-    public RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull Continuation continuation) throws RelationalException {
+    public RelationalResultSet listSchemas(Transaction txn, URI databaseId, Continuation continuation) throws RelationalException {
         throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
     }
 
     @Override
-    public void deleteSchema(@Nonnull Transaction txn, @Nonnull URI dbUri, @Nonnull String schemaName) throws RelationalException {
+    public void deleteSchema(Transaction txn, URI dbUri, String schemaName) throws RelationalException {
         throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
 
     }
 
     @Override
-    public boolean doesDatabaseExist(@Nonnull Transaction txn, @Nonnull URI dbUrl) throws RelationalException {
+    public boolean doesDatabaseExist(Transaction txn, URI dbUrl) throws RelationalException {
         throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
     }
 
     @Override
-    public boolean doesSchemaExist(@Nonnull Transaction txn, @Nonnull URI dbUri, @Nonnull String schemaName) {
+    public boolean doesSchemaExist(Transaction txn, URI dbUri, String schemaName) {
         // We do not check schema existence in this hollow catalog as it should be checked by the caller
         return true;
     }
 
     @Override
-    public boolean deleteDatabase(@Nonnull Transaction txn, @Nonnull URI dbUrl, boolean throwIfDoesNotExist) throws RelationalException {
+    public boolean deleteDatabase(Transaction txn, URI dbUrl, boolean throwIfDoesNotExist) throws RelationalException {
         throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
     }
 

@@ -32,7 +32,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -62,14 +61,13 @@ public class SchemaSystemTable implements SystemTable {
             .setKeyExpression(concat(field(TEMPLATE_NAME), field(TEMPLATE_VERSION), field(DATABASE_ID), field(SCHEMA_NAME)))
             .build();
 
-    @Nonnull
     @Override
     public String getName() {
         return TABLE_NAME;
     }
 
     @Override
-    public void addDefinition(@Nonnull final RecordLayerSchemaTemplate.Builder schemaBuilder) {
+    public void addDefinition(final RecordLayerSchemaTemplate.Builder schemaBuilder) {
         // construct the table type.
         schemaBuilder.addTable(getType());
     }
@@ -90,7 +88,6 @@ public class SchemaSystemTable implements SystemTable {
                 .build();
     }
 
-    @Nonnull
     @Override
     public KeyExpression getPrimaryKeyDefinition() {
         return concat(Key.Expressions.recordType(), Key.Expressions.concatenateFields(DATABASE_ID, SCHEMA_NAME));

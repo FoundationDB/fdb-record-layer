@@ -34,8 +34,7 @@ import com.google.common.primitives.Ints;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -47,7 +46,6 @@ public final class ContinuationImpl implements Continuation {
 
     public static final ContinuationImpl END = new ContinuationImpl(new byte[0]);
 
-    @Nonnull
     private final ContinuationProto proto;
 
     // TODO(yhatem) remove semantic nulls.
@@ -59,7 +57,7 @@ public final class ContinuationImpl implements Continuation {
         proto = builder.build();
     }
 
-    ContinuationImpl(@Nonnull ContinuationProto proto) {
+    ContinuationImpl(ContinuationProto proto) {
         this.proto = proto;
     }
 
@@ -98,7 +96,6 @@ public final class ContinuationImpl implements Continuation {
         return proto.hasCopyPlan();
     }
 
-    @Nonnull
     public CopyPlan getCopyPlan() {
         return proto.getCopyPlan();
     }
@@ -200,7 +197,7 @@ import com.apple.foundationdb.annotation.API;
         }
     }
 
-    public static ContinuationImpl copyOf(@Nonnull Continuation other) throws RelationalException {
+    public static ContinuationImpl copyOf(Continuation other) throws RelationalException {
         if (other instanceof ContinuationImpl) {
             // ContinuationImpl is immutable, no need to actually copy
             return (ContinuationImpl) other;
