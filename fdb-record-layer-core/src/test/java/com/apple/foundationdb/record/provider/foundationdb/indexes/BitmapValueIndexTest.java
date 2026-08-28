@@ -60,8 +60,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.opentest4j.AssertionFailedError;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -668,18 +667,18 @@ class BitmapValueIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    protected List<Integer> collectOnBits(@Nonnull RecordCursor<IndexEntry> indexEntries) {
+    protected List<Integer> collectOnBits(RecordCursor<IndexEntry> indexEntries) {
         return indexEntries.reduce(new ArrayList<Integer>(), (list, entries) -> {
             list.addAll(collectOnBits(entries));
             return list;
         }).join();
     }
 
-    protected List<Integer> collectOnBits(@Nonnull IndexEntry indexEntry) {
+    protected List<Integer> collectOnBits(IndexEntry indexEntry) {
         return collectOnBits(indexEntry.getValue().getBytes(0), (int)indexEntry.getKey().getLong(indexEntry.getKeySize() - 1));
     }
 
-    protected List<Integer> collectOnBits(@Nonnull byte[] bitmap, int offset) {
+    protected List<Integer> collectOnBits(byte[] bitmap, int offset) {
         final List<Integer> result = new ArrayList<>();
         for (int i = 0; i < bitmap.length; i++) {
             if (bitmap[i] != 0) {
@@ -693,7 +692,7 @@ class BitmapValueIndexTest extends FDBRecordStoreTestBase {
         return result;
     }
 
-    protected RecordQueryPlan plan(@Nonnull IndexAggregateFunctionCall functionCall, @Nonnull QueryComponent filter) {
+    protected RecordQueryPlan plan(IndexAggregateFunctionCall functionCall, QueryComponent filter) {
         final RecordQuery recordQuery = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(filter)

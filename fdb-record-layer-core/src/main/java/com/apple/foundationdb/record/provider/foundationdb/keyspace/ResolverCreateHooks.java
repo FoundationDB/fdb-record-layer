@@ -25,7 +25,6 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
@@ -40,18 +39,16 @@ import java.util.function.Function;
 public class ResolverCreateHooks {
     public static final PreWriteCheck DEFAULT_CHECK = (ignore1, ignore2) -> AsyncUtil.READY_TRUE;
     public static final MetadataHook DEFAULT_HOOK = ignore -> null;
-    @Nonnull
     private final List<PreWriteCheck> checks;
-    @Nonnull
     private final MetadataHook metadataHook;
 
-    public ResolverCreateHooks(@Nonnull PreWriteCheck check,
-                               @Nonnull MetadataHook metadataHook) {
+    public ResolverCreateHooks(PreWriteCheck check,
+                               MetadataHook metadataHook) {
         this(ImmutableList.of(check), metadataHook);
     }
 
-    public ResolverCreateHooks(@Nonnull List<PreWriteCheck> checks,
-                               @Nonnull MetadataHook metadataHook) {
+    public ResolverCreateHooks(List<PreWriteCheck> checks,
+                               MetadataHook metadataHook) {
         this.checks = checks;
         this.metadataHook = metadataHook;
     }
@@ -64,12 +61,10 @@ public class ResolverCreateHooks {
         return new ResolverCreateHooks(DEFAULT_CHECK, DEFAULT_HOOK);
     }
 
-    @Nonnull
     public List<PreWriteCheck> getPreWriteChecks() {
         return checks;
     }
 
-    @Nonnull
     public MetadataHook getMetadataHook() {
         return metadataHook;
     }

@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.common.text;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -31,11 +30,8 @@ import java.util.Map;
  * A {@link TextTokenizer} that limits the number of unique tokens.
  */
 public class UniqueTokenLimitTextTokenizer implements TextTokenizer {
-    @Nonnull
     private static final UniqueTokenLimitTextTokenizer INSTANCE = new UniqueTokenLimitTextTokenizer();
-    @Nonnull
     private static final DefaultTextTokenizer DEFAULT_TOKENIZER = DefaultTextTokenizer.instance();
-    @Nonnull
     public static final String NAME = "unique_token_limiting";
 
     private static final int MAX_UNIQUE_TOKENS_V0 = 5;
@@ -43,7 +39,6 @@ public class UniqueTokenLimitTextTokenizer implements TextTokenizer {
     private UniqueTokenLimitTextTokenizer() {
     }
 
-    @Nonnull
     public static UniqueTokenLimitTextTokenizer instance() {
         return INSTANCE;
     }
@@ -55,9 +50,8 @@ public class UniqueTokenLimitTextTokenizer implements TextTokenizer {
         return GLOBAL_MIN_VERSION;
     }
 
-    @Nonnull
     @Override
-    public Iterator<? extends CharSequence> tokenize(@Nonnull String text, int version, @Nonnull TokenizerMode mode) {
+    public Iterator<? extends CharSequence> tokenize(String text, int version, TokenizerMode mode) {
         return DEFAULT_TOKENIZER.tokenize(text, getDefaultVersion(version), mode);
     }
 
@@ -69,9 +63,8 @@ public class UniqueTokenLimitTextTokenizer implements TextTokenizer {
         return MAX_UNIQUE_TOKENS_V0;
     }
 
-    @Nonnull
     @Override
-    public Map<String, List<Integer>> tokenizeToMap(@Nonnull String text, int version, @Nonnull TokenizerMode mode) {
+    public Map<String, List<Integer>> tokenizeToMap(String text, int version, TokenizerMode mode) {
         final Iterator<? extends CharSequence> tokens = tokenize(text, version, mode);
         final int maxUniqueTokens = getMaxUniqueTokens(version);
         Map<String, List<Integer>> offsetMap = new HashMap<>();
@@ -105,7 +98,6 @@ public class UniqueTokenLimitTextTokenizer implements TextTokenizer {
         return 0;
     }
 
-    @Nonnull
     @Override
     public String getName() {
         return NAME;

@@ -28,8 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecordBuilde
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 
 /**
@@ -60,9 +59,8 @@ public interface RecordSerializer<M extends Message> {
      * @param timer a timer used to instrument serialization
      * @return the serialized record
      */
-    @Nonnull
-    byte[] serialize(@Nonnull RecordMetaData metaData, @Nonnull RecordType recordType,
-                     @Nonnull M rec, @Nullable StoreTimer timer);
+    byte[] serialize(RecordMetaData metaData, RecordType recordType,
+                     M rec, @Nullable StoreTimer timer);
 
     /**
      * Convert a byte array to a Protobuf record. This should be the inverse of the
@@ -75,9 +73,8 @@ public interface RecordSerializer<M extends Message> {
      * @param timer a timer used to instrument deserialization
      * @return the deserialized record
      */
-    @Nonnull
-    M deserialize(@Nonnull RecordMetaData metaData, @Nonnull Tuple primaryKey,
-                  @Nonnull byte[] serialized, @Nullable StoreTimer timer);
+    M deserialize(RecordMetaData metaData, Tuple primaryKey,
+                  byte[] serialized, @Nullable StoreTimer timer);
 
     /**
      * Convert this typed record serializer to an untyped one.
@@ -96,7 +93,6 @@ public interface RecordSerializer<M extends Message> {
      * the given typed serializer will be widened by calling this method.
      * @return a new serializer that works the same way but handles all record types.
      */
-    @Nonnull
     RecordSerializer<Message> widen();
 
     /**
@@ -110,7 +106,7 @@ public interface RecordSerializer<M extends Message> {
      * @param serialized the serialized bytes
      * @param timer a timer used to instrument deserialization
      */
-    default void validateSerialization(@Nonnull RecordMetaData metaData, @Nonnull RecordType recordType, @Nonnull M rec, @Nonnull byte[] serialized, @Nullable StoreTimer timer) {
+    default void validateSerialization(RecordMetaData metaData, RecordType recordType, M rec, byte[] serialized, @Nullable StoreTimer timer) {
         Tuple primaryKey = null;
         M deserialized;
         try {
@@ -165,7 +161,6 @@ public interface RecordSerializer<M extends Message> {
         }
 
         @Override
-        @Nonnull
         public String logKey() {
             return this.logKey;
         }
@@ -208,7 +203,6 @@ public interface RecordSerializer<M extends Message> {
         }
 
         @Override
-        @Nonnull
         public String logKey() {
             return this.logKey;
         }

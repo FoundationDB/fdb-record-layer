@@ -64,7 +64,6 @@ import org.junit.jupiter.api.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -103,7 +102,6 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
      *
      * @return the options to create the shared test indexes with
      */
-    @Nonnull
     protected abstract Map<String, String> indexOptions();
 
     /**
@@ -117,20 +115,20 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
     }
 
     @CanIgnoreReturnValue
-    protected RecordMetaDataBuilder addVectorIndexes(@Nonnull final RecordMetaDataBuilder metaDataBuilder) {
+    protected RecordMetaDataBuilder addVectorIndexes(final RecordMetaDataBuilder metaDataBuilder) {
         addUngroupedVectorIndex(metaDataBuilder);
         addGroupedVectorIndex(metaDataBuilder);
         return metaDataBuilder;
     }
 
     @CanIgnoreReturnValue
-    protected RecordMetaDataBuilder addUngroupedVectorIndex(@Nonnull final RecordMetaDataBuilder metaDataBuilder) {
+    protected RecordMetaDataBuilder addUngroupedVectorIndex(final RecordMetaDataBuilder metaDataBuilder) {
         return addUngroupedVectorIndex(metaDataBuilder, indexOptions());
     }
 
     @CanIgnoreReturnValue
-    protected RecordMetaDataBuilder addUngroupedVectorIndex(@Nonnull final RecordMetaDataBuilder metaDataBuilder,
-                                                            @Nonnull final Map<String, String> options) {
+    protected RecordMetaDataBuilder addUngroupedVectorIndex(final RecordMetaDataBuilder metaDataBuilder,
+                                                            final Map<String, String> options) {
         metaDataBuilder.addIndex("VectorRecord",
                 new Index("UngroupedVectorIndex", new KeyWithValueExpression(field("vector_data"), 0),
                         IndexTypes.VECTOR, options));
@@ -138,13 +136,13 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
     }
 
     @CanIgnoreReturnValue
-    protected RecordMetaDataBuilder addGroupedVectorIndex(@Nonnull final RecordMetaDataBuilder metaDataBuilder) {
+    protected RecordMetaDataBuilder addGroupedVectorIndex(final RecordMetaDataBuilder metaDataBuilder) {
         return addGroupedVectorIndex(metaDataBuilder, indexOptions());
     }
 
     @CanIgnoreReturnValue
-    protected RecordMetaDataBuilder addGroupedVectorIndex(@Nonnull final RecordMetaDataBuilder metaDataBuilder,
-                                                          @Nonnull final Map<String, String> options) {
+    protected RecordMetaDataBuilder addGroupedVectorIndex(final RecordMetaDataBuilder metaDataBuilder,
+                                                          final Map<String, String> options) {
         metaDataBuilder.addIndex("VectorRecord",
                 new Index("GroupedVectorIndex", new KeyWithValueExpression(concat(field("group_id"), field("vector_data")), 1),
                         IndexTypes.VECTOR, options));
@@ -170,8 +168,7 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
      * @param hook adds the index(es) under test
      * @return the built metadata
      */
-    @Nonnull
-    protected RecordMetaData metaDataFor(@Nonnull final RecordMetaDataHook hook) {
+    protected RecordMetaData metaDataFor(final RecordMetaDataHook hook) {
         final RecordMetaDataBuilder metaDataBuilder =
                 RecordMetaData.newBuilder().setRecords(TestRecordsVectorsProto.getDescriptor());
         metaDataBuilder.getRecordType("VectorRecord").setPrimaryKey(concatenateFields("group_id", "rec_no"));
@@ -196,8 +193,7 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
      * @param metaData the metadata to open with
      * @return the opened store
      */
-    @Nonnull
-    protected FDBRecordStore openStore(@Nonnull final FDBRecordContext context, @Nonnull final RecordMetaData metaData) {
+    protected FDBRecordStore openStore(final FDBRecordContext context, final RecordMetaData metaData) {
         return getStoreBuilder(context, metaData, Objects.requireNonNull(path)).createOrOpen();
     }
 
@@ -209,7 +205,7 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
      * @param indexName the vector index to merge
      */
     @SuppressWarnings("PMD.CloseResource") // the outer context only builds the store for OnlineIndexer config
-    protected void mergeVectorIndexOnce(@Nonnull final RecordMetaData metaData, @Nonnull final String indexName) {
+    protected void mergeVectorIndexOnce(final RecordMetaData metaData, final String indexName) {
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openStore(context, metaData);
             final Index index = store.getRecordMetaData().getIndex(indexName);
@@ -229,8 +225,8 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
      * @param metaData the metadata whose index to merge
      * @param indexName the vector index to drain
      */
-    protected void mergeVectorIndexToCompletion(@Nonnull final RecordMetaData metaData,
-                                                @Nonnull final String indexName) throws Exception {
+    protected void mergeVectorIndexToCompletion(final RecordMetaData metaData,
+                                                final String indexName) throws Exception {
         for (int pass = 0; pass < MERGE_DRAIN_MAX_PASSES; pass++) {
             mergeVectorIndexOnce(metaData, indexName);
             if (!vectorIndexHasOutstandingWork(metaData, indexName)) {
@@ -248,8 +244,8 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
      * @param indexName the vector index to check
      * @return whether any partition has outstanding tasks
      */
-    protected boolean vectorIndexHasOutstandingWork(@Nonnull final RecordMetaData metaData,
-                                                    @Nonnull final String indexName) throws Exception {
+    protected boolean vectorIndexHasOutstandingWork(final RecordMetaData metaData,
+                                                    final String indexName) throws Exception {
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openStore(context, metaData);
             final VectorIndexMaintainer maintainer =
@@ -258,7 +254,7 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    protected static Function<Long, VectorRecord> getRecordGenerator(@Nonnull final Random random,
+    protected static Function<Long, VectorRecord> getRecordGenerator(final Random random,
                                                                      final double nullProbability) {
         return recNo -> {
             final VectorRecord.Builder recordBuilder =
@@ -274,7 +270,6 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
         };
     }
 
-    @Nonnull
     protected static HalfRealVector randomHalfVector(final Random random, final int numDimensions) {
         final Half[] componentData = new Half[numDimensions];
         for (int i = 0; i < componentData.length; i++) {
@@ -284,7 +279,6 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
         return new HalfRealVector(componentData);
     }
 
-    @Nonnull
     protected static HalfRealVector constantHalfVector(final float value, final int numDimensions) {
         final Half[] componentData = new Half[numDimensions];
         for (int i = 0; i < componentData.length; i++) {
@@ -295,15 +289,15 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
     }
 
     protected List<FDBStoredRecord<Message>> saveRandomRecords(final boolean useAsync,
-                                                               @Nonnull final RecordMetaDataHook hook,
-                                                               @Nonnull final Random random,
+                                                               final RecordMetaDataHook hook,
+                                                               final Random random,
                                                                final int numRecords) throws Exception {
         return saveRandomRecords(useAsync, hook, random, numRecords, 0.0d);
     }
 
     protected List<FDBStoredRecord<Message>> saveRandomRecords(final boolean useAsync,
-                                                               @Nonnull final RecordMetaDataHook hook,
-                                                               @Nonnull final Random random,
+                                                               final RecordMetaDataHook hook,
+                                                               final Random random,
                                                                final int numRecords,
                                                                final double nullProbability) throws Exception {
         final var recordGenerator = getRecordGenerator(random, nullProbability);
@@ -336,10 +330,10 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
     }
 
     private <M extends Message> List<FDBStoredRecord<M>>
-            asyncBatch(@Nonnull final RecordMetaDataHook hook,
+            asyncBatch(final RecordMetaDataHook hook,
                        final int numRecords,
                        final int batchSize,
-                       @Nonnull final Function<Long, CompletableFuture<FDBStoredRecord<M>>> recordConsumer) throws Exception {
+                       final Function<Long, CompletableFuture<FDBStoredRecord<M>>> recordConsumer) throws Exception {
         final List<FDBStoredRecord<M>> records = Lists.newArrayList();
         while (records.size() < numRecords) {
             try (FDBRecordContext context = openContext()) {
@@ -361,8 +355,7 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
         return records;
     }
 
-    @Nonnull
-    protected static Map<Integer, Set<Long>> trueTopK(@Nonnull final Map<Integer, List<Long>> sortedByDistances,
+    protected static Map<Integer, Set<Long>> trueTopK(final Map<Integer, List<Long>> sortedByDistances,
                                                       final int k) {
         return sortedByDistances.entrySet()
                 .stream()
@@ -374,9 +367,8 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
                                         .collect(ImmutableSet.toImmutableSet())));
     }
 
-    @Nonnull
-    protected static Map<Integer, List<Long>> groupAndSortByDistances(@Nonnull final List<FDBStoredRecord<Message>> savedRecords,
-                                                                      @Nonnull final HalfRealVector queryVector) {
+    protected static Map<Integer, List<Long>> groupAndSortByDistances(final List<FDBStoredRecord<Message>> savedRecords,
+                                                                      final HalfRealVector queryVector) {
         return sortByDistances(savedRecords, queryVector, Metric.EUCLIDEAN_METRIC)
                 .stream()
                 .map(NodeReference::getPrimaryKey)
@@ -384,11 +376,10 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
                 .collect(Collectors.groupingBy(nodeId -> Math.toIntExact(nodeId) % 2, Collectors.toList()));
     }
 
-    @Nonnull
     protected static <M extends Message> List<NodeReferenceWithDistance>
-              sortByDistances(@Nonnull final List<FDBStoredRecord<M>> storedRecords,
-                              @Nonnull final RealVector queryVector,
-                              @Nonnull final Metric metric) {
+              sortByDistances(final List<FDBStoredRecord<M>> storedRecords,
+                              final RealVector queryVector,
+                              final Metric metric) {
         return storedRecords.stream()
                 .map(storedRecord -> {
                     final VectorRecord vectorRecord = (VectorRecord)storedRecord.getRecord();
@@ -402,9 +393,8 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
                 .collect(ImmutableList.toImmutableList());
     }
 
-    @Nonnull
-    protected static RecordQueryIndexPlan createIndexPlan(@Nonnull final HalfRealVector queryVector, final int k,
-                                                        @Nonnull final String indexName) {
+    protected static RecordQueryIndexPlan createIndexPlan(final HalfRealVector queryVector, final int k,
+                                                        final String indexName) {
         final VectorIndexScanComparisons vectorIndexScanComparisons =
                 createVectorIndexScanComparisons(queryVector, k, VectorIndexScanOptions.empty());
 
@@ -418,9 +408,8 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
                 Optional.empty(), baseRecordType, QueryPlanConstraint.noConstraint());
     }
 
-    @Nonnull
-    protected static VectorIndexScanComparisons createVectorIndexScanComparisons(@Nonnull final HalfRealVector queryVector, final int k,
-                                                                               @Nonnull final VectorIndexScanOptions vectorIndexScanOptions) {
+    protected static VectorIndexScanComparisons createVectorIndexScanComparisons(final HalfRealVector queryVector, final int k,
+                                                                               final VectorIndexScanOptions vectorIndexScanOptions) {
         final Comparisons.DistanceRankValueComparison distanceRankComparison =
                 new Comparisons.DistanceRankValueComparison(Comparisons.Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL,
                         new LiteralValue<>(Type.Vector.of(false, 16, 128), queryVector),
@@ -430,7 +419,7 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
                 distanceRankComparison, vectorIndexScanOptions);
     }
 
-    protected static void logRecord(final long recNo, @Nonnull final ByteString vectorData) {
+    protected static void logRecord(final long recNo, final ByteString vectorData) {
         if (logger.isInfoEnabled()) {
             logger.info("recNo: {}; vectorData: [{})",
                     recNo, RealVector.fromBytes(vectorData.toByteArray()));

@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 
-import javax.annotation.Nonnull;
 import java.util.Locale;
 
 /**
@@ -46,7 +45,6 @@ public enum VectorIndexEngineKind {
      * @param value the raw option value, or {@code null} if unset
      * @return the resolved engine kind
      */
-    @Nonnull
     public static VectorIndexEngineKind fromOptionValue(final String value) {
         if (value == null) {
             return HNSW;

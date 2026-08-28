@@ -40,7 +40,6 @@ import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
@@ -72,7 +71,6 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
     // a deferred split (and the merge-required flag) before the write commits.
     private static final int SINGLE_TXN_SPLIT_FORCING_INSERTS = 200;
 
-    @Nonnull
     @Override
     protected Map<String, String> indexOptions() {
         return ImmutableMap.<String, String>builder()
@@ -571,8 +569,8 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
      * Whether {@code index} is flagged for a background merge on {@code mergeControl}, treating the lazily-initialized
      * (null-until-first-set) merge-required set as "nothing flagged".
      */
-    private static boolean isFlaggedForMerge(@Nonnull final IndexDeferredMaintenanceControl mergeControl,
-                                             @Nonnull final Index index) {
+    private static boolean isFlaggedForMerge(final IndexDeferredMaintenanceControl mergeControl,
+                                             final Index index) {
         final var mergeRequired = mergeControl.getMergeRequiredIndexes();
         return mergeRequired != null && mergeRequired.contains(index);
     }
@@ -583,7 +581,6 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
      * one below its minimum, or duplicate an existing one, so inserting it enqueues no deferred maintenance task — which
      * is exactly the "task-free write" the self-healing signal must still act on.
      */
-    @Nonnull
     private static VectorRecord quietVectorRecord(final long seed) {
         final RealVector vector = randomHalfVector(new Random(seed), 128);
         return VectorRecord.newBuilder()
@@ -599,25 +596,23 @@ class GuardiannVectorIndexMergeTest extends VectorIndexTestBase {
      * uses, which sets the merge session id and loops the per-partition claim/drain internally —
      * rather than hand-driving {@code mergeIndex()} passes.
      */
-    private void drainToCompletion(@Nonnull final String indexName) throws Exception {
+    private void drainToCompletion(final String indexName) throws Exception {
         mergeVectorIndexToCompletion(metaData(), indexName);
     }
 
     /** The metadata carrying both vector indexes, built identically to what {@link #openRecordStore} opens. */
-    @Nonnull
     private RecordMetaData metaData() {
         return metaDataFor(this::addVectorIndexes);
     }
 
-    private boolean hasOutstandingWork(@Nonnull final String indexName) throws Exception {
+    private boolean hasOutstandingWork(final String indexName) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, this::addVectorIndexes);
             return maintainerFor(indexName).hasOutstandingWork().get();
         }
     }
 
-    @Nonnull
-    private VectorIndexMaintainer maintainerFor(@Nonnull final String indexName) {
+    private VectorIndexMaintainer maintainerFor(final String indexName) {
         final Index index = recordStore.getRecordMetaData().getIndex(indexName);
         final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
         return (VectorIndexMaintainer)maintainer;

@@ -23,8 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb.cursors;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-
 /**
  * The result of a grouped size calculation.
  * The result is aggregated for a subspace whose key suffix is specified below, within the containing subspace.
@@ -34,7 +32,7 @@ public class SizeStatisticsGroupedResults {
     private final Tuple aggregationKey;
     private final SizeStatisticsResults stats;
 
-    public SizeStatisticsGroupedResults(@Nonnull final Tuple aggregationKey, @Nonnull SizeStatisticsResults stats) {
+    public SizeStatisticsGroupedResults(final Tuple aggregationKey, SizeStatisticsResults stats) {
         this.aggregationKey = aggregationKey;
         this.stats = stats;
     }
@@ -43,7 +41,6 @@ public class SizeStatisticsGroupedResults {
      * The Tuple that represents the key whose stats are aggregated.
      * @return the Tuple representing the subspace key aggregated
      */
-    @Nonnull
     public Tuple getAggregationKey() {
         return aggregationKey;
     }
@@ -52,7 +49,6 @@ public class SizeStatisticsGroupedResults {
      * The aggregated stats.
      * @return the statistics collected for the subspace
      */
-    @Nonnull
     public SizeStatisticsResults getStats() {
         return stats;
     }

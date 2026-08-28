@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
@@ -45,23 +44,18 @@ import java.util.function.Supplier;
 @API(API.Status.UNSTABLE)
 public class TypedRecordSerializer<M extends Message, U extends Message, B extends Message.Builder>
         extends MessageBuilderRecordSerializerBase<M, U, B> {
-    @Nonnull
     private final Descriptors.FieldDescriptor fieldDescriptor;
-    @Nonnull
     private final Predicate<U> tester;
-    @Nonnull
     private final Function<U, M> getter;
-    @Nonnull
     private final BiConsumer<B, M> setter;
-    @Nonnull
     private final AtomicReference<String> validRecordType = new AtomicReference<>();
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public TypedRecordSerializer(@Nonnull Descriptors.FieldDescriptor fieldDescriptor,
-                                 @Nonnull Supplier<B> builderSupplier,
-                                 @Nonnull Predicate<U> tester,
-                                 @Nonnull Function<U, M> getter,
-                                 @Nonnull BiConsumer<B, M> setter) {
+    public TypedRecordSerializer(Descriptors.FieldDescriptor fieldDescriptor,
+                                 Supplier<B> builderSupplier,
+                                 Predicate<U> tester,
+                                 Function<U, M> getter,
+                                 BiConsumer<B, M> setter) {
         super(builderSupplier);
         this.fieldDescriptor = fieldDescriptor;
         this.tester = tester;
@@ -88,10 +82,10 @@ public class TypedRecordSerializer<M extends Message, U extends Message, B exten
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    protected void setUnionField(@Nonnull RecordMetaData metaData,
-                                 @Nonnull RecordType recordType,
-                                 @Nonnull B unionBuilder,
-                                 @Nonnull M rec) {
+    protected void setUnionField(RecordMetaData metaData,
+                                 RecordType recordType,
+                                 B unionBuilder,
+                                 M rec) {
         final String typeName = recordType.getName();
         final String valid =  validRecordType.get();
         if (!typeName.equals(valid)) {
@@ -107,10 +101,9 @@ public class TypedRecordSerializer<M extends Message, U extends Message, B exten
         setter.accept(unionBuilder, rec);
     }
 
-    @Nonnull
     @Override
-    protected M getUnionField(@Nonnull Descriptors.Descriptor unionDescriptor,
-                              @Nonnull U storedRecord) {
+    protected M getUnionField(Descriptors.Descriptor unionDescriptor,
+                              U storedRecord) {
         if (!tester.test(storedRecord)) {
             throw new RecordSerializationException("Specified union field was not set")
                     .addLogInfo("unionDescriptorFullName", unionDescriptor.getFullName())

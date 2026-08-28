@@ -51,8 +51,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -82,13 +81,11 @@ class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
 
     protected static final String INDEX_NAME = "permuted";
 
-    @Nonnull
     protected static RecordMetaDataHook hook(boolean min) {
         return hook(min, Key.Expressions.concatenateFields("str_value_indexed", "num_value_2", "num_value_3_indexed").group(1), 1);
     }
 
-    @Nonnull
-    protected static RecordMetaDataHook hook(boolean min, @Nonnull GroupingKeyExpression groupingKeyExpression, int permutedSize) {
+    protected static RecordMetaDataHook hook(boolean min, GroupingKeyExpression groupingKeyExpression, int permutedSize) {
         return md -> {
             md.addIndex("MySimpleRecord", new Index(INDEX_NAME,
                     groupingKeyExpression,
@@ -825,7 +822,7 @@ class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
 
     }
 
-    private List<Pair<Long, Long>> executePermutedIndexScan(@Nonnull RecordQueryPlan plan, @Nonnull Index index, @Nullable EvaluationContext evaluationContext) {
+    private List<Pair<Long, Long>> executePermutedIndexScan(RecordQueryPlan plan, Index index, @Nullable EvaluationContext evaluationContext) {
         return executePermutedIndexScan(plan, index, evaluationContext,
                 (indexEntry, simple) -> {
                     assertTrue(simple.hasNumValue2());
@@ -834,10 +831,9 @@ class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
                 simple -> (long) simple.getNumValue2());
     }
 
-    @Nonnull
-    private <T> List<Pair<T, Long>> executePermutedIndexScan(@Nonnull RecordQueryPlan plan, @Nonnull Index index, @Nullable EvaluationContext evaluationContext,
-                                                             @Nonnull BiConsumer<IndexEntry, TestRecords1Proto.MySimpleRecord> validator,
-                                                             @Nonnull Function<TestRecords1Proto.MySimpleRecord, T> extractor) {
+    private <T> List<Pair<T, Long>> executePermutedIndexScan(RecordQueryPlan plan, Index index, @Nullable EvaluationContext evaluationContext,
+                                                             BiConsumer<IndexEntry, TestRecords1Proto.MySimpleRecord> validator,
+                                                             Function<TestRecords1Proto.MySimpleRecord, T> extractor) {
         return plan.execute(recordStore, evaluationContext == null ? EvaluationContext.EMPTY : evaluationContext)
                 .map(rec -> {
                     assertEquals(index, rec.getIndex());
@@ -911,7 +907,7 @@ class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void saveRecord(int recNo, @Nonnull String strValue, int value2, int value3, int... repeater) {
+    private void saveRecord(int recNo, String strValue, int value2, int value3, int... repeater) {
         recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
                 .setRecNo(recNo)
                 .setStrValueIndexed(strValue)
@@ -922,8 +918,7 @@ class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
                 .build());
     }
 
-    @Nonnull
-    private List<Tuple> scanGroup(@Nonnull Tuple group, boolean reverse) {
+    private List<Tuple> scanGroup(Tuple group, boolean reverse) {
         return recordStore.scanIndex(recordStore.getRecordMetaData().getIndex(INDEX_NAME), IndexScanType.BY_GROUP,
                 TupleRange.allOf(group), null, reverse ? ScanProperties.REVERSE_SCAN : ScanProperties.FORWARD_SCAN)
                 .map(entry -> TupleHelpers.subTuple(entry.getKey(), group.size(), entry.getKeySize()))
@@ -931,8 +926,7 @@ class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
                 .join();
     }
 
-    @Nonnull
-    private List<Tuple> scanValue(@Nonnull Tuple prefix, boolean reverse) {
+    private List<Tuple> scanValue(Tuple prefix, boolean reverse) {
         return recordStore.scanIndex(recordStore.getRecordMetaData().getIndex(INDEX_NAME), IndexScanType.BY_VALUE,
                 TupleRange.allOf(prefix), null, reverse ? ScanProperties.REVERSE_SCAN : ScanProperties.FORWARD_SCAN)
                 .map(entry -> TupleHelpers.subTuple(entry.getKey(), prefix.size(), entry.getKeySize()))

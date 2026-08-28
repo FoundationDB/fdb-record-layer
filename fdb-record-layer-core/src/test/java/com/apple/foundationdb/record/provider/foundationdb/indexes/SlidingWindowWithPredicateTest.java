@@ -49,7 +49,6 @@ import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -84,8 +83,8 @@ class SlidingWindowWithPredicateTest extends FDBRecordStoreTestBase {
      * Opens a store with a sliding window HNSW index AND a value predicate on score.
      * Predicate: AND(score > threshold, RowNumberWindow(relevance, direction) <= windowSize).
      */
-    private void openStore(@Nonnull FDBRecordContext context, int windowSize,
-                           @Nonnull Direction direction, int threshold) throws Exception {
+    private void openStore(FDBRecordContext context, int windowSize,
+                           Direction direction, int threshold) throws Exception {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
                 .setRecords(TestRecordsSlidingWindowVectorProto.getDescriptor());
         metaDataBuilder.getRecordType("SlidingWindowVectorRecord")
@@ -130,7 +129,6 @@ class SlidingWindowWithPredicateTest extends FDBRecordStoreTestBase {
         recordStore.deleteRecord(Tuple.from(recNo));
     }
 
-    @Nonnull
     private Set<Long> scanIndexRecNos() {
         final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
         final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);

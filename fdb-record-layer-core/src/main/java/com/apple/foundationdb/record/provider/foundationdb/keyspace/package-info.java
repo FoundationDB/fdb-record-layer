@@ -140,4 +140,7 @@
  * and {@code ["root", "database", "my-db"]} would be considered illegal, as there is no way to match the "my-db" to a Directory node.
  * </p>
  */
+@NullMarked
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
+
+import org.jspecify.annotations.NullMarked;

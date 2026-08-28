@@ -36,8 +36,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreKeyspac
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -77,7 +76,6 @@ public class KeySpaceTreeResolver {
             return parent;
         }
 
-        @Nonnull
         public abstract String getName();
 
         @Nullable
@@ -142,19 +140,17 @@ public class KeySpaceTreeResolver {
      * {@link Resolved} to a {@link KeySpace} root.
      */
     public static class ResolvedRoot extends Resolved {
-        @Nonnull
         private final KeySpaceDirectory rootDirectory;
 
-        protected ResolvedRoot(@Nullable Resolved parent, @Nonnull KeySpaceDirectory rootDirectory) {
+        protected ResolvedRoot(@Nullable Resolved parent, KeySpaceDirectory rootDirectory) {
             super(parent);
             this.rootDirectory = rootDirectory;
         }
 
-        public ResolvedRoot(@Nonnull KeySpace keySpace) {
+        public ResolvedRoot(KeySpace keySpace) {
             this(null, keySpace.getRoot());
         }
 
-        @Nonnull
         @Override
         public String getName() {
             return rootDirectory.getName();
@@ -188,10 +184,9 @@ public class KeySpaceTreeResolver {
      * {@link ResolvedRoot} with a prefix object.
      */
     public static class ResolvedPrefixRoot extends ResolvedRoot {
-        @Nonnull
         private final Object prefix;
 
-        public ResolvedPrefixRoot(@Nonnull Resolved parent, @Nonnull Object prefix) {
+        public ResolvedPrefixRoot(Resolved parent, Object prefix) {
             super(parent, parent.getDirectory());
             this.prefix = prefix;
         }
@@ -206,10 +201,9 @@ public class KeySpaceTreeResolver {
      * {@link Resolved} to a {@link ResolvedKeySpacePath}.
      */
     public static class ResolvedPath extends Resolved {
-        @Nonnull
         private final ResolvedKeySpacePath resolvedKeySpacePath;
 
-        public ResolvedPath(@Nonnull Resolved parent, @Nonnull ResolvedKeySpacePath resolvedKeySpacePath) {
+        public ResolvedPath(Resolved parent, ResolvedKeySpacePath resolvedKeySpacePath) {
             super(parent);
             this.resolvedKeySpacePath = resolvedKeySpacePath;
         }
@@ -226,7 +220,6 @@ public class KeySpaceTreeResolver {
             return resolvedKeySpacePath;
         }
 
-        @Nonnull
         @Override
         public String getName() {
             return resolvedKeySpacePath.getDirectory().getName();
@@ -249,14 +242,13 @@ public class KeySpaceTreeResolver {
      * A resolved record store keyspace, such as records or indexes.
      */
     public static class ResolvedRecordStoreKeyspace extends Resolved {
-        @Nonnull
         private final FDBRecordStoreKeyspace recordStoreKeyspace;
         @Nullable
         private final RecordMetaData recordMetaData;
         @Nullable
         private final Object object;
 
-        public ResolvedRecordStoreKeyspace(@Nonnull Resolved parent, @Nonnull FDBRecordStoreKeyspace recordStoreKeyspace,
+        public ResolvedRecordStoreKeyspace(Resolved parent, FDBRecordStoreKeyspace recordStoreKeyspace,
                                            @Nullable RecordMetaData recordMetaData, @Nullable Object object) {
             super(parent);
             this.recordStoreKeyspace = recordStoreKeyspace;
@@ -264,7 +256,6 @@ public class KeySpaceTreeResolver {
             this.object = object;
         }
 
-        @Nonnull
         public FDBRecordStoreKeyspace getRecordStoreKeyspace() {
             return recordStoreKeyspace;
         }
@@ -274,7 +265,6 @@ public class KeySpaceTreeResolver {
             return recordMetaData;
         }
 
-        @Nonnull
         @Override
         public String getName() {
             return recordStoreKeyspace.name();
@@ -297,10 +287,9 @@ public class KeySpaceTreeResolver {
      * A resolved index keyspace.
      */
     public static class ResolvedIndexKeyspace extends Resolved {
-        @Nonnull
         private final Index index;
 
-        public ResolvedIndexKeyspace(@Nonnull Resolved parent, @Nonnull Index index) {
+        public ResolvedIndexKeyspace(Resolved parent, Index index) {
             super(parent);
             this.index = index;
         }
@@ -310,7 +299,6 @@ public class KeySpaceTreeResolver {
             return index;
         }
 
-        @Nonnull
         @Override
         public String getName() {
             return "index";
@@ -333,10 +321,9 @@ public class KeySpaceTreeResolver {
      * A resolved record type key prefix keyspace.
      */
     public static class ResolvedRecordTypeKeyspace extends Resolved {
-        @Nonnull
         private final RecordType recordType;
 
-        public ResolvedRecordTypeKeyspace(@Nonnull Resolved parent, @Nonnull RecordType recordType) {
+        public ResolvedRecordTypeKeyspace(Resolved parent, RecordType recordType) {
             super(parent);
             this.recordType = recordType;
         }
@@ -346,7 +333,6 @@ public class KeySpaceTreeResolver {
             return recordType;
         }
 
-        @Nonnull
         @Override
         public String getName() {
             return "record type";
@@ -369,21 +355,19 @@ public class KeySpaceTreeResolver {
      * A resolved field of a record primary key or index key.
      */
     public static class ResolvedKeyField extends Resolved {
-        @Nonnull
         private final String fieldName;
         @Nullable
         private final Object logicalValue;
         @Nullable
         private final Object resolvedValue;
 
-        public ResolvedKeyField(@Nonnull Resolved parent, @Nonnull String fieldName, @Nullable Object logicalValue, @Nullable Object resolvedValue) {
+        public ResolvedKeyField(Resolved parent, String fieldName, @Nullable Object logicalValue, @Nullable Object resolvedValue) {
             super(parent);
             this.fieldName = fieldName;
             this.logicalValue = logicalValue;
             this.resolvedValue = resolvedValue;
         }
 
-        @Nonnull
         @Override
         public String getName() {
             return fieldName;
@@ -411,12 +395,10 @@ public class KeySpaceTreeResolver {
      * @see #resolveKeySpacePath(KeySpace, Tuple)
      */
     public static final class ResolvedAndRemainder {
-        @Nonnull
         private final Resolved resolved;
-        @Nonnull
         private final Tuple remainder;
 
-        private ResolvedAndRemainder(@Nonnull Resolved resolved, @Nonnull Tuple remainder) {
+        private ResolvedAndRemainder(Resolved resolved, Tuple remainder) {
             this.resolved = resolved;
             this.remainder = remainder;
         }
@@ -428,7 +410,6 @@ public class KeySpaceTreeResolver {
          *
          * @return the portion of a {@link Tuple} that has been resolved to a known value
          */
-        @Nonnull
         public Resolved getResolved() {
             return resolved;
         }
@@ -440,7 +421,6 @@ public class KeySpaceTreeResolver {
          *
          * @return the unresovled suffix of some larger {@link Tuple}
          */
-        @Nonnull
         public Tuple getRemainder() {
             return remainder;
         }
@@ -468,11 +448,11 @@ public class KeySpaceTreeResolver {
         }
     }
 
-    public CompletableFuture<ResolvedAndRemainder> resolveKeySpacePath(@Nonnull KeySpace keySpace, @Nonnull Tuple tuple) {
+    public CompletableFuture<ResolvedAndRemainder> resolveKeySpacePath(KeySpace keySpace, Tuple tuple) {
         return resolvePathAndRemainder(new ResolvedRoot(keySpace), tuple);
     }
 
-    public CompletableFuture<ResolvedAndRemainder> resolvePathAndRemainder(@Nonnull Resolved resolvedSubRoot, @Nonnull Tuple tuple) {
+    public CompletableFuture<ResolvedAndRemainder> resolvePathAndRemainder(Resolved resolvedSubRoot, Tuple tuple) {
         AtomicReference<Resolved> current = new AtomicReference<>(resolvedSubRoot);
         AtomicInteger index = new AtomicInteger(0);
         return AsyncUtil.whileTrue(() -> {
@@ -491,7 +471,7 @@ public class KeySpaceTreeResolver {
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    public CompletableFuture<Resolved> resolve(@Nonnull Resolved resolvedParent, @Nullable Object object) {
+    public CompletableFuture<Resolved> resolve(Resolved resolvedParent, @Nullable Object object) {
         if (resolvedParent.getDirectory() != null) {
             if (resolvedParent.getDirectory().getSubdirectories().isEmpty()) {
                 if (isRecordStoreLeaf(resolvedParent, object)) {
@@ -538,7 +518,7 @@ public class KeySpaceTreeResolver {
      * @param object the {@link com.apple.foundationdb.tuple.Tuple} element for this node
      * @return a future that completes to a new {@link Resolved} or {@code null}
      */
-    protected CompletableFuture<Resolved> resolveNonDirectory(@Nonnull Resolved resolvedParent, @Nullable Object object) {
+    protected CompletableFuture<Resolved> resolveNonDirectory(Resolved resolvedParent, @Nullable Object object) {
         int distance = 0;
         ResolvedRecordStoreKeyspace recordStoreKeyspace = null;
         ResolvedRecordTypeKeyspace recordTypeKeyspace = null;
@@ -620,7 +600,7 @@ public class KeySpaceTreeResolver {
 
     // TODO: Get this from the IndexMaintainerFactory via some new interface (the IndexMaintainer needs a RecordStore).
     //  Also should include primary key fields when appropriate.
-    protected List<KeyExpression> indexStoredKeys(@Nonnull Index index) {
+    protected List<KeyExpression> indexStoredKeys(Index index) {
         KeyExpression storedKey = index.getRootExpression();
         if (storedKey instanceof GroupingKeyExpression) {
             if (IndexTypes.RANK.equals(index.getType()) ||
@@ -647,7 +627,7 @@ public class KeySpaceTreeResolver {
      * @param object the {@link com.apple.foundationdb.tuple.Tuple} element for this node
      * @return {@code true} if this path stores a record store
      */
-    public boolean isRecordStoreLeaf(@Nonnull Resolved resolvedParent, @Nullable Object object) {
+    public boolean isRecordStoreLeaf(Resolved resolvedParent, @Nullable Object object) {
         return false;
     }
 
@@ -659,22 +639,22 @@ public class KeySpaceTreeResolver {
      * @param object the {@link com.apple.foundationdb.tuple.Tuple} element for this node
      * @return a future that completes to the record store's meta-data or {@code null}
      */
-    protected CompletableFuture<RecordMetaData> getRecordStoreMetaData(@Nonnull Resolved resolvedParent, @Nullable Object object) {
+    protected CompletableFuture<RecordMetaData> getRecordStoreMetaData(Resolved resolvedParent, @Nullable Object object) {
         return NO_META_DATA;
     }
 
-    protected CompletableFuture<Resolved> resolvePrimaryKeyField(@Nonnull Resolved resolvedParent, @Nullable Object object,
-                                                                 @Nonnull KeyExpression fieldKey, int fieldIndex) {
+    protected CompletableFuture<Resolved> resolvePrimaryKeyField(Resolved resolvedParent, @Nullable Object object,
+                                                                 KeyExpression fieldKey, int fieldIndex) {
         return resolveKeyField(resolvedParent, object, fieldKey);
     }
 
-    protected CompletableFuture<Resolved> resolveIndexField(@Nonnull Resolved resolvedParent, @Nullable Object object,
-                                                            @Nonnull Index index, @Nonnull KeyExpression fieldKey, int fieldIndex) {
+    protected CompletableFuture<Resolved> resolveIndexField(Resolved resolvedParent, @Nullable Object object,
+                                                            Index index, KeyExpression fieldKey, int fieldIndex) {
         return resolveKeyField(resolvedParent, object, fieldKey);
     }
 
-    protected CompletableFuture<Resolved> resolveKeyField(@Nonnull Resolved resolvedParent, @Nullable Object object,
-                                                          @Nonnull KeyExpression fieldKey) {
+    protected CompletableFuture<Resolved> resolveKeyField(Resolved resolvedParent, @Nullable Object object,
+                                                          KeyExpression fieldKey) {
         while (fieldKey instanceof NestingKeyExpression) {
             fieldKey = ((NestingKeyExpression)fieldKey).getChild();
         }

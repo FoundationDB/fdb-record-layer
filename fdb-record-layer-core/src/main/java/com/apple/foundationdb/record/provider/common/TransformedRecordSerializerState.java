@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.provider.common;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 
 /**
@@ -30,22 +29,20 @@ import java.util.Arrays;
  */
 @API(API.Status.INTERNAL)
 class TransformedRecordSerializerState extends CompressedAndEncryptedSerializerState {
-    @Nonnull
     private byte[] data;
     private int offset;
     private int length;
 
-    public TransformedRecordSerializerState(@Nonnull byte[] data) {
+    public TransformedRecordSerializerState(byte[] data) {
         this(data, 0, data.length);
     }
 
-    public TransformedRecordSerializerState(@Nonnull byte[] data, int offset, int length) {
+    public TransformedRecordSerializerState(byte[] data, int offset, int length) {
         this.data = data;
         this.offset = offset;
         this.length = length;
     }
 
-    @Nonnull
     public byte[] getData() {
         return data;
     }
@@ -66,7 +63,6 @@ class TransformedRecordSerializerState extends CompressedAndEncryptedSerializerS
         this.length = length;
     }
 
-    @Nonnull
     public byte[] getDataArray() {
         if (getOffset() == 0 && getLength() == getData().length) {
             return getData();
@@ -79,11 +75,11 @@ class TransformedRecordSerializerState extends CompressedAndEncryptedSerializerS
         }
     }
 
-    public void setDataArray(@Nonnull byte[] data) {
+    public void setDataArray(byte[] data) {
         setDataArray(data, 0, data.length);
     }
 
-    public void setDataArray(@Nonnull byte[] data, int offset, int length) {
+    public void setDataArray(byte[] data, int offset, int length) {
         this.data = data;
         this.offset = offset;
         this.length = length;

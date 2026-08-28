@@ -45,8 +45,7 @@ import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -132,8 +131,7 @@ public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBS
                 .asList();
     }
 
-    @Nonnull
-    protected RecordCursor<IndexEntry> indexEntriesForRecord(@Nonnull FDBRecordStore store, @Nonnull FDBStoredRecord<Message> rec) {
+    protected RecordCursor<IndexEntry> indexEntriesForRecord(FDBRecordStore store, FDBStoredRecord<Message> rec) {
         final IndexMaintainer maintainer = store.getIndexMaintainer(index);
         if (isSynthetic) {
             final RecordQueryPlanner queryPlanner =
@@ -165,8 +163,7 @@ public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBS
         }
     }
 
-    @Nonnull
-    private IndexEntry rewriteWithPrimaryKey(@Nonnull IndexEntry indexEntry, @Nonnull FDBRecord<? extends Message> rec) {
+    private IndexEntry rewriteWithPrimaryKey(IndexEntry indexEntry, FDBRecord<? extends Message> rec) {
         return new IndexEntry(indexEntry.getIndex(), FDBRecordStoreBase.indexEntryKey(indexEntry.getIndex(), indexEntry.getKey(), rec.getPrimaryKey()), indexEntry.getValue(), rec.getPrimaryKey());
     }
 

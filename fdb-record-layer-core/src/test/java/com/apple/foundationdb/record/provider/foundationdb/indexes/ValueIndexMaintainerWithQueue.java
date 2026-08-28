@@ -33,8 +33,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactor
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.google.auto.service.AutoService;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.Set;
 
@@ -52,12 +51,11 @@ public class ValueIndexMaintainerWithQueue extends StandardIndexMaintainerWithQu
         super(state);
     }
 
-    @Nonnull
     @Override
-    public RecordCursor<IndexEntry> scan(@Nonnull final IndexScanType scanType,
-                                         @Nonnull final TupleRange range,
+    public RecordCursor<IndexEntry> scan(final IndexScanType scanType,
+                                         final TupleRange range,
                                          @Nullable final byte[] continuation,
-                                         @Nonnull final ScanProperties scanProperties) {
+                                         final ScanProperties scanProperties) {
         if (!scanType.equals(IndexScanType.BY_VALUE)) {
             throw new RecordCoreException("Can only scan standard index by value.");
         }
@@ -75,21 +73,18 @@ public class ValueIndexMaintainerWithQueue extends StandardIndexMaintainerWithQu
         private static final Set<String> INDEX_TYPES = Collections.singleton(INDEX_TYPE);
         private static final ValueIndexMaintainerFactory underlying = new ValueIndexMaintainerFactory();
 
-        @Nonnull
         @Override
         public Iterable<String> getIndexTypes() {
             return INDEX_TYPES;
         }
 
-        @Nonnull
         @Override
         public IndexValidator getIndexValidator(final Index index) {
             return underlying.getIndexValidator(index);
         }
 
-        @Nonnull
         @Override
-        public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
+        public IndexMaintainer getIndexMaintainer(final IndexMaintainerState state) {
             return new ValueIndexMaintainerWithQueue(state);
         }
     }

@@ -26,8 +26,6 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 
-import javax.annotation.Nonnull;
-
 /**
  * Helper functions for index maintainers that use a {@link RTree}.
  */
@@ -41,7 +39,7 @@ public class MultiDimensionalIndexHelper {
      * @param index the index definition to get options from
      * @return parsed config options
      */
-    public static RTree.Config getConfig(@Nonnull final Index index) {
+    public static RTree.Config getConfig(final Index index) {
         final RTree.ConfigBuilder builder = RTree.newConfigBuilder();
         final String rtreeMinMOption = index.getOption(IndexOptions.RTREE_MIN_M);
         if (rtreeMinMOption != null) {
@@ -97,7 +95,6 @@ public class MultiDimensionalIndexHelper {
         }
 
         @Override
-        @Nonnull
         public String logKey() {
             return this.logKey;
         }

@@ -56,8 +56,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import javax.crypto.SecretKey;
 import java.io.File;
 import java.io.IOException;
@@ -113,13 +112,11 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
             return o1.compareTo(o2);
         }
 
-        @Nonnull
         @Override
         public Tuple generateKey(FDBQueriedRecord<Message> record) {
             return num2Field.evaluateSingleton(record).toTuple();
         }
 
-        @Nonnull
         @Override
         public byte[] serializeKey(final Tuple key) {
             return key.pack();
@@ -130,31 +127,26 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
             return false;
         }
 
-        @Nonnull
         @Override
-        public Tuple deserializeKey(@Nonnull final byte[] key) {
+        public Tuple deserializeKey(final byte[] key) {
             return Tuple.fromBytes(key);
         }
 
-        @Nonnull
         @Override
         public byte[] serializeValue(final FDBQueriedRecord<Message> record) {
             return serializer.serialize(record);
         }
 
-        @Nonnull
         @Override
-        public FDBQueriedRecord<Message> deserializeValue(@Nonnull final byte[] bytes) {
+        public FDBQueriedRecord<Message> deserializeValue(final byte[] bytes) {
             return serializer.deserialize(bytes);
         }
 
-        @Nonnull
         @Override
         public MemorySorter.RecordCountInMemoryLimitMode getRecordCountInMemoryLimitMode() {
             return MemorySorter.RecordCountInMemoryLimitMode.DISCARD;
         }
 
-        @Nonnull
         @Override
         public MemorySortComparator<Tuple> getComparator(@Nullable final Tuple minimumKey) {
             return new OrderComparator<>(this, minimumKey);
@@ -222,7 +214,6 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
                     return 20;
                 }
 
-                @Nonnull
                 @Override
                 public MemorySortComparator<Tuple> getComparator(@Nullable final Tuple minimumKey) {
                     return new InsertionOrderComparator<>(this, minimumKey);
@@ -289,7 +280,6 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
                 return 10;
             }
 
-            @Nonnull
             @Override
             public MemorySortComparator<Tuple> getComparator(@Nullable final Tuple minimumKey) {
                 return new InsertionOrderComparator<>(this, minimumKey);
@@ -323,13 +313,11 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
     }
 
     abstract class FileSortAdapterBase extends MemoryAdapterBase implements FileSortAdapter<Tuple, FDBQueriedRecord<Message>> {
-        @Nonnull
         @Override
         public MemorySorter.RecordCountInMemoryLimitMode getRecordCountInMemoryLimitMode() {
             return MemorySorter.RecordCountInMemoryLimitMode.STOP;
         }
 
-        @Nonnull
         @Override
         public File generateFilename() throws IOException {
             return File.createTempFile("fdb", ".bin");
@@ -341,12 +329,12 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
         }
 
         @Override
-        public void writeValue(@Nonnull final FDBQueriedRecord<Message> record, @Nonnull final CodedOutputStream stream) throws IOException {
+        public void writeValue(final FDBQueriedRecord<Message> record, final CodedOutputStream stream) throws IOException {
             serializer.write(record, stream);
         }
 
         @Override
-        public FDBQueriedRecord<Message> readValue(@Nonnull final CodedInputStream stream) throws IOException {
+        public FDBQueriedRecord<Message> readValue(final CodedInputStream stream) throws IOException {
             return serializer.read(stream);
         }
 
@@ -361,9 +349,8 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
             return null;
         }
 
-        @Nullable
         @Override
-        public java.security.Key getEncryptionKey() {
+        public java.security.@Nullable Key getEncryptionKey() {
             return null;
         }
 
@@ -457,9 +444,8 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
                 return CipherPool.DEFAULT_CIPHER;
             }
 
-            @Nullable
             @Override
-            public java.security.Key getEncryptionKey() {
+            public java.security.@Nullable Key getEncryptionKey() {
                 return secretKey;
             }
 

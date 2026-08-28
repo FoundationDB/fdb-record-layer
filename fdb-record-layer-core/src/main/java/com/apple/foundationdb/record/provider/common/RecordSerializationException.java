@@ -23,8 +23,7 @@ package com.apple.foundationdb.record.provider.common;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Exception thrown when there is a problem serializing or deserializing a record.
@@ -32,7 +31,7 @@ import javax.annotation.Nullable;
 @API(API.Status.UNSTABLE)
 @SuppressWarnings("serial")
 public class RecordSerializationException extends RecordCoreException {
-    public RecordSerializationException(@Nonnull String msg, @Nullable Object ... keyValues) {
+    public RecordSerializationException(String msg, @Nullable Object ... keyValues) {
         super(msg, keyValues);
     }
 
@@ -40,13 +39,12 @@ public class RecordSerializationException extends RecordCoreException {
         super(cause);
     }
 
-    public RecordSerializationException(@Nonnull String msg, @Nullable Throwable cause) {
+    public RecordSerializationException(String msg, @Nullable Throwable cause) {
         super(msg, cause);
     }
 
-    @Nonnull
     @Override
-    public RecordSerializationException addLogInfo(@Nonnull String description, Object object) {
+    public RecordSerializationException addLogInfo(String description, Object object) {
         super.addLogInfo(description, object);
         return this;
     }

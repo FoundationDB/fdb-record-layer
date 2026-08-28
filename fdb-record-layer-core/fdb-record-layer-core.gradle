@@ -69,6 +69,7 @@ dependencies {
     testFixturesImplementation(libs.snakeyaml)
     testFixturesImplementation(libs.protobuf.util)
     testFixturesCompileOnly(libs.jsr305)
+    testFixturesCompileOnly(libs.jspecify)
     testFixturesAnnotationProcessor(libs.autoService)
 }
 

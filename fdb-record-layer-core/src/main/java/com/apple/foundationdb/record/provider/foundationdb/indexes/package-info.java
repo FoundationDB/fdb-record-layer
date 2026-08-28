@@ -37,4 +37,7 @@
  * <li>{@link com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexMaintainer} tokenizing full text into an inverted index.</li>
  * </ul>
  */
+@NullMarked
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
+
+import org.jspecify.annotations.NullMarked;

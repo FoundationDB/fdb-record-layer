@@ -56,7 +56,6 @@ import org.junit.jupiter.api.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -115,7 +114,6 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
     private static final int RECALL_K = 100;
     private static final double MIN_RECALL = 0.5d;   // lenient (half-precision + approximate + tight clusters); calibrate
 
-    @Nonnull
     @Override
     protected Map<String, String> indexOptions() {
         return ImmutableMap.<String, String>builder()
@@ -260,12 +258,12 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
      * and backing off + retrying on a cluster hard-cap back-pressure (logged). {@code saveRecord} is idempotent by
      * primary key, so replaying a rolled-back batch is safe.
      */
-    private void insertBatchWithRetry(@Nonnull final RecordMetaData metaData,
-                                      @Nonnull final List<PrimaryKeyAndVector> base,
-                                      @Nonnull final List<Integer> batch,
-                                      @Nonnull final AtomicLong committed,
-                                      @Nonnull final AtomicLong conflictRetries,
-                                      @Nonnull final AtomicLong backPressureRetries) {
+    private void insertBatchWithRetry(final RecordMetaData metaData,
+                                      final List<PrimaryKeyAndVector> base,
+                                      final List<Integer> batch,
+                                      final AtomicLong committed,
+                                      final AtomicLong conflictRetries,
+                                      final AtomicLong backPressureRetries) {
         while (true) {
             try (FDBRecordContext context = openContext()) {
                 final FDBRecordStore store = openStore(context, metaData);
@@ -300,7 +298,7 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
      * asserts every replica references a live primary. The checker first drains to quiescence, which is a no-op here
      * because {@link #mergeVectorIndexToCompletion} already emptied the backlog.
      */
-    private void assertGuardiannStructureInvariants(@Nonnull final RecordMetaData metaData) {
+    private void assertGuardiannStructureInvariants(final RecordMetaData metaData) {
         final Subspace indexSubspace;
         final Config config;
         try (FDBRecordContext context = openContext()) {
@@ -315,8 +313,8 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
     }
 
     /** Mean recall@{@link #RECALL_K} of the index over every SIFT query vs. the provided ground truth. */
-    private double meanRecallAtK(@Nonnull final List<DoubleRealVector> queries,
-                                 @Nonnull final List<Set<Integer>> groundTruth) throws Exception {
+    private double meanRecallAtK(final List<DoubleRealVector> queries,
+                                 final List<Set<Integer>> groundTruth) throws Exception {
         double totalRecall = 0.0d;
         for (int q = 0; q < queries.size(); q++) {
             // siftsmall's ground truth carries the top-100 nearest per query and RECALL_K == 100, so the whole
@@ -332,7 +330,7 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
     }
 
     /** Executes the vector index kNN plan and returns the primary keys (rec_no) of the top-k hits. */
-    private Set<Long> queryTopK(@Nonnull final HalfRealVector queryVector, final int k) throws Exception {
+    private Set<Long> queryTopK(final HalfRealVector queryVector, final int k) throws Exception {
         final RecordQueryIndexPlan plan = createIndexPlan(queryVector, k, INDEX_NAME);
         final Set<Long> recNos = new HashSet<>();
         try (FDBRecordContext context = openContext()) {
@@ -355,7 +353,6 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
         return recNos;
     }
 
-    @Nonnull
     private RecordMetaData buildMetaData() {
         final RecordMetaDataBuilder metaDataBuilder =
                 RecordMetaData.newBuilder().setRecords(TestRecordsVectorsProto.getDescriptor());
@@ -364,8 +361,7 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
         return metaDataBuilder.getRecordMetaData();
     }
 
-    @Nonnull
-    private static VectorRecord toVectorRecord(final int index, @Nonnull final DoubleRealVector vector) {
+    private static VectorRecord toVectorRecord(final int index, final DoubleRealVector vector) {
         return VectorRecord.newBuilder()
                 .setRecNo(index)
                 .setGroupId(0)

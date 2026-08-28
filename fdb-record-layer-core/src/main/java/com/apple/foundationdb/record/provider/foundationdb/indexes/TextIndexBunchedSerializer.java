@@ -27,7 +27,6 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 
-import javax.annotation.Nonnull;
 import java.nio.ByteBuffer;
 import java.util.AbstractMap;
 import java.util.ArrayList;
@@ -110,7 +109,7 @@ public class TextIndexBunchedSerializer implements BunchedSerializer<Tuple, List
     // Get the size (in bytes) of storing the list. It does *not* include the size
     // of the list (which is serialized at its start). It calculates the sizes
     // taking into account the fact that they will be delta compressed.
-    private static int getListSize(@Nonnull List<Integer> list) {
+    private static int getListSize(List<Integer> list) {
         int sum = 0;
         int last = 0;
         for (int val : list) {
@@ -125,7 +124,7 @@ public class TextIndexBunchedSerializer implements BunchedSerializer<Tuple, List
     }
 
     // Serializes the integer using a base-128 variable length encoding.
-    private static void serializeVarInt(@Nonnull ByteBuffer buffer, int val) {
+    private static void serializeVarInt(ByteBuffer buffer, int val) {
         if (val == 0) {
             buffer.put((byte)0x00);
         } else {
@@ -139,7 +138,7 @@ public class TextIndexBunchedSerializer implements BunchedSerializer<Tuple, List
         }
     }
 
-    private static int deserializeVarInt(@Nonnull ByteBuffer buffer) {
+    private static int deserializeVarInt(ByteBuffer buffer) {
         int val = 0;
         boolean done;
         do {
@@ -154,7 +153,7 @@ public class TextIndexBunchedSerializer implements BunchedSerializer<Tuple, List
 
     // Write the serialized size of the list and then write each entry of the list
     // to the buffer. It will delta compress the entries as it serializes.
-    private static void serializeList(@Nonnull ByteBuffer buffer, @Nonnull List<Integer> list, int serializedSize) {
+    private static void serializeList(ByteBuffer buffer, List<Integer> list, int serializedSize) {
         serializeVarInt(buffer, serializedSize);
         int last = 0;
         for (int val : list) {
@@ -163,8 +162,7 @@ public class TextIndexBunchedSerializer implements BunchedSerializer<Tuple, List
         }
     }
 
-    @Nonnull
-    private static List<Integer> deserializeList(@Nonnull ByteBuffer buffer) {
+    private static List<Integer> deserializeList(ByteBuffer buffer) {
         // Determine the serialized size of the list to use as an estimate for the number
         // of elements within it. This is an upper bound, so it reduces allocations to
         // only 1, and it will be exactly the right size if every var-int fits in a
@@ -192,9 +190,8 @@ public class TextIndexBunchedSerializer implements BunchedSerializer<Tuple, List
      * @return the key packed to bytes
      * @throws BunchedSerializationException if packing the tuple fails
      */
-    @Nonnull
     @Override
-    public byte[] serializeKey(@Nonnull Tuple key) {
+    public byte[] serializeKey(Tuple key) {
         try {
             return key.pack();
         } catch (IllegalArgumentException e) {
@@ -217,9 +214,8 @@ public class TextIndexBunchedSerializer implements BunchedSerializer<Tuple, List
      * @throws BunchedSerializationException if the value is not monotonically increasing
      *                                       non-negative integers or if packing the tuple fails
      */
-    @Nonnull
     @Override
-    public byte[] serializeEntry(@Nonnull Tuple key, @Nonnull List<Integer> value) {
+    public byte[] serializeEntry(Tuple key, List<Integer> value) {
         try {
             byte[] serializedKey = key.pack();
             int listSize = getListSize(value);
@@ -246,9 +242,8 @@ public class TextIndexBunchedSerializer implements BunchedSerializer<Tuple, List
      * @throws BunchedSerializationException if the entries are invalid such as if the list is empty
      *                                       or contains a list that is not monotonically increasing
      */
-    @Nonnull
     @Override
-    public byte[] serializeEntries(@Nonnull List<Map.Entry<Tuple, List<Integer>>> entries) {
+    public byte[] serializeEntries(List<Map.Entry<Tuple, List<Integer>>> entries) {
         if (entries.isEmpty()) {
             throw new BunchedSerializationException("cannot serialize empty entry list");
         }
@@ -294,9 +289,8 @@ public class TextIndexBunchedSerializer implements BunchedSerializer<Tuple, List
      * @return the deserialized key
      * @throws BunchedSerializationException if the byte array is malformed
      */
-    @Nonnull
     @Override
-    public Tuple deserializeKey(@Nonnull byte[] data, int offset, int length) {
+    public Tuple deserializeKey(byte[] data, int offset, int length) {
         if (offset < 0 || offset > data.length || length < 0 || offset + length > data.length) {
             throw new BunchedSerializationException("offset (" + offset + ") or length " + length + " out of range (" + data.length + ")").setData(data);
         }
@@ -308,14 +302,13 @@ public class TextIndexBunchedSerializer implements BunchedSerializer<Tuple, List
         }
     }
 
-    private void checkPrefix(@Nonnull byte[] data) {
+    private void checkPrefix(byte[] data) {
         if (!ByteArrayUtil.startsWith(data, PREFIX)) {
             throw new BunchedSerializationException("serialized data begins with incorrect prefix").setData(data);
         }
     }
 
-    @Nonnull
-    private <T> List<T> deserializeBunch(@Nonnull Tuple key, @Nonnull byte[] data, boolean deserializeValues, @Nonnull BiFunction<Tuple, List<Integer>, T> itemCreator) {
+    private <T> List<T> deserializeBunch(Tuple key, byte[] data, boolean deserializeValues, BiFunction<Tuple, List<Integer>, T> itemCreator) {
         checkPrefix(data);
         try {
             List<T> list = new ArrayList<>();
@@ -361,9 +354,8 @@ public class TextIndexBunchedSerializer implements BunchedSerializer<Tuple, List
      * @return the deserialized entry list
      * @throws BunchedSerializationException if the byte array is malformed
      */
-    @Nonnull
     @Override
-    public List<Map.Entry<Tuple, List<Integer>>> deserializeEntries(@Nonnull Tuple key, @Nonnull byte[] data) {
+    public List<Map.Entry<Tuple, List<Integer>>> deserializeEntries(Tuple key, byte[] data) {
         return deserializeBunch(key, data, true, AbstractMap.SimpleImmutableEntry::new);
     }
 
@@ -379,9 +371,8 @@ public class TextIndexBunchedSerializer implements BunchedSerializer<Tuple, List
      * @return the list of keys in the serialized data array
      * @throws BunchedSerializationException if the byte array is malformed
      */
-    @Nonnull
     @Override
-    public List<Tuple> deserializeKeys(@Nonnull Tuple key, @Nonnull byte[] data) {
+    public List<Tuple> deserializeKeys(Tuple key, byte[] data) {
         return deserializeBunch(key, data, false, (t, ignore) -> t);
     }
 

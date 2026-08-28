@@ -69,7 +69,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -89,21 +88,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
     private static final Logger logger = LoggerFactory.getLogger(VectorIndexEngineTestSuite.class);
 
-    @Nonnull
     static Stream<Arguments> randomSeedsWithAsync() {
         return RandomizedTestUtils.randomSeeds(0xdeadc0deL)
                 .flatMap(seed -> Sets.cartesianProduct(ImmutableSet.of(true, false)).stream()
                         .map(arguments -> Arguments.of(ObjectArrays.concat(seed, arguments.toArray()))));
     }
 
-    @Nonnull
     static Stream<Arguments> randomSeedsWithReturnVectors() {
         return RandomizedTestUtils.randomSeeds(0xdeadbeefL)
                 .flatMap(seed -> Sets.cartesianProduct(ImmutableSet.of(true, false)).stream()
                         .map(arguments -> Arguments.of(ObjectArrays.concat(seed, arguments.toArray()))));
     }
 
-    @Nonnull
     static Stream<Arguments> randomSeedsWithAsyncAndLimit() {
         return RandomizedTestUtils.randomSeeds(0xdeadc0deL)
                 .flatMap(seed -> Sets.cartesianProduct(ImmutableSet.of(true, false),
@@ -153,9 +149,9 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
         checkResults(indexPlan, limit, expectedResults);
     }
 
-    private void checkResults(@Nonnull final RecordQueryIndexPlan indexPlan,
+    private void checkResults(final RecordQueryIndexPlan indexPlan,
                               final int limit,
-                              @Nonnull final Set<Long> expectedResults) throws Exception {
+                              final Set<Long> expectedResults) throws Exception {
         verifyRebase(indexPlan);
         verifySerialization(indexPlan);
 
@@ -215,8 +211,8 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
         checkResultsGrouped(indexPlan, limit, expectedResults);
     }
 
-    private void checkResultsGrouped(@Nonnull final RecordQueryIndexPlan indexPlan, final int limit,
-                                     @Nonnull final Map<Integer, Set<Long>> expectedResults) throws Exception {
+    private void checkResultsGrouped(final RecordQueryIndexPlan indexPlan, final int limit,
+                                     final Map<Integer, Set<Long>> expectedResults) throws Exception {
         verifyRebase(indexPlan);
         verifySerialization(indexPlan);
 
@@ -675,8 +671,7 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
         checkResultsGrouped(createIndexPlan(queryVector, k, "GroupedVectorIndex"), Integer.MAX_VALUE, expectedResults);
     }
 
-    @Nonnull
-    private FDBStoredRecord<Message> saveVectorRecord(final long recNo, @Nonnull final HalfRealVector vector) {
+    private FDBStoredRecord<Message> saveVectorRecord(final long recNo, final HalfRealVector vector) {
         final Message rec = VectorRecord.newBuilder()
                 .setRecNo(recNo)
                 .setGroupId(0)
@@ -689,8 +684,7 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
      * Direct (state-independent) probe of the index: the rec-nos of the {@code k} nearest neighbors of the query
      * vector, read straight from the maintainer so it works even while the index is write-only.
      */
-    @Nonnull
-    private List<Long> nearestRecNos(@Nonnull final Index index, @Nonnull final HalfRealVector queryVector, final int k) {
+    private List<Long> nearestRecNos(final Index index, final HalfRealVector queryVector, final int k) {
         final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
         final var scanBounds = createVectorIndexScanComparisons(queryVector, k, VectorIndexScanOptions.empty())
                 .bind(recordStore, index, EvaluationContext.empty());
@@ -703,8 +697,8 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
         }
     }
 
-    private void buildIndexAndDrainQueue(@Nonnull final String indexName,
-                                         @Nonnull final RecordMetaDataHook hook) throws Exception {
+    private void buildIndexAndDrainQueue(final String indexName,
+                                         final RecordMetaDataHook hook) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
             final Index index = recordStore.getRecordMetaData().getIndex(indexName);
@@ -727,9 +721,9 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
         }
     }
 
-    protected void validateOptionsEvolution(@Nonnull RecordMetaData oldMetaData,
-                                            @Nonnull Index oldIndex,
-                                            @Nonnull Map<String, String> newOptions) {
+    protected void validateOptionsEvolution(RecordMetaData oldMetaData,
+                                            Index oldIndex,
+                                            Map<String, String> newOptions) {
         final RecordMetaDataProto.MetaData.Builder protoBuilder = oldMetaData.toProto().toBuilder()
                 .setVersion(oldMetaData.getVersion() + 1);
         for (RecordMetaDataProto.Index.Builder indexBuilder : protoBuilder.getIndexesBuilderList()) {
@@ -744,9 +738,9 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
         evolutionValidator.validate(oldMetaData, newMetaData);
     }
 
-    protected void assertInvalidOptionsEvolution(@Nonnull RecordMetaData oldMetaData,
-                                                 @Nonnull Index oldIndex,
-                                                 @Nonnull Map<String, String> newOptions) {
+    protected void assertInvalidOptionsEvolution(RecordMetaData oldMetaData,
+                                                 Index oldIndex,
+                                                 Map<String, String> newOptions) {
         Assertions.assertThatThrownBy(() -> validateOptionsEvolution(oldMetaData, oldIndex, newOptions))
                 .isInstanceOf(MetaDataException.class);
     }

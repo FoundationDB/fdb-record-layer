@@ -32,7 +32,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Message;
 import org.junit.jupiter.params.ParameterizedTest;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Random;
 
@@ -66,7 +65,6 @@ class GuardiannVectorIndexBackPressureTest extends VectorIndexTestBase {
     // batches keeps that ceiling, so periodic merges admit the whole load without ever back-pressuring.
     private static final int BATCH_SIZE = PRIMARY_CLUSTER_MAX;
 
-    @Nonnull
     @Override
     protected Map<String, String> indexOptions() {
         return ImmutableMap.<String, String>builder()

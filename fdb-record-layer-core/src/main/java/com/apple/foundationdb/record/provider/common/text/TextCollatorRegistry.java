@@ -22,8 +22,6 @@ package com.apple.foundationdb.record.provider.common.text;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-
 /**
  * Registry for {@link TextCollator}s.
  * The registry maps locale name and strength to a thread-safe instance.
@@ -35,7 +33,6 @@ public interface TextCollatorRegistry {
      * Used for serialization and debugging.
      * @return the name of this collator registry
      */
-    @Nonnull
     String getName();
 
     /**
@@ -44,7 +41,6 @@ public interface TextCollatorRegistry {
      * In general, this means one that is case- and accent-insensitive.
      * @return a weak text collator for the default locale
      */
-    @Nonnull
     default TextCollator getTextCollator() {
         return getTextCollator(0);
     }
@@ -55,7 +51,6 @@ public interface TextCollatorRegistry {
      * @param strength the desired strength
      * @return a weak text collator for the given locale and strength
      */
-    @Nonnull
     TextCollator getTextCollator(int strength);
 
     /**
@@ -65,8 +60,7 @@ public interface TextCollatorRegistry {
      * @param locale the name of the target locale
      * @return a weak text collator for the given locale
      */
-    @Nonnull
-    default TextCollator getTextCollator(@Nonnull String locale) {
+    default TextCollator getTextCollator(String locale) {
         return getTextCollator(locale, 0);
     }
 
@@ -77,6 +71,5 @@ public interface TextCollatorRegistry {
      * @param strength the desired strength
      * @return a weak text collator for the given locale and strength
      */
-    @Nonnull
-    TextCollator getTextCollator(@Nonnull String locale, int strength);
+    TextCollator getTextCollator(String locale, int strength);
 }

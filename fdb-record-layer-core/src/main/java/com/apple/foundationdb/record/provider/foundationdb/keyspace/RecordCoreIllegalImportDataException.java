@@ -22,15 +22,13 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 
-import javax.annotation.Nonnull;
-
 /**
  * Thrown if the data being imported into {@link KeySpacePath#importData} does not belong in that path.
  */
 public class RecordCoreIllegalImportDataException extends RecordCoreArgumentException {
     private static final long serialVersionUID = 1L;
     
-    public RecordCoreIllegalImportDataException(@Nonnull final String msg, @Nonnull final Object... keyValue) {
+    public RecordCoreIllegalImportDataException(final String msg, final Object... keyValue) {
         super(msg, keyValue);
     }
 }

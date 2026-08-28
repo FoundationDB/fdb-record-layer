@@ -29,8 +29,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -88,20 +87,17 @@ public class ProbableIntersectionCursor<T> extends MergeCursor<T, T, ProbableInt
      */
     public static final double DEFAULT_FALSE_POSITIVE_PERCENTAGE = 0.01;
 
-    @Nonnull
     private static final Set<StoreTimer.Event> duringEvents = Collections.singleton(FDBStoreTimer.Events.QUERY_INTERSECTION);
-    @Nonnull
     private static final Set<StoreTimer.Count> matchesCounts = Collections.singleton(FDBStoreTimer.Counts.QUERY_INTERSECTION_PLAN_MATCHES);
-    @Nonnull
     private static final Set<StoreTimer.Count> nonmatchesCounts =
             ImmutableSet.of(FDBStoreTimer.Counts.QUERY_INTERSECTION_PLAN_NONMATCHES, FDBStoreTimer.Counts.QUERY_DISCARDED);
 
-    ProbableIntersectionCursor(@Nonnull List<ProbableIntersectionCursorState<T>> cursorStates, @Nullable FDBStoreTimer timer) {
+    ProbableIntersectionCursor(List<ProbableIntersectionCursorState<T>> cursorStates, @Nullable FDBStoreTimer timer) {
         super(cursorStates, timer);
     }
 
     @SuppressWarnings({"PMD.CompareObjectsWithEquals", "PMD.CloseResource"})
-    private boolean checkIfInRest(@Nonnull ProbableIntersectionCursorState<T> cursorState) {
+    private boolean checkIfInRest(ProbableIntersectionCursorState<T> cursorState) {
         final List<ProbableIntersectionCursorState<T>> cursorStates = getCursorStates();
         final List<Object> key = cursorState.getComparisonKey();
         boolean allContain = true;
@@ -117,7 +113,6 @@ public class ProbableIntersectionCursor<T> extends MergeCursor<T, T, ProbableInt
     }
 
     @Override
-    @Nonnull
     protected CompletableFuture<List<ProbableIntersectionCursorState<T>>> computeNextResultStates() {
         final long startComputingStateTime = System.currentTimeMillis();
         final AtomicReference<ProbableIntersectionCursorState<T>> resultStateRef = new AtomicReference<>();
@@ -170,27 +165,23 @@ public class ProbableIntersectionCursor<T> extends MergeCursor<T, T, ProbableInt
     }
 
     @Override
-    @Nonnull
-    protected T getNextResult(@Nonnull List<ProbableIntersectionCursorState<T>> resultStates) {
+    protected T getNextResult(List<ProbableIntersectionCursorState<T>> resultStates) {
         return resultStates.get(0).getResult().get();
     }
 
     @Override
-    @Nonnull
     protected NoNextReason mergeNoNextReasons() {
         return getStrongestNoNextReason(getCursorStates());
     }
 
     @Override
-    @Nonnull
     protected ProbableIntersectionCursorContinuation getContinuationObject() {
         return ProbableIntersectionCursorContinuation.from(this);
     }
 
-    @Nonnull
-    static <T> List<ProbableIntersectionCursorState<T>> createCursorStates(@Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions,
+    static <T> List<ProbableIntersectionCursorState<T>> createCursorStates(List<Function<byte[], RecordCursor<T>>> cursorFunctions,
                                                                            @Nullable byte[] byteContinuation,
-                                                                           @Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction,
+                                                                           Function<? super T, ? extends List<Object>> comparisonKeyFunction,
                                                                            long expectedInsertions, double falsePositiveRate) {
         final List<ProbableIntersectionCursorState<T>> cursorStates = new ArrayList<>(cursorFunctions.size());
         final ProbableIntersectionCursorContinuation continuation = ProbableIntersectionCursorContinuation.from(byteContinuation, cursorFunctions.size());
@@ -215,10 +206,9 @@ public class ProbableIntersectionCursor<T> extends MergeCursor<T, T, ProbableInt
      * @return a cursor containing any records from any child cursor
      * @see #create(Function, List, long, double, byte[], FDBStoreTimer)
      */
-    @Nonnull
     public static <T> ProbableIntersectionCursor<T> create(
-            @Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction,
-            @Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions,
+            Function<? super T, ? extends List<Object>> comparisonKeyFunction,
+            List<Function<byte[], RecordCursor<T>>> cursorFunctions,
             @Nullable byte[] continuation,
             @Nullable FDBStoreTimer timer) {
         return create(comparisonKeyFunction, cursorFunctions, DEFAULT_EXPECTED_RESULTS, DEFAULT_FALSE_POSITIVE_PERCENTAGE, continuation, timer);
@@ -249,10 +239,9 @@ public class ProbableIntersectionCursor<T> extends MergeCursor<T, T, ProbableInt
      * @param <T> the type of elements returned by this cursor
      * @return a cursor containing any records from any child cursor
      */
-    @Nonnull
     public static <T> ProbableIntersectionCursor<T> create(
-            @Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction,
-            @Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions,
+            Function<? super T, ? extends List<Object>> comparisonKeyFunction,
+            List<Function<byte[], RecordCursor<T>>> cursorFunctions,
             long expectedResults,
             double falsePositivePercentage,
             @Nullable byte[] continuation,

@@ -26,8 +26,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.UUID;
 
@@ -46,14 +45,13 @@ import java.util.UUID;
 @API(API.Status.EXPERIMENTAL)
 public class KeySpacePathSerializer {
 
-    @Nonnull
     private final List<KeySpacePath> root;
 
     /**
      * Constructor a new serializer for serializing relative to a given root path.
      * @param root a path which is a parent path of all the data you want to serialize
      */
-    public KeySpacePathSerializer(@Nonnull final KeySpacePath root) {
+    public KeySpacePathSerializer(final KeySpacePath root) {
         this.root = root.flatten();
     }
 
@@ -63,8 +61,7 @@ public class KeySpacePathSerializer {
      * @return the data serialized relative to the root
      * @throws RecordCoreArgumentException if the given data is not contained within the root
      */
-    @Nonnull
-    public KeySpaceProto.DataInKeySpacePath serialize(@Nonnull DataInKeySpacePath data) {
+    public KeySpaceProto.DataInKeySpacePath serialize(DataInKeySpacePath data) {
         final List<KeySpacePath> dataPath = data.getPath().flatten();
         // two paths are only equal if their parents are equal, so we don't have to validate the whole prefix here
         if (dataPath.size() < root.size() ||
@@ -93,8 +90,7 @@ public class KeySpacePathSerializer {
      * @throws RecordCoreArgumentException if one of the path entries is not valid
      * @throws NoSuchDirectoryException if it refers to a directory that doesn't exist within the root
      */
-    @Nonnull
-    public DataInKeySpacePath deserialize(@Nonnull KeySpaceProto.DataInKeySpacePath proto) {
+    public DataInKeySpacePath deserialize(KeySpaceProto.DataInKeySpacePath proto) {
         // Start with the root path
         KeySpacePath path = root.get(root.size() - 1);
 
@@ -122,7 +118,7 @@ public class KeySpacePathSerializer {
     }
 
     @Nullable
-    private static Object deserializeValue(@Nonnull KeySpaceProto.KeySpacePathEntry entry) {
+    private static Object deserializeValue(KeySpaceProto.KeySpacePathEntry entry) {
         // Check which value field is set and return the appropriate value
         if (entry.hasNullValue()) {
             return null;
@@ -147,8 +143,7 @@ public class KeySpacePathSerializer {
         }
     }
 
-    @Nonnull
-    private static KeySpaceProto.KeySpacePathEntry serialize(@Nonnull final KeySpacePath keySpacePath) {
+    private static KeySpaceProto.KeySpacePathEntry serialize(final KeySpacePath keySpacePath) {
         final Object value = keySpacePath.getValue();
         // Use typeOf to get the actual runtime type of the value, rather than the directory's declared keyType.
         // This is important for DirectoryLayerDirectory, which has keyType LONG but typically stores String values.

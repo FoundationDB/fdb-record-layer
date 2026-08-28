@@ -29,7 +29,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
@@ -46,7 +45,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class VectorIndexMergeLockTest extends VectorIndexTestBase {
     private static final long WINDOW_MILLIS = 10_000L;
 
-    @Nonnull
     @Override
     protected Map<String, String> indexOptions() {
         return ImmutableMap.of(
@@ -215,7 +213,6 @@ class VectorIndexMergeLockTest extends VectorIndexTestBase {
         }
     }
 
-    @Nonnull
     private Subspace secondarySubspace() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, this::addUngroupedVectorIndex);
@@ -224,8 +221,7 @@ class VectorIndexMergeLockTest extends VectorIndexTestBase {
         }
     }
 
-    @Nonnull
-    private static VectorIndexMergeLock newLock(@Nonnull final Subspace secondary) {
+    private static VectorIndexMergeLock newLock(final Subspace secondary) {
         return new VectorIndexMergeLock(secondary, UUID.randomUUID(), WINDOW_MILLIS, System::currentTimeMillis);
     }
 }

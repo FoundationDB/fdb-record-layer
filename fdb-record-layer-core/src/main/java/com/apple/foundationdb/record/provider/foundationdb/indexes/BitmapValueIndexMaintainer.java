@@ -48,8 +48,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -106,12 +105,11 @@ public class BitmapValueIndexMaintainer extends StandardIndexMaintainer {
         unique = state.index.isUnique();
     }
 
-    @Nonnull
     @Override
-    public RecordCursor<IndexEntry> scan(@Nonnull IndexScanType scanType,
-                                         @Nonnull TupleRange range,
+    public RecordCursor<IndexEntry> scan(IndexScanType scanType,
+                                         TupleRange range,
                                          @Nullable byte[] continuation,
-                                         @Nonnull ScanProperties scanProperties) {
+                                         ScanProperties scanProperties) {
         if (!scanType.equals(IndexScanType.BY_GROUP)) {
             throw new RecordCoreException("Can only scan bitmap index by group.");
         }
@@ -174,10 +172,9 @@ public class BitmapValueIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    @Nonnull
-    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
+    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(final FDBIndexableRecord<M> savedRecord,
                                                                           final boolean remove,
-                                                                          @Nonnull final List<IndexEntry> indexEntries) {
+                                                                          final List<IndexEntry> indexEntries) {
         final int groupPrefixSize = getGroupingCount();
         final List<CompletableFuture<Void>> futures = unique && !remove ? new ArrayList<>(indexEntries.size()) : null;
         for (IndexEntry indexEntry : indexEntries) {
@@ -240,23 +237,21 @@ public class BitmapValueIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    @Nonnull
-    protected Tuple decodeValue(@Nonnull byte[] value) {
+    protected Tuple decodeValue(byte[] value) {
         return Tuple.from(value);  // The byte array itself is the value.
     }
 
     @Override
-    public boolean canEvaluateAggregateFunction(@Nonnull IndexAggregateFunction function) {
+    public boolean canEvaluateAggregateFunction(IndexAggregateFunction function) {
         return AGGREGATE_FUNCTION_NAME.equals(function.getName()) &&
                 IndexFunctionHelper.isGroupPrefix(function.getOperand(), state.index.getRootExpression());
     }
 
     @Override
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull IndexAggregateFunction function,
-                                                              @Nonnull TupleRange range,
-                                                              @Nonnull IsolationLevel isolationveLevel) {
+    public CompletableFuture<Tuple> evaluateAggregateFunction(IndexAggregateFunction function,
+                                                              TupleRange range,
+                                                              IsolationLevel isolationveLevel) {
         if (!AGGREGATE_FUNCTION_NAME.equals(function.getName())) {
             throw new MetaDataException("this index does not support aggregate function: " + function);
         }
@@ -292,7 +287,7 @@ public class BitmapValueIndexMaintainer extends StandardIndexMaintainer {
             this.buffer = ByteBuffer.allocate(size);
         }
 
-        public BitmapAggregator append(long position, @Nonnull byte[] bytes) {
+        public BitmapAggregator append(long position, byte[] bytes) {
             position -= offset;
             if (position < 0) {
                 throw new RecordCoreException("For negative positions, must specify negative range start");
@@ -315,7 +310,6 @@ public class BitmapValueIndexMaintainer extends StandardIndexMaintainer {
             return this;
         }
 
-        @Nonnull
         public byte[] asByteArray() {
             return buffer.array();
         }

@@ -29,8 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -65,8 +64,7 @@ public interface KeySpacePath {
      * @throws NoSuchDirectoryException if the specified subdirectory does not exist
      * @throws com.apple.foundationdb.record.RecordCoreArgumentException if the subdirectory does not have a constant value
      */
-    @Nonnull
-    KeySpacePath add(@Nonnull String dirName);
+    KeySpacePath add(String dirName);
 
     /**
      * Adds a <code>value</code> for a specific subdirectory <code>dirName</code> to the directory path.
@@ -77,8 +75,7 @@ public interface KeySpacePath {
      * @throws com.apple.foundationdb.record.RecordCoreArgumentException if the type of the value is not appropriate for the
      *   provided directory or differs from the constant value specified for the directory
      */
-    @Nonnull
-    KeySpacePath add(@Nonnull String dirName, @Nullable Object value);
+    KeySpacePath add(String dirName, @Nullable Object value);
 
     /**
      * Returns the parent of this entry or null if this is the root of the path.
@@ -91,14 +88,12 @@ public interface KeySpacePath {
      * Returns the directory name for this path element.
      * @return the directory name
      */
-    @Nonnull
     String getDirectoryName();
 
     /**
      * Returns the directory that corresponds to this path entry.
      * @return returns the directory that corresponds to this path entry
      */
-    @Nonnull
     KeySpaceDirectory getDirectory();
 
     /**
@@ -118,8 +113,7 @@ public interface KeySpacePath {
      * @param context the context in which to resolve the value
      * @return future that will resolve to value to be store for this path element.
      */
-    @Nonnull
-    CompletableFuture<PathValue> resolveAsync(@Nonnull FDBRecordContext context);
+    CompletableFuture<PathValue> resolveAsync(FDBRecordContext context);
 
     /**
      * Converts this path into a tuple. During this process the value that was provided for the directory, or
@@ -131,8 +125,7 @@ public interface KeySpacePath {
      * @throws com.apple.foundationdb.record.RecordCoreArgumentException if the value generated for a position in the path is not valid for
      *   that particular position
      */
-    @Nonnull
-    default Tuple toTuple(@Nonnull FDBRecordContext context) {
+    default Tuple toTuple(FDBRecordContext context) {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, toTupleAsync(context));
     }
 
@@ -144,8 +137,7 @@ public interface KeySpacePath {
      * @param context the context in which the path is to be resolved
      * @return a future that will complete to the tuple representation of this path
      */
-    @Nonnull
-    CompletableFuture<Tuple> toTupleAsync(@Nonnull FDBRecordContext context);
+    CompletableFuture<Tuple> toTupleAsync(FDBRecordContext context);
 
     /**
      * Resolves the path into a {@link ResolvedKeySpacePath}, a form the retains all of the information about
@@ -154,8 +146,7 @@ public interface KeySpacePath {
      * @param context the context in which the path is to be resolved
      * @return the resolved path
      */
-    @Nonnull
-    CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(@Nonnull FDBRecordContext context);
+    CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(FDBRecordContext context);
 
     /**
      * Resolves the path into a {@link ResolvedKeySpacePath}, a form the retains all of the information about
@@ -164,8 +155,7 @@ public interface KeySpacePath {
      * @param context the context in which the path is to be resolved
      * @return the resolved path
      */
-    @Nonnull
-    default ResolvedKeySpacePath toResolvedPath(@Nonnull FDBRecordContext context) {
+    default ResolvedKeySpacePath toResolvedPath(FDBRecordContext context) {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, toResolvedPathAsync(context));
     }
 
@@ -185,8 +175,7 @@ public interface KeySpacePath {
      * @param context the context in which to resolve the path
      * @return a future that completes with the subspace for this path
      */
-    @Nonnull
-    default CompletableFuture<Subspace> toSubspaceAsync(@Nonnull FDBRecordContext context) {
+    default CompletableFuture<Subspace> toSubspaceAsync(FDBRecordContext context) {
         return toTupleAsync(context).thenApply(Subspace::new);
     }
 
@@ -195,7 +184,6 @@ public interface KeySpacePath {
      * located at position 0.
      * @return this path as a list
      */
-    @Nonnull
     List<KeySpacePath> flatten();
 
     /**
@@ -204,7 +192,6 @@ public interface KeySpacePath {
      * @param context the context in which the path is resolved and a scan is performed looking for data
      * @return a future that evaluates to {@code true} if data exists for this path
      */
-    @Nonnull
     CompletableFuture<Boolean> hasDataAsync(FDBRecordContext context);
 
     /**
@@ -213,7 +200,7 @@ public interface KeySpacePath {
      * @param context the context in which the path is resolved and a scan is performed looking for data
      * @return {@code true} if data exists for this path
      */
-    default boolean hasData(@Nonnull FDBRecordContext context) {
+    default boolean hasData(FDBRecordContext context) {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_SCAN, hasDataAsync(context));
     }
 
@@ -230,15 +217,14 @@ public interface KeySpacePath {
      * @param context the context in which the path is resolved and the delete operation takes place
      * @return a future that will delete all data underneath of this path
      */
-    @Nonnull
-    CompletableFuture<Void> deleteAllDataAsync(@Nonnull FDBRecordContext context);
+    CompletableFuture<Void> deleteAllDataAsync(FDBRecordContext context);
 
     /**
      * Synchronous version of {@link #deleteAllDataAsync(FDBRecordContext)}.
      *
      * @param context the context in which the path is resolved and the delete operation takes place
      */
-    default void deleteAllData(@Nonnull FDBRecordContext context) {
+    default void deleteAllData(FDBRecordContext context) {
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_CLEAR, deleteAllDataAsync(context));
     }
 
@@ -272,12 +258,11 @@ public interface KeySpacePath {
      * @throws com.apple.foundationdb.record.RecordCoreException if a key found during the listing process did not correspond to
      *    the directory tree
      */
-    @Nonnull
-    RecordCursor<ResolvedKeySpacePath> listSubdirectoryAsync(@Nonnull FDBRecordContext context,
-                                                             @Nonnull String subdirName,
+    RecordCursor<ResolvedKeySpacePath> listSubdirectoryAsync(FDBRecordContext context,
+                                                             String subdirName,
                                                              @Nullable ValueRange<?> range,
                                                              @Nullable byte[] continuation,
-                                                             @Nonnull ScanProperties scanProperties);
+                                                             ScanProperties scanProperties);
 
     /**
      * For a given subdirectory from this path element, return a list of paths for all available keys in the FDB
@@ -307,11 +292,10 @@ public interface KeySpacePath {
      * @throws com.apple.foundationdb.record.RecordCoreException if a key found during the listing process did not correspond to
      *    the directory tree
      */
-    @Nonnull
-    default RecordCursor<ResolvedKeySpacePath> listSubdirectoryAsync(@Nonnull FDBRecordContext context,
-                                                                     @Nonnull String subdirName,
+    default RecordCursor<ResolvedKeySpacePath> listSubdirectoryAsync(FDBRecordContext context,
+                                                                     String subdirName,
                                                                      @Nullable byte[] continuation,
-                                                                     @Nonnull ScanProperties scanProperties) {
+                                                                     ScanProperties scanProperties) {
         return listSubdirectoryAsync(context, subdirName, null, continuation, scanProperties);
     }
 
@@ -326,12 +310,11 @@ public interface KeySpacePath {
      * @param scanProperties details for how the scan should be performed
      * @return a list of fully qualified paths for each value contained within this directory
      */
-    @Nonnull
-    default List<ResolvedKeySpacePath> listSubdirectory(@Nonnull FDBRecordContext context,
-                                                        @Nonnull String subdirName,
+    default List<ResolvedKeySpacePath> listSubdirectory(FDBRecordContext context,
+                                                        String subdirName,
                                                         @Nullable ValueRange<?> range,
                                                         @Nullable byte[] continuation,
-                                                        @Nonnull ScanProperties scanProperties) {
+                                                        ScanProperties scanProperties) {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_LIST,
                 listSubdirectoryAsync(context, subdirName, range, continuation, scanProperties).asList());
     }
@@ -346,11 +329,10 @@ public interface KeySpacePath {
      * @param scanProperties details for how the scan should be performed
      * @return a list of fully qualified paths for each value contained within this directory
      */
-    @Nonnull
-    default List<ResolvedKeySpacePath> listSubdirectory(@Nonnull FDBRecordContext context,
-                                                        @Nonnull String subdirName,
+    default List<ResolvedKeySpacePath> listSubdirectory(FDBRecordContext context,
+                                                        String subdirName,
                                                         @Nullable ValueRange<?> range,
-                                                        @Nonnull ScanProperties scanProperties) {
+                                                        ScanProperties scanProperties) {
         return listSubdirectory(context, subdirName, range, null, scanProperties);
     }
 
@@ -362,10 +344,9 @@ public interface KeySpacePath {
      * @param scanProperties details for how the scan should be performed
      * @return a list of fully qualified paths for each value contained within this directory
      */
-    @Nonnull
-    default List<ResolvedKeySpacePath> listSubdirectory(@Nonnull FDBRecordContext context,
-                                                        @Nonnull String subdirName,
-                                                        @Nonnull ScanProperties scanProperties) {
+    default List<ResolvedKeySpacePath> listSubdirectory(FDBRecordContext context,
+                                                        String subdirName,
+                                                        ScanProperties scanProperties) {
         return listSubdirectory(context, subdirName, null, null, scanProperties);
     }
 
@@ -376,9 +357,8 @@ public interface KeySpacePath {
      * @param subdirName the name of the subdirectory that is to be listed
      * @return a list of fully qualified paths for each value contained within this directory
      */
-    @Nonnull
-    default List<ResolvedKeySpacePath> listSubdirectory(@Nonnull FDBRecordContext context,
-                                                        @Nonnull String subdirName) {
+    default List<ResolvedKeySpacePath> listSubdirectory(FDBRecordContext context,
+                                                        String subdirName) {
         return listSubdirectory(context, subdirName, null, null, ScanProperties.FORWARD_SCAN);
     }
 
@@ -391,7 +371,7 @@ public interface KeySpacePath {
      * @return a string representation of the path that shows both original and resolved directory values
      */
     @API(API.Status.UNSTABLE)
-    String toString(@Nonnull Tuple tuple);
+    String toString(Tuple tuple);
 
     /**
      * Export all data stored under this KeySpacePath and return it in a RecordCursor.
@@ -404,10 +384,9 @@ public interface KeySpacePath {
      * @return a RecordCursor that iterates over all KeyValue pairs under this path
      */
     @API(API.Status.EXPERIMENTAL)
-    @Nonnull
-    default RecordCursor<DataInKeySpacePath> exportAllData(@Nonnull FDBRecordContext context,
+    default RecordCursor<DataInKeySpacePath> exportAllData(FDBRecordContext context,
                                                            @Nullable byte[] continuation,
-                                                           @Nonnull ScanProperties scanProperties) {
+                                                           ScanProperties scanProperties) {
         throw new UnsupportedOperationException("exportAllData is not supported");
     }
 
@@ -429,9 +408,8 @@ public interface KeySpacePath {
      * @return a future to be completed once all data has been important.
      */
     @API(API.Status.EXPERIMENTAL)
-    @Nonnull
-    CompletableFuture<Void> importData(@Nonnull FDBRecordContext context,
-                                       @Nonnull Iterable<DataInKeySpacePath> dataToImport);
+    CompletableFuture<Void> importData(FDBRecordContext context,
+                                       Iterable<DataInKeySpacePath> dataToImport);
 
     /**
      * Two {@link KeySpacePath}s are equal if they have equal values, the same directory (reference equality) and their

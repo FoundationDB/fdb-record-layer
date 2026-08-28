@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -43,7 +42,6 @@ import java.util.Map;
  */
 class GuardiannVectorIndexTest extends VectorIndexEngineTestSuite {
 
-    @Nonnull
     @Override
     protected Map<String, String> indexOptions() {
         return ImmutableMap.<String, String>builder()
@@ -132,8 +130,7 @@ class GuardiannVectorIndexTest extends VectorIndexEngineTestSuite {
      * @param value the new value
      * @return the options with {@code key} set to {@code value}
      */
-    @Nonnull
-    private Map<String, String> optionsWith(@Nonnull final String key, @Nonnull final String value) {
+    private Map<String, String> optionsWith(final String key, final String value) {
         final Map<String, String> merged = new HashMap<>(indexOptions());
         merged.put(key, value);
         return ImmutableMap.copyOf(merged);

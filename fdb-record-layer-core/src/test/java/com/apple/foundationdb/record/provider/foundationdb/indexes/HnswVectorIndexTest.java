@@ -30,7 +30,6 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,7 +42,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class HnswVectorIndexTest extends VectorIndexEngineTestSuite {
 
-    @Nonnull
     @Override
     protected Map<String, String> indexOptions() {
         return ImmutableMap.of(IndexOptions.VECTOR_ENGINE, VectorIndexEngineKind.HNSW.name(),

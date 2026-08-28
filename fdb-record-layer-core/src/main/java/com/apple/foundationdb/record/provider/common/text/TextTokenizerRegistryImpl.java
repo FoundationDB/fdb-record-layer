@@ -30,8 +30,7 @@ import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -47,15 +46,11 @@ import java.util.Map;
  */
 @API(API.Status.EXPERIMENTAL)
 public class TextTokenizerRegistryImpl implements TextTokenizerRegistry {
-    @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(TextTokenizerRegistryImpl.class);
-    @Nonnull
     private static final TextTokenizerRegistryImpl INSTANCE = new TextTokenizerRegistryImpl();
 
-    @Nonnull
     private Map<String, TextTokenizerFactory> registry;
 
-    @Nonnull
     private static Map<String, TextTokenizerFactory> initRegistry() {
         final Map<String, TextTokenizerFactory> registry = new HashMap<>();
         for (TextTokenizerFactory factory : ServiceLoaderProvider.load(TextTokenizerFactory.class)) {
@@ -74,7 +69,6 @@ public class TextTokenizerRegistryImpl implements TextTokenizerRegistry {
         return registry;
     }
 
-    @Nonnull
     public static TextTokenizerRegistry instance() {
         return INSTANCE;
     }
@@ -83,13 +77,11 @@ public class TextTokenizerRegistryImpl implements TextTokenizerRegistry {
         registry = initRegistry();
     }
 
-    @Nonnull
     @Override
     public Map<String, TextTokenizerFactory> getRegistry() {
         return Collections.unmodifiableMap(registry);
     }
 
-    @Nonnull
     @Override
     public TextTokenizer getTokenizer(@Nullable String name) {
         if (name == null) {
@@ -107,7 +99,7 @@ public class TextTokenizerRegistryImpl implements TextTokenizerRegistry {
     // it is still thread safe.
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public synchronized void register(@Nonnull TextTokenizerFactory tokenizerFactory) {
+    public synchronized void register(TextTokenizerFactory tokenizerFactory) {
         final String name = tokenizerFactory.getName();
         TextTokenizerFactory oldFactory = registry.putIfAbsent(name, tokenizerFactory);
         // If there was a factory already registered and the old factory isn't the same as

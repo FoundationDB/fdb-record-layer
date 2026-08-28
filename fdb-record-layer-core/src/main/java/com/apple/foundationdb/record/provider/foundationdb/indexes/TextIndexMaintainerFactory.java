@@ -39,7 +39,6 @@ import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -51,9 +50,7 @@ import java.util.Set;
 @AutoService(IndexMaintainerFactory.class)
 @API(API.Status.EXPERIMENTAL)
 public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
-    @Nonnull
     private static final List<String> TYPES = Collections.singletonList(IndexTypes.TEXT);
-    @Nonnull
     private static final Set<String> TEXT_OPTIONS = ImmutableSet.of(
             IndexOptions.TEXT_TOKENIZER_NAME_OPTION,
             IndexOptions.TEXT_TOKENIZER_VERSION_OPTION,
@@ -69,7 +66,6 @@ public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
      * @return a list containing only the supported index type
      */
     @Override
-    @Nonnull
     public Iterable<String> getIndexTypes() {
         return TYPES;
     }
@@ -93,12 +89,11 @@ public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
      * @throws com.apple.foundationdb.record.metadata.MetaDataException if the tokenizer is not defined, if the tokenizer version
      *                                                    is out of range, or if the index is marked as unique
      */
-    @Nonnull
     @Override
     public IndexValidator getIndexValidator(Index index) {
         return new IndexValidator(index) {
             @Override
-            public void validate(@Nonnull MetaDataValidator metaDataValidator) {
+            public void validate(MetaDataValidator metaDataValidator) {
                 super.validate(metaDataValidator);
                 validateNotVersion();
                 validateNotUnique();
@@ -111,7 +106,7 @@ public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
             }
 
             @Override
-            public void validateIndexForRecordType(@Nonnull RecordType recordType, @Nonnull MetaDataValidator metaDataValidator) {
+            public void validateIndexForRecordType(RecordType recordType, MetaDataValidator metaDataValidator) {
                 final List<Descriptors.FieldDescriptor> fields = metaDataValidator.validateIndexForRecordType(index, recordType);
                 int textFieldPosition = TextIndexMaintainer.textFieldPosition(index.getRootExpression());
                 if (textFieldPosition > fields.size()) {
@@ -150,7 +145,7 @@ public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
              * @param changedOptions the set of changed options
              */
             @Override
-            public void validateChangedOptions(@Nonnull Index oldIndex, @Nonnull Set<String> changedOptions) {
+            public void validateChangedOptions(Index oldIndex, Set<String> changedOptions) {
                 for (String changedOption : changedOptions) {
                     switch (changedOption) {
                         case IndexOptions.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION:
@@ -194,15 +189,13 @@ public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
         };
     }
 
-    @Nonnull
     @Override
-    public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
+    public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
         return new TextIndexMaintainer(state);
     }
 
-    @Nonnull
     @Override
-    public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
+    public IndexGeneralAttributes getIndexGeneralAttributes(final Index index) {
         return GENERAL_ATTRIBUTES;
     }
 }

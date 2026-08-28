@@ -30,8 +30,6 @@ import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOption
 import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -202,8 +200,7 @@ class VectorIndexScanOptionsTest {
         assertThat(explain3).isEqualTo(explain1);
     }
 
-    @Nonnull
-    private static String renderExplain(@Nonnull final VectorIndexScanOptions options) {
+    private static String renderExplain(final VectorIndexScanOptions options) {
         return options.explain()
                 .getExplainTokens()
                 .render(DefaultExplainFormatter.forDebugging())

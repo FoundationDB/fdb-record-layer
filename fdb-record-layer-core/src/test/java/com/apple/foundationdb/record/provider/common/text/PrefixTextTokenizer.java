@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.common.text;
 
-import javax.annotation.Nonnull;
 import java.util.Iterator;
 
 /**
@@ -40,7 +39,7 @@ public class PrefixTextTokenizer implements TextTokenizer {
         return INSTANCE;
     }
 
-    private Iterator<String> tokenizeV0(@Nonnull String text, @Nonnull TokenizerMode mode) {
+    private Iterator<String> tokenizeV0(String text, TokenizerMode mode) {
         Iterator<String> defaultTokens = underlying.tokenize(text, TextTokenizer.GLOBAL_MIN_VERSION, mode);
         return new Iterator<String>() {
             @Override
@@ -60,7 +59,7 @@ public class PrefixTextTokenizer implements TextTokenizer {
         };
     }
 
-    private Iterator<String> tokenizeV1(@Nonnull String text, @Nonnull TokenizerMode mode) {
+    private Iterator<String> tokenizeV1(String text, TokenizerMode mode) {
         Iterator<String> defaultTokens = underlying.tokenize(text, TextTokenizer.GLOBAL_MIN_VERSION, mode);
         return new Iterator<String>() {
             @Override
@@ -80,9 +79,8 @@ public class PrefixTextTokenizer implements TextTokenizer {
         };
     }
 
-    @Nonnull
     @Override
-    public Iterator<String> tokenize(@Nonnull String text, int version, @Nonnull TokenizerMode mode) {
+    public Iterator<String> tokenize(String text, int version, TokenizerMode mode) {
         validateVersion(version);
         if (version == 0) {
             return tokenizeV0(text, mode);
@@ -91,7 +89,6 @@ public class PrefixTextTokenizer implements TextTokenizer {
         }
     }
 
-    @Nonnull
     @Override
     public String getName() {
         return NAME;

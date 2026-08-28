@@ -26,8 +26,7 @@ import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorEndContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -41,28 +40,25 @@ import java.util.function.Function;
  */
 @API(API.Status.INTERNAL)
 public class MergeCursorState<T> implements AutoCloseable {
-    @Nonnull
     private final RecordCursor<T> cursor;
     @Nullable
     private CompletableFuture<RecordCursorResult<T>> onNextFuture;
-    @Nonnull
     private RecordCursorContinuation continuation;
     @Nullable
     private RecordCursorResult<T> result;
 
-    protected MergeCursorState(@Nonnull RecordCursor<T> cursor, @Nonnull RecordCursorContinuation continuation) {
+    protected MergeCursorState(RecordCursor<T> cursor, RecordCursorContinuation continuation) {
         this.cursor = cursor;
         this.continuation = continuation;
     }
 
-    protected void handleNextCursorResult(@Nonnull RecordCursorResult<T> cursorResult) {
+    protected void handleNextCursorResult(RecordCursorResult<T> cursorResult) {
         result = cursorResult;
         if (!result.hasNext()) {
             continuation = result.getContinuation(); // no result, so we advanced the cached continuation
         }
     }
 
-    @Nonnull
     public CompletableFuture<RecordCursorResult<T>> getOnNextFuture() {
         if (onNextFuture == null) {
             onNextFuture = cursor.onNext().thenApply(cursorResult -> {
@@ -103,25 +99,21 @@ public class MergeCursorState<T> implements AutoCloseable {
         return cursor.isClosed();
     }
 
-    @Nonnull
     public Executor getExecutor() {
         return cursor.getExecutor();
     }
 
-    @Nonnull
     public RecordCursor<T> getCursor() {
         return cursor;
     }
 
-    @Nonnull
     public RecordCursorContinuation getContinuation() {
         return continuation;
     }
 
-    @Nonnull
     public static <T> MergeCursorState<T> from(
-            @Nonnull Function<byte[], RecordCursor<T>> cursorFunction,
-            @Nonnull RecordCursorContinuation continuation) {
+            Function<byte[], RecordCursor<T>> cursorFunction,
+            RecordCursorContinuation continuation) {
         if (continuation.isEnd()) {
             return new MergeCursorState<>(RecordCursor.empty(), RecordCursorEndContinuation.END);
         } else {

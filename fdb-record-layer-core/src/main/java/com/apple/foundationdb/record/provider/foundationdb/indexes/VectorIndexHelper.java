@@ -25,8 +25,6 @@ import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 
-import javax.annotation.Nonnull;
-
 /**
  * Helper functions and instrumentation events for vector index maintainers. The engine-specific configuration (HNSW or
  * Guardiann) is intentionally not exposed here; it is encapsulated by {@link VectorIndexEngine} and its implementations.
@@ -44,7 +42,7 @@ public final class VectorIndexHelper {
      *
      * @param index the index definition to get options from
      */
-    public static void validate(@Nonnull final Index index) {
+    public static void validate(final Index index) {
         // Reject specifying any option under more than one of its (current/legacy) names before parsing, so an
         // ambiguous options map fails fast rather than silently resolving to the canonical name.
         VectorIndexOptionsHelper.validateNoAliasConflicts(index, VectorIndexOptionKeys.ALL);
@@ -58,8 +56,7 @@ public final class VectorIndexHelper {
      * @param index the index definition
      * @return the metric of the index
      */
-    @Nonnull
-    public static Metric getMetric(@Nonnull final Index index) {
+    public static Metric getMetric(final Index index) {
         return VectorIndexEngine.metricFromIndex(index);
     }
 
@@ -88,7 +85,6 @@ public final class VectorIndexHelper {
         }
 
         @Override
-        @Nonnull
         public String logKey() {
             return this.logKey;
         }

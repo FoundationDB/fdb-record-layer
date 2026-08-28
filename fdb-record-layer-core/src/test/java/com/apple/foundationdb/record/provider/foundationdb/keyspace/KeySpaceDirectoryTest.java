@@ -53,8 +53,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -820,7 +819,7 @@ public class KeySpaceDirectoryTest {
             return Tuple.from(schoolName, schoolName.length()).pack();
         }
 
-        CompletableFuture<byte[]> metadata(@Nonnull FDBRecordContext context) {
+        CompletableFuture<byte[]> metadata(FDBRecordContext context) {
             return inner.resolveAsync(context).thenApply(PathValue::getMetadata);
         }
     }
@@ -1052,8 +1051,8 @@ public class KeySpaceDirectoryTest {
     }
     
     private Pair<ValueRange<Object>, List<Tuple>> newTestCase(@Nullable Tuple low, @Nullable Tuple high,
-                                                              @Nonnull EndpointType lowEndpoint,
-                                                              @Nonnull EndpointType highEndpoint,
+                                                              EndpointType lowEndpoint,
+                                                              EndpointType highEndpoint,
                                                               List<Tuple> expectedValues) {
         return Pair.of(
                 new ValueRange<>(low == null ? null : low.get(0), high == null ? null : high.get(0), 
@@ -1773,9 +1772,8 @@ public class KeySpaceDirectoryTest {
             this.resolver = resolver;
         }
 
-        @Nonnull
         @Override
-        protected CompletableFuture<PathValue> toTupleValueAsyncImpl(@Nonnull FDBRecordContext context, Object value) {
+        protected CompletableFuture<PathValue> toTupleValueAsyncImpl(FDBRecordContext context, Object value) {
             return CompletableFuture.completedFuture(new PathValue(resolver.apply(value)));
         }
 

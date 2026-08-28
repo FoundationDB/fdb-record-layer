@@ -25,8 +25,7 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 
 /**
@@ -35,15 +34,13 @@ import java.util.Objects;
 @API(API.Status.EXPERIMENTAL)
 public class InvalidIndexEntry {
 
-    @Nonnull
     private IndexEntry entry;
-    @Nonnull
     private Reason reason;
 
     @Nullable
     private FDBStoredRecord<Message> record;
 
-    private InvalidIndexEntry(@Nonnull IndexEntry entry, @Nonnull Reason reason, @Nullable FDBStoredRecord<Message> record) {
+    private InvalidIndexEntry(IndexEntry entry, Reason reason, @Nullable FDBStoredRecord<Message> record) {
         this.entry = entry;
         this.reason = reason;
         this.record = record;
@@ -88,20 +85,18 @@ public class InvalidIndexEntry {
         }
     }
 
-    public static InvalidIndexEntry newOrphan(@Nonnull IndexEntry entry) {
+    public static InvalidIndexEntry newOrphan(IndexEntry entry) {
         return new InvalidIndexEntry(entry, Reasons.ORPHAN, null);
     }
 
-    public static InvalidIndexEntry newMissing(@Nonnull IndexEntry entry, @Nonnull FDBStoredRecord<Message> record) {
+    public static InvalidIndexEntry newMissing(IndexEntry entry, FDBStoredRecord<Message> record) {
         return new InvalidIndexEntry(entry, Reasons.MISSING, record);
     }
 
-    @Nonnull
     public IndexEntry getEntry() {
         return entry;
     }
 
-    @Nonnull
     public Reason getReason() {
         return reason;
     }
