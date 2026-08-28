@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArrayAggValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -55,6 +56,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.test.Tags;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ByteString;
@@ -385,6 +387,56 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                     continuation4.toBytes(), this::assertResultWithArrays, resultOf("1", List.of(3, 4, 5)));
 
             Assertions.assertEquals(RecordCursorEndContinuation.END, continuation5);
+        }
+    }
+
+    /**
+     * Tests that resuming mid-group currently fails a {@code verify()} when one of two scalar aggregates has no value
+     * yet. Pins Issue #4573.
+     */
+    @Test
+    void partialAggregateTwoScalarsOneWithoutValue() {
+        try (final var context = openContext()) {
+            openSimpleRecordStore(context, NO_HOOK);
+
+            final var plan =
+                    new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(
+                                    NumericAggregationValue.PhysicalOperator.SUM_I, value))
+                            .withAggregateValue("num_value_2", ignored -> new NumericAggregationValue.Sum(
+                                    NumericAggregationValue.PhysicalOperator.SUM_I,
+                                    new NullValue(Type.primitiveType(Type.TypeCode.INT))))
+                            .withGroupCriterion("str_value_indexed")
+                            .build(false);
+
+            // Stops inside the first group, so the continuation carries only 1 state for 2 children.
+            final RecordCursorContinuation continuation = executePlanWithRecordScanLimit(plan, 5, null);
+            Assertions.assertThrows(VerifyException.class,
+                    () -> executePlanWithRecordScanLimit(plan, 1, continuation.toBytes()));
+        }
+    }
+
+    /**
+     * Tests that {@code ARRAY_AGG()} alongside a scalar aggregate without a value fails the same {@code verify()}
+     * as {@link #partialAggregateTwoScalarsOneWithoutValue}. Pins Issue #4573.
+     */
+    @Test
+    void partialAggregateArrayAggWithScalarWithoutValue() {
+        try (final var context = openContext()) {
+            openSimpleRecordStore(context, NO_HOOK);
+
+            final var plan =
+                    new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+                            .withAggregateValue("num_value_2", ignored -> new NumericAggregationValue.Sum(
+                                    NumericAggregationValue.PhysicalOperator.SUM_I,
+                                    new NullValue(Type.primitiveType(Type.TypeCode.INT))))
+                            .withAggregateValue("num_value_2", value -> new ArrayAggValue(value, true))
+                            .withGroupCriterion("str_value_indexed")
+                            .build(false);
+
+            final RecordCursorContinuation continuation = executePlanWithRecordScanLimit(plan, 5, null);
+            Assertions.assertThrows(VerifyException.class,
+                    () -> executePlanWithRecordScanLimit(plan, 1, continuation.toBytes()));
         }
     }
 

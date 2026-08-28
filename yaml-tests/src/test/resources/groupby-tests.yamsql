@@ -27,6 +27,8 @@ schema_template:
     create type as struct st4(s bigint, t bigint)
     create table nested(id bigint, q st4, r st3, primary key(q.s, r.u.w))
     create index i2 as select r.v.z from nested order by r.v.z
+    create table t2(pk bigint, a bigint, b bigint, c bigint, primary key(pk))
+    create index i3 as select a from t2 order by a
 ---
 setup:
   steps:
@@ -53,6 +55,13 @@ setup:
                (6, (329, 6), ((5, 15), (10, 140))),
                (7, (328, 7), ((5, 15), (10, 140))),
                (8, (327, 8), ((5, 15), (10, 140)))
+    - query: INSERT INTO T2
+        VALUES (2, 1, NULL, 20),
+               (3, 1, NULL, 5),
+               (4, 1, NULL, 15),
+               (5, 2, NULL, 10),
+               (6, 2, NULL, 40),
+               (7, 2, NULL, 90)
 ---
 test_block:
   name: group-by-tests
@@ -276,6 +285,20 @@ test_block:
       - result: [{!l 10, !l 5}]
       - result: []
       - result: [{!l 20, !l 8}]
+---
+# Resuming a group mid-way currently fails when one of its aggregates has no value yet. Pins Issue #4573.
+test_block:
+  name: group-by-with-aggregate-without-value
+  preset: single_repetition_ordered
+  options:
+    connection_options:
+      EXECUTION_SCANNED_ROWS_LIMIT: 2
+  tests:
+    -
+      # Group `a = 1` holds 3 rows, so a scan limit of 2 stops inside the group, at which point `MAX(b)` has no value yet.
+      - query: SELECT a, MAX(c), MAX(b) FROM T2 GROUP BY a
+      - result: []
+      - error: INTERNAL_ERROR
 ---
 # Aggregates over a record constructor. These are regression tests for Issue #4481. They exercise the interaction of
 # `collapseSimpleSelectMaybe()`, which collapses some of these record constructors, with the group-by pull-up logic.
