@@ -58,8 +58,8 @@ import org.jline.utils.InfoCmp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.LinkedList;
@@ -109,21 +109,19 @@ public class PlannerRepl implements Debugger {
     private String queryAsString;
     @Nullable
     private PlanContext planContext;
-    @Nonnull
     private final Map<Object, Integer> singletonToIndexMap;
 
-    @Nonnull
     private final Terminal terminal;
     @Nullable
     private LineReader lineReader;
 
     private final boolean exitOnQuit;
 
-    public PlannerRepl(@Nonnull final Terminal terminal) {
+    public PlannerRepl(final Terminal terminal) {
         this(terminal, true);
     }
 
-    public PlannerRepl(@Nonnull final Terminal terminal, boolean exitOnQuit) {
+    public PlannerRepl(final Terminal terminal, boolean exitOnQuit) {
         this.registeredEntitiesStack = new ArrayDeque<>();
         this.breakPoints = HashBiMap.create();
         this.currentBreakPointIndex = 0;
@@ -139,7 +137,6 @@ public class PlannerRepl implements Debugger {
         return exitOnQuit;
     }
 
-    @Nonnull
     RegisteredEntities getCurrentRegisteredEntities() {
         return Objects.requireNonNull(registeredEntitiesStack.peek());
     }
@@ -157,32 +154,32 @@ public class PlannerRepl implements Debugger {
     }
 
     @Override
-    public int onGetIndex(@Nonnull final Class<?> clazz) {
+    public int onGetIndex(final Class<?> clazz) {
         return getCurrentRegisteredEntities().getIndex(clazz);
     }
 
     @Override
-    public int onUpdateIndex(@Nonnull final Class<?> clazz, @Nonnull final IntUnaryOperator updateFn) {
+    public int onUpdateIndex(final Class<?> clazz, final IntUnaryOperator updateFn) {
         return getCurrentRegisteredEntities().updateIndex(clazz, updateFn);
     }
 
     @Override
-    public void onRegisterExpression(@Nonnull final RelationalExpression expression) {
+    public void onRegisterExpression(final RelationalExpression expression) {
         getCurrentRegisteredEntities().registerExpression(expression);
     }
 
     @Override
-    public void onRegisterReference(@Nonnull final Reference reference) {
+    public void onRegisterReference(final Reference reference) {
         getCurrentRegisteredEntities().registerReference(reference);
     }
 
     @Override
-    public void onRegisterQuantifier(@Nonnull final Quantifier quantifier) {
+    public void onRegisterQuantifier(final Quantifier quantifier) {
         getCurrentRegisteredEntities().registerQuantifier(quantifier);
     }
 
     @Override
-    public int onGetOrRegisterSingleton(@Nonnull final Object singleton) {
+    public int onGetOrRegisterSingleton(final Object singleton) {
         final var size = singletonToIndexMap.size();
         return singletonToIndexMap.computeIfAbsent(singleton, s -> size);
     }
@@ -204,12 +201,12 @@ public class PlannerRepl implements Debugger {
     }
 
     @Override
-    public void onShow(@Nonnull final Reference ref) {
+    public void onShow(final Reference ref) {
         PlannerGraphVisitor.show(true, ref);
     }
 
     @Override
-    public void onQuery(@Nonnull final String queryAsString, @Nonnull final PlanContext planContext) {
+    public void onQuery(final String queryAsString, final PlanContext planContext) {
         this.registeredEntitiesStack.push(RegisteredEntities.copyOf(getCurrentRegisteredEntities()));
         this.queryAsString = queryAsString;
         this.planContext = planContext;
@@ -386,12 +383,11 @@ public class PlannerRepl implements Debugger {
         }
     }
 
-    @Nonnull
-    String nameForObjectOrNotInCache(@Nonnull final Object object) {
+    String nameForObjectOrNotInCache(final Object object) {
         return Optional.ofNullable(nameForObject(object)).orElse("not in cache");
     }
 
-    boolean isValidEntityName(@Nonnull final String identifier) {
+    boolean isValidEntityName(final String identifier) {
         final String lowerCase = identifier.toLowerCase(Locale.ROOT);
         if (!lowerCase.startsWith("exp") &&
                 !lowerCase.startsWith("ref") &&
@@ -405,7 +401,7 @@ public class PlannerRepl implements Debugger {
 
     @Nullable
     @Override
-    public String nameForObject(@Nonnull final Object object) {
+    public String nameForObject(final Object object) {
         final RegisteredEntities registeredEntities = getCurrentRegisteredEntities();
         if (object instanceof RelationalExpression) {
             @Nullable final Integer id = registeredEntities.getInvertedExpressionsCache().getIfPresent(object);
@@ -471,14 +467,16 @@ public class PlannerRepl implements Debugger {
     }
 
     void printlnQuery() {
-        printlnKeyValue("query", queryAsString);
+        // Always called from onQuery() right after queryAsString is assigned; never null at this call site
+        // even though the field itself is nulled out again in reset().
+        printlnKeyValue("query", Objects.requireNonNull(queryAsString));
     }
 
-    void printlnReference(@Nonnull final Reference reference) {
+    void printlnReference(final Reference reference) {
         printlnReference(reference, "");
     }
 
-    void printlnReference(@Nonnull final Reference reference, final String prefix) {
+    void printlnReference(final Reference reference, final String prefix) {
         printlnKeyValue(prefix + "class", reference.getClass().getSimpleName());
         getSilently("reference.toString()", reference::toString)
                 .ifPresent(referenceAsString ->
@@ -492,11 +490,11 @@ public class PlannerRepl implements Debugger {
         }
     }
 
-    void printlnExpression(@Nonnull final RelationalExpression expression) {
+    void printlnExpression(final RelationalExpression expression) {
         printlnExpression(expression, "");
     }
 
-    void printlnExpression(@Nonnull final RelationalExpression expression, final String prefix) {
+    void printlnExpression(final RelationalExpression expression, final String prefix) {
         printlnKeyValue(prefix + "class", expression.getClass().getSimpleName());
         getSilently("expression.toString()", expression::toString)
                 .ifPresent(expressionAsString ->
@@ -517,11 +515,11 @@ public class PlannerRepl implements Debugger {
         }
     }
 
-    void printlnQuantifier(@Nonnull final Quantifier quantifier) {
+    void printlnQuantifier(final Quantifier quantifier) {
         printlnQuantifier(quantifier, "");
     }
 
-    void printlnQuantifier(@Nonnull final Quantifier quantifier, final String prefix) {
+    void printlnQuantifier(final Quantifier quantifier, final String prefix) {
         printlnKeyValue(prefix + "class", quantifier.getClass().getSimpleName());
         printlnKeyValue(prefix + "name", nameForObjectOrNotInCache(quantifier));
         printlnKeyValue(prefix + "kind", quantifier.getShorthand());
@@ -564,11 +562,11 @@ public class PlannerRepl implements Debugger {
                 .append(value).toAnsi());
     }
 
-    void print(@Nonnull final String string) {
+    void print(final String string) {
         Objects.requireNonNull(terminal).writer().print(string);
     }
 
-    void println(@Nonnull final String string) {
+    void println(final String string) {
         Objects.requireNonNull(terminal).writer().println(string);
     }
 
@@ -577,7 +575,7 @@ public class PlannerRepl implements Debugger {
     }
 
     @SuppressWarnings({"CallToPrintStackTrace", "PMD.AvoidPrintStackTrace"})
-    private void doSilently(@Nonnull final String actionName, @Nonnull final RunnableWithException runnable) {
+    private void doSilently(final String actionName, final RunnableWithException runnable) {
         try {
             runnable.run();
         } catch (final RestartException rE) {
@@ -590,9 +588,8 @@ public class PlannerRepl implements Debugger {
         }
     }
 
-    @Nonnull
     @SuppressWarnings({"CallToPrintStackTrace", "PMD.AvoidPrintStackTrace"})
-    private <T> Optional<T> getSilently(@Nonnull final String actionName, @Nonnull final SupplierWithException<T> supplier) {
+    private <T> Optional<T> getSilently(final String actionName, final SupplierWithException<T> supplier) {
         try {
             return Optional.ofNullable(supplier.get());
         } catch (final RestartException rE) {
@@ -622,13 +619,11 @@ public class PlannerRepl implements Debugger {
         return commandsMapBuilder.build();
     }
 
-    @Nonnull
     static Set<Commands.Command<PlannerEvent>> getCommands() {
         return ImmutableSet.copyOf(commandsMap.values());
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    @Nonnull
     private static SetMultimap<Class<? extends PlannerEvent>, Processors.Processor<? extends PlannerEvent>> loadProcessors() {
         SetMultimap<Class<? extends PlannerEvent>, Processors.Processor<? extends PlannerEvent>> processorsMap = HashMultimap.create();
         final Iterable<Processors.Processor> loader
@@ -644,9 +639,8 @@ public class PlannerRepl implements Debugger {
         return processorsMap;
     }
 
-    @Nonnull
-    private static <E extends PlannerEvent> Optional<Commands.Command<E>> resolveCommand(@Nonnull final ImmutableMap<String, Commands.Command<E>> commandsMap,
-                                                                                         @Nonnull final ParsedLine parsedLine,
+    private static <E extends PlannerEvent> Optional<Commands.Command<E>> resolveCommand(final ImmutableMap<String, Commands.Command<E>> commandsMap,
+                                                                                         final ParsedLine parsedLine,
                                                                                          final int wordIndex) {
         final List<String> words = parsedLine.words();
         if (words.size() <= wordIndex) {
@@ -751,28 +745,25 @@ public class PlannerRepl implements Debugger {
      * Breakpoint that breaks on a particular event.
      */
     public static class OnEventTypeBreakPoint extends BreakPoint {
-        @Nonnull
         private final Shorthand shorthand;
         @Nullable
         private final String referenceName;
-        @Nonnull
         private final Location location;
 
-        public OnEventTypeBreakPoint(@Nonnull final Shorthand shorthand,
-                                     @Nonnull final Location location) {
+        public OnEventTypeBreakPoint(final Shorthand shorthand,
+                                     final Location location) {
             this(shorthand, null, location);
         }
 
-        public OnEventTypeBreakPoint(@Nonnull final Shorthand shorthand,
+        public OnEventTypeBreakPoint(final Shorthand shorthand,
                                      @Nullable final String referenceName,
-                                     @Nonnull final Location location) {
+                                     final Location location) {
             super(event -> event.getShorthand() == shorthand && (location == Location.ANY || event.getLocation() == location));
             this.shorthand = shorthand;
             this.referenceName = referenceName == null ? null : referenceName.toLowerCase(Locale.ROOT);
             this.location = location;
         }
 
-        @Nonnull
         public Shorthand getShorthand() {
             return shorthand;
         }
@@ -782,7 +773,6 @@ public class PlannerRepl implements Debugger {
             return referenceName;
         }
 
-        @Nonnull
         public Location getLocation() {
             return location;
         }
@@ -806,8 +796,9 @@ public class PlannerRepl implements Debugger {
             super.onList(plannerRepl);
             plannerRepl.print("; ");
             plannerRepl.printKeyValue("shorthand", getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
-            if (getReferenceName() != null) {
-                plannerRepl.printKeyValue("reference", getReferenceName().toLowerCase(Locale.ROOT) + "; ");
+            final String referenceName = getReferenceName();
+            if (referenceName != null) {
+                plannerRepl.printKeyValue("reference", referenceName.toLowerCase(Locale.ROOT) + "; ");
             }
             plannerRepl.printKeyValue("location", getLocation().name().toLowerCase(Locale.ROOT));
         }
@@ -837,12 +828,11 @@ public class PlannerRepl implements Debugger {
      * to break on any such event or on an event initiating a particular new {@link PlannerPhase}.
      */
     public static class OnPhaseBreakPoint extends BreakPoint {
-        @Nonnull
         private final Location location;
         @Nullable
         private final PlannerPhase plannerPhase;
 
-        public OnPhaseBreakPoint(@Nonnull final Location location,
+        public OnPhaseBreakPoint(final Location location,
                                  @Nullable final PlannerPhase plannerPhase) {
             super(event -> (event instanceof InitiatePhasePlannerEvent) &&
                     event.getShorthand() == Shorthand.INITPHASE &&
@@ -852,12 +842,10 @@ public class PlannerRepl implements Debugger {
             this.plannerPhase = plannerPhase;
         }
 
-        @Nonnull
         public Shorthand getShorthand() {
             return Shorthand.INITPHASE;
         }
 
-        @Nonnull
         public Location getLocation() {
             return location;
         }
@@ -873,8 +861,9 @@ public class PlannerRepl implements Debugger {
             plannerRepl.print("; ");
             plannerRepl.printKeyValue("shorthand", getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
             plannerRepl.printKeyValue("location", getLocation().name().toLowerCase(Locale.ROOT) + "; ");
+            final PlannerPhase plannerPhase = getPlannerPhase();
             plannerRepl.printKeyValue("plannerPhase",
-                    (getPlannerPhase() == null ? getPlannerPhase().name() : "any").toLowerCase(Locale.ROOT));
+                    (plannerPhase == null ? "any" : plannerPhase.name()).toLowerCase(Locale.ROOT));
         }
 
         @Override
@@ -893,8 +882,9 @@ public class PlannerRepl implements Debugger {
 
         @Override
         public int hashCode() {
+            final PlannerPhase plannerPhase = getPlannerPhase();
             return Objects.hash(getShorthand(), getLocation(),
-                    getPlannerPhase() == null ? null : getPlannerPhase().name());
+                    plannerPhase == null ? null : plannerPhase.name());
         }
     }
 
@@ -902,10 +892,9 @@ public class PlannerRepl implements Debugger {
      * Breakpoint that breaks when a transform rule call yields an expression.
      */
     public static class OnYieldExpressionBreakPoint extends BreakPoint {
-        @Nonnull
         private final String expressionName;
 
-        public OnYieldExpressionBreakPoint(@Nonnull final String expressionName) {
+        public OnYieldExpressionBreakPoint(final String expressionName) {
             super(event -> event.getShorthand() == Shorthand.RULECALL &&
                            event.getLocation() == Location.END &&
                            event instanceof TransformRuleCallPlannerEvent);
@@ -957,10 +946,9 @@ public class PlannerRepl implements Debugger {
      * Breakpoint that breaks when a transform rule call yields a new match for a given candidate.
      */
     public static class OnYieldMatchBreakPoint extends BreakPoint {
-        @Nonnull
         private final String candidateName;
 
-        public OnYieldMatchBreakPoint(@Nonnull final String candidateName) {
+        public OnYieldMatchBreakPoint(final String candidateName) {
             super(event -> event.getShorthand() == Shorthand.RULECALL &&
                            event.getLocation() == Location.END &&
                            event instanceof TransformRuleCallPlannerEvent);
@@ -1011,13 +999,11 @@ public class PlannerRepl implements Debugger {
      */
     public static class OnRuleBreakPoint extends BreakPoint {
 
-        @Nonnull
         private final String ruleNamePrefix;
 
-        @Nonnull
         private final Location location;
 
-        public OnRuleBreakPoint(@Nonnull final String ruleNamePrefix, @Nonnull final Location location) {
+        public OnRuleBreakPoint(final String ruleNamePrefix, final Location location) {
             super(event -> event.getShorthand() == Shorthand.TRANSFORM &&
                            event.getLocation() == location &&
                            event instanceof TransformPlannerEvent);
@@ -1072,13 +1058,11 @@ public class PlannerRepl implements Debugger {
      */
     public static class OnRuleCallBreakPoint extends BreakPoint {
 
-        @Nonnull
         private final String ruleNamePrefix;
 
-        @Nonnull
         private final Location location;
 
-        public OnRuleCallBreakPoint(@Nonnull final String ruleNamePrefix, @Nonnull final Location location) {
+        public OnRuleCallBreakPoint(final String ruleNamePrefix, final Location location) {
             super(event -> event.getShorthand() == Shorthand.RULECALL &&
                            event.getLocation() == location &&
                            event instanceof TransformRuleCallPlannerEvent);

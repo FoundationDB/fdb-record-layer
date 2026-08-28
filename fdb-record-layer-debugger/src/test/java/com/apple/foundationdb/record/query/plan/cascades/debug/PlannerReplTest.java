@@ -67,6 +67,8 @@ class PlannerReplTest {
     }
 
     @AfterAll
+    @SuppressWarnings("NullAway") // Debugger.setDebugger's parameter (fdb-record-layer-core, outside this module) is
+    // documented and implemented to accept null to clear the current debugger, but is not itself annotated @Nullable.
     static void tearDown() {
         Debugger.setDebugger(null);
     }
