@@ -18,15 +18,22 @@
  * limitations under the License.
  */
 
+plugins {
+    alias(libs.plugins.errorprone)
+}
+
 def coreProject = ":${ext.coreProjectName}"
 dependencies {
     api project(coreProject)
     implementation(libs.icu)
     implementation(libs.protobuf)
     implementation(libs.slf4j.api)
-    compileOnly(libs.jsr305)
+    compileOnly(libs.jspecify)
     compileOnly(libs.autoService)
     annotationProcessor(libs.autoService)
+
+    errorprone(libs.errorprone.core)
+    errorprone(libs.nullaway)
 
     testImplementation project(':fdb-test-utils')
     testImplementation(testFixtures(project(coreProject)))
@@ -34,6 +41,19 @@ dependencies {
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)
     testImplementation(libs.snakeyaml)
+}
+
+// jspecify + NullAway, scoped to this module only. See the @NullMarked package-info.java in
+// com.apple.foundationdb.record.icu. Part of a module-by-module null-checking rollout that started
+// with fdb-relational-grpc and fdb-relational-jdbc.
+tasks.withType(JavaCompile).configureEach {
+    options.errorprone {
+        disableAllChecks = true
+        error("NullAway")
+        option("NullAway:AnnotatedPackages", "com.apple.foundationdb.record.icu")
+        option("NullAway:JSpecifyMode", "true")
+        option("NullAway:AcknowledgeRestrictiveAnnotations", "true")
+    }
 }
 
 apply from: rootProject.file('gradle/publishing.gradle')

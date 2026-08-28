@@ -30,7 +30,6 @@ import com.google.protobuf.ZeroCopyByteString;
 import com.ibm.icu.text.Collator;
 import com.ibm.icu.util.ULocale;
 
-import javax.annotation.Nonnull;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -59,21 +58,18 @@ public class TextCollatorRegistryICU implements TextCollatorRegistry {
     private TextCollatorRegistryICU() {
     }
 
-    @Nonnull
     @Override
     public String getName() {
         return "icu";
     }
 
     @Override
-    @Nonnull
     public TextCollator getTextCollator(int strength) {
         return getTextCollator(DEFAULT_LOCALE, strength);
     }
 
     @Override
-    @Nonnull
-    public TextCollator getTextCollator(@Nonnull String locale, int strength) {
+    public TextCollator getTextCollator(String locale, int strength) {
         return MapUtils.computeIfAbsent(collators, NonnullPair.of(locale, strength), key -> {
             final Collator collator = DEFAULT_LOCALE.equals(locale) ?
                                       Collator.getInstance(ULocale.forLocale(Locale.ROOT)) :
@@ -84,21 +80,19 @@ public class TextCollatorRegistryICU implements TextCollatorRegistry {
     }
 
     protected static class TextCollatorICU implements TextCollator {
-        @Nonnull
         private final Collator collator;
-        
-        protected TextCollatorICU(@Nonnull Collator collator) {
+
+        protected TextCollatorICU(Collator collator) {
             this.collator = collator;
         }
 
         @Override
-        public int compare(@Nonnull String str1, @Nonnull String str2) {
+        public int compare(String str1, String str2) {
             return collator.compare(str1, str2);
         }
 
-        @Nonnull
         @Override
-        public ByteString getKey(@Nonnull String str) {
+        public ByteString getKey(String str) {
             return ZeroCopyByteString.wrap(collator.getCollationKey(str).toByteArray());
         }
     }
