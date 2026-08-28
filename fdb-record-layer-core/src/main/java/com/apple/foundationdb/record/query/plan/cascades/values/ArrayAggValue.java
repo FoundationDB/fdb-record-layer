@@ -86,67 +86,46 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
     private final Value child;
 
     /**
-     * Element type of the resulting array. Derived from the child’s result type at construction time and carried
-     * explicitly so that it survives serialization.
-     */
-    @Nonnull
-    private final Type elementType;
-
-    /**
      * Whether {@code NULL} inputs are skipped ({@code IGNORE NULLS}) rather than collected ({@code RESPECT NULLS}).
      */
     private final boolean ignoreNulls;
 
-    /**
-     * Descriptor of the wrapper message the accumulator serializes its partial state through. It depends only on
-     * {@link #elementType}, so it is computed once here rather than per accumulator, i.e. per group.
-     */
     @Nonnull
-    private final Supplier<Descriptors.Descriptor> wrapperDescriptorSupplier;
-
-    @Nonnull
-    private final Supplier<Type> resultTypeSupplier;
+    private final Supplier<Type.Array> resultTypeSupplier;
 
     /**
      * Constructs a value whose element type is derived from the child’s result type. Under {@code ignoreNulls},
      * the element type will be non-nullable, since {@code NULL} values are then skipped rather than collected.
      */
     public ArrayAggValue(@Nonnull final Value child, final boolean ignoreNulls) {
-        this(child, ignoreNulls ? child.getResultType().notNullable() : child.getResultType(), ignoreNulls);
-    }
-
-    /**
-     * Constructs a value with the given element type, which is taken as-is.
-     */
-    private ArrayAggValue(@Nonnull final Value child, @Nonnull final Type elementType, final boolean ignoreNulls) {
-        Verify.verify(
-                !ignoreNulls || !elementType.isNullable(),
-                "`elementType` must be non-nullable under IGNORE NULLS");
         this.child = child;
-        this.elementType = elementType;
         this.ignoreNulls = ignoreNulls;
-        this.wrapperDescriptorSupplier = Suppliers.memoize(() -> wrapperDescriptorFor(elementType));
         // Note: The result type is always nullable, since ARRAY_AGG() must yield a NULL array for empty input.
-        this.resultTypeSupplier = Suppliers.memoize(() -> new Type.Array(true, elementType));
+        this.resultTypeSupplier = Suppliers.memoize(
+                () -> new Type.Array(true, ignoreNulls ? child.getResultType().notNullable() : child.getResultType()));
     }
 
     /**
-     * Builds the descriptor of the message the accumulator wraps its collected elements in for serialization.
-     * This produces a message with a single repeated {@code values} field, i.e., the same wrapper a nullable array
-     * uses. Here the wrapper is only a serialization container and is independent of the result type’s nullability.
+     * Resolves the descriptor of the message the accumulator wraps its collected elements in for serialization: a
+     * message with a single repeated {@code values} field, i.e., the same wrapper a nullable array uses.
      *
+     * <p>The descriptor is taken from the given plan-wide repository rather than built on the side, so that a restored
+     * element is backed by the very same descriptor as a freshly collected one. The repository is guaranteed to hold
+     * the wrapper type: it is built from the plan’s used types, and registering this value’s (nullable) array result
+     * type registers the wrapper along with it; see {@link Type.Array#defineProtoType} and
+     * {@link Type.Array#addProtoField}. A repository without it is a plan-construction bug, which the repository
+     * itself reports.
+     *
+     * @param typeRepository the plan-wide repository to resolve the wrapper type in
      * @param elementType the type of the collected elements
      *
      * @return the descriptor of the wrapper message for {@code elementType}
      */
     @Nonnull
-    static Descriptors.Descriptor wrapperDescriptorFor(@Nonnull final Type elementType) {
+    private static Descriptors.Descriptor wrapperDescriptorIn(@Nonnull final TypeRepository typeRepository,
+                                                             @Nonnull final Type elementType) {
         final Type.Record wrapperType = NullableArrayTypeUtils.wrapperTypeFor(elementType);
-        // Build the descriptor through a throwaway repository holding just the wrapper type. The `TypeRepository`
-        // repository that the accumulator converts its elements against is a different, plan-wide one, so the two
-        // cannot be shared.
-        final TypeRepository localRepository = TypeRepository.newBuilder().addTypeIfNeeded(wrapperType).build();
-        return Verify.verifyNotNull(localRepository.getMessageDescriptor(wrapperType));
+        return Verify.verifyNotNull(typeRepository.getMessageDescriptor(wrapperType));
     }
 
     @Nullable
@@ -172,7 +151,8 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
     public Accumulator createAccumulatorWithInitialState(
             @Nonnull final TypeRepository typeRepository,
             @Nullable final List<RecordCursorProto.AccumulatorState> initialState) {
-        final Descriptors.Descriptor wrapperDescriptor = wrapperDescriptorSupplier.get();
+        final Type elementType = getElementType();
+        final Descriptors.Descriptor wrapperDescriptor = wrapperDescriptorIn(typeRepository, elementType);
         if (initialState == null) {
             return new ArrayAccumulator(wrapperDescriptor, typeRepository, elementType, ignoreNulls);
         } else {
@@ -180,6 +160,17 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
             return new ArrayAccumulator(wrapperDescriptor, typeRepository, elementType, ignoreNulls,
                     initialState.get(0));
         }
+    }
+
+    /**
+     * Returns the element type of the resulting array, i.e. the type of the collected elements. It is derived from the
+     * child’s result type and the null treatment; see {@link #ArrayAggValue(Value, boolean)}.
+     *
+     * @return the type of the collected elements
+     */
+    @Nonnull
+    private Type getElementType() {
+        return Verify.verifyNotNull(resultTypeSupplier.get().getElementType());
     }
 
     /**
@@ -207,11 +198,7 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
     @Override
     public ArrayAggValue withChildren(final Iterable<? extends Value> newChildren) {
         Verify.verify(Iterables.size(newChildren) == 1);
-        final Value newChild = Iterables.get(newChildren, 0);
-        // The element type is re-derived from the new child here rather than carried over. That is intentional, since
-        // it has to follow the child if the child’s type changed, and if it did not, the derived type is equal to the
-        // current one anyway, so there is nothing to preserve — including for a value restored from a persisted plan.
-        return new ArrayAggValue(newChild, ignoreNulls);
+        return new ArrayAggValue(Iterables.get(newChildren, 0), ignoreNulls);
     }
 
     @Nonnull
@@ -241,11 +228,8 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
     @Nonnull
     @Override
     public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
-        return super.equalsWithoutChildren(other).filter(ignored -> {
-            final ArrayAggValue otherArrayAggValue = (ArrayAggValue)other;
-            return ignoreNulls == otherArrayAggValue.ignoreNulls
-                    && elementType.equals(otherArrayAggValue.elementType);
-        });
+        return super.equalsWithoutChildren(other)
+                .filter(ignored -> ignoreNulls == ((ArrayAggValue)other).ignoreNulls);
     }
 
     @Override
@@ -265,7 +249,6 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
     public PArrayAggValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PArrayAggValue.newBuilder()
                 .setChild(child.toValueProto(serializationContext))
-                .setElementType(elementType.toTypeProto(serializationContext))
                 .setIgnoreNulls(ignoreNulls)
                 .build();
     }
@@ -281,9 +264,7 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
                                           @Nonnull final PArrayAggValue arrayAggValueProto) {
         final Value child = Value.fromValueProto(serializationContext,
                 Objects.requireNonNull(arrayAggValueProto.getChild()));
-        final Type elementType = Type.fromTypeProto(serializationContext,
-                Objects.requireNonNull(arrayAggValueProto.getElementType()));
-        return new ArrayAggValue(child, elementType, arrayAggValueProto.getIgnoreNulls());
+        return new ArrayAggValue(child, arrayAggValueProto.getIgnoreNulls());
     }
 
     /**
@@ -330,8 +311,10 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
      * <p>Elements are converted from their runtime representation to protobuf via
      * {@link RecordConstructorValue#deepCopyIfNeeded}. Since the collected elements have to be serialized
      * into the wrapper message anyway, holding them in that form keeps a restored element indistinguishable from a
-     * freshly collected one, so we can let {@link #finish()} hand its result straight to the enclosing
-     * {@link RecordConstructorValue}, whose accumulator path does not do any conversion.
+     * freshly collected one — the wrapper descriptor is resolved from the same plan-wide {@link TypeRepository} the
+     * elements are converted against, so both are backed by the very same descriptors. That lets {@link #finish()}
+     * hand its result straight to the enclosing {@link RecordConstructorValue}, whose accumulator path does not do any
+     * conversion.
      */
     static final class ArrayAccumulator implements Accumulator {
         @Nonnull
@@ -360,7 +343,7 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
          * Creates an accumulator for a group that has not seen any rows yet.
          *
          * @param wrapperDescriptor descriptor of the message the partial state is serialized through, as built by
-         *        {@link #wrapperDescriptorFor}
+         *        {@link #wrapperDescriptorIn}
          * @param typeRepository the type repository the collected elements are converted against
          * @param elementType the type of the collected elements
          * @param ignoreNulls whether {@code NULL} inputs are skipped rather than collected
@@ -384,7 +367,7 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
          * {@link #getAccumulatorStates()}.
          *
          * @param wrapperDescriptor descriptor of the message the partial state is serialized through, as built by
-         *        {@link #wrapperDescriptorFor}
+         *        {@link #wrapperDescriptorIn}
          * @param typeRepository the type repository the collected elements are converted against
          * @param elementType the type of the collected elements
          * @param ignoreNulls whether {@code NULL} inputs are skipped rather than collected
