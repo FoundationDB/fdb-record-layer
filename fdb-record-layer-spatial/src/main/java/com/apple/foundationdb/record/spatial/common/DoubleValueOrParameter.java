@@ -24,7 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 
 /**
@@ -37,14 +38,14 @@ public abstract class DoubleValueOrParameter implements PlanHashable {
      * @param context the query context
      * @return a double value or {@code null}.
      */
-    public abstract Double getValue(@Nonnull EvaluationContext context);
+    @Nullable
+    public abstract Double getValue(EvaluationContext context);
 
     /**
      * Get a coordinate for a constant value.
      * @param value the coordinate value
      * @return a new coordinate using the given value
      */
-    @Nonnull
     public static DoubleValueOrParameter value(double value) {
         return new DoubleValue(value);
     }
@@ -54,8 +55,7 @@ public abstract class DoubleValueOrParameter implements PlanHashable {
      * @param parameter the parameter name
      * @return a new coordinate using the given parameter
      */
-    @Nonnull
-    public static DoubleValueOrParameter parameter(@Nonnull String parameter) {
+    public static DoubleValueOrParameter parameter(String parameter) {
         return new DoubleParameter(parameter);
     }
 
@@ -67,12 +67,13 @@ public abstract class DoubleValueOrParameter implements PlanHashable {
         }
 
         @Override
-        public Double getValue(@Nonnull EvaluationContext context) {
+        @Nullable
+        public Double getValue(EvaluationContext context) {
             return value;
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             return Double.hashCode(value);
         }
 
@@ -100,20 +101,20 @@ public abstract class DoubleValueOrParameter implements PlanHashable {
     }
 
     static class DoubleParameter extends DoubleValueOrParameter {
-        @Nonnull
         private final String parameter;
 
-        DoubleParameter(@Nonnull String parameter) {
+        DoubleParameter(String parameter) {
             this.parameter = parameter;
         }
 
         @Override
-        public Double getValue(@Nonnull EvaluationContext context) {
+        @Nullable
+        public Double getValue(EvaluationContext context) {
             return (Double)context.getBinding(parameter);
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             return parameter.hashCode();
         }
 

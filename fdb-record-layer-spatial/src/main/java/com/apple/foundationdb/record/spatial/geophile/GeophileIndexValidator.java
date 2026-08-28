@@ -25,8 +25,6 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.MetaDataValidator;
 
-import javax.annotation.Nonnull;
-
 /**
  * Validate that the key expression in a spatial index is valid.
  */
@@ -37,7 +35,7 @@ class GeophileIndexValidator extends IndexValidator {
     }
 
     @Override
-    public void validate(@Nonnull MetaDataValidator metaDataValidator) {
+    public void validate(MetaDataValidator metaDataValidator) {
         super.validate(metaDataValidator);
         validateNotGrouping();
         validateNotVersion();

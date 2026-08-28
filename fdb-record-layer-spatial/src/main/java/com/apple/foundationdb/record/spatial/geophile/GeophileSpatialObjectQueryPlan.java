@@ -48,8 +48,8 @@ import com.geophile.z.index.RecordWithSpatialObject;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -57,17 +57,17 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 
+import static com.geophile.z.SpatialJoin.Filter;
+
 /**
  * Base class for query plans that execute a spatial join between a single spatial object and a spatial index.
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class GeophileSpatialObjectQueryPlan extends AbstractRelationalExpressionWithoutChildren implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithIndex {
-    @Nonnull
     private final String indexName;
-    @Nonnull
     private final ScanComparisons prefixComparisons;
 
-    protected GeophileSpatialObjectQueryPlan(@Nonnull String indexName, @Nonnull ScanComparisons prefixComparisons) {
+    protected GeophileSpatialObjectQueryPlan(String indexName, ScanComparisons prefixComparisons) {
         this.indexName = indexName;
         this.prefixComparisons = prefixComparisons;
     }
@@ -78,7 +78,7 @@ public abstract class GeophileSpatialObjectQueryPlan extends AbstractRelationalE
      * @return a spatial object to use in spatial join or {@code null} if some bound parameter is null.
      */
     @Nullable
-    protected abstract SpatialObject getSpatialObject(@Nonnull EvaluationContext context);
+    protected abstract SpatialObject getSpatialObject(EvaluationContext context);
 
     /**
      * Get a optional filter to eliminate false positives from the spatial join.
@@ -93,7 +93,7 @@ public abstract class GeophileSpatialObjectQueryPlan extends AbstractRelationalE
      */
     @Nullable
     @SuppressWarnings("PMD.EmptyMethodInAbstractClassShouldBeAbstract") // null is a reasonable default
-    protected SpatialJoin.Filter<RecordWithSpatialObject, GeophileRecordImpl> getFilter(@Nonnull EvaluationContext context) {
+    protected Filter<RecordWithSpatialObject, GeophileRecordImpl> getFilter(EvaluationContext context) {
         return null;
     }
 
@@ -107,35 +107,31 @@ public abstract class GeophileSpatialObjectQueryPlan extends AbstractRelationalE
         return GeophileRecordImpl::new;
     }
 
-    @Nonnull
     public ScanComparisons getPrefixComparisons() {
         return prefixComparisons;
     }
 
-    @Nonnull
     @Override
     public String getIndexName() {
         return indexName;
     }
 
-    @Nonnull
     @Override
     public IndexScanType getScanType() {
         return GeophileScanTypes.GO_TO_Z;
     }
 
-    @Nonnull
     @Override
     public Optional<? extends MatchCandidate> getMatchCandidateMaybe() {
         return Optional.empty();
     }
 
-    @Nonnull
     @Override
-    public <M extends Message> RecordCursor<IndexEntry> executeEntries(@Nonnull FDBRecordStoreBase<M> store,
-                                                                       @Nonnull EvaluationContext context,
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently recognize @Nullable on array (byte[]) parameters when overriding this unannotated-interface method; continuation genuinely may be null, same as before this migration.
+    public <M extends Message> RecordCursor<IndexEntry> executeEntries(FDBRecordStoreBase<M> store,
+                                                                       EvaluationContext context,
                                                                        @Nullable byte[] continuation,
-                                                                       @Nonnull ExecuteProperties executeProperties) {
+                                                                       ExecuteProperties executeProperties) {
         if (continuation != null) {
             throw new RecordCoreException("continuations are not yet supported");
         }
@@ -165,11 +161,10 @@ public abstract class GeophileSpatialObjectQueryPlan extends AbstractRelationalE
     }
 
     @Override
-    public boolean hasIndexScan(@Nonnull String indexName) {
+    public boolean hasIndexScan(String indexName) {
         return this.indexName.equals(indexName);
     }
 
-    @Nonnull
     @Override
     public Set<String> getUsedIndexes() {
         return Collections.singleton(indexName);
@@ -190,30 +185,27 @@ public abstract class GeophileSpatialObjectQueryPlan extends AbstractRelationalE
         return 1;
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return Collections.emptyList();
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
-    public GeophileSpatialObjectQueryPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public GeophileSpatialObjectQueryPlan translateCorrelations(final TranslationMap translationMap,
                                                                 final boolean shouldSimplifyValues,
-                                                                @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                                final List<? extends Quantifier> translatedQuantifiers) {
         return this;
     }
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }

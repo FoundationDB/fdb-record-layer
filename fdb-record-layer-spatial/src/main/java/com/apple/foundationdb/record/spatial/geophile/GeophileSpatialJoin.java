@@ -37,7 +37,6 @@ import com.geophile.z.SpatialIndex;
 import com.geophile.z.SpatialJoin;
 import com.geophile.z.SpatialObject;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.function.BiFunction;
@@ -46,34 +45,28 @@ import java.util.function.BiFunction;
  * Generate {@link RecordCursor} from {@link GeophileIndexMaintainer} using Geophile {@link SpatialJoin}.
  */
 class GeophileSpatialJoin {
-    @Nonnull
     private final SpatialJoin spatialJoin;
-    @Nonnull
     private final FDBRecordStore store;
-    @Nonnull
     private final EvaluationContext context;
 
-    GeophileSpatialJoin(@Nonnull SpatialJoin spatialJoin, @Nonnull FDBRecordStore store, @Nonnull EvaluationContext context) {
+    GeophileSpatialJoin(SpatialJoin spatialJoin, FDBRecordStore store, EvaluationContext context) {
         this.spatialJoin = spatialJoin;
         this.store = store;
         this.context = context;
     }
 
-    @Nonnull
-    public SpatialIndex<GeophileRecordImpl> getSpatialIndex(@Nonnull String indexName) {
+    public SpatialIndex<GeophileRecordImpl> getSpatialIndex(String indexName) {
         return getSpatialIndex(indexName, ScanComparisons.EMPTY);
     }
 
-    @Nonnull
-    public SpatialIndex<GeophileRecordImpl> getSpatialIndex(@Nonnull String indexName,
-                                                            @Nonnull ScanComparisons prefixComparisons) {
+    public SpatialIndex<GeophileRecordImpl> getSpatialIndex(String indexName,
+                                                            ScanComparisons prefixComparisons) {
         return getSpatialIndex(indexName, prefixComparisons, GeophileRecordImpl::new);
     }
 
-    @Nonnull
-    public SpatialIndex<GeophileRecordImpl> getSpatialIndex(@Nonnull String indexName,
-                                                            @Nonnull ScanComparisons prefixComparisons,
-                                                            @Nonnull BiFunction<IndexEntry, Tuple, GeophileRecordImpl> recordFunction) {
+    public SpatialIndex<GeophileRecordImpl> getSpatialIndex(String indexName,
+                                                            ScanComparisons prefixComparisons,
+                                                            BiFunction<IndexEntry, Tuple, GeophileRecordImpl> recordFunction) {
         if (!prefixComparisons.isEquality()) {
             throw new RecordCoreArgumentException("prefix comparisons must only have equality");
         }
@@ -93,10 +86,9 @@ class GeophileSpatialJoin {
         }
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    public RecordCursor<IndexEntry> recordCursor(@Nonnull SpatialObject spatialObject,
-                                                 @Nonnull SpatialIndex<GeophileRecordImpl> spatialIndex) {
+    public RecordCursor<IndexEntry> recordCursor(SpatialObject spatialObject,
+                                                 SpatialIndex<GeophileRecordImpl> spatialIndex) {
         // TODO: This is a synchronous implementation using Iterators. A proper RecordCursor implementation needs
         //  Geophile async extensions. Also need to pass down executeProperties.
         final Iterator<GeophileRecordImpl> iterator;
@@ -112,10 +104,9 @@ class GeophileSpatialJoin {
         return recordCursor.map(GeophileRecordImpl::getIndexEntry);
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    public RecordCursor<Pair<IndexEntry, IndexEntry>> recordCursor(@Nonnull SpatialIndex<GeophileRecordImpl> left,
-                                                                   @Nonnull SpatialIndex<GeophileRecordImpl> right) {
+    public RecordCursor<Pair<IndexEntry, IndexEntry>> recordCursor(SpatialIndex<GeophileRecordImpl> left,
+                                                                   SpatialIndex<GeophileRecordImpl> right) {
         // TODO: This is a synchronous implementation using Iterators. A proper RecordCursor implementation needs
         //  Geophile async extensions. Also need to pass down executeProperties.
         final Iterator<com.geophile.z.Pair<GeophileRecordImpl, GeophileRecordImpl>> iterator;

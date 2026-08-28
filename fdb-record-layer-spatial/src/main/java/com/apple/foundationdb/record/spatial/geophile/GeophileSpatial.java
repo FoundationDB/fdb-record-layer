@@ -39,7 +39,7 @@ import org.locationtech.jts.io.geojson.GeoJsonReader;
 import org.locationtech.jts.io.geojson.GeoJsonWriter;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Helper methods for interfacing with Geophile, specifically for implementing geospatial with lat, lon coordinates.
@@ -171,11 +171,18 @@ class GeophileSpatial {
 
     private static class IO {
         private final GeometryFactory factory = new GeometryFactory();
+        // Lazily initialized on first use by the corresponding getter below.
+        @Nullable
         private GeoJsonReader geoJsonReader;
+        @Nullable
         private GeoJsonWriter geoJsonWriter;
+        @Nullable
         private WKBReader wkbReader;
+        @Nullable
         private WKBWriter wkbWriter;
+        @Nullable
         private WKTReader wktReader;
+        @Nullable
         private WKTWriter wktWriter;
 
         public GeoJsonReader geoJsonReader() {
@@ -229,7 +236,7 @@ class GeophileSpatial {
      * @param geometry the geometry to be transformed
      * @return the transformed geometry
      */
-    public static Geometry swapLatLong(@Nonnull Geometry geometry) {
+    public static Geometry swapLatLong(Geometry geometry) {
         geometry.apply(SWAPPING_FILTER);
         return geometry;
     }

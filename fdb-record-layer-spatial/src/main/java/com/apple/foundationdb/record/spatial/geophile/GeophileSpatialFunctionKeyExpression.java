@@ -35,8 +35,8 @@ import com.geophile.z.spatialobject.d2.Point;
 import com.google.protobuf.Message;
 import org.locationtech.jts.io.ParseException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -50,23 +50,21 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
 
     private final Space space;
 
-    protected GeophileSpatialFunctionKeyExpression(@Nonnull String name, @Nonnull KeyExpression arguments) {
+    protected GeophileSpatialFunctionKeyExpression(String name, KeyExpression arguments) {
         super(name, arguments);
         // TODO: How do we make this a part of the key expression? A naming convention?
         this.space = SPACE_LAT_LON;
     }
 
-    @Nonnull
     public Space getSpace() {
         return space;
     }
 
     @Nullable
-    protected abstract SpatialObject parseSpatialObject(@Nonnull Key.Evaluated arguments) throws ParseException;
+    protected abstract SpatialObject parseSpatialObject(Key.Evaluated arguments) throws ParseException;
 
-    @Nonnull
     @Override
-    public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record, @Nullable Message message, @Nonnull Key.Evaluated arguments) {
+    public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record, @Nullable Message message, Key.Evaluated arguments) {
         SpatialObject spatialObject;
         try {
             spatialObject = parseSpatialObject(arguments);
@@ -98,8 +96,10 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
         return 1;
     }
 
-    protected boolean shouldSwapLatLong(@Nonnull Key.Evaluated arguments) {
-        return arguments.size() > 1 && arguments.getObject(1, Boolean.class);
+    protected boolean shouldSwapLatLong(Key.Evaluated arguments) {
+        // Boolean.TRUE.equals(...) rather than unboxing, since a null argument value (unlikely, but not
+        // statically impossible) would otherwise NPE here; treat it the same as an absent/false argument.
+        return arguments.size() > 1 && Boolean.TRUE.equals(arguments.getObject(1, Boolean.class));
     }
 
     /**
@@ -110,13 +110,13 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
     public static class GeoPointZ extends GeophileSpatialFunctionKeyExpression {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Geo-Point-Z");
 
-        public GeoPointZ(@Nonnull String name, @Nonnull KeyExpression arguments) {
+        public GeoPointZ(String name, KeyExpression arguments) {
             super(name, arguments);
         }
 
         @Nullable
         @Override
-        protected SpatialObject parseSpatialObject(@Nonnull Key.Evaluated arguments) {
+        protected SpatialObject parseSpatialObject(Key.Evaluated arguments) {
             Double latitude = arguments.getNullableDouble(0);
             Double longitude = arguments.getNullableDouble(1);
             if (latitude == null || longitude == null) {
@@ -137,13 +137,12 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
+        public int planHash(final PlanHashable.PlanHashMode mode) {
             return super.basePlanHash(mode, BASE_HASH);
         }
 
-        @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+        public Value toValue(final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
     }
@@ -156,13 +155,13 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
     public static class GeoJsonZ extends GeophileSpatialFunctionKeyExpression {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Geo-Json-Z");
 
-        public GeoJsonZ(@Nonnull String name, @Nonnull KeyExpression arguments) {
+        public GeoJsonZ(String name, KeyExpression arguments) {
             super(name, arguments);
         }
 
         @Nullable
         @Override
-        protected SpatialObject parseSpatialObject(@Nonnull Key.Evaluated arguments) throws ParseException {
+        protected SpatialObject parseSpatialObject(Key.Evaluated arguments) throws ParseException {
             String json = arguments.getString(0);
             if (json == null) {
                 return null;
@@ -182,13 +181,12 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
+        public int planHash(final PlanHashable.PlanHashMode mode) {
             return super.basePlanHash(mode, BASE_HASH);
         }
 
-        @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+        public Value toValue(final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
     }
@@ -202,13 +200,13 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
     public static class GeoWKBZ extends GeophileSpatialFunctionKeyExpression {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Geo-WKB-Z");
 
-        public GeoWKBZ(@Nonnull String name, @Nonnull KeyExpression arguments) {
+        public GeoWKBZ(String name, KeyExpression arguments) {
             super(name, arguments);
         }
 
         @Nullable
         @Override
-        protected SpatialObject parseSpatialObject(@Nonnull Key.Evaluated arguments) throws ParseException {
+        protected SpatialObject parseSpatialObject(Key.Evaluated arguments) throws ParseException {
             byte[] wkb = arguments.getObject(0, byte[].class);
             if (wkb == null) {
                 return null;
@@ -228,13 +226,12 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
+        public int planHash(final PlanHashable.PlanHashMode mode) {
             return super.basePlanHash(mode, BASE_HASH);
         }
 
-        @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+        public Value toValue(final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
     }
@@ -248,13 +245,13 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
     public static class GeoWKTZ extends GeophileSpatialFunctionKeyExpression {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Geo-WKT-Z");
 
-        public GeoWKTZ(@Nonnull String name, @Nonnull KeyExpression arguments) {
+        public GeoWKTZ(String name, KeyExpression arguments) {
             super(name, arguments);
         }
 
         @Nullable
         @Override
-        protected SpatialObject parseSpatialObject(@Nonnull Key.Evaluated arguments) throws ParseException {
+        protected SpatialObject parseSpatialObject(Key.Evaluated arguments) throws ParseException {
             String wkt = arguments.getString(0);
             if (wkt == null) {
                 return null;
@@ -274,13 +271,12 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
+        public int planHash(final PlanHashable.PlanHashMode mode) {
             return super.basePlanHash(mode, BASE_HASH);
         }
 
-        @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+        public Value toValue(final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
     }
