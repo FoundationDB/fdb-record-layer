@@ -24,34 +24,25 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 
-import javax.annotation.Nonnull;
 import javax.annotation.concurrent.ThreadSafe;
 import java.net.URI;
 
 @ThreadSafe
 public interface MetadataOperationsFactory {
 
-    @Nonnull
-    ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties);
+    ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template, Options templateProperties);
 
-    @Nonnull
-    ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, boolean throwIfDoesNotExist, @Nonnull Options options);
+    ConstantAction getDropSchemaTemplateConstantAction(String templateId, boolean throwIfDoesNotExist, Options options);
 
-    @Nonnull
-    ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull Options constantActionOptions);
+    ConstantAction getCreateDatabaseConstantAction(URI dbPath, Options constantActionOptions);
 
-    @Nonnull
-    ConstantAction getCreateSchemaConstantAction(@Nonnull URI dbUri, @Nonnull String schemaName, @Nonnull String templateId, Options constantActionOptions);
+    ConstantAction getCreateSchemaConstantAction(URI dbUri, String schemaName, String templateId, Options constantActionOptions);
 
-    @Nonnull
-    ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, boolean throwIfDoesNotExist, @Nonnull Options options);
+    ConstantAction getDropDatabaseConstantAction(URI dbUrl, boolean throwIfDoesNotExist, Options options);
 
-    @Nonnull
-    ConstantAction getDropSchemaConstantAction(@Nonnull URI dbPath, @Nonnull String schemaName, @Nonnull Options options);
+    ConstantAction getDropSchemaConstantAction(URI dbPath, String schemaName, Options options);
 
-    @Nonnull
-    ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull SchemaTemplate template, boolean throwIfExists, @Nonnull RecordLayerInvokedRoutine invokedRoutine);
+    ConstantAction getCreateTemporaryFunctionConstantAction(SchemaTemplate template, boolean throwIfExists, RecordLayerInvokedRoutine invokedRoutine);
 
-    @Nonnull
-    ConstantAction getDropTemporaryFunctionConstantAction(boolean throwIfNotExists, @Nonnull String temporaryFunctionName);
+    ConstantAction getDropTemporaryFunctionConstantAction(boolean throwIfNotExists, String temporaryFunctionName);
 }

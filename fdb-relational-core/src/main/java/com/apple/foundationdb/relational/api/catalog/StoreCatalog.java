@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 
 /**
@@ -52,8 +51,7 @@ public interface StoreCatalog {
      *                           InternalError if txn is incompatible type
      *                           TransactionInactive if txn is no longer active
      */
-    @Nonnull
-    Schema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException;
+    Schema loadSchema(Transaction txn, URI databaseId, String schemaName) throws RelationalException;
 
     /**
      * Save the given schema.
@@ -65,8 +63,8 @@ public interface StoreCatalog {
      * values of this will affect how this save will conflict with other interactions to the schema.
      * @throws RelationalException if something goes wrong, with a specific ErrorCode saying what.
      */
-    void saveSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite, boolean createDatabaseIfNecessary,
-                    @Nonnull SchemaExistsBehavior existsBehavior) throws RelationalException;
+    void saveSchema(Transaction txn, Schema dataToWrite, boolean createDatabaseIfNecessary,
+                    SchemaExistsBehavior existsBehavior) throws RelationalException;
 
     /**
      * Updates schema to the latest template.
@@ -78,9 +76,9 @@ public interface StoreCatalog {
      *                           TransactionInactive if txn is no longer active
      *                           UNDEFINED_SCHEMA if schema not found
      */
-    void repairSchema(@Nonnull Transaction txn, @Nonnull String databaseId, @Nonnull String schemaName) throws RelationalException;
+    void repairSchema(Transaction txn, String databaseId, String schemaName) throws RelationalException;
 
-    void createDatabase(@Nonnull Transaction txn, @Nonnull URI dbUri) throws RelationalException;
+    void createDatabase(Transaction txn, URI dbUri) throws RelationalException;
 
     /**
      * list databases in the entire Catalog.
@@ -91,7 +89,7 @@ public interface StoreCatalog {
      * @throws RelationalException InternalError if txn is incompatible type
      *                           TransactionInactive if txn is no longer active
      */
-    RelationalResultSet listDatabases(@Nonnull Transaction txn, @Nonnull Continuation continuation) throws RelationalException;
+    RelationalResultSet listDatabases(Transaction txn, Continuation continuation) throws RelationalException;
 
     /**
      * list schemas in entire Catalog.
@@ -102,7 +100,7 @@ public interface StoreCatalog {
      * @throws RelationalException InternalError if txn is incompatible type
      *                           TransactionInactive if txn is no longer active
      */
-    RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull Continuation continuation) throws RelationalException;
+    RelationalResultSet listSchemas(Transaction txn, Continuation continuation) throws RelationalException;
 
     /**
      * list schemas in a database.
@@ -114,7 +112,7 @@ public interface StoreCatalog {
      * @throws RelationalException InternalError if txn is incompatible type
      *                           TransactionInactive if txn is no longer active
      */
-    RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull Continuation continuation) throws RelationalException;
+    RelationalResultSet listSchemas(Transaction txn, URI databaseId, Continuation continuation) throws RelationalException;
 
     /**
      * Delete the schema from the Catalog.
@@ -124,11 +122,11 @@ public interface StoreCatalog {
      * @param schemaName the name of the schema to delete
      * @throws RelationalException if something goes wrong, with a specific ErrorCode saying what.
      */
-    void deleteSchema(@Nonnull Transaction txn, @Nonnull URI dbUri, @Nonnull String schemaName) throws RelationalException;
+    void deleteSchema(Transaction txn, URI dbUri, String schemaName) throws RelationalException;
 
-    boolean doesDatabaseExist(@Nonnull Transaction txn, @Nonnull URI dbUrl) throws RelationalException;
+    boolean doesDatabaseExist(Transaction txn, URI dbUrl) throws RelationalException;
 
-    boolean doesSchemaExist(@Nonnull Transaction txn, @Nonnull URI dbUrl, @Nonnull String schemaName) throws RelationalException;
+    boolean doesSchemaExist(Transaction txn, URI dbUrl, String schemaName) throws RelationalException;
 
     /**
      * Delete the database from the Catalog.
@@ -142,5 +140,5 @@ public interface StoreCatalog {
      * @return {@code true} if the operation finishes, else returns {@code false} if the transaction expires
      * @throws RelationalException if something goes wrong, with a specific ErrorCode saying what.
      */
-    boolean deleteDatabase(@Nonnull Transaction txn, @Nonnull URI dbUrl, boolean throwIfDoesNotExist) throws RelationalException;
+    boolean deleteDatabase(Transaction txn, URI dbUrl, boolean throwIfDoesNotExist) throws RelationalException;
 }

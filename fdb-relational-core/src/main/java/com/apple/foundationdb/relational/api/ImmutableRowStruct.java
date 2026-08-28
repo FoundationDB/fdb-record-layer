@@ -25,7 +25,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.Objects;
 
@@ -37,7 +36,7 @@ public class ImmutableRowStruct extends RowStruct {
 
     private final Row theRow;
 
-    public ImmutableRowStruct(@Nonnull Row theRow, @Nonnull StructMetaData metaData) {
+    public ImmutableRowStruct(Row theRow, StructMetaData metaData) {
         super(metaData);
         this.theRow = theRow;
     }

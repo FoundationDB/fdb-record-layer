@@ -27,8 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
-
 /**
  * A Utils class that holds logic related to nullable arrays.
  * Nullable Arrays are arrays that, if unset, will be NULL.
@@ -59,7 +57,7 @@ public final class NullableArrayUtils {
      * Returns whether the given descriptor represents a wrapped ARRAY, that is, whether it contains a single repeated
      * field named {@code values}.
      */
-    public static boolean isWrappedArrayDescriptor(@Nonnull final Descriptors.Descriptor descriptor) {
+    public static boolean isWrappedArrayDescriptor(final Descriptors.Descriptor descriptor) {
         return descriptor.getFields().size() == 1
                 && REPEATED_FIELD_NAME.equals(descriptor.getFields().get(0).getName())
                 && descriptor.findFieldByName(REPEATED_FIELD_NAME).isRepeated();
@@ -204,7 +202,7 @@ public final class NullableArrayUtils {
      *   }
      *}
      */
-    private static RecordKeyExpressionProto.Nesting splitFieldIntoNestedWithValues(@Nonnull final RecordKeyExpressionProto.Field original) {
+    private static RecordKeyExpressionProto.Nesting splitFieldIntoNestedWithValues(final RecordKeyExpressionProto.Field original) {
         final var nestedArrayBuilder = RecordKeyExpressionProto.Field.newBuilder()
                 .setFieldName(original.getFieldName())
                 .setFanType(RecordKeyExpressionProto.Field.FanType.SCALAR)

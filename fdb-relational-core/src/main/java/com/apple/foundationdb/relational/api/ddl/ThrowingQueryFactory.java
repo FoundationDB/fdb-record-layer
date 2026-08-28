@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 
 /**
@@ -40,14 +39,14 @@ public final class ThrowingQueryFactory implements DdlQueryFactory {
     private ThrowingQueryFactory() {
     }
 
-    private static RuntimeException reject(@Nonnull final String operation) {
+    private static RuntimeException reject(final String operation) {
         return new RelationalException(
                 "DDL query '" + operation + "' is not allowed in this context",
                 ErrorCode.UNSUPPORTED_OPERATION).toUncheckedWrappedException();
     }
 
     @Override
-    public DdlQuery getListDatabasesQueryAction(@Nonnull URI prefixPath) {
+    public DdlQuery getListDatabasesQueryAction(URI prefixPath) {
         throw reject("SHOW DATABASES");
     }
 
@@ -57,12 +56,12 @@ public final class ThrowingQueryFactory implements DdlQueryFactory {
     }
 
     @Override
-    public DdlQuery getDescribeSchemaTemplateQueryAction(@Nonnull String schemaId) {
+    public DdlQuery getDescribeSchemaTemplateQueryAction(String schemaId) {
         throw reject("DESCRIBE SCHEMA TEMPLATE");
     }
 
     @Override
-    public DdlQuery getDescribeSchemaQueryAction(@Nonnull URI dbId, @Nonnull String schemaId) {
+    public DdlQuery getDescribeSchemaQueryAction(URI dbId, String schemaId) {
         throw reject("DESCRIBE SCHEMA");
     }
 }

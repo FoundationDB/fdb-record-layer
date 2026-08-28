@@ -36,6 +36,7 @@ dependencies {
     compileOnly(libs.autoService)
     annotationProcessor(libs.autoService)
     implementation(libs.jsr305)
+    compileOnly(libs.jspecify)
     implementation(libs.guava)
     implementation(libs.antlr)
     implementation(libs.log4j.core)

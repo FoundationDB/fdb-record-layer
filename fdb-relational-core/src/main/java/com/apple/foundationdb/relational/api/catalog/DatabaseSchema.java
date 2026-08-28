@@ -23,12 +23,9 @@ package com.apple.foundationdb.relational.api.catalog;
 import com.apple.foundationdb.relational.api.ConnectionScoped;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nonnull;
-
 @ConnectionScoped
 public interface DatabaseSchema extends AutoCloseable {
 
-    @Nonnull
     String getSchemaName();
 
     @Override

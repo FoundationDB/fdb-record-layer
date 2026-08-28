@@ -26,8 +26,7 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * There can only be 1 Database object per Connection instance, and its lifecycle is managed by the connection
@@ -45,9 +44,8 @@ public interface RelationalDatabase extends AutoCloseable {
      * @return a Schema for the specified id.
      * @throws RelationalException if something goes wrong during load
      */
-    DatabaseSchema loadSchema(@Nonnull String schemaId) throws RelationalException;
+    DatabaseSchema loadSchema(String schemaId) throws RelationalException;
 
-    @Nonnull
     MetadataOperationsFactory getDdlFactory();
 
     @Override

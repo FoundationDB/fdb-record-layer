@@ -52,7 +52,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import javax.annotation.Nonnull;
 import java.util.Locale;
 import java.util.function.Consumer;
 
@@ -93,7 +92,7 @@ public class IndexTest {
         Utils.enableCascadesDebugger();
     }
 
-    void shouldFailWith(@Nonnull final String query, @Nonnull final ErrorCode errorCode, @Nonnull final String errorMessage) throws Exception {
+    void shouldFailWith(final String query, final ErrorCode errorCode, final String errorMessage) throws Exception {
         connection.setAutoCommit(false);
         connection.getUnderlyingEmbeddedConnection().createNewTransaction();
         final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
@@ -106,7 +105,7 @@ public class IndexTest {
         connection.setAutoCommit(true);
     }
 
-    void shouldWorkWithInjectedFactory(@Nonnull final String query, @Nonnull final MetadataOperationsFactory metadataOperationsFactory)
+    void shouldWorkWithInjectedFactory(final String query, final MetadataOperationsFactory metadataOperationsFactory)
             throws Exception {
         connection.setAutoCommit(false);
         connection.getUnderlyingEmbeddedConnection().createNewTransaction();
@@ -117,17 +116,16 @@ public class IndexTest {
         connection.setAutoCommit(true);
     }
 
-    private void indexIs(@Nonnull final String stmt, @Nonnull final KeyExpression expectedKey, @Nonnull final String indexType) throws Exception {
+    private void indexIs(final String stmt, final KeyExpression expectedKey, final String indexType) throws Exception {
         indexIs(stmt, expectedKey, indexType, index -> { });
     }
 
-    private void indexIs(@Nonnull final String stmt, @Nonnull final KeyExpression expectedKey, @Nonnull final String indexType,
-                         @Nonnull final Consumer<RecordLayerIndex> validator) throws Exception {
+    private void indexIs(final String stmt, final KeyExpression expectedKey, final String indexType,
+                         final Consumer<RecordLayerIndex> validator) throws Exception {
         shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template,
-                                                                      @Nonnull final Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(final SchemaTemplate template,
+                                                                      final Options templateProperties) {
                 Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
                 final var recordLayerSchemaTemplate = Assert.castUnchecked(template, RecordLayerSchemaTemplate.class);
                 Assertions.assertEquals(1, recordLayerSchemaTemplate.getTables().size(), "Incorrect number of tables");

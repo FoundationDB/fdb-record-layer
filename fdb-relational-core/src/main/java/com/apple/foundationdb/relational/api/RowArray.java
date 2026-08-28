@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 import com.google.common.base.Suppliers;
 
-import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -49,13 +48,13 @@ public class RowArray implements RelationalArray, EmbeddedRelationalArray {
 
     private final Supplier<Integer> hashCodeSupplier;
 
-    public RowArray(@Nonnull List<?> elements, @Nonnull ArrayMetaData arrayMetaData) {
+    public RowArray(List<?> elements, ArrayMetaData arrayMetaData) {
         this.arrayMetaData = arrayMetaData;
         this.rows = Suppliers.memoize(() -> createIterableRows(elements));
         this.hashCodeSupplier = Suppliers.memoize(this::calculateHashCode);
     }
 
-    private static List<Row> createIterableRows(@Nonnull List<?> elements) {
+    private static List<Row> createIterableRows(List<?> elements) {
         int i = 1;
         final List<Row> rows = new ArrayList<>();
         for (var element : elements) {
@@ -82,7 +81,6 @@ public class RowArray implements RelationalArray, EmbeddedRelationalArray {
         return arrayMetaData.getElementType();
     }
 
-    @Nonnull
     @Override
     public ArrayMetaData getMetaData() throws SQLException {
         return arrayMetaData;

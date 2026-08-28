@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.api.ddl;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 
 @API(API.Status.EXPERIMENTAL)
@@ -30,7 +29,7 @@ public class NoOpQueryFactory implements DdlQueryFactory {
     public static final DdlQueryFactory INSTANCE = new NoOpQueryFactory();
 
     @Override
-    public DdlQuery getListDatabasesQueryAction(@Nonnull URI prefixPath) {
+    public DdlQuery getListDatabasesQueryAction(URI prefixPath) {
         return DdlQuery.NoOpDdlQuery.INSTANCE;
     }
 
@@ -40,12 +39,12 @@ public class NoOpQueryFactory implements DdlQueryFactory {
     }
 
     @Override
-    public DdlQuery getDescribeSchemaTemplateQueryAction(@Nonnull String schemaId) {
+    public DdlQuery getDescribeSchemaTemplateQueryAction(String schemaId) {
         return DdlQuery.NoOpDdlQuery.INSTANCE;
     }
 
     @Override
-    public DdlQuery getDescribeSchemaQueryAction(@Nonnull URI dbId, @Nonnull String schemaId) {
+    public DdlQuery getDescribeSchemaQueryAction(URI dbId, String schemaId) {
         return DdlQuery.NoOpDdlQuery.INSTANCE;
     }
 }

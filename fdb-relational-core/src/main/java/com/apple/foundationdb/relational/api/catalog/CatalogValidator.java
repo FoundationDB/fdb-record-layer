@@ -26,13 +26,11 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 
-import javax.annotation.Nonnull;
-
 @API(API.Status.EXPERIMENTAL)
 public final class CatalogValidator {
 
     // this seems superfluous, it can be replaced with proper checks in {@link Schema} constructor.
-    public static void validateSchema(@Nonnull Schema schema) throws RelationalException {
+    public static void validateSchema(Schema schema) throws RelationalException {
         // fields schema_name, schema_version, schema_template_name, database_id are required
         if (schema.getName() == null || schema.getName().isEmpty()) {
             throw new RelationalException("Field schema_name in Schema must be set!", ErrorCode.INVALID_PARAMETER);
