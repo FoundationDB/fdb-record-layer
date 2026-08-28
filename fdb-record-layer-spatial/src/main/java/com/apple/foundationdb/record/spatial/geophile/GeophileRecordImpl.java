@@ -26,8 +26,8 @@ import com.geophile.z.Record;
 import com.geophile.z.Space;
 import com.geophile.z.SpatialObject;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 
 /**
@@ -49,7 +49,6 @@ class GeophileRecordImpl implements Record {
         return indexEntry;
     }
 
-    @Nonnull
     public SpatialObject spatialObject() {
         throw new UnsupportedOperationException("this index does not have covering spatial objects");
     }

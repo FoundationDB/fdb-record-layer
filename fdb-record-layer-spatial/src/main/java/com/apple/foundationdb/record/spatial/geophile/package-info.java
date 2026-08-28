@@ -21,4 +21,7 @@
 /**
  * Classes for doing geospatial queries with <a href="https://github.com/geophile/geophile">Geophile</a>.
  */
+@NullMarked
 package com.apple.foundationdb.record.spatial.geophile;
+
+import org.jspecify.annotations.NullMarked;

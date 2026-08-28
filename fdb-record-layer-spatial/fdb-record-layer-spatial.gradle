@@ -21,6 +21,10 @@
 import de.undercouch.gradle.tasks.download.Download
 import de.undercouch.gradle.tasks.download.Verify
 
+plugins {
+    alias(libs.plugins.errorprone)
+}
+
 apply from: rootProject.file('gradle/proto.gradle')
 apply from: rootProject.file('gradle/publishing.gradle')
 
@@ -32,9 +36,12 @@ dependencies {
     implementation(libs.protobuf)
     implementation(libs.slf4j.api)
     implementation(libs.slf4j.julBridge)
-    compileOnly(libs.jsr305)
+    compileOnly(libs.jspecify)
     compileOnly(libs.autoService)
     annotationProcessor(libs.autoService)
+
+    errorprone(libs.errorprone.core)
+    errorprone(libs.nullaway)
 
     testImplementation(libs.bundles.test.impl)
     testRuntimeOnly(libs.bundles.test.runtime)
@@ -42,6 +49,25 @@ dependencies {
     testImplementation(libs.snakeyaml)
     testImplementation project(':fdb-test-utils')
     testImplementation(testFixtures(project(coreProject)))
+}
+
+// jspecify + NullAway null-checking, scoped to this module only. See @NullMarked package-info.java
+// files in com.apple.foundationdb.record.spatial.common / .geophile. Companion change to the
+// fdb-relational-grpc / fdb-relational-jdbc null-checking adoption.
+// The test proto (test_records_geo.proto) generates TestRecordsGeoProto.java directly into the
+// com.apple.foundationdb.record.spatial.geophile package (same package as our own test/main
+// sources, not a separate subpackage), so it can't be carved out via NullAway:UnannotatedSubPackages
+// the way generated grpc/protobuf code was in other modules; exclude generated sources by path
+// instead, matching the existing **/generated/** exclusion used for checkstyle/PMD in gradle/check.gradle.
+tasks.withType(JavaCompile).configureEach {
+    options.errorprone {
+        disableAllChecks = true
+        error("NullAway")
+        option("NullAway:AnnotatedPackages", "com.apple.foundationdb.record.spatial")
+        option("NullAway:JSpecifyMode", "true")
+        option("NullAway:AcknowledgeRestrictiveAnnotations", "true")
+        excludedPaths.set(".*/generated/.*")
+    }
 }
 
 def geonamesFilesDirectory = project.ext.downloadsDirectory.dir("geonames")

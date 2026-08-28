@@ -36,8 +36,8 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndexMaintainer;
 import com.geophile.z.Space;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 
 /**
@@ -46,7 +46,6 @@ import java.util.List;
  */
 @API(API.Status.EXPERIMENTAL)
 public class GeophileIndexMaintainer extends StandardIndexMaintainer {
-    @Nonnull
     private final Space space;
 
     public GeophileIndexMaintainer(IndexMaintainerState state) {
@@ -55,8 +54,7 @@ public class GeophileIndexMaintainer extends StandardIndexMaintainer {
     }
 
     // If the bottom-right child is GeophileSpatialFunctionKeyExpression, return it. Else error.
-    @Nonnull
-    static GeophileSpatialFunctionKeyExpression getSpatialFunction(@Nonnull Index index) {
+    static GeophileSpatialFunctionKeyExpression getSpatialFunction(Index index) {
         KeyExpression rootKey = index.getRootExpression();
         if (rootKey instanceof KeyWithValueExpression) {
             rootKey = ((KeyWithValueExpression)rootKey).getKeyExpression();
@@ -80,14 +78,15 @@ public class GeophileIndexMaintainer extends StandardIndexMaintainer {
         }
     }
 
-    @Nonnull
     public Space getSpace() {
         return space;
     }
 
-    @Nonnull
     @Override
-    public RecordCursor<IndexEntry> scan(@Nonnull IndexScanType scanType, @Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently recognize @Nullable on array (byte[]) parameters when overriding this unannotated-interface method; continuation genuinely may be null, same as before this migration.
+    public RecordCursor<IndexEntry> scan(IndexScanType scanType, TupleRange range,
+                                          @Nullable byte[] continuation,
+                                          ScanProperties scanProperties) {
         if (scanType.equals(GeophileScanTypes.GO_TO_Z)) {
             return scan(range, continuation, scanProperties);
         } else {

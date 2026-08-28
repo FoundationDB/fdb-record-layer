@@ -21,4 +21,7 @@
 /**
  * Common classes for (geo-)spatial queries.
  */
+@NullMarked
 package com.apple.foundationdb.record.spatial.common;
+
+import org.jspecify.annotations.NullMarked;

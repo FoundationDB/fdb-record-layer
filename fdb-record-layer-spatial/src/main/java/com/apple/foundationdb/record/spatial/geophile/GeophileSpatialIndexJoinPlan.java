@@ -34,7 +34,7 @@ import com.geophile.z.SpatialIndex;
 import com.geophile.z.SpatialJoin;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
+import java.util.Objects;
 
 /**
  * Something like a query plan for joining spatial indexes.
@@ -44,25 +44,20 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public class GeophileSpatialIndexJoinPlan {
-    @Nonnull
     private final String leftIndexName;
-    @Nonnull
     private final ScanComparisons leftPrefixComparisons;
-    @Nonnull
     private final String rightIndexName;
-    @Nonnull
     private final ScanComparisons rightPrefixComparisons;
 
-    public GeophileSpatialIndexJoinPlan(@Nonnull String leftIndexName, @Nonnull ScanComparisons leftPrefixComparisons,
-                                        @Nonnull String rightIndexName, @Nonnull ScanComparisons rightPrefixComparisons) {
+    public GeophileSpatialIndexJoinPlan(String leftIndexName, ScanComparisons leftPrefixComparisons,
+                                        String rightIndexName, ScanComparisons rightPrefixComparisons) {
         this.leftIndexName = leftIndexName;
         this.leftPrefixComparisons = leftPrefixComparisons;
         this.rightIndexName = rightIndexName;
         this.rightPrefixComparisons = rightPrefixComparisons;
     }
 
-    @Nonnull
-    public <M extends Message> RecordCursor<Pair<FDBIndexedRecord<M>, FDBIndexedRecord<M>>> execute(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
+    public <M extends Message> RecordCursor<Pair<FDBIndexedRecord<M>, FDBIndexedRecord<M>>> execute(FDBRecordStoreBase<M> store, EvaluationContext context) {
         final SpatialJoin spatialJoin = SpatialJoin.newSpatialJoin(SpatialJoin.Duplicates.INCLUDE);
         final GeophileSpatialJoin geophileSpatialJoin = new GeophileSpatialJoin(spatialJoin, store.getUntypedRecordStore(), context);
         final SpatialIndex<GeophileRecordImpl> leftSpatialIndex = geophileSpatialJoin.getSpatialIndex(leftIndexName, leftPrefixComparisons);
@@ -71,12 +66,13 @@ public class GeophileSpatialIndexJoinPlan {
     }
 
     // TODO: Probably once there is a real join cursor signature, something like this is a method on the store and loadIndexEntryRecord doesn't need to be public.
-    @Nonnull
-    public <M extends Message> RecordCursor<Pair<FDBIndexedRecord<M>, FDBIndexedRecord<M>>> fetchIndexRecords(@Nonnull FDBRecordStoreBase<M> store,
-                                                                                                              @Nonnull RecordCursor<Pair<IndexEntry, IndexEntry>> indexCursor) {
+    public <M extends Message> RecordCursor<Pair<FDBIndexedRecord<M>, FDBIndexedRecord<M>>> fetchIndexRecords(FDBRecordStoreBase<M> store,
+                                                                                                              RecordCursor<Pair<IndexEntry, IndexEntry>> indexCursor) {
+        // Both sides are statically @Nullable (GeophileRecordImpl.getIndexEntry() can be null for Geophile's internal
+        // scratch records), but a completed spatial join only ever emits records built from real index entries.
         return indexCursor.mapPipelined(pair ->
-                        store.loadIndexEntryRecord(pair.getLeft(), IndexOrphanBehavior.ERROR)
-                                .thenCombine(store.loadIndexEntryRecord(pair.getRight(), IndexOrphanBehavior.ERROR), Pair::of),
+                        store.loadIndexEntryRecord(Objects.requireNonNull(pair.getLeft()), IndexOrphanBehavior.ERROR)
+                                .thenCombine(store.loadIndexEntryRecord(Objects.requireNonNull(pair.getRight()), IndexOrphanBehavior.ERROR), Pair::of),
                 store.getPipelineSize(PipelineOperation.INDEX_TO_RECORD));
     }
 
