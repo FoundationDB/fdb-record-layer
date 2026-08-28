@@ -29,10 +29,12 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsBytesProto;
 import com.apple.foundationdb.record.TestRecordsUuidProto;
 import com.apple.foundationdb.record.TestRecordsWithUnionProto;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.RandomSeedSource;
 import com.apple.test.Tags;
 import com.google.common.base.Strings;
@@ -44,6 +46,7 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -68,6 +71,7 @@ import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.core.Is.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -83,6 +87,34 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
     @Nonnull
     private final String longString = Strings.repeat("x", 101_000);
+
+    /**
+     * Helper method to run index scrubbing validation on all indexes. This method
+     * assumes that the store has already been opened (see, e.g., {@link #openSimpleRecordStore(FDBRecordContext)}).
+     * It will ignore any scrubbing failures that happen because the index does not
+     * support scrubbing, but will assert that all other scrubbing jobs find no
+     * inconsistencies.
+     */
+    private void scrubAllIndexes() {
+        for (Index index : recordStore.getRecordMetaData().getAllIndexes()) {
+            try (OnlineIndexScrubber scrubber =  OnlineIndexScrubber.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index)
+                    .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                            .setAllowRepair(false)
+                    )
+                    .build()) {
+                assertEquals(0L, scrubber.scrubDanglingIndexEntries());
+                assertEquals(0L, scrubber.scrubMissingIndexEntries());
+            } catch (UnsupportedOperationException e) {
+                // Not all indexes support scrubbing. Ignore the ones where this fails
+                if (e.getMessage().contains("This index does not support scrubbing")) {
+                    continue;
+                }
+                throw e;
+            }
+        }
+    }
 
     @Test
     void writeRead() throws Exception {
@@ -168,6 +200,7 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             assertThat(recordStore.recordExists(Tuple.from(1066L)), is(false));
             assertThat(recordStore.recordExists(Tuple.from(1415L)), is(true));
+            scrubAllIndexes();
             commit(context);
         }
     }
@@ -191,6 +224,7 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
             myrec1.mergeFrom(rec1.getRecord());
             assertEquals(byteString(0, 1, 2), myrec1.getPkey());
             assertEquals("foo", myrec1.getName());
+            scrubAllIndexes();
             commit(context);
         }
     }
@@ -236,13 +270,19 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    void saveRecordsConcurrently() throws Exception {
+    @ParameterizedTest(name = "saveRecordsConcurrently[{0}]")
+    @BooleanSource
+    void saveRecordsConcurrently(boolean disableConcurrencyManagement) throws Exception {
         final List<FDBStoredRecord<Message>> saved;
+        final FDBRecordStore.Builder storeBuilder;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
+            storeBuilder = recordStore.asBuilder().setDisableConcurrencyManagement(disableConcurrencyManagement);
+            recordStore = storeBuilder.open();
 
-            // Create 20 futures, each one saving a different record, and then run them concurrently
+            // Create 100 futures, each one saving a different record, and then run them concurrently.
+            // As they are each touching a different record, the operations should succeed regardless
+            // of whether the concurrency manager is disabled.
             final List<CompletableFuture<FDBStoredRecord<Message>>> futures = IntStream.range(0, 100)
                     .mapToObj(id -> TestRecords1Proto.MySimpleRecord.newBuilder()
                             .setRecNo(id + 1000L)
@@ -259,7 +299,7 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
+            recordStore = storeBuilder.setContext(context).open();
             final List<FDBStoredRecord<Message>> loaded = AsyncUtil.getAll(saved.stream()
                     .map(FDBStoredRecord::getPrimaryKey)
                     .map(recordStore::loadRecordAsync)
@@ -273,15 +313,20 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
             }
             assertEquals(saved.size(), recordStore.getSnapshotRecordCount().get());
             assertEquals(saved.size(), recordStore.getSnapshotRecordUpdateCount().get());
+
+            scrubAllIndexes();
         }
     }
 
     @Test
     void saveSameRecordConcurrently() throws Exception {
+        final FDBRecordStore.Builder storeBuilder;
         final List<FDBStoredRecord<Message>> saved;
         byte[] commitVersionstamp;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, metaDataBuilder -> metaDataBuilder.setStoreRecordVersions(true));
+            storeBuilder = recordStore.asBuilder().setDisableConcurrencyManagement(false);
+            recordStore = storeBuilder.open();
 
             // Create 100 futures, each one saving the same record (i.e., the same primary key), but with
             // different values. Only one of these will succeed at the end, so 
@@ -303,7 +348,7 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
         }
 
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, metaDataBuilder -> metaDataBuilder.setStoreRecordVersions(true));
+            recordStore = storeBuilder.setContext(context).open();
 
             final List<FDBStoredRecord<Message>> loaded = AsyncUtil.getAll(saved.stream()
                     .map(FDBStoredRecord::getPrimaryKey)
@@ -325,15 +370,20 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
             assertTrue(found, "no record found that matched original set");
             assertEquals(1L, recordStore.getSnapshotRecordCount().get());
             assertEquals(saved.size(), recordStore.getSnapshotRecordUpdateCount().get());
+
+            scrubAllIndexes();
         }
     }
 
     @Test
     void onlyOneConcurrentInsertSucceeds() throws Exception {
+        final FDBRecordStore.Builder storeBuilder;
         final List<FDBStoredRecord<Message>> inserted;
         byte[] commitVersionstamp;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, metaDataBuilder -> metaDataBuilder.setStoreRecordVersions(true));
+            storeBuilder = recordStore.asBuilder().setDisableConcurrencyManagement(false);
+            recordStore = storeBuilder.open();
 
             final List<CompletableFuture<FDBStoredRecord<Message>>> futures = IntStream.range(0, 100)
                     .mapToObj(id -> TestRecords1Proto.MySimpleRecord.newBuilder()
@@ -367,7 +417,7 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
         }
 
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, metaDataBuilder -> metaDataBuilder.setStoreRecordVersions(true));
+            recordStore = storeBuilder.setContext(context).open();
 
             inserted.forEach(insertedRecord -> {
                 final FDBStoredRecord<Message> stored = recordStore.loadRecord(insertedRecord.getPrimaryKey());
@@ -375,16 +425,22 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
                 assertEquals(insertedRecord.getRecord(), stored.getRecord());
                 assertEquals(Objects.requireNonNull(insertedRecord.getVersion()).withCommittedVersion(commitVersionstamp), stored.getVersion());
             });
+
+            scrubAllIndexes();
         }
     }
 
     @Test
     void deleteSameRecordConcurrently() throws Exception {
         // Save a single record
+        final FDBRecordStore.Builder storeBuilder;
         final FDBStoredRecord<Message> saved;
         byte[] commitVersionstamp;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, metaDataBuilder -> metaDataBuilder.setStoreRecordVersions(true));
+            storeBuilder = recordStore.asBuilder().setDisableConcurrencyManagement(false);
+            recordStore = storeBuilder.open();
+
             saved = recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
                     .setRecNo(1805L)
                     .setNumValue2(3)
@@ -399,7 +455,7 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
         // Exactly one delete should succeed, and all the reads should occur either strictly before
         // or strictly after the delete
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, metaDataBuilder -> metaDataBuilder.setStoreRecordVersions(true));
+            recordStore = storeBuilder.setContext(context).open();
 
             // Fire off some reads before the first delete call
             final List<CompletableFuture<FDBStoredRecord<Message>>> readFutures = new ArrayList<>();
@@ -435,6 +491,7 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
 
             assertEquals(0L, recordStore.getSnapshotRecordCount().get());
 
+            scrubAllIndexes();
             commit(context);
         }
     }
@@ -464,15 +521,37 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
     void concurrentRecordOperationStressTest(long seed) throws Exception {
         final int concurrentTasks = 100;
         final int totalTasks = 1000;
+        final TaskState taskState = new TaskState();
+
+        final FDBRecordStore.Builder storeBuilder;
+
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, metaDataBuilder -> {
                 metaDataBuilder.setStoreRecordVersions(true);
                 metaDataBuilder.setSplitLongRecords(true);
                 metaDataBuilder.removeIndex("MySimpleRecord$str_value_indexed");
             });
+            // These tests fail if concurrence management is disabled. For this test, we also
+            // assert on the default behavior (that the store starts with concurrency management
+            // enabled). If this is changed, then this assert can be updated, but we still need
+            // to override the feature for this test
+            storeBuilder = recordStore.asBuilder();
+            assertFalse(storeBuilder.isConcurrencyManagementDisabled());
+            storeBuilder.setDisableConcurrencyManagement(false);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            recordStore = storeBuilder.setContext(context).open();
+
+            // These tests will fail if we don't have the concurrency manager enabled.
+            // In theory, this could be an assumption, but making it an assert means that
+            // we are notified if we somehow lose coverage, and then we can decide if that's
+            // desirable or not
+            assertFalse(recordStore.asBuilder().isConcurrencyManagementDisabled());
+
             final Random random = new Random(seed);
             final Queue<CompletableFuture<Void>> tasks = new ArrayDeque<>();
-            TaskState taskState = new TaskState();
             while (taskState.completed < totalTasks) {
                 while (tasks.size() < concurrentTasks && taskState.taskNumber < totalTasks) {
                     taskState.taskNumber++;
@@ -486,9 +565,35 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
                 }
             }
             assertTrue(tasks.isEmpty());
-            assertEquals(taskState.updates, recordStore.getSnapshotRecordUpdateCount().get());
+            validateRecordsAfterRun(taskState);
             commit(context);
         }
+
+        try (FDBRecordContext context = openContext()) {
+            recordStore = storeBuilder.setContext(context).open();
+            validateRecordsAfterRun(taskState);
+            scrubAllIndexes();
+        }
+    }
+
+    private void validateRecordsAfterRun(@Nonnull TaskState taskState) throws Exception {
+        // The updates index should contain one udpate for every update started during the test
+        assertEquals(taskState.updates, recordStore.getSnapshotRecordUpdateCount().get());
+
+        // Make sure the most recent update is persisted for each record
+        int expectedCount = 0;
+        for (Map.Entry<Tuple, Deque<Pair<Integer, Message>>> entry :  taskState.historyByRecord.entrySet()) {
+            final Tuple primaryKey = entry.getKey();
+            final Pair<Integer, Message> mostRecentUpdate = entry.getValue().peekFirst();
+            @Nullable final Message expectedMessage = mostRecentUpdate == null ? null : mostRecentUpdate.getRight();
+            FDBStoredRecord<Message> loaded = recordStore.loadRecord(primaryKey);
+            @Nullable final Message readMessage = loaded == null ? null : loaded.getRecord();
+            assertEquals(expectedMessage, readMessage);
+            if (expectedMessage != null) {
+                expectedCount++;
+            }
+        }
+        assertEquals(expectedCount, recordStore.getSnapshotRecordCount().get());
     }
 
     @Nonnull
