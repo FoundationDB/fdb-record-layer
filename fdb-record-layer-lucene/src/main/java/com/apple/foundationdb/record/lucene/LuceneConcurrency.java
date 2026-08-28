@@ -30,8 +30,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -62,7 +61,7 @@ public class LuceneConcurrency {
      */
     @Nullable
     @API(API.Status.INTERNAL)
-    public static <T> T asyncToSync(@Nonnull StoreTimer.Wait event, @Nonnull CompletableFuture<T> async, @Nonnull FDBRecordContext recordContext) {
+    public static <T> T asyncToSync(StoreTimer.Wait event, CompletableFuture<T> async, FDBRecordContext recordContext) {
         if (recordContext.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_USE_LEGACY_ASYNC_TO_SYNC)) {
             return recordContext.asyncToSync(event, async);
         }

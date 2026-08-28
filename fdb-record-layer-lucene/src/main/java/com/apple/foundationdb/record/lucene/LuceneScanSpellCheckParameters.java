@@ -47,8 +47,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -62,33 +61,31 @@ import static com.apple.foundationdb.record.planprotos.LuceneRecordQueryPlanProt
 public class LuceneScanSpellCheckParameters extends LuceneScanParameters implements PlanSerializable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Lucene-Scan-Spell-Check");
 
-    @Nonnull
     final String key;
     final boolean isParameter;
 
-    protected LuceneScanSpellCheckParameters(@Nonnull final PlanSerializationContext serializationContext,
-                                             @Nonnull final PLuceneScanSpellCheckParameters luceneScanSpellCheckParametersProto) {
+    protected LuceneScanSpellCheckParameters(final PlanSerializationContext serializationContext,
+                                             final PLuceneScanSpellCheckParameters luceneScanSpellCheckParametersProto) {
         super(serializationContext, Objects.requireNonNull(luceneScanSpellCheckParametersProto.getSuper()));
         // TODO replace stub by extracting info out of the proto
         this.key = "TODO";
         this.isParameter = false;
     }
 
-    protected LuceneScanSpellCheckParameters(@Nonnull ScanComparisons groupComparisons,
-                                             @Nonnull String key, boolean isParameter) {
+    protected LuceneScanSpellCheckParameters(ScanComparisons groupComparisons,
+                                             String key, boolean isParameter) {
         super(LuceneScanTypes.BY_LUCENE_SPELL_CHECK, groupComparisons);
         this.key = key;
         this.isParameter = isParameter;
     }
 
     @Override
-    public int planHash(@Nonnull PlanHashMode mode) {
+    public int planHash(PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, scanType, groupComparisons, key, isParameter);
     }
 
-    @Nonnull
     @Override
-    public LuceneScanSpellCheck bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+    public LuceneScanSpellCheck bind(FDBRecordStoreBase<?> store, Index index, EvaluationContext context) {
         List<String> fields = indexTextFields(index, store.getRecordMetaData());
         String wordToSpellCheck = isParameter ? (String)context.getBinding(key) : key;
         // TODO: Probably want more obvious syntax for this.
@@ -105,7 +102,6 @@ public class LuceneScanSpellCheckParameters extends LuceneScanParameters impleme
         return new LuceneScanSpellCheck(scanType, getGroupKey(store, context), fields, wordToSpellCheck);
     }
 
-    @Nonnull
     @Override
     public ExplainTokensWithPrecedence explain() {
         return ExplainTokensWithPrecedence.of(
@@ -113,7 +109,7 @@ public class LuceneScanSpellCheckParameters extends LuceneScanParameters impleme
     }
 
     @Override
-    public void getPlannerGraphDetails(@Nonnull ImmutableList.Builder<String> detailsBuilder, @Nonnull ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
+    public void getPlannerGraphDetails(ImmutableList.Builder<String> detailsBuilder, ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
         super.getPlannerGraphDetails(detailsBuilder, attributeMapBuilder);
         if (isParameter) {
             detailsBuilder.add("param: {{param}}");
@@ -124,28 +120,25 @@ public class LuceneScanSpellCheckParameters extends LuceneScanParameters impleme
         }
     }
 
-    @Nonnull
     @Override
-    public IndexScanParameters translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public IndexScanParameters translateCorrelations(final TranslationMap translationMap,
                                                      final boolean shouldSimplifyValues) {
         return this;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
-    public IndexScanParameters rebase(@Nonnull final AliasMap translationMap) {
+    public IndexScanParameters rebase(final AliasMap translationMap) {
         return this;
     }
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
+    public boolean semanticEquals(@Nullable final Object other, final AliasMap aliasMap) {
         if (this == other) {
             return true;
         }
@@ -186,27 +179,24 @@ public class LuceneScanSpellCheckParameters extends LuceneScanParameters impleme
         return semanticHashCode();
     }
 
-    @Nonnull
     @Override
-    public PLuceneScanSpellCheckParameters toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PLuceneScanSpellCheckParameters toProto(final PlanSerializationContext serializationContext) {
         // TODO replace stub
         return PLuceneScanSpellCheckParameters.newBuilder()
                 .setSuper(toLuceneScanParametersProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PIndexScanParameters toIndexScanParametersProto(final PlanSerializationContext serializationContext) {
         return PIndexScanParameters.newBuilder()
                 .setExtension(luceneScanSpellCheckParameters, toProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    public static LuceneScanSpellCheckParameters fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                           @Nonnull final PLuceneScanSpellCheckParameters luceneScanSpellCheckParametersProto) {
+    public static LuceneScanSpellCheckParameters fromProto(final PlanSerializationContext serializationContext,
+                                                           final PLuceneScanSpellCheckParameters luceneScanSpellCheckParametersProto) {
         return new LuceneScanSpellCheckParameters(serializationContext, luceneScanSpellCheckParametersProto);
     }
 
@@ -215,16 +205,14 @@ public class LuceneScanSpellCheckParameters extends LuceneScanParameters impleme
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PLuceneScanSpellCheckParameters, LuceneScanSpellCheckParameters> {
-        @Nonnull
         @Override
         public Class<PLuceneScanSpellCheckParameters> getProtoMessageClass() {
             return PLuceneScanSpellCheckParameters.class;
         }
 
-        @Nonnull
         @Override
-        public LuceneScanSpellCheckParameters fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                        @Nonnull final PLuceneScanSpellCheckParameters luceneScanSpellCheckParametersProto) {
+        public LuceneScanSpellCheckParameters fromProto(final PlanSerializationContext serializationContext,
+                                                        final PLuceneScanSpellCheckParameters luceneScanSpellCheckParametersProto) {
             return LuceneScanSpellCheckParameters.fromProto(serializationContext, luceneScanSpellCheckParametersProto);
         }
     }

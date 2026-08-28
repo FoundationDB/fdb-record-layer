@@ -39,7 +39,6 @@ import org.apache.lucene.store.LockFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.UUID;
@@ -292,7 +291,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
      */
     @SuppressWarnings("serial")
     public static class FDBDirectoryLockException extends LoggableException {
-        public FDBDirectoryLockException(@Nonnull final String msg) {
+        public FDBDirectoryLockException(final String msg) {
             super(msg);
         }
     }

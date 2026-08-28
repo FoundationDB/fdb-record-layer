@@ -43,8 +43,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 import org.apache.lucene.index.DirectoryReader;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
@@ -63,14 +62,11 @@ public class LuceneIndexScrubbingToolsMissing extends ValueIndexScrubbingToolsMi
     private Index index;
     private boolean isSynthetic;
 
-    @Nonnull
     private final LucenePartitioner partitioner;
-    @Nonnull
     private final FDBDirectoryManager directoryManager;
-    @Nonnull
     private final LuceneIndexMaintainer indexMaintainer;
 
-    public LuceneIndexScrubbingToolsMissing(@Nonnull LucenePartitioner partitioner, @Nonnull FDBDirectoryManager directoryManager, @Nonnull LuceneIndexMaintainer indexMaintainer) {
+    public LuceneIndexScrubbingToolsMissing(LucenePartitioner partitioner, FDBDirectoryManager directoryManager, LuceneIndexMaintainer indexMaintainer) {
         this.partitioner = partitioner;
         this.directoryManager = directoryManager;
         this.indexMaintainer = indexMaintainer;

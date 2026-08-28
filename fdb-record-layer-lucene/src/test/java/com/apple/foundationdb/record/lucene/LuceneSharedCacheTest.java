@@ -42,8 +42,7 @@ import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -87,7 +86,7 @@ public class LuceneSharedCacheTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    protected void openRecordStore(@Nonnull FDBRecordContext context) {
+    protected void openRecordStore(FDBRecordContext context) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
         metaDataBuilder.getRecordType(TextIndexTestUtils.COMPLEX_DOC).setPrimaryKey(concatenateFields("group", "doc_id"));
         metaDataBuilder.removeIndex("SimpleDocument$text");
@@ -108,7 +107,7 @@ public class LuceneSharedCacheTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    protected Set<Long> groupQueryForPrimaryKeys(@Nonnull RecordQuery query, long group) throws Exception {
+    protected Set<Long> groupQueryForPrimaryKeys(RecordQuery query, long group) throws Exception {
         RecordQueryPlan plan = planner.plan(query);
         EvaluationContext context = EvaluationContext.forBinding("g", group);
         List<Long> primaryKeys = plan.execute(recordStore, context)

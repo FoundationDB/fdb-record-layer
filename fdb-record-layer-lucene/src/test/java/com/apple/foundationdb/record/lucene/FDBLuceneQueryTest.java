@@ -76,8 +76,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -479,7 +478,6 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @Nonnull
     private static String quote(final boolean quotes, final String term) {
         return "text:" + (quotes ? "\"" + term + "\"" : term);
     }
@@ -927,7 +925,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     @ParameterizedTest(name = "threadedLuceneScanDoesntBreakPlannerAndSearch-PoolThreadCount={0}")
     @MethodSource("threadCount")
     @SuperSlow
-    void threadedLuceneScanDoesntBreakPlannerAndSearch(@Nonnull Integer value) throws Exception {
+    void threadedLuceneScanDoesntBreakPlannerAndSearch(Integer value) throws Exception {
         final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         // limit the FJP size to try and force the # segments to exceed the # threads
         factory.setExecutor(new ForkJoinPool(PARALLELISM,
@@ -973,7 +971,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         final ThreadFactory delegate = Executors.defaultThreadFactory();
 
         @Override
-        public Thread newThread(@Nonnull Runnable r) {
+        public Thread newThread(Runnable r) {
             return delegate.newThread(() -> {
                 threadCounts.merge(Thread.currentThread().getName(), 1, Integer::sum);
                 r.run();

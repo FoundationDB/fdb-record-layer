@@ -59,8 +59,7 @@ import org.apache.lucene.search.spans.SpanTermQuery;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
@@ -80,21 +79,18 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
     // Used as a marker at the end to capture the stop-word gaps between the initial phrase and the end prefix when parsing the search key
     private static final String NONSTOPWORD = "$nonstopword";
 
-    @Nonnull
     private final String search;
     private final boolean isParameter;
-    @Nonnull
     private final Set<String> fields;
 
-    public LuceneAutoCompleteQueryClause(@Nonnull final String search, final boolean isParameter,
-                                         @Nonnull final Iterable<String> fields) {
+    public LuceneAutoCompleteQueryClause(final String search, final boolean isParameter,
+                                         final Iterable<String> fields) {
         super(LuceneQueryType.AUTO_COMPLETE);
         this.search = search;
         this.isParameter = isParameter;
         this.fields = ImmutableSet.copyOf(fields);
     }
 
-    @Nonnull
     public String getSearch() {
         return search;
     }
@@ -104,7 +100,7 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
     }
 
     @Override
-    public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+    public BoundQuery bind(FDBRecordStoreBase<?> store, Index index, EvaluationContext context) {
         final String searchArgument =
                 isParameter
                 ? Verify.verifyNotNull((String)context.getBinding(search))
@@ -140,7 +136,7 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
     }
 
     @Override
-    public void getPlannerGraphDetails(@Nonnull ImmutableList.Builder<String> detailsBuilder, @Nonnull ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
+    public void getPlannerGraphDetails(ImmutableList.Builder<String> detailsBuilder, ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
         if (isParameter) {
             detailsBuilder.add("param: {{param}}");
             attributeMapBuilder.put("param", Attribute.gml(search));
@@ -151,7 +147,7 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, search, isParameter);
     }
 
@@ -198,7 +194,7 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
      */
     @Nullable
     @VisibleForTesting
-    static String getQueryTokens(Analyzer queryAnalyzer, String searchKey, @Nonnull List<String> tokens) {
+    static String getQueryTokens(Analyzer queryAnalyzer, String searchKey, List<String> tokens) {
         String prefixToken = null;
         try (TokenStream ts = queryAnalyzer.tokenStream("", new StringReader(searchKey))) {
             ts.reset();
@@ -251,10 +247,9 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
      * @param useGapForPrefix option to represent the last token as a gap (if it's a stopword)
      * @return a Lucene Query that matches phrase using the last token as a prefix
      */
-    @Nonnull
-    public static Query buildPhraseQueryWithPrefix(@Nonnull QueryParser parser,
-                                                   @Nonnull Collection<String> fieldNames,
-                                                   @Nonnull String phrase,
+    public static Query buildPhraseQueryWithPrefix(QueryParser parser,
+                                                   Collection<String> fieldNames,
+                                                   String phrase,
                                                    @Nullable String prefix,
                                                    final boolean useGapForPrefix) {
 
@@ -326,10 +321,9 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
         }
     }
 
-    @Nonnull
-    public static Query buildQueryForPhraseMatching(@Nonnull QueryParser parser,
-                                                    @Nonnull Collection<String> fieldNames,
-                                                    @Nonnull String searchKey) {
+    public static Query buildQueryForPhraseMatching(QueryParser parser,
+                                                    Collection<String> fieldNames,
+                                                    String searchKey) {
         // Construct a query that is essentially:
         //  - in any field,
         //  - the phrase must occur (with possibly the last token in the phrase as a prefix)
@@ -365,7 +359,7 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
         }
     }
 
-    private static boolean isStopWord(@Nonnull QueryParser queryParser, @Nonnull String prefix) {
+    private static boolean isStopWord(QueryParser queryParser, String prefix) {
         try {
             final Query query = queryParser.parse(prefix);
             if (query instanceof BooleanQuery) {
@@ -378,10 +372,9 @@ public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
         }
     }
 
-    @Nonnull
-    private static Query buildQueryForTermsMatching(@Nonnull Analyzer queryAnalyzer,
-                                                    @Nonnull Collection<String> fieldNames,
-                                                    @Nonnull String searchKey) {
+    private static Query buildQueryForTermsMatching(Analyzer queryAnalyzer,
+                                                    Collection<String> fieldNames,
+                                                    String searchKey) {
         // Construct a query that is essentially:
         //  - in any field,
         //  - all of the tokens must occur (with the last one as a prefix)

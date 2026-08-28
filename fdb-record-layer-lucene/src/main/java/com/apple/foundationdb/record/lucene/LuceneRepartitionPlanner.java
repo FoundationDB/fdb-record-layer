@@ -24,9 +24,10 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
+
+import static com.apple.foundationdb.record.lucene.LucenePartitionInfoProto.LucenePartitionInfo;
 
 /**
  * Manage repartitioning details (merging small partitions and splitting large ones).
@@ -50,20 +51,19 @@ public class LuceneRepartitionPlanner {
      * @param repartitionDocumentCount max allowed documents to move per iteration
      * @return repartitioning context instance ({@link RepartitioningContext}
      */
-    @Nonnull
-    RepartitioningContext determineRepartitioningAction(@Nonnull final Tuple groupingKey,
-                                                        @Nonnull final List<LucenePartitionInfoProto.LucenePartitionInfo> allPartitions,
+    RepartitioningContext determineRepartitioningAction(final Tuple groupingKey,
+                                                        final List<LucenePartitionInfo> allPartitions,
                                                         int currentPartitionPosition,
                                                         int repartitionDocumentCount) {
-        int maxPartitionId = allPartitions.stream().mapToInt(LucenePartitionInfoProto.LucenePartitionInfo::getId).max().orElse(0);
-        LucenePartitionInfoProto.LucenePartitionInfo candidatePartition = allPartitions.get(currentPartitionPosition);
+        int maxPartitionId = allPartitions.stream().mapToInt(LucenePartitionInfo::getId).max().orElse(0);
+        LucenePartitionInfo candidatePartition = allPartitions.get(currentPartitionPosition);
 
-        Pair<LucenePartitionInfoProto.LucenePartitionInfo, LucenePartitionInfoProto.LucenePartitionInfo> neighborPartitions =
+        Pair<LucenePartitionInfo, LucenePartitionInfo> neighborPartitions =
                 LucenePartitioner.getPartitionNeighbors(allPartitions, currentPartitionPosition);
 
         // partitions sorted by key descending
-        LucenePartitionInfoProto.LucenePartitionInfo olderPartition = neighborPartitions.getRight();
-        LucenePartitionInfoProto.LucenePartitionInfo newerPartition = neighborPartitions.getLeft();
+        LucenePartitionInfo olderPartition = neighborPartitions.getRight();
+        LucenePartitionInfo newerPartition = neighborPartitions.getLeft();
 
         RepartitioningContext repartitioningContext = new RepartitioningContext(groupingKey,
                 maxPartitionId,
@@ -165,21 +165,21 @@ public class LuceneRepartitionPlanner {
      * Convenience collection of data needed for repartitioning.
      */
     public static class RepartitioningContext {
-        @Nonnull Tuple groupingKey;
-        @Nonnull final LucenePartitionInfoProto.LucenePartitionInfo sourcePartition;
-        @Nullable final LucenePartitionInfoProto.LucenePartitionInfo olderPartition;
-        @Nullable final LucenePartitionInfoProto.LucenePartitionInfo newerPartition;
+        Tuple groupingKey;
+        final LucenePartitionInfo sourcePartition;
+        @Nullable final LucenePartitionInfo olderPartition;
+        @Nullable final LucenePartitionInfo newerPartition;
         boolean emptyingPartition;
         int countToMove;
         int maxPartitionId;
         boolean newBoundaryRecordPresent;
         RepartitioningAction action;
 
-        RepartitioningContext(@Nonnull final Tuple groupingKey,
+        RepartitioningContext(final Tuple groupingKey,
                               int maxPartitionId,
-                              @Nonnull final LucenePartitionInfoProto.LucenePartitionInfo sourcePartition,
-                              @Nullable final LucenePartitionInfoProto.LucenePartitionInfo olderPartition,
-                              @Nullable final LucenePartitionInfoProto.LucenePartitionInfo newerPartition) {
+                              final LucenePartitionInfo sourcePartition,
+                              @Nullable final LucenePartitionInfo olderPartition,
+                              @Nullable final LucenePartitionInfo newerPartition) {
             this.groupingKey = groupingKey;
             this.maxPartitionId = maxPartitionId;
             this.sourcePartition = sourcePartition;

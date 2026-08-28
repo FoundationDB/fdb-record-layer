@@ -55,7 +55,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -290,10 +289,9 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
         }
     }
 
-    @Nonnull
-    private FDBRecordStore.Builder getStoreBuilderFilterOddRecNo(@Nonnull FDBRecordContext context,
-                                                                   @Nonnull RecordMetaDataProvider metaData,
-                                                                   @Nonnull final KeySpacePath path) {
+    private FDBRecordStore.Builder getStoreBuilderFilterOddRecNo(FDBRecordContext context,
+                                                                   RecordMetaDataProvider metaData,
+                                                                   final KeySpacePath path) {
         // Create an index maintenance filter that only indexes records with even recNo
         IndexMaintenanceFilter evenRecNoFilter = (index, rec) -> {
             Descriptors.FieldDescriptor recNoField =
@@ -386,10 +384,9 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
         assertEquals("Lucene does not support this kind of filtering", exception.getMessage());
     }
 
-    @Nonnull
-    private FDBRecordStore.Builder getStoreBuilderWithSomeFilter(@Nonnull FDBRecordContext context,
-                                                                 @Nonnull RecordMetaDataProvider metaData,
-                                                                 @Nonnull final KeySpacePath path) {
+    private FDBRecordStore.Builder getStoreBuilderWithSomeFilter(FDBRecordContext context,
+                                                                 RecordMetaDataProvider metaData,
+                                                                 final KeySpacePath path) {
         // Create an index maintenance filter that returns SOME
         // This should trigger an exception since Lucene doesn't support partial indexing
         IndexMaintenanceFilter someFilter = (index, rec) -> IndexMaintenanceFilter.IndexValues.SOME;
@@ -424,10 +421,9 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
         }
     }
 
-    @Nonnull
-    private FDBRecordStore.Builder getStoreBuilderWithFailingFilterFor1002L(@Nonnull FDBRecordContext context,
-                                                                            @Nonnull RecordMetaDataProvider metaData,
-                                                                            @Nonnull final KeySpacePath path) {
+    private FDBRecordStore.Builder getStoreBuilderWithFailingFilterFor1002L(FDBRecordContext context,
+                                                                            RecordMetaDataProvider metaData,
+                                                                            final KeySpacePath path) {
         // Create an index maintenance filter that throws an exception for specific record with recNo 1002L
         // This can be used to tests error handling when the filter itself fails
         IndexMaintenanceFilter failingFilter = (index, rec) -> {
@@ -487,10 +483,9 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
         }
     }
 
-    @Nonnull
-    private FDBRecordStore.Builder getStoreBuilderFilterOddRecNoSynthetic(@Nonnull FDBRecordContext context,
-                                                                          @Nonnull RecordMetaDataProvider metaData,
-                                                                          @Nonnull final KeySpacePath path) {
+    private FDBRecordStore.Builder getStoreBuilderFilterOddRecNoSynthetic(FDBRecordContext context,
+                                                                          RecordMetaDataProvider metaData,
+                                                                          final KeySpacePath path) {
         // Create an index maintenance filter that only indexes synthetic records with even parent rec_no
         IndexMaintenanceFilter evenRecNoFilter = (index, rec) -> {
             // For synthetic records, we need to access the parent constituent

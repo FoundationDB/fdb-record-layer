@@ -21,4 +21,7 @@
 /**
  * Common classes for lucene index queries.
  */
+@NullMarked
 package com.apple.foundationdb.record.lucene.directory;
+
+import org.jspecify.annotations.NullMarked;

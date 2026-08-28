@@ -23,8 +23,7 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -40,8 +39,8 @@ public class LuceneMetadataInfo extends IndexOperationResult {
     private List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfo;
     private Map<Integer, LuceneInfo> luceneInfo;
 
-    public LuceneMetadataInfo(@Nonnull final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfo,
-                              @Nonnull final Map<Integer, LuceneInfo> luceneInfo) {
+    public LuceneMetadataInfo(final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfo,
+                              final Map<Integer, LuceneInfo> luceneInfo) {
         this.partitionInfo = partitionInfo;
         this.luceneInfo = luceneInfo;
     }
@@ -85,13 +84,13 @@ public class LuceneMetadataInfo extends IndexOperationResult {
 
         public LuceneInfo(final int documentCount,
                           final int fieldInfoCount,
-                          @Nonnull final List<LuceneFileInfo> detailedFileInfos) {
+                          final List<LuceneFileInfo> detailedFileInfos) {
             this(documentCount, fieldInfoCount, detailedFileInfos, 0);
         }
 
         public LuceneInfo(final int documentCount,
                           final int fieldInfoCount,
-                          @Nonnull final List<LuceneFileInfo> detailedFileInfos,
+                          final List<LuceneFileInfo> detailedFileInfos,
                           final long pendingWritesQueueSize) {
             this.documentCount = documentCount;
             this.files = detailedFileInfos.stream().map(LuceneFileInfo::getName).collect(Collectors.toList());

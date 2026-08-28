@@ -34,7 +34,6 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 
 /**
@@ -43,17 +42,15 @@ import java.util.Map;
  */
 @API(API.Status.UNSTABLE)
 public class LuceneQueryMultiFieldSearchClause extends LuceneQueryClause {
-    @Nonnull
     private final String search;
     private final boolean isParameter;
 
-    public LuceneQueryMultiFieldSearchClause(@Nonnull final LuceneQueryType queryType, @Nonnull final String search, final boolean isParameter) {
+    public LuceneQueryMultiFieldSearchClause(final LuceneQueryType queryType, final String search, final boolean isParameter) {
         super(queryType);
         this.search = search;
         this.isParameter = isParameter;
     }
 
-    @Nonnull
     public String getSearch() {
         return search;
     }
@@ -63,7 +60,7 @@ public class LuceneQueryMultiFieldSearchClause extends LuceneQueryClause {
     }
 
     @Override
-    public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+    public BoundQuery bind(FDBRecordStoreBase<?> store, Index index, EvaluationContext context) {
         final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(index, store.getRecordMetaData());
         final LuceneAnalyzerCombinationProvider analyzerSelector =
                 LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.FULL_TEXT, fieldInfos);
@@ -81,7 +78,7 @@ public class LuceneQueryMultiFieldSearchClause extends LuceneQueryClause {
     }
 
     @Override
-    public void getPlannerGraphDetails(@Nonnull ImmutableList.Builder<String> detailsBuilder, @Nonnull ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
+    public void getPlannerGraphDetails(ImmutableList.Builder<String> detailsBuilder, ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
         if (isParameter) {
             detailsBuilder.add("param: {{param}}");
             attributeMapBuilder.put("param", Attribute.gml(search));
@@ -92,7 +89,7 @@ public class LuceneQueryMultiFieldSearchClause extends LuceneQueryClause {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, search, isParameter);
     }
 

@@ -44,8 +44,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Function;
@@ -54,20 +53,19 @@ import java.util.function.Function;
  * Lucene query plan that allows to make spell-check suggestions.
  */
 public class LuceneIndexSpellCheckQueryPlan extends LuceneIndexQueryPlan {
-    protected LuceneIndexSpellCheckQueryPlan(@Nonnull final String indexName, @Nonnull final LuceneScanParameters scanParameters,
-                                             @Nonnull final FetchIndexRecords fetchIndexRecords, final boolean reverse,
+    protected LuceneIndexSpellCheckQueryPlan(final String indexName, final LuceneScanParameters scanParameters,
+                                             final FetchIndexRecords fetchIndexRecords, final boolean reverse,
                                              @Nullable final PlanOrderingKey planOrderingKey, @Nullable final List<KeyExpression> storedFields) {
         super(indexName, scanParameters, fetchIndexRecords, reverse, planOrderingKey, storedFields);
     }
 
     @SuppressWarnings("resource")
-    @Nonnull
     @Override
-    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> fetchIndexRecords(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                                   @Nonnull final EvaluationContext evaluationContext,
-                                                                                   @Nonnull final Function<byte[], RecordCursor<IndexEntry>> entryCursorFunction,
+    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> fetchIndexRecords(final FDBRecordStoreBase<M> store,
+                                                                                   final EvaluationContext evaluationContext,
+                                                                                   final Function<byte[], RecordCursor<IndexEntry>> entryCursorFunction,
                                                                                    @Nullable final byte[] continuation,
-                                                                                   @Nonnull final ExecuteProperties executeProperties) {
+                                                                                   final ExecuteProperties executeProperties) {
         final RecordMetaData metaData = store.getRecordMetaData();
         final Index index = metaData.getIndex(indexName);
         final Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
@@ -88,15 +86,13 @@ public class LuceneIndexSpellCheckQueryPlan extends LuceneIndexQueryPlan {
         return false;
     }
 
-    @Nonnull
     @Override
-    protected RecordQueryIndexPlan withIndexScanParameters(@Nonnull final IndexScanParameters newIndexScanParameters) {
+    protected RecordQueryIndexPlan withIndexScanParameters(final IndexScanParameters newIndexScanParameters) {
         Verify.verify(newIndexScanParameters instanceof LuceneScanParameters);
         Verify.verify(newIndexScanParameters.getScanType().equals(LuceneScanTypes.BY_LUCENE_SPELL_CHECK));
         return new LuceneIndexSpellCheckQueryPlan(getIndexName(), (LuceneScanParameters)newIndexScanParameters, getFetchIndexRecords(), reverse, getPlanOrderingKey(), getStoredFields());
     }
 
-    @Nonnull
     @Override
     public ExplainTokensWithPrecedence explain() {
         return ExplainTokensWithPrecedence.of(

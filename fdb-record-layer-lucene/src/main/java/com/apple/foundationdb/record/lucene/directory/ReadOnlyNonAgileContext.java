@@ -27,11 +27,12 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.PreventCommitCheck;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
+
+import static com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig.Builder;
 
 /**
  * A non-agile context that creates a read-only transaction.
@@ -45,10 +46,10 @@ class ReadOnlyNonAgileContext implements AgilityContext {
     private final FDBRecordContext readOnlyContext;
     private boolean closed = false;
 
-    public ReadOnlyNonAgileContext(final FDBRecordContext callerContext, @Nullable FDBRecordContextConfig.Builder contextBuilder) {
+    public ReadOnlyNonAgileContext(final FDBRecordContext callerContext, @Nullable Builder contextBuilder) {
         this.callerContext = callerContext;
 
-        FDBRecordContextConfig.Builder contextConfigBuilder = contextBuilder != null ? contextBuilder : callerContext.getConfig().toBuilder();
+        Builder contextConfigBuilder = contextBuilder != null ? contextBuilder : callerContext.getConfig().toBuilder();
         final FDBRecordContextConfig contextConfig = contextConfigBuilder.build();
         readOnlyContext = callerContext.getDatabase().openContext(contextConfig);
         // Use the same read version for the new context
@@ -82,7 +83,6 @@ class ReadOnlyNonAgileContext implements AgilityContext {
     }
 
     @Override
-    @Nonnull
     public FDBRecordContext getCallerContext() {
         return callerContext;
     }

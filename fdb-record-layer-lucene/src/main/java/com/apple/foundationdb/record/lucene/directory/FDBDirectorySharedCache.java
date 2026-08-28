@@ -26,8 +26,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
@@ -41,18 +40,14 @@ import java.util.concurrent.atomic.AtomicReference;
 @ThreadSafe
 public class FDBDirectorySharedCache {
 
-    @Nonnull
     private final Tuple key;
     private final long sequenceNumber;
-    @Nonnull
     private final AtomicReference<Map<String, FDBLuceneFileReference>> fileReferences;
 
-    @Nonnull
     private final AtomicReference<ConcurrentMap<Long, AtomicInteger>> fieldInfosReferenceCount = new AtomicReference<>();
-    @Nonnull
     private final Cache<Pair<Long, Integer>, byte[]> blocks;
 
-    public FDBDirectorySharedCache(@Nonnull Tuple key, long sequenceNumber,
+    public FDBDirectorySharedCache(Tuple key, long sequenceNumber,
                                    int maximumSize, int concurrencyLevel, int initialCapacity) {
         this.key = key;
         this.sequenceNumber = sequenceNumber;
@@ -70,7 +65,6 @@ public class FDBDirectorySharedCache {
      * The key is relative to the record store root, so including the index subspace prefix and any grouping keys.
      * @return the key for this directory cache
      */
-    @Nonnull
     public Tuple getKey() {
         return key;
     }
@@ -97,7 +91,7 @@ public class FDBDirectorySharedCache {
      * Add set of file references to the cache.
      * @param fileReferences the file references for the associated directory as of the sequence number
      */
-    public void setFileReferencesIfAbsent(@Nonnull Map<String, FDBLuceneFileReference> fileReferences) {
+    public void setFileReferencesIfAbsent(Map<String, FDBLuceneFileReference> fileReferences) {
         this.fileReferences.compareAndSet(null, fileReferences);
     }
 
@@ -118,7 +112,7 @@ public class FDBDirectorySharedCache {
      * @param blockNumber block number in the file
      * @param block the block to be cached
      */
-    public void putBlockIfAbsent(long id, int blockNumber, @Nonnull byte[] block) {
+    public void putBlockIfAbsent(long id, int blockNumber, byte[] block) {
         blocks.asMap().putIfAbsent(Pair.of(id, blockNumber), block);
     }
 

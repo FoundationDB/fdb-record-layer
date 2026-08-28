@@ -22,8 +22,6 @@ package com.apple.foundationdb.record.lucene;
 
 import org.apache.lucene.analysis.Analyzer;
 
-import javax.annotation.Nonnull;
-
 /**
  * The type used to determine how the {@link Analyzer} built by {@link LuceneAnalyzerFactory} is used.
  */
@@ -34,17 +32,15 @@ public enum LuceneAnalyzerType {
     private String analyzerOptionKey;
     private String analyzerPerFieldOptionKey;
 
-    LuceneAnalyzerType(@Nonnull String indexOptionKey, @Nonnull String analyzerPerFieldOptionKey) {
+    LuceneAnalyzerType(String indexOptionKey, String analyzerPerFieldOptionKey) {
         this.analyzerOptionKey = indexOptionKey;
         this.analyzerPerFieldOptionKey = analyzerPerFieldOptionKey;
     }
 
-    @Nonnull
     public String getAnalyzerOptionKey() {
         return analyzerOptionKey;
     }
 
-    @Nonnull
     public String getAnalyzerPerFieldOptionKey() {
         return analyzerPerFieldOptionKey;
     }

@@ -49,8 +49,7 @@ import org.apache.lucene.search.spans.SpanOrQuery;
 import org.apache.lucene.search.spans.SpanQuery;
 import org.apache.lucene.search.spans.SpanTermQuery;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
@@ -61,24 +60,21 @@ import java.util.Set;
  */
 @API(API.Status.UNSTABLE)
 public abstract class LuceneQueryClause implements PlanHashable {
-    @Nonnull
     private final LuceneQueryType queryType;
 
-    protected LuceneQueryClause(@Nonnull final LuceneQueryType queryType) {
+    protected LuceneQueryClause(final LuceneQueryType queryType) {
         this.queryType = queryType;
     }
 
-    @Nonnull
     public LuceneQueryType getQueryType() {
         return queryType;
     }
 
-    public abstract BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context);
+    public abstract BoundQuery bind(FDBRecordStoreBase<?> store, Index index, EvaluationContext context);
 
-    public abstract void getPlannerGraphDetails(@Nonnull ImmutableList.Builder<String> detailsBuilder, @Nonnull ImmutableMap.Builder<String, Attribute> attributeMapBuilder);
+    public abstract void getPlannerGraphDetails(ImmutableList.Builder<String> detailsBuilder, ImmutableMap.Builder<String, Attribute> attributeMapBuilder);
 
-    @Nonnull
-    protected BoundQuery toBoundQuery(@Nonnull final Query luceneQuery) {
+    protected BoundQuery toBoundQuery(final Query luceneQuery) {
         return BoundQuery.ofLuceneQueryWithQueryType(luceneQuery, getQueryType());
     }
 
@@ -87,8 +83,7 @@ public abstract class LuceneQueryClause implements PlanHashable {
      * @param query lucene query to extract all terms from
      * @return a new highlighting terms map
      */
-    @Nonnull
-    protected static Map<String, Set<String>> getHighlightingTermsMap(@Nonnull final Query query) {
+    protected static Map<String, Set<String>> getHighlightingTermsMap(final Query query) {
         Map<String, Set<String>> highlightingTermsMap = Maps.newHashMap();
         if (query instanceof BooleanQuery) {
             BooleanQuery booleanQuery = (BooleanQuery) query;
@@ -158,9 +153,8 @@ public abstract class LuceneQueryClause implements PlanHashable {
     }
 
     @CanIgnoreReturnValue
-    @Nonnull
-    protected static Map<String, Set<String>> combineHighlightingTermsMaps(@Nonnull final Map<String, Set<String>> existingMap,
-                                                                           @Nonnull final Map<String, Set<String>> newMap) {
+    protected static Map<String, Set<String>> combineHighlightingTermsMaps(final Map<String, Set<String>> existingMap,
+                                                                           final Map<String, Set<String>> newMap) {
         newMap.forEach((field, newTerms) ->
                 existingMap.merge(field, newTerms, (o, n) -> {
                     final Set<String> terms = Sets.newHashSet(o);
@@ -174,21 +168,19 @@ public abstract class LuceneQueryClause implements PlanHashable {
      * Helper class to capture a bound query, i.e. a lucene query where all parameters have been resolved.
      */
     public static class BoundQuery {
-        @Nonnull
         private final Query luceneQuery;
         @Nullable
         private final Map<String, Set<String>> highlightingTermsMap;
 
-        public BoundQuery(@Nonnull final Query luceneQuery) {
+        public BoundQuery(final Query luceneQuery) {
             this(luceneQuery, null);
         }
 
-        public BoundQuery(@Nonnull final Query luceneQuery, @Nullable final Map<String, Set<String>> highlightingTermsMap) {
+        public BoundQuery(final Query luceneQuery, @Nullable final Map<String, Set<String>> highlightingTermsMap) {
             this.luceneQuery = luceneQuery;
             this.highlightingTermsMap = highlightingTermsMap;
         }
 
-        @Nonnull
         public Query getLuceneQuery() {
             return luceneQuery;
         }
@@ -198,7 +190,7 @@ public abstract class LuceneQueryClause implements PlanHashable {
             return highlightingTermsMap;
         }
 
-        public static BoundQuery ofLuceneQueryWithQueryType(@Nonnull Query luceneQuery, @Nonnull LuceneQueryType queryType) {
+        public static BoundQuery ofLuceneQueryWithQueryType(Query luceneQuery, LuceneQueryType queryType) {
             if (queryType == LuceneQueryType.QUERY_HIGHLIGHT) {
                 return new BoundQuery(luceneQuery, LuceneQueryClause.getHighlightingTermsMap(luceneQuery));
             }

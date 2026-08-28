@@ -38,7 +38,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.stream.Stream;
 
@@ -72,10 +71,9 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
                                 .map(isGrouped -> Arguments.of(isSynthetic, isGrouped, isPartitioned))));
     }
 
-    @Nonnull
-    protected FDBRecordStore.Builder getStoreBuilderWithRegistry(@Nonnull FDBRecordContext context,
-                                                                 @Nonnull RecordMetaDataProvider metaData,
-                                                                 @Nonnull final KeySpacePath path) {
+    protected FDBRecordStore.Builder getStoreBuilderWithRegistry(FDBRecordContext context,
+                                                                 RecordMetaDataProvider metaData,
+                                                                 final KeySpacePath path) {
         return super.getStoreBuilder(context, metaData, path).setIndexMaintainerRegistry(registry);
     }
 

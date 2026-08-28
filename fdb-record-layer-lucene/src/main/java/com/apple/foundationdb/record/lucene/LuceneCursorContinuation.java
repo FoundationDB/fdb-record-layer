@@ -29,8 +29,7 @@ import org.apache.lucene.search.FieldDoc;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.util.BytesRef;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Continuation from scanning a Lucene index. This wraps the LuceneIndexContinuation protobuf message,
@@ -39,13 +38,12 @@ import javax.annotation.Nullable;
  * feature to resume a query.
  */
 class LuceneCursorContinuation implements RecordCursorContinuation {
-    @Nonnull
     private final LuceneContinuationProto.LuceneIndexContinuation protoContinuation;
 
     @SuppressWarnings("squid:S3077") // Byte array is immutable once created, so does not need to use atomic array
     private volatile byte[] byteContinuation;
 
-    private LuceneCursorContinuation(@Nonnull LuceneContinuationProto.LuceneIndexContinuation protoContinuation) {
+    private LuceneCursorContinuation(LuceneContinuationProto.LuceneIndexContinuation protoContinuation) {
         this.protoContinuation = protoContinuation;
     }
 
@@ -62,7 +60,6 @@ class LuceneCursorContinuation implements RecordCursorContinuation {
         return byteContinuation;
     }
 
-    @Nonnull
     @Override
     public ByteString toByteString() {
         return protoContinuation.toByteString();
@@ -111,8 +108,7 @@ class LuceneCursorContinuation implements RecordCursorContinuation {
         return new LuceneCursorContinuation(builder.build());
     }
 
-    @Nonnull
-    public static ScoreDoc toScoreDoc(@Nonnull LuceneContinuationProto.LuceneIndexContinuation luceneIndexContinuation) {
+    public static ScoreDoc toScoreDoc(LuceneContinuationProto.LuceneIndexContinuation luceneIndexContinuation) {
         int doc = (int)luceneIndexContinuation.getDoc();
         float score = luceneIndexContinuation.getScore();
         int shard = (int)luceneIndexContinuation.getShard();

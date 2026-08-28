@@ -38,7 +38,6 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.search.Sort;
 import org.junit.jupiter.api.Assertions;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -85,7 +84,7 @@ public abstract class FDBLuceneTestBase extends FDBRecordStoreTestBase {
             INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
 
-    protected StoreTimer.Counter getCounter(@Nonnull final FDBRecordContext recordContext, @Nonnull final StoreTimer.Event event) {
+    protected StoreTimer.Counter getCounter(final FDBRecordContext recordContext, final StoreTimer.Event event) {
         return Verify.verifyNotNull(recordContext.getTimer()).getCounter(event);
     }
 
@@ -111,7 +110,6 @@ public abstract class FDBLuceneTestBase extends FDBRecordStoreTestBase {
         return manager.getIndexReader(groupingKey, partitionId);
     }
 
-    @Nonnull
     protected LuceneIndexMaintainer getIndexMaintainer(final Index index) {
         return (LuceneIndexMaintainer)recordStore.getIndexMaintainer(index);
     }
@@ -141,7 +139,6 @@ public abstract class FDBLuceneTestBase extends FDBRecordStoreTestBase {
         }
     }
 
-    @Nonnull
     protected static Index complexPartitionedIndex(final Map<String, String> options) {
         return new Index("Complex$partitioned",
                 concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
@@ -150,7 +147,6 @@ public abstract class FDBLuceneTestBase extends FDBRecordStoreTestBase {
                 options);
     }
 
-    @Nonnull
     protected static Index getJoinedIndex(final Map<String, String> options) {
         return new Index("joinNestedConcat",
                 concat(
@@ -161,7 +157,6 @@ public abstract class FDBLuceneTestBase extends FDBRecordStoreTestBase {
                 options);
     }
 
-    @Nonnull
     protected static Index complexPartitionedIndexNoGroup(final Map<String, String> options) {
         return new Index("Complex$partitioned_noGroup",
                 concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")),

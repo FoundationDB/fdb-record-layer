@@ -58,8 +58,7 @@ import org.apache.lucene.util.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -73,6 +72,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 
 import static com.apple.foundationdb.record.RecordCursor.NoNextReason.SOURCE_EXHAUSTED;
+import static com.apple.foundationdb.record.lucene.LucenePartitionInfoProto.LucenePartitionInfo;
+import static com.apple.foundationdb.record.lucene.LuceneScanQueryParameters.LuceneQueryHighlightParameters;
 
 /**
  * This class is a Record Cursor implementation for Lucene queries.
@@ -83,11 +84,9 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private static final Logger LOGGER = LoggerFactory.getLogger(LuceneRecordCursor.class);
     // pagination within single instance of record cursor for lucene queries.
     private final int pageSize;
-    @Nonnull
     private final Executor executor;
     @Nullable
     private final ExecutorService executorService;
-    @Nonnull
     private final CursorLimitManager limitManager;
     @Nullable
     private final FDBStoreTimer timer;
@@ -119,22 +118,18 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     Integer partitionId;
     @Nullable
     Tuple partitionKey;
-    @Nonnull
     LucenePartitioner partitioner;
     @Nullable
     private final List<String> storedFields;
-    @Nonnull
     private final Set<String> storedFieldsToReturn;
     @Nullable
     private final List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes;
 
     @Nullable
-    private final LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters;
+    private final LuceneQueryHighlightParameters luceneQueryHighlightParameters;
     @Nullable
     private final Map<String, Set<String>> termMap;
-    @Nonnull
     private final LuceneAnalyzerCombinationProvider analyzerSelector;
-    @Nonnull
     private final LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector;
     private boolean closed;
     /**
@@ -172,23 +167,23 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     //TODO: once we fix the available fields logic for lucene to take into account which fields are
     // stored there should be no need to pass in a list of fields, or we could only pass in the store field values.
     @SuppressWarnings("squid:S107")
-    LuceneRecordCursor(@Nonnull Executor executor,
+    LuceneRecordCursor(Executor executor,
                        @Nullable ExecutorService executorService,
-                       @Nonnull LucenePartitioner partitioner,
+                       LucenePartitioner partitioner,
                        int pageSize,
-                       @Nonnull ScanProperties scanProperties,
-                       @Nonnull final IndexMaintainerState state,
-                       @Nonnull Query query,
+                       ScanProperties scanProperties,
+                       final IndexMaintainerState state,
+                       Query query,
                        @Nullable Sort sort,
                        byte[] continuation,
                        @Nullable Tuple groupingKey,
-                       @Nullable LucenePartitionInfoProto.LucenePartitionInfo partitionInfo,
-                       @Nullable LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
+                       @Nullable LucenePartitionInfo partitionInfo,
+                       @Nullable LuceneQueryHighlightParameters luceneQueryHighlightParameters,
                        @Nullable Map<String, Set<String>> termMap,
                        @Nullable final List<String> storedFields,
                        @Nullable final List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes,
-                       @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector,
-                       @Nonnull LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector) {
+                       LuceneAnalyzerCombinationProvider analyzerSelector,
+                       LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector) {
         this.state = state;
         this.executor = executor;
         this.pageSize = pageSize;
@@ -271,7 +266,6 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         closed = false;
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<IndexEntry>> onNext() {
         if (nextResult != null && !nextResult.hasNext()) {
@@ -378,7 +372,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             return CompletableFuture.completedFuture(recordCursorResult);
         }
 
-        final CompletableFuture<LucenePartitionInfoProto.LucenePartitionInfo> nextPartitionFuture;
+        final CompletableFuture<LucenePartitionInfo> nextPartitionFuture;
         if (sortedByPartitioningKey && !isReverseSort) {
             // if we're in a partitioning-field-ascending-sort query, get the next more recent partition
             nextPartitionFuture = partitioner.getPartitionMetaInfoById(partitionId, groupingKey)
@@ -434,14 +428,13 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         return closed;
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return executor;
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         visitor.visitEnter(this);
         return visitor.visitLeave(this);
     }
@@ -523,7 +516,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         return newTopDocs;
     }
 
-    private CompletableFuture<ScoreDocIndexEntry> buildIndexEntryFromScoreDocAsync(@Nonnull ScoreDoc scoreDoc) {
+    private CompletableFuture<ScoreDocIndexEntry> buildIndexEntryFromScoreDocAsync(ScoreDoc scoreDoc) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 Document document = searcher.doc(scoreDoc.doc, storedFieldsToReturn);
@@ -606,7 +599,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         private final Map<String, Set<String>> termMap;
         private final LuceneAnalyzerCombinationProvider analyzerSelector;
         private final LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector;
-        private final LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters;
+        private final LuceneQueryHighlightParameters luceneQueryHighlightParameters;
         private final KeyExpression indexKey;
 
         public ScoreDoc getScoreDoc() {
@@ -625,7 +618,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             return autoCompleteAnalyzerSelector;
         }
 
-        public LuceneScanQueryParameters.LuceneQueryHighlightParameters getLuceneQueryHighlightParameters() {
+        public LuceneQueryHighlightParameters getLuceneQueryHighlightParameters() {
             return luceneQueryHighlightParameters;
         }
 
@@ -633,11 +626,11 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             return indexKey;
         }
 
-        private ScoreDocIndexEntry(@Nonnull ScoreDoc scoreDoc, @Nonnull Index index, @Nonnull Tuple key,
-                                   @Nullable LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
+        private ScoreDocIndexEntry(ScoreDoc scoreDoc, Index index, Tuple key,
+                                   @Nullable LuceneQueryHighlightParameters luceneQueryHighlightParameters,
                                    @Nullable final Map<String, Set<String>> termMap,
-                                   @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector,
-                                   @Nonnull LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector) {
+                                   LuceneAnalyzerCombinationProvider analyzerSelector,
+                                   LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector) {
             super(index, key, TupleHelpers.EMPTY);
             this.scoreDoc = scoreDoc;
             this.luceneQueryHighlightParameters = luceneQueryHighlightParameters;

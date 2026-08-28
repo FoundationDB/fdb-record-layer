@@ -37,8 +37,7 @@ import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.Collection;
@@ -64,7 +63,6 @@ public class LuceneAutoCompleteHelpers {
      * @return the token info comprised of query tokens and a final token if it needs to be added as a "prefix" component
      *         to the final query
      */
-    @Nonnull
     public static AutoCompleteTokens getQueryTokens(Analyzer queryAnalyzer, String searchKey) {
         final ImmutableList.Builder<String> tokensBuilder = ImmutableList.builder();
         String prefixToken = null;
@@ -107,9 +105,8 @@ public class LuceneAutoCompleteHelpers {
         return new AutoCompleteTokens(tokensBuilder.build(), prefixToken == null ? ImmutableSet.of() : ImmutableSet.of(prefixToken));
     }
 
-    @Nonnull
-    public static List<String> computeAllMatches(@Nonnull String fieldName, @Nonnull Analyzer queryAnalyzer,
-                                                 @Nonnull String text, @Nonnull AutoCompleteTokens tokens,
+    public static List<String> computeAllMatches(String fieldName, Analyzer queryAnalyzer,
+                                                 String text, AutoCompleteTokens tokens,
                                                  final int numAdditionalTokens) {
         final var resultBuilder = ImmutableList.<TermAcceptor>builder();
         final var acceptors = Lists.<TermAcceptor>newArrayList();
@@ -171,10 +168,9 @@ public class LuceneAutoCompleteHelpers {
         }
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public static List<String> computeAllMatchesForPhrase(@Nonnull final String fieldName, @Nonnull final Analyzer queryAnalyzer,
-                                                          @Nonnull final String text, @Nonnull final AutoCompleteTokens tokens,
+    public static List<String> computeAllMatchesForPhrase(final String fieldName, final Analyzer queryAnalyzer,
+                                                          final String text, final AutoCompleteTokens tokens,
                                                           final int numAdditionalTokens) {
         final var queryTokens = tokens.getQueryTokens();
         final var prefixTokens = tokens.getPrefixTokens();
@@ -237,8 +233,7 @@ public class LuceneAutoCompleteHelpers {
             return additionalTokenCount > 0;
         }
 
-        @Nonnull
-        public String getAcceptedString(@Nonnull final String originalString) {
+        public String getAcceptedString(final String originalString) {
             return originalString.substring(startOffset, endOffset);
         }
     }
@@ -251,9 +246,7 @@ public class LuceneAutoCompleteHelpers {
             ACCEPTED_PREFIX_TOKEN;
         }
 
-        @Nonnull
         private final List<String> acceptedTokens;
-        @Nonnull
         private final PeekingIterator<String> queryTokensRemainingIterator;
         @Nullable
         private final String prefixToken;
@@ -264,8 +257,8 @@ public class LuceneAutoCompleteHelpers {
 
         private boolean isEndState;
 
-        private PhraseAcceptor(@Nonnull final Iterator<String> queryTokensRemainingIterator, @Nullable final String prefixToken,
-                               @Nonnull final List<String> acceptedTokens, final boolean isEndState, final int startOffset,
+        private PhraseAcceptor(final Iterator<String> queryTokensRemainingIterator, @Nullable final String prefixToken,
+                               final List<String> acceptedTokens, final boolean isEndState, final int startOffset,
                                final int endOffset, final int additionalTokenCount) {
             this.queryTokensRemainingIterator = Iterators.peekingIterator(queryTokensRemainingIterator);
             this.prefixToken = prefixToken;
@@ -276,7 +269,6 @@ public class LuceneAutoCompleteHelpers {
             this.additionalTokenCount = additionalTokenCount;
         }
 
-        @Nonnull
         public Iterator<String> getQueryTokensRemainingIterator() {
             return queryTokensRemainingIterator;
         }
@@ -286,13 +278,11 @@ public class LuceneAutoCompleteHelpers {
             return prefixToken;
         }
 
-        @Nonnull
         public List<String> getAcceptedTokens() {
             return acceptedTokens;
         }
 
-        @Nonnull
-        public String getAcceptedPhrase(@Nonnull final String originalString) {
+        public String getAcceptedPhrase(final String originalString) {
             return originalString.substring(startOffset, endOffset);
         }
 
@@ -300,7 +290,7 @@ public class LuceneAutoCompleteHelpers {
             return isEndState;
         }
 
-        public boolean accept(@Nonnull final String currentToken, @Nonnull final String currentMatchedString, final int currentEndOffset) {
+        public boolean accept(final String currentToken, final String currentMatchedString, final int currentEndOffset) {
             if (isEndState) {
                 if (additionalTokenCount > 0) {
                     additionalTokenCount --;
@@ -338,8 +328,8 @@ public class LuceneAutoCompleteHelpers {
         }
 
         @Nullable
-        public static PhraseAcceptor acceptFirstToken(@Nonnull final String currentToken, @Nonnull final String currentMatchedString,
-                                                      @Nonnull final List<String> queryTokens, @Nullable final String prefixToken,
+        public static PhraseAcceptor acceptFirstToken(final String currentToken, final String currentMatchedString,
+                                                      final List<String> queryTokens, @Nullable final String prefixToken,
                                                       final int additionalTokenCount, final int startOffset, final int currentEndOffset) {
             final var firstQueryToken = queryTokens.isEmpty() ? null : queryTokens.get(0);
             final var acceptState = acceptToken(currentToken, firstQueryToken, prefixToken);
@@ -359,7 +349,7 @@ public class LuceneAutoCompleteHelpers {
             }
         }
 
-        private static AcceptState acceptToken(@Nonnull final String currentToken, @Nullable final String currentQueryToken, @Nullable final String prefixToken) {
+        private static AcceptState acceptToken(final String currentToken, @Nullable final String currentQueryToken, @Nullable final String prefixToken) {
             Preconditions.checkArgument(currentQueryToken != null || prefixToken != null);
             if (currentQueryToken != null) {
                 return currentToken.equals(currentQueryToken) ? AcceptState.ACCEPTED_QUERY_TOKEN : AcceptState.NOT_ACCEPTED;
@@ -368,17 +358,15 @@ public class LuceneAutoCompleteHelpers {
         }
     }
 
-    public static boolean isPhraseSearch(@Nonnull final String search) {
+    public static boolean isPhraseSearch(final String search) {
         return search.startsWith("\"") && search.endsWith("\"");
     }
 
-    @Nonnull
-    public static String searchKeyFromSearchArgument(@Nonnull final String search) {
+    public static String searchKeyFromSearchArgument(final String search) {
         return searchKeyFromSearchArgument(search, isPhraseSearch(search));
     }
 
-    @Nonnull
-    public static String searchKeyFromSearchArgument(@Nonnull final String search, final boolean isPhraseSearch) {
+    public static String searchKeyFromSearchArgument(final String search, final boolean isPhraseSearch) {
         return isPhraseSearch ? search.substring(1, search.length() - 1) : search;
     }
 
@@ -416,31 +404,25 @@ public class LuceneAutoCompleteHelpers {
      * Helper class to capture token information synthesized from a search key.
      */
     public static class AutoCompleteTokens {
-        @Nonnull
         private final List<String> queryTokens;
-        @Nonnull
         private final Set<String> prefixTokens;
 
-        @Nonnull
         private final Supplier<Set<String>> queryTokensAsSetSupplier;
 
-        public AutoCompleteTokens(@Nonnull final Collection<String> queryTokens, @Nonnull final Set<String> prefixTokens) {
+        public AutoCompleteTokens(final Collection<String> queryTokens, final Set<String> prefixTokens) {
             this.queryTokens = ImmutableList.copyOf(queryTokens);
             this.prefixTokens = ImmutableSet.copyOf(prefixTokens);
             this.queryTokensAsSetSupplier = Suppliers.memoize(() -> ImmutableSet.copyOf(queryTokens));
         }
 
-        @Nonnull
         public List<String> getQueryTokens() {
             return queryTokens;
         }
 
-        @Nonnull
         public Set<String> getQueryTokensAsSet() {
             return queryTokensAsSetSupplier.get();
         }
 
-        @Nonnull
         public Set<String> getPrefixTokens() {
             return prefixTokens;
         }

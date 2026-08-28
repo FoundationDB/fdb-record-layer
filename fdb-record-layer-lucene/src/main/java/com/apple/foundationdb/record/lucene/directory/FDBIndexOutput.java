@@ -32,8 +32,7 @@ import org.apache.lucene.store.IndexOutput;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.zip.CRC32;
@@ -66,7 +65,7 @@ public final class FDBIndexOutput extends IndexOutput {
      * @param name name of resource
      * @param fdbDirectory existing FDBDirectory
      */
-    public FDBIndexOutput(@Nonnull String name, @Nonnull FDBDirectory fdbDirectory) throws IOException {
+    public FDBIndexOutput(String name, FDBDirectory fdbDirectory) throws IOException {
         this(name, name, fdbDirectory);
     }
 
@@ -77,7 +76,7 @@ public final class FDBIndexOutput extends IndexOutput {
      * @param name name of resource
      * @param fdbDirectory existing FDBDirectory
      */
-    public FDBIndexOutput(@Nonnull String resourceDescription, @Nonnull String name, @Nonnull FDBDirectory fdbDirectory) throws IOException {
+    public FDBIndexOutput(String resourceDescription, String name, FDBDirectory fdbDirectory) throws IOException {
         super(resourceDescription, name);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(KeyValueLogMessage.of("init",
@@ -150,12 +149,12 @@ public final class FDBIndexOutput extends IndexOutput {
      * @param input input to setExpectedBytes
      * @param numBytes expected number of bytes
      */
-    void setExpectedBytes(@Nonnull final PrefetchableBufferedChecksumIndexInput input, final long numBytes) {
+    void setExpectedBytes(final PrefetchableBufferedChecksumIndexInput input, final long numBytes) {
         input.setExpectedBytes(numBytes);
     }
 
     @Override
-    public void copyBytes(@Nonnull final DataInput input, final long numBytes) throws IOException {
+    public void copyBytes(final DataInput input, final long numBytes) throws IOException {
         try {
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace(getLogMessage("copy bytes",
@@ -181,7 +180,7 @@ public final class FDBIndexOutput extends IndexOutput {
      * @param length length
      */
     @Override
-    public void writeBytes(@Nonnull final byte[] bytes, final int offset, final int length) throws IOException {
+    public void writeBytes(final byte[] bytes, final int offset, final int length) throws IOException {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("writeBytes()",
                     LuceneLogMessageKeys.OFFSET, offset,
@@ -225,8 +224,7 @@ public final class FDBIndexOutput extends IndexOutput {
         }
     }
 
-    @Nonnull
-    private String getLogMessage(@Nonnull String staticMsg, @Nullable final Object... keysAndValues) {
+    private String getLogMessage(String staticMsg, @Nullable final Object... keysAndValues) {
         return KeyValueLogMessage.build(staticMsg, keysAndValues)
                 .addKeyAndValue(LogMessageKeys.SUBSPACE, fdbDirectory.getSubspace())
                 .addKeyAndValue(LuceneLogMessageKeys.RESOURCE, resourceDescription)

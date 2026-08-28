@@ -36,8 +36,7 @@ import org.apache.lucene.analysis.standard.UAX29URLEmailTokenizer;
 import org.apache.lucene.analysis.synonym.SynonymGraphFilter;
 import org.apache.lucene.analysis.synonym.SynonymMap;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A CJK Analyzer which applies a minimum and maximum token length to non-CJK tokens. This is useful
@@ -58,19 +57,19 @@ public class AlphanumericCjkAnalyzer extends StopwordAnalyzerBase {
     //when set to false, this will ignore tokens which exceed the max token length
     private final boolean breakLongTokens;
 
-    public AlphanumericCjkAnalyzer(@Nonnull CharArraySet stopWords) {
+    public AlphanumericCjkAnalyzer(CharArraySet stopWords) {
         this(stopWords, null);
     }
 
-    public AlphanumericCjkAnalyzer(@Nonnull CharArraySet stopWords, boolean breakLongTokens) {
+    public AlphanumericCjkAnalyzer(CharArraySet stopWords, boolean breakLongTokens) {
         this(stopWords, DEFAULT_MIN_TOKEN_LENGTH, StandardAnalyzer.DEFAULT_MAX_TOKEN_LENGTH, breakLongTokens, null);
     }
 
-    public AlphanumericCjkAnalyzer(@Nonnull CharArraySet stopWords, @Nullable String synonymName) {
+    public AlphanumericCjkAnalyzer(CharArraySet stopWords, @Nullable String synonymName) {
         this(stopWords, DEFAULT_MIN_TOKEN_LENGTH, StandardAnalyzer.DEFAULT_MAX_TOKEN_LENGTH, true, synonymName);
     }
 
-    public AlphanumericCjkAnalyzer(@Nonnull CharArraySet stopWords,
+    public AlphanumericCjkAnalyzer(CharArraySet stopWords,
                                    int minTokenLength,
                                    int maxTokenLength,
                                    @Nullable String synonymName) {
@@ -90,7 +89,7 @@ public class AlphanumericCjkAnalyzer extends StopwordAnalyzerBase {
      * @param breakLongTokens if true, the long tokens are broken up.
      * @param synonymName the name of the synonym map to use, or {@code null} if no synonyms are to be used
      */
-    public AlphanumericCjkAnalyzer(@Nonnull CharArraySet stopWords,
+    public AlphanumericCjkAnalyzer(CharArraySet stopWords,
                                    int minTokenLength,
                                    int maxTokenLength,
                                    boolean breakLongTokens,

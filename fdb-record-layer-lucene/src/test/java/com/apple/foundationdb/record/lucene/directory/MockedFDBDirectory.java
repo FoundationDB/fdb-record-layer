@@ -28,8 +28,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.LockFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -56,7 +55,7 @@ public class MockedFDBDirectory extends FDBDirectory {
         super(subspace, options, sharedCacheManager, sharedCacheKey, useCompoundFile, agilityContext, lockFactory, blockCacheMaximumSize);
     }
 
-    public MockedFDBDirectory(@Nonnull final Subspace subspace, @Nonnull final FDBRecordContext context, @Nullable final Map<String, String> indexOptions) {
+    public MockedFDBDirectory(final Subspace subspace, final FDBRecordContext context, @Nullable final Map<String, String> indexOptions) {
         super(subspace, context, indexOptions);
     }
 
@@ -66,9 +65,8 @@ public class MockedFDBDirectory extends FDBDirectory {
         return super.getIncrement();
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<FDBLuceneFileReference> getFDBLuceneFileReferenceAsync(@Nonnull final String name) {
+    public CompletableFuture<FDBLuceneFileReference> getFDBLuceneFileReferenceAsync(final String name) {
         return super.getFDBLuceneFileReferenceAsync(name)
                 .thenApply(ref -> {
                     injectedFailures.checkFailureForCoreException(LUCENE_GET_FDB_LUCENE_FILE_REFERENCE_ASYNC);
@@ -76,9 +74,8 @@ public class MockedFDBDirectory extends FDBDirectory {
                 });
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<byte[]> readBlock(@Nonnull final IndexInput requestingInput, @Nonnull final String fileName, @Nonnull final CompletableFuture<FDBLuceneFileReference> referenceFuture, final int block) {
+    public CompletableFuture<byte[]> readBlock(final IndexInput requestingInput, final String fileName, final CompletableFuture<FDBLuceneFileReference> referenceFuture, final int block) {
         return super.readBlock(requestingInput, fileName, referenceFuture, block)
                 .thenApply(bytes -> {
                     injectedFailures.checkFailureForCoreException(LUCENE_READ_BLOCK);
@@ -86,14 +83,12 @@ public class MockedFDBDirectory extends FDBDirectory {
                 });
     }
 
-    @Nonnull
     @Override
     public String[] listAll() throws IOException {
         injectedFailures.checkFailureForIoException(LUCENE_LIST_ALL);
         return super.listAll();
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<Map<String, FDBLuceneFileReference>> getFileReferenceCacheAsync() {
         return super.getFileReferenceCacheAsync()
@@ -104,7 +99,7 @@ public class MockedFDBDirectory extends FDBDirectory {
     }
 
     @Override
-    protected boolean deleteFileInternal(@Nonnull final Map<String, FDBLuceneFileReference> cache, @Nonnull final String name) throws IOException {
+    protected boolean deleteFileInternal(final Map<String, FDBLuceneFileReference> cache, final String name) throws IOException {
         injectedFailures.checkFailureForCoreException(LUCENE_DELETE_FILE_INTERNAL);
         return super.deleteFileInternal(cache, name);
     }

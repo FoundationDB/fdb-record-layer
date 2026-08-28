@@ -35,8 +35,7 @@ import org.apache.lucene.util.BytesRef;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 import java.io.IOException;
@@ -173,9 +172,8 @@ public class LuceneSerializer {
         return decoded;
     }
 
-    @Nonnull
-    private static byte[] compressIfNeeded(@Nonnull CompressedAndEncryptedSerializerState state, @Nonnull ByteBuffersDataOutput encodedDataOutput,
-                                           @Nonnull byte[] uncompressedData, int prefixLength)
+    private static byte[] compressIfNeeded(CompressedAndEncryptedSerializerState state, ByteBuffersDataOutput encodedDataOutput,
+                                           byte[] uncompressedData, int prefixLength)
             throws IOException {
         if (!state.isCompressed()) {
             return fallBackToUncompressed(state, uncompressedData, encodedDataOutput.toArrayCopy(), prefixLength);
@@ -197,8 +195,8 @@ public class LuceneSerializer {
         }
     }
 
-    private static byte[] fallBackToUncompressed(@Nonnull CompressedAndEncryptedSerializerState state, @Nonnull byte[] originalData,
-                                                 @Nonnull byte[] encodedData, int prefixLength) {
+    private static byte[] fallBackToUncompressed(CompressedAndEncryptedSerializerState state, byte[] originalData,
+                                                 byte[] encodedData, int prefixLength) {
         final byte[] encoded = new byte[originalData.length + prefixLength];
         System.arraycopy(encodedData, 0, encoded, 0, prefixLength);
         // This bit is always in the lowest (first) byte, even if the prefix is longer.
@@ -208,7 +206,7 @@ public class LuceneSerializer {
         return encoded;
     }
 
-    private void decompressIfNeeded(@Nonnull CompressedAndEncryptedSerializerState state, @Nonnull ByteArrayDataInput encodedDataInput)
+    private void decompressIfNeeded(CompressedAndEncryptedSerializerState state, ByteArrayDataInput encodedDataInput)
             throws IOException {
         if (!state.isCompressed()) {
             return;
@@ -227,7 +225,7 @@ public class LuceneSerializer {
         encodedDataInput.reset(ref.bytes, ref.offset, ref.length);
     }
 
-    private byte[] encryptIfNeeded(@Nonnull CompressedAndEncryptedSerializerState state, @Nonnull byte[] encoded, int prefixLength) throws GeneralSecurityException {
+    private byte[] encryptIfNeeded(CompressedAndEncryptedSerializerState state, byte[] encoded, int prefixLength) throws GeneralSecurityException {
         if (!state.isEncrypted()) {
             return encoded;
         }
@@ -251,7 +249,7 @@ public class LuceneSerializer {
         return withIv;
     }
 
-    private void decryptIfNeeded(@Nonnull CompressedAndEncryptedSerializerState state, @Nonnull ByteArrayDataInput encodedDataInput)
+    private void decryptIfNeeded(CompressedAndEncryptedSerializerState state, ByteArrayDataInput encodedDataInput)
             throws GeneralSecurityException {
         if (!state.isEncrypted()) {
             return;
@@ -302,7 +300,7 @@ public class LuceneSerializer {
     // This can be removed once it is guaranteed that all indexes are using the encoded format.
     // Only works for Protobuf messages all of whose fields are themselves length-delimited,
     // such as LuceneStoredFields (StoredField or bytes) or FieldInfos (FieldInfo).
-    private boolean isProtobufMessageWithoutPrefix(@Nonnull byte[] bytes) {
+    private boolean isProtobufMessageWithoutPrefix(byte[] bytes) {
         if (bytes.length < 1) {
             return true;    // No room for prefix; empty message.
         }

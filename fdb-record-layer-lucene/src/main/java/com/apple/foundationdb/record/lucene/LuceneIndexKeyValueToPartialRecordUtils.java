@@ -50,14 +50,14 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import com.google.protobuf.MessageLite;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
 import static com.apple.foundationdb.record.planprotos.LuceneRecordQueryPlanProto.luceneSpellCheckCopier;
+import static com.google.protobuf.Descriptors.FieldDescriptor;
 
 /**
  * A utility class to build a partial record for an auto-complete suggestion value, with grouping keys if there exist.
@@ -66,15 +66,15 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
     private LuceneIndexKeyValueToPartialRecordUtils() {
     }
 
-    public static void buildPartialRecord(@Nonnull KeyExpression root, @Nonnull Descriptors.Descriptor descriptor,
-                                          @Nonnull Message.Builder builder, @Nonnull String luceneField,
-                                          @Nonnull String suggestion) {
+    public static void buildPartialRecord(KeyExpression root, Descriptors.Descriptor descriptor,
+                                          Message.Builder builder, String luceneField,
+                                          String suggestion) {
         buildPartialRecord(root, descriptor, builder, luceneField, suggestion, TupleHelpers.EMPTY);
     }
 
-    public static void buildPartialRecord(@Nonnull KeyExpression root, @Nonnull Descriptors.Descriptor descriptor,
-                                          @Nonnull Message.Builder builder, @Nonnull String luceneField,
-                                          @Nonnull String suggestion, @Nonnull Tuple groupingKey) {
+    public static void buildPartialRecord(KeyExpression root, Descriptors.Descriptor descriptor,
+                                          Message.Builder builder, String luceneField,
+                                          String suggestion, Tuple groupingKey) {
         final KeyExpression expression = root instanceof GroupingKeyExpression ? ((GroupingKeyExpression) root).getWholeKey() : root;
         LuceneIndexExpressions.getFieldsRecursively(expression, new PartialRecordBuildSource(null, descriptor, builder),
                 (source, fieldName, value, type, fieldNameOverride, namedFieldPath, namedFieldSuffix, stored, sorted, overriddenKeyRanges, groupingKeyIndex, keyIndex, fieldConfigsIgnored) -> {
@@ -91,15 +91,15 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
                 null, 0, root instanceof GroupingKeyExpression ? ((GroupingKeyExpression) root).getGroupingCount() : 0, new ArrayList<>());
     }
 
-    public static void populatePrimaryKey(@Nonnull KeyExpression primaryKey, @Nonnull Descriptors.Descriptor descriptor, @Nonnull Message.Builder builder, @Nonnull Tuple tuple) {
+    public static void populatePrimaryKey(KeyExpression primaryKey, Descriptors.Descriptor descriptor, Message.Builder builder, Tuple tuple) {
         LuceneIndexExpressions.getFields(primaryKey, new PartialRecordBuildSource(null, descriptor, builder),
                 (source, fieldName, value, type, fieldNameOverride, namedFieldPath, namedFieldSuffix, stored, sorted, overriddenKeyRanges, groupingKeyIndex, keyIndex, fieldConfigsIgnored) -> {
                     source.buildMessage(tuple.get(keyIndex), (String) value, null, null, false);
                 }, null);
     }
 
-    private static void buildIfFieldNameMatch(@Nonnull PartialRecordBuildSource source, @Nonnull String concatenatedFieldPath, @Nonnull String givenFieldName,
-                                                 @Nonnull List<Integer> overriddenKeyRanges, @Nonnull String suggestion, @Nonnull String protoFieldName) {
+    private static void buildIfFieldNameMatch(PartialRecordBuildSource source, String concatenatedFieldPath, String givenFieldName,
+                                                 List<Integer> overriddenKeyRanges, String suggestion, String protoFieldName) {
         // If field is not overridden, the names have to match exactly
         if (overriddenKeyRanges.isEmpty()) {
             if (concatenatedFieldPath.equals(givenFieldName)) {
@@ -183,8 +183,8 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
      * @return a pair of the list of fixed names and that of the dynamic ones
      */
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private static NonnullPair<List<String>, List<String>> getOriginalAndMappedFieldElements(@Nonnull String entireFieldName,
-                                                                                             @Nonnull List<Integer> overriddenKeyRanges) {
+    private static NonnullPair<List<String>, List<String>> getOriginalAndMappedFieldElements(String entireFieldName,
+                                                                                             List<Integer> overriddenKeyRanges) {
         int size = overriddenKeyRanges.size();
         final List<String> fixedFieldNames = new ArrayList<>();
         final List<String> dynamicFieldNames = new ArrayList<>();
@@ -229,11 +229,10 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
      * @return a partial record generator
      */
     @SuppressWarnings("UnstableApiUsage")
-    @Nonnull
     @VisibleForTesting
-    public static IndexKeyValueToPartialRecord getToPartialRecord(@Nonnull Index index,
-                                                                  @Nonnull RecordType recordType,
-                                                                  @Nonnull IndexScanType scanType) {
+    public static IndexKeyValueToPartialRecord getToPartialRecord(Index index,
+                                                                  RecordType recordType,
+                                                                  IndexScanType scanType) {
         final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
 
         KeyExpression root = index.getRootExpression();
@@ -268,22 +267,20 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
     static class PartialRecordBuildSource implements LuceneIndexExpressions.RecordSource<PartialRecordBuildSource> {
         @Nullable
         private final PartialRecordBuildSource parent;
-        @Nonnull
         private final Descriptors.Descriptor descriptor;
         @Nullable
-        private final Descriptors.FieldDescriptor fieldDescriptor;
-        @Nonnull
+        private final FieldDescriptor fieldDescriptor;
         private final Message.Builder builder;
         private boolean hasBeenBuilt = false;
 
-        PartialRecordBuildSource(@Nullable PartialRecordBuildSource parent, @Nonnull Descriptors.Descriptor descriptor, @Nonnull Message.Builder builder) {
+        PartialRecordBuildSource(@Nullable PartialRecordBuildSource parent, Descriptors.Descriptor descriptor, Message.Builder builder) {
             this.parent = parent;
             this.descriptor = descriptor;
             this.fieldDescriptor = null;
             this.builder = builder;
         }
 
-        PartialRecordBuildSource(@Nullable PartialRecordBuildSource parent, @Nonnull Descriptors.FieldDescriptor fieldDescriptor, @Nonnull Message.Builder builder) {
+        PartialRecordBuildSource(@Nullable PartialRecordBuildSource parent, FieldDescriptor fieldDescriptor, Message.Builder builder) {
             this.parent = parent;
             this.descriptor = fieldDescriptor.getMessageType();
             this.fieldDescriptor = fieldDescriptor;
@@ -296,14 +293,14 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
         }
 
         @Override
-        public Iterable<PartialRecordBuildSource> getChildren(@Nonnull FieldKeyExpression parentExpression) {
+        public Iterable<PartialRecordBuildSource> getChildren(FieldKeyExpression parentExpression) {
             final String parentField = parentExpression.getFieldName();
-            final Descriptors.FieldDescriptor parentFieldDescriptor = descriptor.findFieldByName(parentField);
+            final FieldDescriptor parentFieldDescriptor = descriptor.findFieldByName(parentField);
             return Collections.singletonList(new PartialRecordBuildSource(this, parentFieldDescriptor, builder.newBuilderForField(parentFieldDescriptor)));
         }
 
         @Override
-        public Iterable<Object> getValues(@Nonnull KeyExpression keyExpression) {
+        public Iterable<Object> getValues(KeyExpression keyExpression) {
             List<Object> result = new ArrayList<>();
             KeyExpression current = keyExpression;
             while (current != null) {
@@ -322,7 +319,7 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
             return result;
         }
 
-        public void buildMessage(@Nullable Object value, @Nonnull String field, @Nullable String customizedKey, @Nullable String mappedKeyField, boolean forLuceneField) {
+        public void buildMessage(@Nullable Object value, String field, @Nullable String customizedKey, @Nullable String mappedKeyField, boolean forLuceneField) {
             if (hasBeenBuilt()) {
                 return;
             }
@@ -330,8 +327,8 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
         }
 
         @SuppressWarnings("java:S3776")
-        private void buildMessage(@Nullable Object value, Descriptors.FieldDescriptor subFieldDescriptor, @Nullable String customizedKey, @Nullable String mappedKeyField, boolean forLuceneField) {
-            final Descriptors.FieldDescriptor mappedKeyFieldDescriptor = mappedKeyField == null ? null : descriptor.findFieldByName(mappedKeyField);
+        private void buildMessage(@Nullable Object value, FieldDescriptor subFieldDescriptor, @Nullable String customizedKey, @Nullable String mappedKeyField, boolean forLuceneField) {
+            final FieldDescriptor mappedKeyFieldDescriptor = mappedKeyField == null ? null : descriptor.findFieldByName(mappedKeyField);
             if (mappedKeyFieldDescriptor != null) {
                 if (customizedKey == null) {
                     return;
@@ -365,11 +362,11 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
             }
         }
 
-        private static MessageLite.Builder addRequiredFieldsToBuilder(@Nonnull final Message.Builder builder) {
+        private static MessageLite.Builder addRequiredFieldsToBuilder(final Message.Builder builder) {
             final var recordDescriptor = builder.getDescriptorForType();
-            for (Descriptors.FieldDescriptor fieldDescriptor : recordDescriptor.getFields()) {
+            for (FieldDescriptor fieldDescriptor : recordDescriptor.getFields()) {
                 if (fieldDescriptor.isRequired() &&
-                        fieldDescriptor.getType() == Descriptors.FieldDescriptor.Type.MESSAGE &&
+                        fieldDescriptor.getType() == FieldDescriptor.Type.MESSAGE &&
                         !builder.hasField(fieldDescriptor)) {
                     final var fieldBuilder = builder.newBuilderForField(fieldDescriptor);
                     builder.setField(fieldDescriptor, addRequiredFieldsToBuilder(fieldBuilder).build());
@@ -403,8 +400,8 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
         }
 
         @Override
-        public boolean copy(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull Message.Builder recordBuilder,
-                            @Nonnull IndexEntry kv) {
+        public boolean copy(Descriptors.Descriptor recordDescriptor, Message.Builder recordBuilder,
+                            IndexEntry kv) {
             Tuple keyTuple = kv.getKey();
             if (keyTuple.size() < 2) {
                 throw new RecordCoreException("Invalid key tuple for auto-complete suggestion's index entry")
@@ -436,30 +433,27 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode hashMode) {
+        public int planHash(final PlanHashMode hashMode) {
             return PlanHashable.objectsPlanHash(hashMode, BASE_HASH, groupingColumnSize);
         }
 
-        @Nonnull
         @Override
-        public PLuceneSpellCheckCopier toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PLuceneSpellCheckCopier toProto(final PlanSerializationContext serializationContext) {
             return PLuceneSpellCheckCopier.newBuilder()
                     .setGroupingColumnSize(groupingColumnSize)
                     .build();
         }
 
-        @Nonnull
         @Override
-        public PCopier toCopierProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PCopier toCopierProto(final PlanSerializationContext serializationContext) {
             return PCopier.newBuilder()
                     .setExtension(luceneSpellCheckCopier, toProto(serializationContext))
                     .build();
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
-        public static LuceneSpellCheckCopier fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                       @Nonnull final PLuceneSpellCheckCopier luceneSpellCheckCopierProto) {
+        public static LuceneSpellCheckCopier fromProto(final PlanSerializationContext serializationContext,
+                                                       final PLuceneSpellCheckCopier luceneSpellCheckCopierProto) {
             return new LuceneSpellCheckCopier(PlanSerialization.getFieldOrThrow(luceneSpellCheckCopierProto,
                     PLuceneSpellCheckCopier::hasGroupingColumnSize,
                     PLuceneSpellCheckCopier::getGroupingColumnSize));
@@ -470,16 +464,14 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
          */
         @AutoService(PlanDeserializer.class)
         public static class Deserializer implements PlanDeserializer<PLuceneSpellCheckCopier, LuceneSpellCheckCopier> {
-            @Nonnull
             @Override
             public Class<PLuceneSpellCheckCopier> getProtoMessageClass() {
                 return PLuceneSpellCheckCopier.class;
             }
 
-            @Nonnull
             @Override
-            public LuceneSpellCheckCopier fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                    @Nonnull final PLuceneSpellCheckCopier luceneSpellCheckCopierProto) {
+            public LuceneSpellCheckCopier fromProto(final PlanSerializationContext serializationContext,
+                                                    final PLuceneSpellCheckCopier luceneSpellCheckCopierProto) {
                 return LuceneSpellCheckCopier.fromProto(serializationContext, luceneSpellCheckCopierProto);
             }
         }

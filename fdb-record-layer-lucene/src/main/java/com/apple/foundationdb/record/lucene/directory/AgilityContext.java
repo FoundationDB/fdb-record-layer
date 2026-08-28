@@ -25,16 +25,16 @@ import com.apple.foundationdb.Range;
 import com.apple.foundationdb.record.lucene.LuceneConcurrency;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyKey;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
+
+import static com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig.Builder;
 
 /**
  * Create floating sub contexts from a caller context and commit when they reach time/write quota.
@@ -45,7 +45,7 @@ public interface AgilityContext {
         return new NonAgileContext(callerContext);
     }
 
-    static AgilityContext agile(FDBRecordContext callerContext, @Nullable FDBRecordContextConfig.Builder contextBuilder, final long timeQuotaMillis, final long sizeQuotaBytes) {
+    static AgilityContext agile(FDBRecordContext callerContext, @Nullable Builder contextBuilder, final long timeQuotaMillis, final long sizeQuotaBytes) {
         return new AgileContext(callerContext, contextBuilder, timeQuotaMillis, sizeQuotaBytes);
     }
 
@@ -53,7 +53,7 @@ public interface AgilityContext {
         return agile(callerContext, null, timeQuotaMillis, sizeQuotaBytes);
     }
 
-    static AgilityContext readOnlyNonAgile(FDBRecordContext callerContext, @Nullable FDBRecordContextConfig.Builder contextBuilder) {
+    static AgilityContext readOnlyNonAgile(FDBRecordContext callerContext, @Nullable Builder contextBuilder) {
         return new ReadOnlyNonAgileContext(callerContext, contextBuilder);
     }
 
@@ -127,7 +127,6 @@ public interface AgilityContext {
      * This function returns the caller's context. If called by external entities, it should only be used for testing.
      * @return caller's context
      */
-    @Nonnull
     FDBRecordContext getCallerContext();
 
     default <T> CompletableFuture<T> instrument(StoreTimer.Event event,
@@ -141,29 +140,29 @@ public interface AgilityContext {
         return getCallerContext().instrument(event, future, start);
     }
 
-    default void increment(@Nonnull StoreTimer.Count count) {
+    default void increment(StoreTimer.Count count) {
         getCallerContext().increment(count);
     }
 
-    default void increment(@Nonnull StoreTimer.Count count, int size) {
+    default void increment(StoreTimer.Count count, int size) {
         getCallerContext().increment(count, size);
     }
 
-    default void recordEvent(@Nonnull StoreTimer.Event event, long timeDelta) {
+    default void recordEvent(StoreTimer.Event event, long timeDelta) {
         getCallerContext().record(event, timeDelta);
     }
 
-    default void recordSize(@Nonnull StoreTimer.SizeEvent sizeEvent, long size) {
+    default void recordSize(StoreTimer.SizeEvent sizeEvent, long size) {
         getCallerContext().recordSize(sizeEvent, size);
     }
 
     @Nullable
-    default <T> T asyncToSync(StoreTimer.Wait event, @Nonnull CompletableFuture<T> async) {
+    default <T> T asyncToSync(StoreTimer.Wait event, CompletableFuture<T> async) {
         return LuceneConcurrency.asyncToSync(event, async, getCallerContext());
     }
 
     @Nullable
-    default <T> T getPropertyValue(@Nonnull RecordLayerPropertyKey<T> propertyKey) {
+    default <T> T getPropertyValue(RecordLayerPropertyKey<T> propertyKey) {
         return getCallerContext().getPropertyStorage().getPropertyValue(propertyKey);
     }
 
@@ -175,7 +174,7 @@ public interface AgilityContext {
      */
     void setCommitCheck(Function<FDBRecordContext, CompletableFuture<Void>> commitCheck);
 
-    default void commit(@Nonnull FDBRecordContext context) {
+    default void commit(FDBRecordContext context) {
         LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_COMMIT, context.commitAsync(), context);
     }
 

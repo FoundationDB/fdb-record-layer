@@ -40,7 +40,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -235,7 +234,7 @@ class FDBDirectoryLockTest {
         }
     }
 
-    private @Nonnull FDBDirectory createDirectory(final AgilityContext agilityContext) {
+    private FDBDirectory createDirectory(final AgilityContext agilityContext) {
         return new FDBDirectory(subspace, null, null, null, true, agilityContext);
     }
 }

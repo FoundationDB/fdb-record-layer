@@ -34,8 +34,7 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.apache.lucene.search.ScoreDoc;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -49,13 +48,12 @@ import static com.apple.foundationdb.record.lucene.LuceneFunctionNames.LUCENE_SO
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression {
-    protected LuceneFunctionKeyExpression(@Nonnull String name, @Nonnull KeyExpression arguments) {
+    protected LuceneFunctionKeyExpression(String name, KeyExpression arguments) {
         super(name, arguments);
     }
 
-    @Nonnull
     @Override
-    public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> rec, @Nullable Message message, @Nonnull Key.Evaluated argvals) {
+    public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> rec, @Nullable Message message, Key.Evaluated argvals) {
         return arguments.evaluateMessage(rec, message);
     }
 
@@ -65,7 +63,7 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         throw new IllegalStateException("Should not be used in a plan");
     }
 
@@ -75,7 +73,7 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
      * Common cases of the name expression would be a literal string or null or another field whose value determines the name at index time.
      */
     public static class LuceneFieldName extends LuceneFunctionKeyExpression {
-        public LuceneFieldName(@Nonnull String name, @Nonnull KeyExpression arguments) {
+        public LuceneFieldName(String name, KeyExpression arguments) {
             super(name, arguments);
         }
 
@@ -95,7 +93,7 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
         }
 
         @Override
-        public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor descriptor) {
+        public List<Descriptors.FieldDescriptor> validate(Descriptors.Descriptor descriptor) {
             final List<Descriptors.FieldDescriptor> result = super.validate(descriptor);
             if (!(arguments instanceof ThenKeyExpression && ((ThenKeyExpression)arguments).getChildren().size() == 2 && ((ThenKeyExpression)arguments).getChildren().get(1).getColumnSize() == 1)) {
                 throw new InvalidExpressionException("Lucene field name subexpression should be single column");
@@ -107,7 +105,6 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
          * Get the expression for which a name is given.
          * @return the expression that is named
          */
-        @Nonnull
         public KeyExpression getNamedExpression() {
             return ((KeyExpressionWithChildren)arguments).getChildren().get(0);
         }
@@ -116,14 +113,12 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
          * Get the expression to determine the name.
          * @return the expression to be evaluated to produce the name
          */
-        @Nonnull
         public KeyExpression getNameExpression() {
             return ((KeyExpressionWithChildren)arguments).getChildren().get(1);
         }
 
-        @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+        public Value toValue(final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
     }
@@ -133,7 +128,7 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
      * The field argument to this function is additionally stored in the Lucene documents and not just indexed.
      */
     public static class LuceneStored extends LuceneFunctionKeyExpression {
-        public LuceneStored(@Nonnull String name, @Nonnull KeyExpression arguments) {
+        public LuceneStored(String name, KeyExpression arguments) {
             super(name, arguments);
         }
 
@@ -156,14 +151,12 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
          * Get the expression that is marked as stored.
          * @return the stored expression
          */
-        @Nonnull
         public KeyExpression getStoredExpression() {
             return arguments;
         }
 
-        @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+        public Value toValue(final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
     }
@@ -173,7 +166,7 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
      * The field argument to this function is additionally sorted in the Lucene index.
      */
     public static class LuceneSorted extends LuceneFunctionKeyExpression {
-        public LuceneSorted(@Nonnull String name, @Nonnull KeyExpression arguments) {
+        public LuceneSorted(String name, KeyExpression arguments) {
             super(name, arguments);
         }
 
@@ -196,14 +189,12 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
          * Get the expression that is marked as stored.
          * @return the stored expression
          */
-        @Nonnull
         public KeyExpression getSortedExpression() {
             return arguments;
         }
 
-        @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+        public Value toValue(final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
     }
@@ -213,7 +204,7 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
      * The field arguments to this function are tokenized as full text when building the index.
      */
     public static class LuceneText extends LuceneFunctionKeyExpression {
-        public LuceneText(@Nonnull String name, @Nonnull KeyExpression arguments) {
+        public LuceneText(String name, KeyExpression arguments) {
             super(name, arguments);
         }
 
@@ -236,7 +227,6 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
          * Get the record field that is tokenized as text using Lucene.
          * @return the field expression
          */
-        @Nonnull
         public KeyExpression getFieldExpression() {
             if (arguments.getColumnSize() > 1) {
                 return ((KeyExpressionWithChildren)arguments).getChildren().get(0);
@@ -245,7 +235,6 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
             }
         }
 
-        @Nonnull
         public Map<String, Object> getFieldConfigs() {
             Map<String, Object> configs = new HashMap<>();
             if (arguments instanceof ThenKeyExpression) {
@@ -262,9 +251,8 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
             return configs;
         }
 
-        @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+        public Value toValue(final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
     }
@@ -274,7 +262,7 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
      * The value arguments to this function are applied as the configs for the corresponding Lucene text field when building the index.
      */
     public static class LuceneFieldConfig extends LuceneFunctionKeyExpression {
-        public LuceneFieldConfig(@Nonnull String name, @Nonnull KeyExpression arguments) {
+        public LuceneFieldConfig(String name, KeyExpression arguments) {
             super(name, arguments);
         }
 
@@ -293,9 +281,8 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
             return 1;
         }
 
-        @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+        public Value toValue(final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
     }
@@ -304,7 +291,7 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
      * Key function representing one of the Lucene built-in sorting techniques.
      */
     public static class LuceneSortBy extends LuceneFunctionKeyExpression {
-        public LuceneSortBy(@Nonnull String name, @Nonnull KeyExpression arguments) {
+        public LuceneSortBy(String name, KeyExpression arguments) {
             super(name, arguments);
         }
 
@@ -323,9 +310,8 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
             return 1;
         }
 
-        @Nonnull
         @Override
-        public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable final FDBRecord<M> rec, @Nullable final Message message, @Nonnull final Key.Evaluated argvals) {
+        public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable final FDBRecord<M> rec, @Nullable final Message message, final Key.Evaluated argvals) {
             Key.Evaluated result;
             if (rec instanceof FDBQueriedRecord && ((FDBQueriedRecord<M>)rec).getIndexEntry() instanceof LuceneRecordCursor.ScoreDocIndexEntry) {
                 final ScoreDoc scoreDoc = ((LuceneRecordCursor.ScoreDocIndexEntry)((FDBQueriedRecord<M>)rec).getIndexEntry()).getScoreDoc();
@@ -346,9 +332,8 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
             return LUCENE_SORT_BY_RELEVANCE.equals(getName());
         }
 
-        @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+        public Value toValue(final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
     }

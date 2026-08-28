@@ -37,7 +37,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -335,7 +334,6 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
         return super.openContext(contextProps);
     }
 
-    @Nonnull
     private Set<Tuple> createDocuments(final Index index, int count) {
         Set<Tuple> primaryKeys = new HashSet<>();
         try (FDBRecordContext context = openContext()) {

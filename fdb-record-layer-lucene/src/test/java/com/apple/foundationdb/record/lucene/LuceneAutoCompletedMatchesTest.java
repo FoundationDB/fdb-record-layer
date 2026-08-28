@@ -28,8 +28,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -114,11 +113,11 @@ class LuceneAutoCompletedMatchesTest {
         assertComputeAllMatches("Hello World ", List.of("hello", "world"), ImmutableSet.of(), text, numAdditionalTokens, expected);
     }
 
-    private static void assertComputeAllMatches(@Nonnull final String queryString, @Nonnull final List<String> expectedTokens,
+    private static void assertComputeAllMatches(final String queryString, final List<String> expectedTokens,
                                                 @Nullable final Set<String> expectedPrefixTokens,
-                                                @Nonnull final String text,
+                                                final String text,
                                                 final int numAdditionalTokens,
-                                                @Nonnull final List<String> expectedMatches) {
+                                                final List<String> expectedMatches) {
         final Analyzer analyzer = getTestAnalyzer();
         LuceneAutoCompleteHelpers.AutoCompleteTokens tokens = LuceneAutoCompleteHelpers.getQueryTokens(analyzer, queryString);
         assertEquals(expectedTokens, tokens.getQueryTokens());
@@ -162,12 +161,12 @@ class LuceneAutoCompletedMatchesTest {
         assertComputeAllMatchesForPhrase("Good Mor", List.of("good"), "mor", text, numAdditionalTokens, expected);
     }
 
-    private static void assertComputeAllMatchesForPhrase(@Nonnull final String queryString,
-                                                         @Nonnull final List<String> expectedTokens,
+    private static void assertComputeAllMatchesForPhrase(final String queryString,
+                                                         final List<String> expectedTokens,
                                                          @Nullable final String expectedPrefixToken,
-                                                         @Nonnull final String text,
+                                                         final String text,
                                                          final int numAdditionalTokens,
-                                                         @Nonnull final List<String> expectedMatches) {
+                                                         final List<String> expectedMatches) {
         final Analyzer analyzer = getTestAnalyzer();
         LuceneAutoCompleteHelpers.AutoCompleteTokens tokens = LuceneAutoCompleteHelpers.getQueryTokens(analyzer, queryString);
         assertEquals(expectedTokens, tokens.getQueryTokens());

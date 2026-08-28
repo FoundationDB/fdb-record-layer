@@ -46,8 +46,7 @@ import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -381,7 +380,6 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Nonnull
     private LuceneIndexMaintainer getIndexMaintainer(FDBRecordStore store, Index index) {
         return (LuceneIndexMaintainer)store.getIndexMaintainer(index);
     }
@@ -400,7 +398,6 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
         };
     }
 
-    @Nonnull
     public Index complexPartitionedIndex(int highWatermark) {
         final Map<String, String> options = Map.of(
                 ENABLE_PENDING_WRITE_QUEUE_DURING_MERGE, "true",
@@ -411,7 +408,6 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
         return complexPartitionedIndex(options);
     }
 
-    @Nonnull
     public Index complexPartitionedIndex(final Map<String, String> options) {
         return new Index("Complex$partitioned",
                 concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")),

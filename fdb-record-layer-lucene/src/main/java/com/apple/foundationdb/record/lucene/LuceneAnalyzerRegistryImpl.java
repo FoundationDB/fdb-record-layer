@@ -30,8 +30,7 @@ import com.apple.foundationdb.record.util.pair.NonnullPair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -46,15 +45,11 @@ import java.util.TreeMap;
  * in order to choose the analyzer for a block of text.
  */
 public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
-    @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(LuceneAnalyzerRegistryImpl.class);
-    @Nonnull
     private static final LuceneAnalyzerRegistryImpl INSTANCE = new LuceneAnalyzerRegistryImpl();
 
-    @Nonnull
     private final Map<LuceneAnalyzerType, Map<String, LuceneAnalyzerFactory>> registry;
 
-    @Nonnull
     private static Map<LuceneAnalyzerType, Map<String, LuceneAnalyzerFactory>> initRegistry() {
         final Map<LuceneAnalyzerType, Map<String, LuceneAnalyzerFactory>> registry = new HashMap<>();
         for (LuceneAnalyzerFactory factory : ServiceLoaderProvider.load(LuceneAnalyzerFactory.class)) {
@@ -80,7 +75,6 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
     }
 
     @SpotBugsSuppressWarnings(value = "MS_EXPOSE_REP", justification = "Object is actually immutable")
-    @Nonnull
     public static LuceneAnalyzerRegistry instance() {
         return INSTANCE;
     }
@@ -89,11 +83,10 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
         registry = initRegistry();
     }
 
-    @Nonnull
     @Override
-    public LuceneAnalyzerCombinationProvider getLuceneAnalyzerCombinationProvider(@Nonnull final Index index,
-                                                                                  @Nonnull final LuceneAnalyzerType type,
-                                                                                  @Nonnull final Map<String, LuceneIndexExpressions.DocumentFieldDerivation> auxiliaryFieldInfo) {
+    public LuceneAnalyzerCombinationProvider getLuceneAnalyzerCombinationProvider(final Index index,
+                                                                                  final LuceneAnalyzerType type,
+                                                                                  final Map<String, LuceneIndexExpressions.DocumentFieldDerivation> auxiliaryFieldInfo) {
         final String defaultAnalyzerName = index.getOption(type.getAnalyzerOptionKey());
         final String analyzerPerFieldName = index.getOption(type.getAnalyzerPerFieldOptionKey());
         NonnullPair<AnalyzerChooser, AnalyzerChooser> defaultAnalyzerChooserPair = getAnalyzerChooser(index, defaultAnalyzerName, type);
@@ -118,11 +111,11 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
                 indexAnalyzerChooserPerFieldOverride, queryAnalyzerChooserPerFieldOverride);
     }
 
-    private void addPerFieldAnalyzerIfNecessary(@Nonnull final Map<String, AnalyzerChooser> chooserPerFieldOverride,
-                                                @Nonnull final String fieldName,
-                                                @Nonnull final LuceneIndexExpressions.DocumentFieldDerivation fieldInfo,
-                                                @Nonnull final Index index,
-                                                @Nonnull final LuceneAnalyzerType type) {
+    private void addPerFieldAnalyzerIfNecessary(final Map<String, AnalyzerChooser> chooserPerFieldOverride,
+                                                final String fieldName,
+                                                final LuceneIndexExpressions.DocumentFieldDerivation fieldInfo,
+                                                final Index index,
+                                                final LuceneAnalyzerType type) {
         if (chooserPerFieldOverride.containsKey(fieldName)) {
             return; // do not override already chosen field analyzer.
         }
@@ -141,11 +134,11 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
         }
     }
 
-    private static boolean isEligibleForNoOpAnalyzer(@Nonnull final LuceneIndexExpressions.DocumentFieldDerivation fieldInfo) {
+    private static boolean isEligibleForNoOpAnalyzer(final LuceneIndexExpressions.DocumentFieldDerivation fieldInfo) {
         return fieldInfo.getType() != LuceneIndexExpressions.DocumentFieldType.TEXT;
     }
 
-    private NonnullPair<AnalyzerChooser, AnalyzerChooser> getAnalyzerChooser(@Nonnull Index index, @Nullable String analyzerName, @Nonnull LuceneAnalyzerType type) {
+    private NonnullPair<AnalyzerChooser, AnalyzerChooser> getAnalyzerChooser(Index index, @Nullable String analyzerName, LuceneAnalyzerType type) {
         final Map<String, LuceneAnalyzerFactory> registryForType = Objects.requireNonNullElse(registry.get(type), Collections.emptyMap());
         if (analyzerName == null || !registryForType.containsKey(analyzerName)) {
             return NonnullPair.of(LuceneAnalyzerWrapper::getStandardAnalyzerWrapper,

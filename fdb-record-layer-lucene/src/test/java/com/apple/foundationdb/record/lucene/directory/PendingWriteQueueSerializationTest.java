@@ -41,8 +41,7 @@ import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -304,7 +303,6 @@ class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Nonnull
     private static LuceneIndexMaintainer getLuceneIndexMaintainer(FDBRecordStore store, Index index) {
         return (LuceneIndexMaintainer) store.getIndexMaintainer(index);
     }

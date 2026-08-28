@@ -73,7 +73,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1072,21 +1071,18 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     @AutoService(IndexMaintainerFactory.class)
     public static class TerribleMergingIndexMaintainerFactory implements IndexMaintainerFactory {
-        @Nonnull
         @Override
         public Iterable<String> getIndexTypes() {
             return Collections.singletonList("terribleMerger");
         }
 
-        @Nonnull
         @Override
         public IndexValidator getIndexValidator(Index index) {
             return new IndexValidator(index);
         }
 
-        @Nonnull
         @Override
-        public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
+        public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
             return new TerribleMergingIndexMaintainer(state);
         }
     }
@@ -1138,21 +1134,18 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     @AutoService(IndexMaintainerFactory.class)
     public static class Terrible2MergingIndexMaintainerFactory implements IndexMaintainerFactory {
-        @Nonnull
         @Override
         public Iterable<String> getIndexTypes() {
             return Collections.singletonList("terrible2Merger");
         }
 
-        @Nonnull
         @Override
         public IndexValidator getIndexValidator(Index index) {
             return new IndexValidator(index);
         }
 
-        @Nonnull
         @Override
-        public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
+        public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
             return new Terrible2MergingIndexMaintainer(state);
         }
     }
@@ -1294,21 +1287,18 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     @AutoService(IndexMaintainerFactory.class)
     public static class TerribleRebalanceIndexMaintainerFactory implements IndexMaintainerFactory {
-        @Nonnull
         @Override
         public Iterable<String> getIndexTypes() {
             return Collections.singletonList("terribleRebalance");
         }
 
-        @Nonnull
         @Override
         public IndexValidator getIndexValidator(Index index) {
             return new IndexValidator(index);
         }
 
-        @Nonnull
         @Override
-        public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
+        public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
             return new TerribleRebalanceIndexMaintainer(state);
         }
     }
@@ -1368,21 +1358,18 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     @AutoService(IndexMaintainerFactory.class)
     public static class Terriblerebalnce2ndChanceIndexMaintainerFactory implements IndexMaintainerFactory {
-        @Nonnull
         @Override
         public Iterable<String> getIndexTypes() {
             return Collections.singletonList("terribleRebalance2ndChance");
         }
 
-        @Nonnull
         @Override
         public IndexValidator getIndexValidator(Index index) {
             return new IndexValidator(index);
         }
 
-        @Nonnull
         @Override
-        public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
+        public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
             return new Terriblerebalnce2ndChanceIndexMaintainer(state);
         }
     }

@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.record.RecordCoreException;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.EnumMap;
 import java.util.Optional;
@@ -57,11 +56,11 @@ public class InjectedFailureRepository {
     private EnumMap<Methods, AtomicLong> invocationCounts = new EnumMap<>(Methods.class);
     private EnumMap<Flags, Boolean> flagsMap = new EnumMap<>(Flags.class);
 
-    public void addFailure(@Nonnull Methods method, @Nonnull Exception exception, long count) {
+    public void addFailure(Methods method, Exception exception, long count) {
         failureDescriptions.put(method, new FailureDescription(method, exception, count));
     }
 
-    public void removeFailure(@Nonnull Methods method) {
+    public void removeFailure(Methods method) {
         failureDescriptions.remove(method);
         invocationCounts.remove(method);
     }
@@ -71,19 +70,19 @@ public class InjectedFailureRepository {
         invocationCounts.clear();
     }
 
-    public void setFlag(@Nonnull Flags flag) {
+    public void setFlag(Flags flag) {
         setFlag(flag, true);
     }
 
-    public void setFlag(@Nonnull Flags flag, Boolean value) {
+    public void setFlag(Flags flag, Boolean value) {
         flagsMap.put(flag, value);
     }
 
-    public boolean hasFlag(@Nonnull Flags flag) {
+    public boolean hasFlag(Flags flag) {
         return Optional.ofNullable(flagsMap.get(flag)).orElse(false);
     }
 
-    public void checkFailureForIoException(@Nonnull final Methods method) throws IOException {
+    public void checkFailureForIoException(final Methods method) throws IOException {
         try {
             checkFailure(method);
         } catch (IOException ex) {
@@ -93,7 +92,7 @@ public class InjectedFailureRepository {
         }
     }
 
-    public void checkFailureForCoreException(@Nonnull final Methods method) throws RecordCoreException {
+    public void checkFailureForCoreException(final Methods method) throws RecordCoreException {
         try {
             checkFailure(method);
         } catch (RecordCoreException ex) {
@@ -103,7 +102,7 @@ public class InjectedFailureRepository {
         }
     }
 
-    private void checkFailure(@Nonnull final Methods method) throws Exception {
+    private void checkFailure(final Methods method) throws Exception {
         // Local definitions have precedence over global ones
         FailureDescription failureDescription = failureDescriptions.get(method);
         if (failureDescription != null) {
@@ -119,9 +118,7 @@ public class InjectedFailureRepository {
      * A Failure description is the definition of the failure to be injected.
      */
     public static class FailureDescription {
-        @Nonnull
         private final Methods method;
-        @Nonnull
         private final Exception exception;
         private final long count;
 
@@ -131,18 +128,16 @@ public class InjectedFailureRepository {
          * @param exception the exception to throw
          * @param count the number of "clean" executions to allow before starting to throw the exception
          */
-        public FailureDescription(@Nonnull final Methods method, @Nonnull final Exception exception, final long count) {
+        public FailureDescription(final Methods method, final Exception exception, final long count) {
             this.method = method;
             this.exception = exception;
             this.count = count;
         }
 
-        @Nonnull
         public Methods getMethod() {
             return method;
         }
 
-        @Nonnull
         public Exception getException() {
             return exception;
         }
