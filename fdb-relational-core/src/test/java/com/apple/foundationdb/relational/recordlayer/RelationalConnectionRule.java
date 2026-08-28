@@ -33,7 +33,6 @@ import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.Array;
 import java.sql.DriverManager;
@@ -127,7 +126,6 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
         return connection.isClosed();
     }
 
-    @Nonnull
     @Override
     public RelationalDatabaseMetaData getMetaData() throws SQLException {
         return connection.getMetaData().unwrap(RelationalDatabaseMetaData.class);
@@ -164,7 +162,6 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
         return connection.getSchema();
     }
 
-    @Nonnull
     @Override
     public Options getOptions() {
         return connection.getOptions();
@@ -185,7 +182,6 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
      * type we run our JUnit tests against.
      * @return The underlying {@link EmbeddedRelationalConnection} connection.
      */
-    @Nonnull
     public EmbeddedRelationalConnection getUnderlyingEmbeddedConnection() {
         return Assert.castUnchecked(connection, EmbeddedRelationalConnection.class);
     }

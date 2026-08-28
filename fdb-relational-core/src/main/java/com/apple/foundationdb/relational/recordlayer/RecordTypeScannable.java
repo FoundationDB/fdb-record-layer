@@ -28,8 +28,7 @@ import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.function.Function;
 
 public abstract class RecordTypeScannable<CursorT> implements DirectScannable {
@@ -38,7 +37,7 @@ public abstract class RecordTypeScannable<CursorT> implements DirectScannable {
     @Override
     public final ResumableIterator<Row> openScan(
             @Nullable Row keyPrefix,
-            @Nonnull Options options) throws RelationalException {
+            Options options) throws RelationalException {
         TupleRange range = TupleRange.allOf(TupleUtils.toFDBTuple(keyPrefix));
         BackingStore store = getSchema().loadStore();
         final RecordCursor<CursorT> cursor = openScan(store, range, options.getOption(Options.Name.CONTINUATION), options);

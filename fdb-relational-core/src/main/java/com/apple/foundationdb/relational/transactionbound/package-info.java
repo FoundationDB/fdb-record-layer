@@ -22,4 +22,7 @@
  * A collection of testing systems which are based on comparing results to equivalent queries in an embedded
  * SQL database.
  */
+@NullMarked
 package com.apple.foundationdb.relational.transactionbound;
+
+import org.jspecify.annotations.NullMarked;

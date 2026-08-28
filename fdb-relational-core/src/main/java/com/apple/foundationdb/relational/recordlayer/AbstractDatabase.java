@@ -32,8 +32,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -41,34 +40,30 @@ import java.util.Map;
 
 public abstract class AbstractDatabase implements RelationalDatabase {
 
-    @Nonnull
     private final MetadataOperationsFactory metadataOperationsFactory;
 
-    @Nonnull
     private final DdlQueryFactory ddlQueryFactory;
     @Nullable
     protected EmbeddedRelationalConnection connection;
     final Map<String, RecordLayerSchema> schemas = new HashMap<>();
     @Nullable
     private final RelationalPlanCache planCache;
-    @Nonnull
     protected Options options;
 
-    public AbstractDatabase(@Nonnull final MetadataOperationsFactory metadataOperationsFactory,
-                            @Nonnull DdlQueryFactory ddlQueryFactory,
+    public AbstractDatabase(final MetadataOperationsFactory metadataOperationsFactory,
+                            DdlQueryFactory ddlQueryFactory,
                             @Nullable RelationalPlanCache planCache,
-                            @Nonnull Options options) {
+                            Options options) {
         this.metadataOperationsFactory = metadataOperationsFactory;
         this.ddlQueryFactory = ddlQueryFactory;
         this.planCache = planCache;
         this.options = options;
     }
 
-    protected void setConnection(@Nonnull EmbeddedRelationalConnection conn) {
+    protected void setConnection(EmbeddedRelationalConnection conn) {
         this.connection = conn;
     }
 
-    @Nonnull
     protected Transaction getCurrentTransaction() throws RelationalException {
         if (connection == null) {
             throw new RelationalException("Connection not set!", ErrorCode.INTERNAL_ERROR);
@@ -78,7 +73,7 @@ public abstract class AbstractDatabase implements RelationalDatabase {
 
     @Override
     @SuppressWarnings("PMD.CloseResource")
-    public @Nonnull RecordLayerSchema loadSchema(@Nonnull String schemaId) throws RelationalException {
+    public RecordLayerSchema loadSchema(String schemaId) throws RelationalException {
         RecordLayerSchema schema = schemas.get(schemaId);
         boolean putBack = false;
         if (schema == null) {
@@ -104,18 +99,16 @@ public abstract class AbstractDatabase implements RelationalDatabase {
         return schema;
     }
 
-    @Nonnull
     @Override
     public MetadataOperationsFactory getDdlFactory() {
         return metadataOperationsFactory;
     }
 
-    @Nonnull
     public DdlQueryFactory getDdlQueryFactory() {
         return ddlQueryFactory;
     }
 
-    public abstract BackingStore loadRecordStore(@Nonnull String schemaId, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException;
+    public abstract BackingStore loadRecordStore(String schemaId, FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException;
 
     public abstract URI getURI();
 
@@ -126,12 +119,11 @@ public abstract class AbstractDatabase implements RelationalDatabase {
         return planCache;
     }
 
-    @Nonnull
     public Options getOptions() {
         return options;
     }
 
-    public void setOption(@Nonnull Options.Name name, Object value) throws SQLException {
+    public void setOption(Options.Name name, Object value) throws SQLException {
         options = options.withOption(name, value);
     }
 }

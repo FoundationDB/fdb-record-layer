@@ -22,4 +22,7 @@
  * Metadata artefacts in Relational backed by Record Layer APIs.
  */
 
+@NullMarked
 package com.apple.foundationdb.relational.recordlayer.metadata;
+
+import org.jspecify.annotations.NullMarked;

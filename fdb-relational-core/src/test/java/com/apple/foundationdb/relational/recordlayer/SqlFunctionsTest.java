@@ -30,10 +30,8 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import javax.annotation.Nonnull;
 
 public class SqlFunctionsTest {
-    @Nonnull
     private static final String SCHEMA_TEMPLATE =
             """
             create table t1(col1 bigint, col2 string, col3 integer, primary key(col1))

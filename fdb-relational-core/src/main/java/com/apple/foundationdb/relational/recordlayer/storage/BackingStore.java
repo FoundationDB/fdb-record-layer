@@ -35,7 +35,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.protobuf.Message;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Map;
 
 public interface BackingStore extends RecordMetaDataProvider {

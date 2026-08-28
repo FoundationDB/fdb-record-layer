@@ -32,7 +32,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
@@ -50,14 +49,13 @@ public class DatabaseInfoSystemTable implements SystemTable {
             .setKeyExpression(new GroupingKeyExpression(Key.Expressions.empty(), 0))
             .build();
 
-    @Nonnull
     @Override
     public String getName() {
         return TABLE_NAME;
     }
 
     @Override
-    public void addDefinition(@Nonnull final RecordLayerSchemaTemplate.Builder typingContext) {
+    public void addDefinition(final RecordLayerSchemaTemplate.Builder typingContext) {
         typingContext.addTable(getType());
     }
 
@@ -72,7 +70,6 @@ public class DatabaseInfoSystemTable implements SystemTable {
                 .build();
     }
 
-    @Nonnull
     @Override
     public KeyExpression getPrimaryKeyDefinition() {
         return Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field(DATABASE_ID));

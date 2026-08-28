@@ -33,7 +33,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
-import javax.annotation.Nonnull;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
@@ -83,14 +82,13 @@ public class RecordContextTransaction implements Transaction {
         }
     }
 
-    @Nonnull
     @Override
     public Optional<SchemaTemplate> getBoundSchemaTemplateMaybe() {
         return Optional.ofNullable(context.getInSession(SchemaTemplate.class.toString(), SchemaTemplate.class));
     }
 
     @Override
-    public void setBoundSchemaTemplate(@Nonnull final SchemaTemplate schemaTemplate) {
+    public void setBoundSchemaTemplate(final SchemaTemplate schemaTemplate) {
         unsetBoundSchemaTemplate();
         context.putInSessionIfAbsent(SchemaTemplate.class.toString(), schemaTemplate);
     }
@@ -110,9 +108,8 @@ public class RecordContextTransaction implements Transaction {
         return isClosed;
     }
 
-    @Nonnull
     @Override
-    public <T> T unwrap(@Nonnull Class<? extends T> type) throws InternalErrorException {
+    public <T> T unwrap(Class<? extends T> type) throws InternalErrorException {
         if (FDBRecordContext.class.isAssignableFrom(type)) {
             return type.cast(context);
         }
@@ -125,7 +122,7 @@ public class RecordContextTransaction implements Transaction {
         }
     }
 
-    public void addTerminationListener(@Nonnull Runnable onTerminateListener) {
+    public void addTerminationListener(Runnable onTerminateListener) {
         assert !isClosed : "Cannot add a termination listener to a closed transaction!";
         txnTerminateListeners.add(onTerminateListener);
     }

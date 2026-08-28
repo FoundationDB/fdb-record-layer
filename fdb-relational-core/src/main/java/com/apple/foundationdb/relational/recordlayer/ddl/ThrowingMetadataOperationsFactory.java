@@ -29,7 +29,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 
 /**
@@ -45,57 +44,49 @@ public final class ThrowingMetadataOperationsFactory implements MetadataOperatio
     private ThrowingMetadataOperationsFactory() {
     }
 
-    private static RuntimeException reject(@Nonnull final String operation) {
+    private static RuntimeException reject(final String operation) {
         return new RelationalException(
                 "DDL operation '" + operation + "' is not allowed in this context",
                 ErrorCode.UNSUPPORTED_OPERATION).toUncheckedWrappedException();
     }
 
-    @Nonnull
     @Override
-    public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
+    public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template, Options templateProperties) {
         throw reject("CREATE SCHEMA TEMPLATE");
     }
 
-    @Nonnull
     @Override
-    public ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, boolean throwIfDoesNotExist, @Nonnull Options options) {
+    public ConstantAction getDropSchemaTemplateConstantAction(String templateId, boolean throwIfDoesNotExist, Options options) {
         throw reject("DROP SCHEMA TEMPLATE");
     }
 
-    @Nonnull
     @Override
-    public ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull Options constantActionOptions) {
+    public ConstantAction getCreateDatabaseConstantAction(URI dbPath, Options constantActionOptions) {
         throw reject("CREATE DATABASE");
     }
 
-    @Nonnull
     @Override
-    public ConstantAction getCreateSchemaConstantAction(@Nonnull URI dbUri, @Nonnull String schemaName, @Nonnull String templateId, Options constantActionOptions) {
+    public ConstantAction getCreateSchemaConstantAction(URI dbUri, String schemaName, String templateId, Options constantActionOptions) {
         throw reject("CREATE SCHEMA");
     }
 
-    @Nonnull
     @Override
-    public ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, boolean throwIfDoesNotExist, @Nonnull Options options) {
+    public ConstantAction getDropDatabaseConstantAction(URI dbUrl, boolean throwIfDoesNotExist, Options options) {
         throw reject("DROP DATABASE");
     }
 
-    @Nonnull
     @Override
-    public ConstantAction getDropSchemaConstantAction(@Nonnull URI dbPath, @Nonnull String schemaName, @Nonnull Options options) {
+    public ConstantAction getDropSchemaConstantAction(URI dbPath, String schemaName, Options options) {
         throw reject("DROP SCHEMA");
     }
 
-    @Nonnull
     @Override
-    public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull SchemaTemplate template, boolean throwIfExists, @Nonnull RecordLayerInvokedRoutine invokedRoutine) {
+    public ConstantAction getCreateTemporaryFunctionConstantAction(SchemaTemplate template, boolean throwIfExists, RecordLayerInvokedRoutine invokedRoutine) {
         throw reject("CREATE TEMPORARY FUNCTION");
     }
 
-    @Nonnull
     @Override
-    public ConstantAction getDropTemporaryFunctionConstantAction(boolean throwIfNotExists, @Nonnull String temporaryFunctionName) {
+    public ConstantAction getDropTemporaryFunctionConstantAction(boolean throwIfNotExists, String temporaryFunctionName) {
         throw reject("DROP TEMPORARY FUNCTION");
     }
 }

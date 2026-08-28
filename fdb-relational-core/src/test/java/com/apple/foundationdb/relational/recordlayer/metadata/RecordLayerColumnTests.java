@@ -27,7 +27,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -63,7 +62,6 @@ class RecordLayerColumnTests {
         }
     }
 
-    @Nonnull
     static Stream<Arguments> testDiffersFromBlah() {
         return Stream.of(
                 Arguments.of(
@@ -107,7 +105,7 @@ class RecordLayerColumnTests {
 
     @ParameterizedTest(name = "testDiffersFromBlah[{1}]")
     @MethodSource
-    void testDiffersFromBlah(@Nonnull RecordLayerColumn differentColumn, @Nonnull String toString) {
+    void testDiffersFromBlah(RecordLayerColumn differentColumn, String toString) {
         try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
             softly.assertThat(differentColumn)
                     .hasToString(toString)

@@ -25,18 +25,14 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 
-import javax.annotation.Nonnull;
 
 @API(API.Status.EXPERIMENTAL)
 public class RecordLayerSchema implements Schema {
 
-    @Nonnull
     private final String name;
 
-    @Nonnull
     private final SchemaTemplate schemaTemplate;
 
-    @Nonnull
     private final String databaseName;
 
     /**
@@ -46,27 +42,24 @@ public class RecordLayerSchema implements Schema {
      * @param databaseName   The database name to which the schema belongs.
      * @param schemaTemplate The name of the originating schema template.
      */
-    RecordLayerSchema(@Nonnull final String name,
-                      @Nonnull final String databaseName,
-                      @Nonnull final SchemaTemplate schemaTemplate) {
+    RecordLayerSchema(final String name,
+                      final String databaseName,
+                      final SchemaTemplate schemaTemplate) {
         this.name = name;
         this.databaseName = databaseName;
         this.schemaTemplate = schemaTemplate;
     }
 
-    @Nonnull
     @Override
     public String getName() {
         return name;
     }
 
-    @Nonnull
     @Override
     public SchemaTemplate getSchemaTemplate() {
         return schemaTemplate;
     }
 
-    @Nonnull
     @Override
     public String getDatabaseName() {
         return databaseName;

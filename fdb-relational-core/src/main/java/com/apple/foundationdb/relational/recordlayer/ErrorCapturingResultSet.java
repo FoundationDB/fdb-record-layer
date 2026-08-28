@@ -28,7 +28,6 @@ import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
-import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.UUID;
 
@@ -257,7 +256,6 @@ public class ErrorCapturingResultSet implements RelationalResultSet {
         return delegate.isClosed();
     }
 
-    @Nonnull
     @Override
     public Continuation getContinuation() throws SQLException {
         try {

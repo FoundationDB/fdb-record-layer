@@ -42,7 +42,6 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -57,24 +56,20 @@ import java.util.stream.Collectors;
 @API(API.Status.EXPERIMENTAL)
 public class RecordMetadataDeserializer {
 
-    @Nonnull
     protected final RecordMetaData recordMetaData;
 
-    @Nonnull
     protected final RecordLayerSchemaTemplate.Builder builder;
 
-    public RecordMetadataDeserializer(@Nonnull final RecordMetaData recordMetaData) {
+    public RecordMetadataDeserializer(final RecordMetaData recordMetaData) {
         this.recordMetaData = recordMetaData;
         builder = deserializeRecordMetaData(recordMetaData);
     }
 
-    @Nonnull
-    public RecordLayerSchemaTemplate getSchemaTemplate(@Nonnull final String schemaTemplateName, int version) {
+    public RecordLayerSchemaTemplate getSchemaTemplate(final String schemaTemplateName, int version) {
         return builder.setName(schemaTemplateName).setVersion(version).build();
     }
 
-    @Nonnull
-    private static RecordLayerSchemaTemplate.Builder deserializeRecordMetaData(@Nonnull final RecordMetaData recordMetaData) {
+    private static RecordLayerSchemaTemplate.Builder deserializeRecordMetaData(final RecordMetaData recordMetaData) {
         // iterate _only_ over the record types registered in the union descriptor to avoid potentially-expensive
         // deserialization of other descriptors that can never be used by the user.
         final var unionDescriptor = recordMetaData.getUnionDescriptor();
@@ -131,8 +126,7 @@ public class RecordMetadataDeserializer {
         return schemaTemplateBuilder;
     }
 
-    @Nonnull
-    private static RecordLayerTable.Builder generateTableBuilder(@Nonnull final RecordMetaData recordMetaData, @Nonnull final String userName, @Nonnull final String storageName) {
+    private static RecordLayerTable.Builder generateTableBuilder(final RecordMetaData recordMetaData, final String userName, final String storageName) {
         final RecordType recordType = recordMetaData.getRecordType(storageName);
 
         // todo (yhatem) we rely on the record type for deserialization from ProtoBuf for now, later on
@@ -147,26 +141,23 @@ public class RecordMetadataDeserializer {
                 .addIndexes(recordType.getIndexes().stream().map(index -> RecordLayerIndex.from(Objects.requireNonNull(recordLayerType.getName()), Objects.requireNonNull(recordLayerType.getStorageName()), index)).collect(Collectors.toSet()));
     }
 
-    @Nonnull
     @VisibleForTesting
-    protected static Function<Boolean, UserDefinedFunction> getSqlFunctionCompiler(@Nonnull final String name,
-                                                                                   @Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
-                                                                                   @Nonnull final String functionBody) {
+    protected static Function<Boolean, UserDefinedFunction> getSqlFunctionCompiler(final String name,
+                                                                                   final Supplier<RecordLayerSchemaTemplate> metadata,
+                                                                                   final String functionBody) {
         return isCaseSensitive -> RoutineParser.sqlFunctionParser(metadata.get()).parseFunction(functionBody, isCaseSensitive);
     }
 
-    @Nonnull
     @VisibleForTesting
-    protected static Function<Boolean, LogicalOperator> getViewCompiler(@Nonnull final String viewName,
-                                                                        @Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
-                                                                        @Nonnull final String viewDefinition) {
+    protected static Function<Boolean, LogicalOperator> getViewCompiler(final String viewName,
+                                                                        final Supplier<RecordLayerSchemaTemplate> metadata,
+                                                                        final String viewDefinition) {
         return isCaseSensitive -> RoutineParser.sqlFunctionParser(metadata.get()).parseView(viewName, viewDefinition, isCaseSensitive);
     }
 
-    @Nonnull
-    private static RecordLayerInvokedRoutine.Builder generateInvokedRoutineBuilder(@Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
-                                                                                   @Nonnull final String name,
-                                                                                   @Nonnull final String body) {
+    private static RecordLayerInvokedRoutine.Builder generateInvokedRoutineBuilder(final Supplier<RecordLayerSchemaTemplate> metadata,
+                                                                                   final String name,
+                                                                                   final String body) {
         return RecordLayerInvokedRoutine.newBuilder()
                 .setName(name)
                 .setDescription(body)
@@ -175,10 +166,9 @@ public class RecordMetadataDeserializer {
                 .withSerializableFunction(new RawSqlFunction(name, body));
     }
 
-    @Nonnull
-    private static RecordLayerInvokedRoutine.Builder generateInvokedRoutineBuilder(@Nonnull final String name,
-                                                                                   @Nonnull final String body,
-                                                                                   @Nonnull final UserDefinedMacroFunction userDefinedScalarFunction) {
+    private static RecordLayerInvokedRoutine.Builder generateInvokedRoutineBuilder(final String name,
+                                                                                   final String body,
+                                                                                   final UserDefinedMacroFunction userDefinedScalarFunction) {
         return RecordLayerInvokedRoutine.newBuilder()
                 .setName(name)
                 .setDescription(body)
@@ -186,18 +176,16 @@ public class RecordMetadataDeserializer {
                 .withSerializableFunction(userDefinedScalarFunction);
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.UnusedFormalParameter") // metadata will be used for view compilation in the future
-    private static RecordLayerView.Builder generateViewBuilder(@Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
-                                                               @Nonnull final String name,
-                                                               @Nonnull final String definition) {
+    private static RecordLayerView.Builder generateViewBuilder(final Supplier<RecordLayerSchemaTemplate> metadata,
+                                                               final String name,
+                                                               final String definition) {
         return RecordLayerView.newBuilder()
                 .setName(name)
                 .setDescription(definition)
                 .setViewCompiler(getViewCompiler(name, metadata, definition));
     }
 
-    @Nonnull
     public RecordMetaData getRecordMetaData() {
         return recordMetaData;
     }

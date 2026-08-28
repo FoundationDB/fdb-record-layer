@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer.catalog.systables;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 
 /**
@@ -42,14 +41,12 @@ public final class SystemTableRegistry {
     public static final String DATABASE_TABLE_NAME = "DATABASES";
     public static final String SCHEMA_TEMPLATE_TABLE_NAME = "TEMPLATES";
 
-    @Nonnull
     private static final Map<String, SystemTable> tablesMap = Map.of(
             SCHEMAS_TABLE_NAME, new SchemaSystemTable(),
             DATABASE_TABLE_NAME, new DatabaseInfoSystemTable(),
             SCHEMA_TEMPLATE_TABLE_NAME, new SchemaTemplateSystemTable()
     );
 
-    @Nonnull
     public static SystemTable getSystemTable(String key) {
         final SystemTable systemTable = tablesMap.get(key);
         if (systemTable == null) {

@@ -41,8 +41,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.function.Function;
 
@@ -62,7 +61,6 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
         table.loadRecordType(scanOptions);
     }
 
-    @Nonnull
     @Override
     public String getName() {
         return index.getName();
@@ -88,7 +86,7 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
     }
 
     @Override
-    public Row get(@Nonnull Transaction t, @Nonnull Row key, @Nonnull Options options) throws RelationalException {
+    public Row get(Transaction t, Row key, Options options) throws RelationalException {
         BackingStore store = getSchema().loadStore();
         return store.getFromIndex(index, key, options);
     }

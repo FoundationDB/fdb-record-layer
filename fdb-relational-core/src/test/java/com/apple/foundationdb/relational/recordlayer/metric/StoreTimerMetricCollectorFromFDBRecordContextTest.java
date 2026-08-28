@@ -34,7 +34,6 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.function.Consumer;
@@ -119,7 +118,7 @@ public class StoreTimerMetricCollectorFromFDBRecordContextTest {
         }
     }
 
-    private static void testGeneralMetrics(@Nonnull MetricCollector collector) {
+    private static void testGeneralMetrics(MetricCollector collector) {
         Assertions.assertDoesNotThrow(() -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.LEX_PARSE),
                 "LEX_PARSE event should be registered with the metricCollector");
         Assertions.assertDoesNotThrow(() -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.NORMALIZE_QUERY),
@@ -136,7 +135,7 @@ public class StoreTimerMetricCollectorFromFDBRecordContextTest {
                 "TOTAL_GET_PLAN_QUERY event should be registered with the metricCollector");
     }
 
-    private static void testCacheMissSpecificMetrics(@Nonnull MetricCollector collector) {
+    private static void testCacheMissSpecificMetrics(MetricCollector collector) {
         // true event
         Assertions.assertDoesNotThrow(() -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.CACHE_LOOKUP),
                 "CACHE_LOOKUP event should be registered with the metricCollector");
@@ -155,7 +154,7 @@ public class StoreTimerMetricCollectorFromFDBRecordContextTest {
                 "PLAN_CACHE_TERTIARY_HIT event should not be registered with the metricCollector");
     }
 
-    private static void testCacheHitSpecificMetrics(@Nonnull MetricCollector collector) {
+    private static void testCacheHitSpecificMetrics(MetricCollector collector) {
         // false events
         Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.GENERATE_CONTINUED_PLAN),
                 "GENERATE_CONTINUED_PLAN event should not be registered with the metricCollector");
@@ -176,7 +175,7 @@ public class StoreTimerMetricCollectorFromFDBRecordContextTest {
                 "PLAN_CACHE_TERTIARY_HIT event should be registered with the metricCollector");
     }
 
-    private static void testExecuteContinuationSpecificMetrics(@Nonnull MetricCollector collector) {
+    private static void testExecuteContinuationSpecificMetrics(MetricCollector collector) {
         // false events
         Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.GENERATE_LOGICAL_PLAN),
                 "GENERATE_LOGICAL_PLAN event should not be registered with the metricCollector");

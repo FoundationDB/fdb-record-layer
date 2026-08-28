@@ -38,8 +38,7 @@ import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanC
 import com.apple.foundationdb.relational.recordlayer.storage.BackingRecordStore;
 import com.apple.foundationdb.relational.recordlayer.storage.StoreConfig;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 import java.net.URI;
 import java.sql.SQLException;
@@ -76,11 +75,11 @@ public class RecordLayerDatabase extends AbstractDatabase {
                                StoreCatalog storeCatalog,
                                RecordLayerConfig config,
                                RelationalKeyspaceProvider.RelationalDatabasePath databasePath,
-                               @Nonnull final MetadataOperationsFactory metadataOperationsFactory,
-                               @Nonnull final DdlQueryFactory ddlQueryFactory,
+                               final MetadataOperationsFactory metadataOperationsFactory,
+                               final DdlQueryFactory ddlQueryFactory,
                                @Nullable RelationalPlanCache planCache,
                                @Nullable String defaultSchema,
-                               @Nonnull Options options) {
+                               Options options) {
         super(metadataOperationsFactory, ddlQueryFactory, planCache, options);
         this.fdbDb = fdbDb;
         this.metaDataStore = new CachedMetaDataStore(metaDataStore);
@@ -125,7 +124,7 @@ public class RecordLayerDatabase extends AbstractDatabase {
         schemas.clear();
     }
 
-    BackingRecordStore loadStore(@Nonnull Transaction txn, @Nonnull String schemaName, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
+    BackingRecordStore loadStore(Transaction txn, String schemaName, FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
         StoreConfig storeConfig = StoreConfig.create(recordLayerConfig, schemaName, databasePath, metaDataStore, txn, options);
         return BackingRecordStore.load(txn, storeConfig, existenceCheck);
     }
@@ -138,7 +137,7 @@ public class RecordLayerDatabase extends AbstractDatabase {
     /* private helper methods */
 
     @Override
-    public BackingRecordStore loadRecordStore(@Nonnull String schemaId, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
+    public BackingRecordStore loadRecordStore(String schemaId, FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
         return loadStore(getCurrentTransaction(), schemaId, existenceCheck);
     }
 

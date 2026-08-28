@@ -31,7 +31,6 @@ import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
-import javax.annotation.Nonnull;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Iterator;
@@ -55,30 +54,28 @@ public class RelationalStatementRule implements BeforeEachCallback, AfterEachCal
         statement = connection.createStatement();
     }
 
-    @Nonnull
     @Override
-    public RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws SQLException {
+    public RelationalResultSet executeScan(String tableName, KeySet prefix, Options options) throws SQLException {
         return statement.executeScan(tableName, prefix, options);
     }
 
-    @Nonnull
     @Override
-    public RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws SQLException {
+    public RelationalResultSet executeGet(String tableName, KeySet key, Options options) throws SQLException {
         return statement.executeGet(tableName, key, options);
     }
 
     @Override
-    public int executeInsert(@Nonnull String tableName, @Nonnull List<RelationalStruct> data, @Nonnull Options options) throws SQLException {
+    public int executeInsert(String tableName, List<RelationalStruct> data, Options options) throws SQLException {
         return statement.executeInsert(tableName, data, options);
     }
 
     @Override
-    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws SQLException {
+    public int executeDelete(String tableName, Iterator<KeySet> keys, Options options) throws SQLException {
         return statement.executeDelete(tableName, keys);
     }
 
     @Override
-    public void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws SQLException {
+    public void executeDeleteRange(String tableName, KeySet prefix, Options options) throws SQLException {
         statement.executeDeleteRange(tableName, prefix, options);
     }
 

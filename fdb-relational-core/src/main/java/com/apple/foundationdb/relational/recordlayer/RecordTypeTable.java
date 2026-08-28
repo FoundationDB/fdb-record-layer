@@ -57,8 +57,7 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Locale;
@@ -80,8 +79,8 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
 
     private RecordType currentTypeRef;
 
-    public RecordTypeTable(@Nonnull RecordLayerSchema schema,
-                           @Nonnull String tableName) {
+    public RecordTypeTable(RecordLayerSchema schema,
+                           String tableName) {
         this.schema = schema;
         this.tableName = tableName;
         this.conn = schema.conn;
@@ -94,19 +93,17 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     @Override
-    public @Nonnull
-    RecordLayerSchema getSchema() {
+    public RecordLayerSchema getSchema() {
         return schema;
     }
 
     @Override
-    public Row get(@Nonnull Transaction t, @Nonnull Row key, @Nonnull Options options) throws RelationalException {
+    public Row get(Transaction t, Row key, Options options) throws RelationalException {
         loadRecordType(options);
         BackingStore store = schema.loadStore();
         return store.get(key, options);
     }
 
-    @Nonnull
     @Override
     public StructMetaData getMetaData() throws RelationalException {
         RecordType type = loadRecordType(Options.NONE);
@@ -141,7 +138,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     @Override
-    public boolean deleteRecord(@Nonnull Row key) throws RelationalException {
+    public boolean deleteRecord(Row key) throws RelationalException {
         BackingStore store = schema.loadStore();
         return store.delete(key);
     }
@@ -160,7 +157,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
 
     @Override
     @Deprecated
-    public boolean insertRecord(@Nonnull Message message, boolean replaceOnDuplicate) throws RelationalException {
+    public boolean insertRecord(Message message, boolean replaceOnDuplicate) throws RelationalException {
         BackingStore store = schema.loadStore();
         //TODO(bfines) maybe this should return something other than boolean?
         return store.insert(tableName, message, replaceOnDuplicate);
@@ -169,7 +166,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     @Override
     @Deprecated
     @SuppressWarnings("PMD.PreserveStackTrace") //we are intentionally destroying the stack trace here
-    public boolean insertRecord(@Nonnull RelationalStruct insert, boolean replaceOnDuplicate) throws RelationalException {
+    public boolean insertRecord(RelationalStruct insert, boolean replaceOnDuplicate) throws RelationalException {
         BackingStore store = schema.loadStore();
         try {
             final RecordType recordType = store.getRecordMetaData().getRecordType(this.tableName);
@@ -185,7 +182,6 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
      * This is used to support {@link com.apple.foundationdb.relational.api.RelationalDirectAccessStatement#executeInsert} operation and
      * should not be used for any other general purpose.
      */
-    @Nonnull
     public static Message toDynamicMessage(RelationalStruct struct, Descriptors.Descriptor descriptor) throws RelationalException {
         DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
         try {
@@ -323,14 +319,13 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
         currentTypeRef = null;
     }
 
-    @Nonnull
     @Override
     public String getName() {
         return tableName;
     }
 
     @Override
-    public void validateTable(@Nonnull Options options) throws RelationalException {
+    public void validateTable(Options options) throws RelationalException {
         loadRecordType(options);
     }
 

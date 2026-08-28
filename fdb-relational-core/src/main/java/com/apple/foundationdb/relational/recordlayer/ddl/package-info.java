@@ -22,4 +22,7 @@
  * A RecordLayer-based implementation of DDL logic such as creating and dropping a schema.
  */
 
+@NullMarked
 package com.apple.foundationdb.relational.recordlayer.ddl;
+
+import org.jspecify.annotations.NullMarked;

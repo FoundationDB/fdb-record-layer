@@ -38,7 +38,6 @@ import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -52,9 +51,8 @@ public class RecordLayerCatalogQueryFactory extends CatalogQueryFactory {
     }
 
     @Override
-    public DdlQuery getDescribeSchemaQueryAction(@Nonnull URI dbId, @Nonnull String schemaId) {
+    public DdlQuery getDescribeSchemaQueryAction(URI dbId, String schemaId) {
         return new DdlQuery() {
-            @Nonnull
             @Override
             public Type getResultSetMetadata() {
                 return DdlQuery.constructTypeFrom(List.of("DATABASE_PATH", "SCHEMA_NAME", "TABLES", "INDEXES"));
@@ -87,9 +85,8 @@ public class RecordLayerCatalogQueryFactory extends CatalogQueryFactory {
     }
 
     @Override
-    public DdlQuery getDescribeSchemaTemplateQueryAction(@Nonnull String schemaId) {
+    public DdlQuery getDescribeSchemaTemplateQueryAction(String schemaId) {
         return new DdlQuery() {
-            @Nonnull
             @Override
             public Type getResultSetMetadata() {
                 return DdlQuery.constructTypeFrom(List.of("TEMPLATE_NAME", "TABLES"));

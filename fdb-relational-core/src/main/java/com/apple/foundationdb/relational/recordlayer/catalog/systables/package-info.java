@@ -22,4 +22,7 @@
  * This package is aimed to hold all the structures needed to represent system tables and system views in Relational.
  */
 
+@NullMarked
 package com.apple.foundationdb.relational.recordlayer.catalog.systables;
+
+import org.jspecify.annotations.NullMarked;

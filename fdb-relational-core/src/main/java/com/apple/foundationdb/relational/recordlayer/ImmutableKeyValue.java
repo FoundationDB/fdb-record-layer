@@ -25,14 +25,13 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 
-import javax.annotation.Nonnull;
 
 @API(API.Status.EXPERIMENTAL)
 public class ImmutableKeyValue extends AbstractRow {
     private final Row key;
     private final Row value;
 
-    public ImmutableKeyValue(@Nonnull Row key, @Nonnull Row value) {
+    public ImmutableKeyValue(Row key, Row value) {
         this.key = key;
         this.value = value;
     }

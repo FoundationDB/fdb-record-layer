@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.function.Function;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -35,7 +34,6 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 public class RecordLayerViewTests {
 
-    @Nonnull
     private static Function<Boolean, LogicalOperator> createMockCompiler() {
         return (Boolean parameter) -> null;
     }

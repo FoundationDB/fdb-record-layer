@@ -60,7 +60,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.BitSet;
@@ -87,7 +86,6 @@ public class SchemaTemplateSerDeTests {
         Utils.enableCascadesDebugger();
     }
 
-    @Nonnull
     private static RecordLayerSchemaTemplate basicTestTemplate() {
         return RecordLayerSchemaTemplate.newBuilder().setName("TestSchemaTemplate")
                 .addTable(RecordLayerTable.newBuilder(false)
@@ -134,7 +132,7 @@ public class SchemaTemplateSerDeTests {
                 .build();
     }
 
-    private static RecordLayerSchemaTemplate getTestRecordLayerSchemaTemplate(@Nonnull Map<String, List<NonnullPair<Integer, DescriptorProtos.FieldOptions>>> template) {
+    private static RecordLayerSchemaTemplate getTestRecordLayerSchemaTemplate(Map<String, List<NonnullPair<Integer, DescriptorProtos.FieldOptions>>> template) {
         final var builder = RecordLayerSchemaTemplate.newBuilder().setName("TestSchemaTemplate");
         for (var entry : template.entrySet()) {
             final var tableBuilder = RecordLayerTable.newBuilder(false)
@@ -264,7 +262,6 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertEquals(BitSet.valueOf(new long[]{0b00001111}), template.getIndexEntriesAsBitset(Optional.empty()));
     }
 
-    @Nonnull
     static Stream<Arguments> badSchemaTemplateGenerationsTestcaseProvider() {
         final var fieldOptions1 = DescriptorProtos.FieldOptions.newBuilder().setDeprecated(true).build();
         final var fieldOptions2 = DescriptorProtos.FieldOptions.newBuilder().setDeprecated(false).build();
@@ -598,8 +595,7 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertEquals(intermingleTables, sampleRecordSchemaTemplate.isIntermingleTables());
     }
 
-    @Nonnull
-    private static RecordMetadataDeserializerWithPeekingFunctionSupplier recMetadataSampleWithFunctions(@Nonnull final String... functions) {
+    private static RecordMetadataDeserializerWithPeekingFunctionSupplier recMetadataSampleWithFunctions(final String... functions) {
         final var schemaTemplateBuilder = RecordLayerSchemaTemplate.newBuilder()
                 .setName("TestSchemaTemplate")
                 .setVersion(42)
@@ -927,7 +923,6 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertFalse(viewOpt.isPresent());
     }
 
-    @Nonnull
     private static Descriptors.FileDescriptor createEscapedRecordTypesDescriptor() {
         DescriptorProtos.FileDescriptorProto fileDescriptorProto = DescriptorProtos.FileDescriptorProto.newBuilder()
                 .setName("test_schema_with_escaping.proto")
@@ -973,7 +968,6 @@ public class SchemaTemplateSerDeTests {
         }
     }
 
-    @Nonnull
     private static Descriptors.FileDescriptor createRecordTypesDescriptorWithMalformedEscaping() {
         DescriptorProtos.FileDescriptorProto fileDescriptorProto = DescriptorProtos.FileDescriptorProto.newBuilder()
                 .setName("test_schema_with_malformed_escaping.proto")
@@ -1021,17 +1015,16 @@ public class SchemaTemplateSerDeTests {
 
     private static final class RecordMetadataDeserializerWithPeekingFunctionSupplier extends RecordMetadataDeserializer {
 
-        @Nonnull
         private final Map<String, Integer> invocationsCount;
 
-        public RecordMetadataDeserializerWithPeekingFunctionSupplier(@Nonnull final RecordMetaData recordMetaData) {
+        public RecordMetadataDeserializerWithPeekingFunctionSupplier(final RecordMetaData recordMetaData) {
             super(recordMetaData);
             invocationsCount = new HashMap<>();
             hookInvokedRoutines(builder, invocationsCount);
         }
 
-        private static void hookInvokedRoutines(@Nonnull final RecordLayerSchemaTemplate.Builder schemaBuilder,
-                                                @Nonnull final Map<String, Integer> invocationsCount) {
+        private static void hookInvokedRoutines(final RecordLayerSchemaTemplate.Builder schemaBuilder,
+                                                final Map<String, Integer> invocationsCount) {
             final List<RecordLayerInvokedRoutine> invokedRoutines = schemaBuilder.getInvokedRoutines();
             for (RecordLayerInvokedRoutine routine : invokedRoutines) {
                 final String name = routine.getName();
@@ -1046,15 +1039,14 @@ public class SchemaTemplateSerDeTests {
             }
         }
 
-        boolean hasNoCompilationRequestsFor(@Nonnull final String functionName) {
+        boolean hasNoCompilationRequestsFor(final String functionName) {
             return invocationsCount.get(functionName) == null;
         }
 
-        boolean hasOneCompilationRequestFor(@Nonnull final String functionName) {
+        boolean hasOneCompilationRequestFor(final String functionName) {
             return 1 == invocationsCount.get(functionName);
         }
 
-        @Nonnull
         public PlanGenerator getPlanGenerator() throws RelationalException, SQLException {
 
             final var metricCollector = NoOpMetricCollector.INSTANCE;

@@ -35,7 +35,6 @@ import com.apple.foundationdb.relational.util.Assert;
 
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import javax.annotation.concurrent.Immutable;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -45,20 +44,17 @@ import java.util.stream.StreamSupport;
 @API(API.Status.EXPERIMENTAL)
 public class ExpressionFactoryImpl implements ExpressionFactory {
 
-    @Nonnull
     private final SchemaTemplate schemaTemplate;
 
-    @Nonnull
     private final Options options;
 
-    public ExpressionFactoryImpl(@Nonnull final SchemaTemplate schemaTemplate,
-                                 @Nonnull final Options options) {
+    public ExpressionFactoryImpl(final SchemaTemplate schemaTemplate,
+                                 final Options options) {
         this.schemaTemplate = schemaTemplate;
         this.options = options;
     }
 
-    @Nonnull
-    Field<?> resolve(@Nonnull final DataType type, @Nonnull final Iterable<String> fieldParts) {
+    Field<?> resolve(final DataType type, final Iterable<String> fieldParts) {
         final boolean caseSensitive = options.getOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS);
         DataType current = type;
         final ImmutableList.Builder<String> normalizedFieldParts = ImmutableList.builder();
@@ -85,9 +81,8 @@ public class ExpressionFactoryImpl implements ExpressionFactory {
         return new FieldImpl<>(normalizedFieldParts.build(), this, current);
     }
 
-    @Nonnull
     @Override
-    public Field<?> field(@Nonnull final String tableName, @Nonnull Iterable<String> parts) {
+    public Field<?> field(final String tableName, Iterable<String> parts) {
         final boolean caseSensitive = options.getOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS);
         final var normalizedName = Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(tableName, caseSensitive));
         final Optional<Table> maybeTable;

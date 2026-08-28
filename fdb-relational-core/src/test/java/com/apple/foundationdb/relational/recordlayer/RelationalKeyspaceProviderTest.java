@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 
 /**
@@ -33,9 +32,7 @@ import java.net.URI;
  * that make sense.
  */
 public class RelationalKeyspaceProviderTest {
-    @Nonnull
     private static final String defaultDomain = "DEFAULT_DOMAIN";
-    @Nonnull
     private final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.newInstanceForTesting();
 
     private void registerDefaultDomain() {

@@ -31,7 +31,6 @@ import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.api.metadata.View;
 import com.apple.foundationdb.relational.api.metadata.Visitor;
 
-import javax.annotation.Nonnull;
 
 /**
  * This is a no-op {@link Visitor} added to make convenient to implement other visitors
@@ -40,47 +39,47 @@ import javax.annotation.Nonnull;
 @API(API.Status.EXPERIMENTAL)
 public class SkeletonVisitor implements Visitor {
     @Override
-    public void visit(@Nonnull final Table table) {
+    public void visit(final Table table) {
         // no-op
     }
 
     @Override
-    public void visit(@Nonnull final Column column) {
+    public void visit(final Column column) {
         // no-op
     }
 
     @Override
-    public void startVisit(@Nonnull final SchemaTemplate schemaTemplate) {
+    public void startVisit(final SchemaTemplate schemaTemplate) {
         // no-op
     }
 
     @Override
-    public void visit(@Nonnull final SchemaTemplate schemaTemplate) {
+    public void visit(final SchemaTemplate schemaTemplate) {
         // no-op
     }
 
     @Override
-    public void finishVisit(@Nonnull final SchemaTemplate schemaTemplate) {
+    public void finishVisit(final SchemaTemplate schemaTemplate) {
         // no-op
     }
 
     @Override
-    public void visit(@Nonnull final Schema schema) {
+    public void visit(final Schema schema) {
         // no-op
     }
 
     @Override
-    public void visit(@Nonnull final Index index) {
+    public void visit(final Index index) {
         // no-op
     }
 
     @Override
-    public void visit(@Nonnull final InvokedRoutine invokedRoutine) {
+    public void visit(final InvokedRoutine invokedRoutine) {
         // no-op
     }
 
     @Override
-    public void visit(@Nonnull final View view) {
+    public void visit(final View view) {
         // no-op
     }
 }

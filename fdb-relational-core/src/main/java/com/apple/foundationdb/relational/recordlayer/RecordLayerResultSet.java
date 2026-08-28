@@ -29,8 +29,7 @@ import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.sql.SQLException;
 
 import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.UNSUPPORTED_OPERATION;
@@ -38,7 +37,6 @@ import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.UNSUPPO
 @API(API.Status.EXPERIMENTAL)
 public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
 
-    @Nonnull
     private final ResumableIterator<Row> currentCursor;
 
     // needed until TODO is fixed
@@ -49,19 +47,18 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
 
     private volatile boolean closed;
 
-    @Nonnull
     private final EnrichContinuationFunction enrichContinuationFunction;
 
-    public RecordLayerResultSet(@Nonnull StructMetaData metaData,
-                                @Nonnull final ResumableIterator<Row> iterator,
+    public RecordLayerResultSet(StructMetaData metaData,
+                                final ResumableIterator<Row> iterator,
                                 @Nullable final EmbeddedRelationalConnection connection) {
         this(metaData, iterator, connection, EnrichContinuationFunction.identity());
     }
 
-    public RecordLayerResultSet(@Nonnull StructMetaData metaData,
-                                @Nonnull final ResumableIterator<Row> iterator,
+    public RecordLayerResultSet(StructMetaData metaData,
+                                final ResumableIterator<Row> iterator,
                                 @Nullable final EmbeddedRelationalConnection connection,
-                                @Nonnull final EnrichContinuationFunction enrichContinuationFunction) {
+                                final EnrichContinuationFunction enrichContinuationFunction) {
         super(metaData);
         this.currentCursor = iterator;
         this.connection = connection;
@@ -105,7 +102,6 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
         return this.closed;
     }
 
-    @Nonnull
     @Override
     public Continuation getContinuation() throws SQLException {
         if (hasNext()) {
@@ -136,8 +132,7 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
 
     @FunctionalInterface
     public interface EnrichContinuationFunction {
-        @Nonnull
-        Continuation apply(@Nonnull Continuation continuation, Continuation.Reason reason) throws RelationalException;
+        Continuation apply(Continuation continuation, Continuation.Reason reason) throws RelationalException;
 
         static EnrichContinuationFunction identity() {
             return (continuation, reason) -> continuation;

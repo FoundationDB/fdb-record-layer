@@ -22,4 +22,7 @@
  * A RecordLayer-based implementation of the catalog.
  */
 
+@NullMarked
 package com.apple.foundationdb.relational.recordlayer.catalog;
+
+import org.jspecify.annotations.NullMarked;

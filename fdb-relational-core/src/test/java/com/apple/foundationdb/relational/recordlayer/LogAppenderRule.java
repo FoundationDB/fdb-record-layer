@@ -31,7 +31,6 @@ import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
-import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,11 +39,8 @@ public class LogAppenderRule implements BeforeEachCallback, AfterEachCallback, A
 
     private LogAppender logAppender;
     private Logger logger;
-    @Nonnull
     private final String name;
-    @Nonnull
     private final Class<?> clazz;
-    @Nonnull
     private final Level level;
     private Level beforeLogLevel;
 
@@ -65,13 +61,13 @@ public class LogAppenderRule implements BeforeEachCallback, AfterEachCallback, A
         }
     }
 
-    public LogAppenderRule(@Nonnull String name, @Nonnull Class<?> clazz, @Nonnull Level level) {
+    public LogAppenderRule(String name, Class<?> clazz, Level level) {
         this.name = name;
         this.clazz = clazz;
         this.level = level;
     }
 
-    public static LogAppenderRule of(@Nonnull String name, @Nonnull Class<?> clazz, @Nonnull Level level) throws SQLException {
+    public static LogAppenderRule of(String name, Class<?> clazz, Level level) throws SQLException {
         final var rule = new LogAppenderRule(name, clazz, level);
         rule.beforeEach(null);
         return rule;

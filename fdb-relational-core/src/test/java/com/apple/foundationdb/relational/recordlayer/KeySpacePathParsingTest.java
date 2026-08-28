@@ -44,8 +44,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -522,7 +521,6 @@ public class KeySpacePathParsingTest {
         return path.getDirectory().getKeyType() == KeySpaceDirectory.KeyType.NULL;
     }
 
-    @Nonnull
     private static KeySpaceDirectory createStringLikeDirectory(String name, final boolean directory, final boolean constant, String constantValue) {
         if (directory) {
             return createDirectoryLayerDirectory(name, constant, constantValue);
@@ -531,7 +529,6 @@ public class KeySpacePathParsingTest {
         }
     }
 
-    @Nonnull
     private static KeySpaceDirectory createDirectoryLayerDirectory(String name, final boolean constant, String constantValue) {
         if (constant) {
             return new DirectoryLayerDirectory(name, constantValue);
@@ -540,7 +537,6 @@ public class KeySpacePathParsingTest {
         }
     }
 
-    @Nonnull
     private static KeySpaceDirectory createDirectory(String name, KeySpaceDirectory.KeyType type,
                                                      boolean constant, Object constantValue) {
         if (constant) {
@@ -577,17 +573,15 @@ public class KeySpacePathParsingTest {
         );
     }
 
-    @Nonnull
     private static KeySpaceDirectory constantStringDirectory(String name, String value) {
         return createDirectory(name, KeySpaceDirectory.KeyType.STRING, true, value);
     }
 
-    @Nonnull
     private static KeySpaceDirectory nullDirectory(String name) {
         return new KeySpaceDirectory(name, KeySpaceDirectory.KeyType.NULL);
     }
 
-    private List<Object> getResolvedValuesForKeySpacePath(@Nonnull KeySpacePath path, @Nonnull FDBRecordContext context) throws RelationalException {
+    private List<Object> getResolvedValuesForKeySpacePath(KeySpacePath path, FDBRecordContext context) throws RelationalException {
         try {
             List<Object> values = new ArrayList<>();
             KeySpacePath currentPath = path;
@@ -603,12 +597,11 @@ public class KeySpacePathParsingTest {
     }
 
     private static final class PathEntry {
-        @Nonnull
         private final String uriEntry;
         @Nullable
         private final Object pathEntry;
 
-        private PathEntry(@Nonnull final String uriEntry, @Nullable final Object pathEntry) {
+        private PathEntry(final String uriEntry, @Nullable final Object pathEntry) {
             this.uriEntry = uriEntry;
             this.pathEntry = pathEntry;
         }
@@ -619,7 +612,6 @@ public class KeySpacePathParsingTest {
         }
     }
 
-    @Nonnull
     private static AmbiguousHalf directoryAmbiguousHalf(String value) {
         final String name = "DirectoryLayer";
         return new AmbiguousHalf(name,

@@ -28,7 +28,6 @@ import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedExce
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 
-import javax.annotation.Nonnull;
 
 @API(API.Status.EXPERIMENTAL)
 public class HollowSchemaTemplateCatalog implements SchemaTemplateCatalog {
@@ -36,44 +35,42 @@ public class HollowSchemaTemplateCatalog implements SchemaTemplateCatalog {
     public static final HollowSchemaTemplateCatalog INSTANCE = new HollowSchemaTemplateCatalog();
 
     @Override
-    public boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException {
+    public boolean doesSchemaTemplateExist(Transaction txn, String templateName) throws RelationalException {
         throw new OperationUnsupportedException("This Schema Template Catalog is hollow and does not support calls.");
     }
 
     @Override
-    public boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName, int version) throws RelationalException {
-        throw new OperationUnsupportedException("This Schema Template Catalog is hollow and does not support calls.");
-    }
-
-    @Nonnull
-    @Override
-    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException {
-        throw new OperationUnsupportedException("This Schema Template Catalog is hollow and does not support calls.");
-    }
-
-    @Nonnull
-    @Override
-    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateId, int version) throws RelationalException {
+    public boolean doesSchemaTemplateExist(Transaction txn, String templateName, int version) throws RelationalException {
         throw new OperationUnsupportedException("This Schema Template Catalog is hollow and does not support calls.");
     }
 
     @Override
-    public void createTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate newTemplate) throws RelationalException {
+    public SchemaTemplate loadSchemaTemplate(Transaction txn, String templateName) throws RelationalException {
         throw new OperationUnsupportedException("This Schema Template Catalog is hollow and does not support calls.");
     }
 
     @Override
-    public RelationalResultSet listTemplates(@Nonnull Transaction txn) {
+    public SchemaTemplate loadSchemaTemplate(Transaction txn, String templateId, int version) throws RelationalException {
+        throw new OperationUnsupportedException("This Schema Template Catalog is hollow and does not support calls.");
+    }
+
+    @Override
+    public void createTemplate(Transaction txn, SchemaTemplate newTemplate) throws RelationalException {
+        throw new OperationUnsupportedException("This Schema Template Catalog is hollow and does not support calls.");
+    }
+
+    @Override
+    public RelationalResultSet listTemplates(Transaction txn) {
         throw new OperationUnsupportedException("This Schema Template Catalog is hollow and does not support calls.").toUncheckedWrappedException();
     }
 
     @Override
-    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateId, boolean throwIfDoesNotExist) {
+    public void deleteTemplate(Transaction txn, String templateId, boolean throwIfDoesNotExist) {
         throw new OperationUnsupportedException("This Schema Template Catalog is hollow and does not support calls.").toUncheckedWrappedException();
     }
 
     @Override
-    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateId, int version, boolean throwIfDoesNotExist) throws RelationalException {
+    public void deleteTemplate(Transaction txn, String templateId, int version, boolean throwIfDoesNotExist) throws RelationalException {
         throw new OperationUnsupportedException("This Schema Template Catalog is hollow and does not support calls.");
     }
 }

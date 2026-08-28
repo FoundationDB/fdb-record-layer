@@ -27,17 +27,15 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.util.Assert;
 
-import javax.annotation.Nonnull;
 
 public class DropTemporaryFunctionConstantAction implements ConstantAction  {
 
     private final boolean throwIfNotExists;
 
-    @Nonnull
     private final String temporaryFunctionName;
 
     public DropTemporaryFunctionConstantAction(boolean throwIfNotExists,
-                                               @Nonnull final String temporaryFunctionName) {
+                                               final String temporaryFunctionName) {
         this.throwIfNotExists = throwIfNotExists;
         this.temporaryFunctionName = temporaryFunctionName;
     }

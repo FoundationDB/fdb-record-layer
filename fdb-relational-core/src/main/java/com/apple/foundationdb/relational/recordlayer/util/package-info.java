@@ -21,4 +21,7 @@
 /**
  * Contains a set of utility methods.
  */
+@NullMarked
 package com.apple.foundationdb.relational.recordlayer.util;
+
+import org.jspecify.annotations.NullMarked;

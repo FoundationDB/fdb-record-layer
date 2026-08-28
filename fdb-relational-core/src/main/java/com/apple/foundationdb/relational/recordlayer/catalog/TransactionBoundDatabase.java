@@ -46,8 +46,7 @@ import com.apple.foundationdb.relational.recordlayer.storage.BackingRecordStore;
 import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
 import com.apple.foundationdb.relational.transactionbound.catalog.HollowStoreCatalog;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 
 /**
@@ -69,21 +68,19 @@ public class TransactionBoundDatabase extends AbstractDatabase {
     URI uri;
 
     private static final MetadataOperationsFactory onlyTemporaryFunctionOperationsFactory = new AbstractMetadataOperationsFactory() {
-        @Nonnull
         @Override
-        public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template, final boolean throwIfExists,
-                                                                       @Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
+        public ConstantAction getCreateTemporaryFunctionConstantAction(final SchemaTemplate template, final boolean throwIfExists,
+                                                                       final RecordLayerInvokedRoutine invokedRoutine) {
             return new CreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine);
         }
 
-        @Nonnull
         @Override
-        public ConstantAction getDropTemporaryFunctionConstantAction(final boolean throwIfNotExists, @Nonnull final String temporaryFunctionName) {
+        public ConstantAction getDropTemporaryFunctionConstantAction(final boolean throwIfNotExists, final String temporaryFunctionName) {
             return new DropTemporaryFunctionConstantAction(throwIfNotExists, temporaryFunctionName);
         }
     };
 
-    public TransactionBoundDatabase(@Nonnull URI uri, @Nonnull Options options, @Nullable RelationalPlanCache planCache,
+    public TransactionBoundDatabase(URI uri, Options options, @Nullable RelationalPlanCache planCache,
                                     @Nullable KeySpace keySpace) {
         super(onlyTemporaryFunctionOperationsFactory, NoOpQueryFactory.INSTANCE, planCache, options);
         this.uri = uri;
@@ -105,7 +102,7 @@ public class TransactionBoundDatabase extends AbstractDatabase {
     }
 
     @Override
-    public BackingStore loadRecordStore(@Nonnull String schemaId, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
+    public BackingStore loadRecordStore(String schemaId, FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
         return store;
     }
 
