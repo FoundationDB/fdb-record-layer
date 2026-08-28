@@ -652,7 +652,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         //
         // This also calls the "Impl" variant directly, which means we skip grabbing an AsyncLock. This is a deliberate,
         // as this is designed for calls that take place within save and delete. Those methods already grab writes locks
-        // over the record, and so attempt to grab a second lock would deadlock (unless and until the locks are made re-entrant).
+        // over the record, and so attempting to grab a second lock would cause a deadlock (as the locks are not re-entrant).
         return loadTypedRecordImpl(typedSerializer, primaryKey, ExecuteState.NO_LIMITS, false);
     }
 
@@ -1050,11 +1050,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     public IndexOperationResult performIndexOperation(@Nonnull String indexName, @Nonnull IndexOperation operation) {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_OPERATION, performIndexOperationAsync(indexName, operation));
-    }
-
-    @Nonnull
-    private LockIdentifier lockIdForRecord(@Nonnull final Tuple primaryKey) {
-        return new LockIdentifier(recordsSubspace().subspace(primaryKey));
     }
 
     @Override
