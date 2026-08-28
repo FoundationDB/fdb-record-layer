@@ -21,4 +21,7 @@
 /**
  * Implementation for planner repl.
  */
+@NullMarked
 package com.apple.foundationdb.record.query.plan.cascades.debug;
+
+import org.jspecify.annotations.NullMarked;

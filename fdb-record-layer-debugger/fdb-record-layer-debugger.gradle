@@ -18,6 +18,10 @@
  * limitations under the License.
  */
 
+plugins {
+    alias(libs.plugins.errorprone)
+}
+
 apply from: rootProject.file('gradle/publishing.gradle')
 
 configurations {
@@ -34,14 +38,31 @@ dependencies {
     implementation(libs.slf4j.api)
     implementation(libs.slf4j.julBridge)
     implementation(libs.jline)
-    compileOnly(libs.jsr305)
+    compileOnly(libs.jspecify)
     compileOnly(libs.autoService)
     annotationProcessor(libs.autoService)
+
+    errorprone(libs.errorprone.core)
+    errorprone(libs.nullaway)
 
     testImplementation(libs.junit.platform)
     testImplementation(libs.bundles.test.impl)
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)
+}
+
+// Adopts jspecify + NullAway, scoped to this module only. See the @NullMarked package-info.java in
+// com.apple.foundationdb.record.query.plan.cascades.debug (this module shares that package name with a
+// package of the same simple name in fdb-record-layer-core, but each module's compileJava only analyzes
+// its own classes).
+tasks.withType(JavaCompile).configureEach {
+    options.errorprone {
+        disableAllChecks = true
+        error("NullAway")
+        option("NullAway:AnnotatedPackages", "com.apple.foundationdb.record.query.plan.cascades.debug")
+        option("NullAway:JSpecifyMode", "true")
+        option("NullAway:AcknowledgeRestrictiveAnnotations", "true")
+    }
 }
 
 publishing {

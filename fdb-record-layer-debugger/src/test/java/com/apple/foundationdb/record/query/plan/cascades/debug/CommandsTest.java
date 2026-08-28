@@ -64,7 +64,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
-import javax.annotation.Nonnull;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PipedInputStream;
@@ -106,6 +105,8 @@ class CommandsTest {
     }
 
     @AfterAll
+    @SuppressWarnings("NullAway") // Debugger.setDebugger's parameter (fdb-record-layer-core, outside this module) is
+    // documented and implemented to accept null to clear the current debugger, but is not itself annotated @Nullable.
     static void tearDown() {
         Debugger.setDebugger(null);
     }
@@ -419,9 +420,9 @@ class CommandsTest {
                         ReplTestUtil.coloredKeyValue("shorthand", "transform"),
                         ReplTestUtil.coloredKeyValue("location", "begin"),
                         ReplTestUtil.coloredKeyValue("description", "transform"),
-                        ReplTestUtil.coloredKeyValue("root", Debugger.getDebugger().nameForObject(ref)),
-                        ReplTestUtil.coloredKeyValue("group", Debugger.getDebugger().nameForObject(ref)),
-                        ReplTestUtil.coloredKeyValue("expression", Debugger.getDebugger().nameForObject(exp)),
+                        ReplTestUtil.coloredKeyValue("root", debugger.nameForObject(ref)),
+                        ReplTestUtil.coloredKeyValue("group", debugger.nameForObject(ref)),
+                        ReplTestUtil.coloredKeyValue("expression", debugger.nameForObject(exp)),
                         ReplTestUtil.coloredKeyValue("rule", "ImplementSimpleSelectRule")
                 )
         ).doesNotContain(
@@ -430,9 +431,9 @@ class CommandsTest {
                         ReplTestUtil.coloredKeyValue("shorthand", "transform"),
                         ReplTestUtil.coloredKeyValue("location", "begin"),
                         ReplTestUtil.coloredKeyValue("description", "transform"),
-                        ReplTestUtil.coloredKeyValue("root", Debugger.getDebugger().nameForObject(ref)),
-                        ReplTestUtil.coloredKeyValue("group", Debugger.getDebugger().nameForObject(ref)),
-                        ReplTestUtil.coloredKeyValue("expression", Debugger.getDebugger().nameForObject(exp)),
+                        ReplTestUtil.coloredKeyValue("root", debugger.nameForObject(ref)),
+                        ReplTestUtil.coloredKeyValue("group", debugger.nameForObject(ref)),
+                        ReplTestUtil.coloredKeyValue("expression", debugger.nameForObject(exp)),
                         ReplTestUtil.coloredKeyValue("rule", "ImplementExplodeRule")
                 )
         );
@@ -477,9 +478,9 @@ class CommandsTest {
                         ReplTestUtil.coloredKeyValue("shorthand", "rulecall"),
                         ReplTestUtil.coloredKeyValue("location", "begin"),
                         ReplTestUtil.coloredKeyValue("description", "transform rule call"),
-                        ReplTestUtil.coloredKeyValue("root", Debugger.getDebugger().nameForObject(ref)),
-                        ReplTestUtil.coloredKeyValue("group", Debugger.getDebugger().nameForObject(ref)),
-                        ReplTestUtil.coloredKeyValue("expression", Debugger.getDebugger().nameForObject(exp)),
+                        ReplTestUtil.coloredKeyValue("root", debugger.nameForObject(ref)),
+                        ReplTestUtil.coloredKeyValue("group", debugger.nameForObject(ref)),
+                        ReplTestUtil.coloredKeyValue("expression", debugger.nameForObject(exp)),
                         ReplTestUtil.coloredKeyValue("rule", "ImplementSimpleSelectRule")
                 )
         ).doesNotContain(
@@ -488,9 +489,9 @@ class CommandsTest {
                         ReplTestUtil.coloredKeyValue("shorthand", "rulecall"),
                         ReplTestUtil.coloredKeyValue("location", "begin"),
                         ReplTestUtil.coloredKeyValue("description", "transform rule call"),
-                        ReplTestUtil.coloredKeyValue("root", Debugger.getDebugger().nameForObject(ref)),
-                        ReplTestUtil.coloredKeyValue("group", Debugger.getDebugger().nameForObject(ref)),
-                        ReplTestUtil.coloredKeyValue("expression", Debugger.getDebugger().nameForObject(exp)),
+                        ReplTestUtil.coloredKeyValue("root", debugger.nameForObject(ref)),
+                        ReplTestUtil.coloredKeyValue("group", debugger.nameForObject(ref)),
+                        ReplTestUtil.coloredKeyValue("expression", debugger.nameForObject(exp)),
                         ReplTestUtil.coloredKeyValue("rule", "ImplementExplodeRule")
                 )
         );
@@ -555,13 +556,11 @@ class CommandsTest {
                 EmptyKeyExpression.EMPTY
         );
         debugger.onQuery("SELECT * FROM A", new PlanContext() {
-            @Nonnull
             @Override
             public RecordQueryPlannerConfiguration getPlannerConfiguration() {
                 return RecordQueryPlannerConfiguration.defaultPlannerConfiguration();
             }
 
-            @Nonnull
             @Override
             public Set<MatchCandidate> getMatchCandidates() {
                 return Set.of(matchCandidate);
@@ -607,7 +606,6 @@ class CommandsTest {
     }
 
     private static class DummyCascadesTask implements CascadesPlanner.Task {
-        @Nonnull
         @Override
         public PlannerPhase getPlannerPhase() {
             return PlannerPhase.PLANNING;
@@ -625,14 +623,14 @@ class CommandsTest {
     }
 
     private static class DummyMatchInfo implements MatchInfo {
-        @Nonnull
         @Override
         public List<OrderingPart.MatchedOrderingPart> getMatchedOrderingParts() {
             return List.of();
         }
 
-        @Nonnull
         @Override
+        @SuppressWarnings("NullAway") // returns null, violating the @Nonnull contract of MatchInfo#getMaxMatchMap; this dummy
+        // is only used to exercise yieldPartialMatch() in testOnYieldMatchBreakPoint, which never calls this method.
         public MaxMatchMap getMaxMatchMap() {
             return null;
         }
@@ -642,19 +640,18 @@ class CommandsTest {
             return false;
         }
 
-        @Nonnull
         @Override
+        @SuppressWarnings("NullAway") // returns null, violating the @Nonnull contract of MatchInfo#getRegularMatchInfo; this
+        // dummy is only used to exercise yieldPartialMatch() in testOnYieldMatchBreakPoint, which never calls this method.
         public RegularMatchInfo getRegularMatchInfo() {
             return null;
         }
 
-        @Nonnull
         @Override
-        public Map<QueryPredicate, PredicateMultiMap.PredicateMapping> collectPulledUpPredicateMappings(@Nonnull final RelationalExpression candidateExpression, @Nonnull final Set<QueryPredicate> interestingPredicates) {
+        public Map<QueryPredicate, PredicateMultiMap.PredicateMapping> collectPulledUpPredicateMappings(final RelationalExpression candidateExpression, final Set<QueryPredicate> interestingPredicates) {
             return Map.of();
         }
 
-        @Nonnull
         @Override
         public GroupByMappings getGroupByMappings() {
             return GroupByMappings.empty();

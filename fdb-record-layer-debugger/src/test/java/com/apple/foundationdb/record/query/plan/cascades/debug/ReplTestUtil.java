@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.debug;
 
 import org.jline.utils.AttributedStringBuilder;
 import org.jline.utils.AttributedStyle;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Static test utilities for testing {@link PlannerRepl} functionality.
@@ -34,15 +35,17 @@ final class ReplTestUtil {
     /**
      * Return a key and a value colored using the same colors used in {@link PlannerRepl} as a {@link String}.
      * @param key key to include in return string
-     * @param value value to include in return string
+     * @param value value to include in return string; may be {@code null}, e.g. when the caller looks up an
+     *        entity name that {@link PlannerRepl#nameForObject} could not find, in which case it is rendered as
+     *        the literal string {@code "null"}
      * @return a {@link String} with {@code key} and {@code value} concatenated with the expected colors.
      */
-    static String coloredKeyValue(final String key, final String value) {
+    static String coloredKeyValue(final String key, @Nullable final String value) {
         return new AttributedStringBuilder()
                 .style(AttributedStyle.DEFAULT.foreground(AttributedStyle.YELLOW + AttributedStyle.BRIGHT).bold())
                 .append(key)
                 .append(": ")
                 .style(AttributedStyle.DEFAULT)
-                .append(value).toAnsi();
+                .append(String.valueOf(value)).toAnsi();
     }
 }
