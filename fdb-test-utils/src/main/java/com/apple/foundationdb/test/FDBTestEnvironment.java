@@ -23,7 +23,8 @@ package com.apple.foundationdb.test;
 import org.assertj.core.api.Assumptions;
 import org.yaml.snakeyaml.Yaml;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -37,7 +38,9 @@ import java.util.concurrent.ThreadLocalRandom;
  * that are available.
  */
 public final class FDBTestEnvironment {
-    private static final List<String> clusterFiles;
+    // A cluster file entry may be null, meaning "use the default cluster file" (no fdb-environment.yaml
+    // configured, or an environment entry that intentionally leaves the cluster file unspecified).
+    private static final List<@Nullable String> clusterFiles;
 
     static {
         final String fdbEnvironment = System.getenv("FDB_ENVIRONMENT_YAML");
@@ -57,7 +60,11 @@ public final class FDBTestEnvironment {
         Yaml yaml = new Yaml();
         try (FileInputStream yamlInput = new FileInputStream(fdbEnvironment)) {
             Object fdbConfig = yaml.load(yamlInput);
-            return (List<String>)((Map<?, ?>)fdbConfig).get("clusterFiles");
+            List<String> parsedClusterFiles = (List<String>)((Map<?, ?>)fdbConfig).get("clusterFiles");
+            if (parsedClusterFiles == null) {
+                throw new IllegalStateException("fdb-environment.yaml at " + fdbEnvironment + " does not define \"clusterFiles\"");
+            }
+            return parsedClusterFiles;
         } catch (IOException e) {
             throw new IllegalStateException("Could not read fdb-environment.yaml", e);
         } catch (ClassCastException e) {
@@ -70,16 +77,17 @@ public final class FDBTestEnvironment {
         return clusterFiles.get(i);
     }
 
-    public static List<String> allClusterFiles() {
+    public static List<@Nullable String> allClusterFiles() {
         return clusterFiles;
     }
 
-    public static List<String> allClusterFilesInRandomOrder() {
-        final List<String> randomized = new ArrayList<>(clusterFiles);
+    public static List<@Nullable String> allClusterFilesInRandomOrder() {
+        final List<@Nullable String> randomized = new ArrayList<>(clusterFiles);
         Collections.shuffle(randomized);
         return randomized;
     }
 
+    @Nullable
     public static String randomClusterFile() {
         return clusterFiles.get(ThreadLocalRandom.current().nextInt(clusterFiles.size()));
     }

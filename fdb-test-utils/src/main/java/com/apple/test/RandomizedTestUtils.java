@@ -22,7 +22,6 @@ package com.apple.test;
 
 import org.junit.jupiter.params.provider.Arguments;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
@@ -86,7 +85,6 @@ public final class RandomizedTestUtils {
      * @param staticSeeds a set of seeds to always include in the returned random seeds
      * @return a stream of random {@code long}s to initialize {@link Random}s
      */
-    @Nonnull
     public static Stream<Long> randomSeeds(long... staticSeeds) {
         LongStream longStream = staticSeeds.length == 0 ? LongStream.of(FIXED_SEED) : LongStream.of(staticSeeds);
         if (includeRandomTests()) {
