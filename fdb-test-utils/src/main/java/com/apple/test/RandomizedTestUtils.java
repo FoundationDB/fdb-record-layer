@@ -98,11 +98,11 @@ public final class RandomizedTestUtils {
     }
 
     private static int getIterations() {
-        return 50; //Integer.parseInt(System.getProperty("tests.iterations", "0"));
+        return Integer.parseInt(System.getProperty("tests.iterations", "0"));
     }
 
     public static boolean includeRandomTests() {
-        return true; // Boolean.parseBoolean(System.getProperty("tests.includeRandom", "false"));
+        return Boolean.parseBoolean(System.getProperty("tests.includeRandom", "false"));
     }
 
     /**
