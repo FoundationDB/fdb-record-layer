@@ -41,9 +41,7 @@ import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanC
 import com.codahale.metrics.MetricRegistry;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -84,9 +82,8 @@ public final class OfflineStoredQueriesProcessor {
      * this method only reads. Any exception from catalog access is caught and logged at error
      * level, and an empty list is returned in that case.
      */
-    @Nonnull
-    public static List<RecordLayerSchemaTemplate> getSchemaTemplates(@Nonnull final StoreCatalog storeCatalog,
-                                                                     @Nonnull final Transaction txn) {
+    public static List<RecordLayerSchemaTemplate> getSchemaTemplates(final StoreCatalog storeCatalog,
+                                                                     final Transaction txn) {
         final List<RecordLayerSchemaTemplate> result = new ArrayList<>();
         try (var rs = storeCatalog.getSchemaTemplateCatalog().listTemplates(txn)) {
             while (rs.next()) {
@@ -118,9 +115,9 @@ public final class OfflineStoredQueriesProcessor {
      * logged at {@code ERROR} level, and is also surfaced as a metric: per-query failures bump
      * {@link RelationalMetric.RelationalCount#OFFLINE_STORED_QUERIES_QUERIES_FAILED}.</p>
      */
-    public static void planStoredQueriesForSchemaTemplates(@Nonnull final RelationalPlanCache cache,
-                                                           @Nonnull final MetricRegistry metricRegistry,
-                                                           @Nonnull final List<RecordLayerSchemaTemplate> templates) {
+    public static void planStoredQueriesForSchemaTemplates(final RelationalPlanCache cache,
+                                                           final MetricRegistry metricRegistry,
+                                                           final List<RecordLayerSchemaTemplate> templates) {
         final MetricCollector metricCollector = StoreTimerMetricCollector.fromMetricRegistry(metricRegistry);
         final Counts counts;
         try {
@@ -155,10 +152,9 @@ public final class OfflineStoredQueriesProcessor {
         }
     }
 
-    @Nonnull
-    private static Counts planStoredQueriesForSchemaTemplatesAll(@Nonnull final RelationalPlanCache cache,
-                                                                 @Nonnull final MetricCollector metricCollector,
-                                                                 @Nonnull final List<RecordLayerSchemaTemplate> templates) {
+    private static Counts planStoredQueriesForSchemaTemplatesAll(final RelationalPlanCache cache,
+                                                                 final MetricCollector metricCollector,
+                                                                 final List<RecordLayerSchemaTemplate> templates) {
         final Counts counts = new Counts();
         for (final RecordLayerSchemaTemplate template : templates) {
             planStoredQueriesForSchemaTemplate(cache, metricCollector, template, counts);
@@ -173,10 +169,10 @@ public final class OfflineStoredQueriesProcessor {
      * template carries them when the SELECT body is planned. Per-query and per-temp-function
      * outcomes are reported by {@link #planStoredQuery} directly into {@code counts}.
      */
-    private static void planStoredQueriesForSchemaTemplate(@Nonnull final RelationalPlanCache cache,
-                                                           @Nonnull final MetricCollector metricCollector,
-                                                           @Nonnull final RecordLayerSchemaTemplate template,
-                                                           @Nonnull final Counts counts) {
+    private static void planStoredQueriesForSchemaTemplate(final RelationalPlanCache cache,
+                                                           final MetricCollector metricCollector,
+                                                           final RecordLayerSchemaTemplate template,
+                                                           final Counts counts) {
         final String templateKey = template.getName() + ":" + template.getVersion();
         for (final var entry : template.getStoredQueries().entrySet()) {
             planStoredQuery(cache, metricCollector, template, templateKey, entry.getKey(), entry.getValue(), counts);
@@ -199,13 +195,13 @@ public final class OfflineStoredQueriesProcessor {
      * {@link RuntimeException} (e.g. {@code UncheckedRelationalException}) from {@code getPlan}
      * are swallowed so one bad query cannot abort the enclosing template's iteration.
      */
-    private static void planStoredQuery(@Nonnull final RelationalPlanCache cache,
-                                        @Nonnull final MetricCollector metricCollector,
-                                        @Nonnull final RecordLayerSchemaTemplate template,
-                                        @Nonnull final String templateKey,
-                                        @Nonnull final String storedQueryName,
-                                        @Nonnull final StoredQuery storedQuery,
-                                        @Nonnull final Counts counts) {
+    private static void planStoredQuery(final RelationalPlanCache cache,
+                                        final MetricCollector metricCollector,
+                                        final RecordLayerSchemaTemplate template,
+                                        final String templateKey,
+                                        final String storedQueryName,
+                                        final StoredQuery storedQuery,
+                                        final Counts counts) {
         final var tempFuncFactory = new MetadataTempFuncFactory();
         RecordLayerSchemaTemplate currentTemplate = template;
 
@@ -269,19 +265,17 @@ public final class OfflineStoredQueriesProcessor {
         @Nullable
         private RecordLayerInvokedRoutine invokedRoutine;
 
-        @Nonnull
         @Override
-        public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate templateArg,
+        public ConstantAction getCreateTemporaryFunctionConstantAction(final SchemaTemplate templateArg,
                                                                        final boolean throwIfExists,
-                                                                       @Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
+                                                                       final RecordLayerInvokedRoutine invokedRoutine) {
             this.invokedRoutine = invokedRoutine;
             return txn -> {
                 // no-op: offline path applies its side-effect via updateTemplate()
             };
         }
 
-        @Nonnull
-        RecordLayerSchemaTemplate updateTemplate(@Nonnull final RecordLayerSchemaTemplate template) {
+        RecordLayerSchemaTemplate updateTemplate(final RecordLayerSchemaTemplate template) {
             final var routine = this.invokedRoutine;
             this.invokedRoutine = null;
             if (routine == null) {

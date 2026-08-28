@@ -24,15 +24,12 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.util.TrieNode;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Map;
 
 @SpotBugsSuppressWarnings(value = "SING_SINGLETON_HAS_NONPRIVATE_CONSTRUCTOR", justification = "Singleton designation is a false positive")
 @API(API.Status.EXPERIMENTAL)
 public class StringTrieNode extends TrieNode.AbstractTrieNode<String, Void, StringTrieNode> {
-    @Nonnull
     private static final StringTrieNode LEAF = new StringTrieNode(null);
 
     public StringTrieNode(@Nullable Map<String, StringTrieNode> childrenMap) {
@@ -43,13 +40,11 @@ public class StringTrieNode extends TrieNode.AbstractTrieNode<String, Void, Stri
         super(value, childrenMap);
     }
 
-    @Nonnull
     @Override
     public StringTrieNode getThis() {
         return this;
     }
 
-    @Nonnull
     public static StringTrieNode leafNode() {
         return LEAF;
     }

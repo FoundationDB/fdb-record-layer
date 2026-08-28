@@ -47,10 +47,7 @@ import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ZeroCopyByteString;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.sql.Array;
+import org.jspecify.annotations.Nullable;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Struct;
@@ -60,6 +57,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.apple.foundationdb.record.query.plan.cascades.typing.Type.Array;
+import static com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record;
 import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.DATATYPE_MISMATCH;
 
 /**
@@ -68,24 +67,18 @@ import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.DATATYP
  */
 @API(API.Status.EXPERIMENTAL)
 public class MutablePlanGenerationContext implements QueryExecutionContext {
-    @Nonnull
     private final PreparedParams preparedParams;
 
-    @Nonnull
     private final Literals.Builder literalsBuilder;
 
     private final int parameterHash;
 
-    @Nonnull
     private final PlanHashable.PlanHashMode planHashMode;
 
-    @Nonnull
     private final String query;
 
-    @Nonnull
     private final String canonicalQueryString;
 
-    @Nonnull
     private final List<ConstantObjectValue> constantObjectValues;
 
     private boolean shouldProcessLiteral;
@@ -95,21 +88,20 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     @Nullable
     private byte[] continuation;
 
-    @Nonnull
     private final ImmutableList.Builder<QueryPredicate> equalityConstraints;
 
     private void startStructLiteral() {
         literalsBuilder.startStructLiteral();
     }
 
-    private void finishStructLiteral(@Nonnull Type.Record type,
+    private void finishStructLiteral(Record type,
                                      @Nullable Integer unnamedParameterIndex,
                                      @Nullable String parameterName,
                                      int tokenIndex) {
         literalsBuilder.finishStructLiteral(type, unnamedParameterIndex, parameterName, tokenIndex);
     }
 
-    private void addLiteralReference(@Nonnull ConstantObjectValue constantObjectValue) {
+    private void addLiteralReference(ConstantObjectValue constantObjectValue) {
         if (!literalsBuilder.isAddingComplexLiteral()) {
             constantObjectValues.add(constantObjectValue);
         }
@@ -138,9 +130,8 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
      * @return An {@link Optional} containing the corresponding {@link OrderedLiteral} if the literal was previously
      *         encountered; otherwise, an empty {@link Optional}.
      */
-    @Nonnull
     private Optional<OrderedLiteral> getFirstDuplicate(@Nullable Object literal, int requestedTokenIndex,
-                                                       @Nonnull Type type) {
+                                                       Type type) {
         final var orderedLiteralMaybe = literalsBuilder.getFirstValueDuplicateMaybe(literal);
         if (orderedLiteralMaybe.isEmpty()) {
             return Optional.empty();
@@ -150,8 +141,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         return orderedLiteralMaybe;
     }
 
-    @Nonnull
-    private Optional<OrderedLiteral> getFirstDuplicate(@Nonnull final String constantId) {
+    private Optional<OrderedLiteral> getFirstDuplicate(final String constantId) {
         final var firstDuplicateMaybe = literalsBuilder.getFirstDuplicateOfConstantIdMaybe(constantId);
         if (firstDuplicateMaybe.isEmpty()) {
             return firstDuplicateMaybe;
@@ -161,7 +151,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         return firstDuplicateMaybe;
     }
 
-    private void addEqualityConstraint(@Nonnull String leftTokenId, @Nonnull String rightTokenId, @Nonnull Type type) {
+    private void addEqualityConstraint(String leftTokenId, String rightTokenId, Type type) {
         if (leftTokenId.equals(rightTokenId)) {
             return;
         }
@@ -192,18 +182,17 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         this.shouldProcessLiteral = shouldProcessLiteral;
     }
 
-    @Nonnull
-    private ConstantObjectValue processPreparedStatementArrayParameter(@Nonnull Array param,
-                                                                       @Nullable Type.Array type,
+    private ConstantObjectValue processPreparedStatementArrayParameter(java.sql.Array param,
+                                                                       @Nullable Array type,
                                                                        @Nullable Integer unnamedParameterIndex,
                                                                        @Nullable String parameterName,
                                                                        final int tokenIndex) {
-        Type.Array resolvedType = type;
+        Array resolvedType = type;
         startArrayLiteral();
         final var arrayElements = new ArrayList<>();
         try {
             if (type == null) {
-                resolvedType = (Type.Array) DataTypeUtils.toRecordLayerType(((RelationalArray) param).getMetaData().asRelationalType());
+                resolvedType = (Array) DataTypeUtils.toRecordLayerType(((RelationalArray) param).getMetaData().asRelationalType());
             }
             try (ResultSet rs = param.getResultSet()) {
                 while (rs.next()) {
@@ -225,8 +214,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         return processComplexLiteral(tokenIndex, resolvedType);
     }
 
-    @Nonnull
-    private Value processQueryLiteralOrParameter(@Nonnull Type type,
+    private Value processQueryLiteralOrParameter(Type type,
                                                  @Nullable Object literal,
                                                  @Nullable Integer unnamedParameterIndex,
                                                  @Nullable String parameterName,
@@ -246,18 +234,17 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         }
     }
 
-    @Nonnull
     private Value processPreparedStatementParameter(@Nullable Object param,
-                                                    @Nonnull Type type,
+                                                    Type type,
                                                     @Nullable Integer unnamedParameterIndex,
                                                     @Nullable String parameterName,
                                                     int tokenIndex) {
-        if (param instanceof Array) {
+        if (param instanceof java.sql.Array) {
             Assert.thatUnchecked(type.isArray(), DATATYPE_MISMATCH, "Array type field required as prepared statement parameter instead of " + type);
-            return processPreparedStatementArrayParameter((Array)param, (Type.Array)type, unnamedParameterIndex, parameterName, tokenIndex);
+            return processPreparedStatementArrayParameter((java.sql.Array)param, (Array)type, unnamedParameterIndex, parameterName, tokenIndex);
         } else if (param instanceof Struct) {
             Assert.thatUnchecked(type.isRecord(), DATATYPE_MISMATCH, "Required type field required as prepared statement parameter instead of " + type);
-            return processPreparedStatementStructParameter((Struct)param, (Type.Record)type, unnamedParameterIndex, parameterName, tokenIndex);
+            return processPreparedStatementStructParameter((Struct)param, (Record)type, unnamedParameterIndex, parameterName, tokenIndex);
         } else if (param instanceof byte[]) {
             return processQueryLiteralOrParameter(Type.primitiveType(Type.TypeCode.BYTES), ZeroCopyByteString.wrap((byte[])param),
                     unnamedParameterIndex, parameterName, tokenIndex);
@@ -266,10 +253,10 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         }
     }
 
-    public MutablePlanGenerationContext(@Nonnull PreparedParams preparedParams,
-                                        @Nonnull PlanHashable.PlanHashMode planHashMode,
-                                        @Nonnull String query,
-                                        @Nonnull String canonicalQueryString,
+    public MutablePlanGenerationContext(PreparedParams preparedParams,
+                                        PlanHashable.PlanHashMode planHashMode,
+                                        String query,
+                                        String canonicalQueryString,
                                         int parameterHash) {
         this.preparedParams = preparedParams;
         this.planHashMode = planHashMode;
@@ -284,7 +271,6 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         equalityConstraints = ImmutableList.builder();
     }
 
-    @Nonnull
     public PreparedParams getPreparedParams() {
         return preparedParams;
     }
@@ -299,30 +285,25 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         literalsBuilder.finishArrayLiteral(unnamedParameterIndex, parameterName, shouldProcessLiteral, tokenIndex);
     }
 
-    @Nonnull
     @Override
     public Literals getLiterals() {
         // todo: this should be more efficient, we just need an immutable view over the elements of the builder.
         return literalsBuilder.build();
     }
 
-    @Nonnull
     public Literals.Builder getLiteralsBuilder() {
         return literalsBuilder;
     }
 
-    @Nonnull
     @Override
     public PlanHashable.PlanHashMode getPlanHashMode() {
         return planHashMode;
     }
 
-    @Nonnull
     public String getQuery() {
         return query;
     }
 
-    @Nonnull
     public String getCanonicalQueryString() {
         return canonicalQueryString;
     }
@@ -332,7 +313,6 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         return !shouldProcessLiteral;
     }
 
-    @Nonnull
     @Override
     public ExecuteProperties.Builder getExecutionPropertiesBuilder() {
         return ExecuteProperties.newBuilder();
@@ -356,7 +336,6 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     }
 
 
-    @Nonnull
     public QueryPlanConstraint getPlanConstraintsForLiteralReferences() {
         final ImmutableList.Builder<QueryPredicate> predicateBuilder = ImmutableList.builder();
 
@@ -391,8 +370,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         this.forExplain = forExplain;
     }
 
-    @Nonnull
-    public Value processQueryLiteral(@Nonnull Type type, @Nullable Object literal, int tokenIndex) {
+    public Value processQueryLiteral(Type type, @Nullable Object literal, int tokenIndex) {
         return processQueryLiteralOrParameter(type, literal, null, null, tokenIndex);
     }
 
@@ -406,8 +384,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
      *
      * @return The result of the closure
      */
-    @Nonnull
-    public <T> T withDisabledLiteralProcessing(@Nonnull Supplier<T> supplier) {
+    public <T> T withDisabledLiteralProcessing(Supplier<T> supplier) {
         boolean oldShouldProcessLiteral = shouldProcessLiteral();
         setShouldProcessLiteral(false);
         final T result = supplier.get();
@@ -415,8 +392,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         return result;
     }
 
-    @Nonnull
-    public ConstantObjectValue processComplexLiteral(int tokenIndex, @Nonnull Type type) {
+    public ConstantObjectValue processComplexLiteral(int tokenIndex, Type type) {
         final var constantId = literalsBuilder.constructConstantId(tokenIndex);
         final var result = ConstantObjectValue.of(Quantifier.constant(), constantId, type);
         if (shouldProcessLiteral()) {
@@ -426,18 +402,17 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
                 getFirstDuplicate(constantId).map(OrderedLiteral::getConstantId).orElse(constantId), type);
     }
 
-    @Nonnull
-    public Value processPreparedStatementStructParameter(@Nonnull Struct param,
-                                                         @Nullable Type.Record type,
+    public Value processPreparedStatementStructParameter(Struct param,
+                                                         @Nullable Record type,
                                                          @Nullable Integer unnamedParameterIndex,
                                                          @Nullable String parameterName,
                                                          int tokenIndex) {
-        Type.Record resolvedType = type;
+        Record resolvedType = type;
         startStructLiteral();
         Object[] attributes;
         try {
             if (type == null) {
-                resolvedType = (Type.Record) DataTypeUtils.toRecordLayerType(((RelationalStruct) param).getMetaData().getRelationalDataType());
+                resolvedType = (Record) DataTypeUtils.toRecordLayerType(((RelationalStruct) param).getMetaData().getRelationalDataType());
             }
             attributes = param.getAttributes();
         } catch (SQLException e) {
@@ -452,7 +427,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         return processComplexLiteral(tokenIndex, resolvedType);
     }
 
-    public void importAuxiliaryLiterals(@Nonnull final Literals auxiliaryLiterals) {
+    public void importAuxiliaryLiterals(final Literals auxiliaryLiterals) {
         final var newLiterals = literalsBuilder.importLiteralsRetrieveNewLiterals(auxiliaryLiterals);
         for (final var literal : newLiterals) {
             final var literalValue = new LiteralValue<>(literal.getLiteralObject());
@@ -462,14 +437,12 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         }
     }
 
-    @Nonnull
-    public Value processNamedPreparedParam(@Nonnull String param, int tokenIndex) {
+    public Value processNamedPreparedParam(String param, int tokenIndex) {
         final var value = preparedParams.namedParamValue(param);
         //TODO type should probably be Type.any() instead of null
         return processPreparedStatementParameter(value, getObjectType(value), null, param, tokenIndex);
     }
 
-    @Nonnull
     public Value processUnnamedPreparedParam(int tokenIndex) {
         // TODO (Make prepared statement parameters stateless)
         final int currentUnnamedParameterIndex = preparedParams.currentUnnamedParamIndex();
@@ -482,7 +455,6 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         return processPreparedStatementParameter(param, getObjectType(param), currentUnnamedParameterIndex, null, tokenIndex);
     }
 
-    @Nonnull
     private static Type getObjectType(@Nullable final Object object) {
         if (object instanceof WithMetadata) {
             try {

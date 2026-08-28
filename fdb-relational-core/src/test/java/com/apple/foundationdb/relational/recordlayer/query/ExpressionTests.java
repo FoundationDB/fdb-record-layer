@@ -46,8 +46,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -61,9 +59,7 @@ class ExpressionTests {
             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("b"), Optional.of(2))
     ));
 
-    @Nonnull
     private static final Expression ANONYMOUS = new Expression(Optional.empty(), DataType.StringType.notNullable(), LiteralValue.ofScalar("hello"));
-    @Nonnull
     private static final Expression FOO = new Expression(Optional.of(Identifier.of("foo")), DataType.LongType.notNullable(), LiteralValue.ofScalar(42L));
 
     @BeforeAll
@@ -80,8 +76,7 @@ class ExpressionTests {
         Debugger.setDebugger(null);
     }
 
-    @Nonnull
-    private static Expression createEphemeral(@Nonnull Expression expression) {
+    private static Expression createEphemeral(Expression expression) {
         final Expression ephemeral = expression.asEphemeral();
         try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
             softly.assertThat(ephemeral)
@@ -98,7 +93,6 @@ class ExpressionTests {
         return ephemeral;
     }
 
-    @Nonnull
     static Stream<Expression> expressions() {
         // Construct the bar expression in this method as it references a quantifier, and we want the quantifier
         // unique ID to use the debugger, and so we want it to construct a new one with each invocation
@@ -107,7 +101,6 @@ class ExpressionTests {
                 .flatMap(expr -> expr.getName().isPresent() ? Stream.of(expr, createEphemeral(expr)) : Stream.of(expr));
     }
 
-    @Nonnull
     static Stream<Arguments> withName() {
         final List<String> names = List.of("blah", "foo", "bar");
         return expressions().flatMap(expr ->
@@ -116,7 +109,7 @@ class ExpressionTests {
 
     @ParameterizedTest
     @MethodSource
-    void withName(@Nonnull Expression originalExpression, @Nonnull Identifier newName) {
+    void withName(Expression originalExpression, Identifier newName) {
         final Expression newExpression = originalExpression.withName(newName);
         try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
             if (originalExpression.getName().isPresent() && originalExpression.getName().get().equals(newName)) {
@@ -144,13 +137,12 @@ class ExpressionTests {
         }
     }
 
-    @Nonnull
     static Stream<Arguments> withUnderlying() {
         return expressions().flatMap(expr ->
                 Stream.of(Arguments.of(expr, expr.getUnderlying()), Arguments.of(expr, QuantifiedObjectValue.of(Quantifier.current(), expr.getUnderlying().getResultType()))));
     }
 
-    private static boolean dataTypesEqualIgnoringStructName(@Nonnull DataType type1, @Nonnull DataType type2) {
+    private static boolean dataTypesEqualIgnoringStructName(DataType type1, DataType type2) {
         if (type1 instanceof DataType.StructType && type2 instanceof DataType.StructType) {
             final DataType.StructType structType1 = (DataType.StructType) type1;
             final DataType.StructType structType2 = (DataType.StructType) type2;
@@ -176,7 +168,7 @@ class ExpressionTests {
 
     @ParameterizedTest
     @MethodSource
-    void withUnderlying(@Nonnull Expression originalExpression, @Nonnull Value newUnderlying) {
+    void withUnderlying(Expression originalExpression, Value newUnderlying) {
         final Expression newExpression = originalExpression.withUnderlying(newUnderlying);
         try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
             if (originalExpression.getUnderlying().semanticEquals(newUnderlying, AliasMap.emptyMap())) {
@@ -207,7 +199,6 @@ class ExpressionTests {
         }
     }
 
-    @Nonnull
     static Stream<Arguments> modifyQualifier() {
         return expressions().flatMap(expr ->
                 Stream.of(
@@ -243,7 +234,6 @@ class ExpressionTests {
         }
     }
 
-    @Nonnull
     private static Stream<Expression> clearQualifier() {
         return expressions().flatMap(expr ->
                 Stream.of(
@@ -254,17 +244,17 @@ class ExpressionTests {
 
     @ParameterizedTest
     @MethodSource
-    void clearQualifier(@Nonnull Expression expression) {
+    void clearQualifier(Expression expression) {
         assertQualifierIsCleared(expression, expression.clearQualifier());
     }
 
     @ParameterizedTest
     @MethodSource("clearQualifier")
-    void clearQualifierViaWithEmptyQualifier(@Nonnull Expression expression) {
+    void clearQualifierViaWithEmptyQualifier(Expression expression) {
         assertQualifierIsCleared(expression, expression.withQualifier(Optional.empty()));
     }
 
-    private void assertQualifierIsCleared(@Nonnull Expression expression, @Nonnull Expression withClearedQualifier) {
+    private void assertQualifierIsCleared(Expression expression, Expression withClearedQualifier) {
         try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
             if (expression.getName().isEmpty()) {
                 softly.assertThat(withClearedQualifier)
@@ -293,14 +283,12 @@ class ExpressionTests {
         }
     }
 
-    @Nonnull
-    private static Stream<Expression> variantsForPullUp(@Nonnull Expression expression) {
+    private static Stream<Expression> variantsForPullUp(Expression expression) {
         final Expression withName1 = expression.withName(Identifier.of("blah"));
         final Expression withName2 = expression.withName(Identifier.of("blah", ImmutableList.of("qualifier")));
         return Stream.of(expression, withName1, withName1.asEphemeral(), withName2, withName2.asEphemeral());
     }
 
-    @Nonnull
     static Stream<Arguments> pullUp() {
         // Start with an expression on a field value, then pull it through an RCV
         final Value lower = QuantifiedObjectValue.of(CorrelationIdentifier.uniqueId(), REC_TYPE);
@@ -321,7 +309,7 @@ class ExpressionTests {
 
     @ParameterizedTest
     @MethodSource
-    void pullUp(final Expression expression, @Nonnull Value toPullThrough, @Nonnull CorrelationIdentifier newId, @Nonnull Value pulledThrough) {
+    void pullUp(final Expression expression, Value toPullThrough, CorrelationIdentifier newId, Value pulledThrough) {
         final Expression newExpression = expression.pullUp(toPullThrough, newId, ImmutableSet.of());
 
         try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
@@ -344,7 +332,6 @@ class ExpressionTests {
         }
     }
 
-    @Nonnull
     static Stream<Arguments> namedArgumentExpressionCreateNew() {
         final Expression.NamedArgumentExpression namedArg = FOO.toNamedArgument();
         final Identifier newName = Identifier.of("newName");
@@ -361,7 +348,7 @@ class ExpressionTests {
 
     @ParameterizedTest
     @MethodSource
-    void namedArgumentExpressionCreateNew(@Nonnull Expression result) {
+    void namedArgumentExpressionCreateNew(Expression result) {
         try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
             softly.assertThat(result)
                     .isInstanceOf(Expression.NamedArgumentExpression.class)
@@ -369,7 +356,6 @@ class ExpressionTests {
         }
     }
 
-    @Nonnull
     static Stream<Arguments> toNamedArgument() {
         return Stream.of(
                 Arguments.of(FOO, Identifier.of("id")),
@@ -380,7 +366,7 @@ class ExpressionTests {
 
     @ParameterizedTest
     @MethodSource
-    void toNamedArgument(@Nonnull Expression expression, @Nonnull Identifier argumentName) {
+    void toNamedArgument(Expression expression, Identifier argumentName) {
         final Expression.NamedArgumentExpression namedArg = expression.toNamedArgument(argumentName);
 
         try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {

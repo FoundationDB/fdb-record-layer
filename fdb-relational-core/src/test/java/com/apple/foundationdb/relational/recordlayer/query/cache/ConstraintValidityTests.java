@@ -56,8 +56,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-
-import javax.annotation.Nonnull;
 import java.util.AbstractMap;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -82,22 +80,16 @@ public class ConstraintValidityTests {
     public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
             .withSchema("TEST_SCHEMA");
 
-    @Nonnull
     private static final String MaxScoreByGame10 = "MAXSCOREBYGAME10";
 
-    @Nonnull
     private static final String MaxScoreByGame20 = "MAXSCOREBYGAME20";
 
-    @Nonnull
     private static final String BitAndScore2 = "BITANDSCORE2";
 
-    @Nonnull
     private static final String BitAndScore4 = "BITANDSCORE4";
 
-    @Nonnull
     private static final String GameIdx = "GAMEIDX";
 
-    @Nonnull
     private static final String Scan = "SCAN";
 
     @BeforeAll
@@ -105,8 +97,7 @@ public class ConstraintValidityTests {
         Utils.enableCascadesDebugger();
     }
 
-    @Nonnull
-    private PlanGenerator getPlanGenerator(@Nonnull final RelationalPlanCache cache) throws Exception {
+    private PlanGenerator getPlanGenerator(final RelationalPlanCache cache) throws Exception {
         final var schemaName = connection.getSchema();
         final var embeddedConnection = connection.getUnderlyingEmbeddedConnection().unwrap(EmbeddedRelationalConnection.class);
         final var readableIndexes = ImmutableSet.of(MaxScoreByGame10, MaxScoreByGame20, BitAndScore2, BitAndScore4);
@@ -124,9 +115,9 @@ public class ConstraintValidityTests {
         return PlanGenerator.create(Optional.of(cache), planContext, store.getRecordMetaData(), storeState, store.getIndexMaintainerRegistry(), Options.builder().build());
     }
 
-    private void planQuery(@Nonnull final RelationalPlanCache cache,
-                           @Nonnull final String query,
-                           @Nonnull final String expectedPhysicalPlan) throws Exception {
+    private void planQuery(final RelationalPlanCache cache,
+                           final String query,
+                           final String expectedPhysicalPlan) throws Exception {
         connection.setAutoCommit(false);
         connection.getUnderlyingEmbeddedConnection().createNewTransaction();
         final var planGenerator = getPlanGenerator(cache);
@@ -136,8 +127,7 @@ public class ConstraintValidityTests {
         Assertions.assertEquals(inferScanType(plan), expectedPhysicalPlan);
     }
 
-    @Nonnull
-    private RelationalPlanCache getCache(@Nonnull final FakeTicker ticker) {
+    private RelationalPlanCache getCache(final FakeTicker ticker) {
         return RelationalPlanCache.newRelationalCacheBuilder()
                 .setExecutor(Runnable::run)
                 .setSize(2)
@@ -153,8 +143,7 @@ public class ConstraintValidityTests {
                 .build();
     }
 
-    @Nonnull
-    private static String inferScanType(@Nonnull final Plan<?> plan) {
+    private static String inferScanType(final Plan<?> plan) {
         Assertions.assertInstanceOf(QueryPlan.PhysicalQueryPlan.class, plan);
         final var physicalPlan = (QueryPlan.PhysicalQueryPlan) plan;
         final var desc = physicalPlan.getRecordQueryPlan().toString(); // very ad-hoc :/
@@ -173,7 +162,6 @@ public class ConstraintValidityTests {
         }
     }
 
-    @Nonnull
     private static QueryPredicate ofTypeInt(final int tokenIndex) {
         return new ValuePredicate(OfTypeValue.of(ConstantObjectValue.of(Quantifier.constant(),
                         constantId(tokenIndex), Type.primitiveType(Type.TypeCode.INT)), Type.primitiveType(Type.TypeCode.INT, false)),
@@ -181,30 +169,25 @@ public class ConstraintValidityTests {
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    @Nonnull
     private static QueryPredicate isNotNull(final int tokenIndex, final Optional<String> scope, Type type) {
         return new ValuePredicate(EvaluatesToValue.isNotNull(
                 ConstantObjectValue.of(Quantifier.constant(), constantId(tokenIndex, scope), type)),
                 new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true));
     }
 
-    @Nonnull
     private static QueryPredicate isNotNullInt(final int tokenIndex) {
         return isNotNull(tokenIndex, Optional.empty(), Type.primitiveType(Type.TypeCode.INT));
     }
 
-    @Nonnull
-    private static QueryPredicate and(@Nonnull final QueryPredicate... predicates) {
+    private static QueryPredicate and(final QueryPredicate... predicates) {
         return AndPredicate.and(Arrays.asList(predicates));
     }
 
-    @Nonnull
     private static QueryPredicate equalsConstraint(int tokenIndex, int value) {
         return new ValuePredicate(ConstantObjectValue.of(Quantifier.constant(),
                 constantId(tokenIndex), Type.primitiveType(Type.TypeCode.INT)), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, value));
     }
 
-    @Nonnull
     private static QueryPredicate covsEqualsConstraints(int leftTokenIndex, int rightTokenIndex) {
         final var leftCov = ConstantObjectValue.of(Quantifier.constant(), constantId(leftTokenIndex), Type.primitiveType(Type.TypeCode.INT));
         final var rightCov = ConstantObjectValue.of(Quantifier.constant(), constantId(rightTokenIndex), Type.primitiveType(Type.TypeCode.INT));
@@ -221,23 +204,20 @@ public class ConstraintValidityTests {
         return OrPredicate.or(notNullComparison, bothAreNullComparison);
     }
 
-    @Nonnull
-    private static QueryPlanConstraint cons(@Nonnull final QueryPlanConstraint... constraints) {
+    private static QueryPlanConstraint cons(final QueryPlanConstraint... constraints) {
         return QueryPlanConstraint.composeConstraints(Arrays.asList(constraints));
     }
 
-    @Nonnull
-    private static QueryPlanConstraint cons(@Nonnull final QueryPredicate... predicates) {
+    private static QueryPlanConstraint cons(final QueryPredicate... predicates) {
         return QueryPlanConstraint.ofPredicates(Arrays.asList(predicates));
     }
 
-    @Nonnull
-    private PhysicalPlanEquivalence ppe(@Nonnull final QueryPlanConstraint... constraints) {
+    private PhysicalPlanEquivalence ppe(final QueryPlanConstraint... constraints) {
         return PhysicalPlanEquivalence.of(QueryPlanConstraint.composeConstraints(Arrays.asList(constraints)));
     }
 
-    private static void cacheShouldBe(@Nonnull RelationalPlanCache cache,
-                                      @Nonnull Map<String, Map<PhysicalPlanEquivalence, String>> expectedLayout) {
+    private static void cacheShouldBe(RelationalPlanCache cache,
+                                      Map<String, Map<PhysicalPlanEquivalence, String>> expectedLayout) {
         Map<String, Map<PhysicalPlanEquivalence, String>> result = new HashMap<>();
         for (var key : cache.getStats().getAllKeys()) {
             for (QueryCacheKey secondaryKey : cache.getStats().getAllSecondaryKeys(key)) {

@@ -28,8 +28,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
-
-import javax.annotation.Nonnull;
 import java.util.Objects;
 
 @API(API.Status.EXPERIMENTAL)
@@ -37,7 +35,7 @@ public final class ProceduralPlan extends Plan<Void> {
 
     private final ConstantAction action;
 
-    private ProceduralPlan(@Nonnull final ConstantAction action) {
+    private ProceduralPlan(final ConstantAction action) {
         super("ProceduralPlan(" + action.getClass().getSimpleName() + ")");
         this.action = action;
     }
@@ -48,13 +46,13 @@ public final class ProceduralPlan extends Plan<Void> {
     }
 
     @Override
-    public Plan<Void> optimize(@Nonnull CascadesPlanner planner, @Nonnull PlanContext planContext,
-                               @Nonnull PlanHashable.PlanHashMode currentPlanHashMode) {
+    public Plan<Void> optimize(CascadesPlanner planner, PlanContext planContext,
+                               PlanHashable.PlanHashMode currentPlanHashMode) {
         return this;
     }
 
     @Override
-    public Void executeInternal(@Nonnull final ExecutionContext context) throws RelationalException {
+    public Void executeInternal(final ExecutionContext context) throws RelationalException {
         final var metricCollector = Objects.requireNonNull(context.metricCollector);
         return metricCollector.clock(RelationalMetric.RelationalEvent.EXECUTE_PROCEDURAL_PLAN_ACTION, () -> {
             action.executeAction(context.transaction);
@@ -62,19 +60,16 @@ public final class ProceduralPlan extends Plan<Void> {
         });
     }
 
-    @Nonnull
     @Override
     public QueryPlanConstraint getConstraint() {
         return QueryPlanConstraint.noConstraint();
     }
 
-    @Nonnull
     @Override
-    public Plan<Void> withExecutionContext(@Nonnull final QueryExecutionContext queryExecutionContext) {
+    public Plan<Void> withExecutionContext(final QueryExecutionContext queryExecutionContext) {
         return this;
     }
 
-    @Nonnull
     @Override
     public String explain() {
         // TODO: this implementation is not correct as a few actions don't implement toString
@@ -82,7 +77,7 @@ public final class ProceduralPlan extends Plan<Void> {
         return "ProceduralPlan(" + action + ")";
     }
 
-    public static ProceduralPlan of(@Nonnull final ConstantAction action) {
+    public static ProceduralPlan of(final ConstantAction action) {
         return new ProceduralPlan(action);
     }
 }

@@ -23,8 +23,6 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.annotation.API;
 
 import com.google.common.collect.ImmutableList;
-
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -32,23 +30,19 @@ import java.util.function.Function;
 
 @API(API.Status.EXPERIMENTAL)
 public class Identifier {
-    @Nonnull
     private final String name;
 
-    @Nonnull
     private final List<String> qualifier;
 
-    protected Identifier(@Nonnull String name, @Nonnull Iterable<String> qualifier) {
+    protected Identifier(String name, Iterable<String> qualifier) {
         this.name = name;
         this.qualifier = ImmutableList.copyOf(qualifier);
     }
 
-    @Nonnull
     public String getName() {
         return name;
     }
 
-    @Nonnull
     public List<String> getQualifier() {
         return qualifier;
     }
@@ -62,18 +56,15 @@ public class Identifier {
         return String.join(".", qualifier) + (qualifier.isEmpty() ? "" : ".") + name;
     }
 
-    @Nonnull
-    public static Identifier of(@Nonnull String name) {
+    public static Identifier of(String name) {
         return new Identifier(name, ImmutableList.of());
     }
 
-    @Nonnull
-    public static Identifier of(@Nonnull String name, @Nonnull Iterable<String> qualifier) {
+    public static Identifier of(String name, Iterable<String> qualifier) {
         return new Identifier(name, qualifier);
     }
 
-    @Nonnull
-    public Identifier withQualifier(@Nonnull Collection<String> qualifier) {
+    public Identifier withQualifier(Collection<String> qualifier) {
         if (qualifier.isEmpty()) {
             return this;
         }
@@ -83,8 +74,7 @@ public class Identifier {
         return new Identifier(name, newQualifierBuilder.build());
     }
 
-    @Nonnull
-    public Identifier replaceQualifier(@Nonnull Function<Collection<String>, Collection<String>> replaceFunc) {
+    public Identifier replaceQualifier(Function<Collection<String>, Collection<String>> replaceFunc) {
         final var replacingQualifier = replaceFunc.apply(qualifier);
         if (replacingQualifier.equals(qualifier)) {
             return this;
@@ -92,12 +82,10 @@ public class Identifier {
         return new Identifier(name, replacingQualifier);
     }
 
-    @Nonnull
-    public Identifier withQualifier(@Nonnull String qualifier) {
+    public Identifier withQualifier(String qualifier) {
         return withQualifier(List.of(qualifier));
     }
 
-    @Nonnull
     public Identifier withoutQualifier() {
         if (!isQualified()) {
             return this;
@@ -105,7 +93,6 @@ public class Identifier {
         return new Identifier(getName(), ImmutableList.of());
     }
 
-    @Nonnull
     public List<String> fullyQualifiedName() {
         // todo: should amortize
         if (!isQualified()) {
@@ -114,7 +101,7 @@ public class Identifier {
         return ImmutableList.<String>builder().addAll(getQualifier()).add(name).build();
     }
 
-    public boolean prefixedWith(@Nonnull Identifier identifier) {
+    public boolean prefixedWith(Identifier identifier) {
         final var identifierFullName = identifier.fullyQualifiedName();
         final var fullName = fullyQualifiedName();
         if (fullName.size() < identifierFullName.size()) {
@@ -128,7 +115,7 @@ public class Identifier {
         return true;
     }
 
-    public boolean qualifiedWith(@Nonnull Identifier identifier) {
+    public boolean qualifiedWith(Identifier identifier) {
         final var identifierFullName = identifier.fullyQualifiedName();
         final var fullName = fullyQualifiedName();
         if (fullName.size() != identifierFullName.size() + 1) {

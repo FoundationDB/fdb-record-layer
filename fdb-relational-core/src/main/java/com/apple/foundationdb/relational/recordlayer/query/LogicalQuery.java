@@ -23,8 +23,6 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-
-import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
@@ -42,12 +40,12 @@ public class LogicalQuery {
     // private final Set<Object> queryLiterals;
 
 
-    public LogicalQuery(@Nonnull String query, long queryHash) {
+    public LogicalQuery(String query, long queryHash) {
         this.query = query;
         this.queryHash = queryHash;
     }
 
-    public static LogicalQuery of(@Nonnull String query, @Nonnull RelationalExpression relExp) {
+    public static LogicalQuery of(String query, RelationalExpression relExp) {
         return new LogicalQuery(query, relExp.semanticHashCode());
     }
 

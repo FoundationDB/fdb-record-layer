@@ -69,9 +69,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.transactionbound.catalog.HollowStoreCatalog;
 import com.apple.foundationdb.relational.util.catalog.KeySpaceProvider;
 import com.google.protobuf.ByteString;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.sql.Array;
 import java.sql.SQLException;
@@ -110,15 +108,12 @@ public final class CopyPlan extends QueryPlan {
         }
     }
 
-    @Nonnull
     private final CopyType copyType;
 
-    @Nonnull
     private final String path;
 
     private final boolean incrementIncarnation;
 
-    @Nonnull
     private final QueryExecutionContext queryExecutionContext;
     @Nullable
     private final byte[] continuation;
@@ -133,9 +128,8 @@ public final class CopyPlan extends QueryPlan {
      *
      * @return a CopyPlan for exporting data
      */
-    @Nonnull
-    public static CopyPlan getCopyExportAction(@Nonnull String path,
-                                               @Nonnull QueryExecutionContext queryExecutionContext,
+    public static CopyPlan getCopyExportAction(String path,
+                                               QueryExecutionContext queryExecutionContext,
                                                boolean incrementIncarnation) {
         return new CopyPlan(CopyType.EXPORT, path, incrementIncarnation, queryExecutionContext, null);
     }
@@ -147,15 +141,14 @@ public final class CopyPlan extends QueryPlan {
      *
      * @return a CopyPlan for importing data
      */
-    @Nonnull
-    public static CopyPlan getCopyImportAction(@Nonnull String path,
-                                               @Nonnull QueryExecutionContext queryExecutionContext) {
+    public static CopyPlan getCopyImportAction(String path,
+                                               QueryExecutionContext queryExecutionContext) {
         return new CopyPlan(CopyType.IMPORT, path, false, queryExecutionContext, null);
     }
 
-    public static CopyPlan fromContinuation(@Nonnull final com.apple.foundationdb.relational.continuation.CopyPlan protobuf,
+    public static CopyPlan fromContinuation(final com.apple.foundationdb.relational.continuation.CopyPlan protobuf,
                                             @Nullable final byte[] continuation,
-                                            @Nonnull final MutablePlanGenerationContext planGenerationContext) {
+                                            final MutablePlanGenerationContext planGenerationContext) {
         return new CopyPlan(CopyType.EXPORT,
                 protobuf.getPath(),
                 protobuf.getIncrementIncarnation(),
@@ -163,10 +156,10 @@ public final class CopyPlan extends QueryPlan {
                 continuation);
     }
 
-    private CopyPlan(@Nonnull CopyType copyType,
-                     @Nonnull String path,
+    private CopyPlan(CopyType copyType,
+                     String path,
                      boolean incrementIncarnation,
-                     @Nonnull QueryExecutionContext queryExecutionContext,
+                     QueryExecutionContext queryExecutionContext,
                      @Nullable byte[] continuation) {
         super("COPY " + copyType.name() + " " + path);
         this.copyType = copyType;
@@ -183,15 +176,15 @@ public final class CopyPlan extends QueryPlan {
     }
 
     @Override
-    public Plan<RelationalResultSet> optimize(@Nonnull CascadesPlanner planner,
-                                              @Nonnull PlanContext planContext,
-                                              @Nonnull PlanHashable.PlanHashMode currentPlanHashMode) {
+    public Plan<RelationalResultSet> optimize(CascadesPlanner planner,
+                                              PlanContext planContext,
+                                              PlanHashable.PlanHashMode currentPlanHashMode) {
         // No optimization needed for COPY operations
         return this;
     }
 
     @Override
-    protected RelationalResultSet executeInternal(@Nonnull ExecutionContext context) throws RelationalException {
+    protected RelationalResultSet executeInternal(ExecutionContext context) throws RelationalException {
         switch (copyType) {
             case EXPORT:
                 return executeExport(context);
@@ -204,7 +197,7 @@ public final class CopyPlan extends QueryPlan {
 
 
     @SuppressWarnings("PMD.CloseResource") // Connection/cursor not owned by this method
-    private RelationalResultSet executeExport(@Nonnull ExecutionContext context) throws RelationalException {
+    private RelationalResultSet executeExport(ExecutionContext context) throws RelationalException {
         try {
             final KeySpacePath keySpacePath = getPath(context);
 
@@ -263,11 +256,11 @@ public final class CopyPlan extends QueryPlan {
     }
 
     @Nullable
-    private static ArrayRow convertDataToRow(@Nonnull final ExecutionContext context,
+    private static ArrayRow convertDataToRow(final ExecutionContext context,
                                              @Nullable final DataInKeySpacePath data,
-                                             @Nonnull final KeySpacePathSerializer serializer,
-                                             @Nonnull final Map<KeySpacePath, CatalogInfo> pathSchemaCache,
-                                             @Nonnull final StoreCatalog storeCatalog,
+                                             final KeySpacePathSerializer serializer,
+                                             final Map<KeySpacePath, CatalogInfo> pathSchemaCache,
+                                             final StoreCatalog storeCatalog,
                                              final boolean incrementIncarnation) {
         if (data == null) {
             return null;
@@ -306,12 +299,12 @@ public final class CopyPlan extends QueryPlan {
         return new ArrayRow(new Object[] {copyDataBuilder.build().toByteArray()});
     }
 
-    private static EmbeddedRelationalConnection getEmbeddedRelationalConnection(final @Nonnull ExecutionContext context) throws SQLException {
+    private static EmbeddedRelationalConnection getEmbeddedRelationalConnection(final ExecutionContext context) throws SQLException {
         return context.connection.unwrap(EmbeddedRelationalConnection.class);
     }
 
     @SuppressWarnings("PMD.CloseResource") // Connection not owned by this method
-    private RelationalResultSet executeImport(@Nonnull ExecutionContext context) throws RelationalException {
+    private RelationalResultSet executeImport(ExecutionContext context) throws RelationalException {
         try {
             // Ensure we have query execution context
             if (queryExecutionContext == null) {
@@ -373,10 +366,10 @@ public final class CopyPlan extends QueryPlan {
      * @return CatalogInfo if this is a new schema, null otherwise
      */
     @Nullable
-    private static CatalogInfo exportCatalogInfo(@Nonnull KeySpacePath dataPath,
-                                                 @Nonnull Map<KeySpacePath, CatalogInfo> pathSchemaCache,
-                                                 @Nonnull StoreCatalog storeCatalog,
-                                                 @Nonnull Transaction transaction) throws RelationalException {
+    private static CatalogInfo exportCatalogInfo(KeySpacePath dataPath,
+                                                 Map<KeySpacePath, CatalogInfo> pathSchemaCache,
+                                                 StoreCatalog storeCatalog,
+                                                 Transaction transaction) throws RelationalException {
         // HollowStoreCatalog doesn't actually store any schema information to be copied
         if (storeCatalog instanceof HollowStoreCatalog) {
             return null;
@@ -421,10 +414,10 @@ public final class CopyPlan extends QueryPlan {
      * @param transaction the transaction to use
      * @param dataPath the path for entry being imported
      */
-    private static void importCatalogInfo(@Nonnull CatalogInfo catalogInfo,
-                                          @Nonnull StoreCatalog storeCatalog,
-                                          @Nonnull Transaction transaction,
-                                          @Nonnull KeySpacePath dataPath) throws RelationalException {
+    private static void importCatalogInfo(CatalogInfo catalogInfo,
+                                          StoreCatalog storeCatalog,
+                                          Transaction transaction,
+                                          KeySpacePath dataPath) throws RelationalException {
         // Extract destination database and schema from the import path
         final String templateName = catalogInfo.getTemplateName();
         final int templateVersion = catalogInfo.getTemplateVersion();
@@ -460,7 +453,6 @@ public final class CopyPlan extends QueryPlan {
         }
     }
 
-    @Nonnull
     private List<Object> getDataForImport() throws RelationalException {
         final List<OrderedLiteral> orderedLiterals = queryExecutionContext.getLiterals().getOrderedLiterals();
         if (orderedLiterals.isEmpty()) {
@@ -504,7 +496,6 @@ public final class CopyPlan extends QueryPlan {
                 ErrorCode.INVALID_PARAMETER);
     }
 
-    @Nonnull
     private static byte[] convertToBytes(@Nullable final Object element) throws RelationalException {
         if (element instanceof byte[]) {
             return (byte[]) element;
@@ -517,9 +508,8 @@ public final class CopyPlan extends QueryPlan {
                 ErrorCode.INVALID_PARAMETER);
     }
 
-    @Nonnull
-    private static DataInKeySpacePath deserializeData(@Nonnull final KeySpacePathSerializer serializer,
-                                                      @Nonnull final CopyData proto) throws RelationalException {
+    private static DataInKeySpacePath deserializeData(final KeySpacePathSerializer serializer,
+                                                      final CopyData proto) throws RelationalException {
         DataInKeySpacePath dataInKeySpacePath;
         try {
             if (!proto.hasData()) {
@@ -537,9 +527,9 @@ public final class CopyPlan extends QueryPlan {
         return dataInKeySpacePath;
     }
 
-    private static int importData(@Nonnull final KeySpacePath keySpacePath,
-                                  @Nonnull final FDBRecordContext fdbContext,
-                                  @Nonnull final DataInKeySpacePath dataInKeySpacePath,
+    private static int importData(final KeySpacePath keySpacePath,
+                                  final FDBRecordContext fdbContext,
+                                  final DataInKeySpacePath dataInKeySpacePath,
                                   int importCount) throws RelationalException {
         try {
             keySpacePath.importData(fdbContext, Collections.singleton(dataInKeySpacePath)).join();
@@ -551,41 +541,36 @@ public final class CopyPlan extends QueryPlan {
         return importCount;
     }
 
-    @Nonnull
     @Override
     public QueryPlanConstraint getConstraint() {
         return QueryPlanConstraint.noConstraint();
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals") // we don't want to create a new instance if the queryExecutionContext is the *same*
-    @Nonnull
     @Override
-    public CopyPlan withExecutionContext(@Nonnull QueryExecutionContext queryExecutionContext) {
+    public CopyPlan withExecutionContext(QueryExecutionContext queryExecutionContext) {
         if (queryExecutionContext == this.queryExecutionContext) {
             return this;
         }
         return new CopyPlan(copyType, path, incrementIncarnation, queryExecutionContext, continuation);
     }
 
-    @Nonnull
     @Override
     public String explain() {
         return "CopyPlan(" + copyType + ", path=" + path + ", incrementIncarnation=" + incrementIncarnation + ")";
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return copyType.resultType;
     }
 
-    @Nonnull
     public Integer getPlanHash() {
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, 
                 copyType, path, incrementIncarnation);
     }
 
-    private static NonnullPair<URI, String> getDatabaseAndSchema(@Nonnull final KeySpacePath dataPath) throws RelationalException {
+    private static NonnullPair<URI, String> getDatabaseAndSchema(final KeySpacePath dataPath) throws RelationalException {
         // toPathString doesn't add the '/' at the beginning unless the root is null, but SemanticAnalyzer expects
         // a / at the beginning
         String pathString = KeySpaceUtils.toPathString(dataPath);
@@ -601,7 +586,6 @@ public final class CopyPlan extends QueryPlan {
         return NonnullPair.of(database.get(), uri.getRight());
     }
 
-    @Nonnull
     private KeySpacePath getPath(final ExecutionContext context) throws RelationalException, SQLException {
         final StoreCatalog catalog = context.connection.unwrap(EmbeddedRelationalConnection.class).getBackingCatalog();
         if (catalog instanceof KeySpaceProvider) {
@@ -617,11 +601,10 @@ public final class CopyPlan extends QueryPlan {
         throw new RelationalException("COPY not supported for this catalog", ErrorCode.UNSUPPORTED_OPERATION);
     }
 
-    private static FDBRecordContext getRecordContext(@Nonnull final ExecutionContext context) throws InternalErrorException {
+    private static FDBRecordContext getRecordContext(final ExecutionContext context) throws InternalErrorException {
         return context.transaction.unwrap(RecordContextTransaction.class).getContext();
     }
 
-    @Nonnull
     private static RelationalStructMetaData getImportResultSetMetaData() {
         return RelationalStructMetaData.of(DataType.StructType.from("COPY_IMPORT",
                 List.of(DataType.StructType.Field.from("COUNT", DataType.IntegerType.notNullable(), 0)), false));

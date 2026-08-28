@@ -29,8 +29,6 @@ import com.apple.foundationdb.record.query.plan.VectorIndexEnginePreference;
 import com.apple.foundationdb.record.query.plan.cascades.PlanningRuleSet;
 import com.apple.foundationdb.relational.api.Options;
 import com.google.common.collect.ImmutableSet;
-
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Optional;
@@ -52,33 +50,28 @@ import static com.apple.foundationdb.relational.api.Options.Name.PLAN_RIGHT_DEEP
 @API(API.Status.EXPERIMENTAL)
 public final class PlannerConfiguration {
 
-    @Nonnull
     private final Optional<Set<String>> readableIndexes;
 
-    @Nonnull
     private final IndexFetchMethod indexFetchMethod;
 
     private final boolean disabledAllPlannerRules;
 
-    @Nonnull
     private final Set<String> disabledPlannerRewriteRules;
 
     private final boolean planRightDeep;
 
-    @Nonnull
     private final VectorIndexEnginePreference vectorIndexEnginePreference;
 
-    @Nonnull
     private final RecordQueryPlannerConfiguration recordQueryPlannerConfiguration;
 
     private final int memoizedHash;
 
-    private PlannerConfiguration(@Nonnull final Optional<Set<String>> readableIndexes,
-                                 @Nonnull final IndexFetchMethod indexFetchMethod,
-                                 @Nonnull final Set<String> disabledPlannerRewriteRules,
+    private PlannerConfiguration(final Optional<Set<String>> readableIndexes,
+                                 final IndexFetchMethod indexFetchMethod,
+                                 final Set<String> disabledPlannerRewriteRules,
                                  boolean disabledAllPlannerRules,
                                  boolean planRightDeep,
-                                 @Nonnull final VectorIndexEnginePreference vectorIndexEnginePreference) {
+                                 final VectorIndexEnginePreference vectorIndexEnginePreference) {
         this.readableIndexes = readableIndexes;
         this.indexFetchMethod = indexFetchMethod;
         this.disabledAllPlannerRules = disabledAllPlannerRules;
@@ -89,12 +82,10 @@ public final class PlannerConfiguration {
         this.recordQueryPlannerConfiguration = buildRecordQueryPlannerConfiguration();
     }
 
-    @Nonnull
     public Optional<Set<String>> getReadableIndexes() {
         return readableIndexes;
     }
 
-    @Nonnull
     public RecordQueryPlannerConfiguration getRecordQueryPlannerConfiguration() {
         return recordQueryPlannerConfiguration;
     }
@@ -119,7 +110,6 @@ public final class PlannerConfiguration {
      * @return {@code this} if the flag is already equal to {@code newPlanRightDeep},
      *         otherwise a new {@link PlannerConfiguration} with the flag overridden
      */
-    @Nonnull
     public PlannerConfiguration withPlanRightDeep(final boolean newPlanRightDeep) {
         if (this.planRightDeep == newPlanRightDeep) {
             return this;
@@ -154,7 +144,6 @@ public final class PlannerConfiguration {
         return memoizedHash;
     }
 
-    @Nonnull
     private RecordQueryPlannerConfiguration buildRecordQueryPlannerConfiguration() {
         final var configurationBuilder = RecordQueryPlannerConfiguration.builder()
                 .setIndexScanPreference(QueryPlanner.IndexScanPreference.PREFER_INDEX)
@@ -169,22 +158,19 @@ public final class PlannerConfiguration {
         return configurationBuilder.build();
     }
 
-    @Nonnull
-    public static PlannerConfiguration of(@Nonnull final Optional<Set<String>> readableIndexesMaybe,
-                                          @Nonnull final Options options) {
+    public static PlannerConfiguration of(final Optional<Set<String>> readableIndexesMaybe,
+                                          final Options options) {
         final var disabledPlannerRules = ImmutableSet.copyOf(options.<Collection<String>>getOption(Options.Name.DISABLED_PLANNER_RULES));
         return new PlannerConfiguration(readableIndexesMaybe, OptionsUtils.getIndexFetchMethod(options),
                 disabledPlannerRules, options.getOption(DISABLE_PLANNER_REWRITING),
                 options.getOption(PLAN_RIGHT_DEEP), OptionsUtils.getVectorIndexEnginePreference(options));
     }
 
-    @Nonnull
     public static PlannerConfiguration ofAllAvailableIndexes() {
         return of(Optional.empty(), Options.none());
     }
 
-    @Nonnull
-    public static PlannerConfiguration ofAllAvailableIndexes(@Nonnull final Options options) {
+    public static PlannerConfiguration ofAllAvailableIndexes(final Options options) {
         return of(Optional.empty(), options);
     }
 }

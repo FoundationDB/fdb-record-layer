@@ -61,8 +61,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
-
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.Optional;
@@ -264,7 +262,7 @@ public class TemporaryFunctionTests {
         }
     }
 
-    private UserDefinedFunction getUserDefinedFunction(@Nonnull RelationalConnection connection, @Nonnull String name) throws RelationalException {
+    private UserDefinedFunction getUserDefinedFunction(RelationalConnection connection, String name) throws RelationalException {
         final var boundSchemaTemplateMaybe = ((EmbeddedRelationalConnection) connection).getTransaction().getBoundSchemaTemplateMaybe();
         Assertions.assertTrue(boundSchemaTemplateMaybe.isPresent());
         final var invokedRoutineMaybe = boundSchemaTemplateMaybe.get().findInvokedRoutineByName(name);
@@ -1124,9 +1122,8 @@ public class TemporaryFunctionTests {
                         .setName("FOO").build()).build();
         final var called = new AtomicBoolean(false);
         final var metadataOperationsFactory = new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template, final boolean throwIfExists, @Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
+            public ConstantAction getCreateTemporaryFunctionConstantAction(final SchemaTemplate template, final boolean throwIfExists, final RecordLayerInvokedRoutine invokedRoutine) {
                 return new CreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine);
             }
         };

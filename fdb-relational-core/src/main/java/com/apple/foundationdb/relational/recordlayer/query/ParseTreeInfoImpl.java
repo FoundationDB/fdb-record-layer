@@ -32,8 +32,6 @@ import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.RuleNode;
 import org.antlr.v4.runtime.tree.TerminalNode;
-
-import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
 import java.util.Deque;
 
@@ -43,23 +41,20 @@ import java.util.Deque;
 @API(API.Status.EXPERIMENTAL)
 public final class ParseTreeInfoImpl implements ParseTreeInfo {
 
-    @Nonnull
     private final ParseTree rootContext;
 
-    @Nonnull
     private final QueryType queryType;
 
-    private ParseTreeInfoImpl(@Nonnull final ParseTree effectiveContext, @Nonnull final QueryType queryType) {
+    private ParseTreeInfoImpl(final ParseTree effectiveContext, final QueryType queryType) {
         this.rootContext = effectiveContext;
         this.queryType = queryType;
     }
 
     private static class QueryTypeVisitor extends RelationalParserBaseVisitor<ParseTreeInfoImpl> {
 
-        @Nonnull
         private final ParseTree rootContext;
 
-        private QueryTypeVisitor(@Nonnull final ParseTree rootContext) {
+        private QueryTypeVisitor(final ParseTree rootContext) {
             this.rootContext = rootContext;
         }
 
@@ -110,7 +105,7 @@ public final class ParseTreeInfoImpl implements ParseTreeInfo {
             return new ParseTreeInfoImpl(rootContext, QueryType.OTHER);
         }
 
-        private static void remapParseTree(@Nonnull final ParseTree src) {
+        private static void remapParseTree(final ParseTree src) {
             final int offset = src instanceof TerminalNode
                     ? ((TerminalNode) src).getSymbol().getTokenIndex()
                     : ((ParserRuleContext) src).start.getTokenIndex();
@@ -145,19 +140,16 @@ public final class ParseTreeInfoImpl implements ParseTreeInfo {
         }
     }
 
-    @Nonnull
     @Override
     public QueryType getQueryType() {
         return queryType;
     }
 
-    @Nonnull
     public ParseTree getRootContext() {
         return rootContext;
     }
 
-    @Nonnull
-    public static ParseTreeInfoImpl from(@Nonnull final RelationalParser.RootContext root) {
+    public static ParseTreeInfoImpl from(final RelationalParser.RootContext root) {
         return new QueryTypeVisitor(root).visit(root);
     }
 }

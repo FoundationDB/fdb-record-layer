@@ -32,8 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectVa
 
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
-
-import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Set;
 
@@ -45,53 +43,40 @@ import static com.apple.foundationdb.relational.recordlayer.query.OrderedLiteral
  */
 public class PhysicalPlanEquivalenceTests {
 
-    @Nonnull
     private static final TypeRepository EMPTY_TYPE_REPO = TypeRepository.empty();
 
-    @Nonnull
     private static final QueryPredicate lt00 = new ValuePredicate(ConstantObjectValue.of(Quantifier.constant(),
                     constantId(0), Type.primitiveType(Type.TypeCode.INT)),
             new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 100));
 
-    @Nonnull
     private static final QueryPredicate gt400 = new ValuePredicate(ConstantObjectValue.of(Quantifier.constant(),
                     constantId(0), Type.primitiveType(Type.TypeCode.INT)),
             new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 400));
 
-    @Nonnull
     private static final QueryPredicate lt100Dup = new ValuePredicate(ConstantObjectValue.of(Quantifier.constant(),
                     constantId(0), Type.primitiveType(Type.TypeCode.INT)),
             new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 100));
 
-    @Nonnull
     private static final QueryPredicate lt400 = new ValuePredicate(ConstantObjectValue.of(Quantifier.constant(),
                     constantId(0), Type.primitiveType(Type.TypeCode.INT)),
             new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 400));
 
-    @Nonnull
     private static final QueryPlanConstraint trueConstraint = QueryPlanConstraint.noConstraint();
 
-    @Nonnull
     private static final QueryPlanConstraint lt100Constraint = QueryPlanConstraint.ofPredicate(lt00);
 
-    @Nonnull
     private static final QueryPlanConstraint lt100ConstraintDup = QueryPlanConstraint.ofPredicate(lt100Dup);
 
-    @Nonnull
     private static final QueryPlanConstraint gt400Constraint = QueryPlanConstraint.ofPredicate(gt400);
 
-    @Nonnull
     private static final QueryPlanConstraint lt400Constraint = QueryPlanConstraint.ofPredicate(lt400);
 
-    @Nonnull
     private static final EvaluationContext ec80 = EvaluationContext.newBuilder()
             .setConstant(Quantifier.constant(), Map.of(constantId(0), 80)).build(EMPTY_TYPE_REPO);
 
-    @Nonnull
     private static final EvaluationContext ec120 = EvaluationContext.newBuilder()
             .setConstant(Quantifier.constant(), Map.of(constantId(0), 120)).build(EMPTY_TYPE_REPO);
 
-    @Nonnull
     private static final EvaluationContext ec120Dup = EvaluationContext.newBuilder()
             .setConstant(Quantifier.constant(), Map.of(constantId(0), 120)).build(EMPTY_TYPE_REPO);
 

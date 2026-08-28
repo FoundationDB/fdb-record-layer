@@ -30,8 +30,6 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
 
 import com.google.common.annotations.VisibleForTesting;
-
-import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -57,15 +55,13 @@ import java.util.Optional;
 @API(API.Status.EXPERIMENTAL)
 public final class PhysicalPlanEquivalence {
 
-    @Nonnull
     private final Optional<QueryPlanConstraint> constraint;
 
-    @Nonnull
     private final Optional<EvaluationContext> evaluationContext;
 
     @VisibleForTesting
-    PhysicalPlanEquivalence(@Nonnull final Optional<QueryPlanConstraint> constraint,
-                            @Nonnull final Optional<EvaluationContext> evaluationContext) {
+    PhysicalPlanEquivalence(final Optional<QueryPlanConstraint> constraint,
+                            final Optional<EvaluationContext> evaluationContext) {
         Assert.thatUnchecked(constraint.isPresent() ^ evaluationContext.isPresent(),
                 ErrorCode.INTERNAL_ERROR, "Either constraint or evaluation context must be set (but not both)"
         );
@@ -138,18 +134,15 @@ public final class PhysicalPlanEquivalence {
         return 0;
     }
 
-    @Nonnull
-    public PhysicalPlanEquivalence withConstraint(@Nonnull final QueryPlanConstraint constraint) {
+    public PhysicalPlanEquivalence withConstraint(final QueryPlanConstraint constraint) {
         return new PhysicalPlanEquivalence(Optional.of(constraint), Optional.empty());
     }
 
-    @Nonnull
-    public static PhysicalPlanEquivalence of(@Nonnull final EvaluationContext evaluationContext) {
+    public static PhysicalPlanEquivalence of(final EvaluationContext evaluationContext) {
         return new PhysicalPlanEquivalence(Optional.empty(), Optional.of(evaluationContext));
     }
 
-    @Nonnull
-    public static PhysicalPlanEquivalence of(@Nonnull final QueryPlanConstraint constraint) {
+    public static PhysicalPlanEquivalence of(final QueryPlanConstraint constraint) {
         return new PhysicalPlanEquivalence(Optional.of(constraint), Optional.empty());
     }
 

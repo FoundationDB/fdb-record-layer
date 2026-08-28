@@ -23,12 +23,11 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
+
+import static com.apple.foundationdb.record.PlanHashable.PlanHashMode;
 
 /**
  * This context is populated during query normalization. It contains all the information required to execute a cached physical query plan.
@@ -36,7 +35,6 @@ import java.util.Objects;
 @API(API.Status.EXPERIMENTAL)
 public final class NormalizedQueryExecutionContext implements QueryExecutionContext {
 
-    @Nonnull
     private final Literals literals;
 
     @Nullable
@@ -46,14 +44,13 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
 
     private final int parameterHash;
 
-    @Nonnull
-    private final PlanHashable.PlanHashMode planHashMode;
+    private final PlanHashMode planHashMode;
 
-    private NormalizedQueryExecutionContext(@Nonnull Literals literals,
+    private NormalizedQueryExecutionContext(Literals literals,
                                             @Nullable byte[] continuation,
                                             int parameterHash,
                                             boolean isForExplain,
-                                            @Nonnull final PlanHashable.PlanHashMode planHashMode) {
+                                            final PlanHashMode planHashMode) {
         this.literals = literals;
         this.continuation = continuation;
         this.isForExplain = isForExplain;
@@ -61,13 +58,11 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
         this.planHashMode = planHashMode;
     }
 
-    @Nonnull
     @Override
     public Literals getLiterals() {
         return literals;
     }
 
-    @Nonnull
     @Override
     public ExecuteProperties.Builder getExecutionPropertiesBuilder() {
         return ExecuteProperties.newBuilder();
@@ -90,19 +85,16 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
         return isForExplain;
     }
 
-    @Nonnull
     @Override
-    public PlanHashable.PlanHashMode getPlanHashMode() {
+    public PlanHashMode getPlanHashMode() {
         return planHashMode;
     }
 
-    @Nonnull
     public static Builder newBuilder() {
         return new Builder();
     }
 
     public static final class Builder {
-        @Nonnull
         private final Literals.Builder literalsBuilder;
 
         private boolean isForExplain;
@@ -113,7 +105,7 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
         private int parameterHash;
 
         @Nullable
-        private PlanHashable.PlanHashMode planHashMode;
+        private PlanHashMode planHashMode;
 
         private Builder() {
             this.literalsBuilder = Literals.newBuilder();
@@ -122,37 +114,31 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
             this.planHashMode = null;
         }
 
-        @Nonnull
         public Builder setParameterHash(int parameterHash) {
             this.parameterHash = parameterHash;
             return this;
         }
 
         @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP2", justification = "Intentional")
-        @Nonnull
         public Builder setContinuation(@Nullable final byte[] continuation) {
             this.continuation = continuation; // copy to be safe?
             return this;
         }
 
-        @Nonnull
         public Literals.Builder getLiteralsBuilder() {
             return literalsBuilder;
         }
 
-        @Nonnull
         public Builder setForExplain(boolean isForExplain) {
             this.isForExplain = isForExplain;
             return this;
         }
 
-        @Nonnull
-        public Builder setPlanHashMode(@Nonnull PlanHashable.PlanHashMode planHashMode) {
+        public Builder setPlanHashMode(PlanHashMode planHashMode) {
             this.planHashMode = planHashMode;
             return this;
         }
 
-        @Nonnull
         public NormalizedQueryExecutionContext build() {
             return new NormalizedQueryExecutionContext(literalsBuilder.build(), continuation,
                     parameterHash, isForExplain,

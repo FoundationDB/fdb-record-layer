@@ -55,9 +55,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
@@ -80,9 +78,8 @@ public class StandardQueryTests {
     /**
      * A restaurant review.
      */
-    private record Review(long reviewer, long rating, @Nonnull List<Pair<Long, String>> endorsements) {
-        @Nonnull
-        static Review of(long reviewer, long rating, @Nonnull final List<Pair<Long, String>> endorsements) {
+    private record Review(long reviewer, long rating, List<Pair<Long, String>> endorsements) {
+        static Review of(long reviewer, long rating, final List<Pair<Long, String>> endorsements) {
             return new Review(reviewer, rating, endorsements);
         }
     }
@@ -1627,7 +1624,6 @@ public class StandardQueryTests {
         }
     }
 
-    @Nonnull
     private static Stream<Arguments> vectorTypeProvider() {
         return Stream.of(
                 Arguments.of("vector(3, half)", new HalfRealVector(new double[]{1.1d, 1.2d, 1.3d})),
@@ -1723,11 +1719,11 @@ public class StandardQueryTests {
         return insertRestaurantComplexRecord(s, recordNumber, "testName");
     }
 
-    private RelationalStruct insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber, @Nonnull final String recordName) throws SQLException {
+    private RelationalStruct insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber, final String recordName) throws SQLException {
         return insertRestaurantComplexRecord(s, recordNumber, recordName, List.of());
     }
 
-    private RelationalStruct insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber, @Nonnull final String recordName, @Nonnull final List<Review> reviews) throws SQLException {
+    private RelationalStruct insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber, final String recordName, final List<Review> reviews) throws SQLException {
         final var recBuilder2 = EmbeddedRelationalStruct.newBuilder()
                 .addLong("REST_NO", recordNumber)
                 .addString("NAME", recordName)
@@ -1758,7 +1754,7 @@ public class StandardQueryTests {
         return getExpected(recordNumber, recordName, reviews);
     }
 
-    private static RelationalStruct getExpected(Long recordNumber, @Nonnull final String recordName, @Nonnull final List<Review> reviews) {
+    private static RelationalStruct getExpected(Long recordNumber, final String recordName, final List<Review> reviews) {
         final var locationType = DataType.StructType.from("LOCATION", List.of(
                 DataType.StructType.Field.from("ADDRESS", DataType.Primitives.STRING.type(), 1),
                 DataType.StructType.Field.from("LATITUDE", DataType.Primitives.STRING.type(), 2),
@@ -1795,7 +1791,7 @@ public class StandardQueryTests {
         return new ImmutableRowStruct(new ArrayRow(recordNumber, recordName, locationStruct, reviewsArray), RelationalStructMetaData.of(restaurantComplexRecordType));
     }
 
-    private void insertRestaurantComplexRecord(RelationalStatement s, int recordNumber, @Nonnull final String recordName, byte[] blob) throws SQLException {
+    private void insertRestaurantComplexRecord(RelationalStatement s, int recordNumber, final String recordName, byte[] blob) throws SQLException {
         var struct = EmbeddedRelationalStruct.newBuilder()
                 .addLong("REST_NO", recordNumber)
                 .addString("NAME", recordName)

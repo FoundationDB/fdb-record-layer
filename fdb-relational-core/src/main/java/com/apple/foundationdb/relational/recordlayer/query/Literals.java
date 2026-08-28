@@ -32,9 +32,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.TreeMultiset;
 import com.google.protobuf.ByteString;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -48,16 +46,13 @@ import java.util.function.Supplier;
 
 public class Literals {
 
-    @Nonnull
     private static final Literals EMPTY = new Literals(ImmutableList.of());
 
-    @Nonnull
     private final List<OrderedLiteral> orderedLiterals;
 
-    @Nonnull
     private final Supplier<Map<String, Object>> asMapSupplier;
 
-    private Literals(@Nonnull final List<OrderedLiteral> orderedLiterals) {
+    private Literals(final List<OrderedLiteral> orderedLiterals) {
         this.orderedLiterals = ImmutableList.copyOf(orderedLiterals);
         // Using unmodifiableMap because it allows null values, which are valid here
         // and represent either null constants or null prepared parameters in queries.
@@ -68,7 +63,6 @@ public class Literals {
                                 .collect(LinkedHashMap::new, (m, v) -> m.put(v.getConstantId(), v.getLiteralObject()), LinkedHashMap::putAll)));
     }
 
-    @Nonnull
     public List<OrderedLiteral> getOrderedLiterals() {
         return orderedLiterals;
     }
@@ -81,12 +75,10 @@ public class Literals {
         return asMapSupplier.get();
     }
 
-    @Nonnull
     public static Literals empty() {
         return EMPTY;
     }
 
-    @Nonnull
     public static Builder newBuilder() {
         return new Builder();
     }
@@ -94,16 +86,12 @@ public class Literals {
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     public static final class Builder {
 
-        @Nonnull
         private final Multiset<OrderedLiteral> literals;
 
-        @Nonnull
         private final Stack<Multiset<OrderedLiteral>> current;
 
-        @Nonnull
         private final Map<Object, OrderedLiteral> literalReverseLookup; // allowing null keys.
 
-        @Nonnull
         private Optional<String> scope;
 
         private int arrayLiteralScopeCount;
@@ -127,26 +115,25 @@ public class Literals {
          * @param scope the scope.
          * @return {@code this} builder.
          */
-        @Nonnull
-        public Builder setScope(@Nonnull final String scope) {
+        public Builder setScope(final String scope) {
             this.scope = Optional.of(scope);
             return this;
         }
 
-        public List<OrderedLiteral> importLiteralsRetrieveNewLiterals(@Nonnull final Literals other) {
+        public List<OrderedLiteral> importLiteralsRetrieveNewLiterals(final Literals other) {
             return other.getOrderedLiterals().stream().filter(literal -> addLiteral(literal, false))
                     .collect(ImmutableList.toImmutableList());
         }
 
-        public void importLiterals(@Nonnull final Literals other) {
+        public void importLiterals(final Literals other) {
             other.getOrderedLiterals().forEach(literalToImport -> addLiteral(literalToImport, false));
         }
 
-        public void addLiteral(@Nonnull final OrderedLiteral orderedLiteral) {
+        public void addLiteral(final OrderedLiteral orderedLiteral) {
             addLiteral(orderedLiteral, true);
         }
 
-        private boolean addLiteral(@Nonnull final OrderedLiteral orderedLiteral, boolean verifyNotExists) {
+        private boolean addLiteral(final OrderedLiteral orderedLiteral, boolean verifyNotExists) {
             final var currentLiterals = current.peek();
             if (orderedLiteral.getLiteralObject() instanceof byte[]) {
                 // it is not clear why there is a special code path for array literal that avoids the
@@ -175,8 +162,7 @@ public class Literals {
             return true;
         }
 
-        @Nonnull
-        public OrderedLiteral addLiteral(@Nonnull final Type type, @Nullable final Object literalObject,
+        public OrderedLiteral addLiteral(final Type type, @Nullable final Object literalObject,
                                          @Nullable final Integer unnamedParameterIndex, @Nullable final String parameterName,
                                          final int tokenIndex) {
             final var literal = new OrderedLiteral(type, literalObject, unnamedParameterIndex, parameterName, tokenIndex, scope);
@@ -195,7 +181,6 @@ public class Literals {
         }
 
 
-        @Nonnull
         public Optional<OrderedLiteral> getFirstValueDuplicateMaybe(@Nullable Object value) {
             // if this is called while building a complex literal, bail out, since we do not support
             // non-linear reference graphs at the moment.
@@ -205,8 +190,7 @@ public class Literals {
             return Optional.of(literalReverseLookup.get(value));
         }
 
-        @Nonnull
-        public Optional<OrderedLiteral> getFirstDuplicateOfConstantIdMaybe(@Nonnull String constantId) {
+        public Optional<OrderedLiteral> getFirstDuplicateOfConstantIdMaybe(String constantId) {
             // if this is called while building a complex literal, bail out, since we do not support
             // non-linear reference graphs at the moment.
             if (current.size() > 1) {
@@ -246,7 +230,7 @@ public class Literals {
             arrayLiteralScopeCount--;
         }
 
-        public void finishStructLiteral(@Nonnull final Type.Record type,
+        public void finishStructLiteral(final Type.Record type,
                                         @Nullable final Integer unnamedParameterIndex,
                                         @Nullable final String parameterName,
                                         final int tokenIndex) {
@@ -274,7 +258,7 @@ public class Literals {
             structLiteralScopeCount--;
         }
 
-        private static Object transformFieldValue(@Nonnull Object fieldValue) {
+        private static Object transformFieldValue(Object fieldValue) {
             if (fieldValue instanceof UUID) {
                 return TupleFieldsHelper.toProto((UUID) fieldValue);
             }
@@ -289,12 +273,10 @@ public class Literals {
             return literals.isEmpty();
         }
 
-        @Nonnull
         public Literals build() {
             return new Literals(literals.stream().collect(ImmutableList.toImmutableList()));
         }
 
-        @Nonnull
         public String constructConstantId(int tokenIndex) {
             return "c" + scope.orElse("") + tokenIndex;
         }

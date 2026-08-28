@@ -21,4 +21,7 @@
 /**
  * This package contains logic related to plan caching.
  */
+@NullMarked
 package com.apple.foundationdb.relational.recordlayer.query.cache;
+
+import org.jspecify.annotations.NullMarked;

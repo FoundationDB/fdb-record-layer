@@ -22,4 +22,7 @@
  * This package contains all plan generation visitors.
  */
 
+@NullMarked
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
+
+import org.jspecify.annotations.NullMarked;

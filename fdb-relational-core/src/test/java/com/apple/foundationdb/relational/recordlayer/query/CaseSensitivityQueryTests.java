@@ -31,8 +31,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
 
@@ -142,7 +140,7 @@ public class CaseSensitivityQueryTests {
         }
     }
 
-    private static void verifyResultSet(@Nonnull final RelationalResultSet resultSet) throws SQLException {
+    private static void verifyResultSet(final RelationalResultSet resultSet) throws SQLException {
         Assertions.assertTrue(resultSet.next());
         Assertions.assertEquals(1, resultSet.getLong(1));
         Assertions.assertEquals("bla", resultSet.getString(2));

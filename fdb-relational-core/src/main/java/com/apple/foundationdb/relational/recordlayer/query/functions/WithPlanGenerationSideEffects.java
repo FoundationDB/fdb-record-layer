@@ -21,9 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer.query.functions;
 
 import com.apple.foundationdb.relational.recordlayer.query.Literals;
-
-import javax.annotation.Nonnull;
-
 /**
  * Trait used to capture side effects resulting from the integration of a
  * {@link com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction} into a query plan.
@@ -39,7 +36,6 @@ public interface WithPlanGenerationSideEffects {
      * Retrieve any extra literals that might have been either extracted away, or provided as a prepared parameter.
      * @return any extra function literals.
      */
-    @Nonnull
     Literals getAuxiliaryLiterals();
 
 }

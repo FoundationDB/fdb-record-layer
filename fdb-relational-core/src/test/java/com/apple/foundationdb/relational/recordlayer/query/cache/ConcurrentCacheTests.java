@@ -32,9 +32,7 @@ import com.apple.foundationdb.record.util.pair.NonnullPair;
 
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
@@ -51,75 +49,65 @@ import static com.apple.foundationdb.relational.recordlayer.query.OrderedLiteral
  */
 public class ConcurrentCacheTests {
 
-    @Nonnull
     private static final TypeRepository EMPTY_TYPE_REPO = TypeRepository.empty();
 
     @Nullable
-    private static <V> V pickFirst(@Nonnull final Stream<V> stream) {
+    private static <V> V pickFirst(final Stream<V> stream) {
         return stream.findFirst().orElse(null);
     }
 
-    @Nonnull
-    private static PhysicalPlanEquivalence ppeFor(@Nonnull final QueryPlanConstraint constraint) {
+    private static PhysicalPlanEquivalence ppeFor(final QueryPlanConstraint constraint) {
         return new PhysicalPlanEquivalence(Optional.of(constraint), Optional.empty());
     }
 
-    @Nonnull
-    private static PhysicalPlanEquivalence ppeFor(@Nonnull final EvaluationContext evaluationContext) {
+    private static PhysicalPlanEquivalence ppeFor(final EvaluationContext evaluationContext) {
         return new PhysicalPlanEquivalence(Optional.empty(), Optional.of(evaluationContext));
     }
 
-    @Nonnull
     private static EvaluationContext ecFor(int value) {
         return EvaluationContext.newBuilder().setConstant(Quantifier.constant(), Map.of(constantId(0), value)).build(EMPTY_TYPE_REPO);
     }
 
-    @Nonnull
     private static final QueryPlanConstraint lt150Constraint = QueryPlanConstraint.ofPredicate(
             new ValuePredicate(ConstantObjectValue.of(Quantifier.constant(), constantId(0),
                     Type.primitiveType(Type.TypeCode.INT)), new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 150)));
 
-    @Nonnull
     private static final QueryPlanConstraint lt500Constraint = QueryPlanConstraint.ofPredicate(
             new ValuePredicate(ConstantObjectValue.of(Quantifier.constant(), constantId(0), Type.primitiveType(Type.TypeCode.INT)),
                     new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 500)));
 
-    @Nonnull
     private static final QueryPlanConstraint lt1000Constraint = QueryPlanConstraint.ofPredicate(
             new ValuePredicate(ConstantObjectValue.of(Quantifier.constant(), constantId(0), Type.primitiveType(Type.TypeCode.INT)),
                     new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 1000)));
 
-    @Nonnull
     private static String generateFullScan() {
         return "full scan";
     }
 
-    @Nonnull
     private static String generateIScan(int boundary) {
         return "full scan with " + boundary;
     }
 
-    private static void getOrLoadT1lt300(@Nonnull final MultiStageCache<String, String, PhysicalPlanEquivalence, String> cache) {
+    private static void getOrLoadT1lt300(final MultiStageCache<String, String, PhysicalPlanEquivalence, String> cache) {
         final var result = cache.reduce("T1", "1", ppeFor(ecFor(300)), () -> NonnullPair.of(ppeFor(lt500Constraint),
                 generateIScan(500)), s -> s + " overriden with 300", ConcurrentCacheTests::pickFirst, NoOpMetricCollector.INSTANCE);
         Assertions.assertThat(result).doesNotContain("150"); // we must not scan index <150 as the returned results would be incorrect
     }
 
-    private static void getOrLoadT1lt90(@Nonnull final MultiStageCache<String, String, PhysicalPlanEquivalence, String> cache) {
+    private static void getOrLoadT1lt90(final MultiStageCache<String, String, PhysicalPlanEquivalence, String> cache) {
         cache.reduce("T1", "1", ppeFor(ecFor(90)), () -> NonnullPair.of(ppeFor(lt150Constraint),
                 generateIScan(150)), s -> s + " overriden with 90", ConcurrentCacheTests::pickFirst, NoOpMetricCollector.INSTANCE);
     }
 
-    private static void getOrLoadT1lt1000(@Nonnull final MultiStageCache<String, String, PhysicalPlanEquivalence, String> cache) {
+    private static void getOrLoadT1lt1000(final MultiStageCache<String, String, PhysicalPlanEquivalence, String> cache) {
         final var result = cache.reduce("T1", "1", ppeFor(ecFor(1000)), () -> NonnullPair.of(ppeFor(lt1000Constraint),
                 generateFullScan()), s -> s + " overriden with 1000", ConcurrentCacheTests::pickFirst, NoOpMetricCollector.INSTANCE);
         Assertions.assertThat(result).doesNotContain("150", "500"); // we must not scan index <150 or <500 as the returned results would be incorrect
     }
 
-    @Nonnull
     private static final Random random = new Random();
 
-    private static void randomWorkLoad(@Nonnull final MultiStageCache<String, String, PhysicalPlanEquivalence, String> cache) throws InterruptedException {
+    private static void randomWorkLoad(final MultiStageCache<String, String, PhysicalPlanEquivalence, String> cache) throws InterruptedException {
         final Map<Integer, Consumer<MultiStageCache<String, String, PhysicalPlanEquivalence, String>>> actions = Map.of(0, ConcurrentCacheTests::getOrLoadT1lt1000,
                 1, ConcurrentCacheTests::getOrLoadT1lt300,
                 2, ConcurrentCacheTests::getOrLoadT1lt90);

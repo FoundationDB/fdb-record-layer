@@ -37,8 +37,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.util.Map;
 import java.util.TreeMap;
@@ -57,20 +55,20 @@ public class ValueSpecificConstraintTests {
         Utils.enableCascadesDebugger();
     }
 
-    private void queryShouldMissCache(@Nonnull final RelationalConnection connection, @Nonnull final String query) throws Exception {
+    private void queryShouldMissCache(final RelationalConnection connection, final String query) throws Exception {
         final var queryWithCacheLoggingOption = query + " options (log query)";
         connection.createStatement().executeQuery(queryWithCacheLoggingOption);
         Assertions.assertTrue(logAppender.lastMessageIsCacheMiss());
     }
 
-    private void queryShouldHitCache(@Nonnull final RelationalConnection connection, @Nonnull final String query) throws Exception {
+    private void queryShouldHitCache(final RelationalConnection connection, final String query) throws Exception {
         final var queryWithCacheLoggingOption = query + " options (log query)";
         connection.createStatement().executeQuery(queryWithCacheLoggingOption);
         Assertions.assertTrue(logAppender.lastMessageIsCacheHit());
     }
 
-    private void preparedQueryShouldMissCache(@Nonnull final RelationalConnection connection, @Nonnull final String query,
-                                              @Nonnull final Map<Integer, Object> preparedParams) throws Exception {
+    private void preparedQueryShouldMissCache(final RelationalConnection connection, final String query,
+                                              final Map<Integer, Object> preparedParams) throws Exception {
         final var queryWithCacheLoggingOption = query + " options (log query)";
         final var statement = connection.prepareStatement(queryWithCacheLoggingOption);
         for (final var entry : preparedParams.entrySet()) {
@@ -80,8 +78,8 @@ public class ValueSpecificConstraintTests {
         Assertions.assertTrue(logAppender.lastMessageIsCacheMiss());
     }
 
-    private void preparedQueryShouldHitCache(@Nonnull final RelationalConnection connection, @Nonnull final String query,
-                                             @Nonnull final Map<Integer, Object> preparedParams) throws Exception {
+    private void preparedQueryShouldHitCache(final RelationalConnection connection, final String query,
+                                             final Map<Integer, Object> preparedParams) throws Exception {
         final var queryWithCacheLoggingOption = query + " options (log query)";
         final var statement = connection.prepareStatement(queryWithCacheLoggingOption);
         for (final var entry : preparedParams.entrySet()) {

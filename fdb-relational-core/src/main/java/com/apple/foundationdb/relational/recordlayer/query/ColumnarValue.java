@@ -31,18 +31,15 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.google.protobuf.Message;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Set;
 import java.util.function.Supplier;
 
 public class ColumnarValue implements Value {
-    @Nonnull
     private final Value inner;
     private final int columnId;
 
-    public ColumnarValue(@Nonnull final Value inner, final int columnId) {
+    public ColumnarValue(final Value inner, final int columnId) {
         this.inner = inner;
         this.columnId = columnId;
     }
@@ -51,20 +48,17 @@ public class ColumnarValue implements Value {
         return columnId;
     }
 
-    @Nonnull
     public Value getInner() {
         return inner;
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return inner.getResultType();
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return inner.explain(explainSuppliers);
     }
 
@@ -76,17 +70,15 @@ public class ColumnarValue implements Value {
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
-                                           @Nonnull final EvaluationContext context) {
+                                           final EvaluationContext context) {
         return inner.eval(store, context);
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return inner.getCorrelatedToWithoutChildren();
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
         return inner.getCorrelatedTo();
@@ -102,37 +94,33 @@ public class ColumnarValue implements Value {
         return inner.hashCodeWithoutChildren();
     }
 
-    @Nonnull
     @Override
     public Iterable<? extends Value> getChildren() {
         return inner.getChildren();
     }
 
-    @Nonnull
     @Override
-    public Value withChildren(@Nonnull final Iterable<? extends Value> newChildren) {
+    public Value withChildren(final Iterable<? extends Value> newChildren) {
         return new ColumnarValue(inner.withChildren(newChildren), columnId);
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashable.PlanHashMode hashMode) {
+    public int planHash(final PlanHashable.PlanHashMode hashMode) {
         return inner.planHash(hashMode);
     }
 
-    @Nonnull
     @Override
-    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public Message toProto(final PlanSerializationContext serializationContext) {
         return inner.toProto(serializationContext);
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return inner.toValueProto(serializationContext);
     }
 
     @Override
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
+    public boolean semanticEquals(@Nullable final Object other, final AliasMap aliasMap) {
         if (other instanceof ColumnarValue) {
             return inner.semanticEquals(((ColumnarValue) other).inner, aliasMap);
         }
