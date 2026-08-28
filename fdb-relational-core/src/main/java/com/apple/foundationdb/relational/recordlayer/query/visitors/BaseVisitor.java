@@ -1522,6 +1522,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
+    public Integer visitAggregateLimitClause(@Nonnull RelationalParser.AggregateLimitClauseContext ctx) {
+        return expressionVisitor.visitAggregateLimitClause(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Expression visitNonAggregateFunctionCall(final RelationalParser.NonAggregateFunctionCallContext ctx) {
         return expressionVisitor.visitNonAggregateFunctionCall(ctx);
     }
