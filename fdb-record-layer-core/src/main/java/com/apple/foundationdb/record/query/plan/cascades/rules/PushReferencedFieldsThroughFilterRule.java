@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
 
@@ -64,7 +63,7 @@ public class PushReferencedFieldsThroughFilterRule extends AbstractCascadesRule<
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(final CascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
         final List<? extends QueryPredicate> predicates = bindings.getAll(predicateMatcher);
 

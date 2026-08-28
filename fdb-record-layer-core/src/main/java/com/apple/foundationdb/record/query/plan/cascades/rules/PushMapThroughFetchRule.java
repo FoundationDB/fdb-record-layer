@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.physicalQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.anyPlan;
@@ -115,15 +114,11 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 public class PushMapThroughFetchRule extends AbstractCascadesRule<RecordQueryMapPlan> implements ImplementationCascadesRule<RecordQueryMapPlan> {
-    @Nonnull
     private static final BindingMatcher<RecordQueryPlan> innerPlanMatcher = anyPlan();
-    @Nonnull
     private static final BindingMatcher<RecordQueryFetchFromPartialRecordPlan> fetchPlanMatcher =
             RecordQueryPlanMatchers.fetchFromPartialRecordPlan(innerPlanMatcher);
-    @Nonnull
     private static final BindingMatcher<Quantifier.Physical> quantifierOverFetchMatcher =
             physicalQuantifier(fetchPlanMatcher);
-    @Nonnull
     private static final BindingMatcher<RecordQueryMapPlan> root =
             map(quantifierOverFetchMatcher);
 
@@ -132,7 +127,7 @@ public class PushMapThroughFetchRule extends AbstractCascadesRule<RecordQueryMap
     }
 
     @Override
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
 
         final RecordQueryMapPlan mapPlan = bindings.get(root);

@@ -43,7 +43,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.Deque;
@@ -120,7 +119,6 @@ class PlannerEventSerializationTests {
                 taskStack,
                 location,
                 new CascadesPlanner.Task() {
-                    @Nonnull
                     @Override
                     public PlannerPhase getPlannerPhase() {
                         return PlannerPhase.PLANNING;

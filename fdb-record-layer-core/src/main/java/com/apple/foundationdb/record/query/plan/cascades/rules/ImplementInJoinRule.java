@@ -67,8 +67,8 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -101,7 +101,7 @@ public class ImplementInJoinRule extends AbstractCascadesRule<SelectExpression> 
 
     @SuppressWarnings("java:S135")
     @Override
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final var bindings = call.getBindings();
 
         final var requestedOrderingsOptional = call.getPlannerConstraintMaybe(RequestedOrderingConstraint.REQUESTED_ORDERING);
@@ -167,12 +167,11 @@ public class ImplementInJoinRule extends AbstractCascadesRule<SelectExpression> 
         }
     }
 
-    @Nonnull
-    private Stream<List<InSource>> enumerateInSourcesForRequestedOrdering(@Nonnull final Map<CorrelationIdentifier, Quantifier> explodeAliasToQuantifierMap,
-                                                                          @Nonnull final Set<CorrelationIdentifier> explodeAliases,
-                                                                          @Nonnull final Map<Quantifier.ForEach, ExplodeExpression> quantifierToExplodeMap,
-                                                                          @Nonnull final Ordering innerOrdering,
-                                                                          @Nonnull final RequestedOrdering requestedOrdering) {
+    private Stream<List<InSource>> enumerateInSourcesForRequestedOrdering(final Map<CorrelationIdentifier, Quantifier> explodeAliasToQuantifierMap,
+                                                                          final Set<CorrelationIdentifier> explodeAliases,
+                                                                          final Map<Quantifier.ForEach, ExplodeExpression> quantifierToExplodeMap,
+                                                                          final Ordering innerOrdering,
+                                                                          final RequestedOrdering requestedOrdering) {
         Verify.verify(!explodeAliases.isEmpty());
         final var availableExplodeAliases = Sets.newLinkedHashSet(explodeAliases);
         final var requestedOrderingParts = requestedOrdering.getOrderingParts();
@@ -310,7 +309,7 @@ public class ImplementInJoinRule extends AbstractCascadesRule<SelectExpression> 
             //
             // There are some explodes left, but we don't have any requested sort orders anymore.
             //
-            @Nullable final var attemptedSortOrders =
+            @Nullable final List<ProvidedSortOrder> attemptedSortOrders =
                     requestedOrdering.isExhaustive()
                     ? attemptedProvidedSortOrdersForAny(requestedOrdering.isExhaustive())
                     : null;
@@ -339,11 +338,10 @@ public class ImplementInJoinRule extends AbstractCascadesRule<SelectExpression> 
                         .collect(ImmutableList.toImmutableList()));
     }
 
-    @Nonnull
-    private static Stream<List<OrderingPartWithSource>> suffixForRemainingExplodes(@Nonnull final Map<CorrelationIdentifier, Quantifier> explodeAliasToQuantifierMap,
-                                                                                   @Nonnull final Map<Quantifier.ForEach, ExplodeExpression> quantifierToExplodeMap,
-                                                                                   @Nonnull final RequestedOrdering requestedOrdering,
-                                                                                   @Nonnull final Iterable<List<CorrelationIdentifier>> availableExplodeAliasesPermutations,
+    private static Stream<List<OrderingPartWithSource>> suffixForRemainingExplodes(final Map<CorrelationIdentifier, Quantifier> explodeAliasToQuantifierMap,
+                                                                                   final Map<Quantifier.ForEach, ExplodeExpression> quantifierToExplodeMap,
+                                                                                   final RequestedOrdering requestedOrdering,
+                                                                                   final Iterable<List<CorrelationIdentifier>> availableExplodeAliasesPermutations,
                                                                                    @Nullable final List<ProvidedSortOrder> attemptedSortOrders) {
         return Streams.stream(availableExplodeAliasesPermutations)
                 .flatMap(availableExplodeAliasesPermutation -> {
@@ -382,14 +380,13 @@ public class ImplementInJoinRule extends AbstractCascadesRule<SelectExpression> 
                 });
     }
 
-    private static boolean isSupportedExplodeValue(@Nonnull final Value explodeValue) {
+    private static boolean isSupportedExplodeValue(final Value explodeValue) {
         return explodeValue instanceof LiteralValue<?> ||
                 explodeValue instanceof QuantifiedObjectValue ||
                 explodeValue instanceof ParameterObjectValue ||
                 explodeValue.isConstant();
     }
 
-    @Nonnull
     private static List<ProvidedSortOrder> attemptedProvidedSortOrdersForAny(final boolean isExhaustive) {
         if (isExhaustive) {
             // TODO consider creating the non-counterflow orders as well
@@ -401,8 +398,8 @@ public class ImplementInJoinRule extends AbstractCascadesRule<SelectExpression> 
 
     @Nullable
     @SuppressWarnings("unchecked")
-    private static InSource computeInSource(@Nonnull final Value explodeValue,
-                                            @Nonnull final Quantifier explodeQuantifier,
+    private static InSource computeInSource(final Value explodeValue,
+                                            final Quantifier explodeQuantifier,
                                             @Nullable final ProvidedSortOrder attemptedSortOrder) {
         final String bindingName = CORRELATION.bindingName(explodeQuantifier.getAlias().getId());
         if (explodeValue instanceof LiteralValue<?>) {
@@ -434,9 +431,8 @@ public class ImplementInJoinRule extends AbstractCascadesRule<SelectExpression> 
         return null;
     }
 
-    @Nonnull
-    private static Map<Quantifier.ForEach, ExplodeExpression> computeQuantifierToExplodeMap(@Nonnull final Collection<? extends Quantifier.ForEach> quantifiers,
-                                                                                            @Nonnull final Set<ExplodeExpression> explodeExpressions) {
+    private static Map<Quantifier.ForEach, ExplodeExpression> computeQuantifierToExplodeMap(final Collection<? extends Quantifier.ForEach> quantifiers,
+                                                                                            final Set<ExplodeExpression> explodeExpressions) {
         final var resultMap =
                 new LinkedIdentityMap<Quantifier.ForEach,  ExplodeExpression>();
 
@@ -455,21 +451,18 @@ public class ImplementInJoinRule extends AbstractCascadesRule<SelectExpression> 
     private static class OrderingPartWithSource {
         @Nullable
         private final ProvidedOrderingPart providedOrderingPart;
-        @Nonnull
         private final InSource inSource;
 
         public OrderingPartWithSource(@Nullable final ProvidedOrderingPart providedOrderingPart,
-                                      @Nonnull final InSource inSource) {
+                                      final InSource inSource) {
             this.providedOrderingPart = providedOrderingPart;
             this.inSource = inSource;
         }
 
-        @Nonnull
         public ProvidedOrderingPart getProvidedOrderingPart() {
             return Objects.requireNonNull(providedOrderingPart);
         }
 
-        @Nonnull
         public InSource getInSource() {
             return inSource;
         }

@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PPla
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
 
 /**
  * Interface for all events.
@@ -72,7 +71,6 @@ public interface PlannerEvent {
      * Getter.
      * @return description of an event
      */
-    @Nonnull
     String getDescription();
 
     /**
@@ -81,7 +79,6 @@ public interface PlannerEvent {
      * @return the shorthand for the event. This is the string used for interaction on the command line, e.g.
      *         setting a breakpoint, etc.
      */
-    @Nonnull
     Shorthand getShorthand();
 
     /**
@@ -89,13 +86,10 @@ public interface PlannerEvent {
      *
      * @return the location of where the event came from
      */
-    @Nonnull
     Location getLocation();
 
-    @Nonnull
     Message toProto();
 
-    @Nonnull
     default PPlannerEvent toEventProto() {
         return toEventBuilder()
                 .setDescription(getDescription())
@@ -103,11 +97,9 @@ public interface PlannerEvent {
                 .build();
     }
 
-    @Nonnull
     PPlannerEvent.Builder toEventBuilder();
 
-    @Nonnull
-    static PBindable toBindableProto(@Nonnull final Object bindable) {
+    static PBindable toBindableProto(final Object bindable) {
         final var builder = PBindable.newBuilder();
         if (bindable instanceof RelationalExpression) {
             builder.setExpression(((RelationalExpression)bindable).toPlannerEventExpressionProto());

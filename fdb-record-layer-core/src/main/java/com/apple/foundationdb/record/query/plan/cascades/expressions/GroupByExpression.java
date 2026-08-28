@@ -75,8 +75,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -95,19 +95,14 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
     @Nullable
     private final Value groupingValue;
 
-    @Nonnull
     private final AggregateValue aggregateValue;
 
-    @Nonnull
     private final BiFunction<Value /* groupingValue */, Value, Value> resultValueFunction;
 
-    @Nonnull
     private final Supplier<Value> computeResultSupplier;
 
-    @Nonnull
     private final Supplier<RequestedOrdering> computeRequestedOrderingSupplier;
 
-    @Nonnull
     private final Quantifier innerQuantifier;
 
     /**
@@ -120,9 +115,9 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
      * @param innerQuantifier The underlying source of tuples to be grouped.
      */
     public GroupByExpression(@Nullable final Value groupingValue,
-                             @Nonnull final AggregateValue aggregateValue,
-                             @Nonnull final BiFunction<Value /* groupingValue */, Value, Value> resultValueFunction,
-                             @Nonnull final Quantifier innerQuantifier) {
+                             final AggregateValue aggregateValue,
+                             final BiFunction<Value /* groupingValue */, Value, Value> resultValueFunction,
+                             final Quantifier innerQuantifier) {
         this.groupingValue = groupingValue;
         this.aggregateValue = aggregateValue;
         this.resultValueFunction = resultValueFunction;
@@ -136,37 +131,32 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
         return 1;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return getResultValue().getCorrelatedTo();
     }
 
-    @Nonnull
     public BiFunction<Value, Value, Value> getResultValueFunction() {
         return resultValueFunction;
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return computeResultSupplier.get();
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(innerQuantifier);
     }
 
-    @Nonnull
     public Quantifier getInnerQuantifier() {
         return innerQuantifier;
     }
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression other, @Nonnull final AliasMap equivalences) {
+    public boolean equalsWithoutChildren(final RelationalExpression other, final AliasMap equivalences) {
         if (this == other) {
             return true;
         }
@@ -203,12 +193,11 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
         return semanticEquals(other);
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RelationalExpression translateCorrelations(final TranslationMap translationMap,
                                                       final boolean shouldSimplifyValues,
-                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                      final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 1);
 
         final AggregateValue translatedAggregateValue =
@@ -230,9 +219,8 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
         }
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewriteInternalPlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         if (getGroupingValue() == null) {
             return PlannerGraph.fromNodeAndChildGraphs(
                     new PlannerGraph.LogicalOperatorNode(this,
@@ -256,7 +244,6 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
         return groupingValue;
     }
 
-    @Nonnull
     public AggregateValue getAggregateValue() {
         return aggregateValue;
     }
@@ -267,17 +254,15 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
      *
      * @return The ordering requirements.
      */
-    @Nonnull
     public RequestedOrdering getRequestedOrdering() {
         return computeRequestedOrderingSupplier.get();
     }
 
-    @Nonnull
     @Override
-    public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
-                                          @Nonnull final AliasMap bindingAliasMap,
-                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
-                                          @Nonnull final EvaluationContext evaluationContext) {
+    public Iterable<MatchInfo> subsumedBy(final RelationalExpression candidateExpression,
+                                          final AliasMap bindingAliasMap,
+                                          final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                          final EvaluationContext evaluationContext) {
         // the candidate must be a GROUP-BY expression.
         if (candidateExpression.getClass() != this.getClass()) {
             return ImmutableList.of();
@@ -401,9 +386,8 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
                 .orElse(ImmutableList.of());
     }
 
-    @Nonnull
-    private Optional<Value> onUnmatchedValue(@Nonnull final Map<Value, CorrelationIdentifier> unmatchedTranslatedAggregateValueMap,
-                                             @Nonnull final Value translatedUnmatchedValue) {
+    private Optional<Value> onUnmatchedValue(final Map<Value, CorrelationIdentifier> unmatchedTranslatedAggregateValueMap,
+                                             final Value translatedUnmatchedValue) {
         final var unmatchedId = unmatchedTranslatedAggregateValueMap.get(translatedUnmatchedValue);
         if (unmatchedId == null) {
             return Optional.empty();
@@ -411,13 +395,12 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
         return Optional.of(new UnmatchedAggregateValue(unmatchedId));
     }
 
-    @Nonnull
-    private SubsumedGroupingsResult groupingSubsumedBy(@Nonnull final Quantifier candidateInnerQuantifier,
-                                                       @Nonnull final PartialMatch childMatch,
+    private SubsumedGroupingsResult groupingSubsumedBy(final Quantifier candidateInnerQuantifier,
+                                                       final PartialMatch childMatch,
                                                        @Nullable final Value candidateGroupingValue,
-                                                       @Nonnull final TranslationMap translationMap,
-                                                       @Nonnull final ValueEquivalence valueEquivalence,
-                                                       @Nonnull final EvaluationContext evaluationContext) {
+                                                       final TranslationMap translationMap,
+                                                       final ValueEquivalence valueEquivalence,
+                                                       final EvaluationContext evaluationContext) {
         if (groupingValue == null && candidateGroupingValue == null) {
             return SubsumedGroupingsResult.withoutRollUp(ConstrainedBoolean.alwaysTrue(), ImmutableBiMap.of());
         }
@@ -636,9 +619,9 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
      *         grouping values that subsumes the query's explicit grouping values and potentially the query's implicit
      *         grouping values, or an empty {@link Optional} if no such prefix exists.
      */
-    private Optional<List<Value>> computeRollUpToValuesMaybe(@Nonnull final List<Value> candidateGroupingValues,
-                                                             @Nonnull final Set<Value> explicitlyMatchedCandidateGroupingValuesSet,
-                                                             @Nonnull final Set<Value> implicitlyMatchedCandidateGroupingValuesSet) {
+    private Optional<List<Value>> computeRollUpToValuesMaybe(final List<Value> candidateGroupingValues,
+                                                             final Set<Value> explicitlyMatchedCandidateGroupingValuesSet,
+                                                             final Set<Value> implicitlyMatchedCandidateGroupingValuesSet) {
         // This is a potential roll-up case, but only if at least the explicit query side's grouping values
         // are fully subsumed by a prefix of the candidate grouping values list. This can be confirmed by checking
         // if the set of matched candidate grouping values forms a prefix of the candidate grouping values list.
@@ -669,7 +652,6 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
         return Optional.of(candidateGroupingValuesMatchedPrefix);
     }
 
-    @Nonnull
     private RequestedOrdering computeRequestedOrdering() {
         if (groupingValue == null || groupingValue.isConstant()) {
             return RequestedOrdering.preserve();
@@ -688,12 +670,11 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
                 innerQuantifier.getCorrelatedTo());
     }
 
-    @Nonnull
     @Override
-    public Compensation compensate(@Nonnull final PartialMatch partialMatch,
-                                   @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+    public Compensation compensate(final PartialMatch partialMatch,
+                                   final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                    @Nullable final PullUp pullUp,
-                                   @Nonnull final CorrelationIdentifier candidateAlias) {
+                                   final CorrelationIdentifier candidateAlias) {
         final var regularMatchInfo = partialMatch.getRegularMatchInfo();
         final var quantifier = Iterables.getOnlyElement(getQuantifiers());
 
@@ -749,8 +730,7 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
                 compensatedResult.getGroupByMappings());
     }
 
-    @Nonnull
-    public static Value nestedResults(@Nullable final Value groupingValue, @Nonnull final Value aggregateValue) {
+    public static Value nestedResults(@Nullable final Value groupingValue, final Value aggregateValue) {
         final var aggregateColumn = Column.unnamedOf(aggregateValue);
         if (groupingValue == null) {
             return RecordConstructorValue.ofColumns(ImmutableList.of(aggregateColumn));
@@ -760,9 +740,8 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
         }
     }
 
-    @Nonnull
     public static Value flattenedResults(@Nullable final Value groupingKeyValue,
-                                         @Nonnull final Value aggregateValue) {
+                                         final Value aggregateValue) {
         final var valuesBuilder = ImmutableList.<Value>builder();
         if (groupingKeyValue != null) {
             final var groupingResultType = groupingKeyValue.getResultType();
@@ -796,27 +775,23 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
     }
 
     public static class UnmatchedAggregateValue extends AbstractValue implements Value.NonEvaluableValue {
-        @Nonnull
         private final CorrelationIdentifier unmatchedId;
 
-        public UnmatchedAggregateValue(@Nonnull final CorrelationIdentifier unmatchedId) {
+        public UnmatchedAggregateValue(final CorrelationIdentifier unmatchedId) {
             this.unmatchedId = unmatchedId;
         }
 
-        @Nonnull
         public CorrelationIdentifier getUnmatchedId() {
             return unmatchedId;
         }
 
-        @Nonnull
         @Override
         protected Iterable<? extends Value> computeChildren() {
             return ImmutableList.of();
         }
 
-        @Nonnull
         @Override
-        public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
             Verify.verify(Iterables.isEmpty(explainSuppliers));
             return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("unmatched",
                     new ExplainTokens().addIdentifier(unmatchedId.getId())));
@@ -827,58 +802,50 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
             return unmatchedId.hashCode();
         }
 
-        @Nonnull
         @Override
-        public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PValue toValueProto(final PlanSerializationContext serializationContext) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode hashMode) {
+        public int planHash(final PlanHashMode hashMode) {
             throw new UnsupportedOperationException();
         }
 
-        @Nonnull
         @Override
-        public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public Message toProto(final PlanSerializationContext serializationContext) {
             throw new UnsupportedOperationException();
         }
 
-        @Nonnull
         @Override
         public Value withChildren(final Iterable<? extends Value> newChildren) {
             Verify.verify(Iterables.isEmpty(newChildren));
             return this;
         }
 
-        @Nonnull
         public static CorrelationIdentifier uniqueId() {
             return CorrelationIdentifier.uniqueId(UnmatchedAggregateValue.class);
         }
     }
 
     private static class SubsumedGroupingsResult {
-        @Nonnull
         private final ConstrainedBoolean subsumedGroups;
-        @Nonnull
         private final BiMap<Value, Value> matchedGroupingsMap;
         @Nullable
         private final List<Value> rollUpToValues;
 
-        private SubsumedGroupingsResult(@Nonnull final ConstrainedBoolean subsumedGroups,
-                                        @Nonnull final BiMap<Value, Value> matchedGroupingsMap,
+        private SubsumedGroupingsResult(final ConstrainedBoolean subsumedGroups,
+                                        final BiMap<Value, Value> matchedGroupingsMap,
                                         @Nullable final List<Value> rollUpToValues) {
             this.subsumedGroups = subsumedGroups;
             this.matchedGroupingsMap = matchedGroupingsMap;
             this.rollUpToValues = rollUpToValues;
         }
 
-        @Nonnull
         public ConstrainedBoolean getSubsumedGroups() {
             return subsumedGroups;
         }
 
-        @Nonnull
         public BiMap<Value, Value> getMatchedGroupingsMap() {
             return matchedGroupingsMap;
         }
@@ -888,20 +855,17 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
             return rollUpToValues;
         }
 
-        @Nonnull
         public static SubsumedGroupingsResult noSubsumption() {
             return of(ConstrainedBoolean.falseValue(), ImmutableBiMap.of(), null);
         }
 
-        @Nonnull
-        public static SubsumedGroupingsResult withoutRollUp(@Nonnull final ConstrainedBoolean subsumedGroups,
-                                                            @Nonnull final BiMap<Value, Value> matchedGroupingsMap) {
+        public static SubsumedGroupingsResult withoutRollUp(final ConstrainedBoolean subsumedGroups,
+                                                            final BiMap<Value, Value> matchedGroupingsMap) {
             return of(subsumedGroups, matchedGroupingsMap, null);
         }
 
-        @Nonnull
-        public static SubsumedGroupingsResult of(@Nonnull final ConstrainedBoolean subsumedGroups,
-                                                 @Nonnull final BiMap<Value, Value> matchedGroupingsMap,
+        public static SubsumedGroupingsResult of(final ConstrainedBoolean subsumedGroups,
+                                                 final BiMap<Value, Value> matchedGroupingsMap,
                                                  @Nullable final List<Value> rollUpToValues) {
             return new SubsumedGroupingsResult(subsumedGroups, ImmutableBiMap.copyOf(matchedGroupingsMap),
                     rollUpToValues == null ? null : ImmutableList.copyOf(rollUpToValues));

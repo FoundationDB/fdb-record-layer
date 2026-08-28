@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithChild;
 import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.physicalQuantifier;
@@ -82,26 +81,22 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 public class PushInJoinThroughFetchRule<P extends RecordQueryInJoinPlan> extends AbstractCascadesRule<P> implements ImplementationCascadesRule<P> {
-    @Nonnull
     private static final BindingMatcher<RecordQueryPlan> innerPlanMatcher = anyPlan();
-    @Nonnull
     private static final BindingMatcher<RecordQueryFetchFromPartialRecordPlan> fetchPlanMatcher =
             RecordQueryPlanMatchers.fetchFromPartialRecordPlan(innerPlanMatcher);
-    @Nonnull
     private static final BindingMatcher<Quantifier.Physical> quantifierOverFetchMatcher =
             physicalQuantifier(fetchPlanMatcher);
 
-    @Nonnull
-    private static <P extends RecordQueryInJoinPlan> BindingMatcher<P> root(@Nonnull final Class<P> planClass) {
+    private static <P extends RecordQueryInJoinPlan> BindingMatcher<P> root(final Class<P> planClass) {
         return ofTypeOwning(planClass, any(quantifierOverFetchMatcher));
     }
 
-    public PushInJoinThroughFetchRule(@Nonnull final Class<P> planClass) {
+    public PushInJoinThroughFetchRule(final Class<P> planClass) {
         super(root(planClass));
     }
 
     @Override
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
 
         final RecordQueryInJoinPlan inJoinPlan = bindings.get(getMatcher());

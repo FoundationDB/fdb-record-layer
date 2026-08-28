@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Objects;
 
@@ -33,13 +32,12 @@ import java.util.Objects;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface TypeFilterExpression extends RelationalExpressionWithChildren {
-    @Nonnull
     Collection<String> getRecordTypes();
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    default boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                          @Nonnull final AliasMap equivalencesMap) {
+    default boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                          final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }

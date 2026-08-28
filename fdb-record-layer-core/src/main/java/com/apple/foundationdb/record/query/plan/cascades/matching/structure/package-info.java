@@ -31,4 +31,7 @@
  * class.
  * </p>
  */
+@NullMarked
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
+
+import org.jspecify.annotations.NullMarked;

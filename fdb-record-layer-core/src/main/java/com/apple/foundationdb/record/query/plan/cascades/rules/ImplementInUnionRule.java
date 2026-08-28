@@ -55,8 +55,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -86,7 +86,7 @@ public class ImplementInUnionRule extends AbstractCascadesRule<SelectExpression>
 
     @SuppressWarnings({"unchecked", "java:S135", "PMD.CompareObjectsWithEquals"})
     @Override
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final var bindings = call.getBindings();
 
         final var requestedOrderingsOptional = call.getPlannerConstraintMaybe(RequestedOrderingConstraint.REQUESTED_ORDERING);
@@ -223,9 +223,8 @@ public class ImplementInUnionRule extends AbstractCascadesRule<SelectExpression>
      * @return an iterable of bindings, either the input or adjusted if there is a singular fixed binding referring
      *         to an explode-alias.
      */
-    @Nonnull
-    private static Iterable<Binding> adjustBindings(@Nonnull final Collection<Binding> bindings,
-                                                    @Nonnull final Set<CorrelationIdentifier> explodeAliases,
+    private static Iterable<Binding> adjustBindings(final Collection<Binding> bindings,
+                                                    final Set<CorrelationIdentifier> explodeAliases,
                                                     @Nullable final RequestedSortOrder requestedSortOrder) {
         final var sortOrder = Ordering.sortOrder(bindings);
 

@@ -25,42 +25,36 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PExecutingTaskPlannerEvent;
 
-import javax.annotation.Nonnull;
 import java.util.Deque;
 
 /**
  * Events of this class are generated every time the planner executes a task.
  */
 public class ExecutingTaskPlannerEvent extends AbstractPlannerEventWithState {
-    @Nonnull
     private final CascadesPlanner.Task task;
 
-    public ExecutingTaskPlannerEvent(@Nonnull final Reference rootReference,
-                                     @Nonnull final Deque<CascadesPlanner.Task> taskStack,
-                                     @Nonnull final Location location,
-                                     @Nonnull final CascadesPlanner.Task task) {
+    public ExecutingTaskPlannerEvent(final Reference rootReference,
+                                     final Deque<CascadesPlanner.Task> taskStack,
+                                     final Location location,
+                                     final CascadesPlanner.Task task) {
         super(task.getPlannerPhase(), rootReference, taskStack, location);
         this.task = task;
     }
 
     @Override
-    @Nonnull
     public String getDescription() {
         return "executing task";
     }
 
     @Override
-    @Nonnull
     public Shorthand getShorthand() {
         return Shorthand.TASK;
     }
 
-    @Nonnull
     public CascadesPlanner.Task getTask() {
         return task;
     }
 
-    @Nonnull
     @Override
     public PExecutingTaskPlannerEvent toProto() {
         return PExecutingTaskPlannerEvent.newBuilder()
@@ -68,7 +62,6 @@ public class ExecutingTaskPlannerEvent extends AbstractPlannerEventWithState {
                 .build();
     }
 
-    @Nonnull
     @Override
     public PPlannerEvent.Builder toEventBuilder() {
         return PPlannerEvent.newBuilder()

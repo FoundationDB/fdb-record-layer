@@ -28,7 +28,6 @@ import com.google.common.collect.Maps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.LinkedHashMap;
@@ -54,7 +53,7 @@ class PlannerEventStatsCollectorState {
     }
 
     @SuppressWarnings("unchecked")
-    void addCurrentEvent(@Nonnull final PlannerEvent plannerEvent) {
+    void addCurrentEvent(final PlannerEvent plannerEvent) {
         final long currentTsInNs = System.nanoTime();
 
         final Class<? extends PlannerEvent> currentEventClass = plannerEvent.getClass();
@@ -105,7 +104,7 @@ class PlannerEventStatsCollectorState {
     }
 
     @SuppressWarnings("unchecked")
-    private void updateCounts(@Nonnull final PlannerEvent plannerEvent) {
+    private void updateCounts(final PlannerEvent plannerEvent) {
         final MutableStats forEventClass = getEventStatsForEvent(plannerEvent);
         forEventClass.increaseCount(plannerEvent.getLocation(), 1L);
 
@@ -117,26 +116,25 @@ class PlannerEventStatsCollectorState {
         }
     }
 
-    private MutableStats getEventStatsForEvent(@Nonnull PlannerEvent plannerEvent) {
+    private MutableStats getEventStatsForEvent(PlannerEvent plannerEvent) {
         return (plannerEvent instanceof PlannerEventWithState) ?
                getEventStatsForEventWithStateClassByPlannerPhase((PlannerEventWithState)plannerEvent) :
                getEventStatsForEventWithoutStateClass(plannerEvent.getClass());
     }
 
-    private MutableStats getEventStatsForEventWithoutStateClass(@Nonnull Class<? extends PlannerEvent> eventClass) {
+    private MutableStats getEventStatsForEventWithoutStateClass(Class<? extends PlannerEvent> eventClass) {
         return eventWithoutStateClassStatsMap.compute(eventClass, (eC, mutableStats) -> mutableStats != null ? mutableStats : new MutableStats());
     }
 
-    private MutableStats getEventStatsForEventWithStateClassByPlannerPhase(@Nonnull PlannerEventWithState event) {
+    private MutableStats getEventStatsForEventWithStateClassByPlannerPhase(PlannerEventWithState event) {
         return eventWithStateClassStatsMapByPlannerPhase.computeIfAbsent(event.getPlannerPhase(), pP -> new LinkedHashMap<>())
                 .computeIfAbsent(event.getClass(), (eC) -> new MutableStats());
     }
 
-    private MutableStats getEventStatsForPlannerRuleClass(@Nonnull Class<? extends CascadesRule<?>> plannerRuleClass) {
+    private MutableStats getEventStatsForPlannerRuleClass(Class<? extends CascadesRule<?>> plannerRuleClass) {
         return plannerRuleClassStatsMap.computeIfAbsent(plannerRuleClass, (eC) -> new MutableStats());
     }
 
-    @Nonnull
     PlannerEventStatsMaps getStatsMaps() {
         return new PlannerEventStatsMaps(
                 eventWithoutStateClassStatsMap,
@@ -150,11 +148,11 @@ class PlannerEventStatsCollectorState {
             super(Maps.newLinkedHashMap(), 0L, 0L);
         }
 
-        void setCount(@Nonnull PlannerEvent.Location location, final long count) {
+        void setCount(PlannerEvent.Location location, final long count) {
             locationCountMap.put(location, count);
         }
 
-        void increaseCount(@Nonnull PlannerEvent.Location location, final long increase) {
+        void increaseCount(PlannerEvent.Location location, final long increase) {
             setCount(location, getCount(location) + increase);
         }
 

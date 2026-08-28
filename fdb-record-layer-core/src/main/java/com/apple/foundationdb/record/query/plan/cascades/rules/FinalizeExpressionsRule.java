@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Coll
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 import java.util.stream.StreamSupport;
 
@@ -54,24 +53,19 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class FinalizeExpressionsRule extends AbstractCascadesRule<RelationalExpression> implements ImplementationCascadesRule<RelationalExpression> {
-    @Nonnull
     private static final CollectionMatcher<ExpressionPartition<RelationalExpression>> allPartitions = all(anyExpressionPartition());
 
-    @Nonnull
     private static final BindingMatcher<Reference> childReferenceMatcher = expressionPartitions(allPartitions);
 
-    @Nonnull
     private static final CollectionMatcher<Quantifier> allQuantifiersMatcher =
             all(anyQuantifierOverRef(childReferenceMatcher));
 
-    @Nonnull
     private static final BindingMatcher<RelationalExpression> root = anyExploratoryExpression(allQuantifiersMatcher);
 
     public FinalizeExpressionsRule() {
         super(root);
     }
 
-    @Nonnull
     @Override
     public Optional<Class<?>> getRootOperator() {
         // this is an all-rule
@@ -80,7 +74,7 @@ public class FinalizeExpressionsRule extends AbstractCascadesRule<RelationalExpr
 
     @Override
     @SuppressWarnings("UnstableApiUsage")
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final var bindings = call.getBindings();
         final var exploratoryExpression = bindings.get(root);
         final var partitionsCollectedByQuantifier = bindings.getAll(allPartitions);

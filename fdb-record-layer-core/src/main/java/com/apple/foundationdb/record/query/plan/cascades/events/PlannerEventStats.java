@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.events;
 
 import com.google.common.collect.ImmutableMap;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -36,13 +35,12 @@ import java.util.stream.Stream;
  * </p>
  */
 public class PlannerEventStats {
-    @Nonnull
     protected final Map<PlannerEvent.Location, Long> locationCountMap;
 
     protected long totalTimeInNs;
     protected long ownTimeInNs;
 
-    protected PlannerEventStats(@Nonnull final Map<PlannerEvent.Location, Long> locationCountMap,
+    protected PlannerEventStats(final Map<PlannerEvent.Location, Long> locationCountMap,
                                 final long totalTimeInNs,
                                 final long ownTimeInNs) {
         this.locationCountMap = locationCountMap;
@@ -55,7 +53,6 @@ public class PlannerEventStats {
      * class tracked by this instance were emitted with the provided {@link PlannerEvent.Location}.
      * @return a {@link Map} of {@link PlannerEvent.Location} to a {@link Long}.
      */
-    @Nonnull
     public Map<PlannerEvent.Location, Long> getLocationCountMap() {
         return locationCountMap;
     }
@@ -65,7 +62,7 @@ public class PlannerEventStats {
      * were emitted with the provided {@link PlannerEvent.Location}.
      * @return {@code long} representing the number of events emitted with {@code location}.
      */
-    public long getCount(@Nonnull final PlannerEvent.Location location) {
+    public long getCount(final PlannerEvent.Location location) {
         return locationCountMap.getOrDefault(location, 0L);
     }
 
@@ -107,7 +104,6 @@ public class PlannerEventStats {
      * Return an immutable copy of this instance.
      * @return an immutable instance of {@link PlannerEventStats}.
      */
-    @Nonnull
     public PlannerEventStats toImmutable() {
         return new PlannerEventStats(ImmutableMap.copyOf(locationCountMap), totalTimeInNs, ownTimeInNs);
     }
@@ -119,7 +115,6 @@ public class PlannerEventStats {
      * @return a new instance of {@link PlannerEventStats} containing the combined statistics for the {@link PlannerEvent} class
      *         that {@code first} and {@code second} tracked.
      */
-    @Nonnull
     public static PlannerEventStats merge(final PlannerEventStats first, final PlannerEventStats second) {
         return new PlannerEventStats(
                 Stream.of(first.getLocationCountMap(), second.getLocationCountMap())

@@ -41,7 +41,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -70,28 +69,22 @@ public class OuterJoinExpression extends AbstractRelationalExpressionWithChildre
         implements InternalPlannerGraphRewritable {
 
     /** The preserved-side quantifier of the join. */
-    @Nonnull
     private final Quantifier.ForEach preservedQuantifier;
 
     /** The null-supplying-side quantifier of the join. */
-    @Nonnull
     private final Quantifier.ForEach nullSupplyingQuantifier;
 
     /** Predicates from the SQL {@code ON} clause that determine which rows match across the two sides. */
-    @Nonnull
     private final List<? extends QueryPredicate> joinPredicates;
 
     /** The combined result value flowing columns from both sides. */
-    @Nonnull
     private final Value resultValue;
 
     /** A memoized mapping from correlation alias to the quantifier that owns it. */
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Map<CorrelationIdentifier, ? extends Quantifier>> aliasToQuantifierMapSupplier;
 
     /** A memoized partial order capturing correlation dependencies between the two quantifiers. */
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<PartiallyOrderedSet<CorrelationIdentifier>> correlationOrderSupplier =
             Suppliers.memoize(this::computeCorrelationOrder);
@@ -108,10 +101,10 @@ public class OuterJoinExpression extends AbstractRelationalExpressionWithChildre
      * @param resultValue value combining columns from both sides
      */
     @SuppressWarnings("this-escape")
-    public OuterJoinExpression(@Nonnull final Quantifier.ForEach preservedQuantifier,
-                               @Nonnull final Quantifier.ForEach nullSupplyingQuantifier,
-                               @Nonnull final List<? extends QueryPredicate> joinPredicates,
-                               @Nonnull final Value resultValue) {
+    public OuterJoinExpression(final Quantifier.ForEach preservedQuantifier,
+                               final Quantifier.ForEach nullSupplyingQuantifier,
+                               final List<? extends QueryPredicate> joinPredicates,
+                               final Value resultValue) {
         Verify.verify(!preservedQuantifier.isNullOnEmpty());
         Verify.verify(!nullSupplyingQuantifier.isNullOnEmpty());
         // Every reference to the null-supplying alias inside the result value must carry a nullable type.
@@ -132,19 +125,16 @@ public class OuterJoinExpression extends AbstractRelationalExpressionWithChildre
     }
 
     /** Returns the preserved-side quantifier. */
-    @Nonnull
     public Quantifier.ForEach getPreservedQuantifier() {
         return preservedQuantifier;
     }
 
     /** Returns the null-supplying-side quantifier. */
-    @Nonnull
     public Quantifier.ForEach getNullSupplyingQuantifier() {
         return nullSupplyingQuantifier;
     }
 
     /** {@inheritDoc} */
-    @Nonnull
     @Override
     public Value getResultValue() {
         return resultValue;
@@ -153,7 +143,6 @@ public class OuterJoinExpression extends AbstractRelationalExpressionWithChildre
     /**
      * Returns the {@code ON}-clause join predicates.
      */
-    @Nonnull
     public List<? extends QueryPredicate> getJoinPredicates() {
         return joinPredicates;
     }
@@ -162,7 +151,6 @@ public class OuterJoinExpression extends AbstractRelationalExpressionWithChildre
      * Returns the two quantifiers. The first quantifier is for the preserved side, the second is for the
      * null-supplying side.
      */
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(preservedQuantifier, nullSupplyingQuantifier);
@@ -190,13 +178,11 @@ public class OuterJoinExpression extends AbstractRelationalExpressionWithChildre
     }
 
     /** Returns a memoized mapping from the alias of each quantifier to the quantifier itself. */
-    @Nonnull
     public Map<CorrelationIdentifier, ? extends Quantifier> getAliasToQuantifierMap() {
         return aliasToQuantifierMapSupplier.get();
     }
 
     /** {@inheritDoc} */
-    @Nonnull
     @Override
     public PartiallyOrderedSet<CorrelationIdentifier> getCorrelationOrder() {
         return correlationOrderSupplier.get();
@@ -206,7 +192,6 @@ public class OuterJoinExpression extends AbstractRelationalExpressionWithChildre
      * Computes the partial order of correlation dependencies between the two quantifiers by examining the
      * {@code getCorrelatedTo()} set of each quantifier.
      */
-    @Nonnull
     private PartiallyOrderedSet<CorrelationIdentifier> computeCorrelationOrder() {
         final Map<CorrelationIdentifier, ? extends Quantifier> aliasToQuantifierMap = getAliasToQuantifierMap();
         return PartiallyOrderedSet.of(
@@ -220,7 +205,6 @@ public class OuterJoinExpression extends AbstractRelationalExpressionWithChildre
      * Returns correlations referenced by the join predicates or result value that are not satisfied by the owned
      * quantifiers (i.e., outer correlations).
      */
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return Streams.concat(
@@ -232,11 +216,10 @@ public class OuterJoinExpression extends AbstractRelationalExpressionWithChildre
     /**
      * Creates a new {@code OuterJoinExpression} with all correlations translated according to the given map.
      */
-    @Nonnull
     @Override
-    public OuterJoinExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public OuterJoinExpression translateCorrelations(final TranslationMap translationMap,
                                                      final boolean shouldSimplifyValues,
-                                                     @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                     final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 2);
         final Quantifier.ForEach translatedPreserved = translatedQuantifiers.get(0).narrow(Quantifier.ForEach.class);
         final Quantifier.ForEach translatedNullSupplying = translatedQuantifiers.get(1).narrow(Quantifier.ForEach.class);
@@ -278,8 +261,8 @@ public class OuterJoinExpression extends AbstractRelationalExpressionWithChildre
      */
     @Override
     @SuppressWarnings({"UnstableApiUsage", "PMD.CompareObjectsWithEquals"})
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap aliasMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap aliasMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -303,9 +286,8 @@ public class OuterJoinExpression extends AbstractRelationalExpressionWithChildre
     /**
      * Produces a planner-graph node labeled {@code OUTER JOIN} with the {@code ON} predicate as detail text.
      */
-    @Nonnull
     @Override
-    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewriteInternalPlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         final List<String> details;
         if (joinPredicates.isEmpty()) {
             details = ImmutableList.of();

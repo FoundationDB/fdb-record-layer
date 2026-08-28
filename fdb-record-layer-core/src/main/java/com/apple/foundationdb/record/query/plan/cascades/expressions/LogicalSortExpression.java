@@ -37,7 +37,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -48,28 +47,25 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.EXPERIMENTAL)
 public class LogicalSortExpression extends AbstractRelationalExpressionWithChildren implements InternalPlannerGraphRewritable {
-    @Nonnull
     private final RequestedOrdering ordering;
 
-    @Nonnull
     private final Quantifier inner;
 
-    public LogicalSortExpression(@Nonnull final RequestedOrdering ordering, @Nonnull final Quantifier inner) {
+    public LogicalSortExpression(final RequestedOrdering ordering, final Quantifier inner) {
         this.ordering = ordering;
         this.inner = inner;
     }
 
     @Deprecated
-    public LogicalSortExpression(@Nonnull List<Value> sortValues,
+    public LogicalSortExpression(List<Value> sortValues,
                                  final boolean reverse,
-                                 @Nonnull final Quantifier inner) {
+                                 final Quantifier inner) {
         this(buildRequestedOrdering(sortValues, reverse, inner), inner);
     }
 
-    @Nonnull
-    public static RequestedOrdering buildRequestedOrdering(@Nonnull List<Value> sortValues,
+    public static RequestedOrdering buildRequestedOrdering(List<Value> sortValues,
                                                            boolean reverse,
-                                                           @Nonnull final Quantifier inner) {
+                                                           final Quantifier inner) {
         final OrderingPart.RequestedSortOrder order = OrderingPart.RequestedSortOrder.fromIsReverse(reverse);
         final RequestedOrdering.Distinctness distinctness = RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS;
         final var requestedOrderingParts =
@@ -77,12 +73,10 @@ public class LogicalSortExpression extends AbstractRelationalExpressionWithChild
         return RequestedOrdering.ofParts(requestedOrderingParts, distinctness, false, inner.getCorrelatedTo());
     }
 
-    @Nonnull
-    public static LogicalSortExpression unsorted(@Nonnull final Quantifier inner) {
+    public static LogicalSortExpression unsorted(final Quantifier inner) {
         return new LogicalSortExpression(RequestedOrdering.preserve(), inner);
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(getInner());
@@ -93,31 +87,26 @@ public class LogicalSortExpression extends AbstractRelationalExpressionWithChild
         return 1;
     }
 
-    @Nonnull
     public RequestedOrdering getOrdering() {
         return ordering;
     }
 
-    @Nonnull
     private Quantifier getInner() {
         return inner;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
-    public LogicalSortExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public LogicalSortExpression translateCorrelations(final TranslationMap translationMap,
                                                        final boolean shouldSimplifyValues,
-                                                       @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                       final List<? extends Quantifier> translatedQuantifiers) {
         return new LogicalSortExpression(getOrdering(), Iterables.getOnlyElement(translatedQuantifiers));
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return inner.getFlowedObjectValue();
@@ -125,8 +114,8 @@ public class LogicalSortExpression extends AbstractRelationalExpressionWithChild
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -155,9 +144,8 @@ public class LogicalSortExpression extends AbstractRelationalExpressionWithChild
         return ordering.hashCode();
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewriteInternalPlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         if (ordering.isPreserve()) {
             return PlannerGraph.fromNodeAndChildGraphs(
                     new PlannerGraph.LogicalOperatorNodeWithInfo(this,

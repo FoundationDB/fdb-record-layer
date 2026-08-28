@@ -35,7 +35,6 @@ import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.column;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.exists;
@@ -53,7 +52,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.j
  * Tests for the {@link EliminateNullOnEmptyRule}.
  */
 class EliminateNullOnEmptyRuleTest {
-    @Nonnull
     private static final RuleTestHelper testHelper = new RuleTestHelper(new EliminateNullOnEmptyRule(), PlannerPhase.PLANNING);
 
     @BeforeEach

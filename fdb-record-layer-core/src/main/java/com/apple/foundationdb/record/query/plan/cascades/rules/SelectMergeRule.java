@@ -50,7 +50,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -75,24 +74,19 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class SelectMergeRule extends AbstractCascadesRule<SelectExpression> implements ImplementationCascadesRule<SelectExpression>, CascadesRule.OnPrunedInputsRule<SelectExpression> {
-    @Nonnull
     private static final BindingMatcher<RelationalExpressionWithPredicates> childExpressionMatcher =
             withPredicatesExpression();
 
-    @Nonnull
     private static final BindingMatcher<ExpressionPartition<RelationalExpression>> childPartitionsMatcher =
             expressions(only(childExpressionMatcher));
 
-    @Nonnull
     private static final BindingMatcher<Reference> childReferenceMatcher =
             expressionPartitions(filterPartition(partition -> partition.getPartitionPropertyValue(SelectMergeableProperty.selectMergeable()),
                     rollUpPartitionsTo(only(childPartitionsMatcher), SelectMergeableProperty.selectMergeable())));
 
-    @Nonnull
     private static final CollectionMatcher<Quantifier.ForEach> quantifiersMatcher =
             some(forEachQuantifierWithoutDefaultOnEmptyOverRef(childReferenceMatcher));
 
-    @Nonnull
     private static final BindingMatcher<SelectExpression> root = selectExpression(quantifiersMatcher).where(isFinalExpression());
 
     public SelectMergeRule() {
@@ -101,7 +95,7 @@ public class SelectMergeRule extends AbstractCascadesRule<SelectExpression> impl
 
     @SuppressWarnings("UnstableApiUsage")
     @Override
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final var bindings = call.getBindings();
         final var quantifiers = bindings.get(quantifiersMatcher);
         final var childSelectExpressions = bindings.getAll(childExpressionMatcher);

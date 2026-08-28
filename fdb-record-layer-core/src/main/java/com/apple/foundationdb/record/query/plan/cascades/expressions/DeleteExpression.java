@@ -36,7 +36,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -48,16 +47,13 @@ import java.util.Set;
  * @see com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDeleteRule
  */
 public class DeleteExpression extends AbstractRelationalExpressionWithChildren implements PlannerGraphRewritable {
-    @Nonnull
     private final Quantifier.ForEach inner;
-    @Nonnull
     private final String targetRecordType;
 
-    @Nonnull
     private final Value resultValue;
 
-    public DeleteExpression(@Nonnull final Quantifier.ForEach inner,
-                            @Nonnull final String targetRecordType) {
+    public DeleteExpression(final Quantifier.ForEach inner,
+                            final String targetRecordType) {
         this.inner = inner;
         this.targetRecordType = targetRecordType;
         this.resultValue = inner.getFlowedObjectValue();
@@ -68,42 +64,37 @@ public class DeleteExpression extends AbstractRelationalExpressionWithChildren i
         return 1;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
     }
 
-    @Nonnull
     @Override
-    public DeleteExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public DeleteExpression translateCorrelations(final TranslationMap translationMap,
                                                   final boolean shouldSimplifyValues,
-                                                  @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                  final List<? extends Quantifier> translatedQuantifiers) {
         return new DeleteExpression(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.ForEach.class), targetRecordType);
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return resultValue;
     }
 
-    @Nonnull
-    public RecordQueryDeletePlan toPlan(@Nonnull final Quantifier.Physical physicalInner) {
+    public RecordQueryDeletePlan toPlan(final Quantifier.Physical physicalInner) {
         Verify.verify(inner.getAlias().equals(physicalInner.getAlias()));
         return RecordQueryDeletePlan.deletePlan(physicalInner);
     }
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -140,9 +131,8 @@ public class DeleteExpression extends AbstractRelationalExpressionWithChildren i
      * @return the rewritten planner graph that models the target as a separate node that is connected to the
      *         delete expression node.
      */
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         Verify.verify(!childGraphs.isEmpty());
 
         final var graphForTarget =

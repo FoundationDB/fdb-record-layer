@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.combinatorics.ChooseK;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -39,7 +38,6 @@ import java.util.stream.Stream;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface CollectionMatcher<T> extends ContainerMatcher<T, Collection<T>> {
-    @Nonnull
     @Override
     @SuppressWarnings("unchecked")
     default Class<Collection<T>> getRootClass() {
@@ -49,14 +47,13 @@ public interface CollectionMatcher<T> extends ContainerMatcher<T, Collection<T>>
 
     static <T> CollectionMatcher<T> empty() {
         return new CollectionMatcher<T>() {
-            @Nonnull
             @Override
-            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final Collection<T> in) {
+            public Stream<PlannerBindings> bindMatchesSafely(RecordQueryPlannerConfiguration plannerConfiguration, final PlannerBindings outerBindings, final Collection<T> in) {
                 return in.isEmpty() ? Stream.of(PlannerBindings.from(this, in)) : Stream.empty();
             }
 
             @Override
-            public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+            public String explainMatcher(final Class<?> atLeastType, final String boundId, final String indentation) {
                 if (Collection.class.isAssignableFrom(atLeastType)) {
                     return "case " + boundId + " if " + boundId + " isEmpty() => success";
                 } else {
@@ -66,17 +63,15 @@ public interface CollectionMatcher<T> extends ContainerMatcher<T, Collection<T>>
         };
     }
 
-    @Nonnull
-    static <E> CollectionMatcher<E> fromBindingMatcher(@Nonnull final BindingMatcher<Collection<E>> matcher) {
+    static <E> CollectionMatcher<E> fromBindingMatcher(final BindingMatcher<Collection<E>> matcher) {
         return new CollectionMatcher<E>() {
-            @Nonnull
             @Override
-            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final Collection<E> in) {
+            public Stream<PlannerBindings> bindMatchesSafely(RecordQueryPlannerConfiguration plannerConfiguration, final PlannerBindings outerBindings, final Collection<E> in) {
                 return matcher.bindMatchesSafely(plannerConfiguration, outerBindings, in);
             }
 
             @Override
-            public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+            public String explainMatcher(final Class<?> atLeastType, final String boundId, final String indentation) {
                 return matcher.explainMatcher(atLeastType, boundId, indentation);
             }
         };
@@ -84,9 +79,9 @@ public interface CollectionMatcher<T> extends ContainerMatcher<T, Collection<T>>
 
     @SafeVarargs
     @SuppressWarnings("varargs")
-    static <E> CollectionMatcher<E> choose(@Nonnull final BindingMatcher<? extends E> downstream0,
-                                           @Nonnull final BindingMatcher<? extends E> downstream1,
-                                           @Nonnull final BindingMatcher<? extends E>... downstreamTail) {
+    static <E> CollectionMatcher<E> choose(final BindingMatcher<? extends E> downstream0,
+                                           final BindingMatcher<? extends E> downstream1,
+                                           final BindingMatcher<? extends E>... downstreamTail) {
         return choose(ImmutableList.<BindingMatcher<? extends E>>builder()
                 .add(downstream0)
                 .add(downstream1)
@@ -95,21 +90,21 @@ public interface CollectionMatcher<T> extends ContainerMatcher<T, Collection<T>>
     }
 
     @SuppressWarnings("unchecked")
-    static <E> CollectionMatcher<E> choose(@Nonnull final List<? extends BindingMatcher<? extends E>> downstreams) {
+    static <E> CollectionMatcher<E> choose(final List<? extends BindingMatcher<? extends E>> downstreams) {
         return CollectionMatcher.fromBindingMatcher(
                 TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<Collection<E>>)(Class<?>)Collection.class,
                         Extractor.of(element -> ChooseK.chooseK(element, Math.min(element.size(), downstreams.size())), name -> "choose(" + name + ", " + downstreams.size() + ")"),
                         AnyMatcher.anyInIterable(SetMatcher.exactlyInAnyOrder(downstreams))));
     }
 
-    static <E> CollectionMatcher<E> combinations(@Nonnull final CollectionMatcher<? extends E> downstream) {
+    static <E> CollectionMatcher<E> combinations(final CollectionMatcher<? extends E> downstream) {
         return combinations(downstream, collection -> 0, Collection::size);
     }
 
     @SuppressWarnings("unchecked")
-    static <E> CollectionMatcher<E> combinations(@Nonnull final CollectionMatcher<? extends E> downstream,
-                                                 @Nonnull final Function<Collection<E>, Integer> startInclusiveFunction,
-                                                 @Nonnull final Function<Collection<E>, Integer> endExclusiveFunction) {
+    static <E> CollectionMatcher<E> combinations(final CollectionMatcher<? extends E> downstream,
+                                                 final Function<Collection<E>, Integer> startInclusiveFunction,
+                                                 final Function<Collection<E>, Integer> endExclusiveFunction) {
         return CollectionMatcher.fromBindingMatcher(
                 TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<Collection<E>>)(Class<?>)Collection.class,
                         Extractor.of(collection -> ChooseK.chooseK(collection, startInclusiveFunction.apply(collection), endExclusiveFunction.apply(collection)), name -> "combinations(" + name + ")"),
@@ -117,9 +112,9 @@ public interface CollectionMatcher<T> extends ContainerMatcher<T, Collection<T>>
     }
 
     @SuppressWarnings("unchecked")
-    static <E> CollectionMatcher<E> combinations(@Nonnull final CollectionMatcher<? extends E> downstream,
-                                                 @Nonnull final BiFunction<RecordQueryPlannerConfiguration, Collection<E>, Integer> startInclusiveFunction,
-                                                 @Nonnull final BiFunction<RecordQueryPlannerConfiguration, Collection<E>, Integer> endExclusiveFunction) {
+    static <E> CollectionMatcher<E> combinations(final CollectionMatcher<? extends E> downstream,
+                                                 final BiFunction<RecordQueryPlannerConfiguration, Collection<E>, Integer> startInclusiveFunction,
+                                                 final BiFunction<RecordQueryPlannerConfiguration, Collection<E>, Integer> endExclusiveFunction) {
         return CollectionMatcher.fromBindingMatcher(
                 TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<Collection<E>>)(Class<?>)Collection.class,
                         Extractor.of((plannerConfiguration, collection) -> ChooseK.chooseK(collection, startInclusiveFunction.apply(plannerConfiguration, collection), endExclusiveFunction.apply(plannerConfiguration, collection)), name -> "combinations(" + name + ")"),

@@ -40,7 +40,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggreg
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Set;
 
@@ -62,10 +61,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementStreamingAggregationRule extends AbstractCascadesRule<GroupByExpression> implements ImplementationCascadesRule<GroupByExpression> {
-    @Nonnull
     private static final BindingMatcher<PlanPartition> innerPlanPartitions = anyPlanPartition();
 
-    @Nonnull
     private static final BindingMatcher<Collection<PlanPartition>> rolledUpPlanPartitions =
             rollUpPartitionsTo(
                     // The aggregation result from a streaming aggregation may be incorrect if the underlying plan returns
@@ -78,12 +75,9 @@ public class ImplementStreamingAggregationRule extends AbstractCascadesRule<Grou
                             ContinuableWithoutDuplicatesProperty.continuableWithoutDuplicates(),
                             OrderingProperty.ordering()));
 
-    @Nonnull
     private static final BindingMatcher<Reference> lowerRefMatcher = planPartitions(rolledUpPlanPartitions);
 
-    @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(lowerRefMatcher);
-    @Nonnull
     private static final BindingMatcher<GroupByExpression> root =
             groupByExpression(recordConstructorValue(all(streamableAggregateValue())), any(innerQuantifierMatcher));
 
@@ -92,7 +86,7 @@ public class ImplementStreamingAggregationRule extends AbstractCascadesRule<Grou
     }
 
     @Override
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final var bindings = call.getBindings();
 
         final var groupByExpression = bindings.get(root);
@@ -123,10 +117,9 @@ public class ImplementStreamingAggregationRule extends AbstractCascadesRule<Grou
         }
     }
 
-    @Nonnull
-    private RecordQueryStreamingAggregationPlan implementGroupBy(@Nonnull final ImplementationCascadesRuleCall call,
-                                                                 @Nonnull final PlanPartition planPartition,
-                                                                 @Nonnull final GroupByExpression groupByExpression) {
+    private RecordQueryStreamingAggregationPlan implementGroupBy(final ImplementationCascadesRuleCall call,
+                                                                 final PlanPartition planPartition,
+                                                                 final GroupByExpression groupByExpression) {
         final var innerQuantifier = Iterables.getOnlyElement(groupByExpression.getQuantifiers());
         final var newInnerPlanReference = call.memoizeMemberPlansFromOther(innerQuantifier.getRangesOver(), planPartition.getPlans());
         final var newPlanQuantifier = Quantifier.physical(newInnerPlanReference);

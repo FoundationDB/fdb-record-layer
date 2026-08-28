@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.simplification.D
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -52,9 +51,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 public class PushRequestedOrderingThroughGroupByRule extends AbstractCascadesRule<GroupByExpression> implements AbstractCascadesRule.PreOrderRule  {
 
     private static final BindingMatcher<Reference> lowerRefMatcher = ReferenceMatchers.anyRef();
-    @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(lowerRefMatcher);
-    @Nonnull
     private static final BindingMatcher<GroupByExpression> root =
             groupByExpression(innerQuantifierMatcher);
 
@@ -63,7 +60,7 @@ public class PushRequestedOrderingThroughGroupByRule extends AbstractCascadesRul
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(final CascadesRuleCall call) {
         final var bindings = call.getBindings();
         final var groupByExpression = bindings.get(root);
         final var innerQuantifier = bindings.get(innerQuantifierMatcher);
@@ -84,11 +81,10 @@ public class PushRequestedOrderingThroughGroupByRule extends AbstractCascadesRul
         }
     }
 
-    @Nonnull
-    private Set<RequestedOrdering> collectCompatibleOrderings(@Nonnull final EvaluationContext evaluationContext,
-                                                              @Nonnull final GroupByExpression groupByExpression,
-                                                              @Nonnull final Quantifier innerQuantifier,
-                                                              @Nonnull final Set<RequestedOrdering> requestedOrderings) {
+    private Set<RequestedOrdering> collectCompatibleOrderings(final EvaluationContext evaluationContext,
+                                                              final GroupByExpression groupByExpression,
+                                                              final Quantifier innerQuantifier,
+                                                              final Set<RequestedOrdering> requestedOrderings) {
         final var correlatedTo = groupByExpression.getCorrelatedTo();
         final var resultValue = groupByExpression.getResultValue(); // full result value
         final var groupingValue = groupByExpression.getGroupingValue();

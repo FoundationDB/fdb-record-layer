@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.fetchFromPartialRecordPlan;
@@ -40,9 +39,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 public class MergeFetchIntoCoveringIndexRule extends AbstractCascadesRule<RecordQueryFetchFromPartialRecordPlan> implements ImplementationCascadesRule<RecordQueryFetchFromPartialRecordPlan> {
-    @Nonnull
     private static final BindingMatcher<RecordQueryIndexPlan> innerPlanMatcher = indexPlan();
-    @Nonnull
     private static final BindingMatcher<RecordQueryFetchFromPartialRecordPlan> root =
             fetchFromPartialRecordPlan(coveringIndexPlan().where(indexPlanOf(innerPlanMatcher)));
 
@@ -51,7 +48,7 @@ public class MergeFetchIntoCoveringIndexRule extends AbstractCascadesRule<Record
     }
 
     @Override
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final RecordQueryIndexPlan innerPlan = call.get(innerPlanMatcher);
         call.yieldPlan(innerPlan);
     }

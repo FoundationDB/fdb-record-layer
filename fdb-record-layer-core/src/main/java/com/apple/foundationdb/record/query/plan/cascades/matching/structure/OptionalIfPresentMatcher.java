@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -33,14 +32,12 @@ import java.util.stream.Stream;
  */
 @API(API.Status.EXPERIMENTAL)
 public class OptionalIfPresentMatcher<T> implements BindingMatcher<Optional<T>> {
-    @Nonnull
     private final BindingMatcher<?> downstream;
 
-    public OptionalIfPresentMatcher(@Nonnull final BindingMatcher<?> downstream) {
+    public OptionalIfPresentMatcher(final BindingMatcher<?> downstream) {
         this.downstream = downstream;
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("unchecked")
     public Class<Optional<T>> getRootClass() {
@@ -48,9 +45,8 @@ public class OptionalIfPresentMatcher<T> implements BindingMatcher<Optional<T>> 
     }
 
     @SuppressWarnings("OptionalIsPresent")
-    @Nonnull
     @Override
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final Optional<T> in) {
+    public Stream<PlannerBindings> bindMatchesSafely(final RecordQueryPlannerConfiguration plannerConfiguration, final PlannerBindings outerBindings, final Optional<T> in) {
         return Stream.of(PlannerBindings.from(this, in))
                 .flatMap(bindings -> {
                     if (!in.isPresent()) {
@@ -63,7 +59,7 @@ public class OptionalIfPresentMatcher<T> implements BindingMatcher<Optional<T>> 
     }
 
     @Override
-    public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+    public String explainMatcher(final Class<?> atLeastType, final String boundId, final String indentation) {
         if (Optional.class.isAssignableFrom(atLeastType)) {
             return "case " + boundId + " if " + boundId + " isPresent() => success";
         } else {
@@ -71,8 +67,7 @@ public class OptionalIfPresentMatcher<T> implements BindingMatcher<Optional<T>> 
         }
     }
 
-    @Nonnull
-    public static <T> OptionalIfPresentMatcher<T> present(@Nonnull final BindingMatcher<?> downstream) {
+    public static <T> OptionalIfPresentMatcher<T> present(final BindingMatcher<?> downstream) {
         return new OptionalIfPresentMatcher<>(downstream);
     }
 }

@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 
-import javax.annotation.Nonnull;
 
 /**
  * Interface for the unapply function (also using a {@link RecordQueryPlannerConfiguration} used in a variety of matchers.
@@ -38,6 +37,5 @@ public interface UnapplyWithConfiguration<T, U> {
      * @param t the function argument
      * @return the function result
      */
-    @Nonnull
-    U unapply(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull T t);
+    U unapply(RecordQueryPlannerConfiguration plannerConfiguration, T t);
 }

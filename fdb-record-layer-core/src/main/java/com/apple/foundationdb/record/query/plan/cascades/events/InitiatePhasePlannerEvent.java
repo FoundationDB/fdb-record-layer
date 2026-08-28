@@ -26,33 +26,29 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PInitiatePhasePlannerEvent;
 
-import javax.annotation.Nonnull;
 import java.util.Deque;
 
 /**
  * Events of this class are generated every time the planner executes a task.
  */
 public class InitiatePhasePlannerEvent extends AbstractPlannerEventWithState {
-    public InitiatePhasePlannerEvent(@Nonnull final PlannerPhase plannerPhase,
-                                     @Nonnull final Reference rootReference,
-                                     @Nonnull final Deque<CascadesPlanner.Task> taskStack,
-                                     @Nonnull final Location location) {
+    public InitiatePhasePlannerEvent(final PlannerPhase plannerPhase,
+                                     final Reference rootReference,
+                                     final Deque<CascadesPlanner.Task> taskStack,
+                                     final Location location) {
         super(plannerPhase, rootReference, taskStack, location);
     }
 
     @Override
-    @Nonnull
     public String getDescription() {
         return "initiating planner phase " + getPlannerPhase().name();
     }
 
     @Override
-    @Nonnull
     public Shorthand getShorthand() {
         return Shorthand.INITPHASE;
     }
 
-    @Nonnull
     @Override
     public PInitiatePhasePlannerEvent toProto() {
         return PInitiatePhasePlannerEvent.newBuilder()
@@ -60,7 +56,6 @@ public class InitiatePhasePlannerEvent extends AbstractPlannerEventWithState {
                 .build();
     }
 
-    @Nonnull
     @Override
     public PPlannerEvent.Builder toEventBuilder() {
         return PPlannerEvent.newBuilder()

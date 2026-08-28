@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.events;
 
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 
-import javax.annotation.Nonnull;
 
 /**
  * Events that are created by a or as part of a transformation rule.
@@ -33,6 +32,5 @@ public interface PlannerEventWithRule {
      *
      * @return the rule
      */
-    @Nonnull
     CascadesRule<?> getRule();
 }

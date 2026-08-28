@@ -31,7 +31,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -45,22 +44,16 @@ import java.util.Set;
  */
 public class RecursiveUnionExpression extends AbstractRelationalExpressionWithChildren {
 
-    @Nonnull
     private final Quantifier initialStateQuantifier;
 
-    @Nonnull
     private final Quantifier recursiveStateQuantifier;
 
-    @Nonnull
     private final CorrelationIdentifier tempTableScanAlias;
 
-    @Nonnull
     private final CorrelationIdentifier tempTableInsertAlias;
 
-    @Nonnull
     private final TraversalStrategy traversalStrategy;
 
-    @Nonnull
     private final Value resultValue;
 
     /**
@@ -101,11 +94,11 @@ public class RecursiveUnionExpression extends AbstractRelationalExpressionWithCh
         POSTORDER
     }
 
-    public RecursiveUnionExpression(@Nonnull final Quantifier initialState,
-                                    @Nonnull final Quantifier recursiveState,
-                                    @Nonnull final CorrelationIdentifier tempTableScanAlias,
-                                    @Nonnull final CorrelationIdentifier tempTableInsertAlias,
-                                    @Nonnull final TraversalStrategy traversalStrategy) {
+    public RecursiveUnionExpression(final Quantifier initialState,
+                                    final Quantifier recursiveState,
+                                    final CorrelationIdentifier tempTableScanAlias,
+                                    final CorrelationIdentifier tempTableInsertAlias,
+                                    final TraversalStrategy traversalStrategy) {
         this.initialStateQuantifier = initialState;
         this.recursiveStateQuantifier = recursiveState;
         this.tempTableScanAlias = tempTableScanAlias;
@@ -119,7 +112,6 @@ public class RecursiveUnionExpression extends AbstractRelationalExpressionWithCh
         return 2;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedTo() {
         final ImmutableSet.Builder<CorrelationIdentifier> builder = ImmutableSet.builder();
@@ -131,7 +123,6 @@ public class RecursiveUnionExpression extends AbstractRelationalExpressionWithCh
         return builder.build();
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
@@ -142,13 +133,11 @@ public class RecursiveUnionExpression extends AbstractRelationalExpressionWithCh
         return true;
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return resultValue;
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(initialStateQuantifier, recursiveStateQuantifier);
@@ -156,7 +145,7 @@ public class RecursiveUnionExpression extends AbstractRelationalExpressionWithCh
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap equivalences) {
+    public boolean equalsWithoutChildren(final RelationalExpression otherExpression, final AliasMap equivalences) {
         if (this == otherExpression) {
             return true;
         }
@@ -187,12 +176,11 @@ public class RecursiveUnionExpression extends AbstractRelationalExpressionWithCh
         return Objects.hash(getTempTableScanAlias(), getTempTableInsertAlias(), traversalStrategy);
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals") // intentional
-    public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RelationalExpression translateCorrelations(final TranslationMap translationMap,
                                                       final boolean shouldSimplifyValues,
-                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                      final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 2);
         Verify.verify(!translationMap.containsSourceAlias(tempTableScanAlias)
                 && !translationMap.containsSourceAlias(tempTableInsertAlias));
@@ -202,22 +190,18 @@ public class RecursiveUnionExpression extends AbstractRelationalExpressionWithCh
                 tempTableScanAlias, tempTableInsertAlias, traversalStrategy);
     }
 
-    @Nonnull
     public CorrelationIdentifier getTempTableScanAlias() {
         return tempTableScanAlias;
     }
 
-    @Nonnull
     public CorrelationIdentifier getTempTableInsertAlias() {
         return tempTableInsertAlias;
     }
 
-    @Nonnull
     public Quantifier getInitialStateQuantifier() {
         return initialStateQuantifier;
     }
 
-    @Nonnull
     public Quantifier getRecursiveStateQuantifier() {
         return recursiveStateQuantifier;
     }

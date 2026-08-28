@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 
-import javax.annotation.Nonnull;
 import java.util.stream.Stream;
 
 /**
@@ -38,27 +37,24 @@ import java.util.stream.Stream;
  */
 @API(API.Status.EXPERIMENTAL)
 public class TypedMatcher<T> implements BindingMatcher<T> {
-    @Nonnull
     private final Class<T> bindableClass;
 
-    public TypedMatcher(@Nonnull final Class<T> bindableClass) {
+    public TypedMatcher(final Class<T> bindableClass) {
         this.bindableClass = bindableClass;
     }
 
-    @Nonnull
     @Override
     public Class<T> getRootClass() {
         return bindableClass;
     }
 
-    @Nonnull
     @Override
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull PlannerBindings outerBindings, @Nonnull T in) {
+    public Stream<PlannerBindings> bindMatchesSafely(RecordQueryPlannerConfiguration plannerConfiguration, PlannerBindings outerBindings, T in) {
         return Stream.of(PlannerBindings.from(this, in));
     }
 
     @Override
-    public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+    public String explainMatcher(final Class<?> atLeastType, final String boundId, final String indentation) {
         if (getRootClass().isAssignableFrom(atLeastType)) {
             return "case _ => success ";
         } else {
@@ -66,8 +62,7 @@ public class TypedMatcher<T> implements BindingMatcher<T> {
         }
     }
 
-    @Nonnull
-    public static <T> TypedMatcher<T> typed(@Nonnull final Class<T> bindableClass) {
+    public static <T> TypedMatcher<T> typed(final Class<T> bindableClass) {
         return new TypedMatcher<>(bindableClass);
     }
 }

@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
 import java.util.stream.Stream;
 
 /**
@@ -34,23 +33,20 @@ import java.util.stream.Stream;
  */
 @API(API.Status.EXPERIMENTAL)
 public class InstanceMatcher<T> implements BindingMatcher<T> {
-    @Nonnull
     private final BindingMatcher<T> otherMatcher;
 
-    public InstanceMatcher(@Nonnull final BindingMatcher<T> otherMatcher) {
+    public InstanceMatcher(final BindingMatcher<T> otherMatcher) {
         this.otherMatcher = otherMatcher;
     }
 
-    @Nonnull
     @Override
     public Class<T> getRootClass() {
         return otherMatcher.getRootClass();
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull PlannerBindings outerBindings, @Nonnull T in) {
+    public Stream<PlannerBindings> bindMatchesSafely(RecordQueryPlannerConfiguration plannerConfiguration, PlannerBindings outerBindings, T in) {
         Verify.verify(outerBindings.containsKey(otherMatcher));
 
         if (outerBindings.get(otherMatcher) == in) {
@@ -61,12 +57,11 @@ public class InstanceMatcher<T> implements BindingMatcher<T> {
     }
 
     @Override
-    public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+    public String explainMatcher(final Class<?> atLeastType, final String boundId, final String indentation) {
         return "case _: " + getRootClass().getSimpleName() + " if " + boundId + " is bound in other matcher => success ";
     }
 
-    @Nonnull
-    public static <T> BindingMatcher<T> sameInstanceAsBound(@Nonnull final BindingMatcher<T> otherMatcher) {
+    public static <T> BindingMatcher<T> sameInstanceAsBound(final BindingMatcher<T> otherMatcher) {
         return new InstanceMatcher<>(otherMatcher);
     }
 }

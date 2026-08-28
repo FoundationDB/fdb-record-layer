@@ -26,7 +26,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
@@ -43,18 +42,16 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 public class ListMatcher<T> implements CollectionMatcher<T> {
-    @Nonnull
     private final List<? extends BindingMatcher<? extends T>> downstreams;
 
-    private ListMatcher(@Nonnull final List<? extends BindingMatcher<? extends T>> downstreams) {
+    private ListMatcher(final List<? extends BindingMatcher<? extends T>> downstreams) {
         Preconditions.checkArgument(!downstreams.isEmpty());
         this.downstreams = downstreams;
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("java:S3958")
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final Collection<T> in) {
+    public Stream<PlannerBindings> bindMatchesSafely(final RecordQueryPlannerConfiguration plannerConfiguration, final PlannerBindings outerBindings, final Collection<T> in) {
         if (in.size() != downstreams.size()) {
             return Stream.empty();
         }
@@ -75,7 +72,7 @@ public class ListMatcher<T> implements CollectionMatcher<T> {
 
     @SuppressWarnings("UnstableApiUsage")
     @Override
-    public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+    public String explainMatcher(final Class<?> atLeastType, final String boundId, final String indentation) {
         final String nestedIndentation = indentation + INDENTATION;
 
         final ImmutableList<String> downstreamIds = Streams.mapWithIndex(downstreams.stream(), (downstream, index) -> downstream.identifierFromMatcher() + index)
@@ -87,20 +84,17 @@ public class ListMatcher<T> implements CollectionMatcher<T> {
                        .collect(Collectors.joining(" && " + newLine(nestedIndentation))) + newLine(indentation) + "}";
     }
 
-    @Nonnull
     @SafeVarargs
     @SuppressWarnings("varargs")
-    public static <T> ListMatcher<T> exactly(@Nonnull final BindingMatcher<? extends T>... downstreams) {
+    public static <T> ListMatcher<T> exactly(final BindingMatcher<? extends T>... downstreams) {
         return new ListMatcher<>(Arrays.asList(downstreams));
     }
 
-    @Nonnull
-    public static <T> ListMatcher<T> exactly(@Nonnull final List<? extends BindingMatcher<? extends T>> downstreams) {
+    public static <T> ListMatcher<T> exactly(final List<? extends BindingMatcher<? extends T>> downstreams) {
         return new ListMatcher<>(downstreams);
     }
 
-    @Nonnull
-    public static <T> ListMatcher<T> only(@Nonnull final BindingMatcher<? extends T> downstreams) {
+    public static <T> ListMatcher<T> only(final BindingMatcher<? extends T> downstreams) {
         return new ListMatcher<>(ImmutableList.of(downstreams));
     }
 }

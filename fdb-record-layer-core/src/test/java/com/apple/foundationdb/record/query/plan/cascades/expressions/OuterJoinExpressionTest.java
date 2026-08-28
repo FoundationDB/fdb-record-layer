@@ -38,7 +38,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -58,7 +57,7 @@ class OuterJoinExpressionTest {
             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("beta"))
     ));
 
-    private static Quantifier.ForEach baseQuantifier(@Nonnull final String typeName, @Nonnull final Type.Record type) {
+    private static Quantifier.ForEach baseQuantifier(final String typeName, final Type.Record type) {
         final FullUnorderedScanExpression scan =
                 new FullUnorderedScanExpression(ImmutableSet.of(typeName), Type.Record.fromFields(ImmutableList.of()), new AccessHints());
         final LogicalTypeFilterExpression filter =
@@ -66,10 +65,9 @@ class OuterJoinExpressionTest {
         return Quantifier.forEach(Reference.initialOf(filter));
     }
 
-    @Nonnull
-    private static OuterJoinExpression buildSimpleOuterJoin(@Nonnull final Quantifier.ForEach preserved,
-                                                            @Nonnull final Quantifier.ForEach nullSupplying,
-                                                            @Nonnull final ImmutableList<? extends QueryPredicate> joinPredicates) {
+    private static OuterJoinExpression buildSimpleOuterJoin(final Quantifier.ForEach preserved,
+                                                            final Quantifier.ForEach nullSupplying,
+                                                            final ImmutableList<? extends QueryPredicate> joinPredicates) {
         final Value resultValue = preserved.getFlowedObjectValue();
         return new OuterJoinExpression(preserved, nullSupplying, joinPredicates, resultValue);
     }

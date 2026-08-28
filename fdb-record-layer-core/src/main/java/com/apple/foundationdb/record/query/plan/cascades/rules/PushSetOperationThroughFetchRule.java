@@ -39,7 +39,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -128,26 +127,23 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> extends AbstractCascadesRule<P> implements ImplementationCascadesRule<P> {
-    @Nonnull
     private static final BindingMatcher<RecordQueryFetchFromPartialRecordPlan> fetchPlanMatcher =
             fetchFromPartialRecordPlan(anyPlan());
 
-    @Nonnull
     private static final BindingMatcher<Quantifier.Physical> quantifierOverFetchMatcher =
             physicalQuantifier(fetchPlanMatcher);
 
-    @Nonnull
-    private static <P extends RecordQuerySetPlan> BindingMatcher<P> root(@Nonnull final Class<P> planClass) {
+    private static <P extends RecordQuerySetPlan> BindingMatcher<P> root(final Class<P> planClass) {
         return ofTypeOwning(planClass, some(quantifierOverFetchMatcher));
     }
 
-    public PushSetOperationThroughFetchRule(@Nonnull final Class<P> planClass) {
+    public PushSetOperationThroughFetchRule(final Class<P> planClass) {
         super(root(planClass));
     }
 
     @Override
     @SuppressWarnings("java:S1905")
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
 
         final RecordQuerySetPlan setOperationPlan = bindings.get(getMatcher());

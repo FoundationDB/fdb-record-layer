@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 
-import javax.annotation.Nonnull;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher.newLine;
@@ -35,32 +34,27 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 public class TypedMatcherWithExtractAndDownstream<T> extends TypedMatcher<T> {
-    @Nonnull
     private final Extractor<? super T, ?> extractor;
-    @Nonnull
     private final BindingMatcher<?> downstream;
 
-    protected TypedMatcherWithExtractAndDownstream(@Nonnull final Class<T> bindableClass,
-                                                   @Nonnull final Extractor<? super T, ?> extractor,
-                                                   @Nonnull final BindingMatcher<?> downstream) {
+    protected TypedMatcherWithExtractAndDownstream(final Class<T> bindableClass,
+                                                   final Extractor<? super T, ?> extractor,
+                                                   final BindingMatcher<?> downstream) {
         super(bindableClass);
         this.extractor = extractor;
         this.downstream = downstream;
     }
 
-    @Nonnull
     public Extractor<? super T, ?> getExtractor() {
         return extractor;
     }
 
-    @Nonnull
     public BindingMatcher<?> getDownstream() {
         return downstream;
     }
 
-    @Nonnull
     @Override
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final T in) {
+    public Stream<PlannerBindings> bindMatchesSafely(final RecordQueryPlannerConfiguration plannerConfiguration, final PlannerBindings outerBindings, final T in) {
         return super.bindMatchesSafely(plannerConfiguration, outerBindings, in)
                 .flatMap(bindings ->
                         downstream
@@ -69,7 +63,7 @@ public class TypedMatcherWithExtractAndDownstream<T> extends TypedMatcher<T> {
     }
 
     @Override
-    public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+    public String explainMatcher(final Class<?> atLeastType, final String boundId, final String indentation) {
         final String nestedId = downstream.identifierFromMatcher();
         final String nestedIndentation = indentation + INDENTATION;
         final String doubleNestedIndentation = nestedIndentation + INDENTATION;
@@ -85,10 +79,9 @@ public class TypedMatcherWithExtractAndDownstream<T> extends TypedMatcher<T> {
                "}";
     }
 
-    @Nonnull
-    public static <S, T extends S> TypedMatcherWithExtractAndDownstream<T> typedWithDownstream(@Nonnull final Class<T> bindableClass,
-                                                                                               @Nonnull final Extractor<? super T, ?> extractor,
-                                                                                               @Nonnull final BindingMatcher<?> downstream) {
+    public static <S, T extends S> TypedMatcherWithExtractAndDownstream<T> typedWithDownstream(final Class<T> bindableClass,
+                                                                                               final Extractor<? super T, ?> extractor,
+                                                                                               final BindingMatcher<?> downstream) {
         return new TypedMatcherWithExtractAndDownstream<>(bindableClass, extractor, downstream);
     }
 }

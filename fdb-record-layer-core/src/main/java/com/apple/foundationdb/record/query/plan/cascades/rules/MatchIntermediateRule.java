@@ -47,7 +47,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -158,14 +157,13 @@ public class MatchIntermediateRule extends AbstractCascadesRule<RelationalExpres
         super(root);
     }
 
-    @Nonnull
     @Override
     public Optional<Class<?>> getRootOperator() {
         return Optional.empty();
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(final CascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
         final RelationalExpression expression = bindings.get(root);
         final List<? extends Quantifier> quantifiers = bindings.getAll(quantifierMatcher);
@@ -214,11 +212,10 @@ public class MatchIntermediateRule extends AbstractCascadesRule<RelationalExpres
      * @return an {@link Iterable} of bound {@link MatchInfo}s where each match info represents a math under the bound
      *         mappings (between query expression and candidate expression).
      */
-    @Nonnull
-    private Iterable<BoundMatch<MatchInfo>> matchWithCandidate(@Nonnull RelationalExpression expression,
-                                                               @Nonnull MatchCandidate matchCandidate,
-                                                               @Nonnull RelationalExpression candidateExpression,
-                                                               @Nonnull final EvaluationContext context) {
+    private Iterable<BoundMatch<MatchInfo>> matchWithCandidate(RelationalExpression expression,
+                                                               MatchCandidate matchCandidate,
+                                                               RelationalExpression candidateExpression,
+                                                               final EvaluationContext context) {
         Verify.verify(!expression.getQuantifiers().isEmpty());
         Verify.verify(!candidateExpression.getQuantifiers().isEmpty());
 
@@ -240,9 +237,8 @@ public class MatchIntermediateRule extends AbstractCascadesRule<RelationalExpres
      * @param quantifier a quantifier of the owned by the query expression
      * @return a {@link Collection} of {@link AliasMap}s containing possible mappings for this quantifier
      */
-    @Nonnull
-    private Collection<AliasMap> constraintsForQuantifier(@Nonnull final MatchCandidate matchCandidate,
-                                                          @Nonnull final Quantifier quantifier) {
+    private Collection<AliasMap> constraintsForQuantifier(final MatchCandidate matchCandidate,
+                                                          final Quantifier quantifier) {
         final Set<PartialMatch> partialMatchesForCandidate = quantifier.getRangesOver().getPartialMatchesForCandidate(matchCandidate);
         if (partialMatchesForCandidate.isEmpty()) {
             return ImmutableList.of(AliasMap.emptyMap());
@@ -261,11 +257,10 @@ public class MatchIntermediateRule extends AbstractCascadesRule<RelationalExpres
      * @return an {@link Iterable} of {@link PartialMatchWithQuantifier}s containing matches that can be
      *         pulled up by {@code quantifier}
      */
-    @Nonnull
-    private Iterable<PartialMatchWithQuantifier> matchQuantifiers(@Nonnull final MatchCandidate matchCandidate,
-                                                                  @Nonnull final Quantifier quantifier,
-                                                                  @Nonnull final Quantifier candidateQuantifier,
-                                                                  @Nonnull final AliasMap aliasMap) {
+    private Iterable<PartialMatchWithQuantifier> matchQuantifiers(final MatchCandidate matchCandidate,
+                                                                  final Quantifier quantifier,
+                                                                  final Quantifier candidateQuantifier,
+                                                                  final AliasMap aliasMap) {
         final Reference rangesOver = quantifier.getRangesOver();
         final Reference otherRangesOver = candidateQuantifier.getRangesOver();
 
@@ -288,12 +283,11 @@ public class MatchIntermediateRule extends AbstractCascadesRule<RelationalExpres
      * @return an {@link Iterable} of bound {@link MatchInfo}s that can be used to yield new partial matches between
      *         {@code expression} and {@code candidateExpression}.
      */
-    @Nonnull
-    private Iterable<BoundMatch<MatchInfo>> combineMatches(@Nonnull RelationalExpression expression,
-                                                           @Nonnull RelationalExpression candidateExpression,
-                                                           @Nonnull final AliasMap boundCorrelatedToMap,
-                                                           @Nonnull final Iterable<BoundMatch<EnumeratingIterable<PartialMatchWithQuantifier>>> boundMatches,
-                                                           @Nonnull final EvaluationContext context) {
+    private Iterable<BoundMatch<MatchInfo>> combineMatches(RelationalExpression expression,
+                                                           RelationalExpression candidateExpression,
+                                                           final AliasMap boundCorrelatedToMap,
+                                                           final Iterable<BoundMatch<EnumeratingIterable<PartialMatchWithQuantifier>>> boundMatches,
+                                                           final EvaluationContext context) {
         return () ->
                 StreamSupport.stream(boundMatches.spliterator(), false)
                         .flatMap(boundMatch ->
@@ -315,7 +309,6 @@ public class MatchIntermediateRule extends AbstractCascadesRule<RelationalExpres
      * @param partialMatchWithQuantifiers the iterable to be converted
      * @return a map mapping from identity(quantifier) to {@link PartialMatch}
      */
-    @Nonnull
     private IdentityBiMap<Quantifier, PartialMatch> partialMatchMap(final Iterable<PartialMatchWithQuantifier> partialMatchWithQuantifiers) {
         return StreamSupport.stream(partialMatchWithQuantifiers.spliterator(), false)
                 .collect(IdentityBiMap.toImmutableIdentityBiMap(PartialMatchWithQuantifier::getQuantifier,
@@ -329,27 +322,22 @@ public class MatchIntermediateRule extends AbstractCascadesRule<RelationalExpres
      * Partial match with a quantifier pulled up along with the partial match during matching.
      */
     public static class PartialMatchWithQuantifier {
-        @Nonnull
         private final PartialMatch partialMatch;
-        @Nonnull
         private final Quantifier quantifier;
 
-        private PartialMatchWithQuantifier(@Nonnull final PartialMatch partialMatch, @Nonnull final Quantifier quantifier) {
+        private PartialMatchWithQuantifier(final PartialMatch partialMatch, final Quantifier quantifier) {
             this.partialMatch = partialMatch;
             this.quantifier = quantifier;
         }
 
-        @Nonnull
-        public static PartialMatchWithQuantifier of(@Nonnull final PartialMatch partialMatch, @Nonnull final Quantifier quantifier) {
+        public static PartialMatchWithQuantifier of(final PartialMatch partialMatch, final Quantifier quantifier) {
             return new PartialMatchWithQuantifier(partialMatch, quantifier);
         }
 
-        @Nonnull
         public PartialMatch getPartialMatch() {
             return partialMatch;
         }
 
-        @Nonnull
         public Quantifier getQuantifier() {
             return quantifier;
         }

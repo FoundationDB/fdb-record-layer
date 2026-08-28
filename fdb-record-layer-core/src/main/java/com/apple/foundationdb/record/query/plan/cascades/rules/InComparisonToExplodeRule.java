@@ -50,7 +50,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Optional;
 
@@ -135,7 +134,7 @@ public class InComparisonToExplodeRule extends AbstractCascadesRule<SelectExpres
     }
 
     @Override
-    public void onMatch(@Nonnull final ExplorationCascadesRuleCall call) {
+    public void onMatch(final ExplorationCascadesRuleCall call) {
         final var bindings = call.getBindings();
 
         final var selectExpression = bindings.get(root);
@@ -204,9 +203,8 @@ public class InComparisonToExplodeRule extends AbstractCascadesRule<SelectExpres
     /**
      * This method creates an equality predicate for all constituent parts of a tuple.
      */
-    @Nonnull
-    private static List<QueryPredicate> createSimpleEqualitiesForRecordTypeValue(@Nonnull final Value value,
-                                                                                 @Nonnull final Quantifier.ForEach newQuantifier) {
+    private static List<QueryPredicate> createSimpleEqualitiesForRecordTypeValue(final Value value,
+                                                                                 final Quantifier.ForEach newQuantifier) {
         Verify.verify(value.getResultType().isRecord(), "value should be of type record and not %s", value.getResultType());
         final List<Value> fieldValues = Values.deconstructRecord(value);
 

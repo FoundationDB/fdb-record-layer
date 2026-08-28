@@ -43,7 +43,6 @@ import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.column;
@@ -67,7 +66,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.v
  * Tests of the {@link SelectMergeRule}.
  */
 class SelectMergeRuleTest {
-    @Nonnull
     private static final RuleTestHelper testHelper = new RuleTestHelper(new SelectMergeRule(), PlannerPhase.REWRITING);
 
     @BeforeEach

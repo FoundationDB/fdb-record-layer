@@ -46,7 +46,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.BitSet;
 import java.util.HashSet;
 import java.util.List;
@@ -84,13 +83,12 @@ public class WithPrimaryKeyDataAccessRule extends AbstractDataAccessRule {
         super(rootMatcher, completeMatchMatcher, expressionMatcher);
     }
 
-    @Nonnull
     @Override
-    protected IntersectionResult createIntersectionAndCompensation(@Nonnull final Memoizer memoizer,
-                                                                   @Nonnull final Map<BitSet, IntersectionInfo> intersectionInfoMap,
-                                                                   @Nonnull final Map<PartialMatch, RecordQueryPlan> matchToPlanMap,
-                                                                   @Nonnull final List<Vectored<SingleMatchedAccess>> partition,
-                                                                   @Nonnull final Set<RequestedOrdering> requestedOrderings) {
+    protected IntersectionResult createIntersectionAndCompensation(final Memoizer memoizer,
+                                                                   final Map<BitSet, IntersectionInfo> intersectionInfoMap,
+                                                                   final Map<PartialMatch, RecordQueryPlan> matchToPlanMap,
+                                                                   final List<Vectored<SingleMatchedAccess>> partition,
+                                                                   final Set<RequestedOrdering> requestedOrderings) {
         Verify.verify(partition.size() > 1);
 
         final var partitionAccesses =
@@ -200,8 +198,7 @@ public class WithPrimaryKeyDataAccessRule extends AbstractDataAccessRule {
                 expressionsBuilder.build());
     }
 
-    @Nonnull
-    protected static Optional<List<Value>> commonPrimaryKeyValuesMaybe(@Nonnull Iterable<? extends PartialMatch> partialMatches) {
+    protected static Optional<List<Value>> commonPrimaryKeyValuesMaybe(Iterable<? extends PartialMatch> partialMatches) {
         Verify.verify(!Iterables.isEmpty(partialMatches));
         List<Value> common = null;
         var first = true;
@@ -229,9 +226,8 @@ public class WithPrimaryKeyDataAccessRule extends AbstractDataAccessRule {
         return Optional.of(Objects.requireNonNull(common));
     }
 
-    @Nonnull
-    private static TranslationMap matchedToRealizedTranslationMap(@Nonnull final List<Vectored<SingleMatchedAccess>> partition,
-                                                                  @Nonnull final CorrelationIdentifier realizedAlias) {
+    private static TranslationMap matchedToRealizedTranslationMap(final List<Vectored<SingleMatchedAccess>> partition,
+                                                                  final CorrelationIdentifier realizedAlias) {
         final var translationMapBuilder = RegularTranslationMap.builder();
         for (final var singleMatchedAccessWithIndex : partition) {
             translationMapBuilder.when(singleMatchedAccessWithIndex.getElement().getCandidateTopAlias())

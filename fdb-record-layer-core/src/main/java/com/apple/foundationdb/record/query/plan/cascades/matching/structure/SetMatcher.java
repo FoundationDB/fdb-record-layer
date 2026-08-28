@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -46,17 +45,15 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 public class SetMatcher<T> implements CollectionMatcher<T> {
-    @Nonnull
     private final Collection<? extends BindingMatcher<? extends T>> downstreams;
 
-    private SetMatcher(@Nonnull final Collection<? extends BindingMatcher<? extends T>> downstreams) {
+    private SetMatcher(final Collection<? extends BindingMatcher<? extends T>> downstreams) {
         this.downstreams = downstreams;
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("java:S3958")
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final Collection<T> in) {
+    public Stream<PlannerBindings> bindMatchesSafely(final RecordQueryPlannerConfiguration plannerConfiguration, final PlannerBindings outerBindings, final Collection<T> in) {
         if (in.size() != downstreams.size()) {
             return Stream.empty();
         }
@@ -76,9 +73,8 @@ public class SetMatcher<T> implements CollectionMatcher<T> {
                 .flatMap(permutation -> bindMatchesForPermutation(plannerConfiguration, outerBindings, permutation));
     }
 
-    @Nonnull
     @SuppressWarnings({"java:S3958", "UnstableApiUsage"})
-    public Stream<PlannerBindings> bindMatchesForPermutation(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final List<Equivalence.Wrapper<T>> permutation) {
+    public Stream<PlannerBindings> bindMatchesForPermutation(final RecordQueryPlannerConfiguration plannerConfiguration, final PlannerBindings outerBindings, final List<Equivalence.Wrapper<T>> permutation) {
         Stream<PlannerBindings> bindingStream = Stream.of(PlannerBindings.empty());
         final var downstreamIterator = downstreams.iterator();
         for (final var wrappedItem : permutation) {
@@ -96,7 +92,7 @@ public class SetMatcher<T> implements CollectionMatcher<T> {
 
     @SuppressWarnings("UnstableApiUsage")
     @Override
-    public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+    public String explainMatcher(final Class<?> atLeastType, final String boundId, final String indentation) {
         final var nestedIndentation = indentation + INDENTATION;
 
         final var downstreamIds =
@@ -109,15 +105,13 @@ public class SetMatcher<T> implements CollectionMatcher<T> {
                        .collect(Collectors.joining()) + newLine(indentation) + "}";
     }
 
-    @Nonnull
     @SafeVarargs
     @SuppressWarnings("varargs")
-    public static <T> SetMatcher<T> exactlyInAnyOrder(@Nonnull final BindingMatcher<? extends T>... downstreams) {
+    public static <T> SetMatcher<T> exactlyInAnyOrder(final BindingMatcher<? extends T>... downstreams) {
         return new SetMatcher<>(Arrays.asList(downstreams));
     }
 
-    @Nonnull
-    public static <T> SetMatcher<T> exactlyInAnyOrder(@Nonnull final Collection<? extends BindingMatcher<? extends T>> downstreams) {
+    public static <T> SetMatcher<T> exactlyInAnyOrder(final Collection<? extends BindingMatcher<? extends T>> downstreams) {
         return new SetMatcher<>(downstreams);
     }
 }

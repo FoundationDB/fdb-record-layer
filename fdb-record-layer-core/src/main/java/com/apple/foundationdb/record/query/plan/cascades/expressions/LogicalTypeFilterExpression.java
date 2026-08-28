@@ -60,8 +60,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -77,42 +77,34 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.EXPERIMENTAL)
 public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWithChildren implements TypeFilterExpression, PlannerGraphRewritable {
-    @Nonnull
     private final QueryPredicate recordTypePredicate;
-    @Nonnull
     private final Set<String> recordTypes;
-    @Nonnull
     private final Quantifier innerQuantifier;
-    @Nonnull
     private final Type resultType;
 
-    private LogicalTypeFilterExpression(@Nonnull QueryPredicate recordTypePredicate, @Nonnull Set<String> recordTypes,
-                                        @Nonnull Quantifier innerQuantifier, @Nonnull Type resultType) {
+    private LogicalTypeFilterExpression(QueryPredicate recordTypePredicate, Set<String> recordTypes,
+                                        Quantifier innerQuantifier, Type resultType) {
         this.recordTypePredicate = recordTypePredicate;
         this.recordTypes = ImmutableSet.copyOf(recordTypes);
         this.innerQuantifier = innerQuantifier;
         this.resultType = resultType;
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return QuantifiedObjectValue.of(innerQuantifier.getAlias(), resultType);
     }
 
     @Override
-    @Nonnull
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(getInnerQuantifier());
     }
 
     @Override
-    @Nonnull
     public Set<String> getRecordTypes() {
         return recordTypes;
     }
 
-    @Nonnull
     public QueryPredicate getRecordTypePredicate() {
         return recordTypePredicate;
     }
@@ -122,22 +114,19 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
         return 1;
     }
 
-    @Nonnull
     public Quantifier getInnerQuantifier() {
         return innerQuantifier;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
-    public LogicalTypeFilterExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public LogicalTypeFilterExpression translateCorrelations(final TranslationMap translationMap,
                                                              final boolean shouldSimplifyValues,
-                                                             @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                             final List<? extends Quantifier> translatedQuantifiers) {
         final var translatedPredicates = recordTypePredicate.translateCorrelations(translationMap, shouldSimplifyValues);
         return new LogicalTypeFilterExpression(translatedPredicates, getRecordTypes(), Iterables.getOnlyElement(translatedQuantifiers),
                 resultType);
@@ -159,12 +148,11 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
         return TypeFilterExpression.super.computeHashCodeWithoutChildren();
     }
 
-    @Nonnull
     @Override
-    public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
-                                          @Nonnull final AliasMap bindingAliasMap,
-                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
-                                          @Nonnull final EvaluationContext evaluationContext) {
+    public Iterable<MatchInfo> subsumedBy(final RelationalExpression candidateExpression,
+                                          final AliasMap bindingAliasMap,
+                                          final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                          final EvaluationContext evaluationContext) {
         // the candidate must be a type filter expression.
         if (candidateExpression.getClass() != this.getClass()) {
             return ImmutableList.of();
@@ -284,12 +272,11 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
                 .orElse(ImmutableList.of());
     }
 
-    @Nonnull
     @Override
-    public Compensation compensate(@Nonnull final PartialMatch partialMatch,
-                                   @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+    public Compensation compensate(final PartialMatch partialMatch,
+                                   final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                    @Nullable final PullUp pullUp,
-                                   @Nonnull final CorrelationIdentifier candidateAlias) {
+                                   final CorrelationIdentifier candidateAlias) {
         final var predicateCompensationMap = new LinkedIdentityMap<QueryPredicate, PredicateMultiMap.PredicateCompensationFunction>();
         final var regularMatchInfo = partialMatch.getRegularMatchInfo();
         final var quantifiers = getQuantifiers();
@@ -411,9 +398,8 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
                 compensatedResult.getGroupByMappings());
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNodeWithInfo(this,
                         NodeInfo.TYPE_FILTER_OPERATOR,
@@ -437,10 +423,9 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
      *        otherwise a concrete {@link PredicateWithValueAndRanges} is used
      * @return a new {@link LogicalTypeFilterExpression} suitable for match candidate expansion
      */
-    @Nonnull
-    public static LogicalTypeFilterExpression forMatchCandidate(@Nonnull final Set<String> recordTypes,
-                                                                @Nonnull final Quantifier innerQuantifier,
-                                                                @Nonnull final Type resultType,
+    public static LogicalTypeFilterExpression forMatchCandidate(final Set<String> recordTypes,
+                                                                final Quantifier innerQuantifier,
+                                                                final Type resultType,
                                                                 @Nullable final CorrelationIdentifier recordTypeKeyParameterAlias) {
         final var value = new RecordTypeValue(QuantifiedObjectValue.of(innerQuantifier));
         final var rangeConstraints = recordTypeNamesToRangeConstraints(recordTypes);
@@ -467,10 +452,9 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
      * @param resultType the result type of the expression
      * @return a new {@link LogicalTypeFilterExpression} with a concrete type filter predicate
      */
-    @Nonnull
-    public static LogicalTypeFilterExpression of(@Nonnull final Set<String> recordTypes,
-                                                 @Nonnull final Quantifier innerQuantifier,
-                                                 @Nonnull final Type resultType) {
+    public static LogicalTypeFilterExpression of(final Set<String> recordTypes,
+                                                 final Quantifier innerQuantifier,
+                                                 final Type resultType) {
         final var value = new RecordTypeValue(QuantifiedObjectValue.of(innerQuantifier));
         final var rangeConstraints = recordTypeNamesToRangeConstraints(recordTypes);
 
@@ -478,8 +462,7 @@ public class LogicalTypeFilterExpression extends AbstractRelationalExpressionWit
         return new LogicalTypeFilterExpression(recordTypePredicate, recordTypes, innerQuantifier, resultType);
     }
 
-    @Nonnull
-    private static Set<RangeConstraints> recordTypeNamesToRangeConstraints(@Nonnull final Set<String> recordTypeNames) {
+    private static Set<RangeConstraints> recordTypeNamesToRangeConstraints(final Set<String> recordTypeNames) {
         return recordTypeNames.stream().flatMap(recordTypeName -> {
             final var rangeConstraintBuilder = RangeConstraints.newBuilder();
             rangeConstraintBuilder.addComparisonMaybe(new RecordTypeKeyComparison(recordTypeName).getComparison());

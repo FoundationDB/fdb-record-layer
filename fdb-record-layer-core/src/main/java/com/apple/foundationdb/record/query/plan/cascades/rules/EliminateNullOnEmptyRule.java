@@ -37,7 +37,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -54,11 +53,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 public class EliminateNullOnEmptyRule extends AbstractCascadesRule<SelectExpression> implements ExplorationCascadesRule<SelectExpression> {
 
-    @Nonnull
     private static final CollectionMatcher<Quantifier.ForEach> nullOnEmptyQuantifiers =
             atLeastOne(forEachQuantifierWithDefaultOnEmptyOverRef(anyRef()));
 
-    @Nonnull
     private static final BindingMatcher<SelectExpression> root = selectExpression(nullOnEmptyQuantifiers);
 
     public EliminateNullOnEmptyRule() {
@@ -66,7 +63,7 @@ public class EliminateNullOnEmptyRule extends AbstractCascadesRule<SelectExpress
     }
 
     @Override
-    public void onMatch(@Nonnull final ExplorationCascadesRuleCall call) {
+    public void onMatch(final ExplorationCascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
         final EvaluationContext evaluationContext = call.getEvaluationContext();
         final SelectExpression select = bindings.get(root);

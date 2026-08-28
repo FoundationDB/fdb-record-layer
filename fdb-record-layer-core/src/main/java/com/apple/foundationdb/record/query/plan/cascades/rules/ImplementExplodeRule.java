@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.explodeExpression;
 
@@ -45,7 +44,7 @@ public class ImplementExplodeRule extends AbstractCascadesRule<ExplodeExpression
     }
 
     @Override
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final ExplodeExpression explodeExpression = call.get(root);
         final Value collectionValue = explodeExpression.getCollectionValue();
         final boolean isWithOrdinality = explodeExpression.isWithOrdinality();

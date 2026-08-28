@@ -37,7 +37,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.SetMultimap;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Optional;
 
@@ -68,7 +67,7 @@ public class AdjustMatchRule extends AbstractCascadesRule<PartialMatch> {
 
     @Override
     @SuppressWarnings("java:S135")
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(final CascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
         final PartialMatch incompleteMatch = bindings.get(rootMatcher);
 
@@ -91,10 +90,9 @@ public class AdjustMatchRule extends AbstractCascadesRule<PartialMatch> {
         }
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private Optional<MatchInfo> matchWithCandidate(@Nonnull final PartialMatch partialMatch,
-                                                   @Nonnull final RelationalExpression candidateExpression) {
+    private Optional<MatchInfo> matchWithCandidate(final PartialMatch partialMatch,
+                                                   final RelationalExpression candidateExpression) {
         Verify.verify(!candidateExpression.getQuantifiers().isEmpty());
 
         if (candidateExpression.getQuantifiers().size() > 1) {

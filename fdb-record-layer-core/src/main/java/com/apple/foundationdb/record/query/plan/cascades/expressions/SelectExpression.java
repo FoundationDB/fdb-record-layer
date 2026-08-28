@@ -73,8 +73,8 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -91,27 +91,20 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.EXPERIMENTAL)
 public class SelectExpression extends AbstractRelationalExpressionWithChildren implements RelationalExpressionWithChildren.ChildrenAsSet, RelationalExpressionWithPredicates, InternalPlannerGraphRewritable {
-    @Nonnull
     private final Value resultValue;
-    @Nonnull
     private final List<Quantifier> children;
-    @Nonnull
     private final List<? extends QueryPredicate> predicates;
-    @Nonnull
     private final Supplier<Map<CorrelationIdentifier, ? extends Quantifier>> aliasToQuantifierMapSupplier;
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<PartiallyOrderedSet<CorrelationIdentifier>> correlationOrderSupplier = Suppliers.memoize(this::computeCorrelationOrder);
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Set<Set<CorrelationIdentifier>>> independentQuantifiersPartitioningSupplier = Suppliers.memoize(this::computeIndependentQuantifiersPartitioning);
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<QueryPredicate> conjunctedPredicateSupplier = Suppliers.memoize(this::computeConjunctedPredicate);
 
-    public SelectExpression(@Nonnull Value resultValue,
-                            @Nonnull List<? extends Quantifier> children,
-                            @Nonnull List<? extends QueryPredicate> predicates) {
+    public SelectExpression(Value resultValue,
+                            List<? extends Quantifier> children,
+                            List<? extends QueryPredicate> predicates) {
         this.resultValue = resultValue;
         this.children = ImmutableList.copyOf(children);
         this.aliasToQuantifierMapSupplier = Suppliers.memoize(() -> Quantifiers.aliasToQuantifierMap(this.children));
@@ -120,19 +113,16 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
                           : partitionPredicates(predicates);
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return resultValue;
     }
 
-    @Nonnull
     public List<? extends Value> getResultValues() {
         final var resultValue = getResultValue();
         return resultValue.getResultType().isRecord() ? Values.deconstructRecord(getResultValue()) : ImmutableList.of(resultValue);
     }
 
-    @Nonnull
     @Override
     public List<? extends QueryPredicate> getPredicates() {
         return predicates;
@@ -142,7 +132,6 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
         return !predicates.isEmpty();
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return children;
@@ -158,7 +147,6 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
         return true;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return Streams.concat(predicates.stream().flatMap(queryPredicate -> queryPredicate.getCorrelatedTo().stream()),
@@ -166,11 +154,10 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
                 .collect(ImmutableSet.toImmutableSet());
     }
 
-    @Nonnull
     @Override
-    public SelectExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public SelectExpression translateCorrelations(final TranslationMap translationMap,
                                                   final boolean shouldSimplifyValues,
-                                                  @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                  final List<? extends Quantifier> translatedQuantifiers) {
         final var translatedPredicates =
                 predicates.stream()
                         .map(p -> p.translateCorrelations(translationMap, shouldSimplifyValues))
@@ -193,8 +180,8 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
 
     @Override
     @SuppressWarnings({"UnstableApiUsage", "PMD.CompareObjectsWithEquals"})
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap aliasMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap aliasMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -216,18 +203,15 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
         return Objects.hash(getPredicates(), getResultValue());
     }
 
-    @Nonnull
     public Map<CorrelationIdentifier, ? extends Quantifier> getAliasToQuantifierMap() {
         return aliasToQuantifierMapSupplier.get();
     }
 
-    @Nonnull
     @Override
     public PartiallyOrderedSet<CorrelationIdentifier> getCorrelationOrder() {
         return correlationOrderSupplier.get();
     }
 
-    @Nonnull
     private PartiallyOrderedSet<CorrelationIdentifier> computeCorrelationOrder() {
         return RelationalExpressionWithChildren.ChildrenAsSet.super.getCorrelationOrder();
     }
@@ -239,12 +223,10 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
      * @return a set of sets of aliases where each element is a set of aliases that is only correlated or connected to
      *         other elements of the same set. Any element (alias) from two different partitions are independent.
      */
-    @Nonnull
     public Set<Set<CorrelationIdentifier>> getIndependentQuantifiersPartitioning() {
         return independentQuantifiersPartitioningSupplier.get();
     }
 
-    @Nonnull
     private Set<Set<CorrelationIdentifier>> computeIndependentQuantifiersPartitioning() {
         final var fullCorrelationOrder = getCorrelationOrder().getTransitiveClosure();
 
@@ -300,23 +282,20 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
         return partitioning;
     }
 
-    @Nonnull
     public QueryPredicate getConjunctedPredicate() {
         return conjunctedPredicateSupplier.get();
     }
 
-    @Nonnull
     private QueryPredicate computeConjunctedPredicate() {
         return AndPredicate.and(getPredicates());
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
-                                          @Nonnull final AliasMap bindingAliasMap,
-                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
-                                          @Nonnull final EvaluationContext evaluationContext) {
+    public Iterable<MatchInfo> subsumedBy(final RelationalExpression candidateExpression,
+                                          final AliasMap bindingAliasMap,
+                                          final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                          final EvaluationContext evaluationContext) {
         Verify.verify(this != candidateExpression);
 
         if (getClass() != candidateExpression.getClass()) {
@@ -603,9 +582,8 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
                 });
     }
 
-    @Nonnull
     @Override
-    public Optional<MatchInfo> adjustMatch(@Nonnull final PartialMatch partialMatch) {
+    public Optional<MatchInfo> adjustMatch(final PartialMatch partialMatch) {
         final var childMatchInfo = partialMatch.getMatchInfo();
 
         for (final var predicate : getPredicates()) {
@@ -633,9 +611,8 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
                                 .build());
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewriteInternalPlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         final var whereFormatter =
                 WithIndentationsExplainFormatter.forDot(7);
 
@@ -679,7 +656,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
      * @param predicates The predicates to partition.
      * @return a list of sargables and value predicates.
      */
-    private static List<? extends QueryPredicate> partitionPredicates(@Nonnull final List<? extends QueryPredicate> predicates) {
+    private static List<? extends QueryPredicate> partitionPredicates(final List<? extends QueryPredicate> predicates) {
         final var flattenedAndPredicates =
                 predicates.stream()
                         .flatMap(predicate -> flattenPredicate(AndPredicate.class, predicate).stream())
@@ -731,9 +708,8 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
      * @param predicates a conjunction of predicates defined on the value.
      * @return a simplified list of predicates.
      */
-    @Nonnull
-    private static List<QueryPredicate> simplifyConjunction(@Nonnull final Value value,
-                                                            @Nonnull final Collection<PredicateWithValue> predicates) {
+    private static List<QueryPredicate> simplifyConjunction(final Value value,
+                                                            final Collection<PredicateWithValue> predicates) {
         final ImmutableList.Builder<QueryPredicate> result = ImmutableList.builder();
         final var rangeBuilder = RangeConstraints.newBuilder();
 
@@ -766,9 +742,8 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
      * @param predicate The {@link QueryPredicate}.
      * @return an equivalent, linear, {@link QueryPredicate}.
      */
-    @Nonnull
-    private static List<QueryPredicate> flattenPredicate(@Nonnull final Class<? extends AndOrPredicate> classToLift,
-                                                         @Nonnull final QueryPredicate predicate) {
+    private static List<QueryPredicate> flattenPredicate(final Class<? extends AndOrPredicate> classToLift,
+                                                         final QueryPredicate predicate) {
         final var result = ImmutableList.<QueryPredicate>builder();
 
         if (predicate.isAtomic()) {
@@ -793,13 +768,12 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
         return result.build();
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings({"java:S135", "java:S1066"})
-    public Compensation compensate(@Nonnull final PartialMatch partialMatch,
-                                   @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+    public Compensation compensate(final PartialMatch partialMatch,
+                                   final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                    @Nullable final PullUp pullUp,
-                                   @Nonnull final CorrelationIdentifier candidateAlias) {
+                                   final CorrelationIdentifier candidateAlias) {
         final var predicateCompensationMap = new LinkedIdentityMap<QueryPredicate, PredicateCompensationFunction>();
         final var regularMatchInfo = partialMatch.getRegularMatchInfo();
         final var quantifiers = getQuantifiers();

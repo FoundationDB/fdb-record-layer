@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 
@@ -50,29 +49,26 @@ public class FieldWithComparisonCountProperty implements ExpressionProperty<Inte
         // prevent outside instantiation
     }
 
-    @Nonnull
     @Override
     public FieldWithComparisonCountVisitor createVisitor() {
         return new FieldWithComparisonCountVisitor();
     }
 
-    public int evaluate(@Nonnull final Reference ref) {
+    public int evaluate(final Reference ref) {
         return Objects.requireNonNull(ref.acceptVisitor(createVisitor()));
     }
 
-    public int evaluate(@Nonnull final RelationalExpression expression) {
+    public int evaluate(final RelationalExpression expression) {
         return Objects.requireNonNull(expression.acceptVisitor(createVisitor()));
     }
 
-    @Nonnull
     public static FieldWithComparisonCountProperty fieldWithComparisonCount() {
         return FIELD_WITH_COMPARISON_COUNT;
     }
 
     public static class FieldWithComparisonCountVisitor implements SimpleExpressionVisitor<Integer> {
-        @Nonnull
         @Override
-        public Integer evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Integer> childResults) {
+        public Integer evaluateAtExpression(RelationalExpression expression, List<Integer> childResults) {
             int total = 0;
             if (expression instanceof RecordQueryFilterPlan) {
                 QueryComponent filter = ((RecordQueryFilterPlan)expression).getConjunctedFilter();
@@ -87,9 +83,8 @@ public class FieldWithComparisonCountProperty implements ExpressionProperty<Inte
             return total;
         }
 
-        @Nonnull
         @Override
-        public Integer evaluateAtRef(@Nonnull Reference ref, @Nonnull List<Integer> memberResults) {
+        public Integer evaluateAtRef(Reference ref, List<Integer> memberResults) {
             int min = Integer.MAX_VALUE;
             for (int memberResult : memberResults) {
                 if (memberResult < min) {
@@ -99,7 +94,7 @@ public class FieldWithComparisonCountProperty implements ExpressionProperty<Inte
             return min;
         }
 
-        private static int getFieldWithComparisonCount(@Nonnull QueryComponent component) {
+        private static int getFieldWithComparisonCount(QueryComponent component) {
             if (component instanceof FieldWithComparison) {
                 return 1;
             } else if (component instanceof ComponentWithNoChildren) {

@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartia
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.anyPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.fetchFromPartialRecordPlan;
@@ -73,12 +72,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 public class PushDistinctThroughFetchRule extends AbstractCascadesRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> implements ImplementationCascadesRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> {
-    @Nonnull
     private static final BindingMatcher<RecordQueryPlan> innerPlanMatcher = anyPlan();
-    @Nonnull
     private static final BindingMatcher<RecordQueryFetchFromPartialRecordPlan> fetchPlanMatcher =
             fetchFromPartialRecordPlan(innerPlanMatcher);
-    @Nonnull
     private static final BindingMatcher<RecordQueryUnorderedPrimaryKeyDistinctPlan> root =
             unorderedPrimaryKeyDistinctPlan(fetchPlanMatcher);
 
@@ -87,7 +83,7 @@ public class PushDistinctThroughFetchRule extends AbstractCascadesRule<RecordQue
     }
 
     @Override
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
 
         final RecordQueryFetchFromPartialRecordPlan fetchPlan = bindings.get(fetchPlanMatcher);
