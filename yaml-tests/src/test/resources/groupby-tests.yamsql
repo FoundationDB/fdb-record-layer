@@ -192,6 +192,22 @@ test_block:
       - query: select x from t1 group by col1 as x, col2 as x;
       - error: AMBIGUOUS_COLUMN
     -
+      # Test that a duplicate grouping column is rejected. In particular, this exercises an ambiguity check during
+      # pull-up. The group-by result exposes `col1` twice, so pulling the grouping columns up over that result finds
+      # two references for it and cannot pick one arbitrarily.
+      - query: select max(col2) from t1 group by col1, col1;
+      - supported_version: 4.10.1.0
+      - error: AMBIGUOUS_COLUMN
+    -
+      - query: select col1 from t1 group by col1, col1;
+      - supported_version: 4.10.1.0
+      - error: AMBIGUOUS_COLUMN
+    -
+      # Duplicate grouping column + HAVING.
+      - query: select max(col2) from t1 group by col1, col1 having col1 > 0;
+      - supported_version: 4.10.1.0
+      - error: AMBIGUOUS_COLUMN
+    -
       - query: SELECT COUNT(*) from T1 WHERE col1 = 20 or col2 = 5
       - explain: "ISCAN(I1 <,>) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) OR _.COL2 EQUALS promote(@c14 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)"
       - result: [{!l 9}]
