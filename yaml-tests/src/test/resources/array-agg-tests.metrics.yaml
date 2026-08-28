@@ -1,14 +1,14 @@
-array-agg-combined-with-other-aggregates:
+array-agg-tests:
 -   query: EXPLAIN SELECT ARRAY_AGG(val IGNORE NULLS) AS a, ARRAY_AGG(val RESPECT
         NULLS) AS b FROM T1 WHERE grp = 10
-    ref: array-agg-tests.yamsql:297
+    ref: array-agg-tests.yamsql:269
     explain: ISCAN(T1_grp [EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (array_agg(_._0.val
         IGNORE NULLS) AS _0, array_agg(_._0.val) AS _1) GROUP BY () | ON EMPTY NULL
         | MAP (_._0._0 AS a, _._0._1 AS b)
     task_count: 457
-    task_total_time_ms: 32
+    task_total_time_ms: 26
     transform_count: 119
-    transform_time_ms: 9
+    transform_time_ms: 8
     transform_yield_count: 32
     insert_time_ms: 1
     insert_new_count: 47
@@ -17,7 +17,7 @@ array-agg-scenario:
 -   query: EXPLAIN SELECT m.mid, r.rid, sq.assets FROM doc_meta m, doc_rev r, (SELECT
         ARRAY_AGG(a.url) AS assets FROM doc_asset a WHERE a.rid = r.rid) sq WHERE
         m.owner IS NOT NULL AND 'featured' IN r.tags AND r.rid = 20
-    ref: array-agg-tests.yamsql:398
+    ref: array-agg-tests.yamsql:380
     explain: SCAN([IS doc_rev, EQUALS promote(@c60 AS LONG)]) | FILTER @c50 IN _.tags
         | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0)
         | AGG (array_agg(_._0.url) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN
@@ -36,7 +36,7 @@ array-agg-scenario:
         a.rid AS rid, ARRAY_AGG(a.url) AS assets FROM doc_asset a GROUP BY a.rid)
         sq WHERE m.owner IS NOT NULL AND 'featured' IN r.tags AND r.rid = 20 AND sq.rid
         = r.rid
-    ref: array-agg-tests.yamsql:426
+    ref: array-agg-tests.yamsql:408
     explain: ISCAN(doc_asset_by_rid <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.url)
         AS _0) GROUP BY (_._0.rid AS _0) | FLATMAP q0 -> { SCAN([IS doc_rev, EQUALS
         promote(@c63 AS LONG)]) | FILTER @c53 IN _.tags AND q0._0._0 EQUALS _.rid
@@ -54,7 +54,7 @@ array-agg-scenario:
 -   query: EXPLAIN SELECT m.mid, r.rid, sq.assets FROM doc_meta m, doc_rev r, (SELECT
         ARRAY_AGG((a.aid, a.url)) AS assets FROM doc_asset a WHERE a.rid = r.rid)
         sq WHERE m.owner IS NOT NULL AND 'featured' IN r.tags AND r.rid = 20
-    ref: array-agg-tests.yamsql:440
+    ref: array-agg-tests.yamsql:422
     explain: SCAN([IS doc_rev, EQUALS promote(@c66 AS LONG)]) | FILTER @c56 IN _.tags
         | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0)
         | AGG (array_agg((_._0.aid AS aid, _._0.url AS url)) AS _0) GROUP BY () |

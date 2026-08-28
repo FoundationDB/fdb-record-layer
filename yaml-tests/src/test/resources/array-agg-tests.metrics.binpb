@@ -1,7 +1,7 @@
-ó
-•
-(array-agg-combined-with-other-aggregatesiEXPLAIN SELECT ARRAY_AGG(val IGNORE NULLS) AS a, ARRAY_AGG(val RESPECT NULLS) AS b FROM T1 WHERE grp = 10Ø
-ÉÈêÓw ®ê±( 0È¶L8/@ÅISCAN(T1_grp [EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (array_agg(_._0.val IGNORE NULLS) AS _0, array_agg(_._0.val) AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS a, _._0._1 AS b)òdigraph G {
+Ù
+|
+array-agg-testsiEXPLAIN SELECT ARRAY_AGG(val IGNORE NULLS) AS a, ARRAY_AGG(val RESPECT NULLS) AS b FROM T1 WHERE grp = 10Ø
+É–òÚw Ÿ‘‹( 0¡›P8/@ÅISCAN(T1_grp [EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (array_agg(_._0.val IGNORE NULLS) AS _0, array_agg(_._0.val) AS _1) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS a, _._0._1 AS b)òdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

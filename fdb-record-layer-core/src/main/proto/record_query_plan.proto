@@ -489,9 +489,7 @@ message PCountValue {
 
 message PArrayAggValue {
   optional PValue child = 1;
-  optional bool ignore_nulls = 3;
-  // Removed fields that are no longer supported
-  reserved 2; // element_type, now re-derived from `child` and `ignore_nulls`
+  optional bool ignore_nulls = 2;
 }
 
 message PDerivedValue {

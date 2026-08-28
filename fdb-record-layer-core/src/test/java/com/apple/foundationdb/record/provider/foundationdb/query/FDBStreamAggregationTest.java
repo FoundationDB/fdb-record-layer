@@ -357,8 +357,8 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
     /**
      * Tests that {@code ARRAY_AGG()} restores its partial state from a continuation. Unlike the scalar aggregates,
      * whose partial state is a scalar, its state is a growing list that has to be serialized into the continuation and
-     * parsed back. That only happens when the cursor stops <em>inside</em> a group, and a record scan limit is the only
-     * thing that makes it do so: a group break carries no partial state, and a returned-row limit is applied above the
+     * parsed back. That only happens when the cursor stops <em>inside</em> a group, and the only thing that makes it do
+     * so is a record scan limit; a group break carries no partial state, and a returned-row limit is applied above the
      * aggregate cursor.
      */
     @Test

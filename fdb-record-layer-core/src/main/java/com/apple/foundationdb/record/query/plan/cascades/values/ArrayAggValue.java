@@ -62,19 +62,18 @@ import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
- * An aggregate {@link Value} implementing {@code ARRAY_AGG(«expr»)}, which collects the values of its child expression
- * across a group of rows into a single {@link Type.Array}-typed value.
+ * An aggregate {@link Value} implementing {@code ARRAY_AGG()}, which collects the values of its child expression across
+ * a group of rows into a single {@link Type.Array}-typed value.
  *
- * <p>This implementation is <em>streaming-only</em>. It implements {@link StreamableAggregateValue}, but it
- * is intentionally not an {@link IndexableAggregateValue}, as there is no index type that materializes
+ * <p>This implementation is <em>streaming-only</em>. It implements {@link StreamableAggregateValue}, but it is
+ * intentionally not an {@link IndexableAggregateValue}, as there is no index type that materializes
  * {@code ARRAY_AGG()}.
  *
  * <p><b>Null treatment:</b> Under {@code IGNORE NULLS}, {@code NULL} inputs are skipped. Under {@code RESPECT NULLS}
  * nulls are reported as an unsupported operation, as they cannot be represented in the resulting array currently;
  * see Issue #3646. The element type of the resulting array is declared non-nullable whenever {@code IGNORE NULLS} is
  * used or the child expression type is already non-nullable; only a nullable child expression evaluated under
- * {@code RESPECT NULLS} produces a nullable element type (even though the array cannot actually hold a {@code NULL}
- * element, currently).
+ * {@code RESPECT NULLS} produces a nullable element type.
  *
  * <p>{@code DISTINCT} and in-call {@code ORDER BY} clauses are not supported yet.
  */
@@ -106,19 +105,18 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
     }
 
     /**
-     * Resolves the descriptor of the message the accumulator wraps its collected elements in for serialization: a
-     * message with a single repeated {@code values} field, i.e., the same wrapper a nullable array uses.
+     * Resolves the descriptor of the message the accumulator wraps its collected elements in for serialization.
+     * This is a message with a single repeated {@code values} field, i.e., the same wrapper that a nullable array uses.
      *
      * <p>The descriptor is taken from the given plan-wide repository rather than built on the side, so that a restored
-     * element is backed by the very same descriptor as a freshly collected one. The repository is guaranteed to hold
-     * the wrapper type: it is built from the plan’s used types, and registering this value’s (nullable) array result
-     * type registers the wrapper along with it; see {@link Type.Array#defineProtoType} and
-     * {@link Type.Array#addProtoField}. A repository without it is a plan-construction bug, which the repository
+     * element is backed by the same descriptor as a freshly collected one. The repository is guaranteed to hold the
+     * wrapper type, since it is built from the plan’s used types, and registering the (nullable) array result type of
+     * this value will register the wrapper along with it; see {@link Type.Array#defineProtoType} and
+     * {@link Type.Array#addProtoField}. A repository without it would be a plan-construction bug, which the repository
      * itself reports.
      *
      * @param typeRepository the plan-wide repository to resolve the wrapper type in
      * @param elementType the type of the collected elements
-     *
      * @return the descriptor of the wrapper message for {@code elementType}
      */
     @Nonnull
@@ -163,7 +161,7 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
     }
 
     /**
-     * Returns the element type of the resulting array, i.e. the type of the collected elements. It is derived from the
+     * Returns the element type of the resulting array, i.e., the type of the collected elements. It is derived from the
      * child’s result type and the null treatment; see {@link #ArrayAggValue(Value, boolean)}.
      *
      * @return the type of the collected elements
@@ -270,9 +268,9 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
     /**
      * The {@code ARRAY_AGG(«expr»)} aggregation function.
      *
-     * <p>Note that this function takes a second argument, which is not a user-facing argument. It carries the null
-     * treatment resolved from the call’s {@code {IGNORE|RESPECT} NULLS} clause as a boolean literal, and is consumed
-     * during encapsulation rather than passed as a child to the resulting {@link ArrayAggValue}.
+     * <p>Note that this function takes a second argument besides the user-facing {@code «expr»} argument. It carries
+     * the null treatment resolved from the call’s {@code {IGNORE|RESPECT} NULLS} clause as a boolean literal, and is
+     * consumed during encapsulation rather than passed as a child to the resulting {@link ArrayAggValue}.
      */
     @AutoService(BuiltInFunction.class)
     @SuppressWarnings("PMD.UnusedFormalParameter")
@@ -304,15 +302,14 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
 
     /**
      * Accumulator that collects elements into a growing list. Partial state is serialized for continuations by
-     * wrapping the collected elements in a nullable-array protobuf wrapper message (a message with a single repeated
-     * {@code values} field) and stashing its bytes in the {@code bytes} slot of an
-     * {@link RecordCursorProto.AccumulatorState}.
+     * wrapping the collected elements in a nullable-array protobuf wrapper message and stashing its bytes in the
+     * {@code bytes} slot of an {@link RecordCursorProto.AccumulatorState}.
      *
      * <p>Elements are converted from their runtime representation to protobuf via
      * {@link RecordConstructorValue#deepCopyIfNeeded}. Since the collected elements have to be serialized
      * into the wrapper message anyway, holding them in that form keeps a restored element indistinguishable from a
-     * freshly collected one — the wrapper descriptor is resolved from the same plan-wide {@link TypeRepository} the
-     * elements are converted against, so both are backed by the very same descriptors. That lets {@link #finish()}
+     * freshly collected one. The wrapper descriptor is resolved from the same plan-wide {@link TypeRepository} the
+     * elements are converted against, so both are backed by the very same descriptors. That way, {@link #finish()} can
      * hand its result straight to the enclosing {@link RecordConstructorValue}, whose accumulator path does not do any
      * conversion.
      */
@@ -332,7 +329,7 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
 
         /**
          * Whether any input row was seen for the current group. This is independent of {@code NULL}-skipping. A group
-         * consisting solely of {@code NULL}s has still “seen” rows and must emit an (empty) array, whereas an empty
+         * consisting solely of {@code NULL}s still has “seen” rows and must emit an (empty) array, whereas an empty
          * group must produce no state so that {@code AggregateCursor.isNoRecords()} can detect an empty scan (it
          * treats a null {@code PartialAggregationResult}, i.e. an empty {@link #getAccumulatorStates()}, as
          * “no records”).
@@ -418,8 +415,6 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
         /**
          * Returns the collected elements as a plain {@link List}, which is how an array is represented at runtime. The
          * elements themselves are in their protobuf representation.
-         *
-         * @return the collected elements
          */
         @Nullable
         @Override
