@@ -27,8 +27,6 @@ import com.apple.foundationdb.relational.recordlayer.query.Literals;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 /**
@@ -49,7 +47,6 @@ class CompilableSqlFunctionTest {
     /**
      * Creates a simple test function with basic parameters.
      */
-    @Nonnull
     private CompiledSqlFunction createTestFunction() {
         return new CompiledSqlFunction(
                 "testFunction",
@@ -70,7 +67,6 @@ class CompilableSqlFunctionTest {
     /**
      * Creates a dummy relational expression to use as function body.
      */
-    @Nonnull
     private RelationalExpression createDummyBody() {
         // Create a minimal SelectExpression as the function body
         return new SelectExpression(

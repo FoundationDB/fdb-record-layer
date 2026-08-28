@@ -26,9 +26,6 @@ import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.IntStream;
 import org.antlr.v4.runtime.misc.Interval;
-
-import javax.annotation.Nonnull;
-
 /**
  * A {@link IntStream} stream, that enables allows a case-sensitive {@link org.antlr.v4.runtime.Lexer}
  * to become case-insensitive by upper-casing the stream of symbols arriving to it.
@@ -39,7 +36,7 @@ public class CaseInsensitiveCharStream implements CharStream {
     /** Character stream. */
     private final CharStream underlying;
 
-    public CaseInsensitiveCharStream(@Nonnull final String sql) {
+    public CaseInsensitiveCharStream(final String sql) {
         this.underlying = CharStreams.fromString(sql);
     }
 

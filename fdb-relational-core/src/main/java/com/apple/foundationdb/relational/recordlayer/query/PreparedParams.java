@@ -26,9 +26,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
 
 import com.google.common.collect.ImmutableMap;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Map;
 
 /**
@@ -38,25 +36,22 @@ import java.util.Map;
 @API(API.Status.EXPERIMENTAL)
 public final class PreparedParams {
 
-    @Nonnull
     private static final PreparedParams EMPTY_PARAMETERS = new PreparedParams(Map.of(), Map.of());
 
-    @Nonnull
     private final Map<Integer, Object> unnamedParams;
 
-    @Nonnull
     private final Map<String, Object> namedParams;
 
     private int nextParam = 1;
 
-    private PreparedParams(@Nonnull Map<Integer, Object> unnamedParams,
-                           @Nonnull Map<String, Object> namedParameters) {
+    private PreparedParams(Map<Integer, Object> unnamedParams,
+                           Map<String, Object> namedParameters) {
         this.unnamedParams = unnamedParams;
         this.namedParams = namedParameters;
     }
 
-    private PreparedParams(@Nonnull Map<Integer, Object> unnamedParams,
-                           @Nonnull Map<String, Object> namedParameters,
+    private PreparedParams(Map<Integer, Object> unnamedParams,
+                           Map<String, Object> namedParameters,
                            int nextParam) {
         this.unnamedParams = unnamedParams;
         this.namedParams = namedParameters;
@@ -76,7 +71,7 @@ public final class PreparedParams {
     }
 
     @Nullable
-    public Object namedParamValue(@Nonnull String name) {
+    public Object namedParamValue(String name) {
         Assert.thatUnchecked(namedParams.containsKey(name),
                 ErrorCode.UNDEFINED_PARAMETER, "No value found for parameter " + name
         );
@@ -87,34 +82,28 @@ public final class PreparedParams {
         return this.namedParams.isEmpty() && this.unnamedParams.isEmpty();
     }
 
-    @Nonnull
     public static PreparedParams empty() {
         return EMPTY_PARAMETERS;
     }
 
-    @Nonnull
-    public static PreparedParams of(@Nonnull Map<Integer, Object> parameters,
-                                    @Nonnull Map<String, Object> namedParameters) {
+    public static PreparedParams of(Map<Integer, Object> parameters,
+                                    Map<String, Object> namedParameters) {
         return new PreparedParams(parameters, namedParameters);
     }
 
-    @Nonnull
-    public static PreparedParams ofUnnamed(@Nonnull Map<Integer, Object> parameters) {
+    public static PreparedParams ofUnnamed(Map<Integer, Object> parameters) {
         return of(parameters, ImmutableMap.of());
     }
 
-    @Nonnull
-    public static PreparedParams ofNamed(@Nonnull Map<String, Object> parameters) {
+    public static PreparedParams ofNamed(Map<String, Object> parameters) {
         return new PreparedParams(ImmutableMap.of(), parameters);
     }
 
-    @Nonnull
-    public static PreparedParams copyOf(@Nonnull PreparedParams other) {
+    public static PreparedParams copyOf(PreparedParams other) {
         return copyOf(other, false);
     }
 
-    @Nonnull
-    public static PreparedParams copyOf(@Nonnull PreparedParams other, boolean withCurrentUnnamedParamIndex) {
+    public static PreparedParams copyOf(PreparedParams other, boolean withCurrentUnnamedParamIndex) {
         if (withCurrentUnnamedParamIndex) {
             return new PreparedParams(other.unnamedParams, other.namedParams, other.currentUnnamedParamIndex());
         } else {

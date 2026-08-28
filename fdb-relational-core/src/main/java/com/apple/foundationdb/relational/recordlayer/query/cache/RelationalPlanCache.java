@@ -24,9 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.google.common.base.Ticker;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
@@ -36,24 +34,21 @@ import java.util.concurrent.TimeUnit;
 @API(API.Status.EXPERIMENTAL)
 public final class RelationalPlanCache extends MultiStageCache<String, QueryCacheKey, PhysicalPlanEquivalence, Plan<?>> {
 
-    @Nonnull
     private static final TimeUnit DEFAULT_TTL_TIME_UNIT = TimeUnit.MILLISECONDS;
 
-    @Nonnull
     private static final TimeUnit DEFAULT_SECONDARY_TTL_TIME_UNIT = TimeUnit.MILLISECONDS;
 
-    @Nonnull
     private static final TimeUnit DEFAULT_TERTIARY_TTL_TIME_UNIT = TimeUnit.MILLISECONDS;
 
     private RelationalPlanCache(int size,
                               int secondarySize,
                               int tertiarySize,
                               long ttl,
-                              @Nonnull final TimeUnit ttlTimeUnit,
+                              final TimeUnit ttlTimeUnit,
                               long secondaryTtl,
-                              @Nonnull final TimeUnit secondaryTtlTimeUnit,
+                              final TimeUnit secondaryTtlTimeUnit,
                               long tertiaryTtl,
-                              @Nonnull final TimeUnit tertiaryTtlTimeUnit,
+                              final TimeUnit tertiaryTtlTimeUnit,
                               @Nullable final Executor executor,
                               @Nullable final Executor secondaryExecutor,
                               @Nullable final Executor tertiaryExecutor,
@@ -79,25 +74,21 @@ public final class RelationalPlanCache extends MultiStageCache<String, QueryCach
             ticker = null;
         }
 
-        @Nonnull
         @Override
         public RelationalPlanCache build() {
             return new RelationalPlanCache(size, secondarySize, tertiarySize, ttl, ttlTimeUnit, secondaryTtl, secondaryTtlTimeUnit, tertiaryTtl, tertiaryTtlTimeUnit, executor, secondaryExecutor, tertiaryExecutor, ticker);
         }
 
-        @Nonnull
         @Override
         protected RelationalCacheBuilder self() {
             return this;
         }
     }
 
-    @Nonnull
     public static RelationalCacheBuilder newRelationalCacheBuilder() {
         return new RelationalCacheBuilder();
     }
 
-    @Nonnull
     public static RelationalPlanCache buildWithDefaults() {
         return newRelationalCacheBuilder().build();
     }

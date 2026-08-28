@@ -28,9 +28,7 @@ import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.google.common.testing.FakeTicker;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.EnumMap;
@@ -93,31 +91,27 @@ public class MultiStageCacheTests {
                     "Capital", Map.of("Beijing", "Beijing", "Anhui", "Hefei", "Fujian", "Fuzhou", "Gansu", "Lanzhou")));
 
     @Nullable
-    private static <V> V pickFirst(@Nonnull final Stream<V> stream) {
+    private static <V> V pickFirst(final Stream<V> stream) {
         return stream.findFirst().orElse(null);
     }
 
-    @Nonnull
-    private static String fetchFromCache(@Nonnull final String in) {
+    private static String fetchFromCache(final String in) {
         return "restored " + in + " from cache";
     }
 
-    @Nonnull
-    private static Pair<String, String> produceAnimal(@Nonnull final String k2, @Nonnull final String k3) {
+    private static Pair<String, String> produceAnimal(final String k2, final String k3) {
         return Pair.of(k2, entries.get("Animal").get(k2).get(k3));
     }
 
-    @Nonnull
-    private static Pair<String, String> produceLandform(@Nonnull final String k2, @Nonnull final String k3) {
+    private static Pair<String, String> produceLandform(final String k2, final String k3) {
         return Pair.of(k2, entries.get("Landform").get(k2).get(k3));
     }
 
-    @Nonnull
-    private static Pair<String, String> produceCapital(@Nonnull final String k2, @Nonnull final String k3) {
+    private static Pair<String, String> produceCapital(final String k2, final String k3) {
         return Pair.of(k2, entries.get("Capital").get(k2).get(k3));
     }
 
-    private static void shouldBe(@Nonnull final MultiStageCache<String, String, String, String> cache, Map<String, Map<String, Map<String, String>>> expectedLayout) {
+    private static void shouldBe(final MultiStageCache<String, String, String, String> cache, Map<String, Map<String, Map<String, String>>> expectedLayout) {
         Map<String, Map<String, Map<String, String>>> result = new HashMap<>();
         for (String key : cache.getStats().getAllKeys()) {
             result.computeIfAbsent(key, k -> new HashMap<>());
@@ -364,15 +358,15 @@ public class MultiStageCacheTests {
         shouldBe(testCache, Map.of());
     }
 
-    private static String readCache(@Nonnull MultiStageCache<String, String, String, String> cache, @Nonnull String key,
-                                    @Nonnull String secondaryKey, @Nonnull String tertiaryKey) {
+    private static String readCache(MultiStageCache<String, String, String, String> cache, String key,
+                                    String secondaryKey, String tertiaryKey) {
         return readCache(cache, key, secondaryKey, tertiaryKey, NoOpMetricCollector.INSTANCE);
     }
 
-    private static String readCache(@Nonnull MultiStageCache<String, String, String, String> cache,
-                                    @Nonnull String key, @Nonnull String secondaryKey,
-                                    @Nonnull String tertiaryKey,
-                                    @Nonnull MetricCollector metricCollector) {
+    private static String readCache(MultiStageCache<String, String, String, String> cache,
+                                    String key, String secondaryKey,
+                                    String tertiaryKey,
+                                    MetricCollector metricCollector) {
         return cache.reduce(key, secondaryKey, tertiaryKey,
                 () -> NonnullPair.of(tertiaryKey, entries.get(key).get(secondaryKey).get(tertiaryKey)),
                 MultiStageCacheTests::fetchFromCache,
@@ -521,16 +515,16 @@ public class MultiStageCacheTests {
         private final Map<RelationalMetric.RelationalCount, Integer> counts = new EnumMap<>(RelationalMetric.RelationalCount.class);
 
         @Override
-        public void increment(@Nonnull final RelationalMetric.RelationalCount count, final int val) {
+        public void increment(final RelationalMetric.RelationalCount count, final int val) {
             counts.merge(count, val, Integer::sum);
         }
 
         @Override
-        public <T> T clock(@Nonnull final RelationalMetric.RelationalEvent event, final com.apple.foundationdb.relational.util.Supplier<T> supplier) throws com.apple.foundationdb.relational.api.exceptions.RelationalException {
+        public <T> T clock(final RelationalMetric.RelationalEvent event, final com.apple.foundationdb.relational.util.Supplier<T> supplier) throws com.apple.foundationdb.relational.api.exceptions.RelationalException {
             return supplier.get();
         }
 
-        public int countEvents(@Nonnull final RelationalMetric.RelationalCount count) {
+        public int countEvents(final RelationalMetric.RelationalCount count) {
             return counts.getOrDefault(count, 0);
         }
     }

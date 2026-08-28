@@ -25,25 +25,21 @@ import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.query.CopyPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
-
-import javax.annotation.Nonnull;
 import java.net.URI;
 
 @API(API.Status.EXPERIMENTAL)
 public final class MetadataPlanVisitor extends DelegatingVisitor<BaseVisitor> {
 
-    private MetadataPlanVisitor(@Nonnull BaseVisitor baseVisitor) {
+    private MetadataPlanVisitor(BaseVisitor baseVisitor) {
         super(baseVisitor);
     }
 
-    @Nonnull
-    public static MetadataPlanVisitor of(@Nonnull BaseVisitor baseVisitor) {
+    public static MetadataPlanVisitor of(BaseVisitor baseVisitor) {
         return new MetadataPlanVisitor(baseVisitor);
     }
 
-    @Nonnull
     @Override
-    public QueryPlan.MetadataQueryPlan visitShowDatabasesStatement(@Nonnull RelationalParser.ShowDatabasesStatementContext ctx) {
+    public QueryPlan.MetadataQueryPlan visitShowDatabasesStatement(RelationalParser.ShowDatabasesStatementContext ctx) {
         final var ddlFactory = getDelegate().getDdlQueryFactory();
         if (ctx.path() != null) {
             final var databaseName = visitUid(ctx.path().uid());
@@ -53,16 +49,14 @@ public final class MetadataPlanVisitor extends DelegatingVisitor<BaseVisitor> {
         return QueryPlan.MetadataQueryPlan.of(ddlFactory.getListDatabasesQueryAction(getDelegate().getDbUri()));
     }
 
-    @Nonnull
     @Override
-    public QueryPlan.MetadataQueryPlan visitShowSchemaTemplatesStatement(@Nonnull RelationalParser.ShowSchemaTemplatesStatementContext ctx) {
+    public QueryPlan.MetadataQueryPlan visitShowSchemaTemplatesStatement(RelationalParser.ShowSchemaTemplatesStatementContext ctx) {
         final var ddlFactory = getDelegate().getDdlQueryFactory();
         return QueryPlan.MetadataQueryPlan.of(ddlFactory.getListSchemaTemplatesQueryAction());
     }
 
-    @Nonnull
     @Override
-    public QueryPlan.MetadataQueryPlan visitSimpleDescribeSchemaStatement(@Nonnull RelationalParser.SimpleDescribeSchemaStatementContext ctx) {
+    public QueryPlan.MetadataQueryPlan visitSimpleDescribeSchemaStatement(RelationalParser.SimpleDescribeSchemaStatementContext ctx) {
         final var ddlFactory = getDelegate().getDdlQueryFactory();
         final var schemaId = visitUid(ctx.schemaId().path().uid());
         final var dbAndSchema = SemanticAnalyzer.parseSchemaIdentifier(schemaId);
@@ -71,25 +65,22 @@ public final class MetadataPlanVisitor extends DelegatingVisitor<BaseVisitor> {
         return QueryPlan.MetadataQueryPlan.of(ddlFactory.getDescribeSchemaQueryAction(database, schema));
     }
 
-    @Nonnull
     @Override
-    public QueryPlan.MetadataQueryPlan visitSimpleDescribeSchemaTemplateStatement(@Nonnull RelationalParser.SimpleDescribeSchemaTemplateStatementContext ctx) {
+    public QueryPlan.MetadataQueryPlan visitSimpleDescribeSchemaTemplateStatement(RelationalParser.SimpleDescribeSchemaTemplateStatementContext ctx) {
         final var ddlFactory = getDelegate().getDdlQueryFactory();
         final var schemaTemplateId = visitUid(ctx.uid());
         return QueryPlan.MetadataQueryPlan.of(ddlFactory.getDescribeSchemaTemplateQueryAction(schemaTemplateId.getName()));
     }
 
-    @Nonnull
     @Override
-    public QueryPlan visitCopyExportStatement(@Nonnull RelationalParser.CopyExportStatementContext ctx) {
+    public QueryPlan visitCopyExportStatement(RelationalParser.CopyExportStatementContext ctx) {
         final var pathId = visitUid(ctx.path().uid());
         final boolean incrementIncarnation = ctx.incarnationOption().INCREMENT() != null;
         return CopyPlan.getCopyExportAction(pathId.getName(), getDelegate().getPlanGenerationContext(), incrementIncarnation);
     }
 
-    @Nonnull
     @Override
-    public QueryPlan visitCopyImportStatement(@Nonnull RelationalParser.CopyImportStatementContext ctx) {
+    public QueryPlan visitCopyImportStatement(RelationalParser.CopyImportStatementContext ctx) {
         final var pathId = visitUid(ctx.path().uid());
         // We must visit the parameter to ensure that it ends up in the Literals in the query execution context
         visitPreparedStatementParameter(ctx.preparedStatementParameter());

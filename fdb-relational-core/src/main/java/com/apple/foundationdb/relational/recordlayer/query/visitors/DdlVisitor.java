@@ -63,9 +63,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import org.antlr.v4.runtime.ParserRuleContext;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -77,6 +75,11 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import static com.apple.foundationdb.relational.generated.RelationalParser.IndexOptionsContext;
+import static com.apple.foundationdb.relational.generated.RelationalParser.PrimitiveTypeContext;
+import static com.apple.foundationdb.relational.generated.RelationalParser.UidContext;
+import static com.apple.foundationdb.relational.generated.RelationalParser.VectorIndexOptionsContext;
 
 @API(API.Status.EXPERIMENTAL)
 public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
@@ -142,7 +145,6 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                             GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
                     .build();
 
-    @Nonnull
     private final RecordLayerSchemaTemplate.Builder metadataBuilder;
 
     /*
@@ -152,31 +154,27 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     */
     private boolean containsNullableArray;
 
-    @Nonnull
     private final MetadataOperationsFactory metadataOperationsFactory;
 
-    @Nonnull
     private final URI dbUri;
 
-    private DdlVisitor(@Nonnull BaseVisitor delegate,
-                      @Nonnull MetadataOperationsFactory metadataOperationsFactory,
-                      @Nonnull URI dbUri) {
+    private DdlVisitor(BaseVisitor delegate,
+                      MetadataOperationsFactory metadataOperationsFactory,
+                      URI dbUri) {
         super(delegate);
         this.metadataBuilder = RecordLayerSchemaTemplate.newBuilder();
         this.metadataOperationsFactory = metadataOperationsFactory;
         this.dbUri = dbUri;
     }
 
-    @Nonnull
-    public static DdlVisitor of(@Nonnull BaseVisitor delegate,
-                                @Nonnull MetadataOperationsFactory metadataOperationsFactory,
-                                @Nonnull URI dbUri) {
+    public static DdlVisitor of(BaseVisitor delegate,
+                                MetadataOperationsFactory metadataOperationsFactory,
+                                URI dbUri) {
         return new DdlVisitor(delegate, metadataOperationsFactory, dbUri);
     }
 
-    @Nonnull
     @Override
-    public DataType visitFunctionColumnType(@Nonnull final RelationalParser.FunctionColumnTypeContext ctx) {
+    public DataType visitFunctionColumnType(final RelationalParser.FunctionColumnTypeContext ctx) {
         return lookupType(ctx.customType, ctx.primitiveType(), true, ctx.ARRAY() != null);
     }
 
@@ -201,9 +199,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
      * @param ctx the parse tree.
      * @return a {@link RecordLayerColumn} object that captures all the properties of the column as defined by the user.
      */
-    @Nonnull
     @Override
-    public RecordLayerColumn visitColumnDefinition(@Nonnull RelationalParser.ColumnDefinitionContext ctx) {
+    public RecordLayerColumn visitColumnDefinition(RelationalParser.ColumnDefinitionContext ctx) {
         final Identifier columnId = visitUid(ctx.colName);
         final boolean isArray = ctx.ARRAY() != null;
         final boolean isNullable
@@ -224,9 +221,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return RecordLayerColumn.newBuilder().setName(columnId.getName()).setDataType(columnType).build();
     }
 
-    @Nonnull
     @Override
-    public RecordLayerTable visitTableDefinition(@Nonnull RelationalParser.TableDefinitionContext ctx) {
+    public RecordLayerTable visitTableDefinition(RelationalParser.TableDefinitionContext ctx) {
         final var tableId = visitUid(ctx.uid());
         final var columns = ctx.columnDefinition().stream().map(this::visitColumnDefinition).collect(ImmutableList.toImmutableList());
         final var tableBuilder = RecordLayerTable.newBuilder(metadataBuilder.isIntermingleTables())
@@ -241,9 +237,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return tableBuilder.build();
     }
 
-    @Nonnull
     @Override
-    public RecordLayerTable visitStructDefinition(@Nonnull RelationalParser.StructDefinitionContext ctx) {
+    public RecordLayerTable visitStructDefinition(RelationalParser.StructDefinitionContext ctx) {
         final var structId = visitUid(ctx.uid());
         final var columns = ctx.columnDefinition().stream().map(this::visitColumnDefinition).collect(ImmutableList.toImmutableList());
         final var structBuilder = RecordLayerTable.newBuilder(metadataBuilder.isIntermingleTables())
@@ -252,9 +247,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return structBuilder.build();
     }
 
-    @Nonnull
     @Override
-    public RecordLayerIndex visitIndexAsSelectDefinition(@Nonnull RelationalParser.IndexAsSelectDefinitionContext indexDefinitionContext) {
+    public RecordLayerIndex visitIndexAsSelectDefinition(RelationalParser.IndexAsSelectDefinitionContext indexDefinitionContext) {
         final var indexId = visitUid(indexDefinitionContext.indexName);
 
         final var ddlCatalog = metadataBuilder.build();
@@ -270,9 +264,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return generator.generate(metadataBuilder, indexId.getName(), isUnique, containsNullableArray, false).build();
     }
 
-    @Nonnull
     @Override
-    public RecordLayerIndex visitIndexOnSourceDefinition(@Nonnull final RelationalParser.IndexOnSourceDefinitionContext indexDefinitionContext) {
+    public RecordLayerIndex visitIndexOnSourceDefinition(final RelationalParser.IndexOnSourceDefinitionContext indexDefinitionContext) {
         final var ddlCatalog = metadataBuilder.build();
         getDelegate().replaceSchemaTemplate(ddlCatalog);
         getDelegate().pushPlanFragment();
@@ -282,7 +275,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
         final Identifier indexId = visitUid(indexDefinitionContext.indexName);
         final var isUnique = indexDefinitionContext.UNIQUE() != null;
-        @Nullable final var indexOptions = indexDefinitionContext.indexOptions();
+        @Nullable final IndexOptionsContext indexOptions = indexDefinitionContext.indexOptions();
         final var useLegacyExtremum = indexOptions != null && indexOptions.indexOption().stream()
                 .anyMatch(option -> option.LEGACY_EXTREMUM_EVER() != null);
         final var indexGeneratorBuilder = OnSourceIndexGenerator.newBuilder()
@@ -309,7 +302,6 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return indexGeneratorBuilder.build().generate().build();
     }
 
-    @Nonnull
     @Override
     public RecordLayerIndex visitVectorIndexDefinition(final RelationalParser.VectorIndexDefinitionContext indexDefinitionContext) {
         final var ddlCatalog = metadataBuilder.build();
@@ -360,8 +352,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return indexGeneratorBuilder.build().generate().setIndexType(IndexTypes.VECTOR).build();
     }
 
-    @Nonnull
-    private LogicalOperator generateSourceAccessForIndex(@Nonnull final Identifier sourceIdentifier) {
+    private LogicalOperator generateSourceAccessForIndex(final Identifier sourceIdentifier) {
         final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
         var logicalOperator = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
                 LogicalOperator.generateAccess(sourceIdentifier, Optional.empty(), Optional.empty(), Set.of(),
@@ -389,35 +380,33 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
      *
      * @param <T> the option's value type
      */
-    private record VectorSqlOption<T>(@Nonnull VectorOptionKey<T> key,
-                                      @Nonnull Set<VectorIndexEngineKind> engines,
-                                      @Nonnull Function<RelationalParser.VectorIndexOptionValueContext, T> coerce) {
-        void writeTo(@Nonnull final BiConsumer<String, String> sink,
-                     @Nonnull final RelationalParser.VectorIndexOptionValueContext value) {
+    private record VectorSqlOption<T>(VectorOptionKey<T> key,
+                                      Set<VectorIndexEngineKind> engines,
+                                      Function<RelationalParser.VectorIndexOptionValueContext, T> coerce) {
+        void writeTo(final BiConsumer<String, String> sink,
+                     final RelationalParser.VectorIndexOptionValueContext value) {
             key.put(sink, coerce.apply(value));
         }
     }
 
-    @Nonnull
-    private static VectorIndexEngineKind parseVectorEngine(@Nonnull final RelationalParser.VectorEngineContext engineContext) {
+    private static VectorIndexEngineKind parseVectorEngine(final RelationalParser.VectorEngineContext engineContext) {
         return engineContext.GUARDIANN() != null ? VectorIndexEngineKind.GUARDIANN : VectorIndexEngineKind.HNSW;
     }
 
-    private static int parseOptionInt(@Nonnull final RelationalParser.VectorIndexOptionValueContext value) {
+    private static int parseOptionInt(final RelationalParser.VectorIndexOptionValueContext value) {
         return Integer.parseInt(value.getText());
     }
 
-    private static double parseOptionDouble(@Nonnull final RelationalParser.VectorIndexOptionValueContext value) {
+    private static double parseOptionDouble(final RelationalParser.VectorIndexOptionValueContext value) {
         return Double.parseDouble(value.getText());
     }
 
-    private static boolean parseOptionBoolean(@Nonnull final RelationalParser.VectorIndexOptionValueContext value) {
+    private static boolean parseOptionBoolean(final RelationalParser.VectorIndexOptionValueContext value) {
         return Boolean.parseBoolean(value.getText());
     }
 
-    @Nonnull
-    private Map<String, String> parseVectorOptions(@Nonnull final VectorIndexEngineKind engine,
-                                                   @Nullable final RelationalParser.VectorIndexOptionsContext indexOptionsContext) {
+    private Map<String, String> parseVectorOptions(final VectorIndexEngineKind engine,
+                                                   @Nullable final VectorIndexOptionsContext indexOptionsContext) {
         final var indexOptionsBuilder = ImmutableMap.<String, String>builder();
         // Guardiann must be recorded explicitly; HNSW is the default when the engine option is absent, so leave it
         // implicit (keeps HNSW index metadata unchanged and readable by nodes that predate the engine option).
@@ -457,8 +446,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
      * @param metricContext the parsed metric clause
      * @return the corresponding metric
      */
-    @Nonnull
-    private static Metric parseMetric(@Nonnull final RelationalParser.HnswMetricContext metricContext) {
+    private static Metric parseMetric(final RelationalParser.HnswMetricContext metricContext) {
         if (metricContext.DOT_PRODUCT_METRIC() != null) {
             return Metric.DOT_PRODUCT_METRIC;
         } else if (metricContext.EUCLIDEAN_METRIC() != null) {
@@ -471,9 +459,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         throw Assert.failUnchecked("metric " + metricContext.getText() + " is not currently supported");
     }
 
-    @Nonnull
     @Override
-    public DataType.Named visitEnumDefinition(@Nonnull RelationalParser.EnumDefinitionContext ctx) {
+    public DataType.Named visitEnumDefinition(RelationalParser.EnumDefinitionContext ctx) {
         final var enumId = visitUid(ctx.uid());
 
         // (yhatem) we have control over the ENUM values' numbers.
@@ -484,9 +471,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return DataType.EnumType.from(enumId.getName(), enumValues, false);
     }
 
-    @Nonnull
     @Override
-    public ProceduralPlan visitCreateSchemaTemplateStatement(@Nonnull RelationalParser.CreateSchemaTemplateStatementContext ctx) {
+    public ProceduralPlan visitCreateSchemaTemplateStatement(RelationalParser.CreateSchemaTemplateStatementContext ctx) {
         final var schemaTemplateId = visitUid(ctx.schemaTemplateId().uid());
         // schema template version will be set automatically at update operation to lastVersion + 1
         metadataBuilder.setName(schemaTemplateId.getName()).setVersion(1);
@@ -560,9 +546,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return ProceduralPlan.of(metadataOperationsFactory.getSaveSchemaTemplateConstantAction(metadataBuilder.build(), Options.NONE));
     }
 
-    @Nonnull
     @Override
-    public ProceduralPlan visitCreateSchemaStatement(@Nonnull RelationalParser.CreateSchemaStatementContext ctx) {
+    public ProceduralPlan visitCreateSchemaStatement(RelationalParser.CreateSchemaStatementContext ctx) {
         final Identifier schemaId = visitUid(ctx.schemaId().path().uid());
         final var dbAndSchema = SemanticAnalyzer.parseSchemaIdentifier(schemaId);
         final var templateId = visitUid(ctx.schemaTemplateId().uid());
@@ -570,46 +555,41 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 dbAndSchema.getRight(), templateId.getName(), Options.NONE));
     }
 
-    @Nonnull
     @Override
-    public ProceduralPlan visitCreateDatabaseStatement(@Nonnull RelationalParser.CreateDatabaseStatementContext ctx) {
+    public ProceduralPlan visitCreateDatabaseStatement(RelationalParser.CreateDatabaseStatementContext ctx) {
         final var databaseId = visitUid(ctx.path().uid());
         SemanticAnalyzer.validateDatabaseUri(databaseId);
         return ProceduralPlan.of(metadataOperationsFactory.getCreateDatabaseConstantAction(URI.create(databaseId.getName()), Options.NONE));
     }
 
-    @Nonnull
     @Override
-    public ProceduralPlan visitDropDatabaseStatement(@Nonnull RelationalParser.DropDatabaseStatementContext ctx) {
+    public ProceduralPlan visitDropDatabaseStatement(RelationalParser.DropDatabaseStatementContext ctx) {
         final var databaseId = visitUid(ctx.path().uid());
         SemanticAnalyzer.validateDatabaseUri(databaseId);
         boolean throwIfDoesNotExist = ctx.ifExists() == null;
         return  ProceduralPlan.of(metadataOperationsFactory.getDropDatabaseConstantAction(URI.create(databaseId.getName()), throwIfDoesNotExist, Options.NONE));
     }
 
-    @Nonnull
     @Override
-    public ProceduralPlan visitDropSchemaStatement(@Nonnull RelationalParser.DropSchemaStatementContext ctx) {
+    public ProceduralPlan visitDropSchemaStatement(RelationalParser.DropSchemaStatementContext ctx) {
         final var schemaId = visitUid(ctx.uid());
         final var dbAndSchema = SemanticAnalyzer.parseSchemaIdentifier(schemaId);
         Assert.thatUnchecked(dbAndSchema.getLeft().isPresent(), ErrorCode.UNKNOWN_DATABASE, () -> String.format(Locale.ROOT, "invalid database identifier in '%s'", ctx.uid().getText()));
         return ProceduralPlan.of(metadataOperationsFactory.getDropSchemaConstantAction(dbAndSchema.getLeft().get(), dbAndSchema.getRight(), Options.NONE));
     }
 
-    @Nonnull
     @Override
-    public ProceduralPlan visitDropSchemaTemplateStatement(@Nonnull RelationalParser.DropSchemaTemplateStatementContext ctx) {
+    public ProceduralPlan visitDropSchemaTemplateStatement(RelationalParser.DropSchemaTemplateStatementContext ctx) {
         final var schemaTemplateId = visitUid(ctx.uid());
         boolean throwIfDoesNotExist = ctx.ifExists() == null;
         return ProceduralPlan.of(metadataOperationsFactory.getDropSchemaTemplateConstantAction(schemaTemplateId.getName(),
                 throwIfDoesNotExist, Options.NONE));
     }
 
-    @Nonnull
-    private RecordLayerInvokedRoutine getInvokedRoutineMetadata(@Nonnull final ParserRuleContext functionCtx,
-                                                                @Nonnull final RelationalParser.FunctionSpecificationContext functionSpecCtx,
-                                                                @Nonnull final RelationalParser.RoutineBodyContext bodyCtx,
-                                                                @Nonnull final RecordLayerSchemaTemplate ddlCatalog) {
+    private RecordLayerInvokedRoutine getInvokedRoutineMetadata(final ParserRuleContext functionCtx,
+                                                                final RelationalParser.FunctionSpecificationContext functionSpecCtx,
+                                                                final RelationalParser.RoutineBodyContext bodyCtx,
+                                                                final RecordLayerSchemaTemplate ddlCatalog) {
         // parse the index SQL query using the newly constructed metadata.
         getDelegate().replaceSchemaTemplate(ddlCatalog);
 
@@ -655,9 +635,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         }
     }
 
-    @Nonnull
-    private RecordLayerView getViewMetadata(@Nonnull final RelationalParser.ViewDefinitionContext viewCtx,
-                                            @Nonnull final RecordLayerSchemaTemplate ddlCatalog) {
+    private RecordLayerView getViewMetadata(final RelationalParser.ViewDefinitionContext viewCtx,
+                                            final RecordLayerSchemaTemplate ddlCatalog) {
         // parse the view SQL query using the newly constructed metadata.
         getDelegate().replaceSchemaTemplate(ddlCatalog);
 
@@ -690,7 +669,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Override
-    public ProceduralPlan visitCreateTempFunction(@Nonnull RelationalParser.CreateTempFunctionContext ctx) {
+    public ProceduralPlan visitCreateTempFunction(RelationalParser.CreateTempFunctionContext ctx) {
         final var invokedRoutine = getInvokedRoutineMetadata(ctx, ctx.tempSqlInvokedFunction().functionSpecification(),
                 ctx.tempSqlInvokedFunction().routineBody(), getDelegate().getSchemaTemplate());
         var throwIfExists = ctx.REPLACE() == null;
@@ -699,24 +678,24 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Override
-    public ProceduralPlan visitDropTempFunction(@Nonnull RelationalParser.DropTempFunctionContext ctx) {
+    public ProceduralPlan visitDropTempFunction(RelationalParser.DropTempFunctionContext ctx) {
         final var functionName = visitFullId(ctx.schemaQualifiedRoutineName).toString();
         var throwIfNotExists = ctx.IF() == null && ctx.EXISTS() == null;
         return ProceduralPlan.of(metadataOperationsFactory.getDropTemporaryFunctionConstantAction(throwIfNotExists, functionName));
     }
 
     @Override
-    public CompiledSqlFunction visitTempSqlInvokedFunction(@Nonnull RelationalParser.TempSqlInvokedFunctionContext ctx) {
+    public CompiledSqlFunction visitTempSqlInvokedFunction(RelationalParser.TempSqlInvokedFunctionContext ctx) {
         return (CompiledSqlFunction)visitSqlInvokedFunction(ctx.functionSpecification(), ctx.routineBody(), true);
     }
 
     @Override
-    public UserDefinedFunction visitSqlInvokedFunction(@Nonnull RelationalParser.SqlInvokedFunctionContext ctx) {
+    public UserDefinedFunction visitSqlInvokedFunction(RelationalParser.SqlInvokedFunctionContext ctx) {
         return visitSqlInvokedFunction(ctx.functionSpecification(), ctx.routineBody(), false);
     }
 
-    private UserDefinedFunction visitSqlInvokedFunction(@Nonnull final RelationalParser.FunctionSpecificationContext functionSpecCtx,
-                                                        @Nonnull final RelationalParser.RoutineBodyContext bodyCtx,
+    private UserDefinedFunction visitSqlInvokedFunction(final RelationalParser.FunctionSpecificationContext functionSpecCtx,
+                                                        final RelationalParser.RoutineBodyContext bodyCtx,
                                                         boolean isTemporary) {
         // run implementation-specific validations.
         final var props = functionSpecCtx.routineCharacteristics();
@@ -799,9 +778,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return finalStepBuilder.build();
     }
 
-    @Nonnull
     @Override
-    public Expression visitUserDefinedMacroFunctionStatementBody(@Nonnull final RelationalParser.UserDefinedMacroFunctionStatementBodyContext ctx) {
+    public Expression visitUserDefinedMacroFunctionStatementBody(final RelationalParser.UserDefinedMacroFunctionStatementBodyContext ctx) {
         return Assert.castUnchecked(visit(ctx.expression()), Expression.class);
     }
 
@@ -811,7 +789,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Override
-    public Expressions visitSqlParameterDeclarationList(@Nonnull RelationalParser.SqlParameterDeclarationListContext ctx) {
+    public Expressions visitSqlParameterDeclarationList(RelationalParser.SqlParameterDeclarationListContext ctx) {
         if (ctx.sqlParameterDeclarations() == null) {
             return Expressions.empty();
         }
@@ -833,7 +811,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Override
-    public Expression visitSqlParameterDeclaration(@Nonnull RelationalParser.SqlParameterDeclarationContext ctx) {
+    public Expression visitSqlParameterDeclaration(RelationalParser.SqlParameterDeclarationContext ctx) {
         Assert.thatUnchecked(ctx.sqlParameterName != null, "unnamed parameters not supported");
         final var parameterName = visitUid(ctx.sqlParameterName);
         final var parameterType = visitFunctionColumnType(ctx.parameterType);
@@ -850,15 +828,14 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Override
-    public DataType visitReturnsType(@Nonnull RelationalParser.ReturnsTypeContext ctx) {
+    public DataType visitReturnsType(RelationalParser.ReturnsTypeContext ctx) {
         Assert.isNullUnchecked(ctx.returnsTableType(), ErrorCode.UNSUPPORTED_OPERATION,
                 "table return type is not supported");
         return lookupType(ctx.columnType().customType, ctx.columnType().primitiveType(), true, ctx.ARRAY() != null);
     }
 
-    @Nonnull
-    private DataType lookupType(@Nullable RelationalParser.UidContext customType,
-                                @Nullable RelationalParser.PrimitiveTypeContext primitiveTypeContext,
+    private DataType lookupType(@Nullable UidContext customType,
+                                @Nullable PrimitiveTypeContext primitiveTypeContext,
                                 boolean isNullable,
                                 boolean isRepeated) {
         final SemanticAnalyzer.ParsedTypeInfo typeInfo;
@@ -875,9 +852,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     // TODO: remove
-    @Nonnull
     @Override
-    public Boolean visitNullColumnConstraint(@Nonnull RelationalParser.NullColumnConstraintContext ctx) {
+    public Boolean visitNullColumnConstraint(RelationalParser.NullColumnConstraintContext ctx) {
         return ctx.nullNotnull().NOT() == null;
     }
 
@@ -905,17 +881,15 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
      * <a href="https://github.com/FoundationDB/fdb-record-layer/issues/4323">issue #4323</a>
      * for the underlying case-sensitivity behavior of the normalizer.</p>
      */
-    @Nonnull
-    private static String rewriteDeclaredFunctionToStandalone(@Nonnull final RelationalParser.DeclaredFunctionContext ctx,
-                                                              @Nonnull final String sourceText) {
+    private static String rewriteDeclaredFunctionToStandalone(final RelationalParser.DeclaredFunctionContext ctx,
+                                                              final String sourceText) {
         final String name = sliceSource(sourceText, ctx.functionName);
         final String paramList = sliceSource(sourceText, ctx.sqlParameterDeclarationList());
         final String body = sliceSource(sourceText, ctx.functionBody);
         return "CREATE TEMPORARY FUNCTION " + name + paramList + " ON COMMIT DROP FUNCTION AS " + body;
     }
 
-    @Nonnull
-    private static String sliceSource(@Nonnull final String sourceText, @Nonnull final ParserRuleContext ctx) {
+    private static String sliceSource(final String sourceText, final ParserRuleContext ctx) {
         return sourceText.substring(ctx.start.getStartIndex(), ctx.stop.getStopIndex() + 1);
     }
 }

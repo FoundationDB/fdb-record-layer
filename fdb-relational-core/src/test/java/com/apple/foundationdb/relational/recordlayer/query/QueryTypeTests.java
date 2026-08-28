@@ -30,8 +30,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 import org.junit.jupiter.params.support.ParameterDeclarations;
-
-import javax.annotation.Nonnull;
 import java.util.stream.Stream;
 
 /**
@@ -65,7 +63,7 @@ public class QueryTypeTests {
 
     @ParameterizedTest(name = "{0} IS {1}")
     @ArgumentsSource(QueriesProvider.class)
-    public void queryTypeIsSetCorrectly(@Nonnull final String query, @Nonnull ParseTreeInfo.QueryType expectedType) throws Exception {
+    public void queryTypeIsSetCorrectly(final String query, ParseTreeInfo.QueryType expectedType) throws Exception {
         final var parseInfo = QueryParser.parse(query);
         Assertions.assertEquals(expectedType, parseInfo.getQueryType());
     }

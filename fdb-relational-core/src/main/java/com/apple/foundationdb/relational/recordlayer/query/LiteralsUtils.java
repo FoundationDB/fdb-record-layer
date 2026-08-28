@@ -35,9 +35,7 @@ import com.google.common.collect.Lists;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 
@@ -52,7 +50,6 @@ public final class LiteralsUtils {
 
     // This is not sufficient, as we should try to coercion struct types rather than checking for them being
     // identical. https://github.com/FoundationDB/fdb-record-layer/issues/3472
-    @Nonnull
     public static Type.Array resolveArrayTypeFromObjectsList(List<Object> objects) {
         DataType distinctType = null;
         for (var object: objects) {
@@ -68,8 +65,7 @@ public final class LiteralsUtils {
         return new Type.Array(distinctType == null ? Type.nullType() : DataTypeUtils.toRecordLayerType(distinctType));
     }
 
-    @Nonnull
-    public static LiteralObject objectToLiteralObjectProto(@Nonnull final Type type, @Nullable final Object object) {
+    public static LiteralObject objectToLiteralObjectProto(final Type type, @Nullable final Object object) {
         final var builder = LiteralObject.newBuilder();
         if (object == null) {
             return builder.build();
@@ -97,9 +93,9 @@ public final class LiteralsUtils {
     }
 
     @Nullable
-    public static Object objectFromLiteralObjectProto(@Nonnull final TypeRepository typeRepository,
-                                                      @Nonnull final Type type,
-                                                      @Nonnull final LiteralObject literalObject) {
+    public static Object objectFromLiteralObjectProto(final TypeRepository typeRepository,
+                                                      final Type type,
+                                                      final LiteralObject literalObject) {
         if (literalObject.hasScalarObject()) {
             return PlanSerialization.protoToValueObject(literalObject.getScalarObject());
         }

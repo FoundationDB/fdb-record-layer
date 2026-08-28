@@ -24,9 +24,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
-
-import javax.annotation.Nonnull;
-
 /**
  * Helper class that captures the components of an SQL {@code OVER} clause used in window functions.
  * <p>
@@ -43,18 +40,15 @@ import javax.annotation.Nonnull;
  */
 public final class WindowSpecExpression {
 
-    @Nonnull
     private final Expressions partitions;
 
-    @Nonnull
     private final Iterable<OrderByExpression> orderByExpressions;
 
-    @Nonnull
     private final Expressions windowOptions;
 
-    private WindowSpecExpression(@Nonnull final Expressions partitions,
-                                 @Nonnull final Iterable<OrderByExpression> orderByExpressions,
-                                 @Nonnull final Expressions windowOptions) {
+    private WindowSpecExpression(final Expressions partitions,
+                                 final Iterable<OrderByExpression> orderByExpressions,
+                                 final Expressions windowOptions) {
         this.partitions = partitions;
         this.orderByExpressions = orderByExpressions;
         this.windowOptions = windowOptions;
@@ -67,10 +61,9 @@ public final class WindowSpecExpression {
      * @param orderByExpressions the ordering expressions (corresponds to ORDER BY clause)
      * @return a new OverExpression instance
      */
-    @Nonnull
-    public static WindowSpecExpression of(@Nonnull final Expressions partitions,
-                                          @Nonnull final Iterable<OrderByExpression> orderByExpressions,
-                                          @Nonnull final Expressions windowOptions) {
+    public static WindowSpecExpression of(final Expressions partitions,
+                                          final Iterable<OrderByExpression> orderByExpressions,
+                                          final Expressions windowOptions) {
         return new WindowSpecExpression(partitions, orderByExpressions, windowOptions);
     }
 
@@ -79,7 +72,6 @@ public final class WindowSpecExpression {
      *
      * @return the partition expressions (PARTITION BY clause)
      */
-    @Nonnull
     public Expressions getPartitions() {
         return partitions;
     }
@@ -89,12 +81,10 @@ public final class WindowSpecExpression {
      *
      * @return the ordering expressions (ORDER BY clause)
      */
-    @Nonnull
     public Iterable<OrderByExpression> getOrderByExpressions() {
         return orderByExpressions;
     }
 
-    @Nonnull
     public Expressions getWindowOptions() {
         return windowOptions;
     }
@@ -105,7 +95,6 @@ public final class WindowSpecExpression {
      *
      * @return the window specification to attach to a windowed call site
      */
-    @Nonnull
     public CallSiteArguments.WindowSpecification toWindowSpecification() {
         final var partitioningValues = Streams.stream(partitions.underlying())
                 .collect(ImmutableList.toImmutableList());

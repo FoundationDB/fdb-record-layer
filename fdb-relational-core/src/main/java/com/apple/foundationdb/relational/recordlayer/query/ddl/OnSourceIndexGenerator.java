@@ -46,8 +46,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -107,16 +105,12 @@ import java.util.stream.Collectors;
  */
 public final class OnSourceIndexGenerator {
 
-    @Nonnull
     private final Identifier indexName;
 
-    @Nonnull
     private final List<IndexedColumn> keyColumns;
 
-    @Nonnull
     private final List<IndexedColumn> valueColumns;
 
-    @Nonnull
     private final LogicalPlanFragment source;
 
     private final boolean isUnique;
@@ -127,17 +121,15 @@ public final class OnSourceIndexGenerator {
 
     private final boolean generateKeyValueExpressionWithEmptyKey;
 
-    @Nonnull
     private final Map<String, String> indexOptions;
 
-    @Nonnull
     private final RecordLayerSchemaTemplate.Builder metadataBuilder;
 
-    public OnSourceIndexGenerator(@Nonnull final Identifier indexName, @Nonnull final LogicalPlanFragment source,
-                                  @Nonnull final List<IndexedColumn> keyColumns, @Nonnull final List<IndexedColumn> valueColumns,
+    public OnSourceIndexGenerator(final Identifier indexName, final LogicalPlanFragment source,
+                                  final List<IndexedColumn> keyColumns, final List<IndexedColumn> valueColumns,
                                   final boolean isUnique, final boolean useLegacyExtremum, final boolean useNullableArrays,
-                                  final boolean generateKeyValueExpressionWithEmptyKey, @Nonnull final Map<String, String> indexOptions,
-                                  @Nonnull final RecordLayerSchemaTemplate.Builder metadataBuilder) {
+                                  final boolean generateKeyValueExpressionWithEmptyKey, final Map<String, String> indexOptions,
+                                  final RecordLayerSchemaTemplate.Builder metadataBuilder) {
         this.indexName = indexName;
         this.source = source;
         this.keyColumns = ImmutableList.copyOf(keyColumns);
@@ -168,7 +160,6 @@ public final class OnSourceIndexGenerator {
      *
      * @return a fully configured {@link RecordLayerIndex} ready to be added to the schema
      */
-    @Nonnull
     public RecordLayerIndex.Builder generate() {
         final var keyIdentifiers = keyColumns.stream().map(IndexedColumn::getIdentifier).collect(ImmutableList.toImmutableList());
         final var keyIdentifiersAsSet = ImmutableSet.copyOf(keyIdentifiers);
@@ -231,20 +222,18 @@ public final class OnSourceIndexGenerator {
 
     public static final class IndexedColumn {
 
-        @Nonnull
         private final Identifier identifier;
 
         private final boolean isDescending;
 
         private final boolean isNullsLast;
 
-        private IndexedColumn(@Nonnull final Identifier identifier, boolean isDescending, boolean isNullsLast) {
+        private IndexedColumn(final Identifier identifier, boolean isDescending, boolean isNullsLast) {
             this.identifier = identifier;
             this.isDescending = isDescending;
             this.isNullsLast = isNullsLast;
         }
 
-        @Nonnull
         public Identifier getIdentifier() {
             return identifier;
         }
@@ -257,8 +246,7 @@ public final class OnSourceIndexGenerator {
             return isNullsLast;
         }
 
-        @Nonnull
-        public static IndexedColumn of(@Nonnull final Identifier identifier, boolean isDescending, boolean isNullsLast) {
+        public static IndexedColumn of(final Identifier identifier, boolean isDescending, boolean isNullsLast) {
             return new IndexedColumn(identifier, isDescending, isNullsLast);
         }
 
@@ -277,9 +265,8 @@ public final class OnSourceIndexGenerator {
          * @param identifierVisitor the visitor used to extract the column identifier
          * @return an {@link IndexedColumn} representing the parsed column specification
          */
-        @Nonnull
-        public static OnSourceIndexGenerator.IndexedColumn parseColSpec(@Nonnull final RelationalParser.IndexColumnSpecContext columnSpec,
-                                                                        @Nonnull final IdentifierVisitor identifierVisitor) {
+        public static OnSourceIndexGenerator.IndexedColumn parseColSpec(final RelationalParser.IndexColumnSpecContext columnSpec,
+                                                                        final IdentifierVisitor identifierVisitor) {
             final var columnId = identifierVisitor.visitUid(columnSpec.columnName);
             final var orderContext = columnSpec.orderClause();
 
@@ -299,15 +286,13 @@ public final class OnSourceIndexGenerator {
             return OnSourceIndexGenerator.IndexedColumn.of(columnId, isDesc, nullsLast);
         }
 
-        @Nonnull
-        public static OnSourceIndexGenerator.IndexedColumn parseUid(@Nonnull final RelationalParser.UidContext uid,
-                                                                    @Nonnull final IdentifierVisitor identifierVisitor) {
+        public static OnSourceIndexGenerator.IndexedColumn parseUid(final RelationalParser.UidContext uid,
+                                                                    final IdentifierVisitor identifierVisitor) {
             final var columnId = identifierVisitor.visitUid(uid);
             return OnSourceIndexGenerator.IndexedColumn.of(columnId, false, false);
         }
     }
 
-    @Nonnull
     public static Builder newBuilder() {
         return new Builder();
     }
@@ -320,13 +305,10 @@ public final class OnSourceIndexGenerator {
 
         private SemanticAnalyzer semanticAnalyzer;
 
-        @Nonnull
         private final List<IndexedColumn> keyColumns;
 
-        @Nonnull
         private final List<IndexedColumn> valueColumns;
 
-        @Nonnull
         private final Map<String, String> indexOptions;
 
         private boolean isUnique;
@@ -345,85 +327,71 @@ public final class OnSourceIndexGenerator {
             this.indexOptions = new HashMap<>();
         }
 
-        @Nonnull
-        public Builder setIndexName(@Nonnull final Identifier indexName) {
+        public Builder setIndexName(final Identifier indexName) {
             this.indexName = indexName;
             return this;
         }
 
-        @Nonnull
-        public Builder setIndexSource(@Nonnull final LogicalPlanFragment indexSource) {
+        public Builder setIndexSource(final LogicalPlanFragment indexSource) {
             this.indexSource = indexSource;
             return this;
         }
 
-        @Nonnull
-        public Builder setSemanticAnalyzer(@Nonnull final SemanticAnalyzer semanticAnalyzer) {
+        public Builder setSemanticAnalyzer(final SemanticAnalyzer semanticAnalyzer) {
             this.semanticAnalyzer = semanticAnalyzer;
             return this;
         }
 
-        @Nonnull
-        public Builder addKeyColumn(@Nonnull final IndexedColumn keyColumn) {
+        public Builder addKeyColumn(final IndexedColumn keyColumn) {
             keyColumns.add(keyColumn);
             return this;
         }
 
-        @Nonnull
-        public Builder addValueColumn(@Nonnull final IndexedColumn keyColumn) {
+        public Builder addValueColumn(final IndexedColumn keyColumn) {
             valueColumns.add(keyColumn);
             return this;
         }
 
-        @Nonnull
         public List<IndexedColumn> getValueColumns() {
             return valueColumns;
         }
 
-        @Nonnull
-        public Builder addIndexOption(@Nonnull final String key, @Nonnull final String value) {
+        public Builder addIndexOption(final String key, final String value) {
             indexOptions.put(key, value);
             return this;
         }
 
-        @Nonnull
-        public Builder addAllIndexOptions(@Nonnull final Map<String, String> indexOptions) {
+        public Builder addAllIndexOptions(final Map<String, String> indexOptions) {
             this.indexOptions.putAll(indexOptions);
             return this;
         }
 
-        @Nonnull
         public Builder setUnique(boolean isUnique) {
             this.isUnique = isUnique;
             return this;
         }
 
-        @Nonnull
         public Builder setUseLegacyExtremum(boolean useLegacyExtremum) {
             this.useLegacyExtremum = useLegacyExtremum;
             return this;
         }
 
-        @Nonnull
         public Builder setUseNullableArrays(boolean useNullableArrays) {
             this.useNullableArrays = useNullableArrays;
             return this;
         }
 
-        @Nonnull
         public Builder setGenerateKeyValueExpressionWithEmptyKey(boolean generateKeyValueExpressionWithEmptyKey) {
             this.generateKeyValueExpressionWithEmptyKey = generateKeyValueExpressionWithEmptyKey;
             return this;
         }
 
 
-        @Nonnull
         public Builder setMetadataBuilder(final RecordLayerSchemaTemplate.Builder metadataBuilder) {
             this.metadataBuilder = metadataBuilder;
             return this;
         }
 
-        @Nonnull
         public OnSourceIndexGenerator build() {
             Assert.notNullUnchecked(indexName);
             Assert.notNullUnchecked(indexSource);

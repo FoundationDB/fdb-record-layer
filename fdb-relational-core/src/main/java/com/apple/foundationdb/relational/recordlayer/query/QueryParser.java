@@ -44,8 +44,6 @@ import org.antlr.v4.runtime.atn.PredictionMode;
 import org.antlr.v4.runtime.dfa.DFA;
 import org.antlr.v4.runtime.misc.Interval;
 import org.antlr.v4.runtime.tree.ParseTree;
-
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
@@ -61,10 +59,8 @@ public class QueryParser {
 
     @VisibleForTesting
     public static class ErrorStringifier extends BaseErrorListener {
-        @Nonnull
         private final List<String> syntaxErrors;
 
-        @Nonnull
         private final List<String> ambiguityErrors;
 
         @VisibleForTesting
@@ -73,12 +69,10 @@ public class QueryParser {
             ambiguityErrors = new ArrayList<>();
         }
 
-        @Nonnull
         List<String> getSyntaxErrors() {
             return syntaxErrors;
         }
 
-        @Nonnull
         List<String> getAmbiguityErrors() {
             return ambiguityErrors;
         }
@@ -103,7 +97,7 @@ public class QueryParser {
                     recognizer.getInputStream().getText(Interval.of(startIndex, recognizer.getInputStream().size() - 1)), exact));
         }
 
-        static <T> T withParseErrorHandling(@Nonnull final Function<ErrorStringifier, T> parsingRoutine) throws RelationalException {
+        static <T> T withParseErrorHandling(final Function<ErrorStringifier, T> parsingRoutine) throws RelationalException {
             final var listener = new ErrorStringifier();
             final var result = parsingRoutine.apply(listener);
             if (Environment.isDebug() && !listener.getAmbiguityErrors().isEmpty()) {
@@ -122,8 +116,7 @@ public class QueryParser {
         }
     }
 
-    @Nonnull
-    public static ParseTreeInfoImpl parse(@Nonnull final String query) throws RelationalException {
+    public static ParseTreeInfoImpl parse(final String query) throws RelationalException {
         final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
         final var parser = getParserInstance(new CommonTokenStream(tokenSource));
 
@@ -136,9 +129,8 @@ public class QueryParser {
         return ParseTreeInfoImpl.from(rootContext);
     }
 
-    @Nonnull
-    private static <P> P parse(@Nonnull final String query, @Nonnull final Consumer<CommonTokenStream> tokenConsumer,
-                               @Nonnull final Function<RelationalParser, P> parse) {
+    private static <P> P parse(final String query, final Consumer<CommonTokenStream> tokenConsumer,
+                               final Function<RelationalParser, P> parse) {
         final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
         final var tokensStream = new CommonTokenStream(tokenSource);
         tokenConsumer.accept(tokensStream);
@@ -156,8 +148,7 @@ public class QueryParser {
     }
 
 
-    @Nonnull
-    public static RelationalParser.SqlInvokedFunctionContext parseFunction(@Nonnull final String functionString) {
+    public static RelationalParser.SqlInvokedFunctionContext parseFunction(final String functionString) {
         // the routine here is assumed to start with CREATE,
         // however due to how the parser rules are structured,
         // parsing invoked function starts immediately after CREATE
@@ -165,8 +156,7 @@ public class QueryParser {
         return parse(functionString, BufferedTokenStream::consume, RelationalParser::sqlInvokedFunction);
     }
 
-    @Nonnull
-    public static RelationalParser.QueryContext parseView(@Nonnull final String viewDefinition) {
+    public static RelationalParser.QueryContext parseView(final String viewDefinition) {
         return parse(viewDefinition, ignored -> { } , RelationalParser::query);
     }
 
@@ -182,13 +172,12 @@ public class QueryParser {
      * visits the parse tree and throws if it encounters a prepared parameter.
      * @param context The parse tree of the query.
      */
-    public static void validateNoPreparedParams(@Nonnull final ParseTree context) {
+    public static void validateNoPreparedParams(final ParseTree context) {
         final var validator = new PreparedParamsValidator();
         validator.visit(context);
     }
 
-    @Nonnull
-    private static RelationalParser getParserInstance(@Nonnull final TokenStream tokenStream) {
+    private static RelationalParser getParserInstance(final TokenStream tokenStream) {
         final var parser = new RelationalParser(tokenStream);
         if (Environment.isDebug()) {
             parser.getInterpreter().setPredictionMode(PredictionMode.LL_EXACT_AMBIG_DETECTION);

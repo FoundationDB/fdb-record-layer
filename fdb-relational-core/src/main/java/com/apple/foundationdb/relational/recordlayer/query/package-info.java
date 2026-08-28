@@ -22,4 +22,7 @@
  * A RecordLayer-based implementation of a Relational query.
  */
 
+@NullMarked
 package com.apple.foundationdb.relational.recordlayer.query;
+
+import org.jspecify.annotations.NullMarked;

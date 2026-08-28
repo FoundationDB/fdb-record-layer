@@ -29,8 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.Iterables;
-
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -39,43 +37,38 @@ import java.util.stream.Stream;
 @API(API.Status.EXPERIMENTAL)
 public final class OrderByExpression {
 
-    @Nonnull
     private final Expression expression;
     private final boolean descending;
     private final boolean nullsLast;
 
-    private OrderByExpression(@Nonnull Expression expression, boolean descending, boolean nullsLast) {
+    private OrderByExpression(Expression expression, boolean descending, boolean nullsLast) {
         this.expression = expression;
         this.descending = descending;
         this.nullsLast = nullsLast;
     }
 
-    @Nonnull
     public Expression getExpression() {
         return expression;
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private OrderByExpression withExpression(@Nonnull Expression expression) {
+    private OrderByExpression withExpression(Expression expression) {
         if (this.expression == expression) {
             return this;
         }
         return new OrderByExpression(expression, descending, nullsLast);
     }
 
-    @Nonnull
-    public static OrderByExpression of(@Nonnull Expression expression, boolean descending, boolean nullsLast) {
+    public static OrderByExpression of(Expression expression, boolean descending, boolean nullsLast) {
         return new OrderByExpression(expression, descending, nullsLast);
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    @Nonnull
-    public static Stream<OrderByExpression> pullUp(@Nonnull final Stream<OrderByExpression> orderBys,
-                                                   @Nonnull final Value value,
-                                                   @Nonnull final CorrelationIdentifier correlationIdentifier,
-                                                   @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                                   @Nonnull final Optional<Identifier> qualifier) {
+    public static Stream<OrderByExpression> pullUp(final Stream<OrderByExpression> orderBys,
+                                                   final Value value,
+                                                   final CorrelationIdentifier correlationIdentifier,
+                                                   final Set<CorrelationIdentifier> constantAliases,
+                                                   final Optional<Identifier> qualifier) {
         final var aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
         final var simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
         return orderBys
@@ -111,7 +104,6 @@ public final class OrderByExpression {
                 });
     }
 
-    @Nonnull
     public OrderingPart.RequestedSortOrder toSortOrder() {
         if (descending) {
             return nullsLast ? OrderingPart.RequestedSortOrder.DESCENDING : OrderingPart.RequestedSortOrder.DESCENDING_NULLS_FIRST;
@@ -120,10 +112,9 @@ public final class OrderByExpression {
         }
     }
 
-    @Nonnull
-    public static Stream<OrderingPart.RequestedOrderingPart> toOrderingParts(@Nonnull Stream<OrderByExpression> orderBys,
-                                                                             @Nonnull CorrelationIdentifier rebaseSource,
-                                                                             @Nonnull CorrelationIdentifier rebaseTarget) {
+    public static Stream<OrderingPart.RequestedOrderingPart> toOrderingParts(Stream<OrderByExpression> orderBys,
+                                                                             CorrelationIdentifier rebaseSource,
+                                                                             CorrelationIdentifier rebaseTarget) {
         final var aliasMap = AliasMap.ofAliases(rebaseSource, rebaseTarget);
         return orderBys.map(orderBy -> {
             final var rebased = orderBy.getExpression().getUnderlying().rebase(aliasMap);

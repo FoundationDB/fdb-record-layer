@@ -22,4 +22,7 @@
  * This package contains code responsible for creating index definitions from SQL.
  */
 
+@NullMarked
 package com.apple.foundationdb.relational.recordlayer.query.ddl;
+
+import org.jspecify.annotations.NullMarked;

@@ -61,8 +61,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
-
-import javax.annotation.Nonnull;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -71,7 +69,6 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 public class TransactionBoundQueryTest {
-    @Nonnull
     private static final String SCHEMA_TEMPLATE =
             """
             CREATE TABLE t1(id bigint, a bigint, b string, PRIMARY KEY(id))
@@ -81,13 +78,11 @@ public class TransactionBoundQueryTest {
             """;
     @RegisterExtension
     @Order(0)
-    @Nonnull
     final EmbeddedRelationalExtension embeddedExtension = new EmbeddedRelationalExtension();
     @RegisterExtension
     @Order(1)
     final SimpleDatabaseRule databaseRule = new SimpleDatabaseRule(TransactionBoundQueryTest.class, SCHEMA_TEMPLATE);
 
-    @Nonnull
     private static Options engineOptions() throws SQLException {
         return Options.builder()
                 .withOption(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, 100)
@@ -96,14 +91,12 @@ public class TransactionBoundQueryTest {
                 .build();
     }
 
-    @Nonnull
     private EmbeddedRelationalConnection connectEmbedded() throws SQLException {
         Connection connection = DriverManager.getConnection(databaseRule.getConnectionUri().toString());
         connection.setSchema(databaseRule.getSchemaName());
         return connection.unwrap(EmbeddedRelationalConnection.class);
     }
 
-    @Nonnull
     private FDBRecordContext openContext() throws SQLException, RelationalException {
         try (EmbeddedRelationalConnection connection = connectEmbedded()) {
             connection.createNewTransaction();
@@ -115,8 +108,7 @@ public class TransactionBoundQueryTest {
         }
     }
 
-    @Nonnull
-    private EmbeddedRelationalConnection connectTransactionBound(@Nonnull FDBRecordContext context, @Nonnull RecordMetaData metaData) throws SQLException, RelationalException {
+    private EmbeddedRelationalConnection connectTransactionBound(FDBRecordContext context, RecordMetaData metaData) throws SQLException, RelationalException {
         try (EmbeddedRelationalConnection embeddedConnection = connectEmbedded()) {
             embeddedConnection.createNewTransaction();
             AbstractDatabase db = embeddedConnection.getRecordLayerDatabase();
@@ -164,7 +156,7 @@ public class TransactionBoundQueryTest {
         }
     }
 
-    private RecordMetaData getUpdatedMetaData(@Nonnull Consumer<RecordMetaDataBuilder> metaDataUpdater) throws SQLException, RelationalException {
+    private RecordMetaData getUpdatedMetaData(Consumer<RecordMetaDataBuilder> metaDataUpdater) throws SQLException, RelationalException {
         try (EmbeddedRelationalConnection connection = connectEmbedded()) {
             connection.createNewTransaction();
             SchemaTemplate schemaTemplate = connection.getSchemaTemplate();
@@ -482,7 +474,6 @@ public class TransactionBoundQueryTest {
         }
     }
 
-    @Nonnull
     static Stream<String> countByAdditionGroupWithFilterOnOtherColumn() {
         return Stream.of("", " ORDER BY f - e ASC", " ORDER BY f - e DESC");
     }

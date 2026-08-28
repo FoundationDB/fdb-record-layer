@@ -24,8 +24,6 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.relational.recordlayer.query.AstNormalizer;
 import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
-
-import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
@@ -99,22 +97,19 @@ import java.util.Objects;
 @API(API.Status.EXPERIMENTAL)
 public final class QueryCacheKey {
 
-    @Nonnull
     private final String canonicalQueryString;
 
-    @Nonnull
     private final PlannerConfiguration plannerConfiguration;
 
-    @Nonnull
     private final String auxiliaryMetadata;
 
     private final int schemaTemplateVersion;
 
     private final int memoizedHashCode;
 
-    private QueryCacheKey(@Nonnull final String canonicalQueryString,
-                          @Nonnull final PlannerConfiguration plannerConfiguration,
-                          @Nonnull final String auxiliaryMetadata,
+    private QueryCacheKey(final String canonicalQueryString,
+                          final PlannerConfiguration plannerConfiguration,
+                          final String auxiliaryMetadata,
                           int schemaTemplateVersion) {
         this.canonicalQueryString = canonicalQueryString;
         this.schemaTemplateVersion = schemaTemplateVersion;
@@ -147,7 +142,6 @@ public final class QueryCacheKey {
         return memoizedHashCode;
     }
 
-    @Nonnull
     public String getCanonicalQueryString() {
         return canonicalQueryString;
     }
@@ -156,12 +150,10 @@ public final class QueryCacheKey {
         return schemaTemplateVersion;
     }
 
-    @Nonnull
     public PlannerConfiguration getPlannerConfiguration() {
         return plannerConfiguration;
     }
 
-    @Nonnull
     public String getAuxiliaryMetadata() {
         return auxiliaryMetadata;
     }
@@ -171,10 +163,9 @@ public final class QueryCacheKey {
         return "(" + schemaTemplateVersion + " || " + auxiliaryMetadata + ")" + "||" + canonicalQueryString + "||" + memoizedHashCode;
     }
 
-    @Nonnull
-    public static QueryCacheKey of(@Nonnull final String query,
-                                   @Nonnull final PlannerConfiguration plannerConfiguration,
-                                   @Nonnull final String auxiliaryMetadata,
+    public static QueryCacheKey of(final String query,
+                                   final PlannerConfiguration plannerConfiguration,
+                                   final String auxiliaryMetadata,
                                    int schemaTemplateVersion) {
         return new QueryCacheKey(query, plannerConfiguration, auxiliaryMetadata, schemaTemplateVersion);
     }

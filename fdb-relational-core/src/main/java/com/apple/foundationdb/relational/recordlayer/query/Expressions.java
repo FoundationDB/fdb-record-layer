@@ -41,8 +41,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
-
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
@@ -59,25 +57,21 @@ import java.util.stream.Stream;
 @API(API.Status.EXPERIMENTAL)
 public final class Expressions implements Iterable<Expression> {
 
-    @Nonnull
     private static final Expressions EMPTY = new Expressions(ImmutableList.of());
 
-    @Nonnull
     private final List<Expression> underlying;
 
     private final Supplier<Map<String, Integer>> countsByNameSupplier = Suppliers.memoize(this::computeCountsByName);
 
-    private Expressions(@Nonnull Iterable<Expression> underlying) {
+    private Expressions(Iterable<Expression> underlying) {
         this.underlying = ImmutableList.copyOf(underlying);
     }
 
-    @Nonnull
     @Override
     public Iterator<Expression> iterator() {
         return underlying.iterator();
     }
 
-    @Nonnull
     public Expressions expanded() {
         return Expressions.of(underlying.stream()
                 .flatMap(item -> item instanceof Star ?
@@ -85,8 +79,7 @@ public final class Expressions implements Iterable<Expression> {
                         Stream.of(item)).collect(ImmutableList.toImmutableList()));
     }
 
-    @Nonnull
-    public Expressions rewireQov(@Nonnull Value value) {
+    public Expressions rewireQov(Value value) {
         final ImmutableList.Builder<Expression> pulledUpOutputBuilder = ImmutableList.builder();
         int colCount = 0;
         for (final var expression : this) {
@@ -97,9 +90,8 @@ public final class Expressions implements Iterable<Expression> {
         return Expressions.of(pulledUpOutputBuilder.build());
     }
 
-    @Nonnull
-    public Expressions pullUp(@Nonnull Value value, @Nonnull CorrelationIdentifier correlationIdentifier,
-                              @Nonnull Set<CorrelationIdentifier> constantAliases) {
+    public Expressions pullUp(Value value, CorrelationIdentifier correlationIdentifier,
+                              Set<CorrelationIdentifier> constantAliases) {
         final AliasMap aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
         final Value simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
         return Expressions.of(stream()
@@ -111,8 +103,7 @@ public final class Expressions implements Iterable<Expression> {
                 .collect(ImmutableList.toImmutableList()));
     }
 
-    @Nonnull
-    public Expressions difference(@Nonnull Expressions that, @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+    public Expressions difference(Expressions that, final Set<CorrelationIdentifier> constantAliases) {
         if (Iterables.isEmpty(that)) {
             return this;
         }
@@ -136,33 +127,27 @@ public final class Expressions implements Iterable<Expression> {
         return Expressions.of(resultBuilder.build());
     }
 
-    @Nonnull
-    public Expressions concat(@Nonnull Expressions other) {
+    public Expressions concat(Expressions other) {
         return Expressions.of(Iterables.concat(this.underlying, other.underlying));
     }
 
-    @Nonnull
-    public Expressions concat(@Nonnull Expression expression) {
+    public Expressions concat(Expression expression) {
         return Expressions.of(Iterables.concat(this.underlying, ImmutableList.of(expression)));
     }
 
-    @Nonnull
-    public Expressions dereferenced(@Nonnull Literals literals) {
+    public Expressions dereferenced(Literals literals) {
         return Expressions.of(this.stream().flatMap(e -> e.dereferenced(literals).stream()).collect(ImmutableList.toImmutableList()));
     }
 
-    @Nonnull
     public Expressions nonEphemeralVisible() {
         return Expressions.of(stream().filter(e -> !(e instanceof EphemeralExpression) && e.isVisible()).collect(ImmutableList.toImmutableList()));
     }
 
-    @Nonnull
     public Expression getSingleItem() {
         Assert.thatUnchecked(size() == 1, "invalid attempt to get single item");
         return asList().get(0);
     }
 
-    @Nonnull
     public Set<Value> collectAggregateValues() {
         final ImmutableSet.Builder<Value> resultBuilder = ImmutableSet.builder();
         for (final var expression : this) {
@@ -171,19 +156,16 @@ public final class Expressions implements Iterable<Expression> {
         return resultBuilder.build();
     }
 
-    @Nonnull
-    public Expressions replaceQualifier(@Nonnull Function<Collection<String>, Collection<String>> replaceFunc) {
+    public Expressions replaceQualifier(Function<Collection<String>, Collection<String>> replaceFunc) {
         return Expressions.of(underlying.stream().map(expression -> expression.replaceQualifier(replaceFunc))
                 .collect(ImmutableList.toImmutableList()));
     }
 
-    @Nonnull
-    public Expressions withQualifier(@Nonnull final Identifier qualifier) {
+    public Expressions withQualifier(final Identifier qualifier) {
         return Expressions.of(underlying.stream().map(expression -> expression.withQualifier(Optional.of(qualifier)))
                 .collect(ImmutableList.toImmutableList()));
     }
 
-    @Nonnull
     public Expressions clearQualifier() {
         return Expressions.of(underlying.stream().map(Expression::clearQualifier).collect(ImmutableList.toImmutableList()));
     }
@@ -204,12 +186,10 @@ public final class Expressions implements Iterable<Expression> {
         return Collections.unmodifiableMap(countsByColumnName);
     }
 
-    @Nonnull
     public Iterable<Value> underlying() {
         return Streams.stream(this).map(Expression::getUnderlying).collect(ImmutableList.toImmutableList());
     }
 
-    @Nonnull
     public List<Type> underlyingTypes() {
         return Streams.stream(underlying()).map(Value::getResultType).collect(ImmutableList.toImmutableList());
     }
@@ -233,7 +213,6 @@ public final class Expressions implements Iterable<Expression> {
      *
      * @return A StructType with field names and semantic types from expressions
      */
-    @Nonnull
     public DataType.StructType getStructType() {
         final ImmutableList.Builder<DataType.StructType.Field> fieldsBuilder = ImmutableList.builder();
         int index = 0;
@@ -251,12 +230,10 @@ public final class Expressions implements Iterable<Expression> {
         return DataType.StructType.from(generatedName, fieldsBuilder.build(), true);
     }
 
-    @Nonnull
     public Stream<Expression> stream() {
         return underlying.stream();
     }
 
-    @Nonnull
     public Collection<Column<? extends Value>> underlyingAsColumns() {
         Map<String, Integer> countsByName = countsByNameSupplier.get();
         return Streams.stream(this)
@@ -278,18 +255,15 @@ public final class Expressions implements Iterable<Expression> {
                 .collect(ImmutableList.toImmutableList());
     }
 
-    @Nonnull
-    public Iterable<Value> underlyingRebased(@Nonnull CorrelationIdentifier source, @Nonnull CorrelationIdentifier target) {
+    public Iterable<Value> underlyingRebased(CorrelationIdentifier source, CorrelationIdentifier target) {
         final var aliasMap = AliasMap.ofAliases(source, target);
         return Streams.stream(underlying()).map(value -> value.rebase(aliasMap)).collect(ImmutableList.toImmutableList());
     }
 
-    @Nonnull
     public List<Expression> asList() {
         return underlying;
     }
 
-    @Nonnull
     public Expressions asNamedArguments() {
         return Expressions.of(Streams.stream(this).map(Expression::toNamedArgument).collect(ImmutableList.toImmutableList()));
     }
@@ -298,7 +272,6 @@ public final class Expressions implements Iterable<Expression> {
         return Streams.stream(this).allMatch(Expression::isNamedArgument);
     }
 
-    @Nonnull
     public List<String> argumentNames() {
         Assert.thatUnchecked(allNamedArguments());
         return Streams.stream(this).map(Expression::getName).flatMap(Optional::stream).map(Identifier::toString)
@@ -309,7 +282,6 @@ public final class Expressions implements Iterable<Expression> {
         return Streams.stream(this).noneMatch(Expression::isNamedArgument);
     }
 
-    @Nonnull
     public Map<String, Value> toNamedArgumentInvocation() {
         Assert.thatUnchecked(allNamedArguments());
         final var resultBuilder = ImmutableMap.<String, Value>builder();
@@ -321,12 +293,10 @@ public final class Expressions implements Iterable<Expression> {
         return resultBuilder.build();
     }
 
-    @Nonnull
     public CallSiteArguments toCallSiteArguments() {
         return toCallSiteArguments(false);
     }
 
-    @Nonnull
     public CallSiteArguments toCallSiteArguments(final boolean flattenSingleItemRecords) {
         if (isEmpty()) {
             return CallSiteArguments.empty();
@@ -348,34 +318,28 @@ public final class Expressions implements Iterable<Expression> {
         return underlying.stream().map(Expression::toString).collect(Collectors.joining(",", "[", "]"));
     }
 
-    @Nonnull
-    public static Expressions of(@Nonnull Iterable<Expression> expressions) {
+    public static Expressions of(Iterable<Expression> expressions) {
         return new Expressions(expressions);
     }
 
-    @Nonnull
-    public static Expressions of(@Nonnull final Expression[] expressions) {
+    public static Expressions of(final Expression[] expressions) {
         List<Expression> expressionsList = ImmutableList.copyOf(expressions);
         return Expressions.of(expressionsList);
     }
 
-    @Nonnull
-    public static Expressions ofSingle(@Nonnull Expression expression) {
+    public static Expressions ofSingle(Expression expression) {
         return new Expressions(ImmutableList.of(expression));
     }
 
-    @Nonnull
-    public static Expressions fromQuantifier(@Nonnull Quantifier quantifier) {
+    public static Expressions fromQuantifier(Quantifier quantifier) {
         return Expressions.of(quantifier.getFlowedColumns().stream().map(Expression::fromColumn)
                 .collect(ImmutableList.toImmutableList()));
     }
 
-    @Nonnull
-    public static Expressions fromUnderlying(@Nonnull Iterable<Value> values) {
+    public static Expressions fromUnderlying(Iterable<Value> values) {
         return Expressions.of(Streams.stream(values).map(Expression::fromUnderlying).collect(ImmutableList.toImmutableList()));
     }
 
-    @Nonnull
     public static Expressions empty() {
         return EMPTY;
     }

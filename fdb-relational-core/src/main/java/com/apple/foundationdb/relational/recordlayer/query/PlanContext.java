@@ -34,8 +34,6 @@ import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.annotations.VisibleForTesting;
-
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.util.Optional;
 import java.util.Set;
@@ -45,21 +43,13 @@ import java.util.stream.Collectors;
 public final class PlanContext {
 
     // todo (yhatem) remove this if possible.
-    @Nonnull
     private final RecordMetaData metaData;
-    @Nonnull
     private final MetricCollector metricCollector;
-    @Nonnull
     private final PlannerConfiguration plannerConfiguration;
-    @Nonnull
     private final MetadataOperationsFactory metadataOperationsFactory;
-    @Nonnull
     private final DdlQueryFactory ddlQueryFactory;
-    @Nonnull
     private final URI dbUri;
-    @Nonnull
     private final PreparedParams preparedStatementParameters;
-    @Nonnull
     private final SchemaTemplate schemaTemplate;
 
     private final boolean isCaseSensitive;
@@ -78,14 +68,14 @@ public final class PlanContext {
      * @param isCaseSensitive             {@code True} if SQL identifiers should be treated as case-sensitive, otherwise
      *                                    {@code false}.
      **/
-    private PlanContext(@Nonnull RecordMetaData metaData,
-                        @Nonnull MetricCollector metricCollector,
-                        @Nonnull SchemaTemplate schemaTemplate,
-                        @Nonnull PlannerConfiguration plannerConfiguration,
-                        @Nonnull MetadataOperationsFactory metadataOperationsFactory,
-                        @Nonnull DdlQueryFactory ddlQueryFactory,
-                        @Nonnull URI dbUri,
-                        @Nonnull PreparedParams preparedStatementParameters,
+    private PlanContext(RecordMetaData metaData,
+                        MetricCollector metricCollector,
+                        SchemaTemplate schemaTemplate,
+                        PlannerConfiguration plannerConfiguration,
+                        MetadataOperationsFactory metadataOperationsFactory,
+                        DdlQueryFactory ddlQueryFactory,
+                        URI dbUri,
+                        PreparedParams preparedStatementParameters,
                         boolean isCaseSensitive) {
         this.metaData = metaData;
         this.metricCollector = metricCollector;
@@ -98,57 +88,46 @@ public final class PlanContext {
         this.isCaseSensitive = isCaseSensitive;
     }
 
-    @Nonnull
     public RecordMetaData getMetaData() {
         return metaData;
     }
 
-    @Nonnull
     public MetricCollector getMetricsCollector() {
         return metricCollector;
     }
 
-    @Nonnull
     public PlannerConfiguration getPlannerConfiguration() {
         return plannerConfiguration;
     }
 
-    @Nonnull
     public Optional<Set<String>> getReadableIndexes() {
         return plannerConfiguration.getReadableIndexes();
     }
 
-    @Nonnull
     public RecordQueryPlannerConfiguration getRecordQueryPlannerConfiguration() {
         return plannerConfiguration.getRecordQueryPlannerConfiguration();
     }
 
-    @Nonnull
     public MetadataOperationsFactory getConstantActionFactory() {
         return metadataOperationsFactory;
     }
 
-    @Nonnull
     public DdlQueryFactory getDdlQueryFactory() {
         return ddlQueryFactory;
     }
 
-    @Nonnull
     public URI getDbUri() {
         return dbUri;
     }
 
-    @Nonnull
     public PreparedParams getPreparedStatementParameters() {
         return preparedStatementParameters;
     }
 
-    @Nonnull
     public SchemaTemplate getSchemaTemplate() {
         return schemaTemplate;
     }
 
-    @Nonnull
     public static Builder builder() {
         return new Builder();
     }
@@ -176,66 +155,56 @@ public final class PlanContext {
         private Builder() {
         }
 
-        @Nonnull
         @VisibleForTesting
-        public Builder withMetadata(@Nonnull RecordMetaData metadata) {
+        public Builder withMetadata(RecordMetaData metadata) {
             this.metaData = metadata;
             return this;
         }
 
-        @Nonnull
-        public Builder withMetricsCollector(@Nonnull MetricCollector metricCollector) {
+        public Builder withMetricsCollector(MetricCollector metricCollector) {
             this.metricCollector = metricCollector;
             return this;
         }
 
-        @Nonnull
-        public Builder withSchemaTemplate(@Nonnull SchemaTemplate schemaTemplate) {
+        public Builder withSchemaTemplate(SchemaTemplate schemaTemplate) {
             this.schemaTemplate = schemaTemplate;
             return this;
         }
 
-        @Nonnull
         @VisibleForTesting
-        public Builder withPlannerConfiguration(@Nonnull PlannerConfiguration plannerConfiguration) {
+        public Builder withPlannerConfiguration(PlannerConfiguration plannerConfiguration) {
             this.plannerConfiguration = plannerConfiguration;
             return this;
         }
 
-        @Nonnull
         private Builder isCaseSensitive(boolean isCaseSensitive) {
             this.isCaseSensitive = isCaseSensitive;
             return this;
         }
 
-        @Nonnull
         @VisibleForTesting
-        public Builder withConstantActionFactory(@Nonnull MetadataOperationsFactory metadataOperationsFactory) {
+        public Builder withConstantActionFactory(MetadataOperationsFactory metadataOperationsFactory) {
             this.metadataOperationsFactory = metadataOperationsFactory;
             return this;
         }
 
-        @Nonnull
-        public Builder withDdlQueryFactory(@Nonnull DdlQueryFactory ddlQueryFactory) {
+        public Builder withDdlQueryFactory(DdlQueryFactory ddlQueryFactory) {
             this.ddlQueryFactory = ddlQueryFactory;
             return this;
         }
 
-        @Nonnull
-        public Builder withDbUri(@Nonnull URI dbUri) {
+        public Builder withDbUri(URI dbUri) {
             this.dbUri = dbUri;
             return this;
         }
 
-        @Nonnull
-        public Builder withPreparedParameters(@Nonnull PreparedParams parameters) {
+        public Builder withPreparedParameters(PreparedParams parameters) {
             this.preparedStatementParameters = parameters;
             return this;
         }
 
-        @Nonnull
-        private static Optional<Set<String>> getReadableIndexes(@Nonnull RecordMetaData metaData,
-                                                                @Nonnull RecordStoreState storeState) {
+        private static Optional<Set<String>> getReadableIndexes(RecordMetaData metaData,
+                                                                RecordStoreState storeState) {
             // (yhatem) we should cache this somewhere, or embed it in the caching logic of the {@code FDBRecordStoreBase#createOrOpen}.
             if (storeState.allIndexesReadable()) {
                 return Optional.empty();
@@ -246,15 +215,13 @@ public final class PlanContext {
             }
         }
 
-        @Nonnull
-        public Builder fromRecordStore(@Nonnull FDBRecordStoreBase<?> recordStore, @Nonnull final Options options) {
+        public Builder fromRecordStore(FDBRecordStoreBase<?> recordStore, final Options options) {
             return fromMetaDataAndState(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), options);
         }
 
-        @Nonnull
-        public Builder fromMetaDataAndState(@Nonnull RecordMetaData metaData,
-                                            @Nonnull RecordStoreState recordStoreState,
-                                            @Nonnull final Options options) {
+        public Builder fromMetaDataAndState(RecordMetaData metaData,
+                                            RecordStoreState recordStoreState,
+                                            final Options options) {
             final var plannerConfig = recordStoreState.allIndexesReadable() ?
                     PlannerConfiguration.ofAllAvailableIndexes(options) :
                     PlannerConfiguration.of(getReadableIndexes(metaData, recordStoreState), options);
@@ -263,8 +230,7 @@ public final class PlanContext {
                     .isCaseSensitive(options.getOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS));
         }
 
-        @Nonnull
-        public Builder fromDatabase(@Nonnull AbstractDatabase database) {
+        public Builder fromDatabase(AbstractDatabase database) {
             return withDdlQueryFactory(database.getDdlQueryFactory())
                     .withConstantActionFactory(database.getDdlFactory())
                     .withDbUri(database.getURI());
@@ -282,21 +248,18 @@ public final class PlanContext {
             }
         }
 
-        @Nonnull
         public PlanContext build() throws RelationalException {
             verify();
             return new PlanContext(metaData, metricCollector, schemaTemplate, plannerConfiguration, metadataOperationsFactory,
                     ddlQueryFactory, dbUri, preparedStatementParameters, isCaseSensitive);
         }
 
-        @Nonnull
         public static Builder create() {
             return new Builder();
         }
 
         @VisibleForTesting
-        @Nonnull
-        public static Builder unapply(@Nonnull PlanContext planContext) {
+        public static Builder unapply(PlanContext planContext) {
             return create().withConstantActionFactory(planContext.metadataOperationsFactory)
                     .withDbUri(planContext.dbUri)
                     .withMetadata(planContext.metaData)

@@ -34,9 +34,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -49,7 +47,7 @@ import java.util.function.BiFunction;
 @API(API.Status.EXPERIMENTAL)
 public class FieldValueTrieNode extends TrieNode.AbstractTrieNode<FieldValue.ResolvedAccessor, Value, FieldValueTrieNode> {
 
-    public FieldValueTrieNode(@Nonnull final Value value, @Nullable final Map<FieldValue.ResolvedAccessor, FieldValueTrieNode> childrenMap) {
+    public FieldValueTrieNode(final Value value, @Nullable final Map<FieldValue.ResolvedAccessor, FieldValueTrieNode> childrenMap) {
         super(value, childrenMap);
     }
 
@@ -57,7 +55,7 @@ public class FieldValueTrieNode extends TrieNode.AbstractTrieNode<FieldValue.Res
         this(EmptyValue.empty(), childrenMap);
     }
 
-    public FieldValueTrieNode(@Nonnull final Value value) {
+    public FieldValueTrieNode(final Value value) {
         this(value, null);
     }
 
@@ -65,7 +63,6 @@ public class FieldValueTrieNode extends TrieNode.AbstractTrieNode<FieldValue.Res
         this(EmptyValue.empty(), null);
     }
 
-    @Nonnull
     @Override
     public FieldValueTrieNode getThis() {
         return this;
@@ -85,7 +82,7 @@ public class FieldValueTrieNode extends TrieNode.AbstractTrieNode<FieldValue.Res
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean semanticEquals(final Object other, @Nonnull final AliasMap equivalencesMap) {
+    public boolean semanticEquals(final Object other, final AliasMap equivalencesMap) {
         if (this == other) {
             return true;
         }
@@ -98,9 +95,9 @@ public class FieldValueTrieNode extends TrieNode.AbstractTrieNode<FieldValue.Res
                 equalsNullable(getChildrenMap(), otherFieldValueTrieNode.getChildrenMap(), (t, o) -> semanticEqualsForChildrenMap(t, o, equivalencesMap));
     }
 
-    private static boolean semanticEqualsForChildrenMap(@Nonnull final Map<FieldValue.ResolvedAccessor, FieldValueTrieNode> self,
-                                                        @Nonnull final Map<FieldValue.ResolvedAccessor, FieldValueTrieNode> other,
-                                                        @Nonnull final AliasMap equivalencesMap) {
+    private static boolean semanticEqualsForChildrenMap(final Map<FieldValue.ResolvedAccessor, FieldValueTrieNode> self,
+                                                        final Map<FieldValue.ResolvedAccessor, FieldValueTrieNode> other,
+                                                        final AliasMap equivalencesMap) {
         if (self.size() != other.size()) {
             return false;
         }
@@ -118,7 +115,7 @@ public class FieldValueTrieNode extends TrieNode.AbstractTrieNode<FieldValue.Res
 
     private static <T> boolean equalsNullable(@Nullable final T self,
                                               @Nullable final T other,
-                                              @Nonnull final BiFunction<T, T, Boolean> nonNullableTest) {
+                                              final BiFunction<T, T, Boolean> nonNullableTest) {
         if (self == null && other == null) {
             return true;
         }
@@ -133,7 +130,7 @@ public class FieldValueTrieNode extends TrieNode.AbstractTrieNode<FieldValue.Res
         return Objects.hash(getValue(), getChildrenMap());
     }
 
-    public void validateNoOverlaps(@Nonnull Collection<FieldValueTrieNode> otherNodes) {
+    public void validateNoOverlaps(Collection<FieldValueTrieNode> otherNodes) {
         // Make sure the same field path isn't referenced by other nodes
         Map<FieldValue.ResolvedAccessor, FieldValueTrieNode> children = getChildrenMap();
         if (children == null || children.isEmpty()) {
@@ -164,15 +161,13 @@ public class FieldValueTrieNode extends TrieNode.AbstractTrieNode<FieldValue.Res
      *
      * @return a trie representation of the ordered field paths.
      */
-    @Nonnull
-    public static FieldValueTrieNode computeTrieForFieldPaths(@Nonnull final Collection<FieldValue.FieldPath> orderedFieldPaths) {
+    public static FieldValueTrieNode computeTrieForFieldPaths(final Collection<FieldValue.FieldPath> orderedFieldPaths) {
         return computeTrieForFieldPaths(new FieldValue.FieldPath(ImmutableList.of()), orderedFieldPaths, Iterators.peekingIterator(orderedFieldPaths.iterator()));
     }
 
-    @Nonnull
-    private static FieldValueTrieNode computeTrieForFieldPaths(@Nonnull final FieldValue.FieldPath prefix,
-                                                               @Nonnull final Collection<FieldValue.FieldPath> orderedFieldPaths,
-                                                               @Nonnull final PeekingIterator<FieldValue.FieldPath> orderedFieldPathIterator) {
+    private static FieldValueTrieNode computeTrieForFieldPaths(final FieldValue.FieldPath prefix,
+                                                               final Collection<FieldValue.FieldPath> orderedFieldPaths,
+                                                               final PeekingIterator<FieldValue.FieldPath> orderedFieldPathIterator) {
         if (orderedFieldPaths.contains(prefix)) {
             orderedFieldPathIterator.next();
             return new FieldValueTrieNode();
@@ -198,9 +193,8 @@ public class FieldValueTrieNode extends TrieNode.AbstractTrieNode<FieldValue.Res
         return new FieldValueTrieNode(childrenMapBuilder.build());
     }
 
-    @Nonnull
-    public static FieldValueTrieNode computeTrieForValues(@Nonnull final FieldValue.FieldPath prefix,
-                                                          @Nonnull final PeekingIterator<Value> orderedValueIterator) {
+    public static FieldValueTrieNode computeTrieForValues(final FieldValue.FieldPath prefix,
+                                                          final PeekingIterator<Value> orderedValueIterator) {
         final List<FieldValue.ResolvedAccessor> prefixAccessors = prefix.getFieldAccessors();
         final var childrenMapBuilder = ImmutableMap.<FieldValue.ResolvedAccessor, FieldValueTrieNode>builder();
         while (orderedValueIterator.hasNext()) {

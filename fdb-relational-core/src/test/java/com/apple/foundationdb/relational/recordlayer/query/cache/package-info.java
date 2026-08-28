@@ -18,11 +18,7 @@
  * limitations under the License.
  */
 
-/**
- * This package contains logic related to resolving builtin and user defined SQL functions.
- */
-
 @NullMarked
-package com.apple.foundationdb.relational.recordlayer.query.functions;
+package com.apple.foundationdb.relational.recordlayer.query.cache;
 
 import org.jspecify.annotations.NullMarked;

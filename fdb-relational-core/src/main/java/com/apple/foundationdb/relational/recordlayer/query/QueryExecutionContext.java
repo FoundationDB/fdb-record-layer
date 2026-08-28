@@ -25,14 +25,11 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 public interface QueryExecutionContext {
 
-    @Nonnull
-    default EvaluationContext getEvaluationContext(@Nonnull TypeRepository typeRepository) {
+    default EvaluationContext getEvaluationContext(TypeRepository typeRepository) {
         final var literals = getLiterals();
         if (literals.isEmpty()) {
             return EvaluationContext.forTypeRepository(typeRepository);
@@ -42,12 +39,10 @@ public interface QueryExecutionContext {
         return builder.build(typeRepository);
     }
 
-    @Nonnull
     default EvaluationContext getEvaluationContext() {
         return getEvaluationContext(ParseHelpers.EMPTY_TYPE_REPOSITORY);
     }
 
-    @Nonnull
     ExecuteProperties.Builder getExecutionPropertiesBuilder();
 
     @Nullable
@@ -55,11 +50,9 @@ public interface QueryExecutionContext {
 
     int getParameterHash();
 
-    @Nonnull
     Literals getLiterals();
 
     boolean isForExplain(); // todo (yhatem) remove.
 
-    @Nonnull
     PlanHashable.PlanHashMode getPlanHashMode();
 }

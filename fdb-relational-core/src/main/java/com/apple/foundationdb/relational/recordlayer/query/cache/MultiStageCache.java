@@ -32,9 +32,7 @@ import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.RemovalListener;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.time.Duration;
 import java.util.AbstractMap;
 import java.util.Map;
@@ -95,7 +93,6 @@ import java.util.stream.Stream;
 @API(API.Status.EXPERIMENTAL)
 public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
 
-    @Nonnull
     private final Cache<K, Cache<S, Cache<T, V>>> mainCache;
 
     private final AtomicInteger pendingPrimaryLruEvictions = new AtomicInteger(0);
@@ -165,15 +162,14 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
     }
 
     @SuppressWarnings("UnstableApiUsage")
-    @Nonnull
     @Override
-    public V reduce(@Nonnull final K key,
-                    @Nonnull final S secondaryKey,
-                    @Nonnull final T tertiaryKey,
-                    @Nonnull final Supplier<NonnullPair<T, V>> tertiaryKeyValueSupplier,
-                    @Nonnull final Function<V, V> valueWithEnvironmentDecorator,
-                    @Nonnull final Function<Stream<V>, V> reductionFunction,
-                    @Nonnull final MetricCollector metricCollector) {
+    public V reduce(final K key,
+                    final S secondaryKey,
+                    final T tertiaryKey,
+                    final Supplier<NonnullPair<T, V>> tertiaryKeyValueSupplier,
+                    final Function<V, V> valueWithEnvironmentDecorator,
+                    final Function<Stream<V>, V> reductionFunction,
+                    final MetricCollector metricCollector) {
         metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_LRU_EVICTION, pendingPrimaryLruEvictions.getAndSet(0));
         metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_LRU_EVICTION, pendingSecondaryLruEvictions.getAndSet(0));
         metricCollector.increment(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_LRU_EVICTION, pendingTertiaryLruEvictions.getAndSet(0));
@@ -264,7 +260,7 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
 
             @Nullable
             @Override
-            public Long numSecondaryEntries(@Nonnull final K key) {
+            public Long numSecondaryEntries(final K key) {
                 final var secondary = mainCache.getIfPresent(key);
                 if (secondary != null) {
                     return secondary.estimatedSize();
@@ -274,7 +270,7 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
 
             @Nullable
             @Override
-            public Long numTertiaryEntries(@Nonnull K key, @Nonnull S secondaryKey) {
+            public Long numTertiaryEntries(K key, S secondaryKey) {
                 final var secondary = mainCache.getIfPresent(key);
                 if (secondary != null) {
                     final var tertiary = secondary.getIfPresent(secondaryKey);
@@ -287,7 +283,7 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
 
             @Nullable
             @Override
-            public Long numSecondaryEntriesSlow(@Nonnull final K key) {
+            public Long numSecondaryEntriesSlow(final K key) {
                 final var secondary = mainCache.getIfPresent(key);
                 if (secondary != null) {
                     return (long) secondary.asMap().size();
@@ -297,7 +293,7 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
 
             @Nullable
             @Override
-            public Long numTertiaryEntriesSlow(@Nonnull K key, @Nonnull S secondaryKey) {
+            public Long numTertiaryEntriesSlow(K key, S secondaryKey) {
                 final var secondary = mainCache.getIfPresent(key);
                 if (secondary != null) {
                     final var tertiary = secondary.getIfPresent(secondaryKey);
@@ -308,15 +304,13 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
                 return null;
             }
 
-            @Nonnull
             @Override
             public Set<K> getAllKeys() {
                 return mainCache.asMap().keySet();
             }
 
-            @Nonnull
             @Override
-            public Set<S> getAllSecondaryKeys(@Nonnull final K key) {
+            public Set<S> getAllSecondaryKeys(final K key) {
                 final var secondary = mainCache.getIfPresent(key);
                 if (secondary != null) {
                     return secondary.asMap().keySet();
@@ -324,9 +318,8 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
                 return Set.of();
             }
 
-            @Nonnull
             @Override
-            public Set<T> getAllTertiaryKeys(@Nonnull K key, @Nonnull S secondaryKey) {
+            public Set<T> getAllTertiaryKeys(K key, S secondaryKey) {
                 final var secondary = mainCache.getIfPresent(key);
                 if (secondary != null) {
                     final var tertiary = secondary.getIfPresent(secondaryKey);
@@ -337,15 +330,13 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
                 return Set.of();
             }
 
-            @Nonnull
             @Override
             public Map<K, Set<S>> getAllMappings() {
                 return mainCache.asMap().entrySet().stream().map(e -> new AbstractMap.SimpleEntry<>(e.getKey(), e.getValue().asMap().keySet())).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
             }
 
-            @Nonnull
             @Override
-            public Map<S, Set<T>> getAllSecondaryMappings(@Nonnull final K key) {
+            public Map<S, Set<T>> getAllSecondaryMappings(final K key) {
                 final var secondary = mainCache.getIfPresent(key);
                 if (secondary != null) {
                     return secondary.asMap().entrySet().stream().map(e -> new AbstractMap.SimpleEntry<>(e.getKey(), e.getValue().asMap().keySet())).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -353,9 +344,8 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
                 return Map.of();
             }
 
-            @Nonnull
             @Override
-            public Map<T, V> getAllTertiaryMappings(@Nonnull K key, @Nonnull S secondaryKey) {
+            public Map<T, V> getAllTertiaryMappings(K key, S secondaryKey) {
                 final var secondary = mainCache.getIfPresent(key);
                 if (secondary != null) {
                     final var tertiary = secondary.getIfPresent(secondaryKey);
@@ -371,9 +361,8 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
                 return mainCache.stats().hitCount();
             }
 
-            @Nonnull
             @Override
-            public Long numSecondaryHits(@Nonnull final K key) {
+            public Long numSecondaryHits(final K key) {
                 final var secondary = mainCache.getIfPresent(key);
                 if (secondary != null) {
                     return secondary.stats().hitCount();
@@ -381,9 +370,8 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
                 return 0L;
             }
 
-            @Nonnull
             @Override
-            public Long numTertiaryHits(@Nonnull K key, @Nonnull S secondaryKey) {
+            public Long numTertiaryHits(K key, S secondaryKey) {
                 final var secondary = mainCache.getIfPresent(key);
                 if (secondary != null) {
                     final var tertiary = secondary.getIfPresent(secondaryKey);
@@ -399,9 +387,8 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
                 return mainCache.stats().missCount();
             }
 
-            @Nonnull
             @Override
-            public Long numSecondaryMisses(@Nonnull final K key) {
+            public Long numSecondaryMisses(final K key) {
                 final var secondary = mainCache.getIfPresent(key);
                 if (secondary != null) {
                     return secondary.stats().missCount();
@@ -409,9 +396,8 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
                 return 0L;
             }
 
-            @Nonnull
             @Override
-            public Long numTertiaryMisses(@Nonnull K key, @Nonnull S secondaryKey) {
+            public Long numTertiaryMisses(K key, S secondaryKey) {
                 final var secondary = mainCache.getIfPresent(key);
                 if (secondary != null) {
                     final var tertiary = secondary.getIfPresent(secondaryKey);
@@ -427,9 +413,8 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
                 return mainCache.stats().loadCount();
             }
 
-            @Nonnull
             @Override
-            public Long numSecondaryWrites(@Nonnull final K key) {
+            public Long numSecondaryWrites(final K key) {
                 final var secondary = mainCache.getIfPresent(key);
                 if (secondary != null) {
                     return secondary.stats().loadCount();
@@ -437,9 +422,8 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
                 return 0L;
             }
 
-            @Nonnull
             @Override
-            public Long numTertiaryWrites(@Nonnull K key, @Nonnull S secondaryKey) {
+            public Long numTertiaryWrites(K key, S secondaryKey) {
                 final var secondary = mainCache.getIfPresent(key);
                 if (secondary != null) {
                     final var tertiary = secondary.getIfPresent(secondaryKey);
@@ -455,9 +439,8 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
                 return mainCache.stats().requestCount();
             }
 
-            @Nonnull
             @Override
-            public Long numSecondaryReads(@Nonnull final K key) {
+            public Long numSecondaryReads(final K key) {
                 final var secondary = mainCache.getIfPresent(key);
                 if (secondary != null) {
                     return secondary.stats().requestCount();
@@ -465,9 +448,8 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
                 return 0L;
             }
 
-            @Nonnull
             @Override
-            public Long numTertiaryReads(@Nonnull K key, @Nonnull S secondaryKey) {
+            public Long numTertiaryReads(K key, S secondaryKey) {
                 final var secondary = mainCache.getIfPresent(key);
                 if (secondary != null) {
                     final var tertiary = secondary.getIfPresent(secondaryKey);
@@ -494,13 +476,10 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
 
         private static final int DEFAULT_TERTIARY_TTL_MS = 2000;
 
-        @Nonnull
         private static final TimeUnit DEFAULT_TTL_TIME_UNIT = TimeUnit.MILLISECONDS;
 
-        @Nonnull
         private static final TimeUnit DEFAULT_SECONDARY_TTL_TIME_UNIT = TimeUnit.MILLISECONDS;
 
-        @Nonnull
         private static final TimeUnit DEFAULT_TERTIARY_TTL_TIME_UNIT = TimeUnit.MILLISECONDS;
 
         protected int size;
@@ -515,13 +494,10 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
 
         protected long tertiaryTtl;
 
-        @Nonnull
         protected TimeUnit ttlTimeUnit;
 
-        @Nonnull
         protected TimeUnit secondaryTtlTimeUnit;
 
-        @Nonnull
         protected TimeUnit tertiaryTtlTimeUnit;
 
         @Nullable
@@ -552,108 +528,91 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
             ticker = null;
         }
 
-        @Nonnull
         protected abstract B self();
 
-        @Nonnull
         public B setSize(int size) {
             Assert.thatUnchecked(size > 0, ErrorCode.INTERNAL_ERROR, "Invalid cache size '%d'", size);
             this.size = size;
             return self();
         }
 
-        @Nonnull
         public B setSecondarySize(int secondarySize) {
             Assert.thatUnchecked(secondarySize > 0, ErrorCode.INTERNAL_ERROR, "Invalid secondary cache size '%d'", secondarySize);
             this.secondarySize = secondarySize;
             return self();
         }
 
-        @Nonnull
         public B setTertiarySize(int tertiarySize) {
             Assert.thatUnchecked(tertiarySize > 0, ErrorCode.INTERNAL_ERROR, "Invalid tertiary cache size '%d'", tertiarySize);
             this.tertiarySize = tertiarySize;
             return self();
         }
 
-        @Nonnull
         public B setTtl(long ttlMillis) {
             return setTtl(ttlMillis, TimeUnit.MILLISECONDS);
         }
 
-        @Nonnull
-        public B setTtl(long ttl, @Nonnull final TimeUnit timeUnit) {
+        public B setTtl(long ttl, final TimeUnit timeUnit) {
             Assert.thatUnchecked(ttl > 0, ErrorCode.INTERNAL_ERROR, "Invalid cache ttl '%d'", ttl);
             this.ttl = ttl;
             this.ttlTimeUnit = timeUnit;
             return self();
         }
 
-        @Nonnull
         public B setSecondaryTtl(long secondaryTtlMillis) {
             return setSecondaryTtl(secondaryTtlMillis, TimeUnit.MILLISECONDS);
         }
 
-        @Nonnull
-        public B setSecondaryTtl(long secondaryTtl, @Nonnull final TimeUnit timeUnit) {
+        public B setSecondaryTtl(long secondaryTtl, final TimeUnit timeUnit) {
             Assert.thatUnchecked(secondaryTtl > 0, ErrorCode.INTERNAL_ERROR, "Invalid cache secondaryTtl '%d'", secondaryTtl);
             this.secondaryTtl = secondaryTtl;
             this.secondaryTtlTimeUnit = timeUnit;
             return self();
         }
 
-        @Nonnull
         public B setTertiaryTtl(long tertiaryTtlMillis) {
             return setTertiaryTtl(tertiaryTtlMillis, TimeUnit.MILLISECONDS);
         }
 
-        @Nonnull
-        public B setTertiaryTtl(long tertiaryTtl, @Nonnull final TimeUnit timeUnit) {
+        public B setTertiaryTtl(long tertiaryTtl, final TimeUnit timeUnit) {
             Assert.thatUnchecked(tertiaryTtl > 0, ErrorCode.INTERNAL_ERROR, "Invalid cache tertiaryTtl '%d'", tertiaryTtl);
             this.tertiaryTtl = tertiaryTtl;
             this.tertiaryTtlTimeUnit = timeUnit;
             return self();
         }
 
-        @Nonnull
-        public B setTicker(@Nonnull final Ticker ticker) {
+        public B setTicker(final Ticker ticker) {
             this.ticker = ticker;
             return self();
         }
 
-        @Nonnull
-        public B setExecutor(@Nonnull final Executor executor) {
+        public B setExecutor(final Executor executor) {
             this.executor = executor;
             return self();
         }
 
-        @Nonnull
-        public B setSecondaryExecutor(@Nonnull final Executor secondaryExecutor) {
+        public B setSecondaryExecutor(final Executor secondaryExecutor) {
             this.secondaryExecutor = secondaryExecutor;
             return self();
         }
 
-        @Nonnull
-        public B setTertiaryExecutor(@Nonnull final Executor tertiaryExecutor) {
+        public B setTertiaryExecutor(final Executor tertiaryExecutor) {
             this.tertiaryExecutor = tertiaryExecutor;
             return self();
         }
 
-        @Nonnull
         public MultiStageCache<K, S, T, V> build() {
             return new MultiStageCache<>(size, secondarySize, tertiarySize, ttl, ttlTimeUnit, secondaryTtl, secondaryTtlTimeUnit, tertiaryTtl, tertiaryTtlTimeUnit, executor, secondaryExecutor, tertiaryExecutor, ticker);
         }
     }
 
     public static class MultiStageCacheBuilder<K, S, T, V> extends Builder<K, S, T, V, MultiStageCacheBuilder<K, S, T, V>> {
-        @Nonnull
         @Override
         protected MultiStageCacheBuilder<K, S, T, V> self() {
             return this;
         }
     }
 
-    @Nonnull
     public static <K, S, T, V> MultiStageCacheBuilder<K, S, T, V> newMultiStageCacheBuilder() {
         return new MultiStageCacheBuilder<>();
     }

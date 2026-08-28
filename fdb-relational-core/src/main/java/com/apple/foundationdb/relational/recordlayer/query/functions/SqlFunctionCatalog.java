@@ -26,8 +26,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
-
-import javax.annotation.Nonnull;
 import java.util.stream.StreamSupport;
 
 import static java.util.stream.Collectors.toList;
@@ -45,8 +43,7 @@ public interface SqlFunctionCatalog {
      * @param arguments The arguments passed with the invocation of the function.
      * @return the function instance.
      */
-    @Nonnull
-    CatalogedFunction lookupFunction(@Nonnull String name, @Nonnull CallSiteArguments arguments);
+    CatalogedFunction lookupFunction(String name, CallSiteArguments arguments);
 
     /**
      * Checks whether a function exists in the catalog. Note that invoking this method shall not trigger compiling
@@ -54,10 +51,10 @@ public interface SqlFunctionCatalog {
      * @param name The name of the function.
      * @return {@code True} if the function exists, otherwise {@code false}.
      */
-    boolean containsFunction(@Nonnull String name);
+    boolean containsFunction(String name);
 
     // TODO: this will be removed once we unify both Java- and SQL-UDFs.
-    boolean isJavaCallFunction(@Nonnull String name);
+    boolean isJavaCallFunction(String name);
 
     /**
      * Returns an instance of a {@link SqlFunctionCatalogImpl} with the following functions:
@@ -73,8 +70,7 @@ public interface SqlFunctionCatalog {
      *
      * @return a new instance of {@link SqlFunctionCatalogImpl}.
      */
-    @Nonnull
-    static SqlFunctionCatalog newInstance(@Nonnull final RecordLayerSchemaTemplate metadata, final boolean caseSensitive) {
+    static SqlFunctionCatalog newInstance(final RecordLayerSchemaTemplate metadata, final boolean caseSensitive) {
         return SqlFunctionCatalogImpl.newInstance(metadata, caseSensitive);
     }
 
@@ -95,8 +91,7 @@ public interface SqlFunctionCatalog {
      * @return if the {@code value} is a single-item record, then the content of the {@code value} is recursively checked
      * and returned, otherwise, the {@code value} itself is returned without modification.
      */
-    @Nonnull
-    static Typed flattenRecordWithOneField(@Nonnull final Typed value) {
+    static Typed flattenRecordWithOneField(final Typed value) {
         if (value instanceof RecordConstructorValue && ((RecordConstructorValue) value).getColumns().size() == 1) {
             return flattenRecordWithOneField(((Value) value).getChildren().iterator().next());
         }

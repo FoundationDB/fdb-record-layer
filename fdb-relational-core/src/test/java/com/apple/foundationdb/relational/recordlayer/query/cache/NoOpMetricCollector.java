@@ -24,9 +24,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.util.Supplier;
-
-import javax.annotation.Nonnull;
-
 /**
  * A no-op {@link MetricCollector} for use in tests that do not need to track metrics.
  */
@@ -38,11 +35,11 @@ public class NoOpMetricCollector implements MetricCollector {
     }
 
     @Override
-    public void increment(@Nonnull final RelationalMetric.RelationalCount count, final int val) {
+    public void increment(final RelationalMetric.RelationalCount count, final int val) {
     }
 
     @Override
-    public <T> T clock(@Nonnull final RelationalMetric.RelationalEvent event, final Supplier<T> supplier) throws RelationalException {
+    public <T> T clock(final RelationalMetric.RelationalEvent event, final Supplier<T> supplier) throws RelationalException {
         return supplier.get();
     }
 }

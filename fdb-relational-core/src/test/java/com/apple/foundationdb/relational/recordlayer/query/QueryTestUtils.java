@@ -25,13 +25,11 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 
 import org.junit.jupiter.api.Assertions;
-
-import javax.annotation.Nonnull;
 import java.sql.SQLException;
 
 public class QueryTestUtils {
 
-    public static RelationalStruct insertT1Record(@Nonnull final RelationalStatement statement, long pk, long a, long b, long c) throws SQLException {
+    public static RelationalStruct insertT1Record(final RelationalStatement statement, long pk, long a, long b, long c) throws SQLException {
         var result = EmbeddedRelationalStruct.newBuilder()
                 .addLong("PK", pk)
                 .addLong("A", a)
@@ -43,7 +41,7 @@ public class QueryTestUtils {
         return result;
     }
 
-    public static RelationalStruct insertT1RecordColAIsNull(@Nonnull final RelationalStatement statement, long pk, long b, long c) throws SQLException {
+    public static RelationalStruct insertT1RecordColAIsNull(final RelationalStatement statement, long pk, long b, long c) throws SQLException {
         var result = EmbeddedRelationalStruct.newBuilder()
                 .addLong("PK", pk)
                 .addLong("B", b)

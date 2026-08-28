@@ -36,9 +36,7 @@ import com.apple.foundationdb.relational.continuation.CompiledStatement;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 
 import com.google.protobuf.Message;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 import java.util.Set;
 
@@ -49,8 +47,8 @@ public final class PlanValidator {
     private PlanValidator() {
     }
 
-    public static PlanHashMode validateSerializedPlanSerializationMode(@Nonnull final CompiledStatement compiledStatement,
-                                                                       @Nonnull final Set<PlanHashable.PlanHashMode> validPlanHashModes) throws RelationalException {
+    public static PlanHashMode validateSerializedPlanSerializationMode(final CompiledStatement compiledStatement,
+                                                                       final Set<PlanHashable.PlanHashMode> validPlanHashModes) throws RelationalException {
         final PlanHashable.PlanHashMode planSerializationMode =
                 PlanHashable.PlanHashMode.valueOf(compiledStatement.getPlanSerializationMode());
         if (!validPlanHashModes.contains(planSerializationMode)) {
@@ -59,8 +57,8 @@ public final class PlanValidator {
         return planSerializationMode;
     }
 
-    public static <M extends Message> void validateContinuationConstraint(@Nonnull final FDBRecordStoreBase<M> fdbRecordStore,
-                                                                          @Nonnull final QueryPlanConstraint continuationPlanConstraint) throws RelationalException {
+    public static <M extends Message> void validateContinuationConstraint(final FDBRecordStoreBase<M> fdbRecordStore,
+                                                                          final QueryPlanConstraint continuationPlanConstraint) throws RelationalException {
         final Boolean isValid =
                 continuationPlanConstraint.getPredicate()
                         .eval(fdbRecordStore, EvaluationContext.EMPTY);
@@ -69,12 +67,12 @@ public final class PlanValidator {
         }
     }
 
-    public static void validateHashes(@Nonnull final ContinuationImpl parsedContinuation,
-                                      @Nonnull final MetricCollector metricCollector,
-                                      @Nonnull final RecordQueryPlan plan,
-                                      @Nonnull final QueryExecutionContext context,
-                                      @Nonnull final PlanHashMode currentPlanHashMode,
-                                      @Nonnull final Set<PlanHashMode> validPlanHashModes) throws RelationalException {
+    public static void validateHashes(final ContinuationImpl parsedContinuation,
+                                      final MetricCollector metricCollector,
+                                      final RecordQueryPlan plan,
+                                      final QueryExecutionContext context,
+                                      final PlanHashMode currentPlanHashMode,
+                                      final Set<PlanHashMode> validPlanHashModes) throws RelationalException {
         // Nothing needs to be validated if this continuation is at the beginning
         if (!parsedContinuation.atBeginning()) {
             if (!validateBindingHash(context, parsedContinuation)) {
@@ -111,10 +109,10 @@ public final class PlanValidator {
      *         match; {@code null} if no such valid plan hash mode could be resolved.
      */
     @Nullable
-    private static PlanHashMode resolveValidPlanHashMode(@Nonnull final RecordQueryPlan plan,
-                                                         @Nonnull final ContinuationImpl continuation,
-                                                         @Nonnull final PlanHashMode currentPlanHashMode,
-                                                         @Nonnull final Set<PlanHashMode> validPlanHashModes) {
+    private static PlanHashMode resolveValidPlanHashMode(final RecordQueryPlan plan,
+                                                         final ContinuationImpl continuation,
+                                                         final PlanHashMode currentPlanHashMode,
+                                                         final Set<PlanHashMode> validPlanHashModes) {
         if (Objects.equals(plan.planHash(currentPlanHashMode), continuation.getPlanHash())) {
             return currentPlanHashMode;
         }

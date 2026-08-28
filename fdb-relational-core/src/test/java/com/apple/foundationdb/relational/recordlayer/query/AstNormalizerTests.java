@@ -50,9 +50,7 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.sql.SQLException;
 import java.util.Base64;
 import java.util.EnumSet;
@@ -83,7 +81,6 @@ import static com.apple.foundationdb.relational.recordlayer.query.OrderedLiteral
  */
 public class AstNormalizerTests {
 
-    @Nonnull
     private static final RecordLayerSchemaTemplate fakeSchemaTemplate = RecordLayerSchemaTemplate
             .newBuilder()
             .setName("testTemplate")
@@ -98,140 +95,139 @@ public class AstNormalizerTests {
                     .build())
             .build();
 
-    @Nonnull
     private static final PlannerConfiguration plannerConfiguration = PlannerConfiguration.ofAllAvailableIndexes();
 
-    private static void validate(@Nonnull final String query,
-                                 @Nonnull final String expectedCanonicalRepresentation) throws RelationalException {
+    private static void validate(final String query,
+                                 final String expectedCanonicalRepresentation) throws RelationalException {
         validate(List.of(query), PreparedParams.empty(), expectedCanonicalRepresentation);
     }
 
-    private static void validate(@Nonnull final String query,
-                                 @Nonnull final PreparedParams preparedStatementParameters,
-                                 @Nonnull final String expectedCanonicalRepresentation) throws RelationalException {
+    private static void validate(final String query,
+                                 final PreparedParams preparedStatementParameters,
+                                 final String expectedCanonicalRepresentation) throws RelationalException {
         validate(List.of(query), preparedStatementParameters, expectedCanonicalRepresentation);
     }
 
-    private static void validate(@Nonnull final List<String> queries,
-                                 @Nonnull final String expectedCanonicalRepresentation) throws RelationalException {
+    private static void validate(final List<String> queries,
+                                 final String expectedCanonicalRepresentation) throws RelationalException {
         validate(queries, PreparedParams.empty(), expectedCanonicalRepresentation, queries.stream().map(q -> Map.<String, Object>of()).collect(Collectors.toList()));
     }
 
-    private static void validate(@Nonnull final List<String> queries,
-                                 @Nonnull final PreparedParams preparedStatementParameters,
-                                 @Nonnull final String expectedCanonicalRepresentation) throws RelationalException {
+    private static void validate(final List<String> queries,
+                                 final PreparedParams preparedStatementParameters,
+                                 final String expectedCanonicalRepresentation) throws RelationalException {
         validate(queries, preparedStatementParameters, expectedCanonicalRepresentation, queries.stream().map(q -> Map.<String, Object>of()).collect(Collectors.toList()));
     }
 
-    private static void validate(@Nonnull final String query,
-                                 @Nonnull final String expectedCanonicalRepresentation,
-                                 @Nonnull final Map<String, Object> expectedParameters) throws RelationalException {
+    private static void validate(final String query,
+                                 final String expectedCanonicalRepresentation,
+                                 final Map<String, Object> expectedParameters) throws RelationalException {
         validate(List.of(query), PreparedParams.empty(), expectedCanonicalRepresentation, List.of(expectedParameters));
     }
 
-    private static void validate(@Nonnull final String query,
-                                 @Nonnull final PreparedParams preparedStatementParameters,
-                                 @Nonnull final String expectedCanonicalRepresentation,
-                                 @Nonnull final Map<String, Object> expectedParameters) throws RelationalException {
+    private static void validate(final String query,
+                                 final PreparedParams preparedStatementParameters,
+                                 final String expectedCanonicalRepresentation,
+                                 final Map<String, Object> expectedParameters) throws RelationalException {
         validate(List.of(query), preparedStatementParameters, expectedCanonicalRepresentation, List.of(expectedParameters));
     }
 
-    private static void validate(@Nonnull final List<String> queries,
-                                 @Nonnull final String expectedCanonicalRepresentation,
-                                 @Nonnull final List<Map<String, Object>> expectedParameters) throws RelationalException {
+    private static void validate(final List<String> queries,
+                                 final String expectedCanonicalRepresentation,
+                                 final List<Map<String, Object>> expectedParameters) throws RelationalException {
         validate(queries, PreparedParams.empty(), expectedCanonicalRepresentation, expectedParameters, null);
     }
 
-    private static void validate(@Nonnull final List<String> queries,
-                                 @Nonnull final PreparedParams preparedStatementParameters,
-                                 @Nonnull final String expectedCanonicalRepresentation,
-                                 @Nonnull final List<Map<String, Object>> expectedParameters) throws RelationalException {
+    private static void validate(final List<String> queries,
+                                 final PreparedParams preparedStatementParameters,
+                                 final String expectedCanonicalRepresentation,
+                                 final List<Map<String, Object>> expectedParameters) throws RelationalException {
         validate(queries, preparedStatementParameters, expectedCanonicalRepresentation, expectedParameters, null);
     }
 
-    private static void validate(@Nonnull final String query,
-                                 @Nonnull final String expectedCanonicalRepresentation,
-                                 @Nonnull final Map<String, Object> expectedParameters,
+    private static void validate(final String query,
+                                 final String expectedCanonicalRepresentation,
+                                 final Map<String, Object> expectedParameters,
                                  @Nullable final String expectedContinuation) throws RelationalException {
         validate(List.of(query), PreparedParams.empty(), expectedCanonicalRepresentation, List.of(expectedParameters), expectedContinuation, -1);
     }
 
-    private static void validate(@Nonnull final String query,
-                                 @Nonnull final PreparedParams preparedStatementParameters,
-                                 @Nonnull final String expectedCanonicalRepresentation,
-                                 @Nonnull final Map<String, Object> expectedParameters,
+    private static void validate(final String query,
+                                 final PreparedParams preparedStatementParameters,
+                                 final String expectedCanonicalRepresentation,
+                                 final Map<String, Object> expectedParameters,
                                  @Nullable final String expectedContinuation) throws RelationalException {
         validate(List.of(query), preparedStatementParameters, expectedCanonicalRepresentation, List.of(expectedParameters), expectedContinuation, -1);
     }
 
-    private static void validate(@Nonnull final List<String> queries,
-                                 @Nonnull final String expectedCanonicalRepresentation,
-                                 @Nonnull final List<Map<String, Object>> expectedParameters,
+    private static void validate(final List<String> queries,
+                                 final String expectedCanonicalRepresentation,
+                                 final List<Map<String, Object>> expectedParameters,
                                  @Nullable final String expectedContinuation) throws RelationalException {
         validate(queries, PreparedParams.empty(), expectedCanonicalRepresentation, expectedParameters, expectedContinuation, -1);
     }
 
-    private static void validate(@Nonnull final List<String> queries,
-                                 @Nonnull final PreparedParams preparedStatementParameters,
-                                 @Nonnull final String expectedCanonicalRepresentation,
-                                 @Nonnull final List<Map<String, Object>> expectedParameters,
+    private static void validate(final List<String> queries,
+                                 final PreparedParams preparedStatementParameters,
+                                 final String expectedCanonicalRepresentation,
+                                 final List<Map<String, Object>> expectedParameters,
                                  @Nullable final String expectedContinuation) throws RelationalException {
         validate(queries, preparedStatementParameters, expectedCanonicalRepresentation, expectedParameters, expectedContinuation, -1);
     }
 
-    private static void validate(@Nonnull final String query,
-                                 @Nonnull final String expectedCanonicalRepresentation,
-                                 @Nonnull final Map<String, Object> expectedParameters,
+    private static void validate(final String query,
+                                 final String expectedCanonicalRepresentation,
+                                 final Map<String, Object> expectedParameters,
                                  int limit) throws RelationalException {
         validate(List.of(query), PreparedParams.empty(), expectedCanonicalRepresentation, List.of(expectedParameters), null, limit);
     }
 
-    private static void validate(@Nonnull final String query,
-                                 @Nonnull final PreparedParams preparedStatementParameters,
-                                 @Nonnull final String expectedCanonicalRepresentation,
-                                 @Nonnull final Map<String, Object> expectedParameters,
+    private static void validate(final String query,
+                                 final PreparedParams preparedStatementParameters,
+                                 final String expectedCanonicalRepresentation,
+                                 final Map<String, Object> expectedParameters,
                                  int limit) throws RelationalException {
         validate(List.of(query), preparedStatementParameters, expectedCanonicalRepresentation, List.of(expectedParameters), null, limit);
     }
 
-    private static void validate(@Nonnull final List<String> queries,
-                                 @Nonnull final String expectedCanonicalRepresentation,
-                                 @Nonnull final List<Map<String, Object>> expectedParameters,
+    private static void validate(final List<String> queries,
+                                 final String expectedCanonicalRepresentation,
+                                 final List<Map<String, Object>> expectedParameters,
                                  int limit) throws RelationalException {
         validate(queries, PreparedParams.empty(), expectedCanonicalRepresentation, expectedParameters, null, limit);
     }
 
-    private static void validate(@Nonnull final List<String> queries,
-                                 @Nonnull final PreparedParams preparedStatementParameters,
-                                 @Nonnull final String expectedCanonicalRepresentation,
-                                 @Nonnull final List<Map<String, Object>> expectedParameters,
+    private static void validate(final List<String> queries,
+                                 final PreparedParams preparedStatementParameters,
+                                 final String expectedCanonicalRepresentation,
+                                 final List<Map<String, Object>> expectedParameters,
                                  int limit) throws RelationalException {
         validate(queries, preparedStatementParameters, expectedCanonicalRepresentation, expectedParameters, null, limit);
     }
 
-    private static void validate(@Nonnull final List<String> queries,
-                                 @Nonnull final PreparedParams preparedParameters,
-                                 @Nonnull final String expectedCanonicalRepresentation,
-                                 @Nonnull final List<Map<String, Object>> expectedParametersList,
+    private static void validate(final List<String> queries,
+                                 final PreparedParams preparedParameters,
+                                 final String expectedCanonicalRepresentation,
+                                 final List<Map<String, Object>> expectedParametersList,
                                  @Nullable final String expectedContinuation,
                                  int limit) throws RelationalException {
         validate(queries, preparedParameters, expectedCanonicalRepresentation, expectedParametersList, expectedContinuation, limit, null);
     }
 
-    private static void validate(@Nonnull final List<String> queries,
-                                 @Nonnull final PreparedParams preparedParameters,
-                                 @Nonnull final String expectedCanonicalRepresentation,
-                                 @Nonnull final List<Map<String, Object>> expectedParametersList,
+    private static void validate(final List<String> queries,
+                                 final PreparedParams preparedParameters,
+                                 final String expectedCanonicalRepresentation,
+                                 final List<Map<String, Object>> expectedParametersList,
                                  @Nullable final String expectedContinuation,
                                  int limit,
                                  @Nullable EnumSet<AstNormalizer.NormalizationResult.QueryCachingFlags> queryCachingFlags) throws RelationalException {
         validate(queries, preparedParameters, expectedCanonicalRepresentation, expectedParametersList, expectedContinuation, limit, queryCachingFlags, null);
     }
 
-    private static void validate(@Nonnull final List<String> queries,
-                                 @Nonnull final PreparedParams preparedParameters,
-                                 @Nonnull final String expectedCanonicalRepresentation,
-                                 @Nonnull final List<Map<String, Object>> expectedParametersList,
+    private static void validate(final List<String> queries,
+                                 final PreparedParams preparedParameters,
+                                 final String expectedCanonicalRepresentation,
+                                 final List<Map<String, Object>> expectedParametersList,
                                  @Nullable final String expectedContinuation,
                                  int limit,
                                  @Nullable EnumSet<AstNormalizer.NormalizationResult.QueryCachingFlags> queryCachingFlags,
@@ -243,16 +239,16 @@ public class AstNormalizerTests {
                 limit, queryCachingFlags, queryOptions, schemaTemplates.build(), "");
     }
 
-    private static void validate(@Nonnull final List<String> queries,
-                                 @Nonnull final PreparedParams preparedParameters,
-                                 @Nonnull final String expectedCanonicalRepresentation,
-                                 @Nonnull final List<Map<String, Object>> expectedParametersList,
+    private static void validate(final List<String> queries,
+                                 final PreparedParams preparedParameters,
+                                 final String expectedCanonicalRepresentation,
+                                 final List<Map<String, Object>> expectedParametersList,
                                  @Nullable final String expectedContinuation,
                                  int limit,
                                  @Nullable EnumSet<AstNormalizer.NormalizationResult.QueryCachingFlags> queryCachingFlags,
                                  @Nullable Map<Options.Name, Object> queryOptions,
-                                 @Nonnull final List<SchemaTemplate> schemaTemplates,
-                                 @Nonnull final String auxiliaryMetadata) throws RelationalException {
+                                 final List<SchemaTemplate> schemaTemplates,
+                                 final String auxiliaryMetadata) throws RelationalException {
         Assert.thatUnchecked(!queries.isEmpty());
         Assert.thatUnchecked(queries.size() == expectedParametersList.size());
         Integer queryHash = null;
@@ -308,7 +304,7 @@ public class AstNormalizerTests {
         }
     }
 
-    private static void shouldFail(@Nonnull final String query, @Nonnull final String errorMessage) {
+    private static void shouldFail(final String query, final String errorMessage) {
         try {
             AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query),
                     PreparedParams.empty(), plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query);
@@ -318,21 +314,21 @@ public class AstNormalizerTests {
         }
     }
 
-    private static void validateNotSameHash(@Nonnull final String query1,
-                                            @Nonnull final String query2) throws RelationalException {
+    private static void validateNotSameHash(final String query1,
+                                            final String query2) throws RelationalException {
         validateNotSameHash(query1, query2, PreparedParams.empty());
     }
 
-    private static void validateNotSameHash(@Nonnull final String query1,
-                                            @Nonnull final String query2,
-                                            @Nonnull PreparedParams preparedParams) throws RelationalException {
+    private static void validateNotSameHash(final String query1,
+                                            final String query2,
+                                            PreparedParams preparedParams) throws RelationalException {
         validateNotSameHash(query1, preparedParams, query2, preparedParams);
     }
 
-    private static void validateNotSameHash(@Nonnull final String query1,
-                                            @Nonnull PreparedParams preparedParams1,
-                                            @Nonnull final String query2,
-                                            @Nonnull PreparedParams preparedParams2) throws RelationalException {
+    private static void validateNotSameHash(final String query1,
+                                            PreparedParams preparedParams1,
+                                            final String query2,
+                                            PreparedParams preparedParams2) throws RelationalException {
 
         final var result1 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query1),
                 PreparedParams.copyOf(preparedParams1), plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query1);
@@ -341,14 +337,14 @@ public class AstNormalizerTests {
         Assertions.assertThat(result1.getQueryCacheKey().hashCode()).isNotEqualTo(result2.getQueryCacheKey().hashCode());
     }
 
-    private static void validateNotEqual(@Nonnull final String query1,
-                                         @Nonnull final String query2) throws RelationalException {
+    private static void validateNotEqual(final String query1,
+                                         final String query2) throws RelationalException {
         validateNotEqual(query1, query2, PreparedParams.empty());
     }
 
-    private static void validateNotEqual(@Nonnull final String query1,
-                                         @Nonnull final String query2,
-                                         @Nonnull PreparedParams preparedParams) throws RelationalException {
+    private static void validateNotEqual(final String query1,
+                                         final String query2,
+                                         PreparedParams preparedParams) throws RelationalException {
         final var result1 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query1),
                 PreparedParams.copyOf(preparedParams), plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query1);
         final var result2 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query2),
@@ -356,11 +352,11 @@ public class AstNormalizerTests {
         Assertions.assertThat(result1.getQueryCacheKey()).isNotEqualTo(result2.getQueryCacheKey());
     }
 
-    private static void validateNotEqual(@Nonnull final String query1,
-                                         @Nonnull final RecordLayerSchemaTemplate schemaTemplate1,
-                                         @Nonnull final String query2,
-                                         @Nonnull final RecordLayerSchemaTemplate schemaTemplate2,
-                                         @Nonnull PreparedParams preparedParams) throws RelationalException {
+    private static void validateNotEqual(final String query1,
+                                         final RecordLayerSchemaTemplate schemaTemplate1,
+                                         final String query2,
+                                         final RecordLayerSchemaTemplate schemaTemplate2,
+                                         PreparedParams preparedParams) throws RelationalException {
         final var result1 = AstNormalizer.normalizeAst(schemaTemplate1, QueryParser.parse(query1),
                 PreparedParams.copyOf(preparedParams), plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query1);
         final var result2 = AstNormalizer.normalizeAst(schemaTemplate2, QueryParser.parse(query2),
@@ -369,7 +365,7 @@ public class AstNormalizerTests {
     }
 
     @SuppressWarnings("unchecked")
-    private static void compareBindings(@Nonnull final Object actual, @Nonnull final Object expected) {
+    private static void compareBindings(final Object actual, final Object expected) {
         Assertions.assertThat(actual instanceof Map).isTrue();
         Assertions.assertThat(expected instanceof Map).isTrue();
         final var actualMap = (Map<String, Object>) actual;
@@ -383,15 +379,13 @@ public class AstNormalizerTests {
         }
     }
 
-    @Nonnull
     private static java.sql.Array toArrayParameter(List<Object> elements) throws SQLException {
         return EmbeddedRelationalArray.newBuilder().addAll(elements.toArray()).build();
     }
 
-    @Nonnull
-    private static RecordLayerSchemaTemplate schemaTemplateWithFunction(@Nonnull final RecordLayerSchemaTemplate schemaTemplate,
-                                                                        @Nonnull final String name,
-                                                                        @Nonnull final String functionDdl,
+    private static RecordLayerSchemaTemplate schemaTemplateWithFunction(final RecordLayerSchemaTemplate schemaTemplate,
+                                                                        final String name,
+                                                                        final String functionDdl,
                                                                         boolean isTemporary) throws RelationalException {
         final String canonicalFunctionDdl;
         if (isTemporary) {
@@ -411,15 +405,13 @@ public class AstNormalizerTests {
                         // invoking the compiled routine should only happen during plan generation.
                         .withUserDefinedFunctionProvider(ignored -> new CompiledSqlFunction("", List.of(), List.of(),
                                 List.of(), Optional.empty(), null, Literals.empty()) {
-                            @Nonnull
                             @Override
                             public RecordMetaDataProto.PUserDefinedFunction toProto() {
                                 throw new UnsupportedOperationException("unexpected call");
                             }
 
-                            @Nonnull
                             @Override
-                            public RelationalExpression encapsulate(@Nonnull final CallSiteArguments arguments) {
+                            public RelationalExpression encapsulate(final CallSiteArguments arguments) {
                                 throw new UnsupportedOperationException("unexpected call");
                             }
                         })
@@ -674,7 +666,7 @@ public class AstNormalizerTests {
             "select * from t1 where col1 not in (10, null)",
             "select * from t1 where col1 in (10, col2, null)"
     })
-    void parseInPredicateRejectsNull(@Nonnull final String query) {
+    void parseInPredicateRejectsNull(final String query) {
         Assertions.assertThatThrownBy(() -> validate(query, "unreachable", Map.of()))
                 .isInstanceOf(UncheckedRelationalException.class)
                 .hasMessageContaining("NULL values are not allowed in the IN list");
@@ -1617,8 +1609,7 @@ public class AstNormalizerTests {
                 Map.of(constantId(22), 10));
     }
 
-    @Nonnull
-    private String normalizeQuery(@Nonnull final String functionDdl) throws RelationalException {
+    private String normalizeQuery(final String functionDdl) throws RelationalException {
         final var normalizer = AstNormalizer.normalizeAst(fakeSchemaTemplate,
                 QueryParser.parse(functionDdl), PreparedParams.empty(),
                 plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, functionDdl);

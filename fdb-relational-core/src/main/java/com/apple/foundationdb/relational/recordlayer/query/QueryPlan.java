@@ -85,9 +85,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.sql.SQLException;
 import java.sql.Struct;
 import java.util.ArrayList;
@@ -104,51 +102,44 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.UsedT
 
 public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typed {
 
-    protected QueryPlan(@Nonnull final String query) {
+    protected QueryPlan(final String query) {
         super(query);
     }
 
     public static class PhysicalQueryPlan extends QueryPlan {
 
-        @Nonnull
         private final RecordQueryPlan recordQueryPlan;
 
         @Nullable
         private final PlannerEventStatsMaps plannerEventStatsMaps;
 
-        @Nonnull
         private final PlanHashMode currentPlanHashMode;
 
         private final Supplier<Integer> planHashSupplier;
 
-        @Nonnull
         private final TypeRepository typeRepository;
 
-        @Nonnull
         private final QueryPlanConstraint constraint;
 
-        @Nonnull
         private final QueryPlanConstraint continuationConstraint;
 
-        @Nonnull
         private final QueryExecutionContext queryExecutionContext;
 
         /**
          * Semantic type structure captured during semantic analysis.
          * Complete StructType with field names and nested struct type names preserved.
          */
-        @Nonnull
         private final DataType.StructType semanticStructType;
 
-        public PhysicalQueryPlan(@Nonnull final RecordQueryPlan recordQueryPlan,
+        public PhysicalQueryPlan(final RecordQueryPlan recordQueryPlan,
                                  @Nullable final PlannerEventStatsMaps plannerEventStatsMaps,
-                                 @Nonnull final TypeRepository typeRepository,
-                                 @Nonnull final QueryPlanConstraint constraint,
-                                 @Nonnull final QueryPlanConstraint continuationConstraint,
-                                 @Nonnull final QueryExecutionContext queryExecutionContext,
-                                 @Nonnull final String query,
-                                 @Nonnull final PlanHashMode currentPlanHashMode,
-                                 @Nonnull final DataType.StructType semanticStructType) {
+                                 final TypeRepository typeRepository,
+                                 final QueryPlanConstraint constraint,
+                                 final QueryPlanConstraint continuationConstraint,
+                                 final QueryExecutionContext queryExecutionContext,
+                                 final String query,
+                                 final PlanHashMode currentPlanHashMode,
+                                 final DataType.StructType semanticStructType) {
             super(query);
             this.recordQueryPlan = recordQueryPlan;
             this.plannerEventStatsMaps = plannerEventStatsMaps;
@@ -161,47 +152,39 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             this.semanticStructType = semanticStructType;
         }
 
-        @Nonnull
         public RecordQueryPlan getRecordQueryPlan() {
             return recordQueryPlan;
         }
 
-        @Nonnull
         public TypeRepository getTypeRepository() {
             return typeRepository;
         }
 
         @Override
-        @Nonnull
         public QueryPlanConstraint getConstraint() {
             return constraint;
         }
 
-        @Nonnull
         public QueryPlanConstraint getContinuationConstraint() {
             return continuationConstraint;
         }
 
-        @Nonnull
         @Override
         public Type getResultType() {
             return Assert.notNullUnchecked(recordQueryPlan.getResultType().getInnerType());
         }
 
-        @Nonnull
         public QueryExecutionContext getQueryExecutionContext() {
             return queryExecutionContext;
         }
 
-        @Nonnull
         public PlanHashMode getCurrentPlanHashMode() {
             return currentPlanHashMode;
         }
 
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         @Override
-        @Nonnull
-        public PhysicalQueryPlan withExecutionContext(@Nonnull final QueryExecutionContext queryExecutionContext) {
+        public PhysicalQueryPlan withExecutionContext(final QueryExecutionContext queryExecutionContext) {
             if (queryExecutionContext == this.queryExecutionContext) {
                 return this;
             }
@@ -210,7 +193,6 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                     semanticStructType);
         }
 
-        @Nonnull
         @Override
         public String explain() {
             final var executeProperties = queryExecutionContext.getExecutionPropertiesBuilder();
@@ -238,15 +220,15 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         }
 
         @Override
-        public Plan<RelationalResultSet> optimize(@Nonnull CascadesPlanner planner,
-                                                @Nonnull PlanContext planContext,
-                                                @Nonnull PlanHashMode currentPlanHashMode) {
+        public Plan<RelationalResultSet> optimize(CascadesPlanner planner,
+                                                PlanContext planContext,
+                                                PlanHashMode currentPlanHashMode) {
             return this;
         }
 
         @Override
         @SuppressWarnings("PMD.CloseResource") // Connection not owned by this method
-        public RelationalResultSet executeInternal(@Nonnull final ExecutionContext executionContext) throws RelationalException {
+        public RelationalResultSet executeInternal(final ExecutionContext executionContext) throws RelationalException {
             if (!(executionContext.connection instanceof EmbeddedRelationalConnection)) {
                 //this is required until TODO is resolved
                 throw new RelationalException("Cannot execute a QueryPlan without an EmbeddedRelationalConnection", ErrorCode.INTERNAL_ERROR);
@@ -276,10 +258,10 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             }
         }
 
-        protected <M extends Message> void validatePlanAgainstEnvironment(@Nonnull final ContinuationImpl parsedContinuation,
-                                                                          @Nonnull final FDBRecordStoreBase<M> fdbRecordStore,
-                                                                          @Nonnull final ExecutionContext executionContext,
-                                                                          @Nonnull final Set<PlanHashMode> validPlanHashModes) throws RelationalException {
+        protected <M extends Message> void validatePlanAgainstEnvironment(final ContinuationImpl parsedContinuation,
+                                                                          final FDBRecordStoreBase<M> fdbRecordStore,
+                                                                          final ExecutionContext executionContext,
+                                                                          final Set<PlanHashMode> validPlanHashModes) throws RelationalException {
             PlanValidator.validateHashes(parsedContinuation, executionContext.metricCollector,
                     recordQueryPlan, queryExecutionContext, currentPlanHashMode, validPlanHashModes);
 
@@ -292,9 +274,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             }
         }
 
-        @Nonnull
-        protected Optional<RecordQueryPlan> getSerializedPlanFromContinuation(@Nonnull ContinuationImpl parsedContinuation,
-                                                                              @Nonnull ExecutionContext executionContext) throws RelationalException {
+        protected Optional<RecordQueryPlan> getSerializedPlanFromContinuation(ContinuationImpl parsedContinuation,
+                                                                              ExecutionContext executionContext) throws RelationalException {
             final var compiledStatement = parsedContinuation.getCompiledStatement();
             if (compiledStatement == null || !compiledStatement.hasPlan() || !compiledStatement.hasPlanSerializationMode()) {
                 return Optional.empty();
@@ -315,8 +296,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             }
         }
 
-        @Nonnull
-        private RelationalResultSet executeExplain(@Nonnull ContinuationImpl parsedContinuation,
+        private RelationalResultSet executeExplain(ContinuationImpl parsedContinuation,
                                                    ExecutionContext executionContext) throws RelationalException {
             final var continuationStructType = DataType.StructType.from(
                     "PLAN_CONTINUATION", List.of(
@@ -413,12 +393,11 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                     plannerMetrics)).iterator(), 0);
         }
 
-        @Nonnull
         @SuppressWarnings("PMD.CloseResource") // cursor returned inside the ResultSet, Connection now owned by this method
-        private RelationalResultSet executePhysicalPlan(@Nonnull final RecordLayerSchema recordLayerSchema,
-                                                        @Nonnull final EvaluationContext evaluationContext,
-                                                        @Nonnull final ExecutionContext executionContext,
-                                                        @Nonnull final ContinuationImpl parsedContinuation) throws RelationalException {
+        private RelationalResultSet executePhysicalPlan(final RecordLayerSchema recordLayerSchema,
+                                                        final EvaluationContext evaluationContext,
+                                                        final ExecutionContext executionContext,
+                                                        final ContinuationImpl parsedContinuation) throws RelationalException {
             final var connection = (EmbeddedRelationalConnection) executionContext.connection;
             Type type = recordQueryPlan.getResultType().getInnerType();
             Assert.notNull(type);
@@ -448,10 +427,9 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             });
         }
 
-        @Nonnull
-        private Continuation enrichContinuation(@Nonnull final Continuation continuation,
-                                                @Nonnull final PlanHashMode currentPlanHashMode,
-                                                @Nonnull final Continuation.Reason reason) throws RelationalException {
+        private Continuation enrichContinuation(final Continuation continuation,
+                                                final PlanHashMode currentPlanHashMode,
+                                                final Continuation.Reason reason) throws RelationalException {
             final var continuationBuilder =  ContinuationImpl.copyOf(continuation).asBuilder()
                     .withBindingHash(queryExecutionContext.getParameterHash())
                     .withPlanHash(planHashSupplier.get())
@@ -492,34 +470,31 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             return continuationBuilder.build();
         }
 
-        public int planHash(@Nonnull final PlanHashMode currentPlanHashMode) {
+        public int planHash(final PlanHashMode currentPlanHashMode) {
             return recordQueryPlan.planHash(currentPlanHashMode);
         }
 
     }
 
     public static class ContinuedPhysicalQueryPlan extends PhysicalQueryPlan {
-        @Nonnull
         private final PlanHashMode serializedPlanHashMode;
 
-        @Nonnull
         private final Supplier<Integer> serializedPlanHashSupplier;
 
-        public ContinuedPhysicalQueryPlan(@Nonnull final RecordQueryPlan recordQueryPlan,
-                                          @Nonnull final TypeRepository typeRepository,
-                                          @Nonnull final QueryPlanConstraint continuationConstraint,
-                                          @Nonnull final QueryExecutionContext queryExecutionParameters,
-                                          @Nonnull final String query,
-                                          @Nonnull final PlanHashMode currentPlanHashMode,
-                                          @Nonnull final PlanHashMode serializedPlanHashMode,
-                                          @Nonnull final DataType.StructType semanticStructType) {
+        public ContinuedPhysicalQueryPlan(final RecordQueryPlan recordQueryPlan,
+                                          final TypeRepository typeRepository,
+                                          final QueryPlanConstraint continuationConstraint,
+                                          final QueryExecutionContext queryExecutionParameters,
+                                          final String query,
+                                          final PlanHashMode currentPlanHashMode,
+                                          final PlanHashMode serializedPlanHashMode,
+                                          final DataType.StructType semanticStructType) {
             super(recordQueryPlan, null, typeRepository, QueryPlanConstraint.noConstraint(),
                     continuationConstraint, queryExecutionParameters, query, currentPlanHashMode, semanticStructType);
             this.serializedPlanHashMode = serializedPlanHashMode;
             this.serializedPlanHashSupplier = Suppliers.memoize(() -> recordQueryPlan.planHash(serializedPlanHashMode));
         }
 
-        @Nonnull
         public PlanHashMode getSerializedPlanHashMode() {
             return serializedPlanHashMode;
         }
@@ -542,18 +517,17 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
          * @return This instance (since continuation plans are never cached)
          */
         @Override
-        @Nonnull
-        public PhysicalQueryPlan withExecutionContext(@Nonnull final QueryExecutionContext queryExecutionContext) {
+        public PhysicalQueryPlan withExecutionContext(final QueryExecutionContext queryExecutionContext) {
             // This method is never called in production - continuation plans bypass the cache.
             // Return this to avoid maintaining dead code.
             return this;
         }
 
         @Override
-        protected <M extends Message> void validatePlanAgainstEnvironment(@Nonnull final ContinuationImpl parsedContinuation,
-                                                                          @Nonnull final FDBRecordStoreBase<M> fdbRecordStore,
-                                                                          @Nonnull final ExecutionContext executionContext,
-                                                                          @Nonnull final Set<PlanHashMode> validPlanHashModes) throws RelationalException {
+        protected <M extends Message> void validatePlanAgainstEnvironment(final ContinuationImpl parsedContinuation,
+                                                                          final FDBRecordStoreBase<M> fdbRecordStore,
+                                                                          final ExecutionContext executionContext,
+                                                                          final Set<PlanHashMode> validPlanHashModes) throws RelationalException {
             // We cannot be at the beginning
             Verify.verify(!parsedContinuation.atBeginning());
 
@@ -573,9 +547,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         }
 
         @Override
-        @Nonnull
-        protected Optional<RecordQueryPlan> getSerializedPlanFromContinuation(@Nonnull ContinuationImpl parsedContinuation,
-                                                                              @Nonnull ExecutionContext executionContext) throws RelationalException {
+        protected Optional<RecordQueryPlan> getSerializedPlanFromContinuation(ContinuationImpl parsedContinuation,
+                                                                              ExecutionContext executionContext) throws RelationalException {
             Assert.that(
                     Objects.requireNonNull(parsedContinuation.getPlanHash()).equals(serializedPlanHashSupplier.get()),
                     ErrorCode.INTERNAL_ERROR,
@@ -590,30 +563,25 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
      */
     public static class LogicalQueryPlan extends QueryPlan {
 
-        @Nonnull
         private final RelationalExpression relationalExpression;
 
-        @Nonnull
         private final MutablePlanGenerationContext context;
 
-        @Nonnull
         private final String query;
 
         /**
          * Semantic type structure captured during semantic analysis.
          * Preserves struct type names - will be merged with planner field names after planning.
          */
-        @Nonnull
         private final DataType.StructType semanticStructType;
 
         @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-        @Nonnull
         private Optional<PhysicalQueryPlan> optimizedPlan;
 
-        private LogicalQueryPlan(@Nonnull final RelationalExpression relationalExpression,
-                                 @Nonnull final MutablePlanGenerationContext context,
-                                 @Nonnull final String query,
-                                 @Nonnull final DataType.StructType semanticStructType) {
+        private LogicalQueryPlan(final RelationalExpression relationalExpression,
+                                 final MutablePlanGenerationContext context,
+                                 final String query,
+                                 final DataType.StructType semanticStructType) {
             super(query);
             this.relationalExpression = relationalExpression;
             this.context = context;
@@ -629,9 +597,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         }
 
         @Override
-        @Nonnull
-        public PhysicalQueryPlan optimize(@Nonnull CascadesPlanner planner, @Nonnull PlanContext planContext,
-                                          @Nonnull PlanHashMode currentPlanHashMode) throws RelationalException {
+        public PhysicalQueryPlan optimize(CascadesPlanner planner, PlanContext planContext,
+                                          PlanHashMode currentPlanHashMode) throws RelationalException {
             if (optimizedPlan.isPresent()) {
                 return optimizedPlan.get();
             }
@@ -674,19 +641,16 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             });
         }
 
-        @Nonnull
         @Override
         public QueryPlanConstraint getConstraint() {
             return context.getPlanConstraintsForLiteralReferences();
         }
 
-        @Nonnull
         @Override
-        public Plan<RelationalResultSet> withExecutionContext(@Nonnull final QueryExecutionContext queryExecutionContext) {
+        public Plan<RelationalResultSet> withExecutionContext(final QueryExecutionContext queryExecutionContext) {
             return this;
         }
 
-        @Nonnull
         @Override
         public String explain() {
             // TODO: We should return something meaningful if `optimize` wasn't called
@@ -695,17 +659,15 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         }
 
         @Override
-        public RelationalResultSet executeInternal(@Nonnull final ExecutionContext executionContext) throws RelationalException {
+        public RelationalResultSet executeInternal(final ExecutionContext executionContext) throws RelationalException {
             return this.optimizedPlan.get().execute(executionContext);
         }
 
-        @Nonnull
         @Override
         public Type getResultType() {
             return relationalExpression.getResultType();
         }
 
-        @Nonnull
         public RelationalExpression getRelationalExpression() {
             return relationalExpression;
         }
@@ -714,17 +676,15 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             return context;
         }
 
-        @Nonnull
-        public static LogicalQueryPlan of(@Nonnull final RelationalExpression relationalExpression,
-                                          @Nonnull final MutablePlanGenerationContext context,
-                                          @Nonnull final String query,
-                                          @Nonnull final DataType.StructType semanticStructType) {
+        public static LogicalQueryPlan of(final RelationalExpression relationalExpression,
+                                          final MutablePlanGenerationContext context,
+                                          final String query,
+                                          final DataType.StructType semanticStructType) {
             return new LogicalQueryPlan(relationalExpression, context, query, semanticStructType);
         }
 
-        @Nonnull
-        private static QueryPlanConstraint computeContinuationPlanConstraint(@Nonnull final RecordMetaData recordMetaData,
-                                                                             @Nonnull final RecordQueryPlan plannedPlan) {
+        private static QueryPlanConstraint computeContinuationPlanConstraint(final RecordMetaData recordMetaData,
+                                                                             final RecordQueryPlan plannedPlan) {
             // this plan was planned -- we need to compute the plan constraints
             final var compatibleTypeEvolutionPredicate =
                     CompatibleTypeEvolutionPredicate.fromPlan(plannedPlan);
@@ -737,17 +697,15 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
     public static class MetadataQueryPlan extends QueryPlan {
 
-        @Nonnull
         private final CheckedFunctional<Transaction, RelationalResultSet> query;
 
-        @Nonnull
         private final Type rowType;
 
         private interface CheckedFunctional<T, R> {
             R apply(T t) throws RelationalException;
         }
 
-        private MetadataQueryPlan(@Nonnull final CheckedFunctional<Transaction, RelationalResultSet> query, @Nonnull final Type rowType) {
+        private MetadataQueryPlan(final CheckedFunctional<Transaction, RelationalResultSet> query, final Type rowType) {
             // TODO: TODO (Implement MetadataQueryPlan.explain) (should cover toString as well).
             super("MetadataQueryPlan");
             this.query = query;
@@ -760,43 +718,38 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         }
 
         @Override
-        public Plan<RelationalResultSet> optimize(@Nonnull CascadesPlanner planner,
-                                                @Nonnull PlanContext planContext,
-                                                @Nonnull PlanHashMode currentPlanHashMode) {
+        public Plan<RelationalResultSet> optimize(CascadesPlanner planner,
+                                                PlanContext planContext,
+                                                PlanHashMode currentPlanHashMode) {
             return this;
         }
 
         @Override
-        public RelationalResultSet executeInternal(@Nonnull final ExecutionContext context) throws RelationalException {
+        public RelationalResultSet executeInternal(final ExecutionContext context) throws RelationalException {
             return query.apply(context.transaction);
         }
 
-        @Nonnull
         @Override
         public QueryPlanConstraint getConstraint() {
             return QueryPlanConstraint.noConstraint();
         }
 
-        @Nonnull
         @Override
-        public Plan<RelationalResultSet> withExecutionContext(@Nonnull QueryExecutionContext queryExecutionContext) {
+        public Plan<RelationalResultSet> withExecutionContext(QueryExecutionContext queryExecutionContext) {
             return this;
         }
 
-        @Nonnull
         @Override
         public String explain() {
             // TODO: TODO (Implement MetadataQueryPlan.explain)
             return "MetadataQueryPlan";
         }
 
-        @Nonnull
         @Override
         public Type getResultType() {
             return rowType;
         }
 
-        @Nonnull
         public static MetadataQueryPlan of(DdlQuery ddlQuery) {
             return new MetadataQueryPlan(ddlQuery::executeAction, ddlQuery.getResultSetMetadata());
         }

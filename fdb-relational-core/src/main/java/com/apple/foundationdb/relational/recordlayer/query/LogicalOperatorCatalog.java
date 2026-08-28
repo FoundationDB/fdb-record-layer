@@ -23,8 +23,6 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.annotation.API;
 
 import com.google.common.collect.ImmutableSet;
-
-import javax.annotation.Nonnull;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -35,35 +33,30 @@ import java.util.function.Function;
 @API(API.Status.EXPERIMENTAL)
 public final class LogicalOperatorCatalog {
 
-    @Nonnull
     private final Map<CatalogKey, LogicalOperator> logicalOperators;
 
     private LogicalOperatorCatalog() {
         this.logicalOperators = new LinkedHashMap<>();
     }
 
-    @Nonnull
-    public LogicalOperator lookup(@Nonnull CatalogKey key, @Nonnull Function<CatalogKey, LogicalOperator> mappingFunction) {
+    public LogicalOperator lookup(CatalogKey key, Function<CatalogKey, LogicalOperator> mappingFunction) {
         return logicalOperators.computeIfAbsent(key, mappingFunction);
     }
 
-    @Nonnull
-    public LogicalOperator lookupTableAccess(@Nonnull Identifier tableId, @Nonnull SemanticAnalyzer semanticAnalyzer) {
+    public LogicalOperator lookupTableAccess(Identifier tableId, SemanticAnalyzer semanticAnalyzer) {
         return lookupTableAccess(tableId, Optional.empty(), ImmutableSet.of(), semanticAnalyzer);
     }
 
-    @Nonnull
-    public LogicalOperator lookupTableAccess(@Nonnull Identifier tableId,
-                                             @Nonnull Optional<Identifier> alias,
-                                             @Nonnull Set<String> requestedIndexes,
-                                             @Nonnull SemanticAnalyzer semanticAnalyzer) {
+    public LogicalOperator lookupTableAccess(Identifier tableId,
+                                             Optional<Identifier> alias,
+                                             Set<String> requestedIndexes,
+                                             SemanticAnalyzer semanticAnalyzer) {
         return lookupTableAccess(CatalogKey.of(tableId, requestedIndexes), alias, semanticAnalyzer);
     }
 
-    @Nonnull
-    public LogicalOperator lookupTableAccess(@Nonnull CatalogKey key,
-                                             @Nonnull Optional<Identifier> alias,
-                                             @Nonnull SemanticAnalyzer semanticAnalyzer) {
+    public LogicalOperator lookupTableAccess(CatalogKey key,
+                                             Optional<Identifier> alias,
+                                             SemanticAnalyzer semanticAnalyzer) {
         if (!logicalOperators.containsKey(key)) {
             final var value = LogicalOperator.generateTableAccess(key.getIdentifier(), key.getHints(), semanticAnalyzer);
             logicalOperators.put(key, value);
@@ -72,7 +65,6 @@ public final class LogicalOperatorCatalog {
         return logicalOperators.get(key).withNewSharedReferenceAndAlias(alias);
     }
 
-    @Nonnull
     public static LogicalOperatorCatalog newInstance() {
         return new LogicalOperatorCatalog();
     }
