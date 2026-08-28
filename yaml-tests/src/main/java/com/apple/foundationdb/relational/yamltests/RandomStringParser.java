@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
-import javax.annotation.Nonnull;
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -49,8 +48,7 @@ public final class RandomStringParser {
      * @return a deterministic random alphanumeric string of length {@code M}
      * @throws IllegalArgumentException if {@code descriptor} does not match the expected format
      */
-    @Nonnull
-    public static String parse(@Nonnull final String descriptor) {
+    public static String parse(final String descriptor) {
         final Matcher matcher = PATTERN.matcher(descriptor.trim());
         if (!matcher.matches()) {
             throw new IllegalArgumentException(
@@ -61,7 +59,6 @@ public final class RandomStringParser {
         return generate(seed, length);
     }
 
-    @Nonnull
     private static String generate(final long seed, final int length) {
         final Random random = new Random(seed);
         final StringBuilder sb = new StringBuilder(length);

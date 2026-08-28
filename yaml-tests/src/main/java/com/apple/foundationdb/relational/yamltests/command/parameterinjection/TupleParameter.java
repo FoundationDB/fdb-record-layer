@@ -20,8 +20,9 @@
 
 package com.apple.foundationdb.relational.yamltests.command.parameterinjection;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
+
+import org.jspecify.annotations.Nullable;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
@@ -35,13 +36,12 @@ import java.util.stream.Collectors;
  */
 public class TupleParameter extends ListParameter {
 
-    public TupleParameter(@Nonnull List<Parameter> value) {
+    public TupleParameter(List<Parameter> value) {
         super(value);
     }
 
-    @Nonnull
     @Override
-    public TupleParameter bind(@Nonnull Random random) {
+    public TupleParameter bind(Random random) {
         if (!isUnbound()) {
             return this;
         }
@@ -50,7 +50,11 @@ public class TupleParameter extends ListParameter {
 
     @Override
     @Nullable
-    public Object getSqlObject(Connection connection) throws SQLException {
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track nullability of array element writes;
+    // array legitimately holds SQL NULL entries, same as before this migration (see ListParameter.getSqlObject).
+    @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE",
+            justification = "connection is @Nullable to match the wider Parameter#getSqlObject contract (other implementations, e.g. UnboundParameter, tolerate a null connection); this implementation happens to always need a real Connection to build the java.sql.Struct.")
+    public Object getSqlObject(@Nullable Connection connection) throws SQLException {
         ensureBoundedness();
         var array = new Object[getValues().size()];
         for (int i = 0; i < getValues().size(); i++) {
@@ -61,7 +65,6 @@ public class TupleParameter extends ListParameter {
         return Objects.requireNonNull(connection).createStruct("na", array);
     }
 
-    @Nonnull
     @Override
     public String getSqlText() {
         ensureBoundedness();

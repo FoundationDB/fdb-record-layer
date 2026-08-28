@@ -24,11 +24,11 @@ import com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetric
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -36,7 +36,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 class MetricsDiffAnalyzerTest {
 
-    @Nonnull
     private static final PlannerMetricsProto.CountersAndTimers BASE_DUMMY_COUNTERS = PlannerMetricsProto.CountersAndTimers.newBuilder()
             .setTaskCount(10)
             .setTaskTotalTimeNs(1000000L)
@@ -63,15 +62,14 @@ class MetricsDiffAnalyzerTest {
                 .build();
 
         assertThat(metrics).containsKey(basicIdentifier);
-        final var metricsInfo = metrics.get(basicIdentifier);
+        final var metricsInfo = Objects.requireNonNull(metrics.get(basicIdentifier));
         assertThat(metricsInfo.getExplain()).isEqualTo("Index(users_by_id [[?, ?]])");
         assertThat(metricsInfo.getCountersAndTimers().getTaskCount()).isEqualTo(10);
         assertThat(metricsInfo.getCountersAndTimers().getTransformCount()).isEqualTo(5);
     }
 
-    @Nonnull
-    private MetricsDiffAnalyzer.MetricsAnalysisResult analyze(@Nonnull Map<PlannerMetricsProto.Identifier, MetricsInfo> baseMetrics,
-                                                              @Nonnull Map<PlannerMetricsProto.Identifier, MetricsInfo> headMetrics) {
+    private MetricsDiffAnalyzer.MetricsAnalysisResult analyze(Map<PlannerMetricsProto.Identifier, MetricsInfo> baseMetrics,
+                                                              Map<PlannerMetricsProto.Identifier, MetricsInfo> headMetrics) {
         final var analyzer = new MetricsDiffAnalyzer("base", "head", Paths.get("."), null);
         final var analysisBuilder = analyzer.newAnalysisBuilder();
         final var filePath = Paths.get("test.metrics.yaml");
@@ -80,14 +78,12 @@ class MetricsDiffAnalyzerTest {
         return analysisBuilder.build();
     }
 
-    @Nonnull
     private Path getTestResourcePath(String filename) {
         final var classLoader = Thread.currentThread().getContextClassLoader();
         final var resource = classLoader.getResource("metrics-diff/" + filename);
         assertNotNull(resource, "Test resource not found: metrics-diff/" + filename);
         return Paths.get(resource.getPath());
     }
-
 
     @Test
     void testCompareMetricsDetectsChanges() throws Exception {
@@ -112,8 +108,8 @@ class MetricsDiffAnalyzerTest {
             assertThat(planChanged.newInfo).isNotNull();
             assertThat(planChanged.oldInfo).isNotNull();
             final String query = planChanged.identifier.getQuery();
-            final String newExplain = planChanged.newInfo.getExplain();
-            final String oldExplain = planChanged.oldInfo.getExplain();
+            final String newExplain = Objects.requireNonNull(planChanged.newInfo).getExplain();
+            final String oldExplain = Objects.requireNonNull(planChanged.oldInfo).getExplain();
 
             if (query.contains("SELECT * FROM orders WHERE customer_id = ?")) {
                 assertThat(newExplain).contains("Covering_Index");
@@ -129,8 +125,8 @@ class MetricsDiffAnalyzerTest {
         final var metricsChanged = analysis.getMetricsOnlyChanged().get(0);
         assertThat(metricsChanged.newInfo).isNotNull();
         assertThat(metricsChanged.oldInfo).isNotNull();
-        assertThat(metricsChanged.newInfo.getExplain())
-                .isEqualTo(metricsChanged.oldInfo.getExplain())
+        assertThat(Objects.requireNonNull(metricsChanged.newInfo).getExplain())
+                .isEqualTo(Objects.requireNonNull(metricsChanged.oldInfo).getExplain())
                 .contains("GroupBy(Join(Index(users), Index(orders_by_customer)))");
     }
 
@@ -207,7 +203,7 @@ class MetricsDiffAnalyzerTest {
                 .hasSize(1);
         assertThat(outlierText[0])
                 .contains(expected.identifier.getQuery())
-                .contains("" + expected.newInfo.getLineNumber());
+                .contains("" + Objects.requireNonNull(expected.newInfo).getLineNumber());
     }
 
     @Test
@@ -256,7 +252,6 @@ class MetricsDiffAnalyzerTest {
                 .contains("[+100%, +102%)");
     }
 
-    @Nonnull
     private Map<PlannerMetricsProto.Identifier, MetricsInfo> createTestMetricsWithStatistics() {
         // Create metrics with predictable statistical properties
         final var builder = ImmutableMap.<PlannerMetricsProto.Identifier, MetricsInfo>builder();
@@ -290,7 +285,6 @@ class MetricsDiffAnalyzerTest {
         return builder.build();
     }
 
-    @Nonnull
     private Map<PlannerMetricsProto.Identifier, MetricsInfo> createModifiedTestMetrics() {
         // Create modified versions with predictable changes
         final var builder = ImmutableMap.<PlannerMetricsProto.Identifier, MetricsInfo>builder();
@@ -324,7 +318,6 @@ class MetricsDiffAnalyzerTest {
         return builder.build();
     }
 
-    @Nonnull
     private Map<PlannerMetricsProto.Identifier, MetricsInfo> createMetricsWithOutliers() {
         final var builder = ImmutableMap.<PlannerMetricsProto.Identifier, MetricsInfo>builder();
 
@@ -364,7 +357,6 @@ class MetricsDiffAnalyzerTest {
         return builder.build();
     }
 
-    @Nonnull
     private Map<PlannerMetricsProto.Identifier, MetricsInfo> createMetricsWithOutlierChanges() {
         final var builder = ImmutableMap.<PlannerMetricsProto.Identifier, MetricsInfo>builder();
 

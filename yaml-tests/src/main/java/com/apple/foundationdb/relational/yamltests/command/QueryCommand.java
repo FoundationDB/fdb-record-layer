@@ -39,8 +39,7 @@ import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
 import org.opentest4j.TestAbortedException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -69,11 +68,8 @@ import java.util.stream.Collectors;
 public final class QueryCommand extends Command {
     private static final Logger logger = LogManager.getLogger(QueryCommand.class);
 
-    @Nonnull
     private final List<QueryConfig> queryConfigs;
-    @Nonnull
     private final QueryInterpreter queryInterpreter;
-    @Nonnull
     private final AtomicReference<Throwable> maybeExecutionThrowable = new AtomicReference<>();
     private final boolean needsSerialEnvironment;
 
@@ -82,8 +78,7 @@ public final class QueryCommand extends Command {
         return maybeExecutionThrowable.get();
     }
 
-    @Nonnull
-    public static Command parse(@Nonnull final YamlReference.YamlResource resource, @Nonnull final Object object, @Nonnull final String blockName, @Nonnull final YamlExecutionContext executionContext) {
+    public static Command parse(final YamlReference.YamlResource resource, final Object object, final String blockName, final YamlExecutionContext executionContext) {
         final var queryCommand = Matchers.firstEntry(Matchers.first(Matchers.arrayList(object, "query command")), "query command");
         final var linedObject = CustomYamlConstructor.LinedObject.cast(queryCommand.getKey(), () -> "Invalid command key-value pair: " + queryCommand);
         final var reference = resource.withLineNumber(Matchers.notNull(linedObject, "query").getLineNumber());
@@ -160,14 +155,14 @@ public final class QueryCommand extends Command {
         }
     }
 
-    public static QueryCommand withQueryString(@Nonnull final YamlReference reference, @Nonnull String singleExecutableCommand,
-                                               @Nonnull final YamlExecutionContext executionContext) {
+    public static QueryCommand withQueryString(final YamlReference reference, String singleExecutableCommand,
+                                               final YamlExecutionContext executionContext) {
         return new QueryCommand(reference, QueryInterpreter.withQueryString(reference, singleExecutableCommand, executionContext),
                 List.of(QueryConfig.getNoCheckConfig(reference)), executionContext, false);
     }
 
-    private QueryCommand(@Nonnull final YamlReference reference, @Nonnull QueryInterpreter interpreter, @Nonnull List<QueryConfig> configs,
-                         @Nonnull final YamlExecutionContext executionContext, final boolean needsSerialEnvironment) {
+    private QueryCommand(final YamlReference reference, QueryInterpreter interpreter, List<QueryConfig> configs,
+                         final YamlExecutionContext executionContext, final boolean needsSerialEnvironment) {
         super(reference, executionContext);
         if (Debugger.getDebugger() != null) {
             Debugger.getDebugger().onSetup(); // clean all symbols before the next query.
@@ -179,7 +174,7 @@ public final class QueryCommand extends Command {
                 "SkipConfig should not have gotten into QueryCommand " + reference);
     }
 
-    public void execute(@Nonnull final YamlConnection connection, boolean checkCache, @Nonnull QueryExecutor executor) {
+    public void execute(final YamlConnection connection, boolean checkCache, QueryExecutor executor) {
         try {
             // checkCache implies that we are repeating the query to check that it hits the cache
             // If the underlying connection does not support access to the metric collector, we won't be able to
@@ -201,11 +196,11 @@ public final class QueryCommand extends Command {
     }
 
     @Override
-    void executeInternal(@Nonnull final YamlConnection connection) throws SQLException, RelationalException {
+    void executeInternal(final YamlConnection connection) throws SQLException, RelationalException {
         executeInternal(connection, false, instantiateExecutor(null, false));
     }
 
-    private void executeInternal(@Nonnull final YamlConnection connection, boolean checkCache, @Nonnull QueryExecutor executor)
+    private void executeInternal(final YamlConnection connection, boolean checkCache, QueryExecutor executor)
             throws SQLException, RelationalException {
         enableCascadesDebugger();
         boolean shouldExecute = true;
@@ -304,16 +299,15 @@ public final class QueryCommand extends Command {
         }
     }
 
-    @Nonnull
     public QueryExecutor instantiateExecutor(@Nullable Random random, boolean runAsPreparedStatement) {
         return queryInterpreter.getExecutor(random, runAsPreparedStatement);
     }
 
-    public static void reportTestFailure(@Nonnull String message) {
+    public static void reportTestFailure(String message) {
         reportTestFailure(message, null);
     }
 
-    static void reportTestFailure(@Nonnull String message, @Nullable Throwable throwable) {
+    static void reportTestFailure(String message, @Nullable Throwable throwable) {
         logger.error(message);
         if (throwable == null) {
             Assertions.fail(message);
@@ -326,9 +320,9 @@ public final class QueryCommand extends Command {
         return needsSerialEnvironment;
     }
 
-    private static void runWithDebugger(@Nonnull YamlExecutionContext executionContext,
-                                        @Nonnull DebuggerImplementation debuggerImplementation,
-                                        @Nonnull ThrowingRunnable r) throws SQLException {
+    private static void runWithDebugger(YamlExecutionContext executionContext,
+                                        DebuggerImplementation debuggerImplementation,
+                                        ThrowingRunnable r) throws SQLException {
         final var savedDebugger = Debugger.getDebugger();
         try {
             Debugger.setDebugger(debuggerImplementation.newDebugger(executionContext));

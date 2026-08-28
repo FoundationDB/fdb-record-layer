@@ -30,7 +30,6 @@ import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -38,15 +37,14 @@ import java.util.Set;
 
 public class JDBCInProcessYamlConnectionFactory implements YamlConnectionFactory {
     private static final Logger LOG = LogManager.getLogger(JDBCInProcessYamlConnectionFactory.class);
-    @Nonnull
     private final Clusters<Clusters.Entry<InProcessRelationalServer>> clusters;
 
-    public JDBCInProcessYamlConnectionFactory(@Nonnull Clusters<Clusters.Entry<InProcessRelationalServer>> clusters) {
+    public JDBCInProcessYamlConnectionFactory(Clusters<Clusters.Entry<InProcessRelationalServer>> clusters) {
         this.clusters = clusters;
     }
 
     @Override
-    public YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException {
+    public YamlConnection getNewConnection(URI connectPath, int clusterIndex) throws SQLException {
         final Clusters.Entry<InProcessRelationalServer> entry = clusters.get(clusterIndex);
         return createConnection(connectPath, entry.server(), entry.clusterFile());
     }
@@ -56,8 +54,8 @@ public class JDBCInProcessYamlConnectionFactory implements YamlConnectionFactory
         return clusters.size();
     }
 
-    private YamlConnection createConnection(@Nonnull URI connectPath, @Nonnull InProcessRelationalServer targetServer,
-                                            @Nonnull String targetClusterFile) throws SQLException {
+    private YamlConnection createConnection(URI connectPath, InProcessRelationalServer targetServer,
+                                            String targetClusterFile) throws SQLException {
         URI connectPathPlusServerName = JDBCURI.addQueryParameter(connectPath, JDBCURI.INPROCESS_URI_QUERY_SERVERNAME_KEY, targetServer.getServerName());
         String uriStr = connectPathPlusServerName.toString().replaceFirst("embed:", "relational://");
         if (LOG.isInfoEnabled()) {

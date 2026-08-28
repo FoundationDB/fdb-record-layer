@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.yamltests;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -159,8 +158,7 @@ class MetricsDiffIntegrationTest {
                 .contains("- Plan unchanged + metrics changed: 0");
     }
 
-    @Nonnull
-    private static MetricsDiffAnalyzer.MetricsAnalysisResult analyze(@Nonnull String baseResource, @Nonnull String headResource) throws RelationalException {
+    private static MetricsDiffAnalyzer.MetricsAnalysisResult analyze(String baseResource, String headResource) throws RelationalException {
         // Load test resources
         final var baseMetrics = YamlExecutionContext.loadMetricsFromYamlFile(
                 getTestResourcePath(baseResource));
@@ -174,7 +172,6 @@ class MetricsDiffIntegrationTest {
         return analysisBuilder.build();
     }
 
-    @Nonnull
     private static Path getTestResourcePath(String filename) {
         final var classLoader = Thread.currentThread().getContextClassLoader();
         final var resource = classLoader.getResource("metrics-diff/" + filename);

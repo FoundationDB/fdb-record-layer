@@ -28,7 +28,6 @@ import com.apple.foundationdb.relational.yamltests.connectionfactory.MultiServer
 import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
@@ -38,14 +37,12 @@ import java.util.List;
 public class ExternalMultiServerConfig implements YamlTestConfig {
 
     private final int initialConnection;
-    @Nonnull
     private final Clusters<ExternalServer> servers0;
-    @Nonnull
     private final Clusters<ExternalServer> servers1;
 
     public ExternalMultiServerConfig(final int initialConnection,
-                                     @Nonnull Clusters<ExternalServer> servers0,
-                                     @Nonnull Clusters<ExternalServer> servers1) {
+                                     Clusters<ExternalServer> servers0,
+                                     Clusters<ExternalServer> servers1) {
         super();
         this.initialConnection = initialConnection;
         this.servers0 = servers0;
@@ -81,7 +78,7 @@ public class ExternalMultiServerConfig implements YamlTestConfig {
     }
 
     @Override
-    public @Nonnull YamlExecutionContext.ContextOptions getRunnerOptions() {
+    public YamlExecutionContext.ContextOptions getRunnerOptions() {
         return YamlExecutionContext.ContextOptions.EMPTY_OPTIONS;
     }
 

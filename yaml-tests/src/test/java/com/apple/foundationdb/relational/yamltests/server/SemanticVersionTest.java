@@ -28,7 +28,6 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -131,6 +130,7 @@ class SemanticVersionTest {
     }
 
     @Test
+    @SuppressWarnings("NullAway") // Intentionally passing a null literal to verify compareTo() throws NPE, per the Comparable contract.
     void compareToNull() throws Exception {
         final SemanticVersion versionA = SemanticVersion.parse("4.0.559.0");
         assertThrows(NullPointerException.class,
@@ -158,6 +158,7 @@ class SemanticVersionTest {
     }
 
     @Test
+    @SuppressWarnings("NullAway") // Intentionally passing a null literal to verify parse() throws NPE.
     void parseNull() throws Exception {
         assertThrows(NullPointerException.class, () -> SemanticVersion.parse(null));
     }
@@ -177,7 +178,6 @@ class SemanticVersionTest {
         assertEquals(expectedLesserVersions, actualLesserVersions);
     }
 
-    @Nonnull
     private static String randomVersionString(Random r) {
         if (r.nextBoolean()) {
             List<SemanticVersion.SemanticVersionType> singletons = Arrays.stream(SemanticVersion.SemanticVersionType.values())

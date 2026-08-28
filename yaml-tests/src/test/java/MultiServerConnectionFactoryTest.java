@@ -30,7 +30,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mockito;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.List;
@@ -202,14 +201,14 @@ public class MultiServerConnectionFactoryTest {
         assertEquals(expectedVersions, connection.getVersions());
     }
 
-    YamlConnectionFactory dummyConnectionFactory(@Nonnull SemanticVersion version) {
+    YamlConnectionFactory dummyConnectionFactory(SemanticVersion version) {
         return dummyMultiClusterConnectionFactory(version, List.of(CLUSTER_FILE));
     }
 
-    YamlConnectionFactory dummyMultiClusterConnectionFactory(@Nonnull SemanticVersion version, @Nonnull List<String> clusterFiles) {
+    YamlConnectionFactory dummyMultiClusterConnectionFactory(SemanticVersion version, List<String> clusterFiles) {
         return new YamlConnectionFactory() {
             @Override
-            public YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException {
+            public YamlConnection getNewConnection(URI connectPath, int clusterIndex) throws SQLException {
                 if (clusterIndex < 0 || clusterIndex >= clusterFiles.size()) {
                     throw new SQLException("Cluster index " + clusterIndex + " not available (only " +
                             clusterFiles.size() + " clusters configured)");
@@ -230,8 +229,7 @@ public class MultiServerConnectionFactoryTest {
         };
     }
 
-    @Nonnull
-    private static RelationalConnection dummyConnection(@Nonnull URI connectPath) throws SQLException {
+    private static RelationalConnection dummyConnection(URI connectPath) throws SQLException {
         final RelationalConnection connection = Mockito.mock(RelationalConnection.class);
         Mockito.when(connection.unwrap(RelationalConnection.class)).thenReturn(connection);
         Mockito.when(connection.getPath()).thenReturn(connectPath);

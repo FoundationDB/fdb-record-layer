@@ -22,8 +22,6 @@ package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 
-import javax.annotation.Nonnull;
-
 /**
  * A configuration that runs an underlying configuration and adds {@code resultMetadata} blocks to all
  * queries in YAMSQL files that do not already have one.
@@ -38,7 +36,7 @@ import javax.annotation.Nonnull;
  * </p>
  */
 public class AddResultMetadata extends ConfigWithOptions {
-    public AddResultMetadata(@Nonnull final YamlTestConfig underlying) {
+    public AddResultMetadata(final YamlTestConfig underlying) {
         super(underlying, YamlExecutionContext.ContextOptions.of(YamlExecutionContext.OPTION_ADD_RESULT_METADATA, true));
     }
 }

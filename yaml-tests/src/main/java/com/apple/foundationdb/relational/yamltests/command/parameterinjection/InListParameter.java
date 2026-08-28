@@ -24,8 +24,7 @@ import com.apple.foundationdb.relational.util.Assert;
 
 import org.junit.jupiter.api.Assumptions;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Random;
@@ -33,16 +32,14 @@ import java.util.stream.Collectors;
 
 public class InListParameter implements Parameter {
 
-    @Nonnull
     private final Parameter parameter;
 
-    public InListParameter(@Nonnull Parameter parameter) {
+    public InListParameter(Parameter parameter) {
         this.parameter = parameter;
     }
 
-    @Nonnull
     @Override
-    public InListParameter bind(@Nonnull Random random) {
+    public InListParameter bind(Random random) {
         if (!isUnbound()) {
             return this;
         }
@@ -62,7 +59,6 @@ public class InListParameter implements Parameter {
         return parameter.getSqlObject(connection);
     }
 
-    @Nonnull
     @Override
     public String getSqlText() {
         ensureBoundedness();

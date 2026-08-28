@@ -21,4 +21,7 @@
 /**
  * Connection factories that can be used to run various flavors of the YAML tests.
  */
+@NullMarked
 package com.apple.foundationdb.relational.yamltests.connectionfactory;
+
+import org.jspecify.annotations.NullMarked;

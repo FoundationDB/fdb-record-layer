@@ -22,8 +22,6 @@ package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 
-import javax.annotation.Nonnull;
-
 /**
  * A configuration that runs an underlying configuration and adds {@code explain} blocks to all
  * queries in YAMSQL files that do not already have one, and corrects existing {@code explain} blocks
@@ -39,7 +37,7 @@ import javax.annotation.Nonnull;
  * </p>
  */
 public class AddExplains extends ConfigWithOptions {
-    public AddExplains(@Nonnull final YamlTestConfig underlying) {
+    public AddExplains(final YamlTestConfig underlying) {
         super(underlying, YamlExecutionContext.ContextOptions.of(YamlExecutionContext.OPTION_ADD_EXPLAIN, true));
     }
 }

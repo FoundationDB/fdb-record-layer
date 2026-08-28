@@ -27,19 +27,15 @@ import org.yaml.snakeyaml.constructor.Construct;
 import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.Tag;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 @AutoService(CustomTag.class)
 public final class IgnoreTag implements CustomTag {
 
-    @Nonnull
     private static final Tag tag = new Tag("!ignore");
 
-    @Nonnull
     private static final Matchable INSTANCE = new IgnoreMatcher();
 
-    @Nonnull
     private static final Construct CONSTRUCT_INSTANCE = new AbstractConstruct() {
         @Override
         public Object construct(Node node) {
@@ -50,22 +46,19 @@ public final class IgnoreTag implements CustomTag {
     public IgnoreTag() {
     }
 
-    @Nonnull
     @Override
     public Tag getTag() {
         return tag;
     }
 
-    @Nonnull
     @Override
     public Construct getConstruct() {
         return CONSTRUCT_INSTANCE;
     }
 
     public static final class IgnoreMatcher implements Matchable {
-        @Nonnull
         @Override
-        public Matchers.ResultSetMatchResult matches(@Nullable final Object other, final int rowNumber, @Nonnull final String cellRef) {
+        public Matchers.ResultSetMatchResult matches(@Nullable final Object other, final int rowNumber, final String cellRef) {
             return Matchers.ResultSetMatchResult.success();
         }
 

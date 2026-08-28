@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 
+import org.jspecify.annotations.Nullable;
 import java.sql.SQLException;
 import java.util.UUID;
 
@@ -38,6 +39,7 @@ import java.util.UUID;
 public abstract class AbstractAggregateResultSet implements RelationalResultSet {
     private boolean isClosed = false;
     private final RelationalResultSetMetaData metadata;
+    @Nullable
     protected RelationalResultSet currentRow;
 
     protected AbstractAggregateResultSet(RelationalResultSetMetaData metadata) {
@@ -46,6 +48,7 @@ public abstract class AbstractAggregateResultSet implements RelationalResultSet 
 
     protected abstract boolean hasNext();
 
+    @Nullable
     protected abstract RelationalResultSet advanceRow() throws SQLException;
 
     @Override
@@ -61,140 +64,117 @@ public abstract class AbstractAggregateResultSet implements RelationalResultSet 
 
     @Override
     public boolean wasNull() throws SQLException {
-        checkCurrentRow();
-        return currentRow.wasNull();
+        return checkCurrentRow().wasNull();
     }
 
     @Override
     public String getString(int columnIndex) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getString(columnIndex);
+        return checkCurrentRow().getString(columnIndex);
     }
 
     @Override
     public boolean getBoolean(int columnIndex) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getBoolean(columnIndex);
+        return checkCurrentRow().getBoolean(columnIndex);
     }
 
     @Override
     public int getInt(int columnIndex) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getInt(columnIndex);
+        return checkCurrentRow().getInt(columnIndex);
     }
 
     @Override
     public long getLong(int columnIndex) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getLong(columnIndex);
+        return checkCurrentRow().getLong(columnIndex);
     }
 
     @Override
     public float getFloat(int columnIndex) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getFloat(columnIndex);
+        return checkCurrentRow().getFloat(columnIndex);
     }
 
     @Override
     public double getDouble(int columnIndex) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getDouble(columnIndex);
+        return checkCurrentRow().getDouble(columnIndex);
     }
 
     @Override
     public byte[] getBytes(int columnIndex) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getBytes(columnIndex);
+        return checkCurrentRow().getBytes(columnIndex);
     }
 
     @Override
     public Object getObject(int columnIndex) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getObject(columnIndex);
+        return checkCurrentRow().getObject(columnIndex);
     }
 
     @Override
     public RelationalStruct getStruct(int oneBasedPosition) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getStruct(oneBasedPosition);
+        return checkCurrentRow().getStruct(oneBasedPosition);
     }
 
     @Override
     public RelationalArray getArray(int oneBasedPosition) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getArray(oneBasedPosition);
+        return checkCurrentRow().getArray(oneBasedPosition);
     }
 
     @Override
     public UUID getUUID(int oneBasedPosition) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getUUID(oneBasedPosition);
+        return checkCurrentRow().getUUID(oneBasedPosition);
     }
 
     @Override
     public String getString(String columnLabel) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getString(columnLabel);
+        return checkCurrentRow().getString(columnLabel);
     }
 
     @Override
     public boolean getBoolean(String columnLabel) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getBoolean(columnLabel);
+        return checkCurrentRow().getBoolean(columnLabel);
     }
 
     @Override
     public int getInt(String columnLabel) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getInt(columnLabel);
+        return checkCurrentRow().getInt(columnLabel);
     }
 
     @Override
     public long getLong(String columnLabel) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getLong(columnLabel);
+        return checkCurrentRow().getLong(columnLabel);
     }
 
     @Override
     public float getFloat(String columnLabel) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getFloat(columnLabel);
+        return checkCurrentRow().getFloat(columnLabel);
     }
 
     @Override
     public double getDouble(String columnLabel) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getDouble(columnLabel);
+        return checkCurrentRow().getDouble(columnLabel);
     }
 
     @Override
     public byte[] getBytes(String columnLabel) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getBytes(columnLabel);
+        return checkCurrentRow().getBytes(columnLabel);
     }
 
     @Override
     public Object getObject(String columnLabel) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getObject(columnLabel);
+        return checkCurrentRow().getObject(columnLabel);
     }
 
     @Override
     public RelationalStruct getStruct(String fieldName) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getStruct(fieldName);
+        return checkCurrentRow().getStruct(fieldName);
     }
 
     @Override
     public RelationalArray getArray(String fieldName) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getArray(fieldName);
+        return checkCurrentRow().getArray(fieldName);
     }
 
     @Override
     public UUID getUUID(String fieldName) throws SQLException {
-        checkCurrentRow();
-        return currentRow.getUUID(fieldName);
+        return checkCurrentRow().getUUID(fieldName);
     }
 
     @Override
@@ -207,9 +187,10 @@ public abstract class AbstractAggregateResultSet implements RelationalResultSet 
         return isClosed;
     }
 
-    private void checkCurrentRow() throws SQLException {
+    private RelationalResultSet checkCurrentRow() throws SQLException {
         if ((currentRow == null) || isClosed()) {
             throw new SQLException("ResultSet exhausted", ErrorCode.INVALID_CURSOR_STATE.getErrorCode());
         }
+        return currentRow;
     }
 }

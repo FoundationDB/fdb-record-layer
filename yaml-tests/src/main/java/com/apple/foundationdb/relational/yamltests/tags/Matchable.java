@@ -22,22 +22,18 @@ package com.apple.foundationdb.relational.yamltests.tags;
 
 import com.apple.foundationdb.relational.yamltests.Matchers;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Optional;
 
 public interface Matchable {
 
-    @Nonnull
-    Matchers.ResultSetMatchResult matches(@Nullable Object other, int rowNumber, @Nonnull String cellRef);
+    Matchers.ResultSetMatchResult matches(@Nullable Object other, int rowNumber, String cellRef);
 
-    @Nonnull
-    static Matchers.ResultSetMatchResult prettyPrintError(@Nonnull final String cause, int rowNumber, @Nonnull final String cellRef) {
+    static Matchers.ResultSetMatchResult prettyPrintError(final String cause, int rowNumber, final String cellRef) {
         return Matchers.ResultSetMatchResult.fail("wrong result at row: " + rowNumber + ", cell: " + cellRef + ", cause: " + cause);
     }
 
-    @Nonnull
-    static Optional<Matchers.ResultSetMatchResult> shouldNotBeNull(@Nullable final Object object, int rowNumber, @Nonnull final String cellRef) {
+    static Optional<Matchers.ResultSetMatchResult> shouldNotBeNull(@Nullable final Object object, int rowNumber, final String cellRef) {
         if (object != null) {
             return Optional.empty();
         }

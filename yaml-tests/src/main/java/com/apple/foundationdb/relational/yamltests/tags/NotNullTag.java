@@ -27,19 +27,14 @@ import org.yaml.snakeyaml.constructor.Construct;
 import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.Tag;
 
-import javax.annotation.Nonnull;
-
 @AutoService(CustomTag.class)
 public final class NotNullTag implements CustomTag {
 
-    @Nonnull
     private static final Tag tag = new Tag("!not_null");
 
-    @Nonnull
     private static final Matchable INSTANCE = (other, rowNumber, cellRef) ->
             Matchable.shouldNotBeNull(other, rowNumber, cellRef).orElse(Matchers.ResultSetMatchResult.success());
 
-    @Nonnull
     private static final Construct CONSTRUCT_INSTANCE = new AbstractConstruct() {
         @Override
         public Matchable construct(Node node) {
@@ -50,13 +45,11 @@ public final class NotNullTag implements CustomTag {
     public NotNullTag() {
     }
 
-    @Nonnull
     @Override
     public Tag getTag() {
         return tag;
     }
 
-    @Nonnull
     @Override
     public Construct getConstruct() {
         return CONSTRUCT_INSTANCE;

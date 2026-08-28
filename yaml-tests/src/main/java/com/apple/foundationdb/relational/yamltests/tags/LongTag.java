@@ -28,15 +28,11 @@ import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.ScalarNode;
 import org.yaml.snakeyaml.nodes.Tag;
 
-import javax.annotation.Nonnull;
-
 @AutoService(CustomTag.class)
 public class LongTag implements CustomTag {
 
-    @Nonnull
     private static final Tag tag = new Tag("!l");
 
-    @Nonnull
     private static final Construct CONSTRUCT_INSTANCE = new AbstractConstruct() {
         @Override
         public Long construct(final Node node) {
@@ -50,13 +46,11 @@ public class LongTag implements CustomTag {
     public LongTag() {
     }
 
-    @Nonnull
     @Override
     public Tag getTag() {
         return tag;
     }
 
-    @Nonnull
     @Override
     public Construct getConstruct() {
         return CONSTRUCT_INSTANCE;

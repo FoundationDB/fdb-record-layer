@@ -21,4 +21,7 @@
 /**
  * Implementations of {@link com.apple.foundationdb.relational.yamltests.command.QueryConfig}.
  */
+@NullMarked
 package com.apple.foundationdb.relational.yamltests.command.queryconfigs;
+
+import org.jspecify.annotations.NullMarked;

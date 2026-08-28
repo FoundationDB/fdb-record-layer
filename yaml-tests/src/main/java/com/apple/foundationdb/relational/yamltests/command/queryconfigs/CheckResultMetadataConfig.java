@@ -34,8 +34,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opentest4j.AssertionFailedError;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
@@ -70,12 +69,11 @@ import java.util.Map;
 public class CheckResultMetadataConfig extends QueryConfig {
     private static final Logger logger = LogManager.getLogger(CheckResultMetadataConfig.class);
 
-    @Nonnull
     private final YamlExecutionContext executionContext;
 
-    public CheckResultMetadataConfig(@Nonnull final String configName, @Nullable final Object value,
-                                     @Nonnull final YamlReference reference,
-                                     @Nonnull final YamlExecutionContext executionContext) {
+    public CheckResultMetadataConfig(final String configName, @Nullable final Object value,
+                                     final YamlReference reference,
+                                     final YamlExecutionContext executionContext) {
         super(configName, value, reference);
         this.executionContext = executionContext;
     }
@@ -84,14 +82,12 @@ public class CheckResultMetadataConfig extends QueryConfig {
      * Extract column descriptors from result-set metadata without consuming any rows.
      * This is a pure read of the schema; the result set remains positioned before the first row.
      */
-    @Nonnull
-    public static List<ColumnDescriptor> extractDescriptors(@Nonnull final RelationalResultSetMetaData metaData)
+    public static List<ColumnDescriptor> extractDescriptors(final RelationalResultSetMetaData metaData)
             throws SQLException {
         return extractDescriptors((StructMetaData)metaData);
     }
 
-    @Nonnull
-    private static List<ColumnDescriptor> extractDescriptors(@Nonnull final StructMetaData metaData)
+    private static List<ColumnDescriptor> extractDescriptors(final StructMetaData metaData)
             throws SQLException {
         final int count = metaData.getColumnCount();
         final List<ColumnDescriptor> descriptors = new ArrayList<>(count);
@@ -118,8 +114,7 @@ public class CheckResultMetadataConfig extends QueryConfig {
         return descriptors;
     }
 
-    @Nonnull
-    private static String buildArrayTypeName(@Nonnull final ArrayMetaData arrayMeta) throws SQLException {
+    private static String buildArrayTypeName(final ArrayMetaData arrayMeta) throws SQLException {
         final String elementTypeName;
         if (arrayMeta.getElementType() == Types.ARRAY) {
             elementTypeName = buildArrayTypeName(arrayMeta.getElementArrayMetaData());
@@ -134,7 +129,7 @@ public class CheckResultMetadataConfig extends QueryConfig {
      * Returns the associated value, or {@code null} if no such key exists.
      */
     @Nullable
-    private static Object getArrayValue(@Nonnull final Map<?, ?> map) {
+    private static Object getArrayValue(final Map<?, ?> map) {
         for (final Map.Entry<?, ?> e : map.entrySet()) {
             if (e.getKey() instanceof String && "array".equalsIgnoreCase((String)e.getKey())) {
                 return e.getValue();
@@ -153,8 +148,7 @@ public class CheckResultMetadataConfig extends QueryConfig {
      * The list case ({@code {array: [fields...]}}) is handled upstream in
      * {@link #matchesExpected} and never reaches this method.
      */
-    @Nonnull
-    private static String buildExpectedArrayTypeName(@Nonnull final Map<?, ?> arrayMap) {
+    private static String buildExpectedArrayTypeName(final Map<?, ?> arrayMap) {
         final Object arrayValue = getArrayValue(arrayMap);
         if (arrayValue instanceof String) {
             return "ARRAY(" + arrayValue + ")";
@@ -170,9 +164,9 @@ public class CheckResultMetadataConfig extends QueryConfig {
      * Inline metadata check: compare the given descriptors (already extracted from a live result set) against the
      * expected metadata declared in the YAMSQL file, without executing the query again.
      */
-    public void checkInline(@Nonnull final List<ColumnDescriptor> actualDescriptors,
-                            @Nonnull final String queryDescription,
-                            @Nonnull final YamlConnection connection) {
+    public void checkInline(final List<ColumnDescriptor> actualDescriptors,
+                            final String queryDescription,
+                            final YamlConnection connection) {
         try {
             checkDescriptorsInternal(actualDescriptors, queryDescription);
         } catch (AssertionFailedError e) {
@@ -188,9 +182,9 @@ public class CheckResultMetadataConfig extends QueryConfig {
 
     @Override
     @SuppressWarnings({"PMD.CloseResource", "PMD.EmptyWhileStmt"})
-    protected void checkResultInternal(@Nonnull final String currentQuery, @Nonnull final Object actual,
-                                       @Nonnull final String queryDescription,
-                                       @Nonnull final List<String> setups) throws SQLException {
+    protected void checkResultInternal(final String currentQuery, final Object actual,
+                                       final String queryDescription,
+                                       final List<String> setups) throws SQLException {
         if (!(actual instanceof RelationalResultSet)) {
             logger.warn("⚠️ resultMetadata check skipped: query returned a non-ResultSet result at {}", getReference());
             return;
@@ -211,8 +205,8 @@ public class CheckResultMetadataConfig extends QueryConfig {
      * Expects descriptors already extracted; does not touch the result set.
      */
     @SuppressWarnings("unchecked")
-    private void checkDescriptorsInternal(@Nonnull final List<ColumnDescriptor> actualDescriptors,
-                                          @Nonnull final String queryDescription) {
+    private void checkDescriptorsInternal(final List<ColumnDescriptor> actualDescriptors,
+                                          final String queryDescription) {
         final Object rawExpectedValue = getVal();
         logger.debug("⛳️ Checking result metadata for query '{}'", queryDescription);
 
@@ -247,7 +241,7 @@ public class CheckResultMetadataConfig extends QueryConfig {
         }
     }
 
-    private void addResultMetadata(@Nonnull final List<ColumnDescriptor> actualDescriptors) {
+    private void addResultMetadata(final List<ColumnDescriptor> actualDescriptors) {
         try {
             executionContext.getFilesMaintainer().addResultMetadata(getReference(), actualDescriptors);
         } catch (Throwable throwable) {
@@ -256,7 +250,7 @@ public class CheckResultMetadataConfig extends QueryConfig {
         logger.debug(() -> "⭐️ Successfully added resultMetadata at " + getReference());
     }
 
-    private void correctMetadata(@Nonnull final List<ColumnDescriptor> actualDescriptors) {
+    private void correctMetadata(final List<ColumnDescriptor> actualDescriptors) {
         try {
             executionContext.getFilesMaintainer().correctResultMetadata(getReference(), actualDescriptors);
         } catch (Throwable throwable) {
@@ -265,8 +259,8 @@ public class CheckResultMetadataConfig extends QueryConfig {
         logger.debug(() -> "⭐️ Successfully corrected resultMetadata at " + getReference());
     }
 
-    private void reportMetadataMismatch(@Nonnull final List<Map<?, ?>> expectedColumns,
-                                        @Nonnull final List<ColumnDescriptor> actualDescriptors) {
+    private void reportMetadataMismatch(final List<Map<?, ?>> expectedColumns,
+                                        final List<ColumnDescriptor> actualDescriptors) {
         final StringBuilder sb = new StringBuilder();
         sb.append("‼️ result metadata mismatch at ").append(getReference()).append(":\n")
                 .append("⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n")
@@ -284,9 +278,9 @@ public class CheckResultMetadataConfig extends QueryConfig {
         QueryCommand.reportTestFailure(sb.toString());
     }
 
-    private static void appendDescriptorToMessage(@Nonnull final StringBuilder sb,
-                                                  @Nonnull final ColumnDescriptor desc,
-                                                  @Nonnull final String prefix) {
+    private static void appendDescriptorToMessage(final StringBuilder sb,
+                                                  final ColumnDescriptor desc,
+                                                  final String prefix) {
         sb.append(prefix).append(desc.name).append(": ").append(desc.typeName);
         if (desc.structTypeName != null) {
             sb.append('(').append(desc.structTypeName).append(')');
@@ -310,8 +304,8 @@ public class CheckResultMetadataConfig extends QueryConfig {
      * </p>
      */
     @Nullable
-    private static List<?> checkStructTypeName(@Nonnull final List<?> valueList,
-                                               @Nonnull final ColumnDescriptor actualCol) {
+    private static List<?> checkStructTypeName(final List<?> valueList,
+                                               final ColumnDescriptor actualCol) {
         if (!valueList.isEmpty() && valueList.get(0) instanceof String) {
             final String expectedTypeName = (String)valueList.get(0);
             if (actualCol.structTypeName == null || !expectedTypeName.equalsIgnoreCase(actualCol.structTypeName)) {
@@ -322,8 +316,8 @@ public class CheckResultMetadataConfig extends QueryConfig {
         return valueList;
     }
 
-    private static boolean matchesExpected(@Nonnull final List<Map<?, ?>> expected,
-                                           @Nonnull final List<ColumnDescriptor> actual) {
+    private static boolean matchesExpected(final List<Map<?, ?>> expected,
+                                           final List<ColumnDescriptor> actual) {
         if (expected.size() != actual.size()) {
             return false;
         }
@@ -397,13 +391,11 @@ public class CheckResultMetadataConfig extends QueryConfig {
      * and array-of-struct columns) the nested field descriptors.
      */
     public static final class ColumnDescriptor {
-        @Nonnull
         public final String name;
         /**
          * SQL type name: e.g. {@code "BIGINT"}, {@code "STRUCT"}, {@code "ARRAY(INTEGER)"},
          * {@code "ARRAY(STRUCT)"}.
          */
-        @Nonnull
         public final String typeName;
         /**
          * Declared struct type name (e.g. {@code "point"} from {@code CREATE TYPE AS STRUCT point(...)}).
@@ -423,9 +415,9 @@ public class CheckResultMetadataConfig extends QueryConfig {
          */
         public final boolean isArray;
 
-        ColumnDescriptor(@Nonnull final String name, @Nonnull final String typeName,
+        ColumnDescriptor(final String name, final String typeName,
                          @Nullable final String structTypeName,
-                         @Nonnull final List<ColumnDescriptor> fields, boolean isArray) {
+                         final List<ColumnDescriptor> fields, boolean isArray) {
             this.name = name;
             this.typeName = typeName;
             this.structTypeName = structTypeName;
@@ -433,7 +425,7 @@ public class CheckResultMetadataConfig extends QueryConfig {
             this.isArray = isArray;
         }
 
-        ColumnDescriptor(@Nonnull final String name, @Nonnull final String typeName) {
+        ColumnDescriptor(final String name, final String typeName) {
             this.name = name;
             this.typeName = typeName;
             this.structTypeName = null;

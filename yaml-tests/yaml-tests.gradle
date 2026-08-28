@@ -22,6 +22,10 @@ import java.util.concurrent.ThreadLocalRandom
 import java.util.jar.JarFile
 import java.util.regex.Matcher
 
+plugins {
+    alias(libs.plugins.errorprone)
+}
+
 apply from: rootProject.file('gradle/proto.gradle')
 
 project.tasks.named("processResources") {
@@ -49,7 +53,7 @@ dependencies {
     implementation project(":fdb-relational-jdbc")
     implementation project(":fdb-relational-server")
     implementation(libs.jline)
-    implementation(libs.jsr305)
+    compileOnly(libs.jspecify)
     implementation(libs.junit.api)
     implementation(libs.junit.params)
     implementation(libs.junit.platform)
@@ -71,6 +75,24 @@ dependencies {
     implementation(libs.diffutils)
     compileOnly(libs.autoService)
     annotationProcessor(libs.autoService)
+
+    errorprone(libs.errorprone.core)
+    errorprone(libs.nullaway)
+}
+
+// jspecify + NullAway, scoped to this module only. See @NullMarked package-info.java files
+// under com.apple.foundationdb.relational.yamltests (and its sub-packages). Generated protobuf
+// code (com.apple.foundationdb.relational.yamltests.generated.*) is carved out via
+// UnannotatedSubPackages.
+tasks.withType(JavaCompile).configureEach {
+    options.errorprone {
+        disableAllChecks = true
+        error("NullAway")
+        option("NullAway:AnnotatedPackages", "com.apple.foundationdb.relational.yamltests")
+        option("NullAway:UnannotatedSubPackages", "com.apple.foundationdb.relational.yamltests.generated")
+        option("NullAway:JSpecifyMode", "true")
+        option("NullAway:AcknowledgeRestrictiveAnnotations", "true")
+    }
 }
 
 // Versions that should never be selected as an "other" external server when resolving dynamic versions for

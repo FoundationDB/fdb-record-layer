@@ -30,8 +30,6 @@ import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.ScalarNode;
 import org.yaml.snakeyaml.nodes.Tag;
 
-import javax.annotation.Nonnull;
-
 /**
  * A custom YAML tag for byte array values in the {@code x'...'} hex format.
  * <p>
@@ -44,10 +42,8 @@ import javax.annotation.Nonnull;
 @AutoService(CustomTag.class)
 public class BytesTag implements CustomTag {
 
-    @Nonnull
     private static final Tag tag = new Tag("!b");
 
-    @Nonnull
     private static final Construct CONSTRUCT_INSTANCE = new AbstractConstruct() {
         @Override
         public byte[] construct(final Node node) {
@@ -68,13 +64,11 @@ public class BytesTag implements CustomTag {
     public BytesTag() {
     }
 
-    @Nonnull
     @Override
     public Tag getTag() {
         return tag;
     }
 
-    @Nonnull
     @Override
     public Construct getConstruct() {
         return CONSTRUCT_INSTANCE;

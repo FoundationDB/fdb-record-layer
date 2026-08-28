@@ -22,22 +22,18 @@ package com.apple.foundationdb.relational.yamltests.block;
 
 import com.apple.foundationdb.relational.yamltests.YamlReference;
 
-import javax.annotation.Nonnull;
-
 /**
  * A {@link Block} with a {@link YamlReference}.
  */
 public abstract class ReferencedBlock implements Block {
 
-    @Nonnull
     private final YamlReference blockReference;
 
-    ReferencedBlock(@Nonnull final YamlReference blockReference) {
+    ReferencedBlock(final YamlReference blockReference) {
         this.blockReference = blockReference;
     }
 
     @Override
-    @Nonnull
     public YamlReference getReference() {
         return blockReference;
     }

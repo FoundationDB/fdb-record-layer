@@ -43,11 +43,11 @@ import org.yaml.snakeyaml.nodes.ScalarNode;
 import org.yaml.snakeyaml.nodes.SequenceNode;
 import org.yaml.snakeyaml.nodes.Tag;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Random;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -82,11 +82,8 @@ import static com.apple.foundationdb.relational.yamltests.Matchers.constructVect
  * Here, the parameter can randomly take different values between 2 and 9 in each binding.
  */
 public final class QueryInterpreter {
-    @Nonnull
     private final String query;
-    @Nonnull
     private final YamlReference reference;
-    @Nonnull
     private final YamlExecutionContext executionContext;
     /**
      * {@link List} of the snippet text and interpreted parameter injection. Note that the parameter can be a
@@ -168,7 +165,7 @@ public final class QueryInterpreter {
                     var values = ((MappingNode) node).getValue();
                     return new UnboundParameter.RandomSetParameter(values.stream().map(v -> constructObject(v.getKeyNode())).collect(Collectors.toList()));
                 }
-                return null;
+                throw Assert.failUnchecked("!r expects a sequence of 1 or 2 elements, or a set.");
             }
         }
 
@@ -200,7 +197,7 @@ public final class QueryInterpreter {
                     Assert.thatUnchecked(values.size() == 2, "!a expects a set to have 2 elements.");
                     return new UnboundParameter.ElementMultiplicityListParameter(constructObject(values.get(0).getKeyNode()), constructObject(values.get(1).getKeyNode()));
                 }
-                return null;
+                throw Assert.failUnchecked("!a expects a sequence of 1 or 2 elements, or a set.");
             }
         }
 
@@ -274,7 +271,7 @@ public final class QueryInterpreter {
         }
     }
 
-    private QueryInterpreter(@Nonnull final YamlReference reference, @Nonnull String query, @Nonnull final YamlExecutionContext executionContext) {
+    private QueryInterpreter(final YamlReference reference, String query, final YamlExecutionContext executionContext) {
         this.query = query;
         this.reference = reference;
         this.injections = getInjections(query);
@@ -284,12 +281,11 @@ public final class QueryInterpreter {
     /**
      * The original query string with embedded parameter injections.
      */
-    @Nonnull
     String getQuery() {
         return query;
     }
 
-    private List<Pair<String, Parameter>> getInjections(@Nonnull String query) {
+    private List<Pair<String, Parameter>> getInjections(String query) {
 
         final var lst = new ArrayList<Pair<String, Parameter>>();
         int cursor = 0;
@@ -306,7 +302,7 @@ public final class QueryInterpreter {
         return lst;
     }
 
-    public static QueryInterpreter withQueryString(@Nonnull final YamlReference reference, @Nonnull String query, @Nonnull final YamlExecutionContext executionContext) {
+    public static QueryInterpreter withQueryString(final YamlReference reference, String query, final YamlExecutionContext executionContext) {
         return new QueryInterpreter(reference, query, executionContext);
     }
 
@@ -321,7 +317,6 @@ public final class QueryInterpreter {
      * @param runAsPreparedStatement if the executor should execute the query using {@link com.apple.foundationdb.relational.api.RelationalPreparedStatement} API.
      * @return the executor that can execute the query.
      */
-    @Nonnull
     public QueryExecutor getExecutor(@Nullable Random random, boolean runAsPreparedStatement) {
         try {
             final boolean forceContinuations = executionContext.getOption(YamlExecutionContext.OPTION_FORCE_CONTINUATIONS, false);
@@ -330,7 +325,7 @@ public final class QueryInterpreter {
                 Assert.thatUnchecked(injections.isEmpty(), "Parameter injection is not allowed in query without a Random(generator)");
                 return new QueryExecutor(query, reference, null, forceContinuations);
             } else {
-                var boundInjections = injections.stream().map(i -> (Pair.of(i.getLeft(), i.getRight().bind(random)))).collect(Collectors.toList());
+                var boundInjections = injections.stream().map(i -> (Pair.of(i.getLeft(), Objects.requireNonNull(i.getRight()).bind(random)))).collect(Collectors.toList());
                 if (runAsPreparedStatement) {
                     return new QueryExecutor(adaptToPreparedStatement(query, boundInjections), reference, boundInjections.stream().map(Pair::getRight).collect(Collectors.toList()), forceContinuations);
                 } else {
@@ -342,8 +337,7 @@ public final class QueryInterpreter {
         }
     }
 
-    @Nonnull
-    private static String adaptToPreparedStatement(@Nonnull String query, @Nonnull List<Pair<String, Parameter>> injections) {
+    private static String adaptToPreparedStatement(String query, List<Pair<String, Parameter>> injections) {
         String adaptedString = query;
         for (var injection : injections) {
             adaptedString = adaptedString.replace(injection.getLeft(), "?");
@@ -351,11 +345,10 @@ public final class QueryInterpreter {
         return adaptedString;
     }
 
-    @Nonnull
-    private static String adaptToSimpleStatement(@Nonnull String query, @Nonnull List<Pair<String, Parameter>> injections) {
+    private static String adaptToSimpleStatement(String query, List<Pair<String, Parameter>> injections) {
         String adaptedString = query;
         for (var injection : injections) {
-            adaptedString = adaptedString.replace(injection.getLeft(), injection.getRight().getSqlText());
+            adaptedString = adaptedString.replace(injection.getLeft(), Objects.requireNonNull(injection.getRight()).getSqlText());
         }
         return adaptedString;
     }

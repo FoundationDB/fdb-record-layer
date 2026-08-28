@@ -22,8 +22,6 @@ package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 
-import javax.annotation.Nonnull;
-
 /**
  * A configuration that runs an underlying configuration, but forces every query to be executed with {@code maxRows: 1}.
  * <p>
@@ -31,7 +29,7 @@ import javax.annotation.Nonnull;
  * </p>
  */
 public class ForceContinuations extends ConfigWithOptions {
-    public ForceContinuations(@Nonnull final YamlTestConfig underlying) {
+    public ForceContinuations(final YamlTestConfig underlying) {
         super(underlying, YamlExecutionContext.ContextOptions.of(YamlExecutionContext.OPTION_FORCE_CONTINUATIONS, true));
     }
 }

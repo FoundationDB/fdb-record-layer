@@ -38,8 +38,9 @@ import com.google.protobuf.Descriptors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
+import static com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetricsProto.Info;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
@@ -64,7 +65,7 @@ public class CheckExplainConfig extends QueryConfig {
     private final boolean isExact;
     private final String blockName;
 
-    public CheckExplainConfig(final String configName, final Object value, @Nonnull final YamlReference reference, final YamlExecutionContext executionContext, final boolean isExact, final String blockName) {
+    public CheckExplainConfig(final String configName, @Nullable final Object value, final YamlReference reference, final YamlExecutionContext executionContext, final boolean isExact, final String blockName) {
         super(configName, value, reference);
         this.executionContext = executionContext;
         this.isExact = isExact;
@@ -72,14 +73,14 @@ public class CheckExplainConfig extends QueryConfig {
     }
 
     @Override
-    protected String decorateQuery(@Nonnull String query) {
+    protected String decorateQuery(String query) {
         return "EXPLAIN " + query;
     }
 
     @SuppressWarnings({"PMD.CloseResource", "PMD.EmptyWhileStmt"}) // lifetime of autocloseable resource persists beyond method
     @Override
-    protected void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
-                                       @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException {
+    protected void checkResultInternal(String currentQuery, Object actual,
+                                       String queryDescription, List<String> setups) throws SQLException {
         logger.debug("⛳️ Matching plan for query '{}'", queryDescription);
         final var resultSet = (RelationalResultSet) actual;
         resultSet.next();
@@ -100,8 +101,8 @@ public class CheckExplainConfig extends QueryConfig {
         }
     }
 
-    private static PlannerMetricsProto.Info createPlannerMetricsInfo(@Nonnull final RelationalResultSet resultSet) throws SQLException {
-        final var builder = PlannerMetricsProto.Info.newBuilder();
+    private static Info createPlannerMetricsInfo(final RelationalResultSet resultSet) throws SQLException {
+        final var builder = Info.newBuilder();
         final var plan = resultSet.getString(1);
         if (plan == null) {
             QueryCommand.reportTestFailure("‼️ EXPLAIN result is missing the plan string");
@@ -134,8 +135,8 @@ public class CheckExplainConfig extends QueryConfig {
     }
 
     private void addExplainAndMetrics(
-            @Nonnull final PlannerMetricsProto.Identifier identifier,
-            @Nonnull final PlannerMetricsProto.Info actualPlannerMetricsInfo) {
+            final PlannerMetricsProto.Identifier identifier,
+            final Info actualPlannerMetricsInfo) {
         try {
             executionContext.getFilesMaintainer().addExplain(getReference(), actualPlannerMetricsInfo.getExplain());
         } catch (Throwable throwable) {
@@ -145,9 +146,9 @@ public class CheckExplainConfig extends QueryConfig {
         recordMetrics(identifier, actualPlannerMetricsInfo, true);
     }
 
-    private void checkExplainContains(@Nonnull final String queryDescription,
-                                       @Nonnull final PlannerMetricsProto.Info actualPlannerMetricsInfo,
-                                       @Nullable final PlannerMetricsProto.Info expectedPlannerMetricsInfo) {
+    private void checkExplainContains(final String queryDescription,
+                                       final Info actualPlannerMetricsInfo,
+                                       @Nullable final Info expectedPlannerMetricsInfo) {
         final var actualPlan = actualPlannerMetricsInfo.getExplain();
         if (actualPlan.contains(Objects.requireNonNull((String) getVal()))) {
             logger.debug("✅️ plan fragment match!");
@@ -157,9 +158,9 @@ public class CheckExplainConfig extends QueryConfig {
         }
     }
 
-    private void showPlanDiffIfNeeded(@Nonnull final String queryDescription,
-                                      @Nonnull final PlannerMetricsProto.Info actualPlannerMetricsInfo,
-                                      @Nullable final PlannerMetricsProto.Info expectedPlannerMetricsInfo) {
+    private void showPlanDiffIfNeeded(final String queryDescription,
+                                      final Info actualPlannerMetricsInfo,
+                                      @Nullable final Info expectedPlannerMetricsInfo) {
         if (!executionContext.shouldShowPlanOnDiff()) {
             return;
         }
@@ -173,7 +174,7 @@ public class CheckExplainConfig extends QueryConfig {
         }
     }
 
-    private void calcPlanDiffAndReportFailure(@Nonnull final String actualPlan) {
+    private void calcPlanDiffAndReportFailure(final String actualPlan) {
         final var expectedPlan = getValueString();
         final var diffGenerator = DiffRowGenerator.create()
                 .showInlineDiffs(true)
@@ -198,10 +199,10 @@ public class CheckExplainConfig extends QueryConfig {
         QueryCommand.reportTestFailure(diffMessage);
     }
 
-    private void checkExplainAndMetrics(@Nonnull final String queryDescription,
-                                        @Nonnull final PlannerMetricsProto.Identifier identifier,
-                                        @Nonnull final PlannerMetricsProto.Info actualPlannerMetricsInfo,
-                                        @Nullable final PlannerMetricsProto.Info expectedPlannerMetricsInfo) {
+    private void checkExplainAndMetrics(final String queryDescription,
+                                        final PlannerMetricsProto.Identifier identifier,
+                                        final Info actualPlannerMetricsInfo,
+                                        @Nullable final Info expectedPlannerMetricsInfo) {
         final var actualPlan = actualPlannerMetricsInfo.getExplain();
         var explainIsChanged = false;
         if (Objects.requireNonNull(getVal()).equals(actualPlan)) {
@@ -254,14 +255,14 @@ public class CheckExplainConfig extends QueryConfig {
         }
     }
 
-    private void correctExplainAndRecordMetrics(@Nonnull final PlannerMetricsProto.Identifier identifier,
-                               @Nonnull final PlannerMetricsProto.Info info, @Nonnull String plan) {
+    private void correctExplainAndRecordMetrics(final PlannerMetricsProto.Identifier identifier,
+                               final Info info, String plan) {
         final var expectedMetricsWithActualPlan = info.toBuilder().setExplain(plan).build();
         recordMetrics(identifier, expectedMetricsWithActualPlan, true);
     }
 
-    private void recordMetrics(@Nonnull final PlannerMetricsProto.Identifier identifier,
-                               @Nonnull final PlannerMetricsProto.Info info,
+    private void recordMetrics(final PlannerMetricsProto.Identifier identifier,
+                               final Info info,
                                final boolean dirty) {
         try {
             executionContext.getMetricsMaintainer().putMetrics(identifier, getReference(), info);
@@ -273,8 +274,8 @@ public class CheckExplainConfig extends QueryConfig {
         }
     }
 
-    private boolean areMetricsDifferent(@Nonnull final PlannerMetricsProto.Info expectedPlannerMetricsInfo,
-                                        @Nonnull final PlannerMetricsProto.Info actualPlannerMetricsInfo) {
+    private boolean areMetricsDifferent(final Info expectedPlannerMetricsInfo,
+                                        final Info actualPlannerMetricsInfo) {
         final var expectedCountersAndTimers = expectedPlannerMetricsInfo.getCountersAndTimers();
         final var actualCountersAndTimers = actualPlannerMetricsInfo.getCountersAndTimers();
         final var metricsDescriptor = expectedCountersAndTimers.getDescriptorForType();
@@ -288,10 +289,10 @@ public class CheckExplainConfig extends QueryConfig {
         return different;
     }
 
-    private static boolean isMetricDifferent(@Nonnull final PlannerMetricsProto.CountersAndTimers expected,
-                                             @Nonnull final PlannerMetricsProto.CountersAndTimers actual,
-                                             @Nonnull final Descriptors.FieldDescriptor fieldDescriptor,
-                                             @Nonnull final YamlReference reference) {
+    private static boolean isMetricDifferent(final PlannerMetricsProto.CountersAndTimers expected,
+                                             final PlannerMetricsProto.CountersAndTimers actual,
+                                             final Descriptors.FieldDescriptor fieldDescriptor,
+                                             final YamlReference reference) {
         final long expectedMetric = (long)expected.getField(fieldDescriptor);
         final long actualMetric = (long)actual.getField(fieldDescriptor);
         if (expectedMetric != actualMetric) {

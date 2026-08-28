@@ -37,8 +37,7 @@ import org.opentest4j.TestAbortedException;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -73,23 +72,17 @@ public final class YamlExecutionContext {
 
     private static final URI SYSTEM_CATALOG_ADDRESS = URI.create("jdbc:embed:/__SYS?schema=CATALOG");
 
-    @Nonnull final YamlReference.YamlResource topLevelResource;
-    @Nonnull
+    final YamlReference.YamlResource topLevelResource;
     private final Set<YamlReference.YamlResource> registeredResources = new HashSet<>();
 
-    @Nonnull
     private final YamlMetricsMaintainer metricsMaintainer;
-    @Nonnull
     private final YamlFilesMaintainer filesMaintainer;
-    @Nonnull
     private final YamlConnectionFactory connectionFactory;
     @SuppressWarnings("AbbreviationAsWordInName")
     private final Map<YamlReference.YamlResource, List<String>> connectionURIs = new HashMap<>();
     // Additional options that can be set by the runners to impact test execution
-    @Nonnull
     private final ContextOptions additionalOptions;
     private final Map<String, String> transactionSetups = new HashMap<>();
-    @Nonnull
     private Options connectionOptions = Options.NONE;
 
     public static class YamlExecutionError extends RuntimeException {
@@ -102,7 +95,7 @@ public final class YamlExecutionContext {
         }
     }
 
-    YamlExecutionContext(@Nonnull YamlReference.YamlResource topLevelResource, @Nonnull YamlConnectionFactory factory, @Nonnull final ContextOptions additionalOptions) throws RelationalException {
+    YamlExecutionContext(YamlReference.YamlResource topLevelResource, YamlConnectionFactory factory, final ContextOptions additionalOptions) throws RelationalException {
         this.connectionFactory = factory;
         this.topLevelResource = topLevelResource;
         this.additionalOptions = additionalOptions;
@@ -122,7 +115,7 @@ public final class YamlExecutionContext {
         registeredResources.add(topLevelResource);
     }
 
-    public void registerResource(@Nonnull final YamlReference.YamlResource resource) throws RelationalException {
+    public void registerResource(final YamlReference.YamlResource resource) throws RelationalException {
         // topLevelResource is already registered in the constructor
         if (topLevelResource.equals(resource)) {
             return;
@@ -134,17 +127,16 @@ public final class YamlExecutionContext {
         registeredResources.add(resource);
     }
 
-    private void loadResourceForEditIfNeeded(@Nonnull YamlReference.YamlResource resource) throws RelationalException {
+    private void loadResourceForEditIfNeeded(YamlReference.YamlResource resource) throws RelationalException {
         if (shouldCorrectExplains() || shouldCorrectResultMetadata() || shouldAddResultMetadata() || shouldAddExplains()) {
             filesMaintainer.loadFile(resource);
         }
     }
 
-    public void setConnectionOptions(@Nonnull final Options connectionOptions) {
+    public void setConnectionOptions(final Options connectionOptions) {
         this.connectionOptions = connectionOptions;
     }
 
-    @Nonnull
     public YamlConnectionFactory getConnectionFactory() {
         return YamlConnectionFactoryWithOptions.newInstance(connectionFactory, connectionOptions);
     }
@@ -173,12 +165,10 @@ public final class YamlExecutionContext {
         return additionalOptions.getOrDefault(OPTION_ADD_EXPLAIN, false);
     }
 
-    @Nonnull
     public YamlMetricsMaintainer getMetricsMaintainer() {
         return metricsMaintainer;
     }
 
-    @Nonnull
     public YamlFilesMaintainer getFilesMaintainer() {
         return filesMaintainer;
     }
@@ -216,7 +206,7 @@ public final class YamlExecutionContext {
         filesMaintainer.saveIfNeeded();
     }
 
-    public void registerConnectionURI(@Nonnull YamlReference.YamlResource resource, @Nonnull String stringURI) {
+    public void registerConnectionURI(YamlReference.YamlResource resource, String stringURI) {
         Assert.thatUnchecked(registeredResources.contains(resource), "A YamlResource should be registered before registering available connection URIs");
         connectionURIs.computeIfAbsent(resource, ignore -> new ArrayList<>()).add(stringURI);
     }
@@ -247,7 +237,7 @@ public final class YamlExecutionContext {
      *
      * @return a valid connection target
      */
-    public ConnectionTarget inferConnectionTarget(@Nonnull final YamlReference.YamlResource resource, @Nullable Object connectObject) {
+    public ConnectionTarget inferConnectionTarget(final YamlReference.YamlResource resource, @Nullable Object connectObject) {
         Assert.thatUnchecked(registeredResources.contains(resource), "A YamlResource should be registered before registering available connection URIs");
         if (connectObject instanceof Map) {
             final Map<?, ?> connectMap = CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(connectObject, "connect"));
@@ -259,7 +249,7 @@ public final class YamlExecutionContext {
         return new ConnectionTarget(resolveConnectionURI(resource, connectObject), 0);
     }
 
-    private URI resolveConnectionURI(@Nonnull final YamlReference.YamlResource resource, @Nullable Object connectObject) {
+    private URI resolveConnectionURI(final YamlReference.YamlResource resource, @Nullable Object connectObject) {
         if (connectObject == null) {
             return getConnectionFromConnectionURIList(resource, true, -1, true);
         } else if (connectObject instanceof Integer) {
@@ -273,7 +263,7 @@ public final class YamlExecutionContext {
         }
     }
 
-    private URI getConnectionFromConnectionURIList(@Nonnull YamlReference.YamlResource resource, boolean defaultValue, int idx, boolean isGlobal) {
+    private URI getConnectionFromConnectionURIList(YamlReference.YamlResource resource, boolean defaultValue, int idx, boolean isGlobal) {
         if (defaultValue) {
             final var localList = connectionURIs.getOrDefault(resource, List.of());
             if (localList.size() == 1) {
@@ -296,10 +286,11 @@ public final class YamlExecutionContext {
         return URI.create(list.get(idx - 1));
     }
 
-    private List<String> getGlobalConnectionURIList(@Nonnull YamlReference.YamlResource resource) {
+    private List<String> getGlobalConnectionURIList(YamlReference.YamlResource resource) {
         final var resourcesBuilder = ImmutableList.<YamlReference.YamlResource>builder();
-        if (resource.getParentRef() != null) {
-            resourcesBuilder.addAll(resource.getParentRef().getCallStack().reverse().stream().map(YamlReference::getResource).iterator());
+        final var parentRef = resource.getParentRef();
+        if (parentRef != null) {
+            resourcesBuilder.addAll(parentRef.getCallStack().reverse().stream().map(YamlReference::getResource).iterator());
         }
         resourcesBuilder.add(resource);
         return resourcesBuilder.build().stream()
@@ -341,9 +332,8 @@ public final class YamlExecutionContext {
      *
      * @return wrapped {@link YamlExecutionError}
      */
-    @Nonnull
-    public static RuntimeException wrapContext(@Nonnull Throwable throwable, @Nonnull Supplier<String> msg,
-                                               @Nonnull String identifier, @Nonnull final YamlReference reference) {
+    public static RuntimeException wrapContext(Throwable throwable, Supplier<String> msg,
+                                               String identifier, final YamlReference reference) {
         if (throwable instanceof TestAbortedException) {
             return (TestAbortedException)throwable;
         } else if (throwable instanceof YamlExecutionError) {
@@ -362,7 +352,7 @@ public final class YamlExecutionContext {
         }
     }
 
-    private static StackTraceElement[] composeStackTrace(@Nonnull YamlReference reference, @Nonnull String identifier) {
+    private static StackTraceElement[] composeStackTrace(YamlReference reference, String identifier) {
         final var refList = reference.getCallStack();
         return Streams.mapWithIndex(refList.stream(),
                 (r, i) -> new StackTraceElement(
@@ -392,9 +382,8 @@ public final class YamlExecutionContext {
      * @return immutable map of identifier to info
      * @throws RelationalException if file cannot be read or parsed
      */
-    @Nonnull
     @SuppressWarnings("unchecked")
-    public static Map<PlannerMetricsProto.Identifier, MetricsInfo> loadMetricsFromYamlFile(@Nonnull final Path filePath) throws RelationalException {
+    public static Map<PlannerMetricsProto.Identifier, MetricsInfo> loadMetricsFromYamlFile(final Path filePath) throws RelationalException {
         final ImmutableMap.Builder<PlannerMetricsProto.Identifier, MetricsInfo> resultMapBuilder = ImmutableMap.builder();
         final Map<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> seen = new HashMap<>();
         if (!Files.exists(filePath)) {
@@ -526,10 +515,9 @@ public final class YamlExecutionContext {
     public static class ContextOptions {
         public static final ContextOptions EMPTY_OPTIONS = new ContextOptions(Map.of());
 
-        @Nonnull
         private final Map<ContextOption<?>, Object> map;
 
-        private ContextOptions(final @Nonnull Map<ContextOption<?>, Object> map) {
+        private ContextOptions(final Map<ContextOption<?>, Object> map) {
             this.map = map;
         }
 

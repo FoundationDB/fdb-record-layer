@@ -25,7 +25,6 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -94,7 +93,7 @@ class ExternalServerTest {
         }
     }
 
-    private static void assertDistinctPorts(@Nonnull Collection<ExternalServer> servers) {
+    private static void assertDistinctPorts(Collection<ExternalServer> servers) {
         // we can't assert about the actual values, because one of the ports may be busy,
         // so assert that each server has its own port, and none of them have the same port
         assertThat(servers)

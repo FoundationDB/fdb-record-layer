@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.yamltests.block;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 
@@ -34,8 +33,8 @@ public class TransactionSetupsBlock extends SupportBlock {
     public TransactionSetupsBlock() {
     }
 
-    public static List<Block> parse(@Nonnull final Object document,
-                                    @Nonnull final YamlExecutionContext executionContext) {
+    public static List<Block> parse(final Object document,
+                                    final YamlExecutionContext executionContext) {
         final Map<?, ?> map = Matchers.map(document);
         for (final Map.Entry<?, ?> entry : map.entrySet()) {
             final String transactionSetupName = Matchers.string(entry.getKey(), "transaction setup name");

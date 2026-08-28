@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 
 /**
@@ -42,16 +41,14 @@ import java.net.URI;
  * </ul>
  */
 public class ConnectionTarget {
-    @Nonnull
     private final URI uri;
     private final int clusterIndex;
 
-    public ConnectionTarget(@Nonnull URI uri, int clusterIndex) {
+    public ConnectionTarget(URI uri, int clusterIndex) {
         this.uri = uri;
         this.clusterIndex = clusterIndex;
     }
 
-    @Nonnull
     public URI getUri() {
         return uri;
     }

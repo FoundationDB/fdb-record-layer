@@ -28,8 +28,6 @@ import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.ScalarNode;
 import org.yaml.snakeyaml.nodes.Tag;
 
-import javax.annotation.Nonnull;
-
 /**
  * A custom YAML tag for {@code float} values. Without this tag, YAML parses decimal numbers
  * as {@link Double}, which causes comparison failures against {@code float} column values
@@ -44,10 +42,8 @@ import javax.annotation.Nonnull;
 @AutoService(CustomTag.class)
 public class FloatTag implements CustomTag {
 
-    @Nonnull
     private static final Tag tag = new Tag("!f");
 
-    @Nonnull
     private static final Construct CONSTRUCT_INSTANCE = new AbstractConstruct() {
         @Override
         public Float construct(final Node node) {
@@ -61,13 +57,11 @@ public class FloatTag implements CustomTag {
     public FloatTag() {
     }
 
-    @Nonnull
     @Override
     public Tag getTag() {
         return tag;
     }
 
-    @Nonnull
     @Override
     public Construct getConstruct() {
         return CONSTRUCT_INSTANCE;

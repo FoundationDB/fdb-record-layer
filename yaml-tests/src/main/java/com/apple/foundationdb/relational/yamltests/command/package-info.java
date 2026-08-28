@@ -22,4 +22,7 @@
  * This package contains all the action items that are available in the YAML testing framework.
  */
 
+@NullMarked
 package com.apple.foundationdb.relational.yamltests.command;
+
+import org.jspecify.annotations.NullMarked;

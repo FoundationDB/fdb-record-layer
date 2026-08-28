@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.yamltests.server;
 
 import com.apple.foundationdb.relational.yamltests.block.PreambleBlock;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -78,7 +77,7 @@ public class SupportedVersionCheck {
         return SUPPORTED;
     }
 
-    public static SupportedVersionCheck unsupported(@Nonnull String message) {
+    public static SupportedVersionCheck unsupported(String message) {
         return new SupportedVersionCheck(false, message);
     }
 }

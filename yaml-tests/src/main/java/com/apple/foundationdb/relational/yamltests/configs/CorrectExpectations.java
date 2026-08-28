@@ -22,8 +22,6 @@ package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 
-import javax.annotation.Nonnull;
-
 /**
  * A configuration that corrects all expected values in YAML files: explains, planner metrics, and result metadata.
  * <p>
@@ -32,7 +30,7 @@ import javax.annotation.Nonnull;
  * </p>
  */
 public class CorrectExpectations extends ConfigWithOptions {
-    public CorrectExpectations(@Nonnull final YamlTestConfig underlying) {
+    public CorrectExpectations(final YamlTestConfig underlying) {
         super(underlying, YamlExecutionContext.ContextOptions.of(
                 YamlExecutionContext.OPTION_CORRECT_EXPLAIN, true,
                 YamlExecutionContext.OPTION_CORRECT_METRICS, true,

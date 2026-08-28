@@ -31,7 +31,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -74,7 +73,7 @@ public class InitialVersionTest {
     YamlConnectionFactory createConnectionFactory() {
         return new YamlConnectionFactory() {
             @Override
-            public YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException {
+            public YamlConnection getNewConnection(URI connectPath, int clusterIndex) throws SQLException {
                 return new SimpleYamlConnection(DriverManager.getConnection(connectPath.toString()), VERSION, CLUSTER_FILE);
             }
 

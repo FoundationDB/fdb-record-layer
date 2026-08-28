@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.yamltests;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -38,19 +37,17 @@ public final class MetricsStatistics {
     private final Map<String, FieldStatistics> fieldStatistics;
     private final Map<String, FieldStatistics> regressionFieldStatistics;
 
-    private MetricsStatistics(@Nonnull final Map<String, FieldStatistics> fieldStatistics,
-                              @Nonnull final Map<String, FieldStatistics> regressionFieldStatistics) {
+    private MetricsStatistics(final Map<String, FieldStatistics> fieldStatistics,
+                              final Map<String, FieldStatistics> regressionFieldStatistics) {
         this.fieldStatistics = fieldStatistics;
         this.regressionFieldStatistics = regressionFieldStatistics;
     }
 
-    @Nonnull
-    public FieldStatistics getFieldStatistics(@Nonnull final String fieldName) {
+    public FieldStatistics getFieldStatistics(final String fieldName) {
         return fieldStatistics.getOrDefault(fieldName, FieldStatistics.EMPTY);
     }
 
-    @Nonnull
-    public FieldStatistics getRegressionStatistics(@Nonnull final String fieldName) {
+    public FieldStatistics getRegressionStatistics(final String fieldName) {
         return regressionFieldStatistics.getOrDefault(fieldName, FieldStatistics.EMPTY);
     }
 
@@ -58,18 +55,15 @@ public final class MetricsStatistics {
      * Statistics for a single metrics field across all queries.
      */
     public static class FieldStatistics {
-        @Nonnull
         public static final FieldStatistics EMPTY = new FieldStatistics(ImmutableList.of(), ImmutableList.of(), 0.0, 0.0);
 
-        @Nonnull
         public final List<Long> sortedValues;
-        @Nonnull
         public final List<Double> sortedPercentDiffs;
         public final double mean;
         public final double standardDeviation;
 
-        private FieldStatistics(@Nonnull final List<Long> sortedValues,
-                                @Nonnull final List<Double> sortedPercentDiffs,
+        private FieldStatistics(final List<Long> sortedValues,
+                                final List<Double> sortedPercentDiffs,
                                 final double mean,
                                 final double standardDeviation) {
             this.sortedValues = ImmutableList.copyOf(sortedValues);
@@ -132,15 +126,11 @@ public final class MetricsStatistics {
      * Builder for collecting metric differences and calculating statistics.
      */
     public static class Builder {
-        @Nonnull
         private final Map<String, List<Long>> differences = new HashMap<>();
-        @Nonnull
         private final Map<String, List<Long>> regressions = new HashMap<>();
-        @Nonnull
         private final Map<String, List<Double>> percentDifferences = new HashMap<>();
 
-        @Nonnull
-        public Builder addDifference(@Nonnull final String fieldName, final long baseValue, final long headValue) {
+        public Builder addDifference(final String fieldName, final long baseValue, final long headValue) {
             long difference = headValue - baseValue;
             differences.computeIfAbsent(fieldName, k -> new ArrayList<>()).add(difference);
             if (difference > 0) {
@@ -153,8 +143,7 @@ public final class MetricsStatistics {
             return this;
         }
 
-        @Nonnull
-        private Map<String, FieldStatistics> buildStats(@Nonnull final Map<String, List<Long>> baseMap) {
+        private Map<String, FieldStatistics> buildStats(final Map<String, List<Long>> baseMap) {
             final ImmutableMap.Builder<String, FieldStatistics> builder = ImmutableMap.builder();
 
             for (final var entry : baseMap.entrySet()) {
@@ -185,7 +174,6 @@ public final class MetricsStatistics {
             return builder.build();
         }
 
-        @Nonnull
         public MetricsStatistics build() {
             return new MetricsStatistics(buildStats(differences), buildStats(regressions));
         }

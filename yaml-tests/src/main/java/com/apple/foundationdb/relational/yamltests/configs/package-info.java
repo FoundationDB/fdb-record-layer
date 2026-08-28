@@ -21,4 +21,7 @@
 /**
  * Configurations that provide different standard ways to run a test.
  */
+@NullMarked
 package com.apple.foundationdb.relational.yamltests.configs;
+
+import org.jspecify.annotations.NullMarked;
