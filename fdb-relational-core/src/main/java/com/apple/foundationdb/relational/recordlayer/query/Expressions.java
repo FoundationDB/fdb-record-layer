@@ -100,26 +100,13 @@ public final class Expressions implements Iterable<Expression> {
     @Nonnull
     public Expressions pullUp(@Nonnull Value value, @Nonnull CorrelationIdentifier correlationIdentifier,
                               @Nonnull Set<CorrelationIdentifier> constantAliases) {
-        final ImmutableList.Builder<Expression> pulledUpOutputBuilder = ImmutableList.builder();
-        final var aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
-        final var simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
-        for (final var expression : this) {
-            final var underlying = expression.getUnderlying();
-            final var pulledUpUnderlying = Assert.notNullUnchecked(underlying.replace(
-                    subExpression -> {
-                        final var pulledUpExpressionMap =
-                                simplifiedValue.pullUp(List.of(subExpression), EvaluationContext.empty(), aliasMap,
-                                        constantAliases, correlationIdentifier);
-                        if (pulledUpExpressionMap.containsKey(subExpression)) {
-                            Assert.thatUnchecked(pulledUpExpressionMap.get(subExpression).size() == 1, ErrorCode.AMBIGUOUS_COLUMN, "Ambiguous columns for " + subExpression);
-                            return Iterables.getOnlyElement(pulledUpExpressionMap.get(subExpression));
-                        }
-                        return subExpression;
-                    }
-            ));
-            pulledUpOutputBuilder.add(expression.withUnderlying(pulledUpUnderlying));
-        }
-        return Expressions.of(pulledUpOutputBuilder.build());
+        final AliasMap aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
+        final Value simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
+        return Expressions.of(stream()
+                .map(expression -> expression.withUnderlying(
+                        Expression.pullUp(expression.getUnderlying(), simplifiedValue, aliasMap,
+                                correlationIdentifier, constantAliases)))
+                .collect(ImmutableList.toImmutableList()));
     }
 
     @Nonnull
