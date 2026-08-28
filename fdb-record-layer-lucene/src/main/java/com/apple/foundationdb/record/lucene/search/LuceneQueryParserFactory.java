@@ -25,7 +25,6 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 
 /**
@@ -34,7 +33,7 @@ import java.util.Map;
  * This class is meant to be implemented and provided through a {@link AutoService} extension: see {@link LuceneQueryParserFactoryProvider}.
  */
 public interface LuceneQueryParserFactory {
-    QueryParser createQueryParser(String field, Analyzer analyzer, @Nonnull Map<String, PointsConfig> pointsConfig);
+    QueryParser createQueryParser(String field, Analyzer analyzer, Map<String, PointsConfig> pointsConfig);
 
-    QueryParser createMultiFieldQueryParser(String[] fields, Analyzer analyzer, @Nonnull Map<String, PointsConfig> pointsConfig);
+    QueryParser createMultiFieldQueryParser(String[] fields, Analyzer analyzer, Map<String, PointsConfig> pointsConfig);
 }

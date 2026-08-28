@@ -30,7 +30,6 @@ import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.index.SegmentInfo;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 
 class PrimaryKeyAndStoredFieldsWriter extends LuceneOptimizedStoredFieldsWriter {
@@ -40,7 +39,7 @@ class PrimaryKeyAndStoredFieldsWriter extends LuceneOptimizedStoredFieldsWriter 
     private int documentId;
 
     PrimaryKeyAndStoredFieldsWriter(SegmentInfo segmentInfo,
-                                    @Nonnull final FDBDirectory directory) throws IOException {
+                                    final FDBDirectory directory) throws IOException {
         super(directory, segmentInfo);
         this.segmentId = directory.primaryKeySegmentId(segmentInfo.name, true);
         this.lucenePrimaryKeySegmentIndex = directory.getPrimaryKeySegmentIndex();

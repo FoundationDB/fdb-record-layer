@@ -27,7 +27,6 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 
-import javax.annotation.Nonnull;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -57,8 +56,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Isolated // To avoid contention on the thread pool with other tests running in parallel
 class LazyCloseableTest {
 
-    @Nonnull
-    static <T> Deque<T> collectFromMultipleThreads(int concurrency, @Nonnull Supplier<T> supplier) throws InterruptedException {
+    static <T> Deque<T> collectFromMultipleThreads(int concurrency, Supplier<T> supplier) throws InterruptedException {
         // Set up one thread for each concurrent creation we want to execute
         final List<Thread> threads = new ArrayList<>(concurrency);
         final CountDownLatch latch = new CountDownLatch(concurrency);
@@ -265,7 +263,6 @@ class LazyCloseableTest {
         assertDoesNotThrow(opener::close);
     }
 
-    @Nonnull
     private static LazyCloseable<Closeable> failingOpener(final IOException thrownException) {
         return LazyCloseable.supply(() -> {
             throw thrownException;

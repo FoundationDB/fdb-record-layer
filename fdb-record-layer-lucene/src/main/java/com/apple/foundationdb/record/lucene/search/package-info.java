@@ -21,4 +21,7 @@
 /**
  * Common classes for parallel execution of search.
  */
+@NullMarked
 package com.apple.foundationdb.record.lucene.search;
+
+import org.jspecify.annotations.NullMarked;

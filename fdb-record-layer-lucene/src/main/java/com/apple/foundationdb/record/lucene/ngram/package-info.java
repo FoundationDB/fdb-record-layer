@@ -21,4 +21,7 @@
 /**
  * Common classes for lucene's ngram tokenizing.
  */
+@NullMarked
 package com.apple.foundationdb.record.lucene.ngram;
+
+import org.jspecify.annotations.NullMarked;

@@ -21,4 +21,7 @@
 /**
  * Contains classes for analyzing stored and sorted fields.
  */
+@NullMarked
 package com.apple.foundationdb.record.lucene.exact;
+
+import org.jspecify.annotations.NullMarked;

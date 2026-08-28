@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.concurrent.CompletableFuture;
@@ -134,7 +133,6 @@ public class LazyOpener<T> {
      */
     @FunctionalInterface
     public interface Opener<T> {
-        @Nonnull
         T open() throws IOException;
     }
 }

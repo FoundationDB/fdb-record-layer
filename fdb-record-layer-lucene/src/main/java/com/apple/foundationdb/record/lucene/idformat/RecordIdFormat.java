@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.lucene.idformat;
 
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -69,10 +68,9 @@ public class RecordIdFormat {
         }
     }
 
-    @Nonnull
     private final TupleElement element;
 
-    public RecordIdFormat(@Nonnull final TupleElement element) {
+    public RecordIdFormat(final TupleElement element) {
         this.element = element;
     }
 
@@ -80,7 +78,6 @@ public class RecordIdFormat {
         return new RecordIdFormat(TupleElement.of(elements));
     }
 
-    @Nonnull
     public TupleElement getElement() {
         return element;
     }
@@ -117,22 +114,19 @@ public class RecordIdFormat {
      * A collection of elements matching a Tuple structure in the key.
      */
     public static class TupleElement implements FormatElement {
-        @Nonnull
         private final List<FormatElement> children;
 
-        public TupleElement(@Nonnull final List<FormatElement> children) {
+        public TupleElement(final List<FormatElement> children) {
             if (children.isEmpty()) {
                 throw new RecordCoreFormatException("Tuple element cannot be empty");
             }
             this.children = children;
         }
 
-        @Nonnull
         public List<FormatElement> getChildren() {
             return children;
         }
 
-        @Nonnull
         public static TupleElement of(FormatElement... children) {
             return new TupleElement(List.of(children));
         }

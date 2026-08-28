@@ -66,9 +66,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -449,13 +448,11 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
     }
 
 
-    @Nonnull
     private static PrintStream createJson(final String name) throws FileNotFoundException {
         final String filename = ".out/LuceneScaleTest." + Config.ISOLATION_ID + "." + name + ".json";
         return new PrintStream(new FileOutputStream(filename, false), true);
     }
 
-    @Nonnull
     private static PrintStream createCsv(final String name, final boolean append) throws FileNotFoundException {
         final String filename = ".out/LuceneScaleTest." + Config.ISOLATION_ID + "." + name + ".csv";
         boolean writeHeader = !append || !new File(filename).exists();
@@ -640,7 +637,6 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
             }
         }
 
-        @Nonnull
         private Message getRandomRecord(final FDBRecordStore store) {
             // TODO randomly get a record, but skew it towards more recent ones...
             return store.loadRecord(Tuple.from(1, random.nextInt(maxDocId))).getRecord();

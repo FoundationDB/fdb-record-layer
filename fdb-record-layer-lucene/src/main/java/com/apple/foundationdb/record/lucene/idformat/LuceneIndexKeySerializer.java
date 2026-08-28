@@ -24,9 +24,8 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.lucene.LuceneIndexMaintainer;
 import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.document.BinaryPoint;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -90,7 +89,7 @@ public class LuceneIndexKeySerializer {
      * @param key the key to serialize
      * @return the serialized key
      */
-    public byte[] asPackedByteArray(@Nonnull final Tuple key) {
+    public byte[] asPackedByteArray(final Tuple key) {
         return key.pack();
     }
 
@@ -100,7 +99,7 @@ public class LuceneIndexKeySerializer {
      * @param key the key to serialize
      * @return the split (BinaryPoint) style serialized key
      */
-    public byte[][] asPackedBinaryPoint(@Nonnull final Tuple key) {
+    public byte[][] asPackedBinaryPoint(final Tuple key) {
         // We might use a different dimension size here
         List<byte[]> splitBytes = split(key.pack(), BINARY_POINT_DIMENSION_SIZE);
         return splitBytes.toArray(new byte[splitBytes.size()][]);
@@ -114,7 +113,7 @@ public class LuceneIndexKeySerializer {
      * @return the formatted serialized key
      * @throws RecordCoreFormatException in case there is no format or the format failed to parse or validate
      */
-    public byte[][] asFormattedBinaryPoint(@Nonnull final Tuple key) throws RecordCoreFormatException {
+    public byte[][] asFormattedBinaryPoint(final Tuple key) throws RecordCoreFormatException {
         if (format == null) {
             throw new RecordCoreFormatException("Missing format, cannot format to a BinaryPoint");
         }
@@ -186,7 +185,7 @@ public class LuceneIndexKeySerializer {
      * @return the formatted key as a BinaryPoint
      * @throws RecordCoreArgumentException in case the format failed to verify or the key did nto match
      */
-    private List<byte[]> applyFormat(@Nonnull RecordIdFormat.TupleElement format, @Nonnull Tuple key) throws RecordCoreArgumentException {
+    private List<byte[]> applyFormat(RecordIdFormat.TupleElement format, Tuple key) throws RecordCoreArgumentException {
         List<RecordIdFormat.FormatElement> formatElements = format.getChildren();
         if (key.size() != formatElements.size()) {
             throw new RecordCoreFormatException("Key tuple and format have different sizes, format cannot be applied")
@@ -218,8 +217,7 @@ public class LuceneIndexKeySerializer {
     }
 
     @SuppressWarnings("java:S3776")
-    @Nullable
-    private byte[] applyFormat(final RecordIdFormat.FormatElementType formatElement, final Object tupleElement) {
+    private @Nullable byte[] applyFormat(final RecordIdFormat.FormatElementType formatElement, final Object tupleElement) {
         byte[] value;
         switch (formatElement) {
             case NONE:

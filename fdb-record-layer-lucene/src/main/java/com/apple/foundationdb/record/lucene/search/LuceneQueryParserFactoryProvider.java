@@ -29,7 +29,6 @@ import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.function.Supplier;
 
@@ -44,24 +43,20 @@ public class LuceneQueryParserFactoryProvider {
     private static final Supplier<LuceneQueryParserFactoryProvider> INSTANCE = Suppliers.memoize(LuceneQueryParserFactoryProvider::new);
 
     // The parser factory that was found (or the default one if none was found)
-    @Nonnull
     private final LuceneQueryParserFactory parserFactory;
 
     private LuceneQueryParserFactoryProvider() {
         parserFactory = initRegistry();
     }
 
-    @Nonnull
     public static LuceneQueryParserFactoryProvider instance() {
         return INSTANCE.get();
     }
 
-    @Nonnull
     public LuceneQueryParserFactory getParserFactory() {
         return parserFactory;
     }
 
-    @Nonnull
     private static LuceneQueryParserFactory initRegistry() {
         LuceneQueryParserFactory first = null;
         for (LuceneQueryParserFactory factory : ServiceLoaderProvider.load(LuceneQueryParserFactory.class)) {
@@ -85,19 +80,17 @@ public class LuceneQueryParserFactoryProvider {
      */
     public static class DefaultParserFactory implements LuceneQueryParserFactory {
         @Override
-        public QueryParser createQueryParser(final String field, final Analyzer analyzer, @Nonnull final Map<String, PointsConfig> pointsConfig) {
+        public QueryParser createQueryParser(final String field, final Analyzer analyzer, final Map<String, PointsConfig> pointsConfig) {
             return new LuceneOptimizedStopWordsQueryParser(field, analyzer, pointsConfig, getStopWords());
         }
 
-        @Nonnull
         @Override
-        public QueryParser createMultiFieldQueryParser(String[] fields, Analyzer analyzer, @Nonnull final Map<String, PointsConfig> pointsConfig) {
+        public QueryParser createMultiFieldQueryParser(String[] fields, Analyzer analyzer, final Map<String, PointsConfig> pointsConfig) {
             QueryParser parser = new LuceneOptimizedMultiFieldStopWordsQueryParser(fields, analyzer, pointsConfig, getStopWords());
             parser.setDefaultOperator(QueryParser.Operator.OR);
             return parser;
         }
 
-        @Nonnull
         protected CharArraySet getStopWords() {
             return EnglishAnalyzer.ENGLISH_STOP_WORDS_SET;
         }

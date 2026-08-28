@@ -57,7 +57,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -377,8 +376,7 @@ public class LuceneHighlighterTest {
         }
     }
 
-    @Nonnull
-    private String specialCharacterText(@Nonnull String specialCharacter) {
+    private String specialCharacterText(String specialCharacter) {
         return "Do we match special characters like " + specialCharacter + " even when its mashed together like " + specialCharacter + "noSpaces?";
     }
 

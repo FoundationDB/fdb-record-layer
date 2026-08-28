@@ -52,7 +52,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -436,7 +435,6 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
         return Stream.of(Map.of(), Map.of("box", "car"), Map.of("run", "far", "walk", "slow"));
     }
 
-    @Nonnull
     private static FieldInfos singleFieldInfos(final String name, final int number) {
         return new FieldInfos(new FieldInfo[] {simpleFieldInfo(name, number)});
     }
@@ -500,7 +498,6 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
         format.write(directory, segment.create(directory), "", fieldInfos, ioContext);
     }
 
-    @Nonnull
     private static FieldInfo fieldInfoA(final boolean storeTermVector, final boolean omitNorms, final boolean storePayloads) {
         // Note: FieldInfo will ignore all these booleans if IndexOptions == NONE
         return new FieldInfo("aField", 1, storeTermVector, omitNorms, storePayloads,
@@ -508,26 +505,22 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
                 0, 0, 0, false);
     }
 
-    @Nonnull
     private static FieldInfo fieldInfoB(final IndexOptions indexOptions, final DocValuesType docValuesType, final int dvGen, final Map<String, String> attributes) {
         return new FieldInfo("aField", 1, false, false, false,
                 indexOptions, docValuesType, dvGen, attributes,
                 0, 0, 0, false);
     }
 
-    @Nonnull
     private static FieldInfo fieldInfoC(final int pointDimensionCount, final int pointIndexDimensionCount, final int pointNumBytes, final boolean softDeletesField) {
         return new FieldInfo("aField", 1, false, false, false,
                 IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS, DocValuesType.NUMERIC, 1, Map.of(),
                 pointDimensionCount, pointIndexDimensionCount, pointNumBytes, softDeletesField);
     }
 
-    @Nonnull
     private static FieldInfo simpleFieldInfo(final String name, final int number) {
         return fieldInfo(name, number, Map.of());
     }
 
-    @Nonnull
     private static FieldInfo fieldInfo(final String name, final int number, final Map<String, String> attributes) {
         return new FieldInfo(name, number, false, false, false,
                 IndexOptions.DOCS, DocValuesType.NUMERIC, 1, attributes, 0, 0, 0, false);

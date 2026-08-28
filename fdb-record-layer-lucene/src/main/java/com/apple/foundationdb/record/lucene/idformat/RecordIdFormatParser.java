@@ -20,11 +20,13 @@
 
 package com.apple.foundationdb.record.lucene.idformat;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import static com.apple.foundationdb.record.lucene.idformat.RecordIdFormat.FormatElementType;
 
 /**
  * A simple parser for the string that represents the {@link RecordIdFormat}.
@@ -65,18 +67,16 @@ public class RecordIdFormatParser {
      * @return the constructed format
      * @throws RecordCoreFormatException in case of parse failure
      */
-    @Nonnull
     public static RecordIdFormat parse(final String formatString) throws RecordCoreFormatException {
         // top level element is actually a tuple
         RecordIdFormat.TupleElement tupleElement = parseTuple(formatString.trim());
         return new RecordIdFormat(tupleElement);
     }
 
-    @Nonnull
     private static RecordIdFormat.FormatElement parseElement(final String s) throws RecordCoreFormatException {
         String trimmed = s.trim();
         // Try to parse as a format type enum
-        RecordIdFormat.FormatElementType formatElementType = parseType(trimmed);
+        FormatElementType formatElementType = parseType(trimmed);
         if (formatElementType != null) {
             return formatElementType;
         } else {
@@ -85,7 +85,6 @@ public class RecordIdFormatParser {
         }
     }
 
-    @Nonnull
     private static RecordIdFormat.TupleElement parseTuple(final String s) {
         if ((!s.startsWith(BEGIN_TUPLE_STR)) || (!s.endsWith(END_TUPLE_STR))) {
             throw new RecordCoreFormatException("Format error: syntax error")
@@ -102,9 +101,9 @@ public class RecordIdFormatParser {
     }
 
     @Nullable
-    private static RecordIdFormat.FormatElementType parseType(final String s) {
+    private static FormatElementType parseType(final String s) {
         try {
-            return RecordIdFormat.FormatElementType.valueOf(s);
+            return FormatElementType.valueOf(s);
         } catch (IllegalArgumentException ex) {
             // not a match
             return null;

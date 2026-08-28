@@ -37,21 +37,18 @@ import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.analysis.standard.UAX29URLEmailTokenizer;
 import org.apache.lucene.analysis.synonym.SynonymGraphFilter;
 import org.apache.lucene.analysis.synonym.SynonymMap;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Objects;
 
 /**
  * The analyzer for index with synonym enabled.
  */
 public class SynonymAnalyzer extends StopwordAnalyzerBase {
-    @Nonnull
     private final String name;
 
     private int maxTokenLength = StandardAnalyzer.DEFAULT_MAX_TOKEN_LENGTH;
 
-    @Nonnull
     public String getName() {
         return name;
     }
@@ -69,12 +66,12 @@ public class SynonymAnalyzer extends StopwordAnalyzerBase {
         return this.maxTokenLength;
     }
 
-    public SynonymAnalyzer(@Nullable CharArraySet stopwords, @Nonnull String name) {
+    public SynonymAnalyzer(@Nullable CharArraySet stopwords, String name) {
         super(stopwords);
         this.name = name;
     }
 
-    public SynonymAnalyzer(@Nullable CharArraySet stopwords, @Nonnull String name, int maxTokenLength) {
+    public SynonymAnalyzer(@Nullable CharArraySet stopwords, String name, int maxTokenLength) {
         super(stopwords);
         this.name = name;
         this.maxTokenLength = maxTokenLength;
@@ -100,7 +97,6 @@ public class SynonymAnalyzer extends StopwordAnalyzerBase {
         return new LowerCaseFilter(in);
     }
 
-    @Nonnull
     private SynonymMap getSynonymMap() {
         return SynonymMapRegistryImpl.instance().getSynonymMap(name);
     }
@@ -113,29 +109,25 @@ public class SynonymAnalyzer extends StopwordAnalyzerBase {
     public static class QueryOnlySynonymAnalyzerFactory implements LuceneAnalyzerFactory {
         public static final String ANALYZER_FACTORY_NAME = "SYNONYM";
 
-        @Nonnull
         @Override
         public String getName() {
             return ANALYZER_FACTORY_NAME;
         }
 
-        @Nonnull
         @Override
         public LuceneAnalyzerType getType() {
             return LuceneAnalyzerType.FULL_TEXT;
         }
 
         @SuppressWarnings("deprecation")
-        @Nonnull
         @Override
-        public AnalyzerChooser getIndexAnalyzerChooser(@Nonnull Index index) {
+        public AnalyzerChooser getIndexAnalyzerChooser(Index index) {
             return LuceneAnalyzerWrapper::getStandardAnalyzerWrapper;
         }
 
         @SuppressWarnings("deprecation")
-        @Nonnull
         @Override
-        public AnalyzerChooser getQueryAnalyzerChooser(@Nonnull Index index, @Nonnull AnalyzerChooser indexAnalyzerChooser) {
+        public AnalyzerChooser getQueryAnalyzerChooser(Index index, AnalyzerChooser indexAnalyzerChooser) {
             final String name = Objects.requireNonNullElse(index.getOption(LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION),
                     EnglishSynonymMapConfig.ExpandedEnglishSynonymMapConfig.CONFIG_NAME);
             return () -> new LuceneAnalyzerWrapper(ANALYZER_FACTORY_NAME,
@@ -151,22 +143,19 @@ public class SynonymAnalyzer extends StopwordAnalyzerBase {
     public static class AuthoritativeSynonymOnlyAnalyzerFactory implements LuceneAnalyzerFactory {
         public static final String ANALYZER_FACTORY_NAME = "INDEX_ONLY_SYNONYM";
 
-        @Nonnull
         @Override
         public String getName() {
             return ANALYZER_FACTORY_NAME;
         }
 
-        @Nonnull
         @Override
         public LuceneAnalyzerType getType() {
             return LuceneAnalyzerType.FULL_TEXT;
         }
 
         @SuppressWarnings("deprecation")
-        @Nonnull
         @Override
-        public AnalyzerChooser getIndexAnalyzerChooser(@Nonnull Index index) {
+        public AnalyzerChooser getIndexAnalyzerChooser(Index index) {
             final String name = Objects.requireNonNullElse(index.getOption(LuceneIndexOptions.TEXT_SYNONYM_SET_NAME_OPTION),
                     EnglishSynonymMapConfig.AuthoritativeOnlyEnglishSynonymMapConfig.CONFIG_NAME);
             return () -> new LuceneAnalyzerWrapper(ANALYZER_FACTORY_NAME,
@@ -174,9 +163,8 @@ public class SynonymAnalyzer extends StopwordAnalyzerBase {
         }
 
         @SuppressWarnings("deprecation")
-        @Nonnull
         @Override
-        public AnalyzerChooser getQueryAnalyzerChooser(@Nonnull Index index, @Nonnull AnalyzerChooser indexAnalyzerChooser) {
+        public AnalyzerChooser getQueryAnalyzerChooser(Index index, AnalyzerChooser indexAnalyzerChooser) {
             return indexAnalyzerChooser;
         }
     }

@@ -29,7 +29,6 @@ import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.spans.SpanNearQuery;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -44,10 +43,9 @@ import java.util.Map;
  */
 public class LuceneOptimizedMultiFieldQueryParser extends MultiFieldQueryParser implements ConfigAwareQueryParser {
 
-    @Nonnull
     private final Map<String, PointsConfig> pointsConfig;
 
-    public LuceneOptimizedMultiFieldQueryParser(String[] fields, Analyzer analyzer, @Nonnull final Map<String, PointsConfig> pointsConfig) {
+    public LuceneOptimizedMultiFieldQueryParser(String[] fields, Analyzer analyzer, final Map<String, PointsConfig> pointsConfig) {
         super(fields, analyzer);
         this.pointsConfig = pointsConfig;
     }
@@ -98,25 +96,21 @@ public class LuceneOptimizedMultiFieldQueryParser extends MultiFieldQueryParser 
     }
 
 
-    @Nonnull
     @Override
     public Map<String, PointsConfig> getPointsConfig() {
         return pointsConfig;
     }
 
-    @Nonnull
     @Override
-    public Query constructFieldWithoutPointsConfig(final @Nonnull String field, final @Nonnull String queryText, final boolean quoted) throws ParseException {
+    public Query constructFieldWithoutPointsConfig(final String field, final String queryText, final boolean quoted) throws ParseException {
         return super.getFieldQuery(field, queryText, quoted);
     }
 
-    @Nonnull
     @Override
-    public Query constructRangeQueryWithoutPointsConfig(final @Nonnull String field, final @Nonnull String part1, final @Nonnull String part2, final boolean startInclusive, final boolean endInclusive) throws ParseException {
+    public Query constructRangeQueryWithoutPointsConfig(final String field, final String part1, final String part2, final boolean startInclusive, final boolean endInclusive) throws ParseException {
         return super.getRangeQuery(field, part1, part2, startInclusive, endInclusive);
     }
 
-    @Nonnull
     @Override
     public final Token nextToken() {
         return getNextToken();

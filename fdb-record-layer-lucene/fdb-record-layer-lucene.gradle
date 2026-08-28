@@ -31,6 +31,7 @@ dependencies {
     implementation(libs.lucene.highlighter)
     implementation(libs.slf4j.api)
     compileOnly(libs.autoService)
+    compileOnly(libs.jspecify)
     annotationProcessor(libs.autoService)
 
     testImplementation project(':fdb-test-utils')
