@@ -104,8 +104,10 @@ public final class Expressions implements Iterable<Expression> {
         final Value simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
         return Expressions.of(stream()
                 .map(expression -> expression.withUnderlying(
-                        Expression.pullUp(expression.getUnderlying(), simplifiedValue, aliasMap,
-                                correlationIdentifier, constantAliases)))
+                        Expression.pullUp(
+                                expression.getUnderlying().simplify(EvaluationContext.empty(), aliasMap,
+                                        constantAliases),
+                                simplifiedValue, aliasMap, correlationIdentifier, constantAliases)))
                 .collect(ImmutableList.toImmutableList()));
     }
 
