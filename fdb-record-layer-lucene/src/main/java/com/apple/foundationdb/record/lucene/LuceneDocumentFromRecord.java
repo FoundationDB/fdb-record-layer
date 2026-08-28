@@ -33,8 +33,7 @@ import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -49,8 +48,7 @@ public class LuceneDocumentFromRecord {
     private LuceneDocumentFromRecord() {
     }
 
-    @Nonnull
-    protected static <M extends Message> Map<Tuple, List<DocumentField>> getRecordFields(@Nonnull KeyExpression root,
+    protected static <M extends Message> Map<Tuple, List<DocumentField>> getRecordFields(KeyExpression root,
                                                                                          @Nullable FDBRecord<M> rec) {
         Map<Tuple, List<DocumentField>> result = new HashMap<>();
         if (rec != null) {
@@ -69,10 +67,10 @@ public class LuceneDocumentFromRecord {
     // Grouping keys are evaluated more or less normally, turning into multiple groups.
     // Each group corresponds to a single document in a separate index / directory.
     // Within that document, the grouped fields are merged.
-    protected static <M extends Message> void getGroupedFields(@Nonnull List<KeyExpression> keys, int keyIndex, int keyPosition,
-                                                               int groupingCount, @Nonnull Tuple groupPrefix,
-                                                               @Nonnull FDBRecord<M> rec, @Nonnull Message message,
-                                                               @Nonnull Map<Tuple, List<DocumentField>> result,
+    protected static <M extends Message> void getGroupedFields(List<KeyExpression> keys, int keyIndex, int keyPosition,
+                                                               int groupingCount, Tuple groupPrefix,
+                                                               FDBRecord<M> rec, Message message,
+                                                               Map<Tuple, List<DocumentField>> result,
                                                                @Nullable String fieldNamePrefix) {
         if (keyIndex >= keys.size()) {
             return;
@@ -123,9 +121,8 @@ public class LuceneDocumentFromRecord {
                 groupingCount, groupPrefix, rec, message, result, fieldNamePrefix);
     }
 
-    @Nonnull
-    public static <M extends Message> List<DocumentField> getFields(@Nonnull KeyExpression expression, @Nonnull FDBRecord<M> rec,
-                                                                    @Nonnull Message message, @Nullable String fieldNamePrefix) {
+    public static <M extends Message> List<DocumentField> getFields(KeyExpression expression, FDBRecord<M> rec,
+                                                                    Message message, @Nullable String fieldNamePrefix) {
         final DocumentFieldList<FDBRecordSource<M>> fields = new DocumentFieldList<>();
         LuceneIndexExpressions.getFields(expression, new FDBRecordSource<>(rec, message), fields, fieldNamePrefix);
         return fields.getFields();
@@ -137,17 +134,14 @@ public class LuceneDocumentFromRecord {
      * @param <M> the message type contained in the source.
      */
     public static class FDBRecordSource<M extends Message> implements LuceneIndexExpressions.RecordSource<FDBRecordSource<M>> {
-        @Nonnull
         private final FDBRecord<M> rec;
-        @Nonnull
         private final Message message;
 
-        public FDBRecordSource(@Nonnull final FDBRecord<M> rec, @Nonnull final Message message) {
+        public FDBRecordSource(final FDBRecord<M> rec, final Message message) {
             this.rec = rec;
             this.message = message;
         }
 
-        @Nonnull
         public Message getMessage() {
             return message;
         }
@@ -190,29 +184,27 @@ public class LuceneDocumentFromRecord {
         }
 
         @Override
-        public void addField(@Nonnull T source, @Nonnull String fieldName, @Nullable final Object value,
-                                      @Nonnull LuceneIndexExpressions.DocumentFieldType type,
+        public void addField(T source, String fieldName, @Nullable final Object value,
+                                      LuceneIndexExpressions.DocumentFieldType type,
                                       final boolean fieldNameOverride, @Nullable List<String> namedFieldPath, @Nullable String namedFieldSuffix,
                                       boolean stored, boolean sorted,
-                                      @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex, int keyIndex,
-                                      @Nonnull Map<String, Object> fieldConfigs) {
+                                      List<Integer> overriddenKeyRanges, int groupingKeyIndex, int keyIndex,
+                                      Map<String, Object> fieldConfigs) {
             fields.add(new DocumentField(fieldName, value, type, stored, sorted, fieldConfigs));
         }
     }
 
     public static class DocumentField {
-        @Nonnull
         private final String fieldName;
         @Nullable
         private final Object value;
         private final LuceneIndexExpressions.DocumentFieldType type;
         private final boolean stored;
         private final boolean sorted;
-        @Nonnull
         private final Map<String, Object> fieldConfigs;
 
-        public DocumentField(@Nonnull String fieldName, @Nullable Object value, LuceneIndexExpressions.DocumentFieldType type,
-                             boolean stored, boolean sorted, @Nonnull Map<String, Object> fieldConfigs) {
+        public DocumentField(String fieldName, @Nullable Object value, LuceneIndexExpressions.DocumentFieldType type,
+                             boolean stored, boolean sorted, Map<String, Object> fieldConfigs) {
             this.fieldName = fieldName;
             this.value = value;
             this.type = type;
@@ -221,7 +213,6 @@ public class LuceneDocumentFromRecord {
             this.fieldConfigs = fieldConfigs;
         }
 
-        @Nonnull
         public String getFieldName() {
             return fieldName;
         }
@@ -243,13 +234,12 @@ public class LuceneDocumentFromRecord {
             return sorted;
         }
 
-        @Nonnull
         public Map<String, Object> getFieldConfigs() {
             return Collections.unmodifiableMap(fieldConfigs);
         }
 
         @Nullable
-        public Object getConfig(@Nonnull String key) {
+        public Object getConfig(String key) {
             return fieldConfigs.get(key);
         }
 

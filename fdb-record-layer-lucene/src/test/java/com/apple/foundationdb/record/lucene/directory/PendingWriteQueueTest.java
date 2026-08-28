@@ -55,8 +55,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -385,16 +384,15 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     }
 
     /** Key backing the marker that models {@code FDBDirectory}'s ongoing-merge indicator (subspace index 2). */
-    @Nonnull
-    private byte[] markerKey(@Nonnull FDBRecordContext context) {
+    private byte[] markerKey(FDBRecordContext context) {
         return path.toSubspace(context).subspace(Tuple.from(2)).pack();
     }
 
-    private void setMarker(@Nonnull FDBRecordContext context) {
+    private void setMarker(FDBRecordContext context) {
         context.ensureActive().set(markerKey(context), new byte[] {1});
     }
 
-    private boolean markerExists(@Nonnull FDBRecordContext context) {
+    private boolean markerExists(FDBRecordContext context) {
         return context.ensureActive().get(markerKey(context)).join() != null;
     }
 
@@ -402,7 +400,7 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
      * Mirrors {@code FDBDirectory.clearOngoingMergeIndicatorIfQueueEmptyAsync}: clears the marker only if the
      * queue is empty, otherwise throws so the caller drains more and retries.
      */
-    private void clearMarkerIfQueueEmpty(@Nonnull FDBRecordContext context, @Nonnull PendingWriteQueue queue) {
+    private void clearMarkerIfQueueEmpty(FDBRecordContext context, PendingWriteQueue queue) {
         if (!queue.isQueueEmpty(context).join()) {
             throw new RecordCoreException("Cannot clear queue usage indicator: pending write queue is not empty");
         }
@@ -899,7 +897,6 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Nonnull
     private TestDocument createHugeDocument(Random random) {
         StringBuilder builder = new StringBuilder();
         for (int i = 0 ; i < 500_000 ; i++) {
@@ -1040,7 +1037,6 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
         return List.of(docWithNoFields, docWithOneFields, docWithMultipleFields, hugeDoc, docWithAllFieldTypes);
     }
 
-    @Nonnull
     private static Tuple primaryKey(String text) {
         return Tuple.from(text, System.nanoTime());
     }

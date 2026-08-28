@@ -110,8 +110,7 @@ import org.opentest4j.AssertionFailedError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.SequenceInputStream;
@@ -314,7 +313,6 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
             INDEX_PARTITION_BY_FIELD_NAME, "complex.timestamp",
             INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
-    @Nonnull
     private static Index getJoinedIndexNoGroup(final Map<String, String> options) {
         return new Index("joinNestedConcat",
                 concat(
@@ -329,7 +327,7 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
     private long timestamp29DaysAgo;
     private long yesterday;
 
-    private static Index getMapOnValueIndexWithOption(@Nonnull String name, @Nonnull ImmutableMap<String, String> options) {
+    private static Index getMapOnValueIndexWithOption(String name, ImmutableMap<String, String> options) {
         return new Index(
                 name,
                 new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(concat(keys)), 3),
@@ -381,33 +379,29 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    private LuceneScanBounds groupedAutoCompleteBounds(@Nonnull final Index index, @Nonnull final String search,
-                                                       @Nonnull final Object group, @Nonnull final Iterable<String> fields) {
+    private LuceneScanBounds groupedAutoCompleteBounds(final Index index, final String search,
+                                                       final Object group, final Iterable<String> fields) {
         LuceneScanParameters scan = groupedAutoCompleteScanParams(search, group, fields);
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);
     }
 
-    @Nonnull
-    protected static LuceneScanParameters groupedAutoCompleteScanParams(@Nonnull final String search,
-                                                                        @Nonnull final Object group,
-                                                                        @Nonnull final Iterable<String> fields) {
+    protected static LuceneScanParameters groupedAutoCompleteScanParams(final String search,
+                                                                        final Object group,
+                                                                        final Iterable<String> fields) {
         return new LuceneScanQueryParameters(
                 Verify.verifyNotNull(ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, group))),
                 new LuceneAutoCompleteQueryClause(search, false, fields));
     }
 
-    @Nonnull
-    private LuceneScanBounds autoCompleteBounds(@Nonnull final Index index, @Nonnull final String search,
-                                                @Nonnull final Iterable<String> fields) {
+    private LuceneScanBounds autoCompleteBounds(final Index index, final String search,
+                                                final Iterable<String> fields) {
         LuceneScanParameters scan = autoCompleteScanParams(search, fields);
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);
     }
 
-    @Nonnull
-    private LuceneScanParameters autoCompleteScanParams(@Nonnull final String search,
-                                                        @Nonnull final Iterable<String> fields) {
+    private LuceneScanParameters autoCompleteScanParams(final String search,
+                                                        final Iterable<String> fields) {
         return new LuceneScanQueryParameters(
                 Verify.verifyNotNull(ScanComparisons.EMPTY),
                 new LuceneAutoCompleteQueryClause(search, false, fields));
@@ -816,15 +810,15 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         }
     }
 
-    private static void joinedPartitionedLuceneIndexMetadataHook(@Nonnull final RecordMetaDataBuilder metaDataBuilder) {
+    private static void joinedPartitionedLuceneIndexMetadataHook(final RecordMetaDataBuilder metaDataBuilder) {
         metaDataBuilder.addIndex(joinedMetadataHook(metaDataBuilder), JOINED_INDEX);
     }
 
-    private static void joinedPartitionedUngroupedLuceneIndexMetadataHook(@Nonnull final RecordMetaDataBuilder metaDataBuilder) {
+    private static void joinedPartitionedUngroupedLuceneIndexMetadataHook(final RecordMetaDataBuilder metaDataBuilder) {
         metaDataBuilder.addIndex(joinedMetadataHook(metaDataBuilder), JOINED_INDEX_NOGROUP);
     }
 
-    private static JoinedRecordTypeBuilder joinedMetadataHook(@Nonnull final RecordMetaDataBuilder metaDataBuilder) {
+    private static JoinedRecordTypeBuilder joinedMetadataHook(final RecordMetaDataBuilder metaDataBuilder) {
         //set up the joined index
         final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("luceneJoinedPartitionedIdx");
         joined.addConstituent("complex", "ComplexDocument");
@@ -2411,7 +2405,6 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
                         param2 -> Arguments.of(indexedType, param2)));
     }
 
-    @Nonnull
     private String specialCharacterText(String specialCharacter) {
         return "Do we match special characters like " + specialCharacter + ", even when its mashed together like " + specialCharacter + "noSpaces?";
     }
@@ -3644,7 +3637,6 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
                 indexedType);
     }
 
-    @Nonnull
     private Index fullDeleteHelper(final TestHelpers.DangerousConsumer<LuceneIndexMaintainer> assertEmpty,
                                    final TestHelpers.DangerousConsumer<LuceneIndexMaintainer> assertNotEmpty,
                                    final IndexedType indexedType) throws Exception {
@@ -3760,7 +3752,7 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
                 indexedType);
     }
 
-    private static @Nonnull String listAll(final LuceneIndexMaintainer indexMaintainer) {
+    private static String listAll(final LuceneIndexMaintainer indexMaintainer) {
         try {
             return String.join(", ", indexMaintainer.getDirectory(Tuple.from(), null).listAll());
         } catch (IOException e) {
@@ -5195,7 +5187,7 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         }
     }
 
-    private void spellCheckHelper(final Index index, @Nonnull String query, List<Pair<String, String>> expectedSuggestions) throws ExecutionException, InterruptedException {
+    private void spellCheckHelper(final Index index, String query, List<Pair<String, String>> expectedSuggestions) throws ExecutionException, InterruptedException {
         List<IndexEntry> suggestions = recordStore.scanIndex(index,
                 spellCheck(index, query),
                 null,
@@ -5991,11 +5983,11 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         }
     }
 
-    private static void assertAutoCompleteEntriesAndSegmentInfoStoredInCompoundFile(Index index, @Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nonnull String segment) {
+    private static void assertAutoCompleteEntriesAndSegmentInfoStoredInCompoundFile(Index index, Subspace subspace, FDBRecordContext context, String segment) {
         validateSegmentAndIndexIntegrity(index, subspace, context, segment);
     }
 
-    private static void validateSegmentAndIndexIntegrity(Index index, @Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nonnull String segmentFile) {
+    private static void validateSegmentAndIndexIntegrity(Index index, Subspace subspace, FDBRecordContext context, String segmentFile) {
         try (final FDBDirectory directory = new FDBDirectory(subspace, context, index.getOptions())) {
             final FDBLuceneFileReference reference = directory.getFDBLuceneFileReference(segmentFile);
             assertNotNull(reference);
@@ -6007,7 +5999,7 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         }
     }
 
-    private static void validateIndexIntegrity(Index index, @Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable FDBDirectory fdbDirectory, @Nullable String segmentName) throws IOException {
+    private static void validateIndexIntegrity(Index index, Subspace subspace, FDBRecordContext context, @Nullable FDBDirectory fdbDirectory, @Nullable String segmentName) throws IOException {
         final FDBDirectory directory = fdbDirectory == null ? new FDBDirectory(subspace, context, index.getOptions()) : fdbDirectory;
         String[] allFiles = directory.listAll();
         Set<Long> usedFieldInfos = new HashSet<>();
@@ -6143,7 +6135,7 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
             "There is a country called Armenia"
     );
 
-    private void addIndexAndSaveRecordForAutoComplete(@Nonnull FDBRecordContext context, Index index, boolean isSynthetic, List<String> autoCompletes) {
+    private void addIndexAndSaveRecordForAutoComplete(FDBRecordContext context, Index index, boolean isSynthetic, List<String> autoCompletes) {
         if (isSynthetic) {
             openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecordComplexJoinedToSimple(metaDataBuilder, index));
             for (int i = 0; i < autoCompletes.size(); i++) {
@@ -6162,9 +6154,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
     }
 
     @SuppressWarnings("UnusedReturnValue")
-    private void queryAndAssertAutoCompleteSuggestionsReturned(@Nonnull Index index, boolean isSynthetic, @Nullable String queriedConstituent, @Nonnull List<KeyExpression> storedFields,
-                                                               @Nonnull String queriedField,
-                                                               @Nonnull String searchKey, @Nonnull List<String> expectedSuggestions) throws Exception {
+    private void queryAndAssertAutoCompleteSuggestionsReturned(Index index, boolean isSynthetic, @Nullable String queriedConstituent, List<KeyExpression> storedFields,
+                                                               String queriedField,
+                                                               String searchKey, List<String> expectedSuggestions) throws Exception {
         final RecordQueryPlan luceneIndexPlan =
                 LuceneIndexQueryPlan.of(index.getName(),
                         autoCompleteScanParams(searchKey, ImmutableSet.of(isSynthetic ? queriedConstituent + "_" + queriedField : queriedField)),

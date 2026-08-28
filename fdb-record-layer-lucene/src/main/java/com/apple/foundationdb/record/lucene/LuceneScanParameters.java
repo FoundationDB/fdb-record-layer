@@ -40,8 +40,7 @@ import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -52,39 +51,33 @@ import java.util.Objects;
  */
 @API(API.Status.UNSTABLE)
 public abstract class LuceneScanParameters implements IndexScanParameters {
-    @Nonnull
     protected final IndexScanType scanType;
-    @Nonnull
     protected final ScanComparisons groupComparisons;
 
-    protected LuceneScanParameters(@Nonnull final PlanSerializationContext serializationContext,
-                                   @Nonnull final PLuceneScanParameters luceneScanParametersProto) {
+    protected LuceneScanParameters(final PlanSerializationContext serializationContext,
+                                   final PLuceneScanParameters luceneScanParametersProto) {
         this(IndexScanType.fromProto(serializationContext, Objects.requireNonNull(luceneScanParametersProto.getScanType())),
                 ScanComparisons.fromProto(serializationContext, Objects.requireNonNull(luceneScanParametersProto.getGroupComparisons())));
     }
 
-    protected LuceneScanParameters(@Nonnull final IndexScanType scanType, @Nonnull final ScanComparisons groupComparisons) {
+    protected LuceneScanParameters(final IndexScanType scanType, final ScanComparisons groupComparisons) {
         this.scanType = scanType;
         this.groupComparisons = groupComparisons;
     }
 
-    @Nonnull
     @Override
     public IndexScanType getScanType() {
         return scanType;
     }
 
-    @Nonnull
     @Override
-    public abstract LuceneScanBounds bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context);
+    public abstract LuceneScanBounds bind(FDBRecordStoreBase<?> store, Index index, EvaluationContext context);
 
-    @Nonnull
     public ScanComparisons getGroupComparisons() {
         return groupComparisons;
     }
 
-    @Nonnull
-    protected static List<String> indexTextFields(@Nonnull Index index, @Nonnull RecordMetaData metaData) {
+    protected static List<String> indexTextFields(Index index, RecordMetaData metaData) {
         final List<String> textFields = new ArrayList<>();
         for (RecordType recordType : metaData.recordTypesForIndex(index)) {
             for (LuceneIndexExpressions.DocumentFieldDerivation documentField : LuceneIndexExpressions.getDocumentFieldDerivations(index.getRootExpression(), recordType.getDescriptor()).values()) {
@@ -97,7 +90,7 @@ public abstract class LuceneScanParameters implements IndexScanParameters {
     }
 
     @Override
-    public boolean isUnique(@Nonnull Index index) {
+    public boolean isUnique(Index index) {
         return false;
     }
 
@@ -109,7 +102,6 @@ public abstract class LuceneScanParameters implements IndexScanParameters {
         }
     }
 
-    @Nonnull
     protected Tuple getGroupKey(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
         TupleRange tupleRange = groupComparisons.toTupleRange(store, context);
         if (TupleRange.ALL.equals(tupleRange)) {
@@ -131,7 +123,7 @@ public abstract class LuceneScanParameters implements IndexScanParameters {
     }
 
     @Override
-    public void getPlannerGraphDetails(@Nonnull ImmutableList.Builder<String> detailsBuilder, @Nonnull ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
+    public void getPlannerGraphDetails(ImmutableList.Builder<String> detailsBuilder, ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
         detailsBuilder.add("scan type: {{scanType}}");
         attributeMapBuilder.put("scanType", Attribute.gml(scanType.toString()));
 
@@ -176,8 +168,7 @@ public abstract class LuceneScanParameters implements IndexScanParameters {
         return result;
     }
 
-    @Nonnull
-    public PLuceneScanParameters toLuceneScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PLuceneScanParameters toLuceneScanParametersProto(final PlanSerializationContext serializationContext) {
         return PLuceneScanParameters.newBuilder()
                 .setScanType(scanType.toProto(serializationContext))
                 .setGroupComparisons(groupComparisons.toProto(serializationContext))

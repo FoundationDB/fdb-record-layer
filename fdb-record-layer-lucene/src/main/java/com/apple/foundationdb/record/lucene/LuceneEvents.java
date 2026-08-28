@@ -23,8 +23,6 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 
-import javax.annotation.Nonnull;
-
 /**
  * A {@link StoreTimer} events associated with Lucene operations.
  */
@@ -101,7 +99,6 @@ public class LuceneEvents {
         }
 
         @Override
-        @Nonnull
         public String logKey() {
             return this.logKey;
         }
@@ -133,7 +130,6 @@ public class LuceneEvents {
         }
 
         @Override
-        @Nonnull
         public String logKey() {
             return this.logKey;
         }
@@ -206,7 +202,6 @@ public class LuceneEvents {
         }
 
         @Override
-        @Nonnull
         public String logKey() {
             return this.logKey;
         }
@@ -279,7 +274,6 @@ public class LuceneEvents {
         }
 
         @Override
-        @Nonnull
         public String logKey() {
             return this.logKey;
         }
@@ -319,11 +313,11 @@ public class LuceneEvents {
         private final String title;
         private final boolean delayedUntilCommit;
 
-        SizeEvents(@Nonnull String title) {
+        SizeEvents(String title) {
             this(title, false);
         }
 
-        SizeEvents(@Nonnull String title, boolean delayedUntilCommit) {
+        SizeEvents(String title, boolean delayedUntilCommit) {
             this.title = title;
             this.delayedUntilCommit = delayedUntilCommit;
         }

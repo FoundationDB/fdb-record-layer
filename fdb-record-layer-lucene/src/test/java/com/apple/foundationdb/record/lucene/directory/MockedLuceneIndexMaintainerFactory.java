@@ -24,8 +24,6 @@ import com.apple.foundationdb.record.lucene.LuceneIndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 
-import javax.annotation.Nonnull;
-
 /**
  * A mocked version of {@link LuceneIndexMaintainerFactory}.
  * This allows for the injection of a mocked index maintainer (and eventually, mock FDBDirectory) through the
@@ -38,9 +36,8 @@ public class MockedLuceneIndexMaintainerFactory extends LuceneIndexMaintainerFac
         this.injectedFailures = injectedFailures;
     }
 
-    @Nonnull
     @Override
-    public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
+    public IndexMaintainer getIndexMaintainer(final IndexMaintainerState state) {
         return new MockedLuceneIndexMaintainer(state, state.context.getExecutor(), injectedFailures);
     }
 }

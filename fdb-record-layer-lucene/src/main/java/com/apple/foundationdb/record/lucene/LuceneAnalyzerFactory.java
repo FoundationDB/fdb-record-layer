@@ -24,8 +24,6 @@ import com.apple.foundationdb.record.metadata.Index;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 
-import javax.annotation.Nonnull;
-
 /**
  * Each implementation of {@link Analyzer} should have its own implementation
  * of this factory interface to provide instances of the analyzers for indexing and query to a
@@ -42,14 +40,12 @@ public interface LuceneAnalyzerFactory {
      *
      * @return the name of the analyzer that this factory creates
      */
-    @Nonnull
     String getName();
 
     /**
      * Get the {@link LuceneAnalyzerType} for the Lucene analyzer factory.
      * @return the {@link LuceneScanTypes} used to determine how the analyzers build by this factory is used
      */
-    @Nonnull
     LuceneAnalyzerType getType();
 
     /**
@@ -59,8 +55,7 @@ public interface LuceneAnalyzerFactory {
      * @param index the index thi analyzer is used for
      * @return an instance of the {@link AnalyzerChooser} for indexing that this factory creates
      */
-    @Nonnull
-    AnalyzerChooser getIndexAnalyzerChooser(@Nonnull Index index);
+    AnalyzerChooser getIndexAnalyzerChooser(Index index);
 
     /**
      * Get an instance of {@link AnalyzerChooser} that chooses the Lucene analyzer for query given the {@link Index}.
@@ -73,8 +68,7 @@ public interface LuceneAnalyzerFactory {
      * @param indexAnalyzerChooser indexAnalyzerChooser the instance of {@link AnalyzerChooser} for indexing used by this factory, that can be returned by this method in case it is also used for query
      * @return an instance of the {@link AnalyzerChooser} for query that this factory creates, the default one is always using {@link StandardAnalyzer}
      */
-    @Nonnull
-    default AnalyzerChooser getQueryAnalyzerChooser(@Nonnull Index index, @Nonnull AnalyzerChooser indexAnalyzerChooser) {
+    default AnalyzerChooser getQueryAnalyzerChooser(Index index, AnalyzerChooser indexAnalyzerChooser) {
         return LuceneAnalyzerWrapper::getStandardAnalyzerWrapper;
     }
 }

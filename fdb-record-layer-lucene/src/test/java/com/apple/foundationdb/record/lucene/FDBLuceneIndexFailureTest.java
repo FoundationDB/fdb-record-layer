@@ -47,7 +47,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -591,7 +590,7 @@ public class FDBLuceneIndexFailureTest extends FDBLuceneTestBase {
     private class UnknownRecordCoreException extends RecordCoreException {
         private static final long serialVersionUID = 0L;
 
-        public UnknownRecordCoreException(@Nonnull final String msg) {
+        public UnknownRecordCoreException(final String msg) {
             super(msg, new Exception(msg));
         }
     }
@@ -599,7 +598,7 @@ public class FDBLuceneIndexFailureTest extends FDBLuceneTestBase {
     private class UnknownRuntimeException extends RuntimeException {
         private static final long serialVersionUID = 0L;
 
-        public UnknownRuntimeException(@Nonnull final String msg) {
+        public UnknownRuntimeException(final String msg) {
             super(msg);
         }
     }
@@ -607,7 +606,7 @@ public class FDBLuceneIndexFailureTest extends FDBLuceneTestBase {
     private class UnknownLoggableException extends LoggableException {
         private static final long serialVersionUID = 0L;
 
-        public UnknownLoggableException(@Nonnull final Throwable cause) {
+        public UnknownLoggableException(final Throwable cause) {
             super(cause);
         }
     }

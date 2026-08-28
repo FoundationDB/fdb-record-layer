@@ -24,8 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Get metadata information about a given lucene index.
@@ -36,7 +35,6 @@ import javax.annotation.Nullable;
 @API(API.Status.EXPERIMENTAL)
 public class LuceneGetMetadataInfo extends IndexOperation {
 
-    @Nonnull
     private final Tuple groupingKey;
     @Nullable
     private final Integer partitionId;
@@ -53,7 +51,7 @@ public class LuceneGetMetadataInfo extends IndexOperation {
      * @param justPartitionInfo if {@code true} then only the partition info will be fetched, otherwise information from
      * lucene itself will be fetched
      */
-    public LuceneGetMetadataInfo(@Nonnull Tuple groupingKey,
+    public LuceneGetMetadataInfo(Tuple groupingKey,
                                  @Nullable Integer partitionId,
                                  boolean justPartitionInfo) {
         this.groupingKey = groupingKey;
@@ -65,7 +63,6 @@ public class LuceneGetMetadataInfo extends IndexOperation {
      * The grouping key to inspect.
      * @return the grouping key or an empty {@code Tuple} if this index is not grouped
      */
-    @Nonnull
     public Tuple getGroupingKey() {
         return groupingKey;
     }

@@ -25,13 +25,13 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
-import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.MergeTrigger;
 import org.slf4j.Logger;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.stream.Collectors;
+
+import static org.apache.lucene.index.MergePolicy.MergeSpecification;
 
 /**
  * Utility class for helping {@link FDBTieredMergePolicy} and {@code FDBDirectoryMergeScheduler}.
@@ -39,25 +39,25 @@ import java.util.stream.Collectors;
 class MergeUtils {
 
 
-    public static void logExecutingMerge(@Nonnull final Logger logger,
-                                         @Nonnull final String staticMessage,
-                                         @Nonnull final AgilityContext agilityContext,
-                                         @Nonnull final Subspace indexSubspace,
+    public static void logExecutingMerge(final Logger logger,
+                                         final String staticMessage,
+                                         final AgilityContext agilityContext,
+                                         final Subspace indexSubspace,
                                          @Nullable final Tuple key,
-                                         @Nonnull final MergeTrigger mergeTrigger) {
+                                         final MergeTrigger mergeTrigger) {
         if (logger.isDebugEnabled()) {
             final KeyValueLogMessage message = baseLogMessage(staticMessage, agilityContext, indexSubspace, key, mergeTrigger);
             logWithExceptionIfNotAgile(logger, agilityContext, message);
         }
     }
 
-    static void logFoundMerges(@Nonnull final Logger logger,
-                               @Nonnull final String staticMessage,
-                               @Nonnull final AgilityContext context,
-                               @Nonnull final Subspace indexSubspace,
+    static void logFoundMerges(final Logger logger,
+                               final String staticMessage,
+                               final AgilityContext context,
+                               final Subspace indexSubspace,
                                @Nullable final Tuple key,
-                               @Nonnull final MergeTrigger mergeTrigger,
-                               @Nullable final MergePolicy.MergeSpecification merges,
+                               final MergeTrigger mergeTrigger,
+                               @Nullable final MergeSpecification merges,
                                @Nullable final Exception exceptionAtCreation) {
         if (merges != null && logger.isDebugEnabled()) {
             final KeyValueLogMessage message = baseLogMessage(staticMessage, context, indexSubspace, key, mergeTrigger);
@@ -68,13 +68,13 @@ class MergeUtils {
     }
 
     @SuppressWarnings("PMD.GuardLogStatement") // method is only called in a guard for isDebugEnabled
-    private static void logWithCreationMessageIfNotAgile(final @Nonnull Logger logger,
-                                                         final @Nonnull String staticMessage,
-                                                         final @Nonnull AgilityContext context,
-                                                         final @Nonnull Subspace indexSubspace,
+    private static void logWithCreationMessageIfNotAgile(final Logger logger,
+                                                         final String staticMessage,
+                                                         final AgilityContext context,
+                                                         final Subspace indexSubspace,
                                                          final @Nullable Tuple key,
-                                                         final @Nonnull MergeTrigger mergeTrigger,
-                                                         final @Nonnull MergePolicy.MergeSpecification merges,
+                                                         final MergeTrigger mergeTrigger,
+                                                         final MergeSpecification merges,
                                                          final @Nullable Exception exceptionAtCreation) {
         if (!(context instanceof AgileContext)) {
             final KeyValueLogMessage message = baseLogMessage(staticMessage, context, indexSubspace, key, mergeTrigger);
@@ -84,7 +84,7 @@ class MergeUtils {
     }
 
     @SuppressWarnings("PMD.GuardLogStatement") // method is only called in a guard for isDebugEnabled
-    private static void logWithExceptionIfNotAgile(final @Nonnull Logger logger, final @Nonnull AgilityContext context, final KeyValueLogMessage message) {
+    private static void logWithExceptionIfNotAgile(final Logger logger, final AgilityContext context, final KeyValueLogMessage message) {
         if (context instanceof AgileContext) {
             logger.debug(message.toString());
         } else {
@@ -92,8 +92,7 @@ class MergeUtils {
         }
     }
 
-    @Nonnull
-    private static KeyValueLogMessage baseLogMessage(final @Nonnull String staticMessage, final @Nonnull AgilityContext context, final @Nonnull Subspace indexSubspace, final @Nullable Tuple key, final @Nonnull MergeTrigger mergeTrigger) {
+    private static KeyValueLogMessage baseLogMessage(final String staticMessage, final AgilityContext context, final Subspace indexSubspace, final @Nullable Tuple key, final MergeTrigger mergeTrigger) {
         return KeyValueLogMessage.build(staticMessage,
                 LogMessageKeys.INDEX_SUBSPACE, indexSubspace,
                 LogMessageKeys.KEY, key,
@@ -101,7 +100,7 @@ class MergeUtils {
                 LogMessageKeys.AGILITY_CONTEXT, context.getClass().getSimpleName());
     }
 
-    private static String simpleSpec(@Nonnull final MergePolicy.MergeSpecification merges) {
+    private static String simpleSpec(final MergeSpecification merges) {
         return merges.merges.stream().map(merge ->
                         merge.segments.stream().map(segment -> segment.info.name)
                                 .collect(Collectors.joining(",", "", "")))

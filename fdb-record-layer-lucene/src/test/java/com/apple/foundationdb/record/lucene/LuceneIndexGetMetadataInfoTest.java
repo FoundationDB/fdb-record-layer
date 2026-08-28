@@ -32,8 +32,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -317,8 +316,8 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
     }
 
     private LuceneMetadataInfo getLuceneMetadataInfo(final boolean justPartitionInfo,
-                                                     @Nonnull final Tuple groupingKey,
-                                                     @Nonnull final LuceneIndexTestDataModel dataModel,
+                                                     final Tuple groupingKey,
+                                                     final LuceneIndexTestDataModel dataModel,
                                                      @Nullable final Integer partitionId) {
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = dataModel.schemaSetup.apply(context);

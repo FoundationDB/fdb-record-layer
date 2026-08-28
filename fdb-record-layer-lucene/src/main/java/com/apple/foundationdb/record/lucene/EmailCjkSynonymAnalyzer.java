@@ -37,8 +37,7 @@ import org.apache.lucene.analysis.standard.UAX29URLEmailTokenizerFactory;
 import org.apache.lucene.analysis.synonym.SynonymGraphFilter;
 import org.apache.lucene.analysis.synonym.SynonymMap;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 
 /**
@@ -58,7 +57,7 @@ public class EmailCjkSynonymAnalyzer extends StopwordAnalyzerBase {
     @Nullable
     private final SynonymMap synonymMap;
 
-    public EmailCjkSynonymAnalyzer(@Nonnull CharArraySet stopwords, int minTokenLength, int minAlphanumericTokenLength, int maxTokenLength,
+    public EmailCjkSynonymAnalyzer(CharArraySet stopwords, int minTokenLength, int minAlphanumericTokenLength, int maxTokenLength,
                                    boolean withEmailTokenizer,
                                    boolean withSynonymGraphFilter, @Nullable SynonymMap synonymMap) {
         super(stopwords);
@@ -119,7 +118,6 @@ public class EmailCjkSynonymAnalyzer extends StopwordAnalyzerBase {
         return withEmailTokenizer;
     }
 
-    @Nonnull
     protected SynonymMap getSynonymMap() {
         if (!withSynonymGraphFilter || synonymMap == null) {
             throw new RecordCoreException("Invalid call to get synonym map for EmailCjkSynonymAnalyzer, which is not enabled with synonym and valid map");

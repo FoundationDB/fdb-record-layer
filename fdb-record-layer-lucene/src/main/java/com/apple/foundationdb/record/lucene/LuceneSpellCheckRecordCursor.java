@@ -40,8 +40,7 @@ import org.apache.lucene.util.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -59,14 +58,10 @@ import static java.util.Comparator.comparing;
 public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LuceneSpellCheckRecordCursor.class);
-    @Nonnull
     private final Executor executor;
-    @Nonnull
     private final IndexMaintainerState state;
     private final int limit;
-    @Nonnull
     private final String wordToSpellCheck;
-    @Nonnull
     private final DirectSpellChecker spellchecker;
     @Nullable
     private final FDBStoreTimer timer;
@@ -84,11 +79,11 @@ public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
     private boolean closed;
 
 
-    public LuceneSpellCheckRecordCursor(@Nonnull List<String> fields,
-                                        @Nonnull String wordToSpellCheck,
-                                        @Nonnull final Executor executor,
+    public LuceneSpellCheckRecordCursor(List<String> fields,
+                                        String wordToSpellCheck,
+                                        final Executor executor,
                                         final ScanProperties scanProperties,
-                                        @Nonnull final IndexMaintainerState state,
+                                        final IndexMaintainerState state,
                                         @Nullable Tuple groupingKey,
                                         @Nullable Integer partitionId) {
         this.fields = fields;
@@ -105,7 +100,6 @@ public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
         this.closed = false;
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<IndexEntry>> onNext() {
         CompletableFuture<IndexEntry> spellcheckResult = CompletableFuture.supplyAsync( () -> {
@@ -130,8 +124,7 @@ public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
         });
     }
 
-    @Nonnull
-    private RecordCursorContinuation continuationHelper(@Nonnull IndexEntry lookupResult) {
+    private RecordCursorContinuation continuationHelper(IndexEntry lookupResult) {
         LuceneContinuationProto.LuceneSpellCheckIndexContinuation.Builder continuationBuilder =
                 LuceneContinuationProto.LuceneSpellCheckIndexContinuation.newBuilder().setValue(ByteString.copyFromUtf8(lookupResult.toString()));
         continuationBuilder.setLocation(currentPosition);
@@ -151,14 +144,13 @@ public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
         return closed;
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return executor;
     }
 
     @Override
-    public boolean accept(@Nonnull final RecordCursorVisitor visitor) {
+    public boolean accept(final RecordCursorVisitor visitor) {
         visitor.visitEnter(this);
         return visitor.visitLeave(this);
     }

@@ -33,7 +33,6 @@ import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.file.NoSuchFileException;
 import java.util.Map;
@@ -240,7 +239,6 @@ public class FDBDirectoryFailuresTest extends FDBDirectoryBaseTest {
     /*
      * Override default behavior to create a mocked directory.
      */
-    @Nonnull
     @Override
     protected FDBDirectory createDirectory(final Subspace subspace, final FDBRecordContext context, final Map<String, String> indexOptions) {
         injectedFailures = new InjectedFailureRepository();

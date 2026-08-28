@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -40,19 +39,16 @@ import java.util.Map;
  * This can be used in place of the production registry
  */
 public class TestingIndexMaintainerRegistry implements IndexMaintainerFactoryRegistry {
-    @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(TestingIndexMaintainerRegistry.class);
 
-    @Nonnull
     private final Map<String, IndexMaintainerFactory> registry = new HashMap<>();
 
     public TestingIndexMaintainerRegistry() {
         initRegistry();
     }
 
-    @Nonnull
     @Override
-    public IndexMaintainerFactory getIndexMaintainerFactory(@Nonnull final Index index) {
+    public IndexMaintainerFactory getIndexMaintainerFactory(final Index index) {
         final IndexMaintainerFactory factory = registry.get(index.getType());
         if (factory == null) {
             throw new MetaDataException("Unknown index type for " + index);

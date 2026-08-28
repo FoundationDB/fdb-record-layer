@@ -46,8 +46,7 @@ import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -98,8 +97,8 @@ public class LuceneIndexTestDataModel {
     private long start;
     private boolean reverseSaveOrder = false;
 
-    private LuceneIndexTestDataModel(@Nonnull final Builder builder,
-                                     @Nonnull final Function<FDBRecordContext, FDBRecordStore> schemaSetup) {
+    private LuceneIndexTestDataModel(final Builder builder,
+                                     final Function<FDBRecordContext, FDBRecordStore> schemaSetup) {
         random = builder.random;
         textGenerator = builder.textGenerator;
         isGrouped = builder.isGrouped;
@@ -152,7 +151,6 @@ public class LuceneIndexTestDataModel {
         return returnValue;
     }
 
-    @Nonnull
     public FDBRecordStore createOrOpenRecordStore(final FDBRecordContext context) {
         return Objects.requireNonNull(schemaSetup.apply(context));
     }
@@ -163,7 +161,7 @@ public class LuceneIndexTestDataModel {
     }
 
     void saveManyRecords(final int minDocumentCount,
-                         @Nonnull final Supplier<FDBRecordContext> openContext,
+                         final Supplier<FDBRecordContext> openContext,
                          final int transactionCount) {
         final long start = Instant.now().toEpochMilli();
         int i = 0;
@@ -256,7 +254,6 @@ public class LuceneIndexTestDataModel {
                 });
     }
 
-    @Nonnull
     private static Tuple createSyntheticPrimaryKey(final FDBRecordStore recordStore, final Tuple parentPrimaryKey, final Tuple childPrimaryKey) {
         final Tuple syntheticRecordTypeKey = recordStore.getRecordMetaData()
                 .getSyntheticRecordType("JoinChildren")
@@ -266,7 +263,6 @@ public class LuceneIndexTestDataModel {
                 childPrimaryKey.getItems());
     }
 
-    @Nonnull
     private CompletableFuture<Tuple> saveParentRecord(final boolean withContent, final FDBRecordStore recordStore,
                                                       final int group, final int uniqueCounter, final long timestamp) {
         var parentBuilder = TestRecordsGroupedParentChildProto.MyParentRecord.newBuilder()
@@ -285,7 +281,6 @@ public class LuceneIndexTestDataModel {
     }
 
 
-    @Nonnull
     private CompletableFuture<Tuple> saveChildRecord(final boolean withContent, final FDBRecordStore recordStore, final int group, final int countInGroup) {
         var childBuilder = TestRecordsGroupedParentChildProto.MyChildRecord.newBuilder()
                 .setGroup(group)
@@ -321,7 +316,6 @@ public class LuceneIndexTestDataModel {
         return validator;
     }
 
-    @Nonnull
     static Index addIndex(final boolean isSynthetic, final KeyExpression rootExpression,
                           final Map<String, String> options, final RecordMetaDataBuilder metaDataBuilder,
                           @Nullable IndexPredicate predicate) {
@@ -343,7 +337,6 @@ public class LuceneIndexTestDataModel {
         return index;
     }
 
-    @Nonnull
     static KeyExpression createRootExpression(final boolean isGrouped, final boolean isSynthetic) {
         ThenKeyExpression baseExpression;
         KeyExpression groupingExpression;
@@ -380,12 +373,10 @@ public class LuceneIndexTestDataModel {
         return rootExpression;
     }
 
-    @Nonnull
     static Tuple calculateGroupTuple(final boolean isGrouped, final int group) {
         return isGrouped ? Tuple.from(group) : Tuple.from();
     }
 
-    @Nonnull
     static RecordMetaDataBuilder createBaseMetaDataBuilder() {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
                 .setRecords(TestRecordsGroupedParentChildProto.getDescriptor());
@@ -416,7 +407,7 @@ public class LuceneIndexTestDataModel {
      * @param groupingKey the grouping key for the partition, or {@code null} for non-grouped indexes
      * @param partitionId the partition id, or {@code null} for non-partitioned indexes
      */
-    public void setOngoingMergeIndicator(@Nonnull final FDBRecordContext context,
+    public void setOngoingMergeIndicator(final FDBRecordContext context,
                                          @Nullable final Tuple groupingKey,
                                          @Nullable final Integer partitionId) {
         FDBRecordStore store = Objects.requireNonNull(schemaSetup.apply(context));
@@ -559,7 +550,6 @@ public class LuceneIndexTestDataModel {
             return new LuceneIndexTestDataModel(this, schemaSetup);
         }
 
-        @Nonnull
         private Map<String, String> getOptions() {
             final Map<String, String> options = new HashMap<>();
             options.put(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, String.valueOf(primaryKeySegmentIndexEnabled));
@@ -580,8 +570,8 @@ public class LuceneIndexTestDataModel {
      */
     @FunctionalInterface
     public interface StoreBuilderSupplier {
-        FDBRecordStore.Builder get(@Nonnull FDBRecordContext context, @Nonnull RecordMetaData metaData,
-                                   @Nonnull final KeySpacePath path);
+        FDBRecordStore.Builder get(FDBRecordContext context, RecordMetaData metaData,
+                                   final KeySpacePath path);
     }
 
 
@@ -607,14 +597,11 @@ public class LuceneIndexTestDataModel {
     }
 
     private class ParentRecord implements RecordUnderTest {
-        @Nonnull
         final Tuple groupingKey;
-        @Nonnull
         final Tuple primaryKey;
-        @Nonnull
         private final Tuple partitioningKey;
 
-        private ParentRecord(@Nonnull final Tuple groupingKey, @Nonnull final Tuple primaryKey, final long timestamp) {
+        private ParentRecord(final Tuple groupingKey, final Tuple primaryKey, final long timestamp) {
             this.groupingKey = groupingKey;
             this.primaryKey = primaryKey;
             partitioningKey = Tuple.from(timestamp).addAll(primaryKey);
@@ -650,19 +637,14 @@ public class LuceneIndexTestDataModel {
     }
 
     private class SyntheticRecord implements RecordUnderTest {
-        @Nonnull
         final Tuple groupingKey;
-        @Nonnull
         final Tuple parentPrimaryKey;
-        @Nonnull
         private final Tuple childPrimaryKey;
-        @Nonnull
         private final Tuple syntheticPrimaryKey;
-        @Nonnull
         private final Tuple partitioningKey;
 
-        private SyntheticRecord(@Nonnull final Tuple groupingKey, @Nonnull final Tuple primaryKey,
-                                @Nonnull final Tuple childPrimaryKey, @Nonnull final Tuple syntheticPrimaryKey, final long timestamp) {
+        private SyntheticRecord(final Tuple groupingKey, final Tuple primaryKey,
+                                final Tuple childPrimaryKey, final Tuple syntheticPrimaryKey, final long timestamp) {
             this.groupingKey = groupingKey;
             this.parentPrimaryKey = primaryKey;
             this.childPrimaryKey = childPrimaryKey;

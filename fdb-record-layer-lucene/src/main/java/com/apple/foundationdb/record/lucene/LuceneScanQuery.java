@@ -26,18 +26,18 @@ import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Sort;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import static com.apple.foundationdb.record.lucene.LuceneScanQueryParameters.LuceneQueryHighlightParameters;
 
 /**
  * Scan a {@code LUCENE} index using a Lucene {@link Query}.
  */
 @API(API.Status.UNSTABLE)
 public class LuceneScanQuery extends LuceneScanBounds {
-    @Nonnull
     private final Query query;
     @Nullable
     private final Sort sort;
@@ -47,15 +47,15 @@ public class LuceneScanQuery extends LuceneScanBounds {
     private final List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes;
 
     @Nullable
-    private final LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters;
+    private final LuceneQueryHighlightParameters luceneQueryHighlightParameters;
 
     @Nullable
     private final Map<String, Set<String>> termMap;
 
-    public LuceneScanQuery(@Nonnull final IndexScanType scanType, @Nonnull final Tuple groupKey,
-                           @Nonnull final Query query, @Nullable final Sort sort, @Nullable final List<String> storedFields,
+    public LuceneScanQuery(final IndexScanType scanType, final Tuple groupKey,
+                           final Query query, @Nullable final Sort sort, @Nullable final List<String> storedFields,
                            @Nullable final List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes,
-                           @Nullable final LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
+                           @Nullable final LuceneQueryHighlightParameters luceneQueryHighlightParameters,
                            @Nullable final Map<String, Set<String>> termMap) {
         super(scanType, groupKey);
         this.query = query;
@@ -66,7 +66,6 @@ public class LuceneScanQuery extends LuceneScanBounds {
         this.termMap = termMap;
     }
 
-    @Nonnull
     public Query getQuery() {
         return query;
     }
@@ -87,7 +86,7 @@ public class LuceneScanQuery extends LuceneScanBounds {
     }
 
     @Nullable
-    public LuceneScanQueryParameters.LuceneQueryHighlightParameters getLuceneQueryHighlightParameters() {
+    public LuceneQueryHighlightParameters getLuceneQueryHighlightParameters() {
         return luceneQueryHighlightParameters;
     }
 

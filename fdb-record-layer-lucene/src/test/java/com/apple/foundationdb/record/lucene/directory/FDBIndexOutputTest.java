@@ -29,7 +29,6 @@ import org.apache.lucene.store.IndexInput;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -89,7 +88,6 @@ public class FDBIndexOutputTest extends FDBDirectoryBaseTest {
         assertEquals(BLOCK_ARRAY_100.length, directory.getFDBLuceneFileReference(FILE_NAME_TWO).getSize());
     }
 
-    @Nonnull
     private List<ComparablePair<Long, Integer>> directoryCacheKeys() {
         return directory.getBlockCache().asMap().keySet().stream().sorted().collect(Collectors.toList());
     }

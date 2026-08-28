@@ -73,8 +73,7 @@ import org.apache.lucene.store.LockFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 import java.io.IOException;
 import java.nio.file.NoSuchFileException;
@@ -137,7 +136,6 @@ public class FDBDirectory extends Directory {
     public static final int ONGOING_MERGE_INDICATOR_SUBSPACE = 9;
     public static final int PENDING_QUEUE_SIZE_SUBSPACE = 10;
     private final AtomicLong nextTempFileCounter = new AtomicLong();
-    @Nonnull
     private final Map<String, String> indexOptions;
     private final Subspace subspace;
     private final Subspace metaSubspace;
@@ -195,18 +193,18 @@ public class FDBDirectory extends Directory {
     private LucenePrimaryKeySegmentIndex primaryKeySegmentIndex;
 
     @VisibleForTesting
-    public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable Map<String, String> indexOptions) {
+    public FDBDirectory(Subspace subspace, FDBRecordContext context, @Nullable Map<String, String> indexOptions) {
         this(subspace, indexOptions, null, null, true, AgilityContext.nonAgile(context));
     }
 
-    public FDBDirectory(@Nonnull Subspace subspace, @Nullable Map<String, String> indexOptions,
+    public FDBDirectory(Subspace subspace, @Nullable Map<String, String> indexOptions,
                         @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey,
                         boolean deferDeleteToCompoundFile, AgilityContext agilityContext) {
         this(subspace, indexOptions, sharedCacheManager, sharedCacheKey, agilityContext, null,
                 DEFAULT_BLOCK_SIZE, DEFAULT_INITIAL_CAPACITY, DEFAULT_BLOCK_CACHE_MAXIMUM_SIZE, DEFAULT_CONCURRENCY_LEVEL, deferDeleteToCompoundFile);
     }
 
-    public FDBDirectory(@Nonnull Subspace subspace, @Nullable Map<String, String> indexOptions,
+    public FDBDirectory(Subspace subspace, @Nullable Map<String, String> indexOptions,
                         @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey,
                         boolean deferDeleteToCompoundFile, AgilityContext agilityContext, @Nullable LockFactory lockFactory, int blockCacheMaximumSize) {
         this(subspace, indexOptions, sharedCacheManager, sharedCacheKey, agilityContext, lockFactory,
@@ -214,7 +212,7 @@ public class FDBDirectory extends Directory {
     }
 
     @SuppressWarnings("this-escape")
-    private FDBDirectory(@Nonnull Subspace subspace, @Nullable Map<String, String> indexOptions,
+    private FDBDirectory(Subspace subspace, @Nullable Map<String, String> indexOptions,
                          @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey, AgilityContext agilityContext,
                          @Nullable LockFactory lockFactory,
                          int blockSize, final int initialCapacity, final int blockCacheMaximumSize, final int concurrencyLevel,
@@ -266,12 +264,10 @@ public class FDBDirectory extends Directory {
         return value == null ? 0L : Tuple.fromBytes(value).getLong(0);
     }
 
-    @Nonnull
     private byte[] serializeFileSequenceCounter(long value) {
         return Tuple.from(value).pack();
     }
 
-    @Nonnull
     private CompletableFuture<Void> loadFileSequenceCounter() {
         long originalValue = fileSequenceCounter.get();
         if (originalValue >= 0) {
@@ -327,8 +323,7 @@ public class FDBDirectory extends Directory {
      * @return FDBLuceneFileReference
      */
     @API(API.Status.INTERNAL)
-    @Nonnull
-    public CompletableFuture<FDBLuceneFileReference> getFDBLuceneFileReferenceAsync(@Nonnull final String name) {
+    public CompletableFuture<FDBLuceneFileReference> getFDBLuceneFileReferenceAsync(final String name) {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("getFDBLuceneFileReferenceAsync",
                     LuceneLogMessageKeys.FILE_NAME, name));
@@ -338,7 +333,7 @@ public class FDBDirectory extends Directory {
 
     @API(API.Status.INTERNAL)
     @Nullable
-    public FDBLuceneFileReference getFDBLuceneFileReference(@Nonnull final String name) {
+    public FDBLuceneFileReference getFDBLuceneFileReference(final String name) {
         return asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_FILE_REFERENCE, getFDBLuceneFileReferenceAsync(name));
     }
 
@@ -423,7 +418,7 @@ public class FDBDirectory extends Directory {
      * @param name name for the file reference
      * @param reference the file reference being inserted
      */
-    public void writeFDBLuceneFileReference(@Nonnull String name, @Nonnull FDBLuceneFileReference reference) {
+    public void writeFDBLuceneFileReference(String name, FDBLuceneFileReference reference) {
         final byte[] fileReferenceBytes = reference.getBytes();
         final byte[] encodedBytes = Objects.requireNonNull(encode(fileReferenceBytes));
         agilityContext.recordSize(LuceneEvents.SizeEvents.LUCENE_WRITE_FILE_REFERENCE, encodedBytes.length);
@@ -446,7 +441,7 @@ public class FDBDirectory extends Directory {
      * @param value the data to be stored
      * @return the actual data size written to database with potential compression and encryption applied
      */
-    public int writeData(final long id, final int block, @Nonnull final byte[] value) {
+    public int writeData(final long id, final int block, final byte[] value) {
         final byte[] encodedBytes = Objects.requireNonNull(encode(value));
         agilityContext.increment(LuceneEvents.Counts.LUCENE_BLOCK_WRITES);
         //This may not be correct transactionally
@@ -469,7 +464,7 @@ public class FDBDirectory extends Directory {
      * @param docID the document ID to write
      * @param rawBytes the bytes value of the stored fields
      */
-    public void writeStoredFields(@Nonnull String segmentName, int docID, @Nonnull final byte[] rawBytes) {
+    public void writeStoredFields(String segmentName, int docID, final byte[] rawBytes) {
         byte[] key = storedFieldsSubspace.pack(Tuple.from(segmentName, docID));
         byte[] value = encodeFieldProtobuf(rawBytes);
         agilityContext.recordSize(LuceneEvents.SizeEvents.LUCENE_WRITE_STORED_FIELDS, key.length + value.length);
@@ -486,7 +481,7 @@ public class FDBDirectory extends Directory {
      * @param segmentName the segment name to delete the fields from (all docs in the segment will be deleted)
      * @throws IOException if there is an issue reading metadata to do the delete
      */
-    public void deleteStoredFields(@Nonnull final String segmentName) throws IOException {
+    public void deleteStoredFields(final String segmentName) throws IOException {
         agilityContext.increment(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS);
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("Delete Stored Fields Data",
@@ -511,17 +506,15 @@ public class FDBDirectory extends Directory {
      * @throws RecordCoreArgumentException if a reference with that id hasn't been written yet.
      */
     @API(API.Status.INTERNAL)
-    @Nonnull
-    public CompletableFuture<byte[]> readBlock(@Nonnull IndexInput requestingInput,
-                                               @Nonnull String fileName,
-                                               @Nonnull CompletableFuture<FDBLuceneFileReference> referenceFuture,
+    public CompletableFuture<byte[]> readBlock(IndexInput requestingInput,
+                                               String fileName,
+                                               CompletableFuture<FDBLuceneFileReference> referenceFuture,
                                                int block) {
         return referenceFuture.thenCompose(reference -> readBlock(requestingInput, fileName, reference, block));
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.PreserveStackTrace")
-    private CompletableFuture<byte[]> readBlock(@Nonnull IndexInput requestingInput, @Nonnull String fileName,
+    private CompletableFuture<byte[]> readBlock(IndexInput requestingInput, String fileName,
                                                 @Nullable FDBLuceneFileReference reference, int block) {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("readBlock",
@@ -565,7 +558,6 @@ public class FDBDirectory extends Directory {
                         .thenApply(this::decode));
     }
 
-    @Nonnull
     public byte[] readStoredFields(String segmentName, int docId) {
         final byte[] key = storedFieldsSubspace.pack(Tuple.from(segmentName, docId));
         final byte[] rawBytes = asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS,
@@ -580,7 +572,6 @@ public class FDBDirectory extends Directory {
         return Objects.requireNonNull(decodeFieldProtobuf(rawBytes));
     }
 
-    @Nonnull
     public List<byte[]> readAllStoredFields(String segmentName) {
         final Range range = storedFieldsSubspace.range(Tuple.from(segmentName));
         final List<KeyValue> list = asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_ALL_STORED_FIELDS,
@@ -602,7 +593,6 @@ public class FDBDirectory extends Directory {
      * @return String list of names of lucene file references
      */
     @Override
-    @Nonnull
     public String[] listAll() throws IOException {
         long startTime = System.nanoTime();
         try {
@@ -691,7 +681,6 @@ public class FDBDirectory extends Directory {
                 LuceneLogMessageKeys.FILE_ACTUAL_TOTAL_SIZE, actualTotalSize);
     }
 
-    @Nonnull
     @VisibleForTesting
     public CompletableFuture<Map<String, FDBLuceneFileReference>> getFileReferenceCacheAsync() {
         if (fileReferenceCache.get() != null) {
@@ -726,7 +715,6 @@ public class FDBDirectory extends Directory {
         return fileReferenceMapSupplier.get().thenApply(ignore -> fileReferenceCache.get());
     }
 
-    @Nonnull
     private Map<String, FDBLuceneFileReference> getFileReferenceCache() {
         return Objects.requireNonNull(asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_LOAD_FILE_CACHE, getFileReferenceCacheAsync()));
     }
@@ -736,7 +724,7 @@ public class FDBDirectory extends Directory {
      * @param name the name for the file reference
      */
     @Override
-    public void deleteFile(@Nonnull String name) throws IOException {
+    public void deleteFile(String name) throws IOException {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("deleteFile",
                     LuceneLogMessageKeys.FILE_NAME, name));
@@ -767,7 +755,7 @@ public class FDBDirectory extends Directory {
     }
 
     @VisibleForTesting
-    protected boolean deleteFileInternal(@Nonnull Map<String, FDBLuceneFileReference> cache, @Nonnull String name) throws IOException {
+    protected boolean deleteFileInternal(Map<String, FDBLuceneFileReference> cache, String name) throws IOException {
         // TODO make this transactional or ensure that it is deleted in the right order
         FDBLuceneFileReference fileReference = cache.remove(name);
         if (fileReference == null) {
@@ -815,7 +803,7 @@ public class FDBDirectory extends Directory {
      * @throws NoSuchFileException if the file reference doesn't exist.
      */
     @Override
-    public long fileLength(@Nonnull String name) throws IOException {
+    public long fileLength(String name) throws IOException {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("fileLength",
                     LuceneLogMessageKeys.FILE_NAME, name));
@@ -841,9 +829,8 @@ public class FDBDirectory extends Directory {
      * @return IndexOutput FDB Backed Index Output FDBIndexOutput
      */
     @Override
-    @Nonnull
     @SuppressWarnings("java:S2093")
-    public IndexOutput createOutput(@Nonnull final String name, @Nullable final IOContext ioContext) throws IOException {
+    public IndexOutput createOutput(final String name, @Nullable final IOContext ioContext) throws IOException {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("createOutput",
                     LuceneLogMessageKeys.FILE_NAME, name));
@@ -884,8 +871,7 @@ public class FDBDirectory extends Directory {
      * @return IndexOutput
      */
     @Override
-    @Nonnull
-    public IndexOutput createTempOutput(@Nonnull final String prefix, @Nonnull final String suffix, @Nonnull final IOContext ioContext) throws IOException {
+    public IndexOutput createTempOutput(final String prefix, final String suffix, final IOContext ioContext) throws IOException {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("createTempOutput",
                     LuceneLogMessageKeys.FILE_PREFIX, prefix,
@@ -894,13 +880,12 @@ public class FDBDirectory extends Directory {
         return createOutput(getTempFileName(prefix, suffix, this.nextTempFileCounter.getAndIncrement()), ioContext);
     }
 
-    @Nonnull
-    protected static String getTempFileName(@Nonnull String prefix, @Nonnull String suffix, long counter) {
+    protected static String getTempFileName(String prefix, String suffix, long counter) {
         return IndexFileNames.segmentFileName(prefix, suffix + "_" + Long.toString(counter, 36), "tmp");
     }
 
     @Override
-    public void sync(@Nonnull final Collection<String> collection) {
+    public void sync(final Collection<String> collection) {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("sync",
                     LuceneLogMessageKeys.FILE_NAME, String.join(", ", collection)));
@@ -921,7 +906,7 @@ public class FDBDirectory extends Directory {
      * @param dest desc
      */
     @Override
-    public void rename(@Nonnull final String source, @Nonnull final String dest) throws IOException {
+    public void rename(final String source, final String dest) throws IOException {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("rename",
                     LogMessageKeys.SOURCE_FILE, source,
@@ -956,8 +941,7 @@ public class FDBDirectory extends Directory {
     }
 
     @Override
-    @Nonnull
-    public IndexInput openInput(@Nonnull final String name, @Nonnull final IOContext ioContext) throws IOException {
+    public IndexInput openInput(final String name, final IOContext ioContext) throws IOException {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("openInput",
                     LuceneLogMessageKeys.FILE_NAME, name));
@@ -985,8 +969,7 @@ public class FDBDirectory extends Directory {
     }
 
     @Override
-    @Nonnull
-    public Lock obtainLock(@Nonnull final String lockName) throws IOException {
+    public Lock obtainLock(final String lockName) throws IOException {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("obtainLock",
                     LuceneLogMessageKeys.LOCK_NAME, lockName));
@@ -1092,7 +1075,6 @@ public class FDBDirectory extends Directory {
      * @return Emtpy set of strings
      */
     @Override
-    @Nonnull
     public Set<String> getPendingDeletions() {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("getPendingDeletions"));
@@ -1115,7 +1097,7 @@ public class FDBDirectory extends Directory {
     }
 
     @Nullable
-    public <T> T asyncToSync(@Nonnull StoreTimer.Wait event, @Nonnull CompletableFuture<T> async) {
+    public <T> T asyncToSync(StoreTimer.Wait event, CompletableFuture<T> async) {
         return agilityContext.asyncToSync(event, async);
     }
 
@@ -1128,12 +1110,11 @@ public class FDBDirectory extends Directory {
         return subspace;
     }
 
-    @Nonnull
-    private String getLogMessage(@Nonnull String staticMsg, @Nullable final Object... keysAndValues) {
+    private String getLogMessage(String staticMsg, @Nullable final Object... keysAndValues) {
         return getKeyValueLogMessage(staticMsg, keysAndValues).toString();
     }
 
-    private KeyValueLogMessage getKeyValueLogMessage(final @Nonnull String staticMsg, final Object... keysAndValues) {
+    private KeyValueLogMessage getKeyValueLogMessage(final String staticMsg, final Object... keysAndValues) {
         return KeyValueLogMessage.build(staticMsg, keysAndValues)
                 .addKeyAndValue(LogMessageKeys.SUBSPACE, subspace)
                 .addKeyAndValue(LuceneLogMessageKeys.COMPRESSION_SUPPOSED, serializer.isCompressionEnabled())
@@ -1188,7 +1169,7 @@ public class FDBDirectory extends Directory {
 
     // Map segment name to integer id.
     // TODO: Could store this elsewhere, such as inside compound file.
-    public long primaryKeySegmentId(@Nonnull String segmentName, boolean create) throws IOException {
+    public long primaryKeySegmentId(String segmentName, boolean create) throws IOException {
         try {
             final String fileName = IndexFileNames.segmentFileName(segmentName, "", "pky");
             FDBLuceneFileReference ref = getFDBLuceneFileReference(fileName);
@@ -1231,7 +1212,7 @@ public class FDBDirectory extends Directory {
      * @param defaultValue the value to use when the option is not set
      * @return the index option value, or the default value if not found
      */
-    public boolean getBooleanIndexOption(@Nonnull String key, boolean defaultValue) {
+    public boolean getBooleanIndexOption(String key, boolean defaultValue) {
         final String option = getIndexOption(key);
         if (option == null) {
             return defaultValue;
@@ -1246,7 +1227,7 @@ public class FDBDirectory extends Directory {
      * @return the index option value, null if not found
      */
     @Nullable
-    public String getIndexOption(@Nonnull String key) {
+    public String getIndexOption(String key) {
         return indexOptions.get(key);
     }
 
@@ -1255,7 +1236,6 @@ public class FDBDirectory extends Directory {
      * @param agilityContext the agility context to use for the factory
      * @return the created lock factory
      */
-    @Nonnull
     private FDBDirectoryLockFactory defaultLockFactory(final AgilityContext agilityContext) {
         return new FDBDirectoryLockFactory(this, Objects.requireNonNullElse(agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_FILE_LOCK_TIME_WINDOW_MILLISECONDS), 0));
     }

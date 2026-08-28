@@ -28,7 +28,6 @@ import com.google.auto.service.AutoService;
 import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.analysis.standard.UAX29URLEmailAnalyzer;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Optional;
 
@@ -45,22 +44,19 @@ public class EmailCjkSynonymAnalyzerFactory implements LuceneAnalyzerFactory {
 
     public static final CharArraySet MINIMAL_STOP_WORDS = new CharArraySet(List.of("into", "onto", "the"), true);
 
-    @Nonnull
     @Override
     public String getName() {
         return ANALYZER_FACTORY_NAME;
     }
 
-    @Nonnull
     @Override
     public LuceneAnalyzerType getType() {
         return LuceneAnalyzerType.FULL_TEXT;
     }
 
     @SuppressWarnings("deprecation")
-    @Nonnull
     @Override
-    public AnalyzerChooser getIndexAnalyzerChooser(@Nonnull Index index) {
+    public AnalyzerChooser getIndexAnalyzerChooser(Index index) {
         try {
             final String minLengthString = Optional.ofNullable(index.getOption(IndexOptions.TEXT_TOKEN_MIN_SIZE)).orElse(DEFAULT_MINIMUM_TOKEN_LENGTH);
             final String maxLengthString = Optional.ofNullable(index.getOption(IndexOptions.TEXT_TOKEN_MAX_SIZE)).orElse(Integer.toString(UAX29URLEmailAnalyzer.DEFAULT_MAX_TOKEN_LENGTH));
@@ -74,9 +70,8 @@ public class EmailCjkSynonymAnalyzerFactory implements LuceneAnalyzerFactory {
     }
 
     @SuppressWarnings("deprecation")
-    @Nonnull
     @Override
-    public AnalyzerChooser getQueryAnalyzerChooser(@Nonnull Index index, @Nonnull AnalyzerChooser indexAnalyzerChooser) {
+    public AnalyzerChooser getQueryAnalyzerChooser(Index index, AnalyzerChooser indexAnalyzerChooser) {
         try {
             final String minLengthString = Optional.ofNullable(index.getOption(IndexOptions.TEXT_TOKEN_MIN_SIZE)).orElse(DEFAULT_MINIMUM_TOKEN_LENGTH);
             final String maxLengthString = Optional.ofNullable(index.getOption(IndexOptions.TEXT_TOKEN_MAX_SIZE)).orElse(DEFAULT_MAXIMUM_TOKEN_LENGTH);

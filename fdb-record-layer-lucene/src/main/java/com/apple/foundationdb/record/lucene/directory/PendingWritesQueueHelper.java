@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord;
 import com.apple.foundationdb.record.lucene.LuceneIndexExpressions;
 import com.apple.foundationdb.record.lucene.LucenePendingWriteQueueProto;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -37,7 +36,7 @@ public final class PendingWritesQueueHelper {
     /**
      * Convert DocumentField to protobuf DocumentField.
      */
-    public static LucenePendingWriteQueueProto.DocumentField toProtoField(@Nonnull LuceneDocumentFromRecord.DocumentField field) {
+    public static LucenePendingWriteQueueProto.DocumentField toProtoField(LuceneDocumentFromRecord.DocumentField field) {
 
         LucenePendingWriteQueueProto.DocumentField.Builder builder =
                 LucenePendingWriteQueueProto.DocumentField.newBuilder()
@@ -96,7 +95,7 @@ public final class PendingWritesQueueHelper {
      * Convert protobuf DocumentField list back to LuceneDocumentFromRecord.DocumentField list.
      */
     public static List<LuceneDocumentFromRecord.DocumentField> fromProtoFields(
-            @Nonnull List<LucenePendingWriteQueueProto.DocumentField> protoFields) {
+            List<LucenePendingWriteQueueProto.DocumentField> protoFields) {
 
         List<LuceneDocumentFromRecord.DocumentField> fields = new ArrayList<>();
         for (LucenePendingWriteQueueProto.DocumentField protoField : protoFields) {

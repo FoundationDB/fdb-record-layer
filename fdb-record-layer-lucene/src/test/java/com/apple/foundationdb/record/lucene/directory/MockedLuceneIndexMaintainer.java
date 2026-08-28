@@ -26,8 +26,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -40,7 +39,7 @@ public class MockedLuceneIndexMaintainer extends LuceneIndexMaintainer {
     final InjectedFailureRepository injectedFailures;
 
     @SuppressWarnings("this-escape")
-    public MockedLuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull final Executor executor, final InjectedFailureRepository injectedFailures) {
+    public MockedLuceneIndexMaintainer(final IndexMaintainerState state, final Executor executor, final InjectedFailureRepository injectedFailures) {
         super(state, executor);
         this.injectedFailures = injectedFailures;
         // Setting failures has to be done here rather than via a constructor param since createDirectoryManager is called
@@ -48,7 +47,6 @@ public class MockedLuceneIndexMaintainer extends LuceneIndexMaintainer {
         ((MockedFDBDirectoryManager)getDirectoryManager()).setInjectedFailures(injectedFailures);
     }
 
-    @Nonnull
     @Override
     public <M extends Message> CompletableFuture<Void> update(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
         if (injectedFailures.hasFlag(InjectedFailureRepository.Flags.LUCENE_MAINTAINER_SKIP_INDEX_UPDATE)) {
@@ -57,9 +55,8 @@ public class MockedLuceneIndexMaintainer extends LuceneIndexMaintainer {
         return super.update(oldRecord, newRecord);
     }
 
-    @Nonnull
     @Override
-    protected FDBDirectoryManager createDirectoryManager(@Nonnull final IndexMaintainerState state) {
+    protected FDBDirectoryManager createDirectoryManager(final IndexMaintainerState state) {
         // Use the mocked manager static factory method to create/return the right type
         return MockedFDBDirectoryManager.getManager(state);
     }

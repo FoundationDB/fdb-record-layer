@@ -79,8 +79,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import javax.crypto.SecretKey;
 import java.io.IOException;
 import java.time.Duration;
@@ -850,8 +849,8 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     static class InvalidLockTestFDBDirectory extends FDBDirectory {
         private final int percentFailure;
 
-        public InvalidLockTestFDBDirectory(@Nonnull Subspace subspace,
-                                           @Nonnull FDBRecordContext context,
+        public InvalidLockTestFDBDirectory(Subspace subspace,
+                                           FDBRecordContext context,
                                            @Nullable Map<String, String> indexOptions,
                                            final int percentFailure) {
             super(subspace, context, indexOptions);
@@ -859,8 +858,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         }
 
         @Override
-        @Nonnull
-        public Lock obtainLock(@Nonnull final String lockName) throws IOException {
+        public Lock obtainLock(final String lockName) throws IOException {
             final Lock lock = super.obtainLock(lockName);
             return new Lock() {
                 @Override
@@ -1692,7 +1690,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         return null;
     }
 
-    @Nonnull
     public static Index complexPartitionedIndex(final Map<String, String> options) {
         return new Index("Complex$partitioned",
                 concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
@@ -1746,7 +1743,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         return ignored -> { };
     }
 
-    @Nonnull
     protected LuceneIndexMaintainer getIndexMaintainer(FDBRecordStore store, Index index) {
         return (LuceneIndexMaintainer)store.getIndexMaintainer(index);
     }

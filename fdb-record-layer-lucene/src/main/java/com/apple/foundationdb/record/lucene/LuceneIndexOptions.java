@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 
-import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -135,7 +134,7 @@ public class LuceneIndexOptions {
      * @param optionValue the raw string for option's value
      * @return the map
      */
-    public static Map<String, String> parseKeyValuePairOptionValue(@Nonnull String optionValue) {
+    public static Map<String, String> parseKeyValuePairOptionValue(String optionValue) {
         final String[] elements = optionValue.strip().split(LuceneIndexOptions.DELIMITER_BETWEEN_ELEMENTS);
         final Map<String, String> map = new HashMap<>();
         for (String element : elements) {
@@ -152,7 +151,7 @@ public class LuceneIndexOptions {
      * @param optionValue the raw string for option's value
      * @return map
      */
-    public static Set<String> parseMultipleElementsOptionValue(@Nonnull String optionValue) {
+    public static Set<String> parseMultipleElementsOptionValue(String optionValue) {
         final String[] elements = optionValue.strip().split(LuceneIndexOptions.DELIMITER_BETWEEN_ELEMENTS);
         final Set<String> list = new HashSet<>();
         for (String fieldName : elements) {
@@ -166,7 +165,7 @@ public class LuceneIndexOptions {
      * @param optionValue the raw string for option's value
      * @param exceptionToThrow the exception to throw if it is invalid
      */
-    public static void validateKeyValuePairOptionValue(@Nonnull String optionValue, @Nonnull RecordCoreException exceptionToThrow) {
+    public static void validateKeyValuePairOptionValue(String optionValue, RecordCoreException exceptionToThrow) {
         optionValue = optionValue.strip();
         if (optionValue.startsWith(LuceneIndexOptions.DELIMITER_BETWEEN_ELEMENTS) || optionValue.endsWith(LuceneIndexOptions.DELIMITER_BETWEEN_ELEMENTS)) {
             throw exceptionToThrow;
@@ -188,7 +187,7 @@ public class LuceneIndexOptions {
      * @param optionValue the raw string for option's value
      * @param exceptionToThrow the exception to throw if it is invalid
      */
-    public static void validateMultipleElementsOptionValue(@Nonnull String optionValue, @Nonnull RecordCoreException exceptionToThrow) {
+    public static void validateMultipleElementsOptionValue(String optionValue, RecordCoreException exceptionToThrow) {
         optionValue = optionValue.strip();
         if (optionValue.startsWith(LuceneIndexOptions.DELIMITER_BETWEEN_ELEMENTS)
                 || optionValue.endsWith(LuceneIndexOptions.DELIMITER_BETWEEN_ELEMENTS)

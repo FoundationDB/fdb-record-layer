@@ -32,7 +32,6 @@ import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.Collection;
@@ -91,7 +90,7 @@ public class LuceneAnalyzerTest {
         Assertions.assertEquals(ImmutableSet.of("hello", "rl"), result);
     }
 
-    private static void tokenizeWithAnalyzer(Collection<String> result, @Nonnull String input, Analyzer analyzer) throws IOException {
+    private static void tokenizeWithAnalyzer(Collection<String> result, String input, Analyzer analyzer) throws IOException {
         try (TokenStream stream = analyzer.tokenStream("field", new StringReader(input))) {
             stream.reset();
             while (stream.incrementToken()) {

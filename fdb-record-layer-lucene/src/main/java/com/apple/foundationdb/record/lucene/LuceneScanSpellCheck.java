@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
@@ -32,23 +31,19 @@ import java.util.List;
  */
 @API(API.Status.UNSTABLE)
 public class LuceneScanSpellCheck extends LuceneScanBounds {
-    @Nonnull
     final List<String> fields;
-    @Nonnull
     final String word;
 
-    public LuceneScanSpellCheck(@Nonnull IndexScanType scanType, @Nonnull Tuple groupKey, @Nonnull List<String> fields, @Nonnull String word) {
+    public LuceneScanSpellCheck(IndexScanType scanType, Tuple groupKey, List<String> fields, String word) {
         super(scanType, groupKey);
         this.fields = fields;
         this.word = word;
     }
 
-    @Nonnull
     public List<String> getFields() {
         return fields;
     }
 
-    @Nonnull
     public String getWord() {
         return word;
     }

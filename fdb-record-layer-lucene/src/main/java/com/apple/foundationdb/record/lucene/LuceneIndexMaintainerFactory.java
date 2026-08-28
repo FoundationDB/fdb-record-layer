@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactor
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.google.auto.service.AutoService;
 
-import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
 
@@ -41,7 +40,6 @@ import java.util.List;
 @API(API.Status.EXPERIMENTAL)
 public class LuceneIndexMaintainerFactory implements IndexMaintainerFactory {
 
-    @Nonnull
     private static final List<String> TYPES = Collections.singletonList(LuceneIndexTypes.LUCENE);
     private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(false);
 
@@ -50,21 +48,18 @@ public class LuceneIndexMaintainerFactory implements IndexMaintainerFactory {
         return TYPES;
     }
 
-    @Nonnull
     @Override
-    public IndexValidator getIndexValidator(@Nonnull Index index) {
+    public IndexValidator getIndexValidator(Index index) {
         return new LuceneIndexValidator(index);
     }
 
     @Override
-    @Nonnull
-    public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
+    public IndexMaintainer getIndexMaintainer(final IndexMaintainerState state) {
         return new LuceneIndexMaintainer(state, state.context.getExecutor());
     }
 
-    @Nonnull
     @Override
-    public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
+    public IndexGeneralAttributes getIndexGeneralAttributes(final Index index) {
         return GENERAL_ATTRIBUTES;
     }
 }

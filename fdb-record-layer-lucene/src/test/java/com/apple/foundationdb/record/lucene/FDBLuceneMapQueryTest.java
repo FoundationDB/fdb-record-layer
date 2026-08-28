@@ -54,8 +54,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -330,7 +329,6 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
 
-    @Nonnull
     private static List<TestRecordsTextProto.MapDocument> createMapDocuments() {
         List<TestRecordsTextProto.MapDocument> result = IntStream.range(0, textSamples.size() / 2)
                 .mapToObj(i -> TestRecordsTextProto.MapDocument.newBuilder()
@@ -364,7 +362,6 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
         return result;
     }
 
-    @Nonnull
     private static TestRecordsTextProto.MapDocument.String2Long.Builder getStringToLongMap(final int i, final String value) {
         TestRecordsTextProto.MapDocument.String2Long.Builder builder = TestRecordsTextProto.MapDocument.String2Long.newBuilder()
                 .addValues(TestRecordsTextProto.MapDocument.String2LongPair.newBuilder()
@@ -378,7 +375,6 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
         return builder;
     }
 
-    @Nonnull
     private static TestRecordsTextProto.MapDocument.StringWrapper2Long.Builder getStringWrapperToLongMap(final int i, final String value) {
         TestRecordsTextProto.MapDocument.StringWrapper2Long.Builder builder = TestRecordsTextProto.MapDocument.StringWrapper2Long.newBuilder()
                 .addValues(TestRecordsTextProto.MapDocument.StringWrapper2LongPair.newBuilder()
@@ -396,7 +392,6 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
         return builder;
     }
 
-    @Nonnull
     private static TestRecordsTextProto.MapDocument.String2Int.Builder getStringToIntMap(final int i, final String value) {
         TestRecordsTextProto.MapDocument.String2Int.Builder builder = TestRecordsTextProto.MapDocument.String2Int.newBuilder()
                 .addValues(TestRecordsTextProto.MapDocument.String2IntPair.newBuilder()
@@ -411,7 +406,6 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
 
-    @Nonnull
     private static TestRecordsTextProto.MapDocument.String2Double.Builder getStringToDoubleMap(final int i, final String value) {
         TestRecordsTextProto.MapDocument.String2Double.Builder builder = TestRecordsTextProto.MapDocument.String2Double.newBuilder()
                 .addValues(TestRecordsTextProto.MapDocument.String2DoublePair.newBuilder()

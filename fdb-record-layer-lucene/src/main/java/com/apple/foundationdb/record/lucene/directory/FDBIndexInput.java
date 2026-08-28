@@ -31,8 +31,7 @@ import org.apache.lucene.store.IndexInput;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.EOFException;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
@@ -72,7 +71,7 @@ public final class FDBIndexInput extends IndexInput {
      * @param fdbDirectory FDB directory mapping
      * @throws IOException exception
      */
-    public FDBIndexInput(@Nonnull final String fileName, @Nonnull final FDBDirectory fdbDirectory) throws IOException {
+    public FDBIndexInput(final String fileName, final FDBDirectory fdbDirectory) throws IOException {
         this(fileName, fileName, fdbDirectory, fdbDirectory.getFDBLuceneFileReferenceAsync(fileName), 0L,
                 0L, 0, null);
     }
@@ -90,8 +89,8 @@ public final class FDBIndexInput extends IndexInput {
      * @param currentData future with CurrentData Fetch
      * @throws IOException exception
      */
-    public FDBIndexInput(@Nonnull final String resourceDescription, @Nonnull final String fileName, @Nonnull final FDBDirectory fdbDirectory,
-                         @Nonnull CompletableFuture<FDBLuceneFileReference> reference, long initialOffset, long position,
+    public FDBIndexInput(final String resourceDescription, final String fileName, final FDBDirectory fdbDirectory,
+                         CompletableFuture<FDBLuceneFileReference> reference, long initialOffset, long position,
                          int currentBlock, @Nullable CompletableFuture<byte[]> currentData) throws IOException {
         super(resourceDescription);
         if (LOGGER.isTraceEnabled()) {
@@ -113,7 +112,6 @@ public final class FDBIndexInput extends IndexInput {
         }
     }
 
-    @Nonnull
     private FDBLuceneFileReference getFileReference() {
         if (actualReference == null) {
             actualReference = fdbDirectory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_FILE_REFERENCE, reference);
@@ -215,8 +213,7 @@ public final class FDBIndexInput extends IndexInput {
      * @throws IOException exception
      */
     @Override
-    @Nonnull
-    public IndexInput slice(@Nonnull String sliceDescription, long offset, long length) throws IOException {
+    public IndexInput slice(String sliceDescription, long offset, long length) throws IOException {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("slice",
                     LogMessageKeys.DESCRIPTION, sliceDescription,
@@ -293,7 +290,7 @@ public final class FDBIndexInput extends IndexInput {
      * @param length length
      */
     @Override
-    public void readBytes(@Nonnull final byte[] bytes, final int offset, final int length) throws IOException {
+    public void readBytes(final byte[] bytes, final int offset, final int length) throws IOException {
         try {
             int bytesRead = 0;
             final FDBLuceneFileReference fileReference = getFileReference();
@@ -337,8 +334,7 @@ public final class FDBIndexInput extends IndexInput {
         return (int) ( (position + initialOffset) / getFileReference().getBlockSize());
     }
 
-    @Nonnull
-    private String getLogMessage(@Nonnull String staticMsg, @Nullable final Object... keysAndValues) {
+    private String getLogMessage(String staticMsg, @Nullable final Object... keysAndValues) {
         return KeyValueLogMessage.build(staticMsg, keysAndValues)
                 .addKeyAndValue(LogMessageKeys.SUBSPACE, fdbDirectory.getSubspace())
                 .addKeyAndValue(LuceneLogMessageKeys.RESOURCE, fileName)

@@ -26,8 +26,7 @@ import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.util.List;
 
@@ -40,7 +39,7 @@ public interface LucenePrimaryKeySegmentIndex {
     List<List<Object>> readAllEntries();
 
     @SuppressWarnings("PMD.CloseResource")
-    List<String> findSegments(@Nonnull Tuple primaryKey) throws IOException;
+    List<String> findSegments(Tuple primaryKey) throws IOException;
 
     /**
      * Find document in index for direct delete.
@@ -53,7 +52,7 @@ public interface LucenePrimaryKeySegmentIndex {
      * @see IndexWriter#tryDeleteDocument
      */
     @Nullable
-    DocumentIndexEntry findDocument(@Nonnull DirectoryReader directoryReader, @Nonnull Tuple primaryKey) throws IOException;
+    DocumentIndexEntry findDocument(DirectoryReader directoryReader, Tuple primaryKey) throws IOException;
 
     /**
      * Add or delete the primary key/segment/docId from the index.
@@ -63,7 +62,7 @@ public interface LucenePrimaryKeySegmentIndex {
      * @param add whether to add ({@code true}) or delete ({@code false}) the entry
      * @param segmentName name associated with the segment, for logging
      */
-    void addOrDeletePrimaryKeyEntry(@Nonnull byte[] primaryKey, long segmentId, int docId, boolean add, String segmentName);
+    void addOrDeletePrimaryKeyEntry(byte[] primaryKey, long segmentId, int docId, boolean add, String segmentName);
 
     /**
      * Clears all the primary key entries for a given segment name.
@@ -77,18 +76,14 @@ public interface LucenePrimaryKeySegmentIndex {
      */
     // TODO: Can be a record.
     class DocumentIndexEntry {
-        @Nonnull
         public final Tuple primaryKey;
-        @Nonnull
         public final byte[] entryKey;
-        @Nonnull
         public final IndexReader indexReader;
-        @Nonnull
         public final String segmentName;
         public final int docId;
 
-        public DocumentIndexEntry(@Nonnull final Tuple primaryKey, @Nonnull final byte[] entryKey, @Nonnull final IndexReader indexReader,
-                                  @Nonnull String segmentName, final int docId) {
+        public DocumentIndexEntry(final Tuple primaryKey, final byte[] entryKey, final IndexReader indexReader,
+                                  String segmentName, final int docId) {
             this.primaryKey = primaryKey;
             this.entryKey = entryKey;
             this.indexReader = indexReader;

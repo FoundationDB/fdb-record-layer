@@ -33,7 +33,6 @@ import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.MatchAllDocsQuery;
 
-import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -49,27 +48,25 @@ import java.util.stream.Stream;
  */
 @API(API.Status.UNSTABLE)
 public class LuceneNotQuery extends LuceneBooleanQuery {
-    @Nonnull
     private final List<LuceneQueryClause> negatedChildren;
 
-    public LuceneNotQuery(@Nonnull final LuceneQueryType queryType,
-                          @Nonnull final List<LuceneQueryClause> children,
-                          @Nonnull final List<LuceneQueryClause> negatedChildren) {
+    public LuceneNotQuery(final LuceneQueryType queryType,
+                          final List<LuceneQueryClause> children,
+                          final List<LuceneQueryClause> negatedChildren) {
         super(queryType, children, BooleanClause.Occur.MUST);
         this.negatedChildren = negatedChildren;
     }
 
-    public LuceneNotQuery(@Nonnull final LuceneQueryType queryType, @Nonnull final LuceneQueryClause negatedChild) {
+    public LuceneNotQuery(final LuceneQueryType queryType, final LuceneQueryClause negatedChild) {
         this(queryType, Collections.emptyList(), Collections.singletonList(negatedChild));
     }
 
-    @Nonnull
     protected List<LuceneQueryClause> getNegatedChildren() {
         return negatedChildren;
     }
 
     @Override
-    public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+    public BoundQuery bind(FDBRecordStoreBase<?> store, Index index, EvaluationContext context) {
         BooleanQuery.Builder builder = new BooleanQuery.Builder();
         Map<String, Set<String>> highlightingTermsMap = null;
         if (getChildren().isEmpty()) {
@@ -107,7 +104,7 @@ public class LuceneNotQuery extends LuceneBooleanQuery {
     }
 
     @Override
-    public void getPlannerGraphDetails(@Nonnull ImmutableList.Builder<String> detailsBuilder, @Nonnull ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
+    public void getPlannerGraphDetails(ImmutableList.Builder<String> detailsBuilder, ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
         super.getPlannerGraphDetails(detailsBuilder, attributeMapBuilder);
         for (LuceneQueryClause child : negatedChildren) {
             child.getPlannerGraphDetails(detailsBuilder, attributeMapBuilder);
@@ -115,7 +112,7 @@ public class LuceneNotQuery extends LuceneBooleanQuery {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return super.planHash(mode) - PlanHashable.iterablePlanHash(mode, negatedChildren);
     }
 

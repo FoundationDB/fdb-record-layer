@@ -25,31 +25,25 @@ import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-
 /**
  * Base class for {@link IndexScanBounds} used by {@code LUCENE} indexes.
  * Stores any group key prefix used to determine the directory location.
  */
 @API(API.Status.UNSTABLE)
 public abstract class LuceneScanBounds implements IndexScanBounds {
-    @Nonnull
     protected final IndexScanType scanType;
-    @Nonnull
     protected final Tuple groupKey;
 
-    protected LuceneScanBounds(@Nonnull IndexScanType scanType, @Nonnull Tuple groupKey) {
+    protected LuceneScanBounds(IndexScanType scanType, Tuple groupKey) {
         this.scanType = scanType;
         this.groupKey = groupKey;
     }
 
-    @Nonnull
     @Override
     public IndexScanType getScanType() {
         return scanType;
     }
 
-    @Nonnull
     public Tuple getGroupKey() {
         return groupKey;
     }

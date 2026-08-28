@@ -26,21 +26,20 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.store.LockFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Map;
 
 /**
  * A Testing-focused {@link FDBDirectoryWrapper} that allows a mocked-FDBDirectory to be injected into the system.
  */
 public class MockedFDBDirectoryWrapper extends FDBDirectoryWrapper {
-    MockedFDBDirectoryWrapper(@Nonnull final IndexMaintainerState state,
-                              @Nonnull final Tuple key,
+    MockedFDBDirectoryWrapper(final IndexMaintainerState state,
+                              final Tuple key,
                               final int mergeDirectoryCount,
-                              @Nonnull final AgilityContext agilityContext,
+                              final AgilityContext agilityContext,
                               final int blockCacheMaximumSize,
-                              @Nonnull final InjectedFailureRepository injectedFailures,
-                              @Nonnull final LuceneAnalyzerWrapper writerAnalyzer,
+                              final InjectedFailureRepository injectedFailures,
+                              final LuceneAnalyzerWrapper writerAnalyzer,
                               @Nullable final Exception exceptionAtCreation) {
         super(state, key, mergeDirectoryCount, agilityContext, blockCacheMaximumSize, writerAnalyzer, exceptionAtCreation);
         // Set the injectedFailures at the end of the constructor since createDirectory() is called from the constructor
@@ -48,7 +47,6 @@ public class MockedFDBDirectoryWrapper extends FDBDirectoryWrapper {
         ((MockedFDBDirectory)getDirectory()).setInjectedFailures(injectedFailures);
     }
 
-    @Nonnull
     @Override
     protected FDBDirectory createFDBDirectory(final Subspace subspace, final Map<String, String> options,
                                               final FDBDirectorySharedCacheManager sharedCacheManager,

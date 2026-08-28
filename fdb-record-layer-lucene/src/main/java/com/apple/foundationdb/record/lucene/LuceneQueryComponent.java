@@ -36,12 +36,13 @@ import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
+
+import static com.apple.foundationdb.record.lucene.LuceneScanQueryParameters.LuceneQueryHighlightParameters;
 
 /**
  * A Query Component for Lucene that wraps the query supplied.
@@ -50,17 +51,14 @@ import java.util.function.Supplier;
 @API(API.Status.EXPERIMENTAL)
 public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChildren {
 
-    @Nonnull
     private final LuceneQueryType type;
-    @Nonnull
     private final String query;
     private final boolean queryIsParameter;
 
-    @Nonnull
     private final List<String> fields;
 
     @Nullable
-    private final LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters;
+    private final LuceneQueryHighlightParameters luceneQueryHighlightParameters;
 
     @Nullable
     private final Set<String> explicitFieldNames;
@@ -87,7 +85,7 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChil
     }
 
     public LuceneQueryComponent(LuceneQueryType type, String query, boolean queryIsParameter, List<String> fields, boolean multiFieldSearch,
-                                @Nullable LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
+                                @Nullable LuceneQueryHighlightParameters luceneQueryHighlightParameters,
                                 @Nullable Set<String> explicitFieldNames) {
         this.type = type;
         this.query = query;
@@ -105,32 +103,28 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChil
         }
     }
 
-    @Nonnull
     @Override
-    public <M extends Message> Boolean evalMessage(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> rec, @Nullable final Message message) {
+    public <M extends Message> Boolean evalMessage(final FDBRecordStoreBase<M> store, final EvaluationContext context, @Nullable final FDBRecord<M> rec, @Nullable final Message message) {
         throw new RecordCoreException("Residual lucene components are not yet supported");
     }
 
     @Override
-    public void validate(@Nonnull final Descriptors.Descriptor descriptor) {
+    public void validate(final Descriptors.Descriptor descriptor) {
         // It's possible we could validate the fields that are being used with the fields that we've passed in.
     }
 
-    @Nonnull
     @Override
-    public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
-                                 @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
-                                 @Nonnull final List<String> fieldNamePrefix) {
+    public GraphExpansion expand(final Quantifier.ForEach baseQuantifier,
+                                 final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
+                                 final List<String> fieldNamePrefix) {
         // TODO do something here
         throw new UnsupportedOperationException();
     }
 
-    @Nonnull
     public LuceneQueryType getType() {
         return type;
     }
 
-    @Nonnull
     public String getQuery() {
         return query;
     }
@@ -139,7 +133,6 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChil
         return queryIsParameter;
     }
 
-    @Nonnull
     public List<String> getFields() {
         return fields;
     }
@@ -149,7 +142,7 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChil
     }
 
     @Nullable
-    public LuceneScanQueryParameters.LuceneQueryHighlightParameters getLuceneQueryHighlightParameters() {
+    public LuceneQueryHighlightParameters getLuceneQueryHighlightParameters() {
         return luceneQueryHighlightParameters;
     }
 
@@ -164,8 +157,7 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChil
      * @param explicitFieldNames the new list of explicit field names
      * @return a new instance of {@link LuceneQueryComponent}.
      */
-    @Nonnull
-    public LuceneQueryComponent withNewFields(@Nonnull final List<String> fields, @Nullable Set<String> explicitFieldNames) {
+    public LuceneQueryComponent withNewFields(final List<String> fields, @Nullable Set<String> explicitFieldNames) {
         return new LuceneQueryComponent(type, query, queryIsParameter, fields, multiFieldSearch, luceneQueryHighlightParameters, explicitFieldNames);
     }
 
@@ -216,12 +208,11 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChil
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, type, query);
     }
 
     @Override
-    @Nonnull
     public String toString() {
         return "LuceneQuery(" + query + ")";
     }

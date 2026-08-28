@@ -24,8 +24,6 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.analysis.standard.UAX29URLEmailAnalyzer;
 
-import javax.annotation.Nonnull;
-
 /**
  * A wrapper for {@link Analyzer} and its unique identifier.
  */
@@ -35,7 +33,7 @@ public class LuceneAnalyzerWrapper {
     private final String uniqueIdentifier;
     private final Analyzer analyzer;
 
-    public LuceneAnalyzerWrapper(@Nonnull String uniqueIdentifier, @Nonnull Analyzer analyzer) {
+    public LuceneAnalyzerWrapper(String uniqueIdentifier, Analyzer analyzer) {
         this.uniqueIdentifier = uniqueIdentifier;
         this.analyzer = analyzer;
     }
@@ -45,17 +43,14 @@ public class LuceneAnalyzerWrapper {
      * This identifier is to exclusively identify the {@link Analyzer}, which could be different given different texts input.
      * @return this analyzer's unique identifier
      */
-    @Nonnull
     public String getUniqueIdentifier() {
         return uniqueIdentifier;
     }
 
-    @Nonnull
     public Analyzer getAnalyzer() {
         return analyzer;
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource") //intentional
     public static LuceneAnalyzerWrapper getStandardAnalyzerWrapper() {
         final UAX29URLEmailAnalyzer backingAnalyzer = new UAX29URLEmailAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET);

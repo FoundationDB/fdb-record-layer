@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.google.common.annotations.VisibleForTesting;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 
 /**
@@ -39,12 +38,12 @@ import java.util.Map;
  */
 @API(API.Status.EXPERIMENTAL)
 public class LuceneIndexValidator extends IndexValidator {
-    public LuceneIndexValidator(@Nonnull final Index index) {
+    public LuceneIndexValidator(final Index index) {
         super(index);
     }
 
     @Override
-    public void validate(@Nonnull MetaDataValidator metaDataValidator) {
+    public void validate(MetaDataValidator metaDataValidator) {
         super.validate(metaDataValidator);
         validateNotVersion();
         final var recordMetadata = metaDataValidator.getRecordMetaData();
@@ -56,7 +55,7 @@ public class LuceneIndexValidator extends IndexValidator {
     }
 
     @VisibleForTesting
-    public static void validateIndexOptions(@Nonnull Index index, @Nonnull RecordMetaData recordMetaData) {
+    public static void validateIndexOptions(Index index, RecordMetaData recordMetaData) {
         validateAnalyzerNamePerFieldOption(LuceneIndexOptions.LUCENE_ANALYZER_NAME_PER_FIELD_OPTION, index);
         validateAnalyzerNamePerFieldOption(LuceneIndexOptions.AUTO_COMPLETE_ANALYZER_NAME_PER_FIELD_OPTION, index);
         validatePartitionOptions(index);
@@ -66,7 +65,7 @@ public class LuceneIndexValidator extends IndexValidator {
         }
     }
 
-    private static void validatePartitionOptions(@Nonnull Index index) {
+    private static void validatePartitionOptions(Index index) {
         String lowWatermarkOption = index.getOption(LuceneIndexOptions.INDEX_PARTITION_LOW_WATERMARK);
         String highWatermarkOption = index.getOption(LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK);
         Integer highWatermark = null;
@@ -113,7 +112,7 @@ public class LuceneIndexValidator extends IndexValidator {
         }
     }
 
-    private static void validateAnalyzerNamePerFieldOption(@Nonnull String optionKey, @Nonnull Index index) {
+    private static void validateAnalyzerNamePerFieldOption(String optionKey, Index index) {
         String analyzerNamePerFieldOption = index.getOption(optionKey);
         if (analyzerNamePerFieldOption != null) {
             LuceneIndexOptions.validateKeyValuePairOptionValue(analyzerNamePerFieldOption,

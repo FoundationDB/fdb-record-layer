@@ -59,4 +59,7 @@
  * @see com.apple.foundationdb.record.lucene.LuceneFunctionNames
  *
  */
+@NullMarked
 package com.apple.foundationdb.record.lucene;
+
+import org.jspecify.annotations.NullMarked;

@@ -48,8 +48,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -65,8 +64,8 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
     @Nullable
     private final List<KeyExpression> storedFields;
 
-    protected LuceneIndexQueryPlan(@Nonnull final PlanSerializationContext serializationContext,
-                                   @Nonnull final PLuceneIndexQueryPlan luceneIndexQueryPlanProto) {
+    protected LuceneIndexQueryPlan(final PlanSerializationContext serializationContext,
+                                   final PLuceneIndexQueryPlan luceneIndexQueryPlanProto) {
         super(serializationContext, Objects.requireNonNull(luceneIndexQueryPlanProto.getSuper()));
         this.planOrderingKey = null; // TODO
         Verify.verify(luceneIndexQueryPlanProto.hasHasStoredFields());
@@ -80,8 +79,8 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
         }
     }
 
-    protected LuceneIndexQueryPlan(@Nonnull String indexName, @Nonnull LuceneScanParameters scanParameters,
-                                   @Nonnull FetchIndexRecords fetchIndexRecords, boolean reverse,
+    protected LuceneIndexQueryPlan(String indexName, LuceneScanParameters scanParameters,
+                                   FetchIndexRecords fetchIndexRecords, boolean reverse,
                                    @Nullable PlanOrderingKey planOrderingKey, @Nullable List<KeyExpression> storedFields) {
         super(indexName, null, scanParameters, IndexFetchMethod.SCAN_AND_FETCH, fetchIndexRecords, reverse, false);
         this.planOrderingKey = planOrderingKey;
@@ -120,8 +119,7 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
         return resultBuilder.build();
     }
 
-    @Nonnull
-    private Set<Comparisons.Comparison> collectComparisons(@Nonnull final LuceneQueryClause queryClause) {
+    private Set<Comparisons.Comparison> collectComparisons(final LuceneQueryClause queryClause) {
         final var resultBuilder = ImmutableSet.<Comparisons.Comparison>builder();
 
         if (queryClause instanceof LuceneQueryFieldComparisonClause) {
@@ -147,8 +145,8 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public void getStoredFields(@Nonnull List<KeyExpression> keyFields, @Nonnull List<KeyExpression> nonStoredFields,
-                                @Nonnull List<KeyExpression> otherFields) {
+    public void getStoredFields(List<KeyExpression> keyFields, List<KeyExpression> nonStoredFields,
+                                List<KeyExpression> otherFields) {
         int i = 0;
         while (i < nonStoredFields.size()) {
             KeyExpression origField = nonStoredFields.get(i);
@@ -178,7 +176,7 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
 
     // Unwrap functions that are just annotations.
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private static KeyExpression removeLuceneAnnotations(@Nonnull KeyExpression field) {
+    private static KeyExpression removeLuceneAnnotations(KeyExpression field) {
         if (field instanceof NestingKeyExpression) {
             KeyExpression origChild = ((NestingKeyExpression)field).getChild();
             KeyExpression child = removeLuceneAnnotations(origChild);
@@ -220,17 +218,15 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
         return Objects.hash(super.computeHashCodeWithoutChildren(), planOrderingKey, storedFields);
     }
 
-    @Nonnull
     @Override
-    protected RecordQueryIndexPlan withIndexScanParameters(@Nonnull final IndexScanParameters newIndexScanParameters) {
+    protected RecordQueryIndexPlan withIndexScanParameters(final IndexScanParameters newIndexScanParameters) {
         Verify.verify(newIndexScanParameters instanceof LuceneScanParameters);
         Verify.verify(newIndexScanParameters.getScanType().equals(LuceneScanTypes.BY_LUCENE));
         return new LuceneIndexQueryPlan(getIndexName(), (LuceneScanParameters)newIndexScanParameters, getFetchIndexRecords(), reverse, planOrderingKey, storedFields);
     }
 
-    @Nonnull
-    public static LuceneIndexQueryPlan of(@Nonnull final String indexName, @Nonnull final LuceneScanParameters scanParameters,
-                                          @Nonnull final FetchIndexRecords fetchIndexRecords, final boolean reverse,
+    public static LuceneIndexQueryPlan of(final String indexName, final LuceneScanParameters scanParameters,
+                                          final FetchIndexRecords fetchIndexRecords, final boolean reverse,
                                           @Nullable final PlanOrderingKey planOrderingKey, @Nullable final List<KeyExpression> storedFields) {
         if (scanParameters.getScanType().equals(LuceneScanTypes.BY_LUCENE)) {
             return new LuceneIndexQueryPlan(indexName, scanParameters, fetchIndexRecords, reverse, planOrderingKey, storedFields);
@@ -240,7 +236,6 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
         throw new RecordCoreException("unknown lucene scan warranted by caller");
     }
 
-    @Nonnull
     @Override
     public ExplainTokensWithPrecedence explain() {
         return ExplainTokensWithPrecedence.of(
@@ -249,14 +244,12 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
                         .addOptionalWhitespace().addClosingParen());
     }
 
-    @Nonnull
     @Override
-    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public Message toProto(final PlanSerializationContext serializationContext) {
         return toLuceneIndexPlanProto(serializationContext);
     }
 
-    @Nonnull
-    public PLuceneIndexQueryPlan toLuceneIndexPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PLuceneIndexQueryPlan toLuceneIndexPlanProto(final PlanSerializationContext serializationContext) {
         final PLuceneIndexQueryPlan.Builder builder = PLuceneIndexQueryPlan.newBuilder()
                 .setSuper(toRecordQueryIndexPlanProto(serializationContext));
         builder.setHasStoredFields(storedFields != null);
@@ -269,19 +262,17 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder()
                 .setAdditionalPlans(PlanSerialization.protoObjectToAny(serializationContext,
                         toLuceneIndexPlanProto(serializationContext)))
                 .build();
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    public static LuceneIndexQueryPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                 @Nonnull final PLuceneIndexQueryPlan luceneIndexQueryPlanProto) {
+    public static LuceneIndexQueryPlan fromProto(final PlanSerializationContext serializationContext,
+                                                 final PLuceneIndexQueryPlan luceneIndexQueryPlanProto) {
         return new LuceneIndexQueryPlan(serializationContext, luceneIndexQueryPlanProto);
     }
 
@@ -290,16 +281,14 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PLuceneIndexQueryPlan, LuceneIndexQueryPlan> {
-        @Nonnull
         @Override
         public Class<PLuceneIndexQueryPlan> getProtoMessageClass() {
             return PLuceneIndexQueryPlan.class;
         }
 
-        @Nonnull
         @Override
-        public LuceneIndexQueryPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                              @Nonnull final PLuceneIndexQueryPlan luceneIndexQueryPlanProto) {
+        public LuceneIndexQueryPlan fromProto(final PlanSerializationContext serializationContext,
+                                              final PLuceneIndexQueryPlan luceneIndexQueryPlanProto) {
             return LuceneIndexQueryPlan.fromProto(serializationContext, luceneIndexQueryPlanProto);
         }
     }

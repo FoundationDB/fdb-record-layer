@@ -32,7 +32,6 @@ import com.google.common.collect.Maps;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -44,29 +43,25 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.UNSTABLE)
 public class LuceneBooleanQuery extends LuceneQueryClause {
-    @Nonnull
     private final List<LuceneQueryClause> children;
-    @Nonnull
     private final BooleanClause.Occur occur;
 
-    public LuceneBooleanQuery(@Nonnull LuceneQueryType queryType, @Nonnull List<LuceneQueryClause> children, @Nonnull BooleanClause.Occur occur) {
+    public LuceneBooleanQuery(LuceneQueryType queryType, List<LuceneQueryClause> children, BooleanClause.Occur occur) {
         super(queryType);
         this.children = children;
         this.occur = occur;
     }
 
-    @Nonnull
     protected List<LuceneQueryClause> getChildren() {
         return children;
     }
 
-    @Nonnull
     protected BooleanClause.Occur getOccur() {
         return occur;
     }
 
     @Override
-    public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+    public BoundQuery bind(FDBRecordStoreBase<?> store, Index index, EvaluationContext context) {
         BooleanQuery.Builder builder = new BooleanQuery.Builder();
         Map<String, Set<String>> highlightingTermsMap = null;
         for (LuceneQueryClause child : children) {
@@ -84,7 +79,7 @@ public class LuceneBooleanQuery extends LuceneQueryClause {
     }
 
     @Override
-    public void getPlannerGraphDetails(@Nonnull ImmutableList.Builder<String> detailsBuilder, @Nonnull ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
+    public void getPlannerGraphDetails(ImmutableList.Builder<String> detailsBuilder, ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
         detailsBuilder.add("occur: {{occur}}");
         attributeMapBuilder.put("occur", Attribute.gml(occur));
         for (LuceneQueryClause child : children) {
@@ -93,7 +88,7 @@ public class LuceneBooleanQuery extends LuceneQueryClause {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.iterablePlanHash(mode, children);
     }
 

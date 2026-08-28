@@ -61,8 +61,7 @@ import org.apache.lucene.index.IndexWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -91,20 +90,16 @@ import java.util.stream.Collectors;
 @API(API.Status.INTERNAL)
 public class FDBDirectoryManager implements AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDirectoryManager.class);
-    @Nonnull
     private final IndexMaintainerState state;
-    @Nonnull
     private final Map<Tuple, FDBDirectoryWrapper> createdDirectories;
     private final int mergeDirectoryCount;
-    @Nonnull
     protected final LuceneAnalyzerWrapper writerAnalyzer;
-    @Nonnull
     private final LuceneAnalyzerCombinationProvider analyzerSelector;
     @Nullable
     protected final Exception exceptionAtCreation;
     private boolean closed = false;
 
-    protected FDBDirectoryManager(@Nonnull IndexMaintainerState state) {
+    protected FDBDirectoryManager(IndexMaintainerState state) {
         this.state = state;
         this.createdDirectories = new ConcurrentHashMap<>();
         this.mergeDirectoryCount = getMergeDirectoryCount(state);
@@ -144,13 +139,12 @@ public class FDBDirectoryManager implements AutoCloseable {
         }
     }
 
-    @Nonnull
     public LuceneAnalyzerCombinationProvider getAnalyzerSelector() {
         return analyzerSelector;
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    public CompletableFuture<Void> mergeIndex(@Nonnull LucenePartitioner partitioner) {
+    public CompletableFuture<Void> mergeIndex(LucenePartitioner partitioner) {
         // This function will iterate the grouping keys and explicitly merge each
 
         final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(
@@ -195,7 +189,7 @@ public class FDBDirectoryManager implements AutoCloseable {
     }
 
     private CompletableFuture<Void> mergeIndex(Tuple groupingKey,
-                                               @Nonnull LucenePartitioner partitioner, final AgilityContext agileContext) {
+                                               LucenePartitioner partitioner, final AgilityContext agileContext) {
         // Note: We always flush before calls to `mergeIndexNow` because we won't come back to get the next partition
         // or group until after the merge which could be many seconds later, in which case the current transaction would
         // no longer be valid. It may make sense to have AgilityContext.Agile commit periodically regardless of activity
@@ -253,9 +247,9 @@ public class FDBDirectoryManager implements AutoCloseable {
                 });
     }
 
-    public void mergeIndexWithContext(@Nonnull final Tuple groupingKey,
+    public void mergeIndexWithContext(final Tuple groupingKey,
                                       @Nullable final Integer partitionId,
-                                      @Nonnull final AgilityContext agilityContext) {
+                                      final AgilityContext agilityContext) {
         try (FDBDirectoryWrapper directoryWrapper = createDirectoryWrapper(groupingKey, partitionId, agilityContext)) {
             try {
                 directoryWrapper.setOngoingMergeIndicator();
@@ -279,9 +273,9 @@ public class FDBDirectoryManager implements AutoCloseable {
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    public CompletableFuture<Void> drainPendingQueue(@Nonnull final Tuple groupingKey,
+    public CompletableFuture<Void> drainPendingQueue(final Tuple groupingKey,
                                                      @Nullable final Integer partitionId,
-                                                     @Nonnull final AgilityContext agilityContext) {
+                                                     final AgilityContext agilityContext) {
         final FDBDirectoryWrapper directoryWrapper = createDirectoryWrapper(groupingKey, partitionId, agilityContext);
         return directoryWrapper.drainPendingQueue(groupingKey, partitionId)
                 .whenComplete((v, e) -> {
@@ -329,11 +323,11 @@ public class FDBDirectoryManager implements AutoCloseable {
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    public static CompletableFuture<Optional<Tuple>> nextTuple(@Nonnull FDBRecordContext context,
-                                                               @Nonnull Subspace subspace,
-                                                               @Nonnull KeyRange range,
-                                                               @Nonnull Optional<Tuple> lastTuple,
-                                                               @Nonnull ScanProperties scanProperties,
+    public static CompletableFuture<Optional<Tuple>> nextTuple(FDBRecordContext context,
+                                                               Subspace subspace,
+                                                               KeyRange range,
+                                                               Optional<Tuple> lastTuple,
+                                                               ScanProperties scanProperties,
                                                                int groupingCount) {
         KeyValueCursor.Builder cursorBuilder =
                 KeyValueCursor.Builder.withSubspace(subspace)
@@ -366,7 +360,7 @@ public class FDBDirectoryManager implements AutoCloseable {
      * Invalidate directories from the cache if their grouping key begins with a specified prefix.
      * @param prefix the prefix of grouping keys to remove from the cache
      */
-    public void invalidatePrefix(@Nonnull Tuple prefix) {
+    public void invalidatePrefix(Tuple prefix) {
         final Iterator<Map.Entry<Tuple, FDBDirectoryWrapper>> iterator = createdDirectories.entrySet().iterator();
         while (iterator.hasNext()) {
             Map.Entry<Tuple, FDBDirectoryWrapper> item = iterator.next();
@@ -401,7 +395,7 @@ public class FDBDirectoryManager implements AutoCloseable {
         return createNewDirectoryWrapper(state, getDirectoryKey(groupingKey, partitionId), mergeDirectoryCount, agilityContext, getBlockCacheMaximumSize());
     }
 
-    protected @Nonnull FDBDirectoryWrapper createNewDirectoryWrapper(final IndexMaintainerState state, final Tuple key, final int mergeDirectoryCount, final AgilityContext agilityContext, final int blockCacheMaximumSize) {
+    protected FDBDirectoryWrapper createNewDirectoryWrapper(final IndexMaintainerState state, final Tuple key, final int mergeDirectoryCount, final AgilityContext agilityContext, final int blockCacheMaximumSize) {
         return new FDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext, blockCacheMaximumSize,
                 writerAnalyzer, exceptionAtCreation);
     }
@@ -447,7 +441,6 @@ public class FDBDirectoryManager implements AutoCloseable {
         }
     }
 
-    @Nonnull
     public FDBDirectory getDirectory(@Nullable Tuple groupingKey, @Nullable Integer partitionId) {
         return getDirectoryWrapper(groupingKey, partitionId).getDirectory();
     }
@@ -456,12 +449,10 @@ public class FDBDirectoryManager implements AutoCloseable {
         return getDirectoryWrapper(groupingKey, partitionId).getReader();
     }
 
-    @Nonnull
     public IndexWriter getIndexWriter(@Nullable Tuple groupingKey, @Nullable Integer partitionId) throws IOException {
         return getDirectoryWrapper(groupingKey, partitionId).getWriter();
     }
 
-    @Nonnull
     public IndexReader getIndexReaderWithReplayedQueue(@Nullable Tuple groupingKey, @Nullable Integer partitionId) throws IOException {
         return getDirectoryWrapper(groupingKey, partitionId).getIndexReaderWithReplayedQueue();
     }
@@ -474,13 +465,12 @@ public class FDBDirectoryManager implements AutoCloseable {
         return getDirectoryWrapper(groupingKey, partititonId).getWriterReader(refresh);
     }
 
-    @Nonnull
-    public static FDBDirectoryManager getManager(@Nonnull IndexMaintainerState state) {
+    public static FDBDirectoryManager getManager(IndexMaintainerState state) {
         return getOrCreateManager(state, () -> new FDBDirectoryManager(state));
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    protected static @Nonnull FDBDirectoryManager getOrCreateManager(final @Nonnull IndexMaintainerState state, Supplier<FDBDirectoryManager> managerSupplier) {
+    protected static FDBDirectoryManager getOrCreateManager(final IndexMaintainerState state, Supplier<FDBDirectoryManager> managerSupplier) {
         synchronized (state.context) {
             FDBRecordContext context = state.context;
             FDBDirectoryManager existing = context.getInSession(state.indexSubspace, FDBDirectoryManager.class);
@@ -522,7 +512,7 @@ public class FDBDirectoryManager implements AutoCloseable {
         }
     }
 
-    private int getMergeDirectoryCount(@Nonnull IndexMaintainerState state) {
+    private int getMergeDirectoryCount(IndexMaintainerState state) {
         return Math.toIntExact(state.store
                 .getRecordMetaData()
                 .getAllIndexes()

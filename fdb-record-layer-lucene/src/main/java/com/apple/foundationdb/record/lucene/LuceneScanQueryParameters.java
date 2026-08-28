@@ -48,8 +48,7 @@ import com.google.common.collect.ImmutableSet;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Sort;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -61,7 +60,6 @@ import java.util.Set;
 public class LuceneScanQueryParameters extends LuceneScanParameters implements PlanSerializable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Lucene-Scan-Query");
 
-    @Nonnull
     final LuceneQueryClause query;
     @Nullable
     final Sort sort;
@@ -74,8 +72,8 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
     final LuceneQueryHighlightParameters luceneQueryHighlightParameters;
 
     @SpotBugsSuppressWarnings("NP_STORE_INTO_NONNULL_FIELD") // TODO remove this once we have a proper implementation
-    protected LuceneScanQueryParameters(@Nonnull final PlanSerializationContext serializationContext,
-                                        @Nonnull final PLuceneScanQueryParameters luceneScanQueryParametersProto) {
+    protected LuceneScanQueryParameters(final PlanSerializationContext serializationContext,
+                                        final PLuceneScanQueryParameters luceneScanQueryParametersProto) {
         super(serializationContext, Objects.requireNonNull(luceneScanQueryParametersProto.getSuper()));
         // TODO replace stub by extracting info out of the proto
         //noinspection DataFlowIssue
@@ -86,11 +84,11 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
         this.luceneQueryHighlightParameters = null;
     }
 
-    public LuceneScanQueryParameters(@Nonnull ScanComparisons groupComparisons, @Nonnull LuceneQueryClause query) {
+    public LuceneScanQueryParameters(ScanComparisons groupComparisons, LuceneQueryClause query) {
         this(groupComparisons, query, null, null, null, null);
     }
 
-    public LuceneScanQueryParameters(@Nonnull ScanComparisons groupComparisons, @Nonnull LuceneQueryClause query,
+    public LuceneScanQueryParameters(ScanComparisons groupComparisons, LuceneQueryClause query,
                                      @Nullable Sort sort,
                                      @Nullable List<String> storedFields, @Nullable List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes,
                                      @Nullable LuceneQueryHighlightParameters luceneQueryHighlightParameters) {
@@ -102,7 +100,6 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
         this.luceneQueryHighlightParameters = luceneQueryHighlightParameters;
     }
 
-    @Nonnull
     public LuceneQueryClause getQuery() {
         return query;
     }
@@ -123,7 +120,7 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
     }
 
     @Override
-    public int planHash(@Nonnull PlanHashMode mode) {
+    public int planHash(PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(
                 mode,
                 BASE_HASH,
@@ -135,9 +132,8 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
                 storedFieldTypes);
     }
 
-    @Nonnull
     @Override
-    public LuceneScanQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+    public LuceneScanQuery bind(FDBRecordStoreBase<?> store, Index index, EvaluationContext context) {
         final LuceneQueryClause.BoundQuery boundQuery = query.bind(store, index, context);
         if (luceneQueryHighlightParameters != null) {
             luceneQueryHighlightParameters.query = boundQuery.getLuceneQuery();
@@ -147,14 +143,13 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
                 sort, storedFields, storedFieldTypes, luceneQueryHighlightParameters, boundQuery.getHighlightingTermsMap());
     }
 
-    @Nonnull
     @Override
     public ExplainTokensWithPrecedence explain() {
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString(getGroupScanDetails() + " " + query));
     }
 
     @Override
-    public void getPlannerGraphDetails(@Nonnull ImmutableList.Builder<String> detailsBuilder, @Nonnull ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
+    public void getPlannerGraphDetails(ImmutableList.Builder<String> detailsBuilder, ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
         super.getPlannerGraphDetails(detailsBuilder, attributeMapBuilder);
         query.getPlannerGraphDetails(detailsBuilder, attributeMapBuilder);
         if (sort != null) {
@@ -174,28 +169,25 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
         }
     }
 
-    @Nonnull
     @Override
-    public IndexScanParameters translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public IndexScanParameters translateCorrelations(final TranslationMap translationMap,
                                                      final boolean shouldSimplifyValues) {
         return this;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
-    public IndexScanParameters rebase(@Nonnull final AliasMap translationMap) {
+    public IndexScanParameters rebase(final AliasMap translationMap) {
         return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap), false);
     }
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
+    public boolean semanticEquals(@Nullable final Object other, final AliasMap aliasMap) {
         if (this == other) {
             return true;
         }
@@ -235,27 +227,24 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
         return semanticHashCode();
     }
 
-    @Nonnull
     @Override
-    public PLuceneScanQueryParameters toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PLuceneScanQueryParameters toProto(final PlanSerializationContext serializationContext) {
         // TODO replace stub
         return PLuceneScanQueryParameters.newBuilder()
                 .setSuper(toLuceneScanParametersProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PIndexScanParameters toIndexScanParametersProto(final PlanSerializationContext serializationContext) {
         return PIndexScanParameters.newBuilder()
                 .setAdditionalIndexScanParameters(PlanSerialization.protoObjectToAny(serializationContext, toProto(serializationContext)))
                 .build();
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    public static LuceneScanQueryParameters fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                      @Nonnull final PLuceneScanQueryParameters luceneScanQueryParametersProto) {
+    public static LuceneScanQueryParameters fromProto(final PlanSerializationContext serializationContext,
+                                                      final PLuceneScanQueryParameters luceneScanQueryParametersProto) {
         return new LuceneScanQueryParameters(serializationContext, luceneScanQueryParametersProto);
     }
 
@@ -309,16 +298,14 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PLuceneScanQueryParameters, LuceneScanQueryParameters> {
-        @Nonnull
         @Override
         public Class<PLuceneScanQueryParameters> getProtoMessageClass() {
             return PLuceneScanQueryParameters.class;
         }
 
-        @Nonnull
         @Override
-        public LuceneScanQueryParameters fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                   @Nonnull final PLuceneScanQueryParameters luceneScanQueryParametersProto) {
+        public LuceneScanQueryParameters fromProto(final PlanSerializationContext serializationContext,
+                                                   final PLuceneScanQueryParameters luceneScanQueryParametersProto) {
             return LuceneScanQueryParameters.fromProto(serializationContext, luceneScanQueryParametersProto);
         }
     }

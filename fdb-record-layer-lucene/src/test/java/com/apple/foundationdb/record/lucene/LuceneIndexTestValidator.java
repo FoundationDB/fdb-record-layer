@@ -47,8 +47,7 @@ import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -210,7 +209,6 @@ public class LuceneIndexTestValidator {
         }
     }
 
-    @Nonnull
     private Tuple validatePartition(final Tuple groupingKey, final int partitionLowWatermark, final int partitionHighWatermark,
                                     final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos, final int partitionIndex,
                                     final Set<Integer> usedPartitionIds, Tuple previousToTuple) {
@@ -227,7 +225,6 @@ public class LuceneIndexTestValidator {
         return lastToTuple;
     }
 
-    @Nonnull
     private static String partitionMessage(final Tuple groupingKey, final int partitionLowWatermark, final int partitionHighWatermark,
                                            final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos, final int partitionIndex) {
         final String allCounts = partitionInfos.stream()
@@ -287,7 +284,7 @@ public class LuceneIndexTestValidator {
         }
     }
 
-    boolean isPartitionCountWithinBounds(@Nonnull final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos,
+    boolean isPartitionCountWithinBounds(final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos,
                                          int currentPartitionIndex,
                                          int lowWatermark,
                                          int highWatermark) {
@@ -360,7 +357,6 @@ public class LuceneIndexTestValidator {
         return manager.getIndexReader(groupingKey, partitionId);
     }
 
-    @Nonnull
     private static FDBDirectoryManager getDirectoryManager(final FDBRecordStore recordStore, final Index index) {
         IndexMaintainerState state = new IndexMaintainerState(recordStore, index, recordStore.getIndexMaintenanceFilter());
         return FDBDirectoryManager.getManager(state);
@@ -382,11 +378,11 @@ public class LuceneIndexTestValidator {
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);
     }
 
-    public static void validatePrimaryKeySegmentIndex(@Nonnull FDBRecordStore recordStore,
-                                                      @Nonnull Index index,
-                                                      @Nonnull Tuple groupingKey,
+    public static void validatePrimaryKeySegmentIndex(FDBRecordStore recordStore,
+                                                      Index index,
+                                                      Tuple groupingKey,
                                                       @Nullable Integer partitionId,
-                                                      @Nonnull Set<Tuple> expectedPrimaryKeys,
+                                                      Set<Tuple> expectedPrimaryKeys,
                                                       final boolean allowDuplicates) throws IOException {
         final FDBDirectoryManager directoryManager = getDirectoryManager(recordStore, index);
         final LucenePrimaryKeySegmentIndex primaryKeySegmentIndex = directoryManager.getDirectory(groupingKey, partitionId)

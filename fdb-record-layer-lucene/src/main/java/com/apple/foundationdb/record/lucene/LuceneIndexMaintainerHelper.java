@@ -49,8 +49,7 @@ import org.apache.lucene.util.NumericUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -208,8 +207,7 @@ public final class LuceneIndexMaintainerHelper {
         newWriter.addDocument(document);
     }
 
-    @Nonnull
-    private static Map<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> getIndexOptionsToFieldsMap(@Nonnull List<LuceneDocumentFromRecord.DocumentField> fields) {
+    private static Map<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> getIndexOptionsToFieldsMap(List<LuceneDocumentFromRecord.DocumentField> fields) {
         final Map<IndexOptions, List<LuceneDocumentFromRecord.DocumentField>> map = new EnumMap<>(IndexOptions.class);
         fields.forEach(f -> {
             final IndexOptions indexOptions = getIndexOptions((String) Objects.requireNonNullElse(f.getConfig(LuceneFunctionNames.LUCENE_AUTO_COMPLETE_FIELD_INDEX_OPTIONS),
@@ -293,7 +291,7 @@ public final class LuceneIndexMaintainerHelper {
         return ft;
     }
 
-    private static IndexOptions getIndexOptions(@Nonnull String value) {
+    private static IndexOptions getIndexOptions(String value) {
         try {
             return IndexOptions.valueOf(value);
         } catch (IllegalArgumentException ex) {

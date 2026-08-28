@@ -52,8 +52,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -1147,12 +1146,10 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Nonnull
     private static LuceneIndexMaintainer getIndexMaintainer(FDBRecordStore store, Index index) {
         return (LuceneIndexMaintainer)store.getIndexMaintainer(index);
     }
 
-    @Nonnull
     public static Index complexPartitionedIndex(final Map<String, String> options) {
         return new Index("Complex$partitioned",
                 concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")),

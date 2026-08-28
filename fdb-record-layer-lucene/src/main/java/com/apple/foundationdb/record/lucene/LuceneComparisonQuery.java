@@ -28,8 +28,7 @@ import org.apache.lucene.search.QueryVisitor;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Weight;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.util.Objects;
 
@@ -43,9 +42,9 @@ public class LuceneComparisonQuery extends Query {
     private final Comparisons.Type comparisonType;
     private final Object comparand;
 
-    public LuceneComparisonQuery(@Nonnull final Query query,
-                                 @Nonnull final String fieldName,
-                                 @Nonnull final Comparisons.Type comparisonType,
+    public LuceneComparisonQuery(final Query query,
+                                 final String fieldName,
+                                 final Comparisons.Type comparisonType,
                                  @Nullable final Object comparand) {
         this.query = query;
         this.fieldName = fieldName;

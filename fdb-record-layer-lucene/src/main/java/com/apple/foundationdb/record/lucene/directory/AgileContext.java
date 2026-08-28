@@ -31,12 +31,13 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfi
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.StampedLock;
 import java.util.function.Consumer;
 import java.util.function.Function;
+
+import static com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig.Builder;
 
 /**
  * A floating window (agile) context - create sub contexts and commit them as they reach their time/size quota.
@@ -44,7 +45,7 @@ import java.util.function.Function;
 @API(API.Status.INTERNAL)
 public class AgileContext implements AgilityContext {
     static final Logger LOGGER = LoggerFactory.getLogger(AgileContext.class);
-    private final FDBRecordContextConfig.Builder contextConfigBuilder;
+    private final Builder contextConfigBuilder;
     private final FDBDatabase database;
     private final FDBRecordContext callerContext; // for counters updates only
 
@@ -70,7 +71,7 @@ public class AgileContext implements AgilityContext {
     private Throwable lastException = null;
 
     @SuppressWarnings("this-escape")
-    protected AgileContext(FDBRecordContext callerContext, @Nullable FDBRecordContextConfig.Builder contextBuilder, final long timeQuotaMillis, final long sizeQuotaBytes) {
+    protected AgileContext(FDBRecordContext callerContext, @Nullable Builder contextBuilder, final long timeQuotaMillis, final long sizeQuotaBytes) {
         this.callerContext = callerContext;
         contextConfigBuilder = contextBuilder != null ? contextBuilder : callerContext.getConfig().toBuilder();
         contextConfigBuilder.setWeakReadSemantics(null); // We don't want all the transactions to use the same read-version
@@ -97,7 +98,6 @@ public class AgileContext implements AgilityContext {
     }
 
     @Override
-    @Nonnull
     public FDBRecordContext getCallerContext() {
         return callerContext;
     }

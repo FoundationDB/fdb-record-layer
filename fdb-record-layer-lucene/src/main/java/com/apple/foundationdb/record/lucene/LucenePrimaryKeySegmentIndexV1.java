@@ -47,8 +47,7 @@ import org.apache.lucene.util.Bits;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
@@ -63,12 +62,10 @@ import java.util.stream.Collectors;
  */
 public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIndex {
     private static final Logger LOGGER = LoggerFactory.getLogger(LucenePrimaryKeySegmentIndexV1.class);
-    @Nonnull
     private final FDBDirectory directory;
-    @Nonnull
     private final Subspace subspace;
 
-    public LucenePrimaryKeySegmentIndexV1(@Nonnull FDBDirectory directory, @Nonnull Subspace subspace) {
+    public LucenePrimaryKeySegmentIndexV1(FDBDirectory directory, Subspace subspace) {
         this.directory = directory;
         this.subspace = subspace;
     }
@@ -115,7 +112,7 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
      */
     @Override
     @SuppressWarnings("PMD.CloseResource")
-    public List<String> findSegments(@Nonnull Tuple primaryKey) throws IOException {
+    public List<String> findSegments(Tuple primaryKey) throws IOException {
         try {
             return directory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY,
                     directory.getAgilityContext().apply(context -> {
@@ -142,7 +139,7 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
 
     @Override
     @Nullable
-    public DocumentIndexEntry findDocument(@Nonnull DirectoryReader directoryReader, @Nonnull Tuple primaryKey) throws IOException {
+    public DocumentIndexEntry findDocument(DirectoryReader directoryReader, Tuple primaryKey) throws IOException {
         try {
             final AtomicReference<DocumentIndexEntry> doc = new AtomicReference<>();
             directory.getAgilityContext().accept(aContext -> findDocument(aContext, doc, directoryReader, primaryKey));
@@ -153,7 +150,7 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
     }
 
     private void findDocument(FDBRecordContext aContext, AtomicReference<DocumentIndexEntry> doc,
-                              @Nonnull DirectoryReader directoryReader, @Nonnull Tuple primaryKey) {
+                              DirectoryReader directoryReader, Tuple primaryKey) {
         final SegmentInfos segmentInfos = ((StandardDirectoryReader)FilterDirectoryReader.unwrap(directoryReader)).getSegmentInfos();
         final Subspace keySubspace = subspace.subspace(primaryKey);
         try (KeyValueCursor kvs = KeyValueCursor.Builder.newBuilder(keySubspace)
@@ -196,22 +193,19 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
      * @return a wrapped writer
      * @throws IOException thrown by called methods
      */
-    @Nonnull
-    public StoredFieldsWriter wrapFieldsWriter(@Nonnull StoredFieldsWriter storedFieldsWriter, @Nonnull SegmentInfo si) throws IOException {
+    public StoredFieldsWriter wrapFieldsWriter(StoredFieldsWriter storedFieldsWriter, SegmentInfo si) throws IOException {
         final long segmentId = directory.primaryKeySegmentId(si.name, true);
         return new WrappedFieldsWriter(storedFieldsWriter, segmentId, si.name);
     }
 
     class WrappedFieldsWriter extends StoredFieldsWriter {
-        @Nonnull
         private final StoredFieldsWriter inner;
-        @Nonnull
         private final long segmentId;
         private final String segmentName;
 
         private int documentId;
 
-        WrappedFieldsWriter(@Nonnull StoredFieldsWriter inner, long segmentId, final String segmentName) {
+        WrappedFieldsWriter(StoredFieldsWriter inner, long segmentId, final String segmentName) {
             this.inner = inner;
             this.segmentId = segmentId;
             this.segmentName = segmentName;
@@ -305,7 +299,7 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
     }
 
     @Override
-    public void addOrDeletePrimaryKeyEntry(@Nonnull byte[] primaryKey, long segmentId, int docId, boolean add, String segmentName) {
+    public void addOrDeletePrimaryKeyEntry(byte[] primaryKey, long segmentId, int docId, boolean add, String segmentName) {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace("pkey " + (add ? "Adding" : "Deling") + " #" + segmentId + "(" + segmentName + ")" +  Tuple.fromBytes(primaryKey));
         }
