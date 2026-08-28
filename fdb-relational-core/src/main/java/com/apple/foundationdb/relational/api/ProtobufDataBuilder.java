@@ -30,7 +30,6 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.Locale;
 import java.util.Set;
@@ -99,7 +98,7 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
         }
     }
 
-    private DynamicMessageBuilder setFieldInternal(@Nonnull final Descriptors.FieldDescriptor field, Object value) throws RelationalException {
+    private DynamicMessageBuilder setFieldInternal(final Descriptors.FieldDescriptor field, Object value) throws RelationalException {
         data.setField(field, coerceObject(value, field));
         return this;
     }
@@ -136,8 +135,7 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
         }
     }
 
-    @Nonnull
-    private DynamicMessageBuilder addRepeatedFieldInternal(@Nonnull final Descriptors.FieldDescriptor field, Object value) throws RelationalException {
+    private DynamicMessageBuilder addRepeatedFieldInternal(final Descriptors.FieldDescriptor field, Object value) throws RelationalException {
         data.addRepeatedField(field, coerceObject(value, field));
         return this;
     }
@@ -228,7 +226,6 @@ public class ProtobufDataBuilder implements DynamicMessageBuilder {
         return typeDescriptor;
     }
 
-    @Nonnull
     @Override
     public DynamicMessageBuilder newBuilder() {
         return new ProtobufDataBuilder(typeDescriptor);

@@ -77,8 +77,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.net.URI;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -127,7 +127,6 @@ public class DdlStatementParsingTest {
             "integer", "bigint", "double", "boolean", "string", "bytes", "vector(3, float)", "vector(4, double)", "vector(5, half)"
     };
 
-    @Nonnull
     static Stream<List<String>> columnTypePermutations() {
         int numColumns = 2;
         final List<String> items = List.of(validPrimitiveDataTypes);
@@ -135,13 +134,12 @@ public class DdlStatementParsingTest {
         return PermutationIterator.generatePermutations(items, numColumns).stream();
     }
 
-    @Nonnull
     static Stream<Arguments> indexSyntaxAndColumnTypes() {
         return columnTypePermutations().flatMap(permutation -> Arrays.stream(DdlTestUtil.IndexSyntax.values())
                 .map(syntax -> Arguments.of(syntax, permutation)));
     }
 
-    void shouldFailWith(@Nonnull final String query, @Nullable final ErrorCode errorCode) throws Exception {
+    void shouldFailWith(final String query, @Nullable final ErrorCode errorCode) throws Exception {
         connection.setAutoCommit(false);
         (connection.getUnderlyingEmbeddedConnection()).createNewTransaction();
         final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
@@ -152,8 +150,8 @@ public class DdlStatementParsingTest {
         connection.setAutoCommit(true);
     }
 
-    void shouldFailWithInjectedFactory(@Nonnull final String query, @Nullable final ErrorCode errorCode,
-                                       @Nonnull final MetadataOperationsFactory metadataOperationsFactory) throws Exception {
+    void shouldFailWithInjectedFactory(final String query, @Nullable final ErrorCode errorCode,
+                                       final MetadataOperationsFactory metadataOperationsFactory) throws Exception {
         connection.setAutoCommit(false);
         (connection.getUnderlyingEmbeddedConnection()).createNewTransaction();
         final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
@@ -164,8 +162,8 @@ public class DdlStatementParsingTest {
         connection.setAutoCommit(true);
     }
 
-    void shouldWorkWithInjectedFactory(@Nonnull final String query,
-                                       @Nonnull final MetadataOperationsFactory metadataOperationsFactory) throws Exception {
+    void shouldWorkWithInjectedFactory(final String query,
+                                       final MetadataOperationsFactory metadataOperationsFactory) throws Exception {
         connection.setAutoCommit(false);
         (connection.getUnderlyingEmbeddedConnection()).createNewTransaction();
         final var transaction = connection.getUnderlyingEmbeddedConnection().getTransaction();
@@ -179,8 +177,8 @@ public class DdlStatementParsingTest {
         connection.setAutoCommit(true);
     }
 
-    void shouldFailWithInjectedQueryFactory(@Nonnull final String query, @Nullable ErrorCode errorCode,
-                                            @Nonnull final DdlQueryFactory queryFactory) throws Exception {
+    void shouldFailWithInjectedQueryFactory(final String query, @Nullable ErrorCode errorCode,
+                                            final DdlQueryFactory queryFactory) throws Exception {
         connection.setAutoCommit(false);
         (connection.getUnderlyingEmbeddedConnection()).createNewTransaction();
         final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
@@ -191,7 +189,7 @@ public class DdlStatementParsingTest {
         Assertions.assertEquals(errorCode, ve.getErrorCode());
     }
 
-    void shouldWorkWithInjectedQueryFactory(@Nonnull final String query, @Nonnull DdlQueryFactory queryFactory) throws Exception {
+    void shouldWorkWithInjectedQueryFactory(final String query, DdlQueryFactory queryFactory) throws Exception {
         connection.setAutoCommit(false);
         (connection.getUnderlyingEmbeddedConnection()).createNewTransaction();
         final var transaction = connection.getUnderlyingEmbeddedConnection().getTransaction();
@@ -204,8 +202,7 @@ public class DdlStatementParsingTest {
         connection.setAutoCommit(true);
     }
 
-    @Nonnull
-    private static DescriptorProtos.FileDescriptorProto getProtoDescriptor(@Nonnull final SchemaTemplate schemaTemplate) {
+    private static DescriptorProtos.FileDescriptorProto getProtoDescriptor(final SchemaTemplate schemaTemplate) {
         Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, schemaTemplate);
         final var asRecordLayerSchemaTemplate = (RecordLayerSchemaTemplate)schemaTemplate;
         return asRecordLayerSchemaTemplate.toRecordMetadata().toProto().getRecords();
@@ -259,9 +256,8 @@ public class DdlStatementParsingTest {
                 "CREATE TABLE my_table (id bigint, enum_field my_enum, PRIMARY KEY(id))";
 
         shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template, Options templateProperties) {
                 Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
                 Assertions.assertEquals(1, ((RecordLayerSchemaTemplate)template).getTables().size(), "should have only 1 table");
                 DescriptorProtos.FileDescriptorProto fileDescriptorProto = getProtoDescriptor(template);
@@ -296,14 +292,13 @@ public class DdlStatementParsingTest {
 
     @ParameterizedTest
     @MethodSource("typesMap")
-    void columnTypeWithNull(int sqlType, @Nonnull String sqlTypeName) throws Exception {
+    void columnTypeWithNull(int sqlType, String sqlTypeName) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
                 "CREATE TABLE bar (id bigint, foo_field " + sqlTypeName + " null, PRIMARY KEY(id))";
         shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template, @Nonnull final Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(final SchemaTemplate template, final Options templateProperties) {
                 checkColumnNullability(template, sqlType, true);
                 return txn -> {
                 };
@@ -313,15 +308,14 @@ public class DdlStatementParsingTest {
 
     @ParameterizedTest
     @MethodSource("typesMap")
-    void columnTypeWithNotNull(int sqlType, @Nonnull String sqlTypeName) throws Exception {
+    void columnTypeWithNotNull(int sqlType, String sqlTypeName) throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS STRUCT baz (a bigint, b bigint) " +
                 "CREATE TABLE bar (id bigint, foo_field " + sqlTypeName + " not null, PRIMARY KEY(id))";
         if (sqlType == Types.ARRAY) {
             shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
-                @Nonnull
                 @Override
-                public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template, @Nonnull final Options templateProperties) {
+                public ConstantAction getSaveSchemaTemplateConstantAction(final SchemaTemplate template, final Options templateProperties) {
                     checkColumnNullability(template, sqlType, false);
                     return txn -> {
                     };
@@ -350,10 +344,9 @@ public class DdlStatementParsingTest {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template ";
         boolean[] visited = new boolean[] {false};
         shouldFailWithInjectedFactory(stmt, ErrorCode.SYNTAX_ERROR, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                                                      Options templateProperties) {
                 Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
                 Assertions.assertEquals(0, ((RecordLayerSchemaTemplate)template).getTables().size(), "Tables defined!");
                 visited[0] = true;
@@ -369,10 +362,9 @@ public class DdlStatementParsingTest {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS STRUCT t (a bigint, b string, PRIMARY KEY(b))";
         shouldFailWithInjectedFactory(stmt, ErrorCode.SYNTAX_ERROR, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                                                      Options templateProperties) {
                 Assertions.fail("Should fail during parsing!");
                 return txn -> {
                 };
@@ -402,9 +394,8 @@ public class DdlStatementParsingTest {
                 "CREATE FUNCTION \"a.b$c__macro_function\"(in \"__in__4a.b$c__table\" TYPE \"__4a.b$c__table\") RETURNS string AS \"__in__4a.b$c__table\".\"__h__s\".\"_b.x\" ";
 
         shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template, @Nonnull final Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(final SchemaTemplate template, final Options templateProperties) {
                 try {
                     // Assert all the user-visible names look like the user identifiers in the schema
 
@@ -507,7 +498,6 @@ public class DdlStatementParsingTest {
         });
     }
 
-    @Nonnull
     private static Stream<Arguments> invalidVectorTypes() {
         return Stream.of(
                 // Zero dimensions
@@ -559,10 +549,9 @@ public class DdlStatementParsingTest {
                 "CREATE TYPE AS STRUCT FOO " + makeColumnDefinition(columns, false);
 
         shouldWorkWithInjectedFactory(templateStatement, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                                                      Options templateProperties) {
                 Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
                 Assertions.assertEquals(1, ((RecordLayerSchemaTemplate)template).getTables().size(), "Incorrect number of tables");
                 return txn -> {
@@ -579,10 +568,9 @@ public class DdlStatementParsingTest {
                 " CREATE TYPE AS STRUCT foo " + makeColumnDefinition(columns, false) +
                 " CREATE TABLE bar (col0 bigint, col1 foo, PRIMARY KEY(col0))";
         shouldWorkWithInjectedFactory(columnStatement, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                                                      Options templateProperties) {
                 Assertions.assertEquals("test_template", template.getName(), "incorrect template name!");
                 DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
@@ -606,10 +594,9 @@ public class DdlStatementParsingTest {
                 " CREATE TABLE bar (col0 bigint, col1 foo, PRIMARY KEY(col0)) " +
                 " WITH OPTIONS(store_row_versions=true) ";
         shouldWorkWithInjectedFactory(columnStatement, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                                                      Options templateProperties) {
                 Assertions.assertEquals("test_template", template.getName(), "incorrect template name!");
                 DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
@@ -635,10 +622,9 @@ public class DdlStatementParsingTest {
                 "CREATE TABLE foo " + baseTableDef;
 
         shouldWorkWithInjectedFactory(columnStatement, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                                                      Options templateProperties) {
                 Assertions.assertEquals("test_template", template.getName(), "incorrect template name!");
                 DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
@@ -664,10 +650,9 @@ public class DdlStatementParsingTest {
                 DdlTestUtil.generateIndexDdlStatement(indexSyntax, "foo_idx", List.of(new IndexedColumn("col1")), List.of(), "foo"); //duplicate with the same name  on same table should fail
 
         shouldFailWithInjectedFactory(columnStatement, ErrorCode.INDEX_ALREADY_EXISTS, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                                                      Options templateProperties) {
                 Assertions.fail("Should not call this!");
                 return txn -> {
                 };
@@ -685,10 +670,9 @@ public class DdlStatementParsingTest {
                 DdlTestUtil.generateIndexDdlStatement(indexSyntax, "v_idx", indexColumns.stream().map(IndexedColumn::new).collect(Collectors.toList()), List.of(), "tbl");
 
         shouldWorkWithInjectedFactory(templateStatement, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                                                      Options templateProperties) {
                 Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
                 Assertions.assertEquals(1, ((RecordLayerSchemaTemplate)template).getTables().size(), "Incorrect number of tables");
                 Table info = ((RecordLayerSchemaTemplate)template).getTables().stream().findFirst().orElseThrow();
@@ -732,10 +716,9 @@ public class DdlStatementParsingTest {
                 " CREATE TABLE tbl " + makeColumnDefinition(columns, true) +
                 DdlTestUtil.generateIndexDdlStatement(indexSyntax, "v_idx", indexedColumns.stream().map(IndexedColumn::new).collect(Collectors.toList()), unindexedColumns, "tbl");
         shouldWorkWithInjectedFactory(templateStatement, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                                                      Options templateProperties) {
                 Assertions.assertEquals(1, ((RecordLayerSchemaTemplate)template).getTables().size(), "Incorrect number of tables");
                 Table info = ((RecordLayerSchemaTemplate)template).getTables().stream().findFirst().orElseThrow();
                 Assertions.assertEquals(1, info.getIndexes().size(), "Incorrect number of indexes!");
@@ -783,10 +766,9 @@ public class DdlStatementParsingTest {
             templateStatement += " WITH OPTIONS (ENABLE_LONG_ROWS = " + enableLongRows + ")";
         }
         shouldWorkWithInjectedFactory(templateStatement, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                                                      Options templateProperties) {
                 if (enableLongRows == null || enableLongRows) {
                     Assertions.assertTrue(template.isEnableLongRows());
                 } else {
@@ -803,9 +785,8 @@ public class DdlStatementParsingTest {
         final String columnStatement = "DROP SCHEMA TEMPLATE test_template";
         boolean[] called = new boolean[] {false};
         shouldWorkWithInjectedFactory(columnStatement, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, boolean throwIfDoesNotExist, @Nonnull Options options) {
+            public ConstantAction getDropSchemaTemplateConstantAction(String templateId, boolean throwIfDoesNotExist, Options options) {
                 Assertions.assertEquals("test_template", templateId, "Incorrect schema template name!");
                 called[0] = true;
                 return txn -> {
@@ -820,9 +801,8 @@ public class DdlStatementParsingTest {
         final String command = "CREATE SCHEMA TEMPLATE no_types ;"; // parser rules design doesn't permit this case.
 
         shouldFailWithInjectedFactory(command, ErrorCode.SYNTAX_ERROR, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template, Options templateProperties) {
                 Assertions.fail("Should fail with a parser error");
                 return super.getSaveSchemaTemplateConstantAction(template, templateProperties);
             }
@@ -835,10 +815,9 @@ public class DdlStatementParsingTest {
         final String columnStatement = "CREATE SCHEMA TEMPLATE test_template CREATE TABLE foo " +
                 makeColumnDefinition(columns, true);
         shouldWorkWithInjectedFactory(columnStatement, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                                                      Options templateProperties) {
                 Assertions.assertEquals("test_template", template.getName(), "incorrect template name!");
                 DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
@@ -867,10 +846,9 @@ public class DdlStatementParsingTest {
                 tableDef;
 
         shouldWorkWithInjectedFactory(templateStatement, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                                                      Options templateProperties) {
                 Assertions.assertEquals("test_template", template.getName(), "incorrect template name!");
                 DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
@@ -892,9 +870,8 @@ public class DdlStatementParsingTest {
         final String command = "CREATE DATABASE /db_path";
 
         shouldWorkWithInjectedFactory(command, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull Options constantActionOptions) {
+            public ConstantAction getCreateDatabaseConstantAction(URI dbPath, Options constantActionOptions) {
                 Assertions.assertEquals(URI.create("/db_path"), dbPath, "Incorrect database path!");
                 return NoOpMetadataOperationsFactory.INSTANCE.getCreateDatabaseConstantAction(dbPath, constantActionOptions);
             }
@@ -906,9 +883,8 @@ public class DdlStatementParsingTest {
         final String command = "CREATE DATABASE not_a_path";
 
         shouldFailWithInjectedFactory(command, ErrorCode.INVALID_PATH, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull Options constantActionOptions) {
+            public ConstantAction getCreateDatabaseConstantAction(URI dbPath, Options constantActionOptions) {
                 Assertions.fail("We should not reach this point! We should throw a RelationalException instead");
                 return NoOpMetadataOperationsFactory.INSTANCE.getCreateDatabaseConstantAction(dbPath, constantActionOptions);
             }
@@ -920,9 +896,8 @@ public class DdlStatementParsingTest {
         final String command = "DROP DATABASE \"/db_path\"";
 
         shouldWorkWithInjectedFactory(command, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, boolean throwIfDoesNotExist, @Nonnull Options options) {
+            public ConstantAction getDropDatabaseConstantAction(URI dbUrl, boolean throwIfDoesNotExist, Options options) {
                 Assertions.assertEquals(URI.create("/db_path"), dbUrl, "Incorrect database path!");
                 return NoOpMetadataOperationsFactory.INSTANCE.getDropDatabaseConstantAction(dbUrl, throwIfDoesNotExist, options);
             }
@@ -934,9 +909,8 @@ public class DdlStatementParsingTest {
         final String command = "DROP DATABASE not_a_path";
 
         shouldFailWithInjectedFactory(command, ErrorCode.INVALID_PATH, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, boolean throwIfDoesNotExist, @Nonnull Options options) {
+            public ConstantAction getDropDatabaseConstantAction(URI dbUrl, boolean throwIfDoesNotExist, Options options) {
                 Assertions.fail("We should not reach this point! We should throw a RelationalException instead");
                 return NoOpMetadataOperationsFactory.INSTANCE.getCreateDatabaseConstantAction(dbUrl, options);
             }
@@ -950,7 +924,7 @@ public class DdlStatementParsingTest {
         boolean[] called = new boolean[] {false};
         shouldWorkWithInjectedQueryFactory(command, new AbstractQueryFactory() {
             @Override
-            public DdlQuery getListDatabasesQueryAction(@Nonnull URI prefixPath) {
+            public DdlQuery getListDatabasesQueryAction(URI prefixPath) {
                 called[0] = true;
                 Assertions.assertNotNull(prefixPath, "Null URI passed!");
                 Assertions.assertEquals(URI.create("/" + DdlStatementParsingTest.class.getSimpleName()), prefixPath, "incorrect root path specified!");
@@ -969,7 +943,7 @@ public class DdlStatementParsingTest {
         shouldWorkWithInjectedQueryFactory(command, new AbstractQueryFactory() {
 
             @Override
-            public DdlQuery getListDatabasesQueryAction(@Nonnull URI prefixPath) {
+            public DdlQuery getListDatabasesQueryAction(URI prefixPath) {
                 called[0] = true;
                 Assertions.assertNotNull(prefixPath, "Null URI passed!");
                 Assertions.assertEquals(URI.create("/PREFIX"), prefixPath, "incorrect prefixed path specified!");
@@ -987,7 +961,7 @@ public class DdlStatementParsingTest {
         boolean[] called = new boolean[] {false};
         shouldWorkWithInjectedQueryFactory(command, new AbstractQueryFactory() {
             @Override
-            public DdlQuery getListDatabasesQueryAction(@Nonnull URI prefixPath) {
+            public DdlQuery getListDatabasesQueryAction(URI prefixPath) {
                 Assertions.fail("Incorrectly called listSchemas!");
                 return DdlQuery.NoOpDdlQuery.INSTANCE;
             }
@@ -1021,7 +995,7 @@ public class DdlStatementParsingTest {
         boolean[] called = new boolean[] {false};
         shouldWorkWithInjectedQueryFactory("DESCRIBE SCHEMA TEMPLATE " + templateName, new AbstractQueryFactory() {
             @Override
-            public DdlQuery getDescribeSchemaTemplateQueryAction(@Nonnull String schemaId) {
+            public DdlQuery getDescribeSchemaTemplateQueryAction(String schemaId) {
                 called[0] = true;
                 Assertions.assertNotNull(schemaId, "Passed a null schema id!");
                 Assertions.assertEquals(templateName, schemaId, "Incorrect template name!");
@@ -1037,7 +1011,7 @@ public class DdlStatementParsingTest {
 
         shouldFailWithInjectedQueryFactory(query, ErrorCode.SYNTAX_ERROR, new AbstractQueryFactory() {
             @Override
-            public DdlQuery getDescribeSchemaTemplateQueryAction(@Nonnull String schemaId) {
+            public DdlQuery getDescribeSchemaTemplateQueryAction(String schemaId) {
                 Assertions.fail("Should not call the query!");
                 return DdlQuery.NoOpDdlQuery.INSTANCE;
             }
@@ -1050,7 +1024,7 @@ public class DdlStatementParsingTest {
 
         shouldFailWithInjectedQueryFactory(query, ErrorCode.SYNTAX_ERROR, new AbstractQueryFactory() {
             @Override
-            public DdlQuery getDescribeSchemaTemplateQueryAction(@Nonnull String schemaId) {
+            public DdlQuery getDescribeSchemaTemplateQueryAction(String schemaId) {
                 Assertions.fail("Should not call the query!");
                 return DdlQuery.NoOpDdlQuery.INSTANCE;
             }
@@ -1064,7 +1038,7 @@ public class DdlStatementParsingTest {
         boolean[] called = new boolean[] {false};
         shouldWorkWithInjectedQueryFactory("DESCRIBE SCHEMA " + templateName, new AbstractQueryFactory() {
             @Override
-            public DdlQuery getDescribeSchemaQueryAction(@Nonnull URI dbUri, @Nonnull String schemaId) {
+            public DdlQuery getDescribeSchemaQueryAction(URI dbUri, String schemaId) {
                 called[0] = true;
                 Assertions.assertNotNull(schemaId, "Passed a null schema id!");
                 Assertions.assertNotNull(dbUri, "Passed a null db id!");
@@ -1082,7 +1056,7 @@ public class DdlStatementParsingTest {
         boolean[] called = new boolean[] {false};
         shouldWorkWithInjectedQueryFactory("DESCRIBE SCHEMA " + "/test_db/" + templateName, new AbstractQueryFactory() {
             @Override
-            public DdlQuery getDescribeSchemaQueryAction(@Nonnull URI dbUri, @Nonnull String schemaId) {
+            public DdlQuery getDescribeSchemaQueryAction(URI dbUri, String schemaId) {
                 called[0] = true;
                 Assertions.assertNotNull(schemaId, "Passed a null schema id!");
                 Assertions.assertNotNull(dbUri, "Passed a null db id!");
@@ -1100,7 +1074,7 @@ public class DdlStatementParsingTest {
         boolean[] called = new boolean[] {false};
         shouldWorkWithInjectedQueryFactory("DESCRIBE SCHEMA " + templateName, new AbstractQueryFactory() {
             @Override
-            public DdlQuery getDescribeSchemaQueryAction(@Nonnull URI dbUri, @Nonnull String schemaId) {
+            public DdlQuery getDescribeSchemaQueryAction(URI dbUri, String schemaId) {
                 called[0] = true;
                 Assertions.assertNotNull(schemaId, "Passed a null schema id!");
                 Assertions.assertNotNull(dbUri, "Passed a null db id!");
@@ -1117,11 +1091,10 @@ public class DdlStatementParsingTest {
 
         boolean[] called = new boolean[] {false};
         shouldWorkWithInjectedFactory("CREATE SCHEMA /test_db/" + templateName + " WITH TEMPLATE " + templateName, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getCreateSchemaConstantAction(@Nonnull URI dbUri,
-                                                                @Nonnull String schemaName,
-                                                                @Nonnull String templateId,
+            public ConstantAction getCreateSchemaConstantAction(URI dbUri,
+                                                                String schemaName,
+                                                                String templateId,
                                                                 Options constantActionOptions) {
                 called[0] = true;
                 Assertions.assertNotNull(dbUri, "No database URI specified");
@@ -1141,10 +1114,9 @@ public class DdlStatementParsingTest {
                 "CREATE INDEX all_seen_uids_bitmap AS SELECT bitmap_construct_agg(bitmap_bit_position(uid)) FROM msgstate GROUP BY mboxRef, isSeen, bitmap_bucket_offset(uid)";
 
         shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                                                      Options templateProperties) {
                 return txn -> {
                 };
             }
@@ -1160,10 +1132,9 @@ public class DdlStatementParsingTest {
                 "CREATE VIEW v AS SELECT * FROM bar";
 
         shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                                                      Options templateProperties) {
                 final var viewMaybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("v"));
                 assertThat(viewMaybe).isPresent();
                 assertThat(Assert.optionalUnchecked(viewMaybe).getDescription()).isEqualTo("SELECT * FROM bar");
@@ -1183,10 +1154,9 @@ public class DdlStatementParsingTest {
                 "CREATE VIEW v2 AS SELECT * FROM v1";
 
         shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                                                      Options templateProperties) {
                 final var view1Maybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("v1"));
                 assertThat(view1Maybe).isPresent();
                 assertThat(Assert.optionalUnchecked(view1Maybe).getDescription()).isEqualTo("SELECT * FROM bar");
@@ -1221,7 +1191,7 @@ public class DdlStatementParsingTest {
 
         shouldFailWithInjectedQueryFactory(schemaStatement, ErrorCode.INVALID_SCHEMA_TEMPLATE, new AbstractQueryFactory() {
             @Override
-            public DdlQuery getDescribeSchemaTemplateQueryAction(@Nonnull String schemaId) {
+            public DdlQuery getDescribeSchemaTemplateQueryAction(String schemaId) {
                 Assertions.fail("Should not call the query!");
                 return DdlQuery.NoOpDdlQuery.INSTANCE;
             }
@@ -1239,7 +1209,7 @@ public class DdlStatementParsingTest {
 
         shouldFailWithInjectedQueryFactory(schemaStatement, ErrorCode.INVALID_SCHEMA_TEMPLATE, new AbstractQueryFactory() {
             @Override
-            public DdlQuery getDescribeSchemaTemplateQueryAction(@Nonnull String schemaId) {
+            public DdlQuery getDescribeSchemaTemplateQueryAction(String schemaId) {
                 Assertions.fail("Should not call the query!");
                 return DdlQuery.NoOpDdlQuery.INSTANCE;
             }
@@ -1256,7 +1226,7 @@ public class DdlStatementParsingTest {
 
         shouldFailWithInjectedQueryFactory(schemaStatement, ErrorCode.SYNTAX_ERROR, new AbstractQueryFactory() {
             @Override
-            public DdlQuery getDescribeSchemaTemplateQueryAction(@Nonnull String schemaId) {
+            public DdlQuery getDescribeSchemaTemplateQueryAction(String schemaId) {
                 Assertions.fail("Should not call the query!");
                 return DdlQuery.NoOpDdlQuery.INSTANCE;
             }
@@ -1283,10 +1253,9 @@ public class DdlStatementParsingTest {
                 "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) ";
 
         shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                                                      Options templateProperties) {
                 final var viewMaybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("v"));
                 assertThat(viewMaybe).isPresent();
                 assertThat(Assert.optionalUnchecked(viewMaybe).getDescription()).isEqualTo("WITH C1 AS (SELECT foo_field, id, baz_field FROM bar where id > 20) SELECT * FROM C1");
@@ -1305,10 +1274,9 @@ public class DdlStatementParsingTest {
                 "CREATE TABLE bar (id bigint, baz_field baz, foo_field foo, PRIMARY KEY(id)) ";
 
         shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                                                      Options templateProperties) {
                 final var viewMaybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("v"));
                 assertThat(viewMaybe).isPresent();
                 assertThat(Assert.optionalUnchecked(viewMaybe).getDescription()).isEqualTo("WITH C1 AS (WITH C2 AS (SELECT foo_field, id, baz_field FROM bar where id > 20) SELECT * FROM C2) SELECT * FROM C1");
@@ -1328,10 +1296,9 @@ public class DdlStatementParsingTest {
                 "CREATE VIEW v AS WITH C1 AS (WITH C2 AS (SELECT foo_field, id, baz_field FROM F1(20)) SELECT * FROM C2) SELECT * FROM C1 ";
 
         shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                                                      Options templateProperties) {
                 final var viewMaybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("v"));
                 assertThat(viewMaybe).isPresent();
                 assertThat(Assert.optionalUnchecked(viewMaybe).getDescription()).isEqualTo("WITH C1 AS (WITH C2 AS (SELECT foo_field, id, baz_field FROM F1(20)) SELECT * FROM C2) SELECT * FROM C1");
@@ -1354,7 +1321,7 @@ public class DdlStatementParsingTest {
 
         shouldFailWithInjectedQueryFactory(schemaStatement, ErrorCode.UNDEFINED_TABLE, new AbstractQueryFactory() {
             @Override
-            public DdlQuery getDescribeSchemaTemplateQueryAction(@Nonnull String schemaId) {
+            public DdlQuery getDescribeSchemaTemplateQueryAction(String schemaId) {
                 Assertions.fail("Should not call the query!");
                 return DdlQuery.NoOpDdlQuery.INSTANCE;
             }
@@ -1370,10 +1337,9 @@ public class DdlStatementParsingTest {
                 "CREATE TYPE AS STRUCT baz (a bigint, b bigint) ";
 
         shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                                                      Options templateProperties) {
                 final var viewMaybe = Assertions.assertDoesNotThrow(() -> template.findViewByName("v"));
                 assertThat(viewMaybe).isPresent();
                 assertThat(Assert.optionalUnchecked(viewMaybe).getDescription()).isEqualTo("SELECT * FROM bar");
@@ -1392,10 +1358,9 @@ public class DdlStatementParsingTest {
                 "CREATE INDEX i1 on bar(a, b) include (c)";
 
         shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                                                      Options templateProperties) {
                 final var tableMaybe = Assertions.assertDoesNotThrow(() -> template.findTableByName("bar"));
                 assertThat(tableMaybe).isPresent();
                 final var table = Assert.optionalUnchecked(tableMaybe);
@@ -1423,10 +1388,9 @@ public class DdlStatementParsingTest {
                 "CREATE INDEX i1 on v1(b, c)";
 
         shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                                                      Options templateProperties) {
                 final var tableMaybe = Assertions.assertDoesNotThrow(() -> template.findTableByName("bar"));
                 assertThat(tableMaybe).isPresent();
                 final var table = Assert.optionalUnchecked(tableMaybe);
@@ -1467,10 +1431,9 @@ public class DdlStatementParsingTest {
                 "CREATE INDEX i1 on v1(b, c)";
 
         shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                                                      Options templateProperties) {
                 final var tableMaybe = Assertions.assertDoesNotThrow(() -> template.findTableByName("bar"));
                 assertThat(tableMaybe).isPresent();
                 final var table = Assert.optionalUnchecked(tableMaybe);
@@ -1511,10 +1474,9 @@ public class DdlStatementParsingTest {
                 "CREATE INDEX i1 on v1(x desc nulls first, y asc nulls last)";
 
         shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                                                      Options templateProperties) {
                 final var tableMaybe = Assertions.assertDoesNotThrow(() -> template.findTableByName("bar"));
                 assertThat(tableMaybe).isPresent();
                 final var table = Assert.optionalUnchecked(tableMaybe);
@@ -1542,10 +1504,9 @@ public class DdlStatementParsingTest {
                 "CREATE INDEX i1 on mv1(x, p)";
 
         shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                                                      Options templateProperties) {
                 final var tableMaybe = Assertions.assertDoesNotThrow(() -> template.findTableByName("T"));
                 assertThat(tableMaybe).isPresent();
                 final var table = Assert.optionalUnchecked(tableMaybe);
@@ -1572,10 +1533,9 @@ public class DdlStatementParsingTest {
                 "CREATE INDEX mv1 AS SELECT SQ.x, t.p from T AS t, (select M.x from t.a AS M) SQ order by SQ.x, t.p ";
 
         shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                                                      Options templateProperties) {
                 final var tableMaybe = Assertions.assertDoesNotThrow(() -> template.findTableByName("T"));
                 assertThat(tableMaybe).isPresent();
                 final var table = Assert.optionalUnchecked(tableMaybe);
@@ -1603,10 +1563,9 @@ public class DdlStatementParsingTest {
                 "CREATE INDEX i1 on mv1(a, b) include (S)";
 
         shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                                                      Options templateProperties) {
                 final var tableMaybe = Assertions.assertDoesNotThrow(() -> template.findTableByName("T"));
                 assertThat(tableMaybe).isPresent();
                 final var table = Assert.optionalUnchecked(tableMaybe);
@@ -1624,8 +1583,7 @@ public class DdlStatementParsingTest {
         });
     }
 
-    @Nonnull
-    private static String makeColumnDefinition(@Nonnull final List<String> columns, boolean isTable) {
+    private static String makeColumnDefinition(final List<String> columns, boolean isTable) {
         StringBuilder columnStatement = new StringBuilder("(");
         int pos = 0;
         for (String col : columns) {
@@ -1642,8 +1600,7 @@ public class DdlStatementParsingTest {
         return columnStatement.append(")").toString();
     }
 
-    @Nonnull
-    private static List<String> chooseIndexColumns(@Nonnull final List<String> columns, @Nonnull final IntPredicate indexChoice) {
+    private static List<String> chooseIndexColumns(final List<String> columns, final IntPredicate indexChoice) {
         //choose every other column
         return IntStream.range(0, columns.size())
                 .filter(indexChoice)
@@ -1651,7 +1608,7 @@ public class DdlStatementParsingTest {
                 .collect(Collectors.toList());
     }
 
-    private static void assertColumnsMatch(@Nonnull final DdlTestUtil.ParsedType type, @Nonnull final List<String> expectedColumns) {
+    private static void assertColumnsMatch(final DdlTestUtil.ParsedType type, final List<String> expectedColumns) {
         Assertions.assertNotNull(type, "No type found!");
         List<String> columnStrings = type.getColumnStrings();
         List<String> expectedColStrings = IntStream.range(0, expectedColumns.size())
@@ -1660,7 +1617,7 @@ public class DdlStatementParsingTest {
         Assertions.assertEquals(expectedColStrings, columnStrings, "Incorrect columns for type <" + type.getName() + ">");
     }
 
-    private static void checkColumnNullability(@Nonnull final SchemaTemplate template, int sqlType, boolean isNullable) {
+    private static void checkColumnNullability(final SchemaTemplate template, int sqlType, boolean isNullable) {
         Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
         Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "should have only 1 table");
         final var table = ((RecordLayerSchemaTemplate) template).findTableByName("bar");
@@ -1677,8 +1634,7 @@ public class DdlStatementParsingTest {
         Assertions.assertEquals(sqlType, maybeNullableArrayColumn.get().getDataType().getJdbcSqlCode());
     }
 
-    @Nonnull
-    private static String replaceLast(@Nonnull final String str, final char oldChar, @Nonnull final String replacement) {
+    private static String replaceLast(final String str, final char oldChar, final String replacement) {
         if (str.isEmpty()) {
             return str;
         }

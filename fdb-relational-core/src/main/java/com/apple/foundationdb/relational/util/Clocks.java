@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.util;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -55,7 +54,7 @@ public final class Clocks {
      * @param ticker the underlying counter.
      * @return a clock which uses the underlying ticker to tell logical time.
      */
-    public static Clock logicalClock(@Nonnull AtomicLong ticker) {
+    public static Clock logicalClock(AtomicLong ticker) {
         return ticker::get;
     }
 }

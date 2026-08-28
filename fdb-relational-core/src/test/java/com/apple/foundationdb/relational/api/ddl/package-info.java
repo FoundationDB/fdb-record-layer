@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,7 @@
  * limitations under the License.
  */
 
-/**
- * The Relational Client API.
- *
- * Code in this package (and it's subpackages) is the code which should be used by clients as they interact
- * with the Relational system.
- */
 @NullMarked
-package com.apple.foundationdb.relational.api;
+package com.apple.foundationdb.relational.api.ddl;
 
 import org.jspecify.annotations.NullMarked;

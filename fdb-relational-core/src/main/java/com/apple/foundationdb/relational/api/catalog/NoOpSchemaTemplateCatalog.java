@@ -32,8 +32,6 @@ import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.metadata.NoOpSchemaTemplate;
 import com.apple.foundationdb.relational.transactionbound.catalog.HollowSchemaTemplateCatalog;
 
-import javax.annotation.Nonnull;
-
 /**
  * Implementation of Schema template catalog that ignores CRUD operations on templates. This is essentially used
  * to instantiate a store catalog object that ends up not caring about the schema template in the Schema.
@@ -50,27 +48,26 @@ import javax.annotation.Nonnull;
 public class NoOpSchemaTemplateCatalog extends HollowSchemaTemplateCatalog {
 
     @Override
-    public boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName, int version) {
+    public boolean doesSchemaTemplateExist(Transaction txn, String templateName, int version) {
         return true;
     }
 
     @Override
-    public boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName) {
+    public boolean doesSchemaTemplateExist(Transaction txn, String templateName) {
         return true;
     }
 
     @Override
-    public void createTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate newTemplate) {
+    public void createTemplate(Transaction txn, SchemaTemplate newTemplate) {
     }
 
-    @Nonnull
     @Override
-    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateId, int version) {
+    public SchemaTemplate loadSchemaTemplate(Transaction txn, String templateId, int version) {
         return new NoOpSchemaTemplate(templateId, version);
     }
 
     @Override
-    public RelationalResultSet listTemplates(@Nonnull Transaction txn) {
+    public RelationalResultSet listTemplates(Transaction txn) {
         return new AbstractRecordLayerResultSet(null) {
             @Override
             protected boolean hasNext() {
@@ -82,7 +79,6 @@ public class NoOpSchemaTemplateCatalog extends HollowSchemaTemplateCatalog {
                 return null;
             }
 
-            @Nonnull
             @Override
             public Continuation getContinuation() {
                 return ContinuationImpl.BEGIN;
@@ -100,11 +96,11 @@ public class NoOpSchemaTemplateCatalog extends HollowSchemaTemplateCatalog {
     }
 
     @Override
-    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateId, boolean throwIfDoesNotExist) {
+    public void deleteTemplate(Transaction txn, String templateId, boolean throwIfDoesNotExist) {
     }
 
     @Override
-    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateId, int version, boolean throwIfDoesNotExist) {
+    public void deleteTemplate(Transaction txn, String templateId, int version, boolean throwIfDoesNotExist) {
     }
 
 }

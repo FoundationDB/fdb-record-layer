@@ -31,7 +31,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 public class CatalogValidatorTest {
@@ -83,7 +82,6 @@ public class CatalogValidatorTest {
         Assertions.assertEquals("Field schema_version cannot be < 0!", exception.getMessage());
     }
 
-    @Nonnull
     private RecordLayerSchema generateGoodSchema() {
         return RecordLayerSchemaTemplate
                 .newBuilder()
@@ -105,7 +103,6 @@ public class CatalogValidatorTest {
                 .generateSchema("test_db", "test_schema");
     }
 
-    @Nonnull
     private RecordLayerSchema generateBadSchemaWithWrongVersion() {
         return RecordLayerSchemaTemplate
                 .newBuilder()
@@ -127,7 +124,6 @@ public class CatalogValidatorTest {
                 .generateSchema("test_db", "test_schema");
     }
 
-    @Nonnull
     private RecordLayerSchema generateBadSchemaWithEmptySchemaTemplateName() {
         return RecordLayerSchemaTemplate
                 .newBuilder()

@@ -38,8 +38,8 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.protobuf.DescriptorProtos;
 import org.assertj.core.api.Assertions;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -52,18 +52,16 @@ import java.util.stream.Collectors;
 
 public class DdlTestUtil {
 
-    @Nonnull
-    static PlanContext createVanillaPlanContext(@Nonnull final EmbeddedRelationalConnection connection,
-                                                @Nonnull final String schemaTemplateName,
-                                                @Nonnull final String databaseUri) throws RelationalException {
+    static PlanContext createVanillaPlanContext(final EmbeddedRelationalConnection connection,
+                                                final String schemaTemplateName,
+                                                final String databaseUri) throws RelationalException {
         return createVanillaPlanContext(connection, schemaTemplateName, databaseUri, PreparedParams.empty());
     }
 
-    @Nonnull
-    static PlanContext createVanillaPlanContext(@Nonnull final EmbeddedRelationalConnection connection,
-                                                @Nonnull final String schemaTemplateName,
-                                                @Nonnull final String databaseUri,
-                                                @Nonnull final PreparedParams preparedParams) throws RelationalException {
+    static PlanContext createVanillaPlanContext(final EmbeddedRelationalConnection connection,
+                                                final String schemaTemplateName,
+                                                final String databaseUri,
+                                                final PreparedParams preparedParams) throws RelationalException {
         final var schemaTemplate = connection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toBuilder()
                 .setVersion(1).setName(schemaTemplateName).build();
         RecordMetaDataProto.MetaData md = schemaTemplate.toRecordMetadata().toProto();
@@ -79,10 +77,9 @@ public class DdlTestUtil {
                 .build();
     }
 
-    @Nonnull
-    static PlanGenerator getPlanGenerator(@Nonnull final EmbeddedRelationalConnection embeddedConnection,
-                                          @Nonnull final String schemaTemplateName,
-                                          @Nonnull final String databaseUri) throws SQLException, RelationalException {
+    static PlanGenerator getPlanGenerator(final EmbeddedRelationalConnection embeddedConnection,
+                                          final String schemaTemplateName,
+                                          final String databaseUri) throws SQLException, RelationalException {
         final var planContext = createVanillaPlanContext(embeddedConnection, schemaTemplateName, databaseUri);
         final var storeState = new RecordStoreState(null, Map.of());
         try (var schema = embeddedConnection.getRecordLayerDatabase().loadSchema(embeddedConnection.getSchema())) {
@@ -91,30 +88,27 @@ public class DdlTestUtil {
         }
     }
 
-    @Nonnull
-    static PlanGenerator getPlanGenerator(@Nonnull final EmbeddedRelationalConnection embeddedConnection,
-                                          @Nonnull final String schemaTemplateName,
-                                          @Nonnull final String databaseUri,
-                                          @Nonnull final MetadataOperationsFactory metadataOperationsFactory) throws SQLException, RelationalException {
+    static PlanGenerator getPlanGenerator(final EmbeddedRelationalConnection embeddedConnection,
+                                          final String schemaTemplateName,
+                                          final String databaseUri,
+                                          final MetadataOperationsFactory metadataOperationsFactory) throws SQLException, RelationalException {
         return getPlanGenerator(embeddedConnection, schemaTemplateName, databaseUri, metadataOperationsFactory, PreparedParams.empty());
     }
 
-    @Nonnull
-    static PlanGenerator getPlanGenerator(@Nonnull final EmbeddedRelationalConnection embeddedConnection,
-                                          @Nonnull final String schemaTemplateName,
-                                          @Nonnull final String databaseUri,
-                                          @Nonnull final MetadataOperationsFactory metadataOperationsFactory,
-                                          @Nonnull final PreparedParams preparedParams) throws SQLException, RelationalException {
+    static PlanGenerator getPlanGenerator(final EmbeddedRelationalConnection embeddedConnection,
+                                          final String schemaTemplateName,
+                                          final String databaseUri,
+                                          final MetadataOperationsFactory metadataOperationsFactory,
+                                          final PreparedParams preparedParams) throws SQLException, RelationalException {
         return getPlanGenerator(embeddedConnection, schemaTemplateName, databaseUri, metadataOperationsFactory, preparedParams, Options.NONE);
     }
 
-    @Nonnull
-    static PlanGenerator getPlanGenerator(@Nonnull final EmbeddedRelationalConnection embeddedConnection,
-                                          @Nonnull final String schemaTemplateName,
-                                          @Nonnull final String databaseUri,
-                                          @Nonnull final MetadataOperationsFactory metadataOperationsFactory,
-                                          @Nonnull final PreparedParams preparedParams,
-                                          @Nonnull final Options options) throws SQLException, RelationalException {
+    static PlanGenerator getPlanGenerator(final EmbeddedRelationalConnection embeddedConnection,
+                                          final String schemaTemplateName,
+                                          final String databaseUri,
+                                          final MetadataOperationsFactory metadataOperationsFactory,
+                                          final PreparedParams preparedParams,
+                                          final Options options) throws SQLException, RelationalException {
         final var planContext = PlanContext.Builder.unapply(createVanillaPlanContext(embeddedConnection, schemaTemplateName, databaseUri, preparedParams))
                 .withConstantActionFactory(metadataOperationsFactory).build();
         final var storeState = new RecordStoreState(null, Map.of());
@@ -124,11 +118,10 @@ public class DdlTestUtil {
         }
     }
 
-    @Nonnull
-    static PlanGenerator getPlanGenerator(@Nonnull final EmbeddedRelationalConnection embeddedConnection,
-                                          @Nonnull final String schemaTemplateName,
-                                          @Nonnull final String databaseUri,
-                                          @Nonnull final DdlQueryFactory ddlQueryFactory) throws SQLException, RelationalException {
+    static PlanGenerator getPlanGenerator(final EmbeddedRelationalConnection embeddedConnection,
+                                          final String schemaTemplateName,
+                                          final String databaseUri,
+                                          final DdlQueryFactory ddlQueryFactory) throws SQLException, RelationalException {
         final var planContext = PlanContext.Builder.unapply(createVanillaPlanContext(embeddedConnection, schemaTemplateName, databaseUri))
                 .withDdlQueryFactory(ddlQueryFactory).build();
         final var storeState = new RecordStoreState(null, Map.of());
@@ -148,7 +141,6 @@ public class DdlTestUtil {
      */
     public static final class ParsedColumn {
 
-        @Nonnull
         private final DescriptorProtos.FieldDescriptorProto fieldDescriptor;
 
         /**
@@ -156,7 +148,7 @@ public class DdlTestUtil {
          *
          * @param fieldDescriptor the protobuf field descriptor to wrap
          */
-        public ParsedColumn(@Nonnull final DescriptorProtos.FieldDescriptorProto fieldDescriptor) {
+        public ParsedColumn(final DescriptorProtos.FieldDescriptorProto fieldDescriptor) {
             this.fieldDescriptor = fieldDescriptor;
         }
 
@@ -165,7 +157,6 @@ public class DdlTestUtil {
          *
          * @return the column name
          */
-        @Nonnull
         String getName() {
             return fieldDescriptor.getName();
         }
@@ -184,7 +175,6 @@ public class DdlTestUtil {
          * @return the SQL-compatible type string for this column
          * @throws IllegalStateException if an unexpected protobuf type or vector precision is encountered
          */
-        @Nonnull
         String getType() {
             String type = "";
             if (fieldDescriptor.hasTypeName() && !fieldDescriptor.getTypeName().isEmpty()) {
@@ -257,10 +247,8 @@ public class DdlTestUtil {
      */
     public static class ParsedType {
 
-        @Nonnull
         private final DescriptorProtos.DescriptorProto descriptor;
 
-        @Nonnull
         private final List<ParsedColumn> columns;
 
         /**
@@ -268,7 +256,7 @@ public class DdlTestUtil {
          *
          * @param descriptor the protobuf descriptor representing this type
          */
-        ParsedType(@Nonnull final DescriptorProtos.DescriptorProto descriptor) {
+        ParsedType(final DescriptorProtos.DescriptorProto descriptor) {
             this.descriptor = descriptor;
             this.columns = parseColumns();
         }
@@ -278,7 +266,6 @@ public class DdlTestUtil {
          *
          * @return the type name
          */
-        @Nonnull
         String getName() {
             return descriptor.getName();
         }
@@ -288,12 +275,10 @@ public class DdlTestUtil {
          *
          * @return the list of parsed columns
          */
-        @Nonnull
         List<ParsedColumn> getColumns() {
             return columns;
         }
 
-        @Nonnull
         private List<ParsedColumn> parseColumns() {
             List<ParsedColumn> cols = new ArrayList<>(descriptor.getFieldCount());
             for (DescriptorProtos.FieldDescriptorProto field :descriptor.getFieldList()) {
@@ -347,13 +332,10 @@ public class DdlTestUtil {
      */
     public static final class ParsedSchema {
 
-        @Nonnull
         private final DescriptorProtos.FileDescriptorProto schemaDescriptor;
 
-        @Nonnull
         private List<ParsedTable> tables;
 
-        @Nonnull
         private List<ParsedType> types;
 
         /**
@@ -364,7 +346,7 @@ public class DdlTestUtil {
          *
          * @param schemaDescriptor the protobuf file descriptor representing the schema
          */
-        ParsedSchema(@Nonnull final DescriptorProtos.FileDescriptorProto schemaDescriptor) {
+        ParsedSchema(final DescriptorProtos.FileDescriptorProto schemaDescriptor) {
             this.schemaDescriptor = schemaDescriptor;
 
             buildTypesAndTables();
@@ -375,7 +357,6 @@ public class DdlTestUtil {
          *
          * @return the list of parsed tables
          */
-        @Nonnull
         List<ParsedTable> getTables() {
             return tables;
         }
@@ -385,7 +366,6 @@ public class DdlTestUtil {
          *
          * @return the list of parsed types
          */
-        @Nonnull
         List<ParsedType> getTypes() {
             return types;
         }
@@ -423,9 +403,8 @@ public class DdlTestUtil {
          * @param typeName the name of the type to find
          * @return the ParsedType if found, null otherwise
          */
-        @Nonnull
         @SuppressWarnings("DataFlowIssue")
-        ParsedType getType(@Nonnull final String typeName) {
+        ParsedType getType(final String typeName) {
             for (final ParsedType parsedType : types) {
                 if (parsedType.getName().equals(typeName)) {
                     return parsedType;
@@ -441,9 +420,8 @@ public class DdlTestUtil {
          * @param tableName the name of the table to find
          * @return the ParsedType representing the table if found, null otherwise
          */
-        @Nonnull
         @SuppressWarnings("DataFlowIssue")
-        ParsedType getTable(@Nonnull final String tableName) {
+        ParsedType getTable(final String tableName) {
             for (final ParsedType table : tables) {
                 if (table.getName().equals(tableName)) {
                     return table;
@@ -483,10 +461,9 @@ public class DdlTestUtil {
         }
     }
 
-    @Nonnull
-    static String generateIndexDdlStatement(@Nonnull final IndexSyntax indexSyntax, @Nonnull final String indexName,
-                                            @Nonnull final List<IndexedColumn> indexedColumns, @Nonnull final List<String> includedColumns,
-                                            @Nonnull final String tableName) {
+    static String generateIndexDdlStatement(final IndexSyntax indexSyntax, final String indexName,
+                                            final List<IndexedColumn> indexedColumns, final List<String> includedColumns,
+                                            final String tableName) {
         final var indexedColumnsString = indexedColumns.stream().map(IndexedColumn::toString).collect(Collectors.joining(","));
         final var includedColumnsString = String.join(",", includedColumns);
         if (indexSyntax == IndexSyntax.INDEX_AS_SYNTAX) {

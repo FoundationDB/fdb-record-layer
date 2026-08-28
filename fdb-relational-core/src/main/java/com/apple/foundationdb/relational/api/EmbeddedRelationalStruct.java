@@ -24,8 +24,8 @@ import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -101,13 +101,13 @@ public interface EmbeddedRelationalStruct extends RelationalStruct {
         }
 
         @Override
-        public Builder addStruct(String fieldName, @Nonnull RelationalStruct struct) throws SQLException {
+        public Builder addStruct(String fieldName, RelationalStruct struct) throws SQLException {
             addField(fieldName, struct.getMetaData().getRelationalDataType(), struct);
             return this;
         }
 
         @Override
-        public Builder addArray(String fieldName, @Nonnull RelationalArray array) throws SQLException {
+        public Builder addArray(String fieldName, RelationalArray array) throws SQLException {
             addField(fieldName, array.getMetaData().asRelationalType(), array);
             return this;
         }
@@ -117,7 +117,7 @@ public interface EmbeddedRelationalStruct extends RelationalStruct {
             return addField(fieldName, DataType.Primitives.INTEGER.type(), i);
         }
 
-        private Builder addField(@Nonnull String fieldName, @Nonnull DataType type, @Nullable Object o) {
+        private Builder addField(String fieldName, DataType type, @Nullable Object o) {
             fields.add(DataType.StructType.Field.from(fieldName, type, fields.size() + 1));
             elements.add(o);
             return this;

@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 
 /**
@@ -31,11 +30,11 @@ import java.net.URI;
  */
 public interface DdlQueryFactory {
 
-    DdlQuery getListDatabasesQueryAction(@Nonnull URI prefixPath);
+    DdlQuery getListDatabasesQueryAction(URI prefixPath);
 
     DdlQuery getListSchemaTemplatesQueryAction();
 
-    DdlQuery getDescribeSchemaTemplateQueryAction(@Nonnull String schemaId);
+    DdlQuery getDescribeSchemaTemplateQueryAction(String schemaId);
 
-    DdlQuery getDescribeSchemaQueryAction(@Nonnull URI dbId, @Nonnull String schemaId);
+    DdlQuery getDescribeSchemaQueryAction(URI dbId, String schemaId);
 }
