@@ -21,4 +21,7 @@
 /**
  * Highlighting of matched terms found in using record-layer lucene integration.
  */
+@NullMarked
 package com.apple.foundationdb.record.lucene.highlight;
+
+import org.jspecify.annotations.NullMarked;

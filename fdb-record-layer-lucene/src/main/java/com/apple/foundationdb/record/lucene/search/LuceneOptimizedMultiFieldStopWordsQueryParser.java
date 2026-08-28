@@ -27,7 +27,6 @@ import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.Query;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 
 /**
@@ -42,10 +41,9 @@ import java.util.Map;
  */
 @SuppressWarnings({"java:S110"})
 public class LuceneOptimizedMultiFieldStopWordsQueryParser extends LuceneOptimizedMultiFieldQueryParser {
-    @Nonnull
     private final CharArraySet stopWords;
 
-    public LuceneOptimizedMultiFieldStopWordsQueryParser(final String[] fields, final Analyzer analyzer, @Nonnull final Map<String, PointsConfig> pointsConfig, @Nonnull CharArraySet stopWords) {
+    public LuceneOptimizedMultiFieldStopWordsQueryParser(final String[] fields, final Analyzer analyzer, final Map<String, PointsConfig> pointsConfig, CharArraySet stopWords) {
         super(fields, analyzer, pointsConfig);
         this.stopWords = stopWords;
     }

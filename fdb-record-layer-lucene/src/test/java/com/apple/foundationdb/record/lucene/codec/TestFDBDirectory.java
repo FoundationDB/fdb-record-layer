@@ -39,9 +39,8 @@ import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
 import org.hamcrest.Matchers;
 import org.junit.Assert;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -131,9 +130,8 @@ public class TestFDBDirectory extends FDBDirectory {
         previousStoredFields.set(null);
     }
 
-    @Nonnull
     @Override
-    public IndexInput openInput(@Nonnull final String name, @Nonnull final IOContext ioContext) throws IOException {
+    public IndexInput openInput(final String name, final IOContext ioContext) throws IOException {
         final IndexInput indexInput = super.openInput(name, ioContext);
         if (fullBufferToSurviveDeletes) {
             assertThat("Avoid buffering more than 10MB",
@@ -178,9 +176,8 @@ public class TestFDBDirectory extends FDBDirectory {
         return indexInput;
     }
 
-    @Nonnull
     @Override
-    public IndexOutput createOutput(@Nonnull final String name, @Nullable final IOContext ioContext) throws IOException {
+    public IndexOutput createOutput(final String name, @Nullable final IOContext ioContext) throws IOException {
         final IndexOutput indexOutput = super.createOutput(name, ioContext);
         if (allowAddIndexes) {
             if (isStacktraceCopySegmentAsIs()) {

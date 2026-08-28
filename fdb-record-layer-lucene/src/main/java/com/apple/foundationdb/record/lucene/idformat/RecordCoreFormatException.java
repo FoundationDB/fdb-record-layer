@@ -23,8 +23,6 @@ package com.apple.foundationdb.record.lucene.idformat;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 
-import javax.annotation.Nonnull;
-
 /**
  * Exception thrown when encountering issues serializing IDs using {@link LuceneIndexKeySerializer}.
  */
@@ -32,11 +30,11 @@ import javax.annotation.Nonnull;
 public class RecordCoreFormatException extends RecordCoreException {
     private static final long serialVersionUID = 1;
 
-    public RecordCoreFormatException(@Nonnull String msg, @Nonnull Object... keyValue) {
+    public RecordCoreFormatException(String msg, Object... keyValue) {
         super(msg, keyValue);
     }
 
-    public RecordCoreFormatException(@Nonnull String msg, @Nonnull Throwable cause) {
+    public RecordCoreFormatException(String msg, Throwable cause) {
         super(msg, cause);
     }
 }

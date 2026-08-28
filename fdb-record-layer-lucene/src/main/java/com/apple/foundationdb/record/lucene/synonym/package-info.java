@@ -21,4 +21,7 @@
 /**
  * Common classes for lucene's synonym tokenizing.
  */
+@NullMarked
 package com.apple.foundationdb.record.lucene.synonym;
+
+import org.jspecify.annotations.NullMarked;

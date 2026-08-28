@@ -41,7 +41,6 @@ import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.ThreadInterruptedException;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -174,14 +173,12 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
      */
     private static class WrapperException extends RuntimeException {
         private static final long serialVersionUID = 1L;
-        @Nonnull
         private final IOException ioe;
 
-        WrapperException(@Nonnull final IOException ioe) {
+        WrapperException(final IOException ioe) {
             this.ioe = ioe;
         }
 
-        @Nonnull
         public IOException unwrap() {
             return ioe;
         }
@@ -203,9 +200,8 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
      * caught and ignored. For more information about this please have a look at the implementation of the above method,
      * and read the documentation of {@link CollectionTerminatedException}.
      */
-    @Nonnull
     @SuppressWarnings({"PMD.EmptyCatchBlock"})
-    private <C extends Collector> CompletableFuture<C> searchOptimized(@Nonnull final Executor executor, @Nonnull final Weight weight, @Nonnull final List<LeafReaderContext> leaves, @Nonnull final C collector) {
+    private <C extends Collector> CompletableFuture<C> searchOptimized(final Executor executor, final Weight weight, final List<LeafReaderContext> leaves, final C collector) {
         // 1. spawn a list of parallel tasks that interact with the DB for better throughput.
         final List<CompletableFuture<Pair<LeafReaderContext, Pair<LeafCollector, BulkScorer>>>> dependencies = leaves.stream().map(ctx -> CompletableFuture.supplyAsync(() -> {
             try {

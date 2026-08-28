@@ -24,8 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import org.apache.lucene.analysis.synonym.SynonymMap;
 
-import javax.annotation.Nonnull;
-
 /**
  * Registry for {@link SynonymAnalyzer}s.
  */
@@ -38,6 +36,5 @@ public interface SynonymMapRegistry {
      * @return the analyzer over the given set of synonyms
      * @throws MetaDataException if no such tokenizer exists
      */
-    @Nonnull
-    SynonymMap getSynonymMap(@Nonnull String name);
+    SynonymMap getSynonymMap(String name);
 }

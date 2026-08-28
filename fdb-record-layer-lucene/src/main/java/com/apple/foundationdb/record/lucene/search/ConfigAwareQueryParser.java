@@ -37,7 +37,6 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.spans.SpanNearQuery;
 import org.apache.lucene.search.spans.SpanQuery;
 
-import javax.annotation.Nonnull;
 import java.text.NumberFormat;
 import java.util.Map;
 import java.util.Objects;
@@ -48,17 +47,13 @@ import java.util.Objects;
  */
 public interface ConfigAwareQueryParser {
 
-    @Nonnull
     Map<String, PointsConfig> getPointsConfig();
 
-    @Nonnull
     Query constructFieldWithoutPointsConfig(String field, String queryText, boolean quoted) throws ParseException;
 
-    @Nonnull
     Token nextToken();
 
     @SuppressWarnings("PMD.PreserveStackTrace") //it isn't possible with Lucene's exception API
-    @Nonnull
     default Query attemptConstructFieldQueryWithPointsConfig(final String field, String queryText, final boolean quoted) throws ParseException {
         final var pointsConfig = getPointsConfig();
         PointsConfig cfg = pointsConfig.get(field);
@@ -107,9 +102,8 @@ public interface ConfigAwareQueryParser {
         }
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.PreserveStackTrace") //it isn't possible with Lucene's exception API
-    private Query constructBitSetQuery(@Nonnull final String field) throws ParseException {
+    private Query constructBitSetQuery(final String field) throws ParseException {
         //look for the next token
         if (!"(".equals(nextToken().toString())) {
             throw new ParseException("Missing ( from BITSET_CONTAINS");
@@ -136,7 +130,6 @@ public interface ConfigAwareQueryParser {
         return new BitSetQuery(field, bitMask);
     }
 
-    @Nonnull
     Query constructRangeQueryWithoutPointsConfig(String field,
                                                  String part1,
                                                  String part2,
@@ -144,7 +137,6 @@ public interface ConfigAwareQueryParser {
                                                  boolean endInclusive) throws ParseException;
 
     @SuppressWarnings("PMD.PreserveStackTrace") //it isn't possible with Lucene's exception API
-    @Nonnull
     default Query attemptConstructRangeQueryWithPointsConfig(final String field,
                                                              final String part1,
                                                              final String part2,
@@ -193,7 +185,6 @@ public interface ConfigAwareQueryParser {
     }
 
     @SpotBugsSuppressWarnings(value = "FE_FLOATING_POINT_EQUALITY", justification = "Floating point values are special sentinel values")
-    @Nonnull
     private Query newFloatRangeQuery(final String field, final boolean startInclusive, final boolean endInclusive, final Number start, final Number end) throws ParseException {
         float s = start.floatValue();
         float e = end.floatValue();
@@ -222,7 +213,6 @@ public interface ConfigAwareQueryParser {
     }
 
     @SpotBugsSuppressWarnings(value = "FE_FLOATING_POINT_EQUALITY", justification = "Floating point values are special sentinel values")
-    @Nonnull
     private Query newDoubleRangeQuery(final String field, final boolean startInclusive, final boolean endInclusive, final Number start, final Number end) throws ParseException {
         double s = start.doubleValue();
         double e = end.doubleValue();
@@ -249,7 +239,6 @@ public interface ConfigAwareQueryParser {
         return DoublePoint.newRangeQuery(field, s, e);
     }
 
-    @Nonnull
     private Query newLongRangeQuery(final String field, final boolean startInclusive, final boolean endInclusive, final Number start, final Number end) throws ParseException {
         long s = start.longValue();
         long e = end.longValue();
@@ -286,7 +275,6 @@ public interface ConfigAwareQueryParser {
         return LongPoint.newRangeQuery(field, s, e);
     }
 
-    @Nonnull
     private Query newIntegerRangeQuery(final String field, final boolean startInclusive, final boolean endInclusive, final Number start, final Number end) throws ParseException {
         int s = start.intValue();
         int e = end.intValue();
@@ -313,7 +301,6 @@ public interface ConfigAwareQueryParser {
         return IntPoint.newRangeQuery(field, s, e);
     }
 
-    @Nonnull
     default Query addSlop(Query q, int slop) {
         if (q instanceof PhraseQuery) {
             PhraseQuery.Builder builder = new PhraseQuery.Builder();

@@ -40,9 +40,8 @@ import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -79,7 +78,6 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
     }
 
     @VisibleForTesting
-    @Nonnull
     public FieldInfos read(final Directory directory, final String fileName) throws IOException {
         final FieldInfosStorage fieldInfosStorage = FDBDirectoryUtils.getFDBDirectory(directory).getFieldInfosStorage();
         final FDBLuceneFileReference fileReference = fieldInfosStorage.getFDBLuceneFileReference(fileName);
@@ -198,8 +196,8 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
         fieldInfosStorage.setFieldInfoId(directory, fileName, id, bitSet);
     }
 
-    private boolean sameExceptAttributesOrdering(@Nonnull final LuceneFieldInfosProto.FieldInfo globalVersion,
-                                                 @Nonnull final LuceneFieldInfosProto.FieldInfo newVersion) {
+    private boolean sameExceptAttributesOrdering(final LuceneFieldInfosProto.FieldInfo globalVersion,
+                                                 final LuceneFieldInfosProto.FieldInfo newVersion) {
         if (protoToLucene(globalVersion.getAttributesList()).equals(protoToLucene(newVersion.getAttributesList()))) {
             // the only difference between this version and the new version is the ordering of the attributes
             return globalVersion.toBuilder().clearAttributes().build().equals(
@@ -317,7 +315,6 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
         }
     }
 
-    @Nonnull
     private static <T extends Enum<T>> RecordCoreException unexpectedEnumValue(final T enumValue) {
         return new RecordCoreException("Unexpected enum value")
                 .addLogInfo(LuceneLogMessageKeys.NAME, enumValue);
