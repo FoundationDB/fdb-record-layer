@@ -22,8 +22,7 @@ package com.apple.foundationdb.map;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.subspace.Subspace;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An interface to split a raw FoundationDB key into a subspace and (possibly) a
@@ -53,8 +52,7 @@ public interface SubspaceSplitter<T> {
      * @param keyBytes the raw bytes of some FoundationDB key
      * @return a {@link Subspace} that contains <code>keyBytes</code>
      */
-    @Nonnull
-    Subspace subspaceOf(@Nonnull byte[] keyBytes);
+    Subspace subspaceOf(byte[] keyBytes);
 
     /**
      * Compute and return some application-specific "tag" for
@@ -77,7 +75,7 @@ public interface SubspaceSplitter<T> {
      * @return some tag to associate with the provided subspace.
      */
     @Nullable
-    default T subspaceTag(@Nonnull Subspace subspace) {
+    default T subspaceTag(Subspace subspace) {
         return null;
     }
 }

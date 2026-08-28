@@ -22,8 +22,8 @@ package com.apple.foundationdb.tuple;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -156,7 +156,7 @@ public class ByteArrayUtil2 {
      * @return whether the first {@code prefixSize} bytes from {@code bytes1} match
      *      the first {@code prefixSize} bytes from {@code bytes2}
      */
-    public static boolean hasCommonPrefix(@Nonnull byte[] bytes1, @Nonnull byte[] bytes2, int prefixSize) {
+    public static boolean hasCommonPrefix(byte[] bytes1, byte[] bytes2, int prefixSize) {
         if (bytes1.length < prefixSize || bytes2.length < prefixSize) {
             return false;
         }

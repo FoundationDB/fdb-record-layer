@@ -28,7 +28,6 @@ import com.apple.foundationdb.linear.VectorType;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
@@ -80,7 +79,6 @@ public class EncodedRealVector implements RealVector {
      * {@code numExBits + 1} bits when packed into the wire format. Length equals
      * {@link #getNumDimensions()}.
      */
-    @Nonnull
     private final int[] encoded;
 
     /**
@@ -103,22 +101,16 @@ public class EncodedRealVector implements RealVector {
      */
     private final double fErrorEx;
 
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<double[]> dataSupplier = Suppliers.memoize(this::computeData);
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<byte[]> rawDataSupplier = Suppliers.memoize(this::computeRawData);
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<HalfRealVector> toHalfRealVectorSupplier = Suppliers.memoize(this::computeHalfRealVector);
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<FloatRealVector> toFloatRealVectorSupplier = Suppliers.memoize(this::computeFloatRealVector);
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Double> l2SquaredNormSupplier = Suppliers.memoize(this::computeL2SquaredNorm);
 
@@ -133,7 +125,7 @@ public class EncodedRealVector implements RealVector {
      * @param fRescaleEx the multiplicative rescale ({@link #getRescaleEx()})
      * @param fErrorEx the per-vector error bound ({@link #getErrorEx()})
      */
-    public EncodedRealVector(final int numExBits, @Nonnull final int[] encoded, final double fAddEx, final double fRescaleEx,
+    public EncodedRealVector(final int numExBits, final int[] encoded, final double fAddEx, final double fRescaleEx,
                              final double fErrorEx) {
         this.numExBits = numExBits;
         this.encoded = encoded;
@@ -149,7 +141,6 @@ public class EncodedRealVector implements RealVector {
      *
      * @return the per-dimension code array
      */
-    @Nonnull
     public int[] getEncodedData() {
         return encoded;
     }
@@ -253,7 +244,6 @@ public class EncodedRealVector implements RealVector {
      * is approximate (see {@link #computeData()} for details) and memoized so repeated calls
      * are cheap.
      */
-    @Nonnull
     @Override
     public double[] getData() {
         return dataSupplier.get();
@@ -268,9 +258,8 @@ public class EncodedRealVector implements RealVector {
      * methods ({@code add}, {@code subtract}, {@code multiply}, {@code normalize}) all drop
      * back to ordinary double-precision results.
      */
-    @Nonnull
     @Override
-    public RealVector withData(@Nonnull final double[] data) {
+    public RealVector withData(final double[] data) {
         // we explicitly make this a normal double vector instead of an encoded vector
         return new DoubleRealVector(data);
     }
@@ -314,7 +303,6 @@ public class EncodedRealVector implements RealVector {
      * @return a freshly allocated {@code double[]} with the reconstructed components; never
      *         {@code null}
      */
-    @Nonnull
     double[] computeData() {
         final int numDimensions = getNumDimensions();
         final double cb = (1 << numExBits) - 0.5;
@@ -344,7 +332,6 @@ public class EncodedRealVector implements RealVector {
      * Returns the memoized wire-format serialization of this vector (see
      * {@link #computeRawData()} for the format).
      */
-    @Nonnull
     @Override
     public byte[] getRawData() {
         return rawDataSupplier.get();
@@ -366,7 +353,6 @@ public class EncodedRealVector implements RealVector {
      *
      * @return the serialized form; never {@code null}
      */
-    @Nonnull
     protected byte[] computeRawData() {
         int numBits = getNumDimensions() * (numExBits + 1); // congruency with paper
         final int length = 25 +        // RABITQ (byte) + fAddEx (double) + fRescaleEx (double) + fErrorEx (double)
@@ -390,7 +376,7 @@ public class EncodedRealVector implements RealVector {
      * @param numExBits number of magnitude bits per component (sign bit added implicitly)
      * @param buffer the destination, positioned where packed bits should start being written
      */
-    private void packEncodedComponents(final int numExBits, @Nonnull final ByteBuffer buffer) {
+    private void packEncodedComponents(final int numExBits, final ByteBuffer buffer) {
         // big-endian
         final int bitsPerComponent = numExBits + 1; // congruency with paper
         int remainingBitsInByte = 8;
@@ -434,7 +420,6 @@ public class EncodedRealVector implements RealVector {
      * <p>Computed from the lazily reconstructed dense form (see {@link #getData()}); the
      * resulting {@link HalfRealVector} is memoized.
      */
-    @Nonnull
     @Override
     public HalfRealVector toHalfRealVector() {
         return toHalfRealVectorSupplier.get();
@@ -444,7 +429,6 @@ public class EncodedRealVector implements RealVector {
      * Builds a fresh half-precision dense vector from the reconstructed components. Used as
      * the supplier behind {@link #toHalfRealVector()}.
      */
-    @Nonnull
     private HalfRealVector computeHalfRealVector() {
         return new HalfRealVector(getData());
     }
@@ -455,7 +439,6 @@ public class EncodedRealVector implements RealVector {
      * <p>Computed from the lazily reconstructed dense form (see {@link #getData()}); the
      * resulting {@link FloatRealVector} is memoized.
      */
-    @Nonnull
     @Override
     public FloatRealVector toFloatRealVector() {
         return toFloatRealVectorSupplier.get();
@@ -465,7 +448,6 @@ public class EncodedRealVector implements RealVector {
      * Builds a fresh single-precision dense vector from the reconstructed components. Used as
      * the supplier behind {@link #toFloatRealVector()}.
      */
-    @Nonnull
     private FloatRealVector computeFloatRealVector() {
         return new FloatRealVector(getData());
     }
@@ -478,7 +460,6 @@ public class EncodedRealVector implements RealVector {
      * {@code double[]} reconstruction is already memoized by {@link #getData()}, so wrapping
      * it again is cheap.
      */
-    @Nonnull
     @Override
     public DoubleRealVector toDoubleRealVector() {
         return new DoubleRealVector(getData());
@@ -487,7 +468,6 @@ public class EncodedRealVector implements RealVector {
     /**
      * Returns {@code this} — instances of this class are already immutable.
      */
-    @Nonnull
     @Override
     public EncodedRealVector toImmutable() {
         return this;
@@ -529,8 +509,7 @@ public class EncodedRealVector implements RealVector {
      * @throws com.google.common.base.VerifyException if the leading type tag is not
      *         {@link VectorType#RABITQ}
      */
-    @Nonnull
-    public static EncodedRealVector fromBytes(@Nonnull final byte[] vectorBytes,
+    public static EncodedRealVector fromBytes(final byte[] vectorBytes,
                                               final int numDimensions,
                                               final int numExBits) {
         final ByteBuffer buffer = ByteBuffer.wrap(vectorBytes).order(ByteOrder.BIG_ENDIAN);
@@ -553,8 +532,7 @@ public class EncodedRealVector implements RealVector {
      * @param numExBits number of magnitude bits per component (sign bit implicit)
      * @return a freshly allocated array of decoded codes
      */
-    @Nonnull
-    private static int[] unpackComponents(@Nonnull final ByteBuffer buffer,
+    private static int[] unpackComponents(final ByteBuffer buffer,
                                           final int numDimensions,
                                           final int numExBits) {
         int[] result = new int[numDimensions];

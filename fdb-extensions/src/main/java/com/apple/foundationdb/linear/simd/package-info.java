@@ -33,4 +33,7 @@
  * {@code compileJava} task that compiles this package. To exercise the SIMD path at runtime, the
  * same flag must be passed to the JVM.
  */
+@NullMarked
 package com.apple.foundationdb.linear.simd;
+
+import org.jspecify.annotations.NullMarked;

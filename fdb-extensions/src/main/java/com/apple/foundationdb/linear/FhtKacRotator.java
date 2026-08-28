@@ -22,7 +22,6 @@ package com.apple.foundationdb.linear;
 
 import com.google.common.annotations.VisibleForTesting;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Random;
@@ -109,14 +108,12 @@ public final class FhtKacRotator implements LinearOperator {
         return true;
     }
 
-    @Nonnull
     @Override
-    public RealVector apply(@Nonnull final RealVector x) {
+    public RealVector apply(final RealVector x) {
         return new DoubleRealVector(operate(x.getData()));
     }
 
-    @Nonnull
-    private double[] operate(@Nonnull final double[] x) {
+    private double[] operate(final double[] x) {
         if (x.length != numDimensions) {
             throw new IllegalArgumentException("dimensionality of x != n");
         }
@@ -140,14 +137,12 @@ public final class FhtKacRotator implements LinearOperator {
         return y;
     }
 
-    @Nonnull
     @Override
-    public RealVector transposedApply(@Nonnull final RealVector x) {
+    public RealVector transposedApply(final RealVector x) {
         return new DoubleRealVector(operateTranspose(x.getData()));
     }
 
-    @Nonnull
-    private double[] operateTranspose(@Nonnull final double[] x) {
+    private double[] operateTranspose(final double[] x) {
         if (x.length != numDimensions) {
             throw new IllegalArgumentException("dimensionality of x != n");
         }
@@ -174,7 +169,6 @@ public final class FhtKacRotator implements LinearOperator {
     /**
      *  Build dense P as double[n][n] (row-major). This method exists for testing purposes only.
      */
-    @Nonnull
     @VisibleForTesting
     public RowMajorRealMatrix computeP() {
         final double[][] p = new double[numDimensions][numDimensions];

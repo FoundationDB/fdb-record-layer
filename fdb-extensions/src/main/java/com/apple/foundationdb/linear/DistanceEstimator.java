@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.linear;
 
-import javax.annotation.Nonnull;
 
 /**
  * Computes a distance between two vectors. Implementations are typically tied to a specific
@@ -34,7 +33,6 @@ public interface DistanceEstimator {
     /**
      * Returns the underlying {@link Metric} this estimator computes.
      */
-    @Nonnull
     Metric getMetric();
 
     /**
@@ -42,8 +40,8 @@ public interface DistanceEstimator {
      * underlying vectors from {@link Transformed} containers and forwards to the
      * {@code RealVector} variant.
      */
-    default boolean isOptimized(@Nonnull final Transformed<? extends RealVector> vector1,
-                                @Nonnull final Transformed<? extends RealVector> vector2) {
+    default boolean isOptimized(final Transformed<? extends RealVector> vector1,
+                                final Transformed<? extends RealVector> vector2) {
         return isOptimized(vector1.getUnderlyingVector(), vector2.getUnderlyingVector());
     }
 
@@ -63,16 +61,16 @@ public interface DistanceEstimator {
      * @return {@code true} iff this estimator has a metric-specific fast path for the given
      *         pair
      */
-    boolean isOptimized(@Nonnull RealVector vector1,
-                        @Nonnull RealVector vector2);
+    boolean isOptimized(RealVector vector1,
+                        RealVector vector2);
 
     /**
      * Convenience overload of {@link #distance(RealVector, RealVector)} that unwraps the
      * underlying vectors from {@link Transformed} containers and forwards to the
      * {@code RealVector} variant.
      */
-    default double distance(@Nonnull final Transformed<? extends RealVector> vector1,
-                            @Nonnull final Transformed<? extends RealVector> vector2) {
+    default double distance(final Transformed<? extends RealVector> vector1,
+                            final Transformed<? extends RealVector> vector2) {
         return distance(vector1.getUnderlyingVector(), vector2.getUnderlyingVector());
     }
 
@@ -90,8 +88,8 @@ public interface DistanceEstimator {
      * @param vector2 the second pre-rotated and translated vector
      * @return a non-negative {@code double} representing the distance between the two vectors
      */
-    double distance(@Nonnull RealVector vector1,
-                    @Nonnull RealVector vector2);
+    double distance(RealVector vector1,
+                    RealVector vector2);
 
     /**
      * Returns a plain {@link DistanceEstimator} that delegates straight to {@code metric.distance(...)}.
@@ -101,22 +99,20 @@ public interface DistanceEstimator {
      * @param metric the metric to wrap
      * @return a non-null estimator that computes {@code metric}'s distance directly
      */
-    @Nonnull
-    static DistanceEstimator ofMetric(@Nonnull final Metric metric) {
+    static DistanceEstimator ofMetric(final Metric metric) {
         return new DistanceEstimator() {
-            @Nonnull
             @Override
             public Metric getMetric() {
                 return metric;
             }
 
             @Override
-            public boolean isOptimized(@Nonnull final RealVector vector1, @Nonnull final RealVector vector2) {
+            public boolean isOptimized(final RealVector vector1, final RealVector vector2) {
                 return false;
             }
 
             @Override
-            public double distance(@Nonnull final RealVector vector1, @Nonnull final RealVector vector2) {
+            public double distance(final RealVector vector1, final RealVector vector2) {
                 final double distance = metric.distance(vector1, vector2);
                 if (!Double.isFinite(distance)) {
                     throw new IllegalArgumentException("vector has an L2 norm of infinite, not a number, or 0");

@@ -45,8 +45,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -114,7 +114,7 @@ public class BunchedMapTest {
         }
     }
 
-    private static List<KeyValue> inconsistentScan(@Nonnull Database db, @Nonnull Subspace subspace) {
+    private static List<KeyValue> inconsistentScan(Database db, Subspace subspace) {
         Transaction tr = db.createTransaction();  // Note that tr is mutated in the block, hence not using try-with-resources
         try {
             KeySelector begin = KeySelector.firstGreaterOrEqual(subspace.range().begin);
@@ -244,7 +244,7 @@ public class BunchedMapTest {
         }
     }
 
-    private void verifyBoundaryKeys(@Nonnull List<Tuple> boundaryKeys) throws ExecutionException, InterruptedException {
+    private void verifyBoundaryKeys(List<Tuple> boundaryKeys) throws ExecutionException, InterruptedException {
         try (Transaction tr = db.createTransaction()) {
             map.verifyIntegrity(tr, bmSubspace).get();
             List<KeyValue> rangeKVs = tr.getRange(bmSubspace.range()).asList().get();
@@ -261,9 +261,9 @@ public class BunchedMapTest {
         }
     }
 
-    private void runWithTwoTrs(@Nonnull BiConsumer<? super Transaction, ? super Transaction> operation,
+    private void runWithTwoTrs(BiConsumer<? super Transaction, ? super Transaction> operation,
                                boolean legal,
-                               @Nonnull List<Tuple> boundaryKeys) throws ExecutionException, InterruptedException {
+                               List<Tuple> boundaryKeys) throws ExecutionException, InterruptedException {
         final String id = "two-trs-" + UUID.randomUUID().toString();
         try (Transaction tr1 = db.createTransaction(); Transaction tr2 = db.createTransaction()) {
             tr1.options().setDebugTransactionIdentifier(id + "-1");
@@ -497,7 +497,7 @@ public class BunchedMapTest {
         }
     }
 
-    private byte[] getLogKey(@Nonnull Subspace logSubspace, int mapIndex, @Nonnull AtomicInteger localOrder) {
+    private byte[] getLogKey(Subspace logSubspace, int mapIndex, AtomicInteger localOrder) {
         return logSubspace.subspace(Tuple.from(mapIndex)).packWithVersionstamp(Tuple.from(Versionstamp.incomplete(localOrder.getAndIncrement())));
     }
 

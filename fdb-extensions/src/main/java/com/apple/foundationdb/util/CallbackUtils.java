@@ -23,8 +23,8 @@ package com.apple.foundationdb.util;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -48,8 +48,7 @@ public class CallbackUtils {
      * that holds the exceptions thrown during unsuccessful invocations
      */
     @API(API.Status.INTERNAL)
-    @Nonnull
-    public static <T> InvokeResults<T> invokeAll(@Nonnull List<Supplier<T>> callbacks) {
+    public static <T> InvokeResults<T> invokeAll(List<Supplier<T>> callbacks) {
         List<T> results = new ArrayList<>(callbacks.size());
         CallbackException accumulatedException = null;
         for (Supplier<T> callback : callbacks) {
@@ -78,8 +77,7 @@ public class CallbackUtils {
      * holds all the exceptions that were thrown during the process
      */
     @API(API.Status.INTERNAL)
-    @Nonnull
-    public static <T> CompletableFuture<Void> invokeAllFutures(@Nonnull List<Supplier<CompletableFuture<T>>> callbacks) {
+    public static <T> CompletableFuture<Void> invokeAllFutures(List<Supplier<CompletableFuture<T>>> callbacks) {
         if (callbacks.isEmpty()) {
             return AsyncUtil.DONE;
         }
@@ -102,17 +100,15 @@ public class CallbackUtils {
     }
 
     public static class InvokeResults<T> {
-        @Nonnull
         private final List<T> results;
         @Nullable
         private final CallbackException accumulatedException;
 
-        public InvokeResults(@Nonnull List<T> results, @Nullable CallbackException accumulatedException) {
+        public InvokeResults(List<T> results, @Nullable CallbackException accumulatedException) {
             this.results = results;
             this.accumulatedException = accumulatedException;
         }
 
-        @Nonnull
         public List<T> getResults() {
             return results;
         }

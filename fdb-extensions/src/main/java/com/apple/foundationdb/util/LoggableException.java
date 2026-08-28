@@ -22,8 +22,8 @@ package com.apple.foundationdb.util;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Map;
 
 /**
@@ -33,7 +33,7 @@ import java.util.Map;
 @SuppressWarnings("serial")
 @API(API.Status.UNSTABLE)
 public class LoggableException extends RuntimeException implements LoggableKeysAndValues<LoggableException> {
-    @Nonnull private final LoggableKeysAndValuesImpl loggableKeysAndValuesImpl = new LoggableKeysAndValuesImpl();
+    private final LoggableKeysAndValuesImpl loggableKeysAndValuesImpl = new LoggableKeysAndValuesImpl();
 
     /**
      * Create an exception with the given message a the sequence of key-value pairs.
@@ -44,7 +44,7 @@ public class LoggableException extends RuntimeException implements LoggableKeysA
      * @param keyValues list
      * @see #addLogInfo(Object...)
      */
-    public LoggableException(@Nonnull String msg, @Nullable Object ... keyValues) {
+    public LoggableException(String msg, @Nullable Object ... keyValues) {
         super(msg);
         this.loggableKeysAndValuesImpl.addLogInfo(keyValues);
     }
@@ -53,11 +53,11 @@ public class LoggableException extends RuntimeException implements LoggableKeysA
         super(cause);
     }
 
-    public LoggableException(@Nonnull String msg, @Nullable Throwable cause) {
+    public LoggableException(String msg, @Nullable Throwable cause) {
         super(msg, cause);
     }
 
-    public LoggableException(@Nonnull String msg) {
+    public LoggableException(String msg) {
         super(msg);
     }
 
@@ -72,7 +72,6 @@ public class LoggableException extends RuntimeException implements LoggableKeysA
      *
      * @return a single map with all log information
      */
-    @Nonnull
     @Override
     public Map<String, Object> getLogInfo() {
         return loggableKeysAndValuesImpl.getLogInfo();
@@ -86,9 +85,8 @@ public class LoggableException extends RuntimeException implements LoggableKeysA
      * @param object value of the log info pair
      * @return this <code>LoggableException</code>
      */
-    @Nonnull
     @Override
-    public LoggableException addLogInfo(@Nonnull String description, Object object) {
+    public LoggableException addLogInfo(String description, Object object) {
         loggableKeysAndValuesImpl.addLogInfo(description, object);
         return this;
     }
@@ -106,9 +104,8 @@ public class LoggableException extends RuntimeException implements LoggableKeysA
      * @return this <code>LoggableException</code>
      * @throws IllegalArgumentException if <code>keyValue</code> has odd length
      */
-    @Nonnull
     @Override
-    public LoggableException addLogInfo(@Nonnull Object ... keyValue) {
+    public LoggableException addLogInfo(Object ... keyValue) {
         loggableKeysAndValuesImpl.addLogInfo(keyValue);
         return this;
     }
@@ -123,7 +120,6 @@ public class LoggableException extends RuntimeException implements LoggableKeysA
      *
      * @return a flattened map of key-value pairs
      */
-    @Nonnull
     @Override
     public Object[] exportLogInfo() {
         return loggableKeysAndValuesImpl.exportLogInfo();

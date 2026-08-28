@@ -22,8 +22,7 @@ package com.apple.foundationdb.map;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.subspace.Subspace;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Struct containing the results of scanning one or more {@link BunchedMap}s using the
@@ -40,13 +39,13 @@ import javax.annotation.Nullable;
  */
 @API(API.Status.EXPERIMENTAL)
 public class BunchedMapScanEntry<K, V, T> {
-    @Nonnull private final Subspace subspace;
+    private final Subspace subspace;
     @Nullable private final T subspaceTag;
-    @Nonnull private final K key;
-    @Nonnull private final V value;
+    private final K key;
+    private final V value;
 
-    BunchedMapScanEntry(@Nonnull final Subspace subspace, @Nullable final T subspaceTag,
-                        @Nonnull final K key, @Nonnull final V value) {
+    BunchedMapScanEntry(final Subspace subspace, @Nullable final T subspaceTag,
+                        final K key, final V value) {
         this.subspace = subspace;
         this.subspaceTag = subspaceTag;
         this.key = key;
@@ -59,7 +58,6 @@ public class BunchedMapScanEntry<K, V, T> {
      *
      * @return the subspace containing this entry
      */
-    @Nonnull
     public Subspace getSubspace() {
         return subspace;
     }
@@ -84,7 +82,6 @@ public class BunchedMapScanEntry<K, V, T> {
      *
      * @return the map key associated with this entry
      */
-    @Nonnull
     public K getKey() {
         return key;
     }
@@ -94,7 +91,6 @@ public class BunchedMapScanEntry<K, V, T> {
      *
      * @return the map value associated with this entry
      */
-    @Nonnull
     public V getValue() {
         return value;
     }

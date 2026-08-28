@@ -29,7 +29,6 @@ import com.apple.foundationdb.system.SystemKeyspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 
@@ -45,8 +44,7 @@ public class VersionFromTimestamp {
      * @param timestamp the wall-clock time
      * @return a future that completes with the recorded version that comes immediately before the target time
      */
-    @Nonnull
-    public static CompletableFuture<Long> lastVersionBefore(@Nonnull ReadTransaction tr, @Nonnull Instant timestamp) {
+    public static CompletableFuture<Long> lastVersionBefore(ReadTransaction tr, Instant timestamp) {
         return versionFromTimestamp(tr, timestamp, true);
     }
 
@@ -56,12 +54,11 @@ public class VersionFromTimestamp {
      * @param timestamp the wall-clock time
      * @return a future that completes with the recorded version that comes immediately after the target time
      */
-    @Nonnull
-    public static CompletableFuture<Long> nextVersionAfter(@Nonnull ReadTransaction tr, @Nonnull Instant timestamp) {
+    public static CompletableFuture<Long> nextVersionAfter(ReadTransaction tr, Instant timestamp) {
         return versionFromTimestamp(tr, timestamp, false);
     }
 
-    private static CompletableFuture<Long> versionFromTimestamp(@Nonnull ReadTransaction tr, @Nonnull Instant timestamp, boolean start) {
+    private static CompletableFuture<Long> versionFromTimestamp(ReadTransaction tr, Instant timestamp, boolean start) {
         final byte[] dateKey = ByteArrayUtil.join(SystemKeyspace.TIMEKEEPER_KEY_PREFIX, Tuple.from(timestamp.getEpochSecond()).pack());
         final KeySelector startKey;
         final KeySelector endKey;

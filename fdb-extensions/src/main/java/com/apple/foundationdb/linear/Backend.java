@@ -22,7 +22,6 @@ package com.apple.foundationdb.linear;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
 
 /**
  * Per-component vector arithmetic primitives on {@code double[]} arrays. Implementations may be a
@@ -50,7 +49,6 @@ public interface Backend {
      *
      * @return a non-null label that uniquely identifies this backend at runtime
      */
-    @Nonnull
     String name();
 
     /**
@@ -65,7 +63,7 @@ public interface Backend {
      * @param out destination array; receives {@code a + b} component-wise. Must have the same
      *        length as {@code a} and {@code b}
      */
-    void addInto(@Nonnull double[] a, @Nonnull double[] b, @Nonnull double[] out);
+    void addInto(double[] a, double[] b, double[] out);
 
     /**
      * Computes the broadcast sum {@code out[i] = a[i] + scalar} for every {@code i}.
@@ -77,7 +75,7 @@ public interface Backend {
      * @param out destination array; receives {@code a + scalar} component-wise. Must have the
      *        same length as {@code a}
      */
-    void addInto(@Nonnull double[] a, double scalar, @Nonnull double[] out);
+    void addInto(double[] a, double scalar, double[] out);
 
     /**
      * Computes the element-wise difference {@code out[i] = a[i] - b[i]} for every {@code i}.
@@ -89,7 +87,7 @@ public interface Backend {
      * @param out destination array; receives {@code a - b} component-wise. Must have the same
      *        length as {@code a} and {@code b}
      */
-    void subtractInto(@Nonnull double[] a, @Nonnull double[] b, @Nonnull double[] out);
+    void subtractInto(double[] a, double[] b, double[] out);
 
     /**
      * Computes the broadcast difference {@code out[i] = a[i] - scalar} for every {@code i}.
@@ -101,7 +99,7 @@ public interface Backend {
      * @param out destination array; receives {@code a - scalar} component-wise. Must have the
      *        same length as {@code a}
      */
-    void subtractInto(@Nonnull double[] a, double scalar, @Nonnull double[] out);
+    void subtractInto(double[] a, double scalar, double[] out);
 
     /**
      * Computes the broadcast product {@code out[i] = a[i] * scalar} for every {@code i}. Used
@@ -115,7 +113,7 @@ public interface Backend {
      * @param out destination array; receives {@code a * scalar} component-wise. Must have the
      *        same length as {@code a}
      */
-    void multiplyInto(@Nonnull double[] a, double scalar, @Nonnull double[] out);
+    void multiplyInto(double[] a, double scalar, double[] out);
 
     /**
      * Computes the AXPY-shaped fused multiply-add {@code out[i] = scalar * x[i] + y[i]} for every
@@ -145,8 +143,8 @@ public interface Backend {
      * @param from inclusive start index
      * @param length number of elements to write
      */
-    void multiplyAddInto(double scalar, @Nonnull double[] x, @Nonnull double[] y,
-                         @Nonnull double[] out, int from, int length);
+    void multiplyAddInto(double scalar, double[] x, double[] y,
+                         double[] out, int from, int length);
 
     /**
      * Returns the dot product {@code Σ a[i] * b[i]} as a single {@code double}.
@@ -161,7 +159,7 @@ public interface Backend {
      * @param b right operand; must have the same length as {@code a}
      * @return the dot product of {@code a} and {@code b}
      */
-    double dot(@Nonnull double[] a, @Nonnull double[] b);
+    double dot(double[] a, double[] b);
 
     /**
      * Returns the dot product {@code Σ_{i ∈ [from, from+length)} a[i] * b[i]} over a contiguous
@@ -177,7 +175,7 @@ public interface Backend {
      *        {@code [from, from+length)} must lie within both arrays
      * @return the dot product over the slice
      */
-    double dot(@Nonnull double[] a, @Nonnull double[] b, int from, int length);
+    double dot(double[] a, double[] b, int from, int length);
 
     /**
      * Returns the squared L2 norm {@code Σ a[i] * a[i]} as a single {@code double}. Equivalent
@@ -189,7 +187,7 @@ public interface Backend {
      * @param a vector to take the norm of
      * @return the squared L2 norm of {@code a}
      */
-    double l2SquaredNorm(@Nonnull double[] a);
+    double l2SquaredNorm(double[] a);
 
     /**
      * Returns the squared L2 norm {@code Σ_{i ∈ [from, from+length)} a[i] * a[i]} over a contiguous
@@ -202,7 +200,7 @@ public interface Backend {
      *        {@code a}
      * @return the squared L2 norm over the slice
      */
-    double l2SquaredNorm(@Nonnull double[] a, int from, int length);
+    double l2SquaredNorm(double[] a, int from, int length);
 
     /**
      * Returns the squared Euclidean distance {@code Σ (a[i] - b[i])^2} as a single {@code double}.
@@ -215,5 +213,5 @@ public interface Backend {
      * @param b right operand; must have the same length as {@code a}
      * @return the squared Euclidean distance between {@code a} and {@code b}
      */
-    double euclideanSquared(@Nonnull double[] a, @Nonnull double[] b);
+    double euclideanSquared(double[] a, double[] b);
 }

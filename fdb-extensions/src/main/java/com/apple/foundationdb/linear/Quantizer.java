@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.linear;
 
-import javax.annotation.Nonnull;
 
 /**
  * Defines the contract for a quantizer, a component responsible for encoding data vectors into a different, ideally
@@ -38,11 +37,9 @@ public interface Quantizer {
      *
      * @return the {@link DistanceEstimator} instance, which is guaranteed to be non-null.
      */
-    @Nonnull
     DistanceEstimator estimator();
 
-    @Nonnull
-    default Transformed<RealVector> encode(@Nonnull final Transformed<RealVector> vector) {
+    default Transformed<RealVector> encode(final Transformed<RealVector> vector) {
         return Transformed.underlyingLens().identityTransform(encode(vector.getUnderlyingVector()));
     }
 
@@ -57,8 +54,7 @@ public interface Quantizer {
      *        of the specific quantizer.
      * @return the encoded vector representation of the input data, guaranteed to be non-null.
      */
-    @Nonnull
-    RealVector encode(@Nonnull RealVector vector);
+    RealVector encode(RealVector vector);
 
     /**
      * Creates a no-op {@code Quantizer} that does not perform any data transformation.
@@ -73,18 +69,15 @@ public interface Quantizer {
      * @param metric the {@link Metric} used to build the distance estimator for the quantizer.
      * @return a new {@link Quantizer} instance that performs no operation.
      */
-    @Nonnull
-    static Quantizer noOpQuantizer(@Nonnull final Metric metric) {
+    static Quantizer noOpQuantizer(final Metric metric) {
         return new Quantizer() {
-            @Nonnull
             @Override
             public DistanceEstimator estimator() {
                 return DistanceEstimator.ofMetric(metric);
             }
 
-            @Nonnull
             @Override
-            public RealVector encode(@Nonnull final RealVector vector) {
+            public RealVector encode(final RealVector vector) {
                 return vector;
             }
         };

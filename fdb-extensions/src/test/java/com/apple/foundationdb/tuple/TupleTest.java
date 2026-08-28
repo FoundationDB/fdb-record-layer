@@ -25,8 +25,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -107,7 +107,6 @@ public class TupleTest {
             .add()
             .build();
 
-    @Nonnull
     static Stream<ExpectedTupleEncoding<?>> testTuple() {
         return tests.stream();
     }

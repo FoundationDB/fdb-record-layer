@@ -23,8 +23,8 @@ package com.apple.foundationdb.util;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 
@@ -106,15 +106,13 @@ class LensTest {
         assertThat(lens.set(a, 20)).satisfies(newA -> assertThat(newA.b().d().x()).isEqualTo(20));
     }
 
-    private record A(@Nonnull B b, @Nonnull C c) {
+    private record A(B b, C c) {
         private static final Lens<A, B> bLens = new Lens<>() {
-            @Nonnull
             @Override
-            public B get(@Nonnull final A a) {
+            public B get(final A a) {
                 return a.b();
             }
 
-            @Nonnull
             @Override
             public A set(@Nullable final A a, @Nullable final B b) {
                 return new A(Objects.requireNonNull(b), Objects.requireNonNull(a).c());
@@ -122,13 +120,11 @@ class LensTest {
         };
 
         private static final Lens<A, C> cLens = new Lens<>() {
-            @Nonnull
             @Override
-            public C get(@Nonnull final A a) {
+            public C get(final A a) {
                 return a.c();
             }
 
-            @Nonnull
             @Override
             public A set(@Nullable final A a, @Nullable final C c) {
                 return new A(Objects.requireNonNull(a).b(), Objects.requireNonNull(c));
@@ -136,15 +132,13 @@ class LensTest {
         };
     }
 
-    private record B(@Nonnull D d) {
+    private record B(D d) {
         private static final Lens<B, D> dLens = new Lens<>() {
-            @Nonnull
             @Override
-            public D get(@Nonnull final B b) {
+            public D get(final B b) {
                 return b.d();
             }
 
-            @Nonnull
             @Override
             public B set(@Nullable final B b, @Nullable final D d) {
                 return new B(Objects.requireNonNull(d));
@@ -156,11 +150,10 @@ class LensTest {
         private static final Lens<C, D> dLens = new Lens<>() {
             @Nullable
             @Override
-            public D get(@Nonnull final C c) {
+            public D get(final C c) {
                 return c.d();
             }
 
-            @Nonnull
             @Override
             public C set(@Nullable final C c, @Nullable final D d) {
                 return new C(d);
@@ -170,13 +163,11 @@ class LensTest {
 
     private record D(int x) {
         private static final Lens<D, Integer> xLens = new Lens<>() {
-            @Nonnull
             @Override
-            public Integer get(@Nonnull final D d) {
+            public Integer get(final D d) {
                 return d.x();
             }
 
-            @Nonnull
             @Override
             public D set(@Nullable final D d, @Nullable final Integer x) {
                 return new D(Objects.requireNonNull(x));

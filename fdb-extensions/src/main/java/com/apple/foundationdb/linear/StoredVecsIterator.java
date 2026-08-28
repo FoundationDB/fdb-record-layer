@@ -23,8 +23,8 @@ package com.apple.foundationdb.linear;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -40,21 +40,17 @@ import java.util.List;
  * @param <T> the type of object this iterator creates and uses to represent a stored vector in memory
  */
 public abstract class StoredVecsIterator<N extends Number, T> extends AbstractIterator<T> {
-    @Nonnull
     private final FileChannel fileChannel;
 
-    protected StoredVecsIterator(@Nonnull final FileChannel fileChannel) {
+    protected StoredVecsIterator(final FileChannel fileChannel) {
         this.fileChannel = fileChannel;
     }
 
-    @Nonnull
     protected abstract N[] newComponentArray(int size);
 
-    @Nonnull
-    protected abstract N toComponent(@Nonnull ByteBuffer byteBuffer);
+    protected abstract N toComponent(ByteBuffer byteBuffer);
 
-    @Nonnull
-    protected abstract T toTarget(@Nonnull N[] components);
+    protected abstract T toTarget(N[] components);
 
     @Nullable
     @Override
@@ -99,25 +95,22 @@ public abstract class StoredVecsIterator<N extends Number, T> extends AbstractIt
      * {@link DoubleRealVector}s.
      */
     public static class StoredFVecsIterator extends StoredVecsIterator<Double, DoubleRealVector> {
-        public StoredFVecsIterator(@Nonnull final FileChannel fileChannel) {
+        public StoredFVecsIterator(final FileChannel fileChannel) {
             super(fileChannel);
         }
 
-        @Nonnull
         @Override
         protected Double[] newComponentArray(final int size) {
             return new Double[size];
         }
 
-        @Nonnull
         @Override
-        protected Double toComponent(@Nonnull final ByteBuffer byteBuffer) {
+        protected Double toComponent(final ByteBuffer byteBuffer) {
             return (double)byteBuffer.getFloat();
         }
 
-        @Nonnull
         @Override
-        protected DoubleRealVector toTarget(@Nonnull final Double[] components) {
+        protected DoubleRealVector toTarget(final Double[] components) {
             return new DoubleRealVector(components);
         }
     }
@@ -126,25 +119,22 @@ public abstract class StoredVecsIterator<N extends Number, T> extends AbstractIt
      * Iterator to read vectors from a {@link FileChannel} into a list of integers.
      */
     public static class StoredIVecsIterator extends StoredVecsIterator<Integer, List<Integer>> {
-        public StoredIVecsIterator(@Nonnull final FileChannel fileChannel) {
+        public StoredIVecsIterator(final FileChannel fileChannel) {
             super(fileChannel);
         }
 
-        @Nonnull
         @Override
         protected Integer[] newComponentArray(final int size) {
             return new Integer[size];
         }
 
-        @Nonnull
         @Override
-        protected Integer toComponent(@Nonnull final ByteBuffer byteBuffer) {
+        protected Integer toComponent(final ByteBuffer byteBuffer) {
             return byteBuffer.getInt();
         }
 
-        @Nonnull
         @Override
-        protected List<Integer> toTarget(@Nonnull final Integer[] components) {
+        protected List<Integer> toTarget(final Integer[] components) {
             return ImmutableList.copyOf(components);
         }
     }

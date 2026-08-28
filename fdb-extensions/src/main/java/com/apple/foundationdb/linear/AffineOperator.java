@@ -23,8 +23,7 @@ package com.apple.foundationdb.linear;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.google.common.base.Preconditions;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Vector operator that applies/unapplies a linear operator and an addition to a vector.
@@ -54,9 +53,8 @@ public class AffineOperator implements VectorOperator {
                   : -1);
     }
 
-    @Nonnull
     @Override
-    public RealVector apply(@Nonnull final RealVector vector) {
+    public RealVector apply(final RealVector vector) {
         RealVector result = vector;
 
         if (linearOperator != null) {
@@ -70,9 +68,8 @@ public class AffineOperator implements VectorOperator {
         return  result;
     }
 
-    @Nonnull
     @Override
-    public RealVector invertedApply(@Nonnull final RealVector vector) {
+    public RealVector invertedApply(final RealVector vector) {
         RealVector result = vector;
 
         if (translationVector != null) {
@@ -86,7 +83,6 @@ public class AffineOperator implements VectorOperator {
         return result;
     }
 
-    @Nonnull
     public static AffineOperator identity() {
         return IDENTITY_OPERATOR;
     }

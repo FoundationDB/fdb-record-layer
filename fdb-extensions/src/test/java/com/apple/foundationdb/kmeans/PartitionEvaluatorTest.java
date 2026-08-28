@@ -33,7 +33,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
@@ -561,8 +560,7 @@ class PartitionEvaluatorTest {
     // helpers
     // ============================================================================================
 
-    @Nonnull
-    private static List<RealVector> twoBlobs(@Nonnull final SplittableRandom rnd, final int nPer) {
+    private static List<RealVector> twoBlobs(final SplittableRandom rnd, final int nPer) {
         final RealVector m0 = new DoubleRealVector(new double[] {-5.0d, 0.0d, 0.0d});
         final RealVector m1 = new DoubleRealVector(new double[] {+5.0d, 0.0d, 0.0d});
         final List<RealVector> result = Lists.newArrayListWithCapacity(2 * nPer);
@@ -576,8 +574,7 @@ class PartitionEvaluatorTest {
         return result;
     }
 
-    @Nonnull
-    private static List<RealVector> oneBlob(@Nonnull final SplittableRandom rnd, final int n) {
+    private static List<RealVector> oneBlob(final SplittableRandom rnd, final int n) {
         final RealVector m = new DoubleRealVector(new double[] {-5.0d, 0.0d, 0.0d});
         final List<RealVector> result = Lists.newArrayListWithCapacity(n);
         for (int i = 0; i < n; i++) {
@@ -586,8 +583,7 @@ class PartitionEvaluatorTest {
         return result;
     }
 
-    @Nonnull
-    private static List<RealVector> threeBlobs(@Nonnull final SplittableRandom rnd, final int nPer) {
+    private static List<RealVector> threeBlobs(final SplittableRandom rnd, final int nPer) {
         final List<RealVector> means = ImmutableList.of(
                 new DoubleRealVector(new double[] {-6.0d, -3.0d,  1.0d}),
                 new DoubleRealVector(new double[] { 0.0d, +4.5d, -2.0d}),
@@ -606,8 +602,7 @@ class PartitionEvaluatorTest {
      * Returns the L2-normalized form of the given components as a {@link RealVector}. Convenience
      * for constructing unit-norm centroids in cosine-metric tests.
      */
-    @Nonnull
-    private static RealVector unit(@Nonnull final double[] components) {
+    private static RealVector unit(final double[] components) {
         return new DoubleRealVector(components).normalize();
     }
 
@@ -615,8 +610,7 @@ class PartitionEvaluatorTest {
      * Cosine analogue of {@link #oneBlob}: a single tight cluster of noisy unit vectors around the
      * {@code (+x)} direction.
      */
-    @Nonnull
-    private static List<RealVector> oneDirection(@Nonnull final SplittableRandom rnd, final int n) {
+    private static List<RealVector> oneDirection(final SplittableRandom rnd, final int n) {
         final RealVector m = unit(new double[] {1.0d, 0.0d, 0.0d});
         final List<RealVector> result = Lists.newArrayListWithCapacity(n);
         for (int i = 0; i < n; i++) {
@@ -629,8 +623,7 @@ class PartitionEvaluatorTest {
      * Cosine analogue of {@link #twoBlobs}: two clusters of noisy unit vectors around orthogonal
      * unit directions {@code (+x)} and {@code (+y)}.
      */
-    @Nonnull
-    private static List<RealVector> twoDirections(@Nonnull final SplittableRandom rnd, final int nPer) {
+    private static List<RealVector> twoDirections(final SplittableRandom rnd, final int nPer) {
         final RealVector m0 = unit(new double[] {1.0d, 0.0d, 0.0d});
         final RealVector m1 = unit(new double[] {0.0d, 1.0d, 0.0d});
         final List<RealVector> result = Lists.newArrayListWithCapacity(2 * nPer);
@@ -648,11 +641,10 @@ class PartitionEvaluatorTest {
      * Builds a partition by assigning each vector to the centroid that minimizes
      * {@link KMeansTestHelpers#baseObjective}.
      */
-    @Nonnull
     private static PartitionEvaluator.Partition<RealVector>
-            nearestPartition(@Nonnull final List<RealVector> centroids,
-                             @Nonnull final List<RealVector> vectors,
-                             @Nonnull final DistanceEstimator distanceEstimator) {
+            nearestPartition(final List<RealVector> centroids,
+                             final List<RealVector> vectors,
+                             final DistanceEstimator distanceEstimator) {
         final int[] assignments = new int[vectors.size()];
         for (int i = 0; i < vectors.size(); i++) {
             double best = Double.POSITIVE_INFINITY;
@@ -672,8 +664,7 @@ class PartitionEvaluatorTest {
     /**
      * Builds a single-cluster partition whose centroid is the mean of all input vectors.
      */
-    @Nonnull
-    private static PartitionEvaluator.Partition<RealVector> singleClusterPartition(@Nonnull final List<RealVector> vectors) {
+    private static PartitionEvaluator.Partition<RealVector> singleClusterPartition(final List<RealVector> vectors) {
         final int d = vectors.get(0).getNumDimensions();
         final MutableDoubleRealVector sum = MutableDoubleRealVector.zeroVector(d);
         for (final RealVector v : vectors) {
@@ -684,7 +675,7 @@ class PartitionEvaluatorTest {
                 ImmutableList.of(centroid), Lens.identity(), new int[vectors.size()]);
     }
 
-    private static int countAssigned(@Nonnull final PartitionEvaluator.Partition<RealVector> p,
+    private static int countAssigned(final PartitionEvaluator.Partition<RealVector> p,
                                      final int cluster) {
         int n = 0;
         for (int a : p.assignments()) {
@@ -695,27 +686,24 @@ class PartitionEvaluatorTest {
         return n;
     }
 
-    @Nonnull
     private static PartitionEvaluator.Parameters withMinRelativeSseGain(
-            @Nonnull final PartitionEvaluator.Parameters p, final double v) {
+            final PartitionEvaluator.Parameters p, final double v) {
         return new PartitionEvaluator.Parameters(p.distanceEstimator(), v, p.minSeparation(),
                 p.maxLowMarginRate(), p.minSmallestFrac(), p.maxLargestFrac(), p.lowMarginThreshold(),
                 p.alphaSseGain(), p.betaSeparationGain(), p.gammaImbalancePenalty(),
                 p.deltaLowMarginPenalty(), p.minScoreGain());
     }
 
-    @Nonnull
     private static PartitionEvaluator.Parameters withMinSmallestFrac(
-            @Nonnull final PartitionEvaluator.Parameters p, final double v) {
+            final PartitionEvaluator.Parameters p, final double v) {
         return new PartitionEvaluator.Parameters(p.distanceEstimator(), p.minRelativeSseGain(), p.minSeparation(),
                 p.maxLowMarginRate(), v, p.maxLargestFrac(), p.lowMarginThreshold(),
                 p.alphaSseGain(), p.betaSeparationGain(), p.gammaImbalancePenalty(),
                 p.deltaLowMarginPenalty(), p.minScoreGain());
     }
 
-    @Nonnull
     private static PartitionEvaluator.Parameters withMaxLargestFrac(
-            @Nonnull final PartitionEvaluator.Parameters p, final double v) {
+            final PartitionEvaluator.Parameters p, final double v) {
         return new PartitionEvaluator.Parameters(p.distanceEstimator(), p.minRelativeSseGain(), p.minSeparation(),
                 p.maxLowMarginRate(), p.minSmallestFrac(), v, p.lowMarginThreshold(),
                 p.alphaSseGain(), p.betaSeparationGain(), p.gammaImbalancePenalty(),

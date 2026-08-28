@@ -32,8 +32,8 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.system.SystemKeyspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -45,9 +45,7 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 public class DatabaseClientLogEvents {
-    @Nonnull
     private byte[] startKey;
-    @Nonnull
     private byte[] endKey;
     @Nullable
     private Instant earliestTimestamp;
@@ -61,10 +59,10 @@ public class DatabaseClientLogEvents {
      */
     @FunctionalInterface
     public interface EventConsumer {
-        CompletableFuture<Void> accept(@Nonnull Transaction tr, @Nonnull FDBClientLogEvents.Event event);
+        CompletableFuture<Void> accept(Transaction tr, FDBClientLogEvents.Event event);
     }
     
-    private DatabaseClientLogEvents(@Nonnull byte[] startKey, @Nonnull byte[] endKey) {
+    private DatabaseClientLogEvents(byte[] startKey, byte[] endKey) {
         this.startKey = startKey;
         this.endKey = endKey;
     }
@@ -88,13 +86,10 @@ public class DatabaseClientLogEvents {
     }
 
     protected static class EventRunner implements FDBClientLogEvents.EventConsumer {
-        @Nonnull
         private final Database database;
-        @Nonnull
         private final Executor executor;
         @Nullable
         private Transaction tr;
-        @Nonnull
         private final EventConsumer callback;
         @Nullable
         private DatabaseClientLogEvents events;
@@ -106,8 +101,8 @@ public class DatabaseClientLogEvents {
         private final long timeLimitMillis;
         private boolean limitReached;
 
-        public EventRunner(@Nonnull Database database, @Nonnull Executor executor, @Nonnull EventConsumer callback,
-                           @Nonnull Function<ReadTransaction, CompletableFuture<Long[]>> versionRangeProducer,
+        public EventRunner(Database database, Executor executor, EventConsumer callback,
+                           Function<ReadTransaction, CompletableFuture<Long[]>> versionRangeProducer,
                            int eventCountLimit, long timeLimitMillis) {
             this.database = database;
             this.executor = executor;
@@ -117,8 +112,8 @@ public class DatabaseClientLogEvents {
             this.timeLimitMillis = timeLimitMillis;
         }
 
-        public EventRunner(@Nonnull Database database, @Nonnull Executor executor, @Nonnull EventConsumer callback,
-                           @Nonnull DatabaseClientLogEvents events,
+        public EventRunner(Database database, Executor executor, EventConsumer callback,
+                           DatabaseClientLogEvents events,
                            int eventCountLimit, long timeLimitMillis) {
             this.database = database;
             this.executor = executor;
@@ -197,11 +192,11 @@ public class DatabaseClientLogEvents {
         }
     }
 
-    private AsyncIterable<KeyValue> getRange(@Nonnull ReadTransaction tr) {
+    private AsyncIterable<KeyValue> getRange(ReadTransaction tr) {
         return tr.getRange(startKey, endKey);
     }
 
-    private void updateForEvent(@Nonnull Instant eventTimestamp) {
+    private void updateForEvent(Instant eventTimestamp) {
         if (earliestTimestamp == null) {
             earliestTimestamp = eventTimestamp;
         }
@@ -221,10 +216,9 @@ public class DatabaseClientLogEvents {
         more = limitReached;    // Otherwise range was processed, possibly in multiple transactions.
     }
 
-    @Nonnull
-    public static CompletableFuture<DatabaseClientLogEvents> forEachEvent(@Nonnull Database database, @Nonnull Executor executor,
-                                                                          @Nonnull EventConsumer callback,
-                                                                          @Nonnull Function<ReadTransaction, CompletableFuture<Long[]>> versionRangeProducer,
+    public static CompletableFuture<DatabaseClientLogEvents> forEachEvent(Database database, Executor executor,
+                                                                          EventConsumer callback,
+                                                                          Function<ReadTransaction, CompletableFuture<Long[]>> versionRangeProducer,
                                                                           int eventCountLimit, long timeLimitMillis) {
         final EventRunner runner = new EventRunner(database, executor, callback, versionRangeProducer,
                                                    eventCountLimit, timeLimitMillis);
@@ -242,9 +236,8 @@ public class DatabaseClientLogEvents {
      * @param timeLimitMillis the maximum time to process before returning
      * @return a future which completes when the version range has been processed by the callback with an object that can be used to resume the scan
      */
-    @Nonnull
-    public static CompletableFuture<DatabaseClientLogEvents> forEachEventBetweenVersions(@Nonnull Database database, @Nonnull Executor executor,
-                                                                                         @Nonnull EventConsumer callback,
+    public static CompletableFuture<DatabaseClientLogEvents> forEachEventBetweenVersions(Database database, Executor executor,
+                                                                                         EventConsumer callback,
                                                                                          @Nullable Long startVersion, @Nullable Long endVersion,
                                                                                          int eventCountLimit, long timeLimitMillis) {
         return forEachEvent(database, executor, callback,
@@ -263,9 +256,8 @@ public class DatabaseClientLogEvents {
      * @param timeLimitMillis the maximum time to process before returning
      * @return a future which completes when the version range has been processed by the callback with an object that can be used to resume the scan
      */
-    @Nonnull
-    public static CompletableFuture<DatabaseClientLogEvents> forEachEventBetweenTimestamps(@Nonnull Database database, @Nonnull Executor executor,
-                                                                                           @Nonnull EventConsumer callback,
+    public static CompletableFuture<DatabaseClientLogEvents> forEachEventBetweenTimestamps(Database database, Executor executor,
+                                                                                           EventConsumer callback,
                                                                                            @Nullable Instant startTimestamp, @Nullable Instant endTimestamp,
                                                                                            int eventCountLimit, long timeLimitMillis) {
         return forEachEvent(database, executor, callback, tr -> {
@@ -287,8 +279,8 @@ public class DatabaseClientLogEvents {
      * @param timeLimitMillis the maximum time to process before returning
      * @return a future which completes when the version range has been processed by the callback with an object that can be used to resume the scan again
      */
-    public CompletableFuture<DatabaseClientLogEvents> forEachEventContinued(@Nonnull Database database, @Nonnull Executor executor,
-                                                                            @Nonnull EventConsumer callback,
+    public CompletableFuture<DatabaseClientLogEvents> forEachEventContinued(Database database, Executor executor,
+                                                                            EventConsumer callback,
                                                                             int eventCountLimit, long timeLimitMillis) {
         final EventRunner runner = new EventRunner(database, executor, callback, this,
                                                    eventCountLimit, timeLimitMillis);

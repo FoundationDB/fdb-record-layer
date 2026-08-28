@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,7 @@
  * limitations under the License.
  */
 
-/**
- * Utilities for logging and exception handling.
- * All exceptions in the <a href="https://foundationdb.github.io/fdb-record-layer/">Record Layer</a>
- * project are descendants of {@link com.apple.foundationdb.util.LoggableException} class. This
- * class allows the user to attach arbitrary keys and values to an {@link java.lang.Exception} when
- * thrown.
- */
 @NullMarked
-package com.apple.foundationdb.util;
+package com.apple.foundationdb.kmeans;
 
 import org.jspecify.annotations.NullMarked;

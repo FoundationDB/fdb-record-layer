@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 
-import javax.annotation.Nonnull;
 import java.nio.charset.StandardCharsets;
 
 /**
@@ -97,15 +96,15 @@ public class SystemKeyspace {
 
     public static final byte[] TRANSACTION_CONFLICTING_KEYS_PREFIX = specialPrefixedKey("/transaction/conflicting_keys/");
 
-    private static byte[] systemPrefixedKey(@Nonnull String key) {
+    private static byte[] systemPrefixedKey(String key) {
         return ByteArrayUtil.join(SYSTEM_PREFIX, key.getBytes(StandardCharsets.US_ASCII));
     }
 
-    private static byte[] system2PrefixedKey(@Nonnull String key) {
+    private static byte[] system2PrefixedKey(String key) {
         return ByteArrayUtil.join(SYSTEM_2_PREFIX, key.getBytes(StandardCharsets.US_ASCII));
     }
 
-    private static byte[] specialPrefixedKey(@Nonnull String key) {
+    private static byte[] specialPrefixedKey(String key) {
         return ByteArrayUtil.join(SPECIAL_PREFIX, key.getBytes(StandardCharsets.US_ASCII));
     }
 

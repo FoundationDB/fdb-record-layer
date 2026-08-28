@@ -37,8 +37,8 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.util.LogMessageKeys;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -105,9 +105,7 @@ public class BunchedMap<K, V> {
     private static final int MAX_VALUE_SIZE = 10_000; // The actual max value size is 100_000, but let's stay clear of that
     private static final byte[] ZERO_ARRAY = { 0x00 };
 
-    @Nonnull
     private final Comparator<K> keyComparator;
-    @Nonnull
     private final BunchedSerializer<K, V> serializer;
     private final int bunchSize;
 
@@ -126,7 +124,7 @@ public class BunchedMap<K, V> {
      * @param keyComparator comparator used to order keys
      * @param bunchSize maximum size of bunch within the database
      */
-    public BunchedMap(@Nonnull BunchedSerializer<K, V> serializer, @Nonnull Comparator<K> keyComparator, int bunchSize) {
+    public BunchedMap(BunchedSerializer<K, V> serializer, Comparator<K> keyComparator, int bunchSize) {
         this.serializer = serializer;
         this.keyComparator = keyComparator;
         this.bunchSize = bunchSize;
@@ -140,11 +138,11 @@ public class BunchedMap<K, V> {
      *
      * @param model original {@link BunchedMap} to base the new one on
      */
-    protected BunchedMap(@Nonnull BunchedMap<K, V> model) {
+    protected BunchedMap(BunchedMap<K, V> model) {
         this(model.serializer, model.keyComparator, model.bunchSize);
     }
 
-    private static <T> List<T> makeMutable(@Nonnull List<T> list) {
+    private static <T> List<T> makeMutable(List<T> list) {
         if (list instanceof ArrayList<?>) {
             return list;
         } else {
@@ -160,8 +158,7 @@ public class BunchedMap<K, V> {
      * @param readFuture a future that will complete to a list of keys and values
      * @return an instrumented future that returns the same values as the original future
      */
-    @Nonnull
-    protected CompletableFuture<List<KeyValue>> instrumentRangeRead(@Nonnull CompletableFuture<List<KeyValue>> readFuture) {
+    protected CompletableFuture<List<KeyValue>> instrumentRangeRead(CompletableFuture<List<KeyValue>> readFuture) {
         return readFuture;
     }
 
@@ -175,7 +172,7 @@ public class BunchedMap<K, V> {
      * @param value the new value being written to the key
      * @param oldValue the previous value being overwritten or {@code null} if the key is new or the previous value unknown
      */
-    protected void instrumentWrite(@Nonnull byte[] key, @Nonnull byte[] value, @Nullable byte[] oldValue) {
+    protected void instrumentWrite(byte[] key, byte[] value, @Nullable byte[] oldValue) {
 
     }
 
@@ -188,11 +185,11 @@ public class BunchedMap<K, V> {
      * @param key the key being deleted
      * @param oldValue the previous value being delete or {@code null} if the previous value is unknown
      */
-    protected void instrumentDelete(@Nonnull byte[] key, @Nullable byte[] oldValue) {
+    protected void instrumentDelete(byte[] key, @Nullable byte[] oldValue) {
 
     }
 
-    private CompletableFuture<Optional<KeyValue>> entryForKey(@Nonnull Transaction tr, @Nonnull byte[] subspaceKey, @Nonnull K key) {
+    private CompletableFuture<Optional<KeyValue>> entryForKey(Transaction tr, byte[] subspaceKey, K key) {
         byte[] keyBytes = ByteArrayUtil.join(subspaceKey, serializer.serializeKey(key));
         tr.addReadConflictKey(keyBytes);
         // We need to use a range read rather than a getKey with a single key selector
@@ -269,21 +266,21 @@ public class BunchedMap<K, V> {
     // comment. But in addition to proving them correct, a fair amount of testing has gone into
     // trying to verify that they work as intended through randomized testing.
 
-    private void addEntryListReadConflictRange(@Nonnull Transaction tr, @Nonnull byte[] subspaceKey, @Nonnull byte[] keyBytes, @Nonnull List<Map.Entry<K, V>> entryList) {
+    private void addEntryListReadConflictRange(Transaction tr, byte[] subspaceKey, byte[] keyBytes, List<Map.Entry<K, V>> entryList) {
         byte[] end = ByteArrayUtil.join(subspaceKey, serializer.serializeKey(entryList.get(entryList.size() - 1).getKey()), ZERO_ARRAY);
         tr.addReadConflictRange(keyBytes, end);
     }
 
-    private void insertAlone(@Nonnull Transaction tr, @Nonnull byte[] keyBytes, @Nonnull Map.Entry<K, V> entry) {
+    private void insertAlone(Transaction tr, byte[] keyBytes, Map.Entry<K, V> entry) {
         tr.addReadConflictKey(keyBytes);
         byte[] valueBytes = serializer.serializeEntries(Collections.singletonList(entry));
         tr.set(keyBytes, valueBytes);
         instrumentWrite(keyBytes, valueBytes, null);
     }
 
-    private void writeEntryListWithoutChecking(@Nonnull Transaction tr, @Nonnull byte[] subspaceKey, @Nonnull byte[] keyBytes,
-                                               @Nullable KeyValue oldKv, @Nonnull byte[] newKey, @Nonnull List<Map.Entry<K, V>> entryList,
-                                               @Nonnull byte[] serializedBytes) {
+    private void writeEntryListWithoutChecking(Transaction tr, byte[] subspaceKey, byte[] keyBytes,
+                                               @Nullable KeyValue oldKv, byte[] newKey, List<Map.Entry<K, V>> entryList,
+                                               byte[] serializedBytes) {
         // The order of these operations is fairly important as, it turns out, adding an explicit
         // read conflict range does will skip over values that have already been written. This
         // means that we will miss the value that is the actual key we are writing if we
@@ -306,8 +303,8 @@ public class BunchedMap<K, V> {
         }
     }
 
-    private void writeEntryList(@Nonnull Transaction tr, @Nonnull byte[] subspaceKey, @Nonnull byte[] keyBytes,
-                                @Nullable KeyValue oldKv, @Nonnull byte[] newKey, @Nonnull List<Map.Entry<K, V>> entryList,
+    private void writeEntryList(Transaction tr, byte[] subspaceKey, byte[] keyBytes,
+                                @Nullable KeyValue oldKv, byte[] newKey, List<Map.Entry<K, V>> entryList,
                                 @Nullable KeyValue kvAfter, boolean isFirst, boolean isLast) {
         byte[] serializedBytes = serializer.serializeEntries(entryList);
         if (serializedBytes.length > MAX_VALUE_SIZE) {
@@ -360,8 +357,8 @@ public class BunchedMap<K, V> {
         }
     }
 
-    private void insertAfter(@Nonnull Transaction tr, @Nonnull byte[] subspaceKey, @Nonnull byte[] keyBytes,
-                             @Nullable KeyValue kvAfter, @Nonnull Map.Entry<K, V> entry) {
+    private void insertAfter(Transaction tr, byte[] subspaceKey, byte[] keyBytes,
+                             @Nullable KeyValue kvAfter, Map.Entry<K, V> entry) {
         if (kvAfter == null) {
             insertAlone(tr, keyBytes, entry);
         } else {
@@ -380,10 +377,9 @@ public class BunchedMap<K, V> {
         }
     }
 
-    @Nonnull
-    private Optional<V> insertEntry(@Nonnull Transaction tr, @Nonnull byte[] subspaceKey, @Nonnull byte[] keyBytes,
-                                    @Nonnull K key, @Nonnull V value, @Nullable KeyValue kvBefore, @Nullable KeyValue kvAfter,
-                                    @Nonnull Map.Entry<K, V> entry) {
+    private Optional<V> insertEntry(Transaction tr, byte[] subspaceKey, byte[] keyBytes,
+                                    K key, V value, @Nullable KeyValue kvBefore, @Nullable KeyValue kvAfter,
+                                    Map.Entry<K, V> entry) {
         if (kvBefore == null) {
             insertAfter(tr, subspaceKey, keyBytes, kvAfter, entry);
             return Optional.empty();
@@ -473,8 +469,7 @@ public class BunchedMap<K, V> {
      * @return a future that will complete with an optional that will either contain the previous value
      *         associated with the key or be empty if there was not a previous value
      */
-    @Nonnull
-    public CompletableFuture<Optional<V>> put(@Nonnull TransactionContext tcx, @Nonnull Subspace subspace, @Nonnull K key, @Nonnull V value) {
+    public CompletableFuture<Optional<V>> put(TransactionContext tcx, Subspace subspace, K key, V value) {
         return tcx.runAsync(tr -> {
             byte[] subspaceKey = subspace.pack();
             byte[] keyBytes = ByteArrayUtil.join(subspaceKey, serializer.serializeKey(key));
@@ -547,8 +542,7 @@ public class BunchedMap<K, V> {
      * @return a future that will be completed to <code>true</code> if the map contains <code>key</code>
      *         and <code>false</code> otherwise
      */
-    @Nonnull
-    public CompletableFuture<Boolean> containsKey(@Nonnull TransactionContext tcx, @Nonnull Subspace subspace, @Nonnull K key) {
+    public CompletableFuture<Boolean> containsKey(TransactionContext tcx, Subspace subspace, K key) {
         final byte[] subspaceKey = subspace.getKey();
         return tcx.runAsync(tr -> entryForKey(tr, subspaceKey, key)
             .thenApply(optionalEntry -> optionalEntry
@@ -575,8 +569,7 @@ public class BunchedMap<K, V> {
      * @return a future that will be completed with an optional that will be present with the value
      *         associated with the key in the database or empty if the key is not contained within the map
      */
-    @Nonnull
-    public CompletableFuture<Optional<V>> get(@Nonnull TransactionContext tcx, @Nonnull Subspace subspace, @Nonnull K key) {
+    public CompletableFuture<Optional<V>> get(TransactionContext tcx, Subspace subspace, K key) {
         final byte[] subspaceKey = subspace.getKey();
         return tcx.runAsync(tr -> entryForKey(tr, subspaceKey, key)
             .thenApply(optionalEntry -> optionalEntry
@@ -613,8 +606,7 @@ public class BunchedMap<K, V> {
      * @return a future that will be completed with an optional that will be present with the value associated
      *         with the key in the database (prior to removal) or will be empty if the key was not present
      */
-    @Nonnull
-    public CompletableFuture<Optional<V>> remove(@Nonnull TransactionContext tcx, @Nonnull Subspace subspace, @Nonnull K key) {
+    public CompletableFuture<Optional<V>> remove(TransactionContext tcx, Subspace subspace, K key) {
         final byte[] subspaceKey = subspace.getKey();
         return tcx.runAsync(tr -> entryForKey(tr, subspaceKey, key).thenApply(optionalEntry -> optionalEntry.flatMap((KeyValue kv) -> {
             K mapKey = serializer.deserializeKey(kv.getKey(), subspaceKey.length);
@@ -674,8 +666,7 @@ public class BunchedMap<K, V> {
      * @param subspace subspace within which the map's data are located
      * @return a future that will complete when the integrity check has finished
      */
-    @Nonnull
-    public CompletableFuture<Void> verifyIntegrity(@Nonnull TransactionContext tcx, @Nonnull Subspace subspace) {
+    public CompletableFuture<Void> verifyIntegrity(TransactionContext tcx, Subspace subspace) {
         return tcx.runAsync(tr -> {
             AtomicReference<K> lastKey = new AtomicReference<>(null);
             byte[] subspaceKey = subspace.getKey();
@@ -703,9 +694,9 @@ public class BunchedMap<K, V> {
         });
     }
 
-    private void flushEntryList(@Nonnull Transaction tr, @Nonnull byte[] subspaceKey,
-                                @Nonnull List<Map.Entry<K, V>> currentEntryList,
-                                @Nonnull AtomicReference<K> lastKey) {
+    private void flushEntryList(Transaction tr, byte[] subspaceKey,
+                                List<Map.Entry<K, V>> currentEntryList,
+                                AtomicReference<K> lastKey) {
         byte[] keyBytes = ByteArrayUtil.join(subspaceKey, serializer.serializeKey(currentEntryList.get(0).getKey()));
         writeEntryListWithoutChecking(tr, subspaceKey, keyBytes, null, keyBytes, currentEntryList,
                 serializer.serializeEntries(currentEntryList));
@@ -726,8 +717,7 @@ public class BunchedMap<K, V> {
      * @return future that will complete with a continuation that can be used to complete
      *         the compaction across multiple transactions (<code>null</code> if finished)
      */
-    @Nonnull
-    protected CompletableFuture<byte[]> compact(@Nonnull TransactionContext tcx, @Nonnull Subspace subspace,
+    protected CompletableFuture<byte[]> compact(TransactionContext tcx, Subspace subspace,
                                               int keyLimit, @Nullable byte[] continuation) {
         return tcx.runAsync(tr -> {
             byte[] subspaceKey = subspace.getKey();
@@ -792,7 +782,6 @@ public class BunchedMap<K, V> {
      * @return this map's serializer
      * @see BunchedSerializer
      */
-    @Nonnull
     public BunchedSerializer<K, V> getSerializer() {
         return serializer;
     }
@@ -802,7 +791,6 @@ public class BunchedMap<K, V> {
      *
      * @return this map's key comparator
      */
-    @Nonnull
     public Comparator<K> getKeyComparator() {
         return keyComparator;
     }
@@ -829,8 +817,7 @@ public class BunchedMap<K, V> {
      * @param subspace subspace in which the map's data are located
      * @return an iterator over the entries in the map
      */
-    @Nonnull
-    public BunchedMapIterator<K, V> scan(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace) {
+    public BunchedMapIterator<K, V> scan(ReadTransaction tr, Subspace subspace) {
         return scan(tr, subspace, null, Transaction.ROW_LIMIT_UNLIMITED, false);
     }
 
@@ -845,8 +832,7 @@ public class BunchedMap<K, V> {
      * @param continuation continuation from a previous scan (or <code>null</code> to start from the beginning)
      * @return an iterator over the entries in the map
      */
-    @Nonnull
-    public BunchedMapIterator<K, V> scan(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nullable byte[] continuation) {
+    public BunchedMapIterator<K, V> scan(ReadTransaction tr, Subspace subspace, @Nullable byte[] continuation) {
         return scan(tr, subspace, continuation, ReadTransaction.ROW_LIMIT_UNLIMITED, false);
     }
 
@@ -866,8 +852,7 @@ public class BunchedMap<K, V> {
      * @param reverse <code>true</code> if keys are wanted in descending instead of ascending order
      * @return an iterator over the entries in the map
      */
-    @Nonnull
-    public BunchedMapIterator<K, V> scan(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nullable byte[] continuation, int limit, boolean reverse) {
+    public BunchedMapIterator<K, V> scan(ReadTransaction tr, Subspace subspace, @Nullable byte[] continuation, int limit, boolean reverse) {
         byte[] subspaceKey = subspace.getKey();
         AsyncIterable<KeyValue> rangeReadIterable;
         K continuationKey;
@@ -908,8 +893,7 @@ public class BunchedMap<K, V> {
      * @param <T> type of the tag of each map subspace
      * @return an iterator over the entries in multiple maps
      */
-    @Nonnull
-    public <T> BunchedMapMultiIterator<K, V, T> scanMulti(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nonnull SubspaceSplitter<T> splitter) {
+    public <T> BunchedMapMultiIterator<K, V, T> scanMulti(ReadTransaction tr, Subspace subspace, SubspaceSplitter<T> splitter) {
         return scanMulti(tr, subspace, splitter, null, ReadTransaction.ROW_LIMIT_UNLIMITED, false);
     }
 
@@ -928,8 +912,7 @@ public class BunchedMap<K, V> {
      * @param <T> type of the tag of each map subspace
      * @return an iterator over the entries in multiple maps
      */
-    @Nonnull
-    public <T> BunchedMapMultiIterator<K, V, T> scanMulti(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nonnull SubspaceSplitter<T> splitter,
+    public <T> BunchedMapMultiIterator<K, V, T> scanMulti(ReadTransaction tr, Subspace subspace, SubspaceSplitter<T> splitter,
                                                         @Nullable byte[] continuation, int limit, boolean reverse) {
         return scanMulti(tr, subspace, splitter, null, null, continuation, limit, reverse);
     }
@@ -985,8 +968,7 @@ public class BunchedMap<K, V> {
      * @param <T> type of the tag of each map subspace
      * @return an iterator over the entries in multiple maps
      */
-    @Nonnull
-    public <T> BunchedMapMultiIterator<K, V, T> scanMulti(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nonnull SubspaceSplitter<T> splitter,
+    public <T> BunchedMapMultiIterator<K, V, T> scanMulti(ReadTransaction tr, Subspace subspace, SubspaceSplitter<T> splitter,
                                                           @Nullable byte[] subspaceStart, @Nullable byte[] subspaceEnd,
                                                           @Nullable byte[] continuation, int limit, boolean reverse) {
         return scanMulti(tr, subspace, splitter, subspaceStart, subspaceEnd, continuation, limit, null, reverse);
@@ -1010,8 +992,7 @@ public class BunchedMap<K, V> {
      * @return an iterator over the entries in multiple maps
      * @see #scanMulti(ReadTransaction, Subspace, SubspaceSplitter, byte[], byte[], byte[], int, Consumer, boolean)
      */
-    @Nonnull
-    public <T> BunchedMapMultiIterator<K, V, T> scanMulti(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nonnull SubspaceSplitter<T> splitter,
+    public <T> BunchedMapMultiIterator<K, V, T> scanMulti(ReadTransaction tr, Subspace subspace, SubspaceSplitter<T> splitter,
                                                           @Nullable byte[] subspaceStart, @Nullable byte[] subspaceEnd,
                                                           @Nullable byte[] continuation, int limit, @Nullable Consumer<KeyValue> postReadCallback, boolean reverse) {
         byte[] subspaceKey = subspace.getKey();

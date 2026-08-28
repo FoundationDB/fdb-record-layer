@@ -40,7 +40,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -761,7 +760,7 @@ class KMeansTest {
      * (divide by {@code n}, not {@code n-1}). Used by
      * {@link #siftSmallLambdaImprovesBalance()} to measure cluster-size dispersion.
      */
-    private static double clusterSizeStddev(@Nonnull final int[] sizes) {
+    private static double clusterSizeStddev(final int[] sizes) {
         final double mean = Arrays.stream(sizes).average().orElseThrow();
         double sumSquared = 0.0d;
         for (final int s : sizes) {
@@ -836,8 +835,7 @@ class KMeansTest {
     /**
      * Returns the arithmetic mean of the given vectors as an immutable {@link RealVector}.
      */
-    @Nonnull
-    private static RealVector arithmeticMean(@Nonnull final List<RealVector> vectors) {
+    private static RealVector arithmeticMean(final List<RealVector> vectors) {
         final int d = vectors.get(0).getNumDimensions();
         final MutableDoubleRealVector sum = MutableDoubleRealVector.zeroVector(d);
         for (final RealVector v : vectors) {
@@ -853,7 +851,7 @@ class KMeansTest {
      * the global mean. The objective is the sum of squared distances from each point to that
      * mean.
      */
-    private static double baselineObjectiveSameCentroidTwice(@Nonnull final List<RealVector> pts) {
+    private static double baselineObjectiveSameCentroidTwice(final List<RealVector> pts) {
         final int d = pts.get(0).getNumDimensions();
         final MutableDoubleRealVector sum = MutableDoubleRealVector.zeroVector(d);
         for (final RealVector p : pts) {
@@ -878,8 +876,8 @@ class KMeansTest {
      * Computes the global mean, normalizes it to a unit vector, then pretends both centroids are
      * that same vector. The objective is computed using the provided {@link DistanceEstimator}.
      */
-    private static double baselineObjectiveSameCentroidTwiceNormalized(@Nonnull final List<RealVector> pts,
-                                                                       @Nonnull final DistanceEstimator distanceEstimator) {
+    private static double baselineObjectiveSameCentroidTwiceNormalized(final List<RealVector> pts,
+                                                                       final DistanceEstimator distanceEstimator) {
         final int d = pts.get(0).getNumDimensions();
         final MutableDoubleRealVector sum = MutableDoubleRealVector.zeroVector(d);
         for (final RealVector p : pts) {
@@ -896,9 +894,9 @@ class KMeansTest {
     }
 
     @SuppressWarnings("unused")
-    static void dumpVectors(@Nonnull final Path tempDir,
-                            @Nonnull final String prefix,
-                            @Nonnull final List<RealVector> vectors) throws IOException {
+    static void dumpVectors(final Path tempDir,
+                            final String prefix,
+                            final List<RealVector> vectors) throws IOException {
         final Path vectorsFile = tempDir.resolve(prefix + ".csv");
 
         try (final BufferedWriter vectorsWriter = Files.newBufferedWriter(vectorsFile)) {

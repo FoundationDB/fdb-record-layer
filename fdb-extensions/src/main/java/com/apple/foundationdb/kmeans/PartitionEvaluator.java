@@ -28,7 +28,6 @@ import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -82,13 +81,12 @@ public class PartitionEvaluator {
      * @return an {@link EvaluationResult} carrying the decision, both stats, and the metrics
      *         that led to the decision
      */
-    @Nonnull
-    public static <V> EvaluationResult evaluate(@Nonnull final List<V> currentVectors,
-                                                @Nonnull final Partition<?> current,
-                                                @Nonnull final List<V> candidateVectors,
-                                                @Nonnull final Partition<?> candidate,
-                                                @Nonnull final Lens<V, RealVector> vectorLens,
-                                                @Nonnull final Parameters parameters) {
+    public static <V> EvaluationResult evaluate(final List<V> currentVectors,
+                                                final Partition<?> current,
+                                                final List<V> candidateVectors,
+                                                final Partition<?> candidate,
+                                                final Lens<V, RealVector> vectorLens,
+                                                final Parameters parameters) {
 
         validate(currentVectors, current);
         validate(candidateVectors, candidate);
@@ -181,11 +179,10 @@ public class PartitionEvaluator {
      * @return a populated {@link EvaluationResult} carrying the inputs and a
      *         {@link Decision#KEEP_CURRENT} decision
      */
-    @Nonnull
-    private static EvaluationResult keepCurrent(@Nonnull final PartitionStats currentStats,
-                                                @Nonnull final PartitionStats candidateStats,
+    private static EvaluationResult keepCurrent(final PartitionStats currentStats,
+                                                final PartitionStats candidateStats,
                                                 final double relativeSseGain, final double scoreGain,
-                                                @Nonnull final String reason) {
+                                                final String reason) {
         currentStats.log(logger, "current stats");
         candidateStats.log(logger, "candidate stats");
         if (logger.isTraceEnabled()) {
@@ -209,11 +206,10 @@ public class PartitionEvaluator {
      * @return a populated {@link EvaluationResult} carrying the inputs and a
      *         {@link Decision#INVALID_CANDIDATE} decision
      */
-    @Nonnull
-    private static EvaluationResult invalid(@Nonnull final PartitionStats currentStats,
-                                            @Nonnull final PartitionStats candidateStats,
+    private static EvaluationResult invalid(final PartitionStats currentStats,
+                                            final PartitionStats candidateStats,
                                             final double relativeSseGain, final double scoreGain,
-                                            @Nonnull final String reason) {
+                                            final String reason) {
         currentStats.log(logger, "current stats");
         candidateStats.log(logger, "candidate stats");
         if (logger.isDebugEnabled()) {
@@ -236,11 +232,10 @@ public class PartitionEvaluator {
      * @return a populated {@link EvaluationResult} carrying the inputs and a
      *         {@link Decision#ACCEPT_CANDIDATE} decision
      */
-    @Nonnull
-    private static EvaluationResult accept(@Nonnull final PartitionStats currentStats,
-                                           @Nonnull final PartitionStats candidateStats,
+    private static EvaluationResult accept(final PartitionStats currentStats,
+                                           final PartitionStats candidateStats,
                                            final double relativeSseGain, final double scoreGain,
-                                           @Nonnull final String reason) {
+                                           final String reason) {
         currentStats.log(logger, "current stats");
         candidateStats.log(logger, "candidate stats");
         if (logger.isDebugEnabled()) {
@@ -261,8 +256,8 @@ public class PartitionEvaluator {
      * @param partition the partitioning to validate
      * @throws IllegalArgumentException if the partition is not well-formed
      */
-    private static void validate(@Nonnull final List<?> vectors,
-                                 @Nonnull final Partition<?> partition) {
+    private static void validate(final List<?> vectors,
+                                 final Partition<?> partition) {
         if (vectors.isEmpty()) {
             throw new IllegalArgumentException("vectors must not be empty");
         }
@@ -301,11 +296,10 @@ public class PartitionEvaluator {
      * @param <V> caller's input vector representation
      * @return the computed statistics
      */
-    @Nonnull
-    private static <V> PartitionStats evaluatePartition(@Nonnull final List<V> vectors,
-                                                        @Nonnull final Lens<V, RealVector> vectorLens,
-                                                        @Nonnull final Partition<?> partition,
-                                                        @Nonnull final Parameters parameters) {
+    private static <V> PartitionStats evaluatePartition(final List<V> vectors,
+                                                        final Lens<V, RealVector> vectorLens,
+                                                        final Partition<?> partition,
+                                                        final Parameters parameters) {
         final DistanceEstimator distanceEstimator = parameters.distanceEstimator();
         final int n = vectors.size();
         final int k = partition.k();
@@ -345,9 +339,9 @@ public class PartitionEvaluator {
      *                   when the caller did not request it (i.e. when the low-margin threshold is
      *                   either explicitly overridden or fixed by the metric)
      */
-    private record SecondPassResult(double sse, @Nonnull int[] childSizes,
-                                    @Nonnull List<Double>[] childRadii,
-                                    @Nonnull List<Double> margins,
+    private record SecondPassResult(double sse, int[] childSizes,
+                                    List<Double>[] childRadii,
+                                    List<Double> margins,
                                     double overallP95) {
     }
 
@@ -398,11 +392,10 @@ public class PartitionEvaluator {
      * @param <V> caller's input vector representation
      * @return the accumulated results
      */
-    @Nonnull
-    private static <V> SecondPassResult accumulate(@Nonnull final List<V> vectors,
-                                                   @Nonnull final Lens<V, RealVector> vectorLens,
-                                                   @Nonnull final Partition<?> partition,
-                                                   @Nonnull final DistanceEstimator distanceEstimator,
+    private static <V> SecondPassResult accumulate(final List<V> vectors,
+                                                   final Lens<V, RealVector> vectorLens,
+                                                   final Partition<?> partition,
+                                                   final DistanceEstimator distanceEstimator,
                                                    final boolean computeOverallP95) {
         final int n = vectors.size();
         final int k = partition.k();
@@ -465,9 +458,9 @@ public class PartitionEvaluator {
      * @throws UnsupportedOperationException if the estimator's metric is neither
      *         {@code EUCLIDEAN_METRIC} nor {@code COSINE_METRIC}
      */
-    private static double computeMargin(@Nonnull final DistanceEstimator distanceEstimator,
-                                        @Nonnull final Partition<?> partition,
-                                        @Nonnull final RealVector v,
+    private static double computeMargin(final DistanceEstimator distanceEstimator,
+                                        final Partition<?> partition,
+                                        final RealVector v,
                                         final int own) {
         final int k = partition.k();
         final RealVector ownC = partition.getCentroid(own);
@@ -508,7 +501,7 @@ public class PartitionEvaluator {
      * @param vector2 right operand
      * @return {@code vector1 · vector2} clamped to {@code [-1, 1]}
      */
-    private static double clampedDot(@Nonnull final RealVector vector1, @Nonnull final RealVector vector2) {
+    private static double clampedDot(final RealVector vector1, final RealVector vector2) {
         final double dot = vector1.dot(vector2);
         return Math.max(-1.0d, Math.min(1.0d, dot));
     }
@@ -521,8 +514,7 @@ public class PartitionEvaluator {
      * @param n total vector count
      * @return the imbalance and the smallest/largest cluster fractions
      */
-    @Nonnull
-    private static SizeStats summarizeSizes(@Nonnull final int[] childSizes, final int n) {
+    private static SizeStats summarizeSizes(final int[] childSizes, final int n) {
         final int k = childSizes.length;
         final double target = (double) n / k;
         double sumSquaredDiff = 0.0;
@@ -547,7 +539,7 @@ public class PartitionEvaluator {
      * @return the maximum p95 radius across non-empty clusters, or {@code 0.0} if every cluster is
      *         empty
      */
-    private static double maxRadius95(@Nonnull final List<Double>[] childRadii) {
+    private static double maxRadius95(final List<Double>[] childRadii) {
         double max = 0.0;
         for (final List<Double> radii : childRadii) {
             if (!radii.isEmpty()) {
@@ -567,8 +559,8 @@ public class PartitionEvaluator {
      * @param maxRadius95 scale reference used to normalize the minimum pairwise centroid distance
      * @return the normalized inter-centroid separation, or {@link Double#NaN} if {@code k < 2}
      */
-    private static double separation(@Nonnull final Partition<?> partition,
-                                     @Nonnull final DistanceEstimator distanceEstimator,
+    private static double separation(final Partition<?> partition,
+                                     final DistanceEstimator distanceEstimator,
                                      final double maxRadius95) {
         final int k = partition.k();
         if (k < 2) {
@@ -595,8 +587,7 @@ public class PartitionEvaluator {
      * @param k number of clusters in the partitioning
      * @return the margin distribution summary, or NaN/{@code 0.0} sentinels when {@code k < 2}
      */
-    @Nonnull
-    private static MarginStats marginStats(@Nonnull final List<Double> margins,
+    private static MarginStats marginStats(final List<Double> margins,
                                            final double lowMarginThreshold,
                                            final int n,
                                            final int k) {
@@ -627,7 +618,7 @@ public class PartitionEvaluator {
      * @return the resolved low-margin threshold
      */
     @SuppressWarnings("SwitchStatementWithTooFewBranches")
-    private static double computeLowMarginThreshold(@Nonnull final Parameters parameters,
+    private static double computeLowMarginThreshold(final Parameters parameters,
                                                     final double overallP95) {
         return switch (parameters.distanceEstimator.getMetric()) {
             case COSINE_METRIC -> parameters.lowMarginThreshold > 0.0 ? parameters.lowMarginThreshold : 0.02;
@@ -647,8 +638,8 @@ public class PartitionEvaluator {
      * @throws UnsupportedOperationException if the estimator's metric is neither
      *         {@code EUCLIDEAN_METRIC} nor {@code COSINE_METRIC}
      */
-    private static double geometricDistance(@Nonnull final DistanceEstimator distanceEstimator, @Nonnull final RealVector a,
-                                            @Nonnull final RealVector b) {
+    private static double geometricDistance(final DistanceEstimator distanceEstimator, final RealVector a,
+                                            final RealVector b) {
         return switch (distanceEstimator.getMetric()) {
             case COSINE_METRIC, EUCLIDEAN_METRIC -> distanceEstimator.distance(a, b);
             default -> throw new UnsupportedOperationException("metric is not supported");
@@ -673,8 +664,8 @@ public class PartitionEvaluator {
      * @throws UnsupportedOperationException if the estimator's metric is neither
      *         {@code EUCLIDEAN_METRIC} nor {@code COSINE_METRIC}
      */
-    private static double distanceForSse(@Nonnull final DistanceEstimator distanceEstimator, @Nonnull final RealVector v,
-                                         @Nonnull final RealVector c) {
+    private static double distanceForSse(final DistanceEstimator distanceEstimator, final RealVector v,
+                                         final RealVector c) {
         return switch (distanceEstimator.getMetric()) {
             case COSINE_METRIC -> 2.0d * distanceEstimator.distance(v, c);
             case EUCLIDEAN_METRIC -> v.l2SquaredDistance(c);
@@ -692,7 +683,7 @@ public class PartitionEvaluator {
      *         {@code values} has exactly one element, that element is returned regardless of
      *         {@code p}
      */
-    private static double percentile(@Nonnull final List<Double> values, double p) {
+    private static double percentile(final List<Double> values, double p) {
         Preconditions.checkArgument(p >= 0.0d, "desired percentile should be >= 0");
         Preconditions.checkArgument(p <= 1.0d, "desired percentile should be <= 1");
 
@@ -743,9 +734,9 @@ public class PartitionEvaluator {
      * @param assignments per-vector cluster assignment; {@code assignments[i]} is the centroid index
      *        for the i-th vector in the corresponding vector list
      */
-    public record Partition<V>(@Nonnull List<V> centroids,
-                               @Nonnull Lens<V, RealVector> vectorLens,
-                               @Nonnull int[] assignments) {
+    public record Partition<V>(List<V> centroids,
+                               Lens<V, RealVector> vectorLens,
+                               int[] assignments) {
 
         /**
          * Returns the centroid at the given cluster index as a {@link RealVector}, dereferenced
@@ -754,7 +745,6 @@ public class PartitionEvaluator {
          * @param index cluster index in {@code [0, k())}
          * @return the centroid as a {@link RealVector}; never {@code null}
          */
-        @Nonnull
         public RealVector getCentroid(final int index) {
             return vectorLens.getNonnull(centroids.get(index));
         }
@@ -844,7 +834,7 @@ public class PartitionEvaluator {
          * @param logger the SLF4J logger to write to
          * @param messagePrefix free-form prefix prepended to the structured log line
          */
-        public void log(@Nonnull final Logger logger, @Nonnull final String messagePrefix) {
+        public void log(final Logger logger, final String messagePrefix) {
             if (logger.isTraceEnabled()) {
                 logger.trace("{} k={}, sse={}, imbalance={}, separation={}, largestFrac={}, smallestFrac={}" +
                                 ", maxRadius95={}, medianMargin={}, p10Margin={}, lowMarginRate={}",
@@ -889,7 +879,7 @@ public class PartitionEvaluator {
      * @param minScoreGain minimum composite score improvement the candidate must achieve over the
      *        current partitioning to be accepted
      */
-    public record Parameters(@Nonnull DistanceEstimator distanceEstimator, double minRelativeSseGain, double minSeparation,
+    public record Parameters(DistanceEstimator distanceEstimator, double minRelativeSseGain, double minSeparation,
                              double maxLowMarginRate, double minSmallestFrac, double maxLargestFrac,
                              double lowMarginThreshold, double alphaSseGain, double betaSeparationGain,
                              double gammaImbalancePenalty, double deltaLowMarginPenalty, double minScoreGain) {
@@ -903,7 +893,7 @@ public class PartitionEvaluator {
          *
          * @param distanceEstimator the distance estimator used for all distance computations
          */
-        public Parameters(@Nonnull final DistanceEstimator distanceEstimator) {
+        public Parameters(final DistanceEstimator distanceEstimator) {
             this(distanceEstimator,
                     0.10d,
                     0.3d,
@@ -931,8 +921,8 @@ public class PartitionEvaluator {
      * @param scoreGain composite quality score difference between candidate and current
      * @param reason human-readable explanation of why this decision was made
      */
-    public record EvaluationResult(@Nonnull Decision decision, @Nonnull PartitionStats currentStats,
-                                   @Nonnull PartitionStats candidateStats, double relativeSseGain, double scoreGain,
+    public record EvaluationResult(Decision decision, PartitionStats currentStats,
+                                   PartitionStats candidateStats, double relativeSseGain, double scoreGain,
                                    String reason) {
     }
 }

@@ -30,7 +30,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.Random;
 import java.util.stream.Stream;
 
@@ -54,11 +53,10 @@ class MetricTest {
 
     @ParameterizedTest
     @MethodSource("metricAndExpectedDistance")
-    void basicMetricTest(@Nonnull final Metric metric, @Nonnull final RealVector v1, @Nonnull final RealVector v2, final double expectedDistance) {
+    void basicMetricTest(final Metric metric, final RealVector v1, final RealVector v2, final double expectedDistance) {
         Assertions.assertThat(metric.distance(v1, v2)).isCloseTo(expectedDistance, Offset.offset(2E-4d));
     }
 
-    @Nonnull
     private static Stream<Arguments> randomSeedsWithMetrics() {
         return RandomizedTestUtils.randomSeeds(12345, 987654, 423, 18378195)
                 .flatMap(seed ->
@@ -85,7 +83,7 @@ class MetricTest {
 
     @ParameterizedTest
     @MethodSource("randomSeedsWithMetrics")
-    void basicPropertyTest(final long seed, @Nonnull final Metric metric, final int numDimensions) {
+    void basicPropertyTest(final long seed, final Metric metric, final int numDimensions) {
         final Random random = new Random(seed);
 
         for (int i = 0; i < 1000; i ++) {
@@ -146,15 +144,13 @@ class MetricTest {
         return distanceXZ <= distanceXY + distanceYZ + tol;
     }
 
-    @Nonnull
     @SuppressWarnings("checkstyle:MethodName")
     private static RealVector v(final double... components) {
         return new DoubleRealVector(components);
     }
 
-    @Nonnull
     @SuppressWarnings("checkstyle:MethodName")
-    private static RealVector randomV(@Nonnull final Random random, final int numDimensions) {
+    private static RealVector randomV(final Random random, final int numDimensions) {
         final double[] components = new double[numDimensions];
         for (int i = 0; i < numDimensions; i++) {
             components[i] = random.nextDouble();

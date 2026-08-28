@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.util;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 
 /**
@@ -44,7 +43,6 @@ public interface LoggableKeysAndValues<T extends LoggableKeysAndValues<T>> {
      *
      * @return a single map with all log information
      */
-    @Nonnull
     Map<String, Object> getLogInfo();
 
     /**
@@ -55,8 +53,7 @@ public interface LoggableKeysAndValues<T extends LoggableKeysAndValues<T>> {
      * @param object value of the log info pair
      * @return this <code>LoggableException</code>
      */
-    @Nonnull
-    T addLogInfo(@Nonnull String description, Object object);
+    T addLogInfo(String description, Object object);
 
     /**
      * Add a list of key/value pairs to the log information. This will treat the
@@ -71,8 +68,7 @@ public interface LoggableKeysAndValues<T extends LoggableKeysAndValues<T>> {
      * @return this <code>T</code>
      * @throws IllegalArgumentException if <code>keyValue</code> has odd length
      */
-    @Nonnull
-    T addLogInfo(@Nonnull Object ... keyValue);
+    T addLogInfo(Object ... keyValue);
 
     /**
      * Export the log information to a flattened array. This will flatten the map that would
@@ -84,7 +80,6 @@ public interface LoggableKeysAndValues<T extends LoggableKeysAndValues<T>> {
      *
      * @return a flattened map of key-value pairs
      */
-    @Nonnull
     Object[] exportLogInfo();
 
 }

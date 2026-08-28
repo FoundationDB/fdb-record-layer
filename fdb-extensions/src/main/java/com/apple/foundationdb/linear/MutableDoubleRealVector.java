@@ -23,7 +23,6 @@ package com.apple.foundationdb.linear;
 import com.google.common.base.Preconditions;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 
 /**
@@ -77,7 +76,7 @@ public class MutableDoubleRealVector extends DoubleRealVector {
      *
      * @param doubleData the components of the new vector
      */
-    public MutableDoubleRealVector(@Nonnull final Double[] doubleData) {
+    public MutableDoubleRealVector(final Double[] doubleData) {
         this(computeDoubleData(doubleData));
     }
 
@@ -90,7 +89,7 @@ public class MutableDoubleRealVector extends DoubleRealVector {
      * @param data the components of the new vector; ownership is shared with the caller per the
      *             aliasing contract above
      */
-    public MutableDoubleRealVector(@Nonnull final double[] data) {
+    public MutableDoubleRealVector(final double[] data) {
         super(data);
     }
 
@@ -100,7 +99,7 @@ public class MutableDoubleRealVector extends DoubleRealVector {
      *
      * @param intData the components of the new vector
      */
-    public MutableDoubleRealVector(@Nonnull final int[] intData) {
+    public MutableDoubleRealVector(final int[] intData) {
         this(fromInts(intData));
     }
 
@@ -110,7 +109,7 @@ public class MutableDoubleRealVector extends DoubleRealVector {
      *
      * @param longData the components of the new vector
      */
-    public MutableDoubleRealVector(@Nonnull final long[] longData) {
+    public MutableDoubleRealVector(final long[] longData) {
         this(fromLongs(longData));
     }
 
@@ -121,7 +120,6 @@ public class MutableDoubleRealVector extends DoubleRealVector {
      * vectors never change. This class's contents can change, so memoization would return stale
      * values — every call recomputes from the current data.
      */
-    @Nonnull
     @Override
     public HalfRealVector toHalfRealVector() {
         return computeHalfRealVector();
@@ -133,7 +131,6 @@ public class MutableDoubleRealVector extends DoubleRealVector {
      * <p>Override note: same reasoning as {@link #toHalfRealVector()} — recomputed on every call
      * because the underlying data may have changed since the last invocation.
      */
-    @Nonnull
     @Override
     public FloatRealVector toFloatRealVector() {
         return computeFloatRealVector();
@@ -144,7 +141,6 @@ public class MutableDoubleRealVector extends DoubleRealVector {
      * shares storage with the receiver, so any subsequent mutation is visible through both
      * references.
      */
-    @Nonnull
     @Override
     public MutableDoubleRealVector toDoubleRealVector() {
         return this;
@@ -155,7 +151,6 @@ public class MutableDoubleRealVector extends DoubleRealVector {
      * need an independent mutable buffer should explicitly construct one over
      * {@code getData().clone()}.
      */
-    @Nonnull
     @Override
     public MutableDoubleRealVector toMutable() {
         return this;
@@ -166,7 +161,6 @@ public class MutableDoubleRealVector extends DoubleRealVector {
      * {@link DoubleRealVector}. The underlying {@code double[]} is cloned, so subsequent
      * mutations of the receiver do not affect the returned value.
      */
-    @Nonnull
     @Override
     public DoubleRealVector toImmutable() {
         return new DoubleRealVector(getData().clone());
@@ -182,8 +176,7 @@ public class MutableDoubleRealVector extends DoubleRealVector {
      * @throws IllegalArgumentException if {@code data.length} does not match this vector's
      *         dimensionality
      */
-    @Nonnull
-    public MutableDoubleRealVector setData(@Nonnull final double[] data) {
+    public MutableDoubleRealVector setData(final double[] data) {
         Preconditions.checkArgument(this.data.length == data.length);
         System.arraycopy(data, 0, this.data, 0, this.data.length);
         return this;
@@ -195,7 +188,6 @@ public class MutableDoubleRealVector extends DoubleRealVector {
      * <p>Override note: the parent's memoized raw-bytes representation would be stale once any
      * mutation happens; this override recomputes on every call.
      */
-    @Nonnull
     @Override
     public byte[] getRawData() {
         return computeRawData();
@@ -225,7 +217,6 @@ public class MutableDoubleRealVector extends DoubleRealVector {
      * @return {@code this} for chaining
      * @throws IllegalArgumentException if this vector's L2 norm is zero, infinite, or NaN
      */
-    @Nonnull
     public MutableDoubleRealVector normalizeThis() {
         RealVectorPrimitives.normalizeInto(this.getData(), getData());
         return this;
@@ -237,8 +228,7 @@ public class MutableDoubleRealVector extends DoubleRealVector {
      * @param other the vector to add; must have the same dimensionality as this vector
      * @return {@code this} for chaining
      */
-    @Nonnull
-    public MutableDoubleRealVector addToThis(@Nonnull final RealVector other) {
+    public MutableDoubleRealVector addToThis(final RealVector other) {
         RealVectorPrimitives.addInto(this.getData(), other.getData(), getData());
         return this;
     }
@@ -249,7 +239,6 @@ public class MutableDoubleRealVector extends DoubleRealVector {
      * @param scalar the value to add to each component
      * @return {@code this} for chaining
      */
-    @Nonnull
     public MutableDoubleRealVector addToThis(final double scalar) {
         RealVectorPrimitives.addInto(this.getData(), scalar, getData());
         return this;
@@ -261,8 +250,7 @@ public class MutableDoubleRealVector extends DoubleRealVector {
      * @param other the vector to subtract; must have the same dimensionality as this vector
      * @return {@code this} for chaining
      */
-    @Nonnull
-    public MutableDoubleRealVector subtractFromThis(@Nonnull final RealVector other) {
+    public MutableDoubleRealVector subtractFromThis(final RealVector other) {
         RealVectorPrimitives.subtractInto(this.getData(), other.getData(), getData());
         return this;
     }
@@ -273,7 +261,6 @@ public class MutableDoubleRealVector extends DoubleRealVector {
      * @param scalar the value to subtract from each component
      * @return {@code this} for chaining
      */
-    @Nonnull
     public MutableDoubleRealVector subtractFromThis(final double scalar) {
         RealVectorPrimitives.subtractInto(this.getData(), scalar, getData());
         return this;
@@ -285,7 +272,6 @@ public class MutableDoubleRealVector extends DoubleRealVector {
      * @param scalar the factor to scale each component by
      * @return {@code this} for chaining
      */
-    @Nonnull
     public MutableDoubleRealVector multiplyThisBy(final double scalar) {
         RealVectorPrimitives.multiplyInto(this.getData(), scalar, getData());
         return this;
@@ -298,7 +284,6 @@ public class MutableDoubleRealVector extends DoubleRealVector {
      *         because callers commonly reset state without consuming the result
      */
     @CanIgnoreReturnValue
-    @Nonnull
     public MutableDoubleRealVector zeroThis() {
         Arrays.fill(getData(), 0.0d);
         return this;
@@ -310,7 +295,6 @@ public class MutableDoubleRealVector extends DoubleRealVector {
      * @param numDimensions number of dimensions; must be non-negative
      * @return a freshly allocated zero vector
      */
-    @Nonnull
     public static MutableDoubleRealVector zeroVector(final int numDimensions) {
         return new MutableDoubleRealVector(new double[numDimensions]);
     }
@@ -326,8 +310,7 @@ public class MutableDoubleRealVector extends DoubleRealVector {
      * @param vectorBytes the serialized form
      * @return a new mutable vector with the decoded components
      */
-    @Nonnull
-    public static MutableDoubleRealVector fromBytes(@Nonnull final byte[] vectorBytes) {
+    public static MutableDoubleRealVector fromBytes(final byte[] vectorBytes) {
         return new MutableDoubleRealVector(DoubleRealVector.decodeDoubleBytes(vectorBytes));
     }
 }

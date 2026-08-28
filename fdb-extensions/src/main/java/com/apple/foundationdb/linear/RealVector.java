@@ -24,7 +24,6 @@ import com.apple.foundationdb.half.Half;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 
 /**
  * Real-valued mathematical vector — the common API every dense vector representation in this
@@ -99,7 +98,6 @@ public interface RealVector {
      * returns a direct reference to the internal array, not a copy.
      * @return the data array of type {@code R[]}, never {@code null}.
      */
-    @Nonnull
     double[] getData();
 
     /**
@@ -111,8 +109,7 @@ public interface RealVector {
      *        dimensionality
      * @return a non-null vector with the given data
      */
-    @Nonnull
-    RealVector withData(@Nonnull double[] data);
+    RealVector withData(double[] data);
 
     /**
      * Gets the raw byte data representation of this object.
@@ -121,7 +118,6 @@ public interface RealVector {
      * implementation-specific and should be documented by the concrete class that implements this method.
      * @return a non-null byte array containing the raw data.
      */
-    @Nonnull
     byte[] getRawData();
 
     /**
@@ -133,7 +129,6 @@ public interface RealVector {
      * @return a non-null {@link HalfRealVector} containing the {@link Half} precision floating-point representation of
      *         this object.
      */
-    @Nonnull
     HalfRealVector toHalfRealVector();
 
     /**
@@ -146,7 +141,6 @@ public interface RealVector {
      * @return a non-null {@link FloatRealVector} containing the single precision floating-point representation of
      *         this object.
      */
-    @Nonnull
     FloatRealVector toFloatRealVector();
 
     /**
@@ -158,7 +152,6 @@ public interface RealVector {
      * underlying data type.
      * @return a non-null {@link DoubleRealVector} representation of this vector.
      */
-    @Nonnull
     DoubleRealVector toDoubleRealVector();
 
     /**
@@ -170,7 +163,6 @@ public interface RealVector {
      * @return a fresh (or in the case of {@link MutableDoubleRealVector}, the same) mutable
      *         double-precision vector
      */
-    @Nonnull
     default MutableDoubleRealVector toMutable() {
         return new MutableDoubleRealVector(getData().clone());
     }
@@ -183,7 +175,6 @@ public interface RealVector {
      *
      * @return a non-null immutable vector with the same components as this vector
      */
-    @Nonnull
     RealVector toImmutable();
 
     /**
@@ -193,7 +184,7 @@ public interface RealVector {
      * @return the dot product
      * @throws IllegalArgumentException if {@code other} has a different dimensionality
      */
-    default double dot(@Nonnull final RealVector other) {
+    default double dot(final RealVector other) {
         Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
         return RealVectorPrimitives.dot(getData(), other.getData());
     }
@@ -204,7 +195,7 @@ public interface RealVector {
      * allocation), and cheaper than {@code Math.pow(estimator.distance(this, other), 2)} for the
      * Euclidean metric (skips a {@code sqrt} that would just be squared again).
      */
-    default double l2SquaredDistance(@Nonnull final RealVector other) {
+    default double l2SquaredDistance(final RealVector other) {
         Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
         return RealVectorPrimitives.euclideanSquared(getData(), other.getData());
     }
@@ -252,7 +243,6 @@ public interface RealVector {
      * @throws IllegalArgumentException if this vector's L2 norm is zero, infinite, or NaN —
      *         direction is undefined in those cases
      */
-    @Nonnull
     default RealVector normalize() {
         return withData(RealVectorPrimitives.normalizeInto(this.getData(), new double[getNumDimensions()]));
     }
@@ -269,7 +259,7 @@ public interface RealVector {
      * @return the dot product, computed on the scalar backend
      * @throws IllegalArgumentException if {@code other} has a different dimensionality
      */
-    default double dotExact(@Nonnull final RealVector other) {
+    default double dotExact(final RealVector other) {
         Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
         return RealVectorPrimitives.dotExact(getData(), other.getData());
     }
@@ -305,7 +295,7 @@ public interface RealVector {
      * @return the squared Euclidean distance, computed on the scalar backend
      * @throws IllegalArgumentException if {@code other} has a different dimensionality
      */
-    default double l2SquaredDistanceExact(@Nonnull final RealVector other) {
+    default double l2SquaredDistanceExact(final RealVector other) {
         Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
         return RealVectorPrimitives.euclideanSquaredExact(getData(), other.getData());
     }
@@ -318,7 +308,6 @@ public interface RealVector {
      * @return a non-null unit-norm vector, normalized using the scalar backend
      * @throws IllegalArgumentException if this vector's L2 norm is zero, infinite, or NaN
      */
-    @Nonnull
     default RealVector normalizeExact() {
         return withData(RealVectorPrimitives.normalizeIntoExact(this.getData(), new double[getNumDimensions()]));
     }
@@ -331,8 +320,7 @@ public interface RealVector {
      * @return a non-null vector with {@code result[i] = this[i] + other[i]}
      * @throws IllegalArgumentException if {@code other} has a different dimensionality
      */
-    @Nonnull
-    default RealVector add(@Nonnull final RealVector other) {
+    default RealVector add(final RealVector other) {
         return withData(RealVectorPrimitives.addInto(this.getData(), other.getData(), new double[getNumDimensions()]));
     }
 
@@ -343,7 +331,6 @@ public interface RealVector {
      * @param scalar the value to add to each component
      * @return a non-null vector with {@code result[i] = this[i] + scalar}
      */
-    @Nonnull
     default RealVector add(final double scalar) {
         return withData(RealVectorPrimitives.addInto(this.getData(), scalar, new double[getNumDimensions()]));
     }
@@ -356,8 +343,7 @@ public interface RealVector {
      * @return a non-null vector with {@code result[i] = this[i] - other[i]}
      * @throws IllegalArgumentException if {@code other} has a different dimensionality
      */
-    @Nonnull
-    default RealVector subtract(@Nonnull final RealVector other) {
+    default RealVector subtract(final RealVector other) {
         return withData(RealVectorPrimitives.subtractInto(this.getData(), other.getData(), new double[getNumDimensions()]));
     }
 
@@ -368,7 +354,6 @@ public interface RealVector {
      * @param scalar the value to subtract from each component
      * @return a non-null vector with {@code result[i] = this[i] - scalar}
      */
-    @Nonnull
     default RealVector subtract(final double scalar) {
         return withData(RealVectorPrimitives.subtractInto(this.getData(), scalar, new double[getNumDimensions()]));
     }
@@ -380,7 +365,6 @@ public interface RealVector {
      * @param scalar the factor to scale each component by
      * @return a non-null vector with {@code result[i] = this[i] * scalar}
      */
-    @Nonnull
     default RealVector multiply(final double scalar) {
         return withData(RealVectorPrimitives.multiplyInto(this.getData(), scalar, new double[getNumDimensions()]));
     }
@@ -395,7 +379,6 @@ public interface RealVector {
      * @return the matching {@link VectorType}; never {@code null}
      * @throws IndexOutOfBoundsException if {@code ordinal} is not a valid enum ordinal
      */
-    @Nonnull
     static VectorType fromVectorTypeOrdinal(final int ordinal) {
         return VECTOR_TYPES.get(ordinal);
     }
@@ -409,8 +392,7 @@ public interface RealVector {
      * @param vectorBytes the non-null byte array to convert.
      * @return a new {@link RealVector} instance created from the byte array.
      */
-    @Nonnull
-    static RealVector fromBytes(@Nonnull final byte[] vectorBytes) {
+    static RealVector fromBytes(final byte[] vectorBytes) {
         final byte vectorTypeOrdinal = vectorBytes[0];
         return fromBytes(fromVectorTypeOrdinal(vectorTypeOrdinal), vectorBytes);
     }
@@ -424,8 +406,7 @@ public interface RealVector {
      * @param vectorBytes the non-null byte array to convert.
      * @return a new {@link RealVector} instance created from the byte array.
      */
-    @Nonnull
-    static RealVector fromBytes(@Nonnull final VectorType vectorType, @Nonnull final byte[] vectorBytes) {
+    static RealVector fromBytes(final VectorType vectorType, final byte[] vectorBytes) {
         return switch (vectorType) {
             case HALF -> HalfRealVector.fromBytes(vectorBytes);
             case SINGLE -> FloatRealVector.fromBytes(vectorBytes);

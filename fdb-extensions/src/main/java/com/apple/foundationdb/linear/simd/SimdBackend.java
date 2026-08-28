@@ -25,7 +25,6 @@ import jdk.incubator.vector.DoubleVector;
 import jdk.incubator.vector.VectorOperators;
 import jdk.incubator.vector.VectorSpecies;
 
-import javax.annotation.Nonnull;
 
 /**
  * SIMD implementation of {@link Backend} using the {@link jdk.incubator.vector} API
@@ -43,7 +42,6 @@ import javax.annotation.Nonnull;
 public final class SimdBackend implements Backend {
     private static final VectorSpecies<Double> SPECIES = DoubleVector.SPECIES_PREFERRED;
 
-    @Nonnull
     @Override
     public String name() {
         return "simd[" + SPECIES + "]";
@@ -70,7 +68,7 @@ public final class SimdBackend implements Backend {
     }
 
     @Override
-    public void addInto(@Nonnull final double[] a, @Nonnull final double[] b, @Nonnull final double[] out) {
+    public void addInto(final double[] a, final double[] b, final double[] out) {
         final int len = a.length;
         final int bound = SPECIES.loopBound(len);
         int i = 0;
@@ -85,7 +83,7 @@ public final class SimdBackend implements Backend {
     }
 
     @Override
-    public void addInto(@Nonnull final double[] a, final double scalar, @Nonnull final double[] out) {
+    public void addInto(final double[] a, final double scalar, final double[] out) {
         final int len = a.length;
         final int bound = SPECIES.loopBound(len);
         int i = 0;
@@ -98,7 +96,7 @@ public final class SimdBackend implements Backend {
     }
 
     @Override
-    public void subtractInto(@Nonnull final double[] a, @Nonnull final double[] b, @Nonnull final double[] out) {
+    public void subtractInto(final double[] a, final double[] b, final double[] out) {
         final int len = a.length;
         final int bound = SPECIES.loopBound(len);
         int i = 0;
@@ -113,7 +111,7 @@ public final class SimdBackend implements Backend {
     }
 
     @Override
-    public void subtractInto(@Nonnull final double[] a, final double scalar, @Nonnull final double[] out) {
+    public void subtractInto(final double[] a, final double scalar, final double[] out) {
         final int len = a.length;
         final int bound = SPECIES.loopBound(len);
         int i = 0;
@@ -126,7 +124,7 @@ public final class SimdBackend implements Backend {
     }
 
     @Override
-    public void multiplyInto(@Nonnull final double[] a, final double scalar, @Nonnull final double[] out) {
+    public void multiplyInto(final double[] a, final double scalar, final double[] out) {
         final int len = a.length;
         final int bound = SPECIES.loopBound(len);
         int i = 0;
@@ -139,8 +137,8 @@ public final class SimdBackend implements Backend {
     }
 
     @Override
-    public void multiplyAddInto(final double scalar, @Nonnull final double[] x, @Nonnull final double[] y,
-                                @Nonnull final double[] out, final int from, final int length) {
+    public void multiplyAddInto(final double scalar, final double[] x, final double[] y,
+                                final double[] out, final int from, final int length) {
         final int laneCount = SPECIES.length();
         final int simdEnd = from + SPECIES.loopBound(length);
         // Hoist the scalar broadcast out of the loop: jdk.incubator.vector has fma(Vec,Vec,Vec)
@@ -160,12 +158,12 @@ public final class SimdBackend implements Backend {
     }
 
     @Override
-    public double dot(@Nonnull final double[] a, @Nonnull final double[] b) {
+    public double dot(final double[] a, final double[] b) {
         return dot(a, b, 0, a.length);
     }
 
     @Override
-    public double dot(@Nonnull final double[] a, @Nonnull final double[] b, final int from, final int length) {
+    public double dot(final double[] a, final double[] b, final int from, final int length) {
         final int laneCount = SPECIES.length();
         final int simdEnd = from + SPECIES.loopBound(length);
         // Four independent FMA accumulators break the loop-carried dependency on a single
@@ -203,12 +201,12 @@ public final class SimdBackend implements Backend {
     }
 
     @Override
-    public double l2SquaredNorm(@Nonnull final double[] a) {
+    public double l2SquaredNorm(final double[] a) {
         return l2SquaredNorm(a, 0, a.length);
     }
 
     @Override
-    public double l2SquaredNorm(@Nonnull final double[] a, final int from, final int length) {
+    public double l2SquaredNorm(final double[] a, final int from, final int length) {
         final int laneCount = SPECIES.length();
         final int simdEnd = from + SPECIES.loopBound(length);
         DoubleVector acc0 = DoubleVector.zero(SPECIES);
@@ -243,7 +241,7 @@ public final class SimdBackend implements Backend {
     }
 
     @Override
-    public double euclideanSquared(@Nonnull final double[] a, @Nonnull final double[] b) {
+    public double euclideanSquared(final double[] a, final double[] b) {
         final int len = a.length;
         final int laneCount = SPECIES.length();
         final int bound = SPECIES.loopBound(len);

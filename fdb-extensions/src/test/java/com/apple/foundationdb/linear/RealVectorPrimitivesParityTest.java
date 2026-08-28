@@ -30,7 +30,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -60,7 +59,6 @@ class RealVectorPrimitivesParityTest {
     /** Per-element absolute tolerance for elementwise results. SIMD vs scalar should match within ULPs. */
     private static final double ELEMENT_ABS_TOL = 1.0e-12d;
 
-    @Nonnull
     private static Stream<Arguments> randomSeedsWithLengths() {
         return RandomizedTestUtils.randomSeeds(0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L)
                 .flatMap(seed -> LENGTHS.stream().map(len -> Arguments.of(seed, len)));
@@ -319,7 +317,6 @@ class RealVectorPrimitivesParityTest {
      * the empty slice, prefixes/suffixes, an interior slice, and a slice straddling lane-aligned
      * boundaries. Filters to those that fit inside {@code [0, len]}.
      */
-    @Nonnull
     private static List<int[]> slices(final int len) {
         final List<int[]> result = new ArrayList<>();
         result.add(new int[] {0, 0});
@@ -340,7 +337,7 @@ class RealVectorPrimitivesParityTest {
         return result;
     }
 
-    private static void assertVectorClose(@Nonnull final double[] expected, @Nonnull final double[] actual) {
+    private static void assertVectorClose(final double[] expected, final double[] actual) {
         assertThat(actual).hasSize(expected.length);
         for (int i = 0; i < expected.length; i++) {
             assertThat(actual[i])
@@ -349,8 +346,7 @@ class RealVectorPrimitivesParityTest {
         }
     }
 
-    @Nonnull
-    private static double[] randomVector(@Nonnull final Random rnd, final int len) {
+    private static double[] randomVector(final Random rnd, final int len) {
         final double[] v = new double[len];
         for (int i = 0; i < len; i++) {
             // Range that exercises both small and large magnitudes without overflowing reductions.

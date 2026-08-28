@@ -23,7 +23,6 @@ package com.apple.foundationdb.linear;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.function.Supplier;
@@ -37,7 +36,6 @@ import java.util.function.Supplier;
  * memoized (it simply wraps the existing array).
  */
 public class FloatRealVector extends AbstractRealVector {
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<HalfRealVector> toHalfRealVectorSupplier = Suppliers.memoize(this::computeHalfRealVector);
 
@@ -48,7 +46,7 @@ public class FloatRealVector extends AbstractRealVector {
      *
      * @param floatData the components of the new vector
      */
-    public FloatRealVector(@Nonnull final Float[] floatData) {
+    public FloatRealVector(final Float[] floatData) {
         this(computeDoubleData(floatData));
     }
 
@@ -59,7 +57,7 @@ public class FloatRealVector extends AbstractRealVector {
      *
      * @param floatData the components of the new vector
      */
-    public FloatRealVector(@Nonnull final float[] floatData) {
+    public FloatRealVector(final float[] floatData) {
         this(computeDoubleData(floatData));
     }
 
@@ -71,7 +69,7 @@ public class FloatRealVector extends AbstractRealVector {
      *
      * @param data the components of the new vector, in {@code double} precision
      */
-    public FloatRealVector(@Nonnull final double[] data) {
+    public FloatRealVector(final double[] data) {
         super(truncateDoubleData(data));
     }
 
@@ -81,7 +79,7 @@ public class FloatRealVector extends AbstractRealVector {
      *
      * @param intData the components of the new vector
      */
-    public FloatRealVector(@Nonnull final int[] intData) {
+    public FloatRealVector(final int[] intData) {
         this(fromInts(intData));
     }
 
@@ -93,14 +91,13 @@ public class FloatRealVector extends AbstractRealVector {
      *
      * @param longData the components of the new vector
      */
-    public FloatRealVector(@Nonnull final long[] longData) {
+    public FloatRealVector(final long[] longData) {
         this(fromLongs(longData));
     }
 
     /**
      * Returns the memoized half-precision projection of this vector.
      */
-    @Nonnull
     @Override
     public HalfRealVector toHalfRealVector() {
         return toHalfRealVectorSupplier.get();
@@ -112,7 +109,6 @@ public class FloatRealVector extends AbstractRealVector {
      *
      * @return a new {@link HalfRealVector} with this vector's components
      */
-    @Nonnull
     public HalfRealVector computeHalfRealVector() {
         return new HalfRealVector(data);
     }
@@ -120,7 +116,6 @@ public class FloatRealVector extends AbstractRealVector {
     /**
      * Returns {@code this} — already a single-precision vector, so no conversion is needed.
      */
-    @Nonnull
     @Override
     public FloatRealVector toFloatRealVector() {
         return this;
@@ -131,7 +126,6 @@ public class FloatRealVector extends AbstractRealVector {
      * Note that the underlying values are still float-truncated; the conversion only changes the
      * runtime type, not the precision of the data.
      */
-    @Nonnull
     @Override
     public DoubleRealVector toDoubleRealVector() {
         return new DoubleRealVector(data);
@@ -144,16 +138,14 @@ public class FloatRealVector extends AbstractRealVector {
      * @param data the components of the new vector
      * @return a fresh immutable single-precision vector
      */
-    @Nonnull
     @Override
-    public FloatRealVector withData(@Nonnull final double[] data) {
+    public FloatRealVector withData(final double[] data) {
         return new FloatRealVector(data);
     }
 
     /**
      * Returns {@code this} — instances of this class are already immutable.
      */
-    @Nonnull
     @Override
     public FloatRealVector toImmutable() {
         return this;
@@ -166,7 +158,6 @@ public class FloatRealVector extends AbstractRealVector {
      *
      * @return a new byte array representing the serialized vector data; never {@code null}
      */
-    @Nonnull
     @Override
     protected byte[] computeRawData() {
         final byte[] vectorBytes = new byte[1 + 4 * getNumDimensions()];
@@ -183,7 +174,6 @@ public class FloatRealVector extends AbstractRealVector {
      *
      * <p>Narrows the return type to {@link FloatRealVector}.
      */
-    @Nonnull
     @Override
     public FloatRealVector normalize() {
         return withData(RealVectorPrimitives.normalizeInto(this.getData(), new double[getNumDimensions()]));
@@ -194,9 +184,8 @@ public class FloatRealVector extends AbstractRealVector {
      *
      * <p>Narrows the return type to {@link FloatRealVector}.
      */
-    @Nonnull
     @Override
-    public FloatRealVector add(@Nonnull final RealVector other) {
+    public FloatRealVector add(final RealVector other) {
         return withData(RealVectorPrimitives.addInto(this.getData(), other.getData(), new double[getNumDimensions()]));
     }
 
@@ -205,7 +194,6 @@ public class FloatRealVector extends AbstractRealVector {
      *
      * <p>Narrows the return type to {@link FloatRealVector}.
      */
-    @Nonnull
     @Override
     public FloatRealVector add(final double scalar) {
         return withData(RealVectorPrimitives.addInto(this.getData(), scalar, new double[getNumDimensions()]));
@@ -216,9 +204,8 @@ public class FloatRealVector extends AbstractRealVector {
      *
      * <p>Narrows the return type to {@link FloatRealVector}.
      */
-    @Nonnull
     @Override
-    public FloatRealVector subtract(@Nonnull final RealVector other) {
+    public FloatRealVector subtract(final RealVector other) {
         return withData(RealVectorPrimitives.subtractInto(this.getData(), other.getData(), new double[getNumDimensions()]));
     }
 
@@ -227,7 +214,6 @@ public class FloatRealVector extends AbstractRealVector {
      *
      * <p>Narrows the return type to {@link FloatRealVector}.
      */
-    @Nonnull
     @Override
     public FloatRealVector subtract(final double scalar) {
         return withData(RealVectorPrimitives.subtractInto(this.getData(), scalar, new double[getNumDimensions()]));
@@ -238,7 +224,6 @@ public class FloatRealVector extends AbstractRealVector {
      *
      * <p>Narrows the return type to {@link FloatRealVector}.
      */
-    @Nonnull
     @Override
     public FloatRealVector multiply(final double scalar) {
         return withData(RealVectorPrimitives.multiplyInto(this.getData(), scalar, new double[getNumDimensions()]));
@@ -249,7 +234,6 @@ public class FloatRealVector extends AbstractRealVector {
      * @param numDimensions number of dimensions
      * @return a vector whose components are all zero
      */
-    @Nonnull
     public static FloatRealVector zeroVector(final int numDimensions) {
         return new FloatRealVector(new float[numDimensions]);
     }
@@ -262,8 +246,7 @@ public class FloatRealVector extends AbstractRealVector {
      * @return a new {@code double[]} of the same length, each element widened from the
      *         corresponding {@code floatData[i]}
      */
-    @Nonnull
-    private static double[] computeDoubleData(@Nonnull Float[] floatData) {
+    private static double[] computeDoubleData(Float[] floatData) {
         double[] result = new double[floatData.length];
         for (int i = 0; i < floatData.length; i++) {
             result[i] = floatData[i];
@@ -279,8 +262,7 @@ public class FloatRealVector extends AbstractRealVector {
      * @return a new {@code double[]} of the same length, each element widened from the
      *         corresponding {@code floatData[i]}
      */
-    @Nonnull
-    private static double[] computeDoubleData(@Nonnull float[] floatData) {
+    private static double[] computeDoubleData(float[] floatData) {
         double[] result = new double[floatData.length];
         for (int i = 0; i < floatData.length; i++) {
             result[i] = floatData[i];
@@ -298,8 +280,7 @@ public class FloatRealVector extends AbstractRealVector {
      * @return a new {@code double[]} of the same length, each element truncated through
      *         {@code float}
      */
-    @Nonnull
-    private static double[] truncateDoubleData(@Nonnull double[] doubleData) {
+    private static double[] truncateDoubleData(double[] doubleData) {
         double[] result = new double[doubleData.length];
         for (int i = 0; i < doubleData.length; i++) {
             result[i] = (float)doubleData[i];
@@ -316,8 +297,7 @@ public class FloatRealVector extends AbstractRealVector {
      * @param vectorBytes the non-null byte array to convert
      * @return a new {@link FloatRealVector} instance created from the byte array
      */
-    @Nonnull
-    public static FloatRealVector fromBytes(@Nonnull final byte[] vectorBytes) {
+    public static FloatRealVector fromBytes(final byte[] vectorBytes) {
         final ByteBuffer buffer = ByteBuffer.wrap(vectorBytes).order(ByteOrder.BIG_ENDIAN);
         Verify.verify(buffer.get() == VectorType.SINGLE.ordinal());
         final int numDimensions = vectorBytes.length >> 2;

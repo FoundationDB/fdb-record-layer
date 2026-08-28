@@ -23,4 +23,7 @@
  * These are to assist with using the {@link com.apple.foundationdb.tuple.Tuple} class and complement
  * the {@link com.apple.foundationdb.tuple.ByteArrayUtil} class found within the FoundationDB Java bindings.
  */
+@NullMarked
 package com.apple.foundationdb.tuple;
+
+import org.jspecify.annotations.NullMarked;

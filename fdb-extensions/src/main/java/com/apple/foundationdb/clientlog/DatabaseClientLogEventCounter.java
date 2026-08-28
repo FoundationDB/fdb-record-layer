@@ -27,7 +27,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.CloseableAsyncIterator;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -38,7 +37,6 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.EXPERIMENTAL)
 public class DatabaseClientLogEventCounter implements DatabaseClientLogEvents.EventConsumer {
-    @Nonnull
     private final TupleKeyCountTree root;
     private final boolean countReads;
     private final boolean countWrites;
@@ -46,7 +44,7 @@ public class DatabaseClientLogEventCounter implements DatabaseClientLogEvents.Ev
     private final boolean countRanges;
     private final boolean byAddress;
 
-    public DatabaseClientLogEventCounter(@Nonnull TupleKeyCountTree root, boolean countReads, boolean countWrites, boolean countSingleKeys, boolean countRanges, boolean byAddress) {
+    public DatabaseClientLogEventCounter(TupleKeyCountTree root, boolean countReads, boolean countWrites, boolean countSingleKeys, boolean countRanges, boolean byAddress) {
         this.root = root;
         this.countReads = countReads;
         this.countWrites = countWrites;
@@ -62,7 +60,7 @@ public class DatabaseClientLogEventCounter implements DatabaseClientLogEvents.Ev
      * @return a future that completes when the event has been processed
      */
     @Override
-    public CompletableFuture<Void> accept(@Nonnull Transaction tr, @Nonnull FDBClientLogEvents.Event event) {
+    public CompletableFuture<Void> accept(Transaction tr, FDBClientLogEvents.Event event) {
         switch (event.getType()) {
             case FDBClientLogEvents.GET_VERSION_LATENCY:
                 break;
@@ -102,7 +100,7 @@ public class DatabaseClientLogEventCounter implements DatabaseClientLogEvents.Ev
         return AsyncUtil.DONE;
     }
 
-    protected CompletableFuture<Void> addKey(@Nonnull Transaction tr, @Nonnull byte[] key) {
+    protected CompletableFuture<Void> addKey(Transaction tr, byte[] key) {
         if (byAddress) {
             return addKeyAddresses(tr, key);
         } else {
@@ -111,7 +109,7 @@ public class DatabaseClientLogEventCounter implements DatabaseClientLogEvents.Ev
         }
     }
 
-    protected CompletableFuture<Void> addKeyAddresses(@Nonnull Transaction tr, @Nonnull byte[] key) {
+    protected CompletableFuture<Void> addKeyAddresses(Transaction tr, byte[] key) {
         return LocalityUtil.getAddressesForKey(tr, key).handle((addresses, ex) -> {
             if (ex == null) {
                 for (String address : addresses) {
@@ -122,7 +120,7 @@ public class DatabaseClientLogEventCounter implements DatabaseClientLogEvents.Ev
         });
     }
 
-    protected CompletableFuture<Void> addRange(@Nonnull Transaction tr, @Nonnull Range range) {
+    protected CompletableFuture<Void> addRange(Transaction tr, Range range) {
         if (byAddress) {
             return addKeyAddresses(tr, range.begin).thenCompose(vignore -> {
                 final CloseableAsyncIterator<byte[]> boundaryKeys = LocalityUtil.getBoundaryKeys(tr, range.begin, range.end);
@@ -145,7 +143,7 @@ public class DatabaseClientLogEventCounter implements DatabaseClientLogEvents.Ev
         }
     }
 
-    protected CompletableFuture<Void> addCommit(@Nonnull Transaction tr, @Nonnull FDBClientLogEvents.CommitRequest commitRequest) {
+    protected CompletableFuture<Void> addCommit(Transaction tr, FDBClientLogEvents.CommitRequest commitRequest) {
         final List<CompletableFuture<Void>> futures = new ArrayList<>();
         for (FDBClientLogEvents.Mutation mutation : commitRequest.getMutations()) {
             CompletableFuture<Void> future = AsyncUtil.DONE;

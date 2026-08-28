@@ -28,8 +28,8 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -52,12 +52,12 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.EXPERIMENTAL)
 public class BunchedMapMultiIterator<K, V, T> implements AsyncPeekIterator<BunchedMapScanEntry<K, V, T>> {
-    @Nonnull private final AsyncPeekIterator<KeyValue> underlying;
-    @Nonnull private final ReadTransaction tr;
-    @Nonnull private final Subspace subspace;
-    @Nonnull private final byte[] subspaceKey;
-    @Nonnull private final SubspaceSplitter<T> splitter;
-    @Nonnull private final BunchedMap<K, V> bunchedMap;
+    private final AsyncPeekIterator<KeyValue> underlying;
+    private final ReadTransaction tr;
+    private final Subspace subspace;
+    private final byte[] subspaceKey;
+    private final SubspaceSplitter<T> splitter;
+    private final BunchedMap<K, V> bunchedMap;
     @Nullable private final byte[] continuation;
     private final boolean reverse;
     private final int limit;
@@ -75,12 +75,12 @@ public class BunchedMapMultiIterator<K, V, T> implements AsyncPeekIterator<Bunch
     private int returned;
     private boolean done;
 
-    BunchedMapMultiIterator(@Nonnull AsyncPeekIterator<KeyValue> underlying,
-                            @Nonnull ReadTransaction tr,
-                            @Nonnull Subspace subspace,
-                            @Nonnull byte[] subspaceKey,
-                            @Nonnull SubspaceSplitter<T> splitter,
-                            @Nonnull BunchedMap<K, V> bunchedMap,
+    BunchedMapMultiIterator(AsyncPeekIterator<KeyValue> underlying,
+                            ReadTransaction tr,
+                            Subspace subspace,
+                            byte[] subspaceKey,
+                            SubspaceSplitter<T> splitter,
+                            BunchedMap<K, V> bunchedMap,
                             @Nullable byte[] continuation,
                             int limit,
                             boolean reverse) {
@@ -229,7 +229,6 @@ public class BunchedMapMultiIterator<K, V, T> implements AsyncPeekIterator<Bunch
     }
 
     @Override
-    @Nonnull
     public BunchedMapScanEntry<K, V, T> peek() {
         if (hasNext() && nextEntry != null) {
             return nextEntry;
@@ -239,7 +238,6 @@ public class BunchedMapMultiIterator<K, V, T> implements AsyncPeekIterator<Bunch
     }
 
     @Override
-    @Nonnull
     public BunchedMapScanEntry<K, V, T> next() {
         BunchedMapScanEntry<K, V, T> nextEntry = peek();
         lastKey = nextEntry.getKey();

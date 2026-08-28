@@ -23,7 +23,6 @@ package com.apple.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.google.common.collect.ImmutableMap;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 
 /**
@@ -124,7 +123,6 @@ public enum FDBError {
         return code;
     }
 
-    @Nonnull
     public static FDBError fromCode(int code) {
         final FDBError error = ERROR_BY_CODE.get(code);
         if (error == null) {
@@ -133,7 +131,6 @@ public enum FDBError {
         return error;
     }
 
-    @Nonnull
     public static String toString(int errorCode) {
         final FDBError error = ERROR_BY_CODE.get(errorCode);
         if (error == null) {

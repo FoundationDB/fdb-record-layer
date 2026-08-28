@@ -22,4 +22,7 @@
  * Package that implements basic mathematical objects such as vectors and matrices as well as
  * operations on these objects.
  */
+@NullMarked
 package com.apple.foundationdb.linear;
+
+import org.jspecify.annotations.NullMarked;

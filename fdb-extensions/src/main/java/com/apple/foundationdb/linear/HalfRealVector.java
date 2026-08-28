@@ -23,7 +23,6 @@ package com.apple.foundationdb.linear;
 import com.apple.foundationdb.half.Half;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
@@ -44,7 +43,7 @@ public class HalfRealVector extends AbstractRealVector {
      *
      * @param halfData the components of the new vector
      */
-    public HalfRealVector(@Nonnull final Half[] halfData) {
+    public HalfRealVector(final Half[] halfData) {
         this(computeDoubleData(halfData));
     }
 
@@ -56,7 +55,7 @@ public class HalfRealVector extends AbstractRealVector {
      *
      * @param data the components of the new vector, in {@code double} precision
      */
-    public HalfRealVector(@Nonnull final double[] data) {
+    public HalfRealVector(final double[] data) {
         super(truncateDoubleData(data));
     }
 
@@ -68,7 +67,7 @@ public class HalfRealVector extends AbstractRealVector {
      *
      * @param intData the components of the new vector
      */
-    public HalfRealVector(@Nonnull final int[] intData) {
+    public HalfRealVector(final int[] intData) {
         this(fromInts(intData));
     }
 
@@ -79,14 +78,13 @@ public class HalfRealVector extends AbstractRealVector {
      *
      * @param longData the components of the new vector
      */
-    public HalfRealVector(@Nonnull final long[] longData) {
+    public HalfRealVector(final long[] longData) {
         this(fromLongs(longData));
     }
 
     /**
      * Returns {@code this} — already a half-precision vector, so no conversion is needed.
      */
-    @Nonnull
     @Override
     public HalfRealVector toHalfRealVector() {
         return this;
@@ -97,7 +95,6 @@ public class HalfRealVector extends AbstractRealVector {
      * Note that the underlying values are still half-truncated; the conversion only changes the
      * runtime type, not the precision of the data.
      */
-    @Nonnull
     @Override
     public FloatRealVector toFloatRealVector() {
         return new FloatRealVector(data);
@@ -108,7 +105,6 @@ public class HalfRealVector extends AbstractRealVector {
      * Note that the underlying values are still half-truncated; the conversion only changes the
      * runtime type, not the precision of the data.
      */
-    @Nonnull
     @Override
     public DoubleRealVector toDoubleRealVector() {
         return new DoubleRealVector(data);
@@ -121,9 +117,8 @@ public class HalfRealVector extends AbstractRealVector {
      * @param data the components of the new vector
      * @return a fresh immutable half-precision vector
      */
-    @Nonnull
     @Override
-    public HalfRealVector withData(@Nonnull final double[] data) {
+    public HalfRealVector withData(final double[] data) {
         return new HalfRealVector(data);
     }
 
@@ -135,7 +130,6 @@ public class HalfRealVector extends AbstractRealVector {
      *
      * @return a new byte array representing the serialized vector data; never {@code null}
      */
-    @Nonnull
     @Override
     protected byte[] computeRawData() {
         final byte[] vectorBytes = new byte[1 + 2 * getNumDimensions()];
@@ -152,7 +146,6 @@ public class HalfRealVector extends AbstractRealVector {
      *
      * <p>Narrows the return type to {@link HalfRealVector}.
      */
-    @Nonnull
     @Override
     public HalfRealVector normalize() {
         return withData(RealVectorPrimitives.normalizeInto(this.getData(), new double[getNumDimensions()]));
@@ -163,9 +156,8 @@ public class HalfRealVector extends AbstractRealVector {
      *
      * <p>Narrows the return type to {@link HalfRealVector}.
      */
-    @Nonnull
     @Override
-    public HalfRealVector add(@Nonnull final RealVector other) {
+    public HalfRealVector add(final RealVector other) {
         return withData(RealVectorPrimitives.addInto(this.getData(), other.getData(), new double[getNumDimensions()]));
     }
 
@@ -174,7 +166,6 @@ public class HalfRealVector extends AbstractRealVector {
      *
      * <p>Narrows the return type to {@link HalfRealVector}.
      */
-    @Nonnull
     @Override
     public HalfRealVector add(final double scalar) {
         return withData(RealVectorPrimitives.addInto(this.getData(), scalar, new double[getNumDimensions()]));
@@ -185,9 +176,8 @@ public class HalfRealVector extends AbstractRealVector {
      *
      * <p>Narrows the return type to {@link HalfRealVector}.
      */
-    @Nonnull
     @Override
-    public HalfRealVector subtract(@Nonnull final RealVector other) {
+    public HalfRealVector subtract(final RealVector other) {
         return withData(RealVectorPrimitives.subtractInto(this.getData(), other.getData(), new double[getNumDimensions()]));
     }
 
@@ -196,7 +186,6 @@ public class HalfRealVector extends AbstractRealVector {
      *
      * <p>Narrows the return type to {@link HalfRealVector}.
      */
-    @Nonnull
     @Override
     public HalfRealVector subtract(final double scalar) {
         return withData(RealVectorPrimitives.subtractInto(this.getData(), scalar, new double[getNumDimensions()]));
@@ -207,7 +196,6 @@ public class HalfRealVector extends AbstractRealVector {
      *
      * <p>Narrows the return type to {@link HalfRealVector}.
      */
-    @Nonnull
     @Override
     public HalfRealVector multiply(final double scalar) {
         return withData(RealVectorPrimitives.multiplyInto(this.getData(), scalar, new double[getNumDimensions()]));
@@ -218,7 +206,6 @@ public class HalfRealVector extends AbstractRealVector {
      * @param numDimensions number of dimensions
      * @return a vector whose components are all zero
      */
-    @Nonnull
     public static HalfRealVector zeroVector(final int numDimensions) {
         return new HalfRealVector(new double[numDimensions]);
     }
@@ -231,8 +218,7 @@ public class HalfRealVector extends AbstractRealVector {
      * @return a new {@code double[]} of the same length, each element widened from the
      *         corresponding {@code halfData[i]}
      */
-    @Nonnull
-    private static double[] computeDoubleData(@Nonnull Half[] halfData) {
+    private static double[] computeDoubleData(Half[] halfData) {
         double[] result = new double[halfData.length];
         for (int i = 0; i < halfData.length; i++) {
             result[i] = halfData[i].doubleValue();
@@ -250,8 +236,7 @@ public class HalfRealVector extends AbstractRealVector {
      * @return a new {@code double[]} of the same length, each element truncated through
      *         {@link Half}
      */
-    @Nonnull
-    private static double[] truncateDoubleData(@Nonnull double[] doubleData) {
+    private static double[] truncateDoubleData(double[] doubleData) {
         double[] result = new double[doubleData.length];
         for (int i = 0; i < doubleData.length; i++) {
             result[i] = Half.valueOf(doubleData[i]).doubleValue();
@@ -262,7 +247,6 @@ public class HalfRealVector extends AbstractRealVector {
     /**
      * Returns {@code this} — instances of this class are already immutable.
      */
-    @Nonnull
     @Override
     public HalfRealVector toImmutable() {
         return this;
@@ -277,8 +261,7 @@ public class HalfRealVector extends AbstractRealVector {
      * @param vectorBytes the non-null byte array to convert
      * @return a new {@link HalfRealVector} instance created from the byte array
      */
-    @Nonnull
-    public static HalfRealVector fromBytes(@Nonnull final byte[] vectorBytes) {
+    public static HalfRealVector fromBytes(final byte[] vectorBytes) {
         final ByteBuffer buffer = ByteBuffer.wrap(vectorBytes).order(ByteOrder.BIG_ENDIAN);
         Verify.verify(buffer.get() == VectorType.HALF.ordinal());
         final int numDimensions = vectorBytes.length >> 1;

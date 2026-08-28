@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.linear;
 
-import javax.annotation.Nonnull;
 
 public interface LinearOperator extends VectorOperator {
     int getNumRowDimensions();
@@ -38,12 +37,10 @@ public interface LinearOperator extends VectorOperator {
 
     boolean isTransposable();
 
-    @Nonnull
     @Override
-    default RealVector invertedApply(@Nonnull RealVector vector) {
+    default RealVector invertedApply(RealVector vector) {
         return transposedApply(vector);
     }
 
-    @Nonnull
-    RealVector transposedApply(@Nonnull RealVector vector);
+    RealVector transposedApply(RealVector vector);
 }

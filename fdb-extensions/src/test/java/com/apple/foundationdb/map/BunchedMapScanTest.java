@@ -43,8 +43,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -87,9 +87,8 @@ public class BunchedMapScanTest {
     private static Tuple value;
 
     private SubspaceSplitter<Long> splitter = new SubspaceSplitter<>() {
-        @Nonnull
         @Override
-        public Subspace subspaceOf(@Nonnull byte[] keyBytes) {
+        public Subspace subspaceOf(byte[] keyBytes) {
             try {
                 Tuple t = bmSubspace.unpack(keyBytes);
                 return bmSubspace.subspace(TupleHelpers.subTuple(t, 0, 1));
@@ -102,7 +101,7 @@ public class BunchedMapScanTest {
 
         @Nullable
         @Override
-        public Long subspaceTag(@Nonnull Subspace subspace) {
+        public Long subspaceTag(Subspace subspace) {
             return bmSubspace.unpack(subspace.getKey()).getLong(0);
         }
     };
@@ -140,7 +139,7 @@ public class BunchedMapScanTest {
         });
     }
 
-    private void testScan(int limit, boolean reverse, @Nonnull BiFunction<Transaction, byte[], BunchedMapIterator<Tuple, Tuple>> iteratorFunction) {
+    private void testScan(int limit, boolean reverse, BiFunction<Transaction, byte[], BunchedMapIterator<Tuple, Tuple>> iteratorFunction) {
         try (Transaction tr = db.createTransaction()) {
             byte[] continuation = null;
             List<Tuple> readKeys = new ArrayList<>();
@@ -207,7 +206,7 @@ public class BunchedMapScanTest {
         testScan(limit, reverse, (tr, continuation) -> map.scan(tr, bmSubspace, continuation, limit, reverse));
     }
 
-    private void getKeysContinuation(@Nonnull Transaction tr, boolean reverse) throws InterruptedException, ExecutionException {
+    private void getKeysContinuation(Transaction tr, boolean reverse) throws InterruptedException, ExecutionException {
         getKeysContinuation(10, reverse); // Bunch size limit
         getKeysContinuation(5, reverse); // Limit is half of bunch size
         getKeysContinuation(7, reverse); // Limit that doesn't hit the boundary well.
@@ -345,7 +344,7 @@ public class BunchedMapScanTest {
     }
 
     private void testScanMulti(int limit, boolean reverse, List<List<Tuple>> keyLists,
-                               @Nonnull BiFunction<Transaction, byte[], BunchedMapMultiIterator<Tuple, Tuple, Long>> iteratorFunction) {
+                               BiFunction<Transaction, byte[], BunchedMapMultiIterator<Tuple, Tuple, Long>> iteratorFunction) {
         try (Transaction tr = db.createTransaction()) {
             byte[] continuation = null;
             List<BunchedMapScanEntry<Tuple, Tuple, Long>> entryList = new ArrayList<>();

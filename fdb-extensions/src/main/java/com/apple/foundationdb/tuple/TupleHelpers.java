@@ -23,8 +23,8 @@ package com.apple.foundationdb.tuple;
 import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.math.BigInteger;
 import java.util.List;
 
@@ -34,18 +34,15 @@ import java.util.List;
 @API(API.Status.UNSTABLE)
 public class TupleHelpers {
 
-    @Nonnull
     public static final Tuple EMPTY = Tuple.from();
 
-    @Nonnull
-    public static Tuple set(@Nonnull Tuple src, int index, Object value) {
+    public static Tuple set(Tuple src, int index, Object value) {
         final List<Object> items = src.getItems();
         items.set(index, value);
         return Tuple.fromList(items);
     }
 
-    @Nonnull
-    public static Tuple subTuple(@Nonnull Tuple src, int start, int end) {
+    public static Tuple subTuple(Tuple src, int start, int end) {
         final List<Object> items = src.getItems();
         return Tuple.fromList(items.subList(start, end));
     }
@@ -62,7 +59,7 @@ public class TupleHelpers {
      *         a value greater than {@code 0} if {@code t1} would sort after {@code t2}
      */
     @API(API.Status.UNSTABLE)
-    public static int compare(@Nonnull Tuple t1, @Nonnull Tuple t2) {
+    public static int compare(Tuple t1, Tuple t2) {
         final int t1Len = t1.size();
         final int t2Len = t2.size();
         final int len = Math.min(t1Len, t2Len);
@@ -100,7 +97,7 @@ public class TupleHelpers {
      * @param number the number to be negated
      * @return a negated number suitable for use in a new {@link Tuple}
      */
-    public static Number negate(@Nonnull Number number) {
+    public static Number negate(Number number) {
         if (number instanceof Long || number instanceof Integer || number instanceof Short || number instanceof Byte) {
             long l = number.longValue();
             if (l == Long.MIN_VALUE) {  // The only long whose negation is not a long.
@@ -145,7 +142,7 @@ public class TupleHelpers {
      * @param wholeTuple the whole tuple
      * @return {@code true} if {@code potentialPrefix} is a prefix of {@code wholeTuple}
      */
-    public static boolean isPrefix(@Nonnull Tuple potentialPrefix, @Nonnull Tuple wholeTuple) {
+    public static boolean isPrefix(Tuple potentialPrefix, Tuple wholeTuple) {
         final int len = potentialPrefix.size();
         if (wholeTuple.size() < len) {
             return false;
@@ -165,7 +162,7 @@ public class TupleHelpers {
      * @param size size of desired subtuple
      * @return the index into {@code bytes} that ends the sub-tuple or {@code -1} if {@code bytes} is too short or decoding fails
      */
-    public static int prefixLengthOfSize(@Nonnull byte[] bytes, int size) {
+    public static int prefixLengthOfSize(byte[] bytes, int size) {
         TupleUtil.DecodeState state = new TupleUtil.DecodeState();
         int pos = 0;
         int end = bytes.length;

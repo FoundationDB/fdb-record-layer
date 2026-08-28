@@ -23,8 +23,8 @@ package com.apple.foundationdb.map;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 
 /**
@@ -45,7 +45,7 @@ public class BunchedSerializationException extends BunchedMapException {
      * Create a new exception with a static message.
      * @param message error message
      */
-    public BunchedSerializationException(@Nonnull String message) {
+    public BunchedSerializationException(String message) {
         super(message);
     }
 
@@ -55,7 +55,7 @@ public class BunchedSerializationException extends BunchedMapException {
      * @param message error message
      * @param cause cause
      */
-    public BunchedSerializationException(@Nonnull String message, @Nonnull Throwable cause) {
+    public BunchedSerializationException(String message, Throwable cause) {
         super(message, cause);
     }
 
@@ -67,8 +67,7 @@ public class BunchedSerializationException extends BunchedMapException {
      * @param data raw data array that triggered this exception
      * @return this <code>BunchedSerializationException</code>
      */
-    @Nonnull
-    public BunchedSerializationException setData(@Nonnull byte[] data) {
+    public BunchedSerializationException setData(byte[] data) {
         this.data = Arrays.copyOf(data, data.length);
         addLogInfo("data", ByteArrayUtil2.loggable(data));
         return this;
@@ -95,8 +94,7 @@ public class BunchedSerializationException extends BunchedMapException {
      * @param value the value that triggered the exception
      * @return this <code>BunchedSerializationException</code>
      */
-    @Nonnull
-    public BunchedSerializationException setValue(@Nonnull Object value) {
+    public BunchedSerializationException setValue(Object value) {
         this.value = value;
         addLogInfo("value", value);
         return this;
