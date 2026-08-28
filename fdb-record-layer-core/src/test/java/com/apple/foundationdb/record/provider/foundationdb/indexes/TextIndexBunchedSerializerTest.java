@@ -27,7 +27,6 @@ import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.foundationdb.tuple.Versionstamp;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -60,7 +59,7 @@ public class TextIndexBunchedSerializerTest {
                 ), serialized);
     }
 
-    static <K, V> Map.Entry<K, V> entryOf(@Nonnull K key, @Nonnull V value) {
+    static <K, V> Map.Entry<K, V> entryOf(K key, V value) {
         return new AbstractMap.SimpleEntry<>(key, value);
     }
 

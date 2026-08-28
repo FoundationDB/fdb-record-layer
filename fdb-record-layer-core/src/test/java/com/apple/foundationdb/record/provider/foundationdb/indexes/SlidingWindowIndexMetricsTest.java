@@ -42,7 +42,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowTestHelpers.sampleVector;
@@ -73,14 +72,14 @@ class SlidingWindowIndexMetricsTest extends FDBRecordStoreTestBase {
         timer.reset();
     }
 
-    private void openStore(@Nonnull FDBRecordContext context, int windowSize,
-                           @Nonnull Direction direction) {
+    private void openStore(FDBRecordContext context, int windowSize,
+                           Direction direction) {
         openStore(context, windowSize, direction, ImmutableList.of());
     }
 
-    private void openStore(@Nonnull FDBRecordContext context, int windowSize,
-                           @Nonnull Direction direction,
-                           @Nonnull List<List<String>> groupingFields) {
+    private void openStore(FDBRecordContext context, int windowSize,
+                           Direction direction,
+                           List<List<String>> groupingFields) {
         createOrOpenRecordStore(context,
                 SlidingWindowTestHelpers.buildSlidingWindowVectorMetaData(
                         INDEX_NAME, windowSize, VECTOR_DIMS, direction, groupingFields));
@@ -105,29 +104,28 @@ class SlidingWindowIndexMetricsTest extends FDBRecordStoreTestBase {
         recordStore.deleteRecord(Tuple.from(recNo));
     }
 
-    @Nonnull
     private IndexMaintainer maintainer() {
         final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
         return recordStore.getIndexMaintainer(index);
     }
 
-    private long count(@Nonnull SlidingWindowCounter counter) {
+    private long count(SlidingWindowCounter counter) {
         return timer.getCount(counter);
     }
 
-    private long eventCount(@Nonnull SlidingWindowEvent event) {
+    private long eventCount(SlidingWindowEvent event) {
         return timer.getCount(event);
     }
 
-    private long timeNanos(@Nonnull SlidingWindowEvent event) {
+    private long timeNanos(SlidingWindowEvent event) {
         return timer.getTimeNanos(event);
     }
 
-    private long sizeEventCount(@Nonnull SlidingWindowSizeEvent event) {
+    private long sizeEventCount(SlidingWindowSizeEvent event) {
         return timer.getCount(event);
     }
 
-    private long cumulativeSize(@Nonnull SlidingWindowSizeEvent event) {
+    private long cumulativeSize(SlidingWindowSizeEvent event) {
         return timer.getSize(event);
     }
 

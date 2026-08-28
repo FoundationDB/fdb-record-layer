@@ -43,8 +43,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -81,11 +80,8 @@ import java.util.concurrent.Executor;
 @API(API.Status.EXPERIMENTAL)
 public class SizeStatisticsGroupingCursor implements RecordCursor<SizeStatisticsGroupedResults> {
 
-    @Nonnull
     private final SubspaceProvider subspaceProvider;
-    @Nonnull
     private final FDBRecordContext context;
-    @Nonnull
     private final ScanProperties scanProperties;
     private final int aggregationDepth;
 
@@ -116,8 +112,8 @@ public class SizeStatisticsGroupingCursor implements RecordCursor<SizeStatistics
 
     private boolean closed;
 
-    private SizeStatisticsGroupingCursor(@Nonnull SubspaceProvider subspaceProvider, @Nonnull FDBRecordContext context,
-                                         @Nonnull ScanProperties scanProperties, @Nullable byte[] continuation, final int aggregationDepth) {
+    private SizeStatisticsGroupingCursor(SubspaceProvider subspaceProvider, FDBRecordContext context,
+                                         ScanProperties scanProperties, @Nullable byte[] continuation, final int aggregationDepth) {
         this.subspaceProvider = subspaceProvider;
         this.context = context;
         this.scanProperties = scanProperties;
@@ -159,10 +155,9 @@ public class SizeStatisticsGroupingCursor implements RecordCursor<SizeStatistics
      *
      * @return a cursor for collecting statistics of that store
      */
-    @Nonnull
-    public static SizeStatisticsGroupingCursor ofStore(@Nonnull FDBRecordStore store,
-                                                       @Nonnull FDBRecordContext context,
-                                                       @Nonnull ScanProperties scanProperties,
+    public static SizeStatisticsGroupingCursor ofStore(FDBRecordStore store,
+                                                       FDBRecordContext context,
+                                                       ScanProperties scanProperties,
                                                        @Nullable byte[] continuation,
                                                        int aggregationDepth) {
         return new SizeStatisticsGroupingCursor(store.getSubspaceProvider(), context, scanProperties, continuation, aggregationDepth);
@@ -179,10 +174,9 @@ public class SizeStatisticsGroupingCursor implements RecordCursor<SizeStatistics
      *
      * @return a statistics collector of the records of that store
      */
-    @Nonnull
-    public static SizeStatisticsGroupingCursor ofRecords(@Nonnull FDBRecordStore store,
-                                                         @Nonnull FDBRecordContext context,
-                                                         @Nonnull ScanProperties scanProperties,
+    public static SizeStatisticsGroupingCursor ofRecords(FDBRecordStore store,
+                                                         FDBRecordContext context,
+                                                         ScanProperties scanProperties,
                                                          @Nullable byte[] continuation,
                                                          int aggregationDepth) {
         return new SizeStatisticsGroupingCursor(new SubspaceProviderBySubspace(store.recordsSubspace()), context, scanProperties, continuation, aggregationDepth);
@@ -200,11 +194,10 @@ public class SizeStatisticsGroupingCursor implements RecordCursor<SizeStatistics
      *
      * @return a statistics collector of the given index
      */
-    @Nonnull
-    public static SizeStatisticsGroupingCursor ofIndex(@Nonnull FDBRecordStore store,
-                                                       @Nonnull String indexName,
-                                                       @Nonnull FDBRecordContext context,
-                                                       @Nonnull ScanProperties scanProperties,
+    public static SizeStatisticsGroupingCursor ofIndex(FDBRecordStore store,
+                                                       String indexName,
+                                                       FDBRecordContext context,
+                                                       ScanProperties scanProperties,
                                                        @Nullable byte[] continuation,
                                                        int aggregationDepth) {
         final RecordMetaData metaData = store.getRecordMetaData();
@@ -223,11 +216,10 @@ public class SizeStatisticsGroupingCursor implements RecordCursor<SizeStatistics
      *
      * @return a statistics collector of the given index
      */
-    @Nonnull
-    public static SizeStatisticsGroupingCursor ofIndex(@Nonnull FDBRecordStore store,
-                                                       @Nonnull Index index,
-                                                       @Nonnull FDBRecordContext context,
-                                                       @Nonnull ScanProperties scanProperties,
+    public static SizeStatisticsGroupingCursor ofIndex(FDBRecordStore store,
+                                                       Index index,
+                                                       FDBRecordContext context,
+                                                       ScanProperties scanProperties,
                                                        @Nullable byte[] continuation,
                                                        int aggregationDepth) {
         return new SizeStatisticsGroupingCursor(new SubspaceProviderBySubspace(store.indexSubspace(index)), context, scanProperties, continuation, aggregationDepth);
@@ -243,13 +235,11 @@ public class SizeStatisticsGroupingCursor implements RecordCursor<SizeStatistics
      *
      * @return a statistics collector of the given subspace
      */
-    @Nonnull
-    public static SizeStatisticsGroupingCursor ofSubspace(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context,
-                                                          @Nonnull ScanProperties scanProperties, @Nullable byte[] continuation, int aggregationDepth) {
+    public static SizeStatisticsGroupingCursor ofSubspace(Subspace subspace, FDBRecordContext context,
+                                                          ScanProperties scanProperties, @Nullable byte[] continuation, int aggregationDepth) {
         return new SizeStatisticsGroupingCursor(new SubspaceProviderBySubspace(subspace), context, scanProperties, continuation, aggregationDepth);
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<SizeStatisticsGroupedResults>> onNext() {
         // Initialize the inner cursor on the first call
@@ -288,14 +278,13 @@ public class SizeStatisticsGroupingCursor implements RecordCursor<SizeStatistics
                 .thenApply(ignore -> nextStatsResult));
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return context.getExecutor();
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         visitor.visitEnter(this);
         return visitor.visitLeave(this);
     }
@@ -311,7 +300,6 @@ public class SizeStatisticsGroupingCursor implements RecordCursor<SizeStatistics
         return closed;
     }
 
-    @Nonnull
     private Boolean handleOneItem(final Subspace subspace, final RecordCursorResult<KeyValue> nextKv) {
         if (nextKv.hasNext()) {
             final KeyValue keyValue = Objects.requireNonNull(nextKv.get());

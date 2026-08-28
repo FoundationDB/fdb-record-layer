@@ -31,7 +31,6 @@ import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -49,7 +48,6 @@ import static org.assertj.core.api.Assertions.entry;
  */
 @Tag(Tags.RequiresFDB)
 class VectorIndexTaskCountsTest extends VectorIndexTestBase {
-    @Nonnull
     @Override
     protected Map<String, String> indexOptions() {
         return ImmutableMap.of(
@@ -371,8 +369,7 @@ class VectorIndexTaskCountsTest extends VectorIndexTestBase {
      * subspace, decorated with the {@code TASK_COUNTS} prefix, packed with the partition prefix — reconstructed here so
      * a test can plant a raw value the public {@code increment}/{@code decrement} API cannot produce.
      */
-    @Nonnull
-    private static byte[] countKey(@Nonnull final Subspace secondary, @Nonnull final Tuple prefix) {
+    private static byte[] countKey(final Subspace secondary, final Tuple prefix) {
         return secondary.subspace(Tuple.from(VectorIndexSecondarySubspaceKeys.TASK_COUNTS)).pack(prefix);
     }
 
@@ -380,9 +377,8 @@ class VectorIndexTaskCountsTest extends VectorIndexTestBase {
      * Materializes the register's outstanding-work discovery into a {@code prefix -> count} map so a test can assert on
      * exactly which prefixes are present and with what counts.
      */
-    @Nonnull
-    private static Map<Tuple, Long> collectPrefixes(@Nonnull final VectorIndexTaskCounts counts,
-                                                    @Nonnull final FDBRecordContext context) throws Exception {
+    private static Map<Tuple, Long> collectPrefixes(final VectorIndexTaskCounts counts,
+                                                    final FDBRecordContext context) throws Exception {
         final Map<Tuple, Long> byPrefix = new HashMap<>();
         for (final PrefixTaskCount prefixTaskCount : AsyncUtil.collectRemaining(
                 counts.prefixesWithOutstandingWork(context.readTransaction(true), context.getExecutor())).get()) {
@@ -395,7 +391,6 @@ class VectorIndexTaskCountsTest extends VectorIndexTestBase {
      * A clean secondary subspace to run each test's register against, taken from a freshly opened (per-test) store's
      * ungrouped vector index — the same subspace the engine would hand {@link VectorIndexTaskCounts}.
      */
-    @Nonnull
     private Subspace secondarySubspace() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, this::addUngroupedVectorIndex);

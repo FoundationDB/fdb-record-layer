@@ -28,8 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.function.Function;
 
@@ -45,14 +44,14 @@ import java.util.function.Function;
 @API(API.Status.UNSTABLE)
 public class IntersectionCursor<T> extends IntersectionCursorBase<T, T> {
 
-    private IntersectionCursor(@Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction,
-                               boolean reverse, @Nonnull List<KeyedMergeCursorState<T>> cursorStates,
+    private IntersectionCursor(Function<? super T, ? extends List<Object>> comparisonKeyFunction,
+                               boolean reverse, List<KeyedMergeCursorState<T>> cursorStates,
                                @Nullable FDBStoreTimer timer) {
         super(comparisonKeyFunction, reverse, cursorStates, timer);
     }
 
     @Override
-    protected T getNextResult(@Nonnull List<KeyedMergeCursorState<T>> cursorStates) {
+    protected T getNextResult(List<KeyedMergeCursorState<T>> cursorStates) {
         return cursorStates.get(0).getResult().get();
     }
 
@@ -74,12 +73,11 @@ public class IntersectionCursor<T> extends IntersectionCursorBase<T, T> {
      * @return a cursor containing all records in both child cursors
      * @see #create(Function, boolean, Function, Function, byte[], FDBStoreTimer)
      */
-    @Nonnull
     public static <M extends Message, S extends FDBRecord<M>> IntersectionCursor<S> create(
-            @Nonnull FDBRecordStoreBase<M> store,
-            @Nonnull KeyExpression comparisonKey, boolean reverse,
-            @Nonnull Function<byte[], RecordCursor<S>> left,
-            @Nonnull Function<byte[], RecordCursor<S>> right,
+            FDBRecordStoreBase<M> store,
+            KeyExpression comparisonKey, boolean reverse,
+            Function<byte[], RecordCursor<S>> left,
+            Function<byte[], RecordCursor<S>> right,
             @Nullable byte[] continuation) {
         return create(
                 (S record) -> comparisonKey.evaluateSingleton(record).toTupleAppropriateList(),
@@ -102,12 +100,11 @@ public class IntersectionCursor<T> extends IntersectionCursorBase<T, T> {
      * @return a cursor containing all elements in both child cursors
      * @see #create(Function, boolean, List, byte[], FDBStoreTimer)
      */
-    @Nonnull
     public static <T> IntersectionCursor<T> create(
-            @Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction,
+            Function<? super T, ? extends List<Object>> comparisonKeyFunction,
             boolean reverse,
-            @Nonnull Function<byte[], RecordCursor<T>> left,
-            @Nonnull Function<byte[], RecordCursor<T>> right,
+            Function<byte[], RecordCursor<T>> left,
+            Function<byte[], RecordCursor<T>> right,
             @Nullable byte[] continuation,
             @Nullable FDBStoreTimer timer) {
         return new IntersectionCursor<>(comparisonKeyFunction, reverse, createCursorStates(left, right, continuation, comparisonKeyFunction), timer);
@@ -130,11 +127,10 @@ public class IntersectionCursor<T> extends IntersectionCursorBase<T, T> {
      * @return a cursor containing all records in all child cursors
      * @see #create(Function, boolean, List, byte[], FDBStoreTimer)
      */
-    @Nonnull
     public static <M extends Message, S extends FDBRecord<M>> IntersectionCursor<S> create(
-            @Nonnull FDBRecordStoreBase<M> store,
-            @Nonnull KeyExpression comparisonKey, boolean reverse,
-            @Nonnull List<Function<byte[], RecordCursor<S>>> cursorFunctions,
+            FDBRecordStoreBase<M> store,
+            KeyExpression comparisonKey, boolean reverse,
+            List<Function<byte[], RecordCursor<S>>> cursorFunctions,
             @Nullable byte[] continuation) {
         return create(
                 (S record) -> comparisonKey.evaluateSingleton(record).toTupleAppropriateList(),
@@ -172,11 +168,10 @@ public class IntersectionCursor<T> extends IntersectionCursorBase<T, T> {
      * @param <T> the type of elements returned by this cursor
      * @return a cursor containing all records in all child cursors
      */
-    @Nonnull
     public static <T> IntersectionCursor<T> create(
-            @Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction,
+            Function<? super T, ? extends List<Object>> comparisonKeyFunction,
             boolean reverse,
-            @Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions,
+            List<Function<byte[], RecordCursor<T>>> cursorFunctions,
             @Nullable byte[] continuation,
             @Nullable FDBStoreTimer timer) {
         return new IntersectionCursor<>(comparisonKeyFunction, reverse, createCursorStates(cursorFunctions, continuation, comparisonKeyFunction), timer);

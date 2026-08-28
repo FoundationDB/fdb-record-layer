@@ -31,4 +31,7 @@
  * to create the actual tokenizer object.
  * </p>
  */
+@NullMarked
 package com.apple.foundationdb.record.provider.common.text;
+
+import org.jspecify.annotations.NullMarked;

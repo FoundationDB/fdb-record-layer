@@ -42,8 +42,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScrubbingTools;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -57,12 +56,11 @@ public class ValueIndexMaintainer extends StandardIndexMaintainer {
         super(state);
     }
 
-    @Nonnull
     @Override
-    public RecordCursor<IndexEntry> scan(@Nonnull IndexScanType scanType,
-                                         @Nonnull TupleRange range,
+    public RecordCursor<IndexEntry> scan(IndexScanType scanType,
+                                         TupleRange range,
                                          @Nullable byte[] continuation,
-                                         @Nonnull ScanProperties scanProperties) {
+                                         ScanProperties scanProperties) {
         if (!scanType.equals(IndexScanType.BY_VALUE)) {
             throw new RecordCoreException("Can only scan standard index by value.");
         }
@@ -75,7 +73,6 @@ public class ValueIndexMaintainer extends StandardIndexMaintainer {
      * @param scanProperties skip, limit and other properties of the validation (use default values if <code>null</code>)
      * @return a cursor over index entries that have no associated records
      */
-    @Nonnull
     @Override
     public RecordCursor<InvalidIndexEntry> validateEntries(@Nullable byte[] continuation,
                                                            @Nullable ScanProperties scanProperties) {
@@ -93,13 +90,13 @@ public class ValueIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    public boolean canEvaluateAggregateFunction(@Nonnull IndexAggregateFunction function) {
+    public boolean canEvaluateAggregateFunction(IndexAggregateFunction function) {
         return (FunctionNames.MIN.equals(function.getName()) ||
                 FunctionNames.MAX.equals(function.getName())) &&
                 ungroupedAggregateOperand(function.getOperand()).isPrefixKey(state.index.getRootExpression());
     }
 
-    protected static KeyExpression ungroupedAggregateOperand(@Nonnull KeyExpression key) {
+    protected static KeyExpression ungroupedAggregateOperand(KeyExpression key) {
         if (key instanceof GroupingKeyExpression) {
             return ((GroupingKeyExpression)key).getWholeKey();
         } else {
@@ -108,10 +105,9 @@ public class ValueIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    @Nonnull
-    public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull IndexAggregateFunction function,
-                                                              @Nonnull TupleRange range,
-                                                              @Nonnull final IsolationLevel isolationLevel) {
+    public CompletableFuture<Tuple> evaluateAggregateFunction(IndexAggregateFunction function,
+                                                              TupleRange range,
+                                                              final IsolationLevel isolationLevel) {
         final boolean reverse;
         if (FunctionNames.MIN.equals(function.getName())) {
             reverse = false;
@@ -132,11 +128,10 @@ public class ValueIndexMaintainer extends StandardIndexMaintainer {
                 .thenApply(kvo -> kvo.map(kv -> TupleHelpers.subTuple(kv.getKey(), groupSize, totalSize)).orElse(null));
     }
 
-    @Nonnull
     @Override
-    public RecordCursor<FDBIndexedRawRecord> scanRemoteFetch(@Nonnull final IndexScanBounds scanBounds,
+    public RecordCursor<FDBIndexedRawRecord> scanRemoteFetch(final IndexScanBounds scanBounds,
                                                              @Nullable final byte[] continuation,
-                                                             @Nonnull final ScanProperties scanProperties,
+                                                             final ScanProperties scanProperties,
                                                              int commonPrimaryKeyLength) {
         return scanRemoteFetchByValue(scanBounds, continuation, scanProperties, commonPrimaryKeyLength);
     }

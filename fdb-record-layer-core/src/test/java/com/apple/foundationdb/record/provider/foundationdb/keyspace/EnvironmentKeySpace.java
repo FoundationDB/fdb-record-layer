@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
 import java.util.UUID;
 
 /**
@@ -74,8 +73,7 @@ class EnvironmentKeySpace {
                                         .addSubdirectory(new KeySpaceDirectory(METADATA_KEY, KeySpaceDirectory.KeyType.LONG, METADATA_VALUE, MetadataPath::new)))));
     }
 
-    @Nonnull
-    static EnvironmentKeySpace setupSampleData(@Nonnull final FDBDatabase database) {
+    static EnvironmentKeySpace setupSampleData(final FDBDatabase database) {
         EnvironmentKeySpace keySpace = new EnvironmentKeySpace(UUID.randomUUID().toString());
 
         // Store test data at different levels of the hierarchy

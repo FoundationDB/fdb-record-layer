@@ -27,7 +27,6 @@ import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -43,7 +42,7 @@ public class KeyComparisonsTest {
         return (comparison > 0) ? 1 : ((comparison < 0) ? -1 : 0);
     }
 
-    private static String randomString(@Nonnull Random r) {
+    private static String randomString(Random r) {
         int length = (int)(Math.abs(r.nextGaussian() * 10));
         StringBuilder sb = new StringBuilder();
         for (int j = 0; j < length; j++) {
@@ -56,7 +55,7 @@ public class KeyComparisonsTest {
         return sb.toString();
     }
 
-    private static <E> void testFieldComparator(@Nonnull List<E> list) {
+    private static <E> void testFieldComparator(List<E> list) {
         for (E elem1 : list) {
             for (E elem2 : list) {
                 int actualComparison = normalizeComparison(KeyComparisons.FIELD_COMPARATOR.compare(elem1, elem2));
@@ -144,7 +143,7 @@ public class KeyComparisonsTest {
         testFieldComparator(strLists);
     }
 
-    private static void testKeyComparator(@Nonnull List<Key.Evaluated> keys) {
+    private static void testKeyComparator(List<Key.Evaluated> keys) {
         for (Key.Evaluated key1 : keys) {
             for (Key.Evaluated key2 : keys) {
                 int actualComparison = normalizeComparison(KeyComparisons.KEY_COMPARATOR.compare(key1.toList(), key2.toList()));

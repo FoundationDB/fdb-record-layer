@@ -26,7 +26,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
@@ -47,12 +46,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  */
 public class TextTokenizerTest {
 
-    private List<String> tokenList(@Nonnull TextTokenizer tokenizer, @Nonnull String text, int version) {
+    private List<String> tokenList(TextTokenizer tokenizer, String text, int version) {
         return tokenizer.tokenizeToList(text, version, TextTokenizer.TokenizerMode.INDEX);
     }
 
     // Reconstruct the original token list from the mapping from token to offset
-    private List<String> reconstitutedTokenList(@Nonnull TextTokenizer tokenizer, @Nonnull String text, int version) {
+    private List<String> reconstitutedTokenList(TextTokenizer tokenizer, String text, int version) {
         Map<String, List<Integer>> map = tokenizer.tokenizeToMap(text, version, TextTokenizer.TokenizerMode.INDEX);
         int maxOffset = 0;
         for (List<Integer> offsetList : map.values()) {
@@ -197,7 +196,6 @@ public class TextTokenizerTest {
         }, Math.max(first.size(), second.size()), Spliterator.SIZED), false);
     }
 
-    @Nonnull
     private static Stream<Arguments> test(final List<List<String>> expectedTokens,
                                           final TextTokenizer tokenizer, final int globalMinVersion) {
         final Iterator<String> sampleIterator = TextSamples.ALL.iterator();
@@ -254,7 +252,6 @@ public class TextTokenizerTest {
         assertEquals(tokens, reconstitutedTokenList(tokenizer, text, version));
     }
 
-    @Nonnull
     private static TextTokenizer filteredTokenizer() {
         final Set<String> stopWords = ImmutableSet.of("the", "of", "in", "and", "a", "an", "some");
         return FilteringTextTokenizer.create(

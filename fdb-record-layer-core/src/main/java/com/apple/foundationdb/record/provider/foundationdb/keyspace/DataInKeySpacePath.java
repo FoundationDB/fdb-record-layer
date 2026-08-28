@@ -27,8 +27,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 
 /**
@@ -37,20 +36,17 @@ import java.util.Objects;
 @API(API.Status.EXPERIMENTAL)
 public class DataInKeySpacePath {
 
-    @Nonnull
     private final KeySpacePath path;
     @Nullable
     private final Tuple remainder;
-    @Nonnull
     private final ByteString value;
 
-    public DataInKeySpacePath(@Nonnull final KeySpacePath path, @Nullable final Tuple remainder,
+    public DataInKeySpacePath(final KeySpacePath path, @Nullable final Tuple remainder,
                               @Nullable final byte[] value) {
         this(path, remainder, toByteString(path, value));
     }
 
-    @Nonnull
-    private static ByteString toByteString(@Nonnull final KeySpacePath path, @Nullable final byte [] value) {
+    private static ByteString toByteString(final KeySpacePath path, @Nullable final byte [] value) {
         if (value == null) {
             throw new RecordCoreArgumentException("Value cannot be null")
                     .addLogInfo(LogMessageKeys.KEY, path);
@@ -58,19 +54,17 @@ public class DataInKeySpacePath {
         return ByteString.copyFrom(value);
     }
 
-    public DataInKeySpacePath(@Nonnull final KeySpacePath path, @Nullable final Tuple remainder,
-                              @Nonnull final ByteString value) {
+    public DataInKeySpacePath(final KeySpacePath path, @Nullable final Tuple remainder,
+                              final ByteString value) {
         this.path = path;
         this.remainder = remainder;
         this.value = value;
     }
 
-    @Nonnull
     public ByteString getValue() {
         return this.value;
     }
 
-    @Nonnull
     public KeySpacePath getPath() {
         return path;
     }

@@ -31,7 +31,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -58,15 +57,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 public class UnorderedUnionCursorTest {
 
-    @Nonnull
-    private <T> List<Function<byte[], RecordCursor<T>>> functionsFromLists(@Nonnull List<List<T>> lists) {
+    private <T> List<Function<byte[], RecordCursor<T>>> functionsFromLists(List<List<T>> lists) {
         return lists.stream()
                 .map(list -> (Function<byte[], RecordCursor<T>>)((byte[] continuation) -> RecordCursor.fromList(list, continuation)))
                 .collect(Collectors.toList());
     }
 
-    @Nonnull
-    private <T> List<Function<byte[], RecordCursor<T>>> functionsFromCursors(@Nonnull List<? extends RecordCursor<T>> cursors) {
+    private <T> List<Function<byte[], RecordCursor<T>>> functionsFromCursors(List<? extends RecordCursor<T>> cursors) {
         return cursors.stream()
                 .map(cursor -> (Function<byte[], RecordCursor<T>>)((byte[] ignore) -> cursor))
                 .collect(Collectors.toList());

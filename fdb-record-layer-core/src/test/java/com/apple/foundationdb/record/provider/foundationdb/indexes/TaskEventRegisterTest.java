@@ -24,8 +24,7 @@ import com.apple.foundationdb.Transaction;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -84,12 +83,10 @@ class TaskEventRegisterTest {
 
     /** A register that appends {@code label:enqueued}/{@code label:executed} to a shared log as it is notified. */
     private static final class RecordingRegister implements TaskEventRegister {
-        @Nonnull
         private final String label;
-        @Nonnull
         private final List<String> log;
 
-        RecordingRegister(@Nonnull final String label, @Nonnull final List<String> log) {
+        RecordingRegister(final String label, final List<String> log) {
             this.label = label;
             this.log = log;
         }

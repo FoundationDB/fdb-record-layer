@@ -25,7 +25,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.Random;
 import java.util.stream.Stream;
 
@@ -162,98 +161,98 @@ class SimpleMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
 
     @ParameterizedTest
     @MethodSource("argumentsForBasicReads")
-    void basicReadTest(@Nonnull final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex)
+    void basicReadTest(final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex)
             throws Exception {
         super.basicReadTest(false, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForBasicReads")
-    void basicReadWithNullsTest(@Nonnull final String storage, final boolean storeHilbertValues,
+    void basicReadWithNullsTest(final String storage, final boolean storeHilbertValues,
                                 final boolean useNodeSlotIndex) throws Exception {
         super.basicReadWithNullsTest(false, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForBasicReads")
-    void deleteWhereTest(@Nonnull final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex)
+    void deleteWhereTest(final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex)
             throws Exception {
         super.deleteWhereTest(false, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForBasicReads")
-    void coveringIndexScanWithFetchTest(@Nonnull final String storage, final boolean storeHilbertValues,
+    void coveringIndexScanWithFetchTest(final String storage, final boolean storeHilbertValues,
                                         final boolean useNodeSlotIndex) throws Exception {
         super.coveringIndexScanWithFetchTest(false, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
-    void indexReadTest(final long seed, final int numRecords, @Nonnull final String storage,
+    void indexReadTest(final long seed, final int numRecords, final String storage,
                        final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.indexReadTest(false, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
-    void indexReadWithNullsTest(final long seed, final int numRecords, @Nonnull final String storage,
+    void indexReadWithNullsTest(final long seed, final int numRecords, final String storage,
                                 final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.indexReadWithNullsTest(false, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
-    void indexReadIsNullTest(final long seed, final int numRecords, @Nonnull final String storage,
+    void indexReadIsNullTest(final long seed, final int numRecords, final String storage,
                              final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.indexReadIsNullTest(false, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
-    void coveringIndexReadTest(final long seed, final int numRecords, @Nonnull final String storage,
+    void coveringIndexReadTest(final long seed, final int numRecords, final String storage,
                                final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.coveringIndexReadTest(false, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
-    void indexScan3DTest(final long seed, final int numRecords, @Nonnull final String storage,
+    void indexScan3DTest(final long seed, final int numRecords, final String storage,
                          final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.indexScan3DTest(false, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
-    void unprefixedIndexReadTest(final long seed, final int numRecords, @Nonnull final String storage,
+    void unprefixedIndexReadTest(final long seed, final int numRecords, final String storage,
                                  final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.unprefixedIndexReadTest(false, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
-    void unprefixedSuffixedIndexReadTest(final long seed, final int numRecords, @Nonnull final String storage,
+    void unprefixedSuffixedIndexReadTest(final long seed, final int numRecords, final String storage,
                                          final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.unprefixedSuffixedIndexReadTest(false, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
-    void indexReadWithAdditionalValueTest(final long seed, final int numRecords, @Nonnull final String storage,
+    void indexReadWithAdditionalValueTest(final long seed, final int numRecords, final String storage,
                                           final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.indexReadWithAdditionalValueTest(false, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
-    void unprefixedSuffixedIndexReadWithResidualsTest(final long seed, final int numRecords, @Nonnull final String storage,
+    void unprefixedSuffixedIndexReadWithResidualsTest(final long seed, final int numRecords, final String storage,
                                                       final boolean storeHilbertValues, final Boolean useNodeSlotIndex) throws Exception {
         super.unprefixedSuffixedIndexReadWithResidualsTest(false, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
-    void indexSkipScanTest(final long seed, final int numRecords, @Nonnull final String storage,
+    void indexSkipScanTest(final long seed, final int numRecords, final String storage,
                            final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.indexSkipScanTest(false, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
@@ -261,14 +260,14 @@ class SimpleMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
     @ParameterizedTest
     @MethodSource("argumentsForIndexReadsAfterDeletes")
     void indexReadsAfterDeletesTest(final long seed, final int numRecords, final int numDeletes,
-                                    @Nonnull final String storage, final boolean storeHilbertValues,
+                                    final String storage, final boolean storeHilbertValues,
                                     final boolean useNodeSlotIndex) throws Exception {
         super.indexReadsAfterDeletesTest(false, seed, numRecords, numDeletes, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReadsWithDuplicates")
-    void indexReadWithDuplicatesTest(final int numRecords, @Nonnull final String storage,
+    void indexReadWithDuplicatesTest(final int numRecords, final String storage,
                                      final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.indexReadWithDuplicatesTest(false, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }

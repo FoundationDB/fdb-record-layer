@@ -31,8 +31,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.CompletableFuture;
@@ -46,17 +45,15 @@ import java.util.concurrent.CompletableFuture;
 @API(API.Status.EXPERIMENTAL)
 public class ResolverMappingDigest implements AutoCloseable {
     private static final String ALGORITHM = "SHA-256";
-    @Nonnull
     private final LocatableResolver resolver;
-    @Nonnull
     private final FDBDatabaseRunner runner;
     private final int transactionRowLimit;
 
-    public ResolverMappingDigest(@Nonnull LocatableResolver directoryScope) {
+    public ResolverMappingDigest(LocatableResolver directoryScope) {
         this(directoryScope, 10_000);
     }
 
-    public ResolverMappingDigest(@Nonnull LocatableResolver directoryScope,
+    public ResolverMappingDigest(LocatableResolver directoryScope,
                                  int transactionRowLimit) {
         this.runner = directoryScope.getDatabase().newRunner();
         this.resolver = directoryScope;
@@ -88,9 +85,9 @@ public class ResolverMappingDigest implements AutoCloseable {
                 }).thenApply(ignore -> messageDigest.digest());
     }
 
-    private CompletableFuture<byte[]> computeInternal(@Nonnull FDBRecordContext context,
+    private CompletableFuture<byte[]> computeInternal(FDBRecordContext context,
                                                       @Nullable byte[] continuation,
-                                                      @Nonnull MessageDigest messageDigest) {
+                                                      MessageDigest messageDigest) {
 
         return resolver.getMappingSubspaceAsync().thenCompose(mappingSubspace -> {
             final RecordCursor<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(mappingSubspace)

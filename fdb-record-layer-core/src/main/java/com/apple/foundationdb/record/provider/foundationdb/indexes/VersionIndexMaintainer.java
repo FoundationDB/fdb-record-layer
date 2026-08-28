@@ -43,8 +43,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScrubbingTools;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -63,10 +62,9 @@ public class VersionIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    @Nonnull
-    public RecordCursor<IndexEntry> scan(@Nonnull IndexScanType scanType, @Nonnull TupleRange range,
+    public RecordCursor<IndexEntry> scan(IndexScanType scanType, TupleRange range,
                                             @Nullable byte[] continuation,
-                                            @Nonnull ScanProperties scanProperties) {
+                                            ScanProperties scanProperties) {
         if (!scanType.equals(IndexScanType.BY_VALUE)) {
             throw new RecordCoreException("Can only scan version index by value.");
         }
@@ -75,9 +73,9 @@ public class VersionIndexMaintainer extends StandardIndexMaintainer {
 
     // Called by updateIndexKeys in StandardIndexMaintainer.
     @Override
-    protected <M extends Message> CompletableFuture<Void> updateOneKeyAsync(@Nonnull final FDBIndexableRecord<M> savedRecord,
+    protected <M extends Message> CompletableFuture<Void> updateOneKeyAsync(final FDBIndexableRecord<M> savedRecord,
                                                                       final boolean remove,
-                                                                      @Nonnull final IndexEntry indexEntry) {
+                                                                      final IndexEntry indexEntry) {
         if (state.index.isUnique()) {
             throw new MetaDataException("index type does not support unique indexes")
                     .addLogInfo(LogMessageKeys.INDEX_TYPE, state.index.getType())
@@ -118,11 +116,10 @@ public class VersionIndexMaintainer extends StandardIndexMaintainer {
         return AsyncUtil.DONE;
     }
 
-    @Nonnull
     @Override
-    public RecordCursor<FDBIndexedRawRecord> scanRemoteFetch(@Nonnull final IndexScanBounds scanBounds,
+    public RecordCursor<FDBIndexedRawRecord> scanRemoteFetch(final IndexScanBounds scanBounds,
                                                              @Nullable final byte[] continuation,
-                                                             @Nonnull final ScanProperties scanProperties,
+                                                             final ScanProperties scanProperties,
                                                              int commonPrimaryKeyLength) {
         return super.scanRemoteFetchByValue(scanBounds, continuation, scanProperties, commonPrimaryKeyLength);
     }

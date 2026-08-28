@@ -100,8 +100,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -179,13 +178,11 @@ public class VersionIndexTest {
         splitLongRecords = false;
     }
 
-    @Nonnull
     private final RecordMetaDataHook noVersionHook = metaDataBuilder -> {
         metaDataBuilder.setSplitLongRecords(splitLongRecords);
         metaDataBuilder.setStoreRecordVersions(false);
     };
 
-    @Nonnull
     private final RecordMetaDataHook simpleVersionHook = metaDataBuilder -> {
         metaDataBuilder.setSplitLongRecords(splitLongRecords);
         metaDataBuilder.addUniversalIndex(new Index("globalCount", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
@@ -194,7 +191,6 @@ public class VersionIndexTest {
                 new Index("globalVersion", VersionKeyExpression.VERSION, IndexTypes.VERSION));
     };
 
-    @Nonnull
     private final RecordMetaDataHook justVersionHook = metaDataBuilder -> {
         metaDataBuilder.setSplitLongRecords(splitLongRecords);
         metaDataBuilder.addUniversalIndex(new Index("globalCount", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
@@ -203,20 +199,17 @@ public class VersionIndexTest {
                 new Index("globalVersion", VersionKeyExpression.VERSION, IndexTypes.VERSION));
     };
 
-    @Nonnull
     private final RecordMetaDataHook repeatedVersionHook = metaDataBuilder -> {
         metaDataBuilder.setSplitLongRecords(splitLongRecords);
         metaDataBuilder.addIndex("MySimpleRecord", new Index("MySimpleRecord$repeater-version", concat(field("repeater", KeyExpression.FanType.FanOut), VersionKeyExpression.VERSION), IndexTypes.VERSION));
     };
 
-    @Nonnull
     private final RecordMetaDataHook repeatedAndCompoundVersionHook = metaDataBuilder -> {
         metaDataBuilder.setSplitLongRecords(splitLongRecords);
         metaDataBuilder.addIndex("MySimpleRecord", new Index("MySimpleRecord$repeater-version", concat(field("repeater", KeyExpression.FanType.FanOut), VersionKeyExpression.VERSION), IndexTypes.VERSION));
         metaDataBuilder.addIndex("MySimpleRecord", new Index("MySimpleRecord$num2-version", concat(field("num_value_2"), VersionKeyExpression.VERSION), IndexTypes.VERSION));
     };
 
-    @Nonnull
     private final RecordMetaDataHook maxEverVersionHook = metaDataBuilder -> {
         Index maxEverVersionIndex = new Index("max_ever_version", VersionKeyExpression.VERSION.ungrouped(),
                 IndexTypes.MAX_EVER_VERSION);
@@ -224,7 +217,6 @@ public class VersionIndexTest {
         metaDataBuilder.addIndex((RecordTypeBuilder)null, maxEverVersionIndex);
     };
 
-    @Nonnull
     private final RecordMetaDataHook maxEverVersionWithGroupingHook = metaDataBuilder -> {
         Index maxEverVersionIndex = new Index("max_ever_version_with_grouping",
                 VersionKeyExpression.VERSION.groupBy(field("num_value_2")),
@@ -233,7 +225,6 @@ public class VersionIndexTest {
         metaDataBuilder.addIndex("MySimpleRecord", maxEverVersionIndex);
     };
 
-    @Nonnull
     private final RecordMetaDataHook maxEverVersionWithExtraColumnHook = metaDataBuilder -> {
         Index maxEverVersionIndex = new Index("max_ever_version_with_extra_column",
                 concat(field("num_value_2"), VersionKeyExpression.VERSION).ungrouped(),
@@ -243,7 +234,6 @@ public class VersionIndexTest {
     };
 
     // Hook to align all primary keys and indexes so that they are prefixed by num_value_2 for testing deleteRecordsWhere
-    @Nonnull
     private final RecordMetaDataHook prefixAllByNumValue2Hook = metaDataBuilder -> {
         metaDataBuilder.setStoreRecordVersions(true);
         metaDataBuilder.setSplitLongRecords(splitLongRecords);
@@ -297,7 +287,7 @@ public class VersionIndexTest {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Maybe-Version-Function-Key-Expression");
         private static final List<Key.Evaluated> FIRST_VERSION_EVALUATED = Collections.singletonList(Key.Evaluated.scalar(FDBRecordVersion.MIN_VERSION));
 
-        protected MaybeVersionFunctionKeyExpression(@Nonnull String name, @Nonnull KeyExpression arguments) {
+        protected MaybeVersionFunctionKeyExpression(String name, KeyExpression arguments) {
             super(name, arguments);
         }
 
@@ -311,11 +301,10 @@ public class VersionIndexTest {
             return 2;
         }
 
-        @Nonnull
         @Override
         public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record,
                                                                         @Nullable Message message,
-                                                                        @Nonnull Key.Evaluated arguments) {
+                                                                        Key.Evaluated arguments) {
             long id = arguments.getLong(0);
             if (id < 1066L) {
                 // Prior to 1066, we might as well be at the beginning of time.
@@ -342,13 +331,12 @@ public class VersionIndexTest {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
+        public int planHash(final PlanHashable.PlanHashMode mode) {
             return super.basePlanHash(mode, BASE_HASH);
         }
 
-        @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+        public Value toValue(final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
     }
@@ -358,14 +346,12 @@ public class VersionIndexTest {
      */
     @AutoService(FunctionKeyExpression.Factory.class)
     public static class MaybeVersionFunctionFactory implements FunctionKeyExpression.Factory {
-        @Nonnull
         @Override
         public List<FunctionKeyExpression.Builder> getBuilders() {
             return Collections.singletonList(new FunctionKeyExpression.BiFunctionBuilder("maybeVersion", MaybeVersionFunctionKeyExpression::new));
         }
     }
 
-    @Nonnull
     private final RecordMetaDataHook functionVersionHook = metaDataBuilder -> {
         metaDataBuilder.setSplitLongRecords(splitLongRecords);
         metaDataBuilder.addIndex("MySimpleRecord", new Index("MySimpleRecord$maybeVersion", function("maybeVersion", concat(field("num_value_2"), VersionKeyExpression.VERSION)), IndexTypes.VERSION));
@@ -380,13 +366,12 @@ public class VersionIndexTest {
     public static class VersionOrNumFunctionKeyExpression extends FunctionKeyExpression {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Version-Or-Num-Function-Key-Expression");
 
-        protected VersionOrNumFunctionKeyExpression(@Nonnull String name, @Nonnull KeyExpression arguments) {
+        protected VersionOrNumFunctionKeyExpression(String name, KeyExpression arguments) {
             super(name, arguments);
         }
 
-        @Nonnull
         @Override
-        public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record, @Nullable Message message, @Nonnull Key.Evaluated arguments) {
+        public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record, @Nullable Message message, Key.Evaluated arguments) {
             long controlColumn = arguments.getLong(0);
             Key.Evaluated toReturn;
             if (controlColumn == 0) {
@@ -428,13 +413,12 @@ public class VersionIndexTest {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
+        public int planHash(final PlanHashable.PlanHashMode mode) {
             return super.basePlanHash(mode, BASE_HASH);
         }
 
-        @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+        public Value toValue(final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
     }
@@ -444,14 +428,12 @@ public class VersionIndexTest {
      */
     @AutoService(FunctionKeyExpression.Factory.class)
     public static class VersionOrNumFunctionFactory implements FunctionKeyExpression.Factory {
-        @Nonnull
         @Override
         public List<FunctionKeyExpression.Builder> getBuilders() {
             return Collections.singletonList(new FunctionKeyExpression.BiFunctionBuilder("versionOrNum", VersionOrNumFunctionKeyExpression::new));
         }
     }
 
-    @Nonnull
     private final RecordMetaDataHook maxEverVersionWithFunctionHook = metaDataBuilder -> {
         Index maxEverVersionIndex = new Index("max_ever_version_with_function",
                 GroupingKeyExpression.of(
@@ -764,7 +746,7 @@ public class VersionIndexTest {
     }
 
     @Nullable
-    private FDBRecordVersion saveRecordAndRecordVersion(@Nonnull Map<Tuple, Optional<FDBRecordVersion>> storedVersions, long recNo, @Nullable FDBRecordVersion version, FDBRecordStoreBase.VersionstampSaveBehavior behavior) {
+    private FDBRecordVersion saveRecordAndRecordVersion(Map<Tuple, Optional<FDBRecordVersion>> storedVersions, long recNo, @Nullable FDBRecordVersion version, FDBRecordStoreBase.VersionstampSaveBehavior behavior) {
         FDBStoredRecord<?> storedRecord = recordStore.saveRecord(MySimpleRecord.newBuilder().setRecNo(recNo).build(), version, behavior);
         storedVersions.put(storedRecord.getPrimaryKey(), Optional.ofNullable(storedRecord.getVersion()));
         return storedRecord.getVersion();
@@ -1434,7 +1416,7 @@ public class VersionIndexTest {
         }
     }
 
-    private void assertMaxVersionEntries(@Nonnull Index index, @Nonnull List<IndexEntry> expectedEntries) {
+    private void assertMaxVersionEntries(Index index, List<IndexEntry> expectedEntries) {
         List<IndexEntry> actualEntries = recordStore.scanIndex(index, IndexScanType.BY_GROUP, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
                 .asList()
                 .join();
@@ -1442,7 +1424,7 @@ public class VersionIndexTest {
     }
 
     @SuppressWarnings("try")
-    private void assertMaxVersion(@Nonnull FDBRecordVersion version) {
+    private void assertMaxVersion(FDBRecordVersion version) {
         try (FDBRecordContext context = openContext(maxEverVersionHook)) {
             Index index = metaData.getIndex("max_ever_version");
             final IndexEntry entry = new IndexEntry(index, Key.Evaluated.EMPTY, Key.Evaluated.scalar(version));
@@ -1450,8 +1432,7 @@ public class VersionIndexTest {
         }
     }
 
-    @Nonnull
-    private static FDBRecordVersion getSmallerVersion(@Nonnull FDBRecordVersion olderVersion) {
+    private static FDBRecordVersion getSmallerVersion(FDBRecordVersion olderVersion) {
         byte[] versionBytes = olderVersion.toBytes();
         int i = 0;
         while (i < versionBytes.length) {
@@ -1465,8 +1446,7 @@ public class VersionIndexTest {
         return FDBRecordVersion.fromBytes(versionBytes);
     }
 
-    @Nonnull
-    private static FDBRecordVersion getBiggerVersion(@Nonnull FDBRecordVersion olderVersion) {
+    private static FDBRecordVersion getBiggerVersion(FDBRecordVersion olderVersion) {
         byte[] versionBytes = olderVersion.toBytes();
         int i = 0;
         while (i < versionBytes.length) {
@@ -1589,7 +1569,7 @@ public class VersionIndexTest {
     }
 
     @SuppressWarnings("try")
-    private void assertMaxVersionsForGroups(@Nonnull SortedMap<Integer, FDBRecordVersion> groupsToVersions) {
+    private void assertMaxVersionsForGroups(SortedMap<Integer, FDBRecordVersion> groupsToVersions) {
         try (FDBRecordContext context = openContext(maxEverVersionWithGroupingHook)) {
             Index index = metaData.getIndex("max_ever_version_with_grouping");
             List<IndexEntry> entries = new ArrayList<>(groupsToVersions.size());
@@ -1600,7 +1580,7 @@ public class VersionIndexTest {
         }
     }
 
-    private void assertMaxVersionsForGroups(@Nonnull Object... keyValue) {
+    private void assertMaxVersionsForGroups(Object... keyValue) {
         if (keyValue.length % 2 != 0) {
             throw new RecordCoreArgumentException("expected an even number of keys and values for grouping");
         }
@@ -1671,7 +1651,7 @@ public class VersionIndexTest {
     }
 
     @SuppressWarnings("try")
-    private void assertMaxVersionWithExtraColumn(int column, @Nonnull FDBRecordVersion recordVersion) {
+    private void assertMaxVersionWithExtraColumn(int column, FDBRecordVersion recordVersion) {
         try (FDBRecordContext context = openContext(maxEverVersionWithExtraColumnHook)) {
             Index index = metaData.getIndex("max_ever_version_with_extra_column");
             IndexEntry entry = new IndexEntry(index, Key.Evaluated.EMPTY, Key.Evaluated.concatenate(column, recordVersion));
@@ -1743,7 +1723,7 @@ public class VersionIndexTest {
     }
 
     @SuppressWarnings("try")
-    private void assertMaxVersionWithFunction(int controlColumn, @Nonnull FDBRecordVersion recordVersion) {
+    private void assertMaxVersionWithFunction(int controlColumn, FDBRecordVersion recordVersion) {
         try (FDBRecordContext context = openContext(maxEverVersionWithFunctionHook)) {
             Index index = metaData.getIndex("max_ever_version_with_function");
             IndexEntry entry = new IndexEntry(index, Key.Evaluated.EMPTY, Key.Evaluated.concatenate(controlColumn, recordVersion));
@@ -3176,7 +3156,7 @@ public class VersionIndexTest {
         }
     }
 
-    private <M extends Message> void validateUsingOlderVersionFormat(@Nonnull List<FDBStoredRecord<M>> storedRecords) {
+    private <M extends Message> void validateUsingOlderVersionFormat(List<FDBStoredRecord<M>> storedRecords) {
         // Make sure all of the records have versions in the old keyspace
         final Subspace legacyVersionSubspace = recordStore.getLegacyVersionSubspace();
         RecordCursorIterator<Pair<Tuple, FDBRecordVersion>> versionKeyPairs = KeyValueCursor.Builder.withSubspace(legacyVersionSubspace)
@@ -3203,7 +3183,7 @@ public class VersionIndexTest {
                 .join();
     }
 
-    private <M extends Message> void validateUsingNewerVersionFormat(@Nonnull List<FDBStoredRecord<M>> storedRecords) {
+    private <M extends Message> void validateUsingNewerVersionFormat(List<FDBStoredRecord<M>> storedRecords) {
         // Make sure the old keyspace doesn't have anything in it
         final Subspace legacyVersionSubspace = recordStore.getLegacyVersionSubspace();
         KeyValueCursor legacyKvs = KeyValueCursor.Builder.withSubspace(legacyVersionSubspace)
@@ -3231,7 +3211,6 @@ public class VersionIndexTest {
         assertFalse(versionKeyPairs.hasNext());
     }
 
-    @Nonnull
     private List<Tuple> scanIndexToKeys(final IndexFetchMethod fetchMethod, final String indexName, final ScanProperties direction) throws Exception {
         if (fetchMethod == IndexFetchMethod.SCAN_AND_FETCH) {
             return recordStore.scanIndex(metaData.getIndex(indexName), IndexScanType.BY_VALUE, TupleRange.ALL, null, direction)
@@ -3249,7 +3228,6 @@ public class VersionIndexTest {
         }
     }
 
-    @Nonnull
     private List<FDBIndexedRecord<Message>> scanIndexToRecords(final IndexFetchMethod fetchMethod,
                                                                final String indexName,
                                                                final ScanProperties direction) throws Exception {
@@ -3261,7 +3239,6 @@ public class VersionIndexTest {
         return recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, null, IndexOrphanBehavior.ERROR, direction).asList().get();
     }
 
-    @Nonnull
     protected RecordQueryPlan plan(final RecordQuery query, final IndexFetchMethod useIndexPrefetch) {
         planner.setConfiguration(planner.getConfiguration()
                 .asBuilder()

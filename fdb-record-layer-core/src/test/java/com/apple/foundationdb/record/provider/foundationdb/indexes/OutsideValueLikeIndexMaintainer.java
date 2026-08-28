@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 
 /**
@@ -44,7 +43,6 @@ import java.util.Set;
  * to surface it to the planners.
  */
 public class OutsideValueLikeIndexMaintainer extends ValueIndexMaintainer {
-    @Nonnull
     public static final String INDEX_TYPE = "outside_value";
 
     public OutsideValueLikeIndexMaintainer(final IndexMaintainerState state) {
@@ -56,35 +54,30 @@ public class OutsideValueLikeIndexMaintainer extends ValueIndexMaintainer {
      */
     @AutoService(IndexMaintainerFactory.class)
     public static class Factory implements IndexMaintainerFactory {
-        @Nonnull
         private static final Set<String> INDEX_TYPES = ImmutableSet.of(INDEX_TYPE);
         private static final IndexMaintainerFactory underlying = new ValueIndexMaintainerFactory();
 
-        @Nonnull
         @Override
         public Iterable<String> getIndexTypes() {
             return INDEX_TYPES;
         }
 
-        @Nonnull
         @Override
         public IndexValidator getIndexValidator(final Index index) {
             // Delegate to the value index type.
             return underlying.getIndexValidator(index);
         }
 
-        @Nonnull
         @Override
-        public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
+        public IndexMaintainer getIndexMaintainer(final IndexMaintainerState state) {
             // Do not delegate here. Create the new custom index maintainer type.
             // (Though as can be seen above, the methods here more-or-less all delegate
             // to the value index implementation.)
             return new OutsideValueLikeIndexMaintainer(state);
         }
 
-        @Nonnull
         @Override
-        public Iterable<MatchCandidate> createMatchCandidates(@Nonnull final RecordMetaData metaData, @Nonnull final Index index, final boolean reverse) {
+        public Iterable<MatchCandidate> createMatchCandidates(final RecordMetaData metaData, final Index index, final boolean reverse) {
             // Delegate to the value index type.
             return underlying.createMatchCandidates(metaData, index, reverse);
         }

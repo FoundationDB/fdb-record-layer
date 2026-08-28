@@ -53,8 +53,7 @@ import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -80,17 +79,15 @@ public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
         MAX(Comparator.reverseOrder(), ScanProperties.REVERSE_SCAN),
         ;
 
-        @Nonnull
         private final Comparator<Tuple> valueComparator;
-        @Nonnull
         private final ScanProperties baseScanProperties;
 
-        Type(@Nonnull Comparator<Tuple> valueComparator, @Nonnull ScanProperties baseScanProperties) {
+        Type(Comparator<Tuple> valueComparator, ScanProperties baseScanProperties) {
             this.valueComparator = valueComparator;
             this.baseScanProperties = baseScanProperties;
         }
 
-        public boolean shouldUpdateExtremum(@Nonnull Tuple oldValue, @Nonnull Tuple newValue) {
+        public boolean shouldUpdateExtremum(Tuple oldValue, Tuple newValue) {
             return valueComparator.compare(oldValue, newValue) > 0;
         }
     }
@@ -98,13 +95,13 @@ public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
     private final Type type;
     private final int permutedSize;
 
-    public PermutedMinMaxIndexMaintainer(@Nonnull IndexMaintainerState state) {
+    public PermutedMinMaxIndexMaintainer(IndexMaintainerState state) {
         super(state);
         type = getType(state.index);
         permutedSize = getPermutedSize(state.index);
     }
 
-    protected static int getPermutedSize(@Nonnull Index index) {
+    protected static int getPermutedSize(Index index) {
         String permutedSizeOption = index.getOption(IndexOptions.PERMUTED_SIZE_OPTION);
         if (permutedSizeOption == null) {
             throw new MetaDataException("permuted size not specified", LogMessageKeys.INDEX_NAME, index.getName());
@@ -112,7 +109,7 @@ public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
         return Integer.parseInt(permutedSizeOption);
     }
 
-    protected static Type getType(@Nonnull Index index) {
+    protected static Type getType(Index index) {
         if (IndexTypes.PERMUTED_MIN.equals(index.getType())) {
             return Type.MIN;
         }
@@ -122,13 +119,12 @@ public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
         throw new MetaDataException("Unknown index type for " + index);
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CloseResource")
-    public RecordCursor<IndexEntry> scan(@Nonnull IndexScanType scanType,
-                                         @Nonnull TupleRange range,
+    public RecordCursor<IndexEntry> scan(IndexScanType scanType,
+                                         TupleRange range,
                                          @Nullable byte[] continuation,
-                                         @Nonnull ScanProperties scanProperties) {
+                                         ScanProperties scanProperties) {
         if (scanType.equals(IndexScanType.BY_VALUE)) {
             return scan(range, continuation, scanProperties);
         }
@@ -150,9 +146,9 @@ public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
+    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(final FDBIndexableRecord<M> savedRecord,
                                                                           final boolean remove,
-                                                                          @Nonnull final List<IndexEntry> indexEntries) {
+                                                                          final List<IndexEntry> indexEntries) {
         final int groupPrefixSize = getGroupingCount();
         final int totalSize = state.index.getColumnSize();
         final Subspace permutedSubspace = getSecondarySubspace();
@@ -232,8 +228,7 @@ public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
         }
     }
 
-    @Nonnull
-    private Map<Tuple, IndexEntry> extremumEntriesByGroup(@Nonnull List<IndexEntry> entries) {
+    private Map<Tuple, IndexEntry> extremumEntriesByGroup(List<IndexEntry> entries) {
         if (entries.isEmpty()) {
             return Collections.emptyMap();
         } else if (entries.size() == 1) {
@@ -263,24 +258,23 @@ public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
 
     // Return the min/max key matching the given group key or {@code null} if there are not entries for the group.
     @SuppressWarnings("PMD.CloseResource")
-    private CompletableFuture<Tuple> getExtremum(@Nonnull Tuple groupKey) {
+    private CompletableFuture<Tuple> getExtremum(Tuple groupKey) {
         final RecordCursor<IndexEntry> scan = scan(TupleRange.allOf(groupKey), null,
                 type.baseScanProperties.with(props -> props.clearState().setReturnedRowLimit(1)));
         return scan.first().thenApply(first -> first.map(IndexEntry::getKey).orElse(null));
     }
 
     @Override
-    public boolean canEvaluateAggregateFunction(@Nonnull final IndexAggregateFunction function) {
+    public boolean canEvaluateAggregateFunction(final IndexAggregateFunction function) {
         return function.getName().equals(type.name().toLowerCase(Locale.ROOT))
                && IndexFunctionHelper.isGroupPrefix(function.getOperand(), state.index.getRootExpression());
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings({"PMD.CloseResource", "PMD.UseTryWithResources"}) // PMD cannot determine resource is closed
-    public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull final IndexAggregateFunction function,
-                                                              @Nonnull final TupleRange range,
-                                                              @Nonnull final IsolationLevel isolationLevel) {
+    public CompletableFuture<Tuple> evaluateAggregateFunction(final IndexAggregateFunction function,
+                                                              final TupleRange range,
+                                                              final IsolationLevel isolationLevel) {
         if (!canEvaluateAggregateFunction(function)) {
             throw new RecordCoreArgumentException("Cannot execute aggregate function")
                     .addLogInfo(LogMessageKeys.FUNCTION, function.getName())
@@ -329,8 +323,7 @@ public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
         }
     }
 
-    @Nonnull
-    private TupleRange trimToUnpermutedPrefix(@Nonnull TupleRange range) {
+    private TupleRange trimToUnpermutedPrefix(TupleRange range) {
         int unpermutedSize = getGroupingCount() - permutedSize;
         EndpointType lowEndpoint = range.getLowEndpoint();
         @Nullable Tuple low = range.getLow();
@@ -348,7 +341,7 @@ public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    public boolean canDeleteWhere(@Nonnull final QueryToKeyMatcher matcher, @Nonnull final Key.Evaluated evaluated) {
+    public boolean canDeleteWhere(final QueryToKeyMatcher matcher, final Key.Evaluated evaluated) {
         if (!super.canDeleteWhere(matcher, evaluated)) {
             return false;
         }
@@ -357,7 +350,7 @@ public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    public CompletableFuture<Void> deleteWhere(Transaction tr, @Nonnull Tuple prefix) {
+    public CompletableFuture<Void> deleteWhere(Transaction tr, Tuple prefix) {
         return super.deleteWhere(tr, prefix).thenApply(v -> {
             final Subspace permutedSubspace = getSecondarySubspace();
             state.context.clear(permutedSubspace.subspace(prefix).range());

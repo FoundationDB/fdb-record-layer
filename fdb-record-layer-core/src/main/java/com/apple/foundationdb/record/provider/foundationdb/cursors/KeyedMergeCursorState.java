@@ -25,8 +25,7 @@ import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorEndContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.function.Function;
 
@@ -35,19 +34,18 @@ import java.util.function.Function;
  * @param <T> the type of element returned by the underlying cursor
  */
 class KeyedMergeCursorState<T> extends MergeCursorState<T> {
-    @Nonnull
     private final Function<? super T, ? extends List<Object>> comparisonKeyFunction;
     @Nullable
     private List<Object> comparisonKey;
 
-    KeyedMergeCursorState(@Nonnull RecordCursor<T> cursor, @Nonnull RecordCursorContinuation continuation,
-                          @Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction) {
+    KeyedMergeCursorState(RecordCursor<T> cursor, RecordCursorContinuation continuation,
+                          Function<? super T, ? extends List<Object>> comparisonKeyFunction) {
         super(cursor, continuation);
         this.comparisonKeyFunction = comparisonKeyFunction;
     }
 
     @Override
-    protected void handleNextCursorResult(@Nonnull RecordCursorResult<T> cursorResult) {
+    protected void handleNextCursorResult(RecordCursorResult<T> cursorResult) {
         super.handleNextCursorResult(cursorResult);
         if (cursorResult.hasNext()) {
             comparisonKey = comparisonKeyFunction.apply(cursorResult.get());
@@ -65,11 +63,10 @@ class KeyedMergeCursorState<T> extends MergeCursorState<T> {
         this.comparisonKey = null;
     }
 
-    @Nonnull
     public static <T> KeyedMergeCursorState<T> from(
-            @Nonnull Function<byte[], RecordCursor<T>> cursorFunction,
-            @Nonnull RecordCursorContinuation continuation,
-            @Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction) {
+            Function<byte[], RecordCursor<T>> cursorFunction,
+            RecordCursorContinuation continuation,
+            Function<? super T, ? extends List<Object>> comparisonKeyFunction) {
         if (continuation.isEnd()) {
             return new KeyedMergeCursorState<>(RecordCursor.empty(), RecordCursorEndContinuation.END, comparisonKeyFunction);
         } else {

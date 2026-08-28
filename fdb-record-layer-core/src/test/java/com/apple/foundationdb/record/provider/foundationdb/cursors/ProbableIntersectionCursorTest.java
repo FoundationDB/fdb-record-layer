@@ -38,7 +38,6 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -73,15 +72,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class ProbableIntersectionCursorTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(ProbableIntersectionCursorTest.class);
 
-    @Nonnull
-    private <T, C extends RecordCursor<T>> List<Function<byte[], RecordCursor<T>>> cursorsToFunctions(@Nonnull List<C> cursors) {
+    private <T, C extends RecordCursor<T>> List<Function<byte[], RecordCursor<T>>> cursorsToFunctions(List<C> cursors) {
         return cursors.stream()
                 .map(cursor -> (Function<byte[], RecordCursor<T>>)(bignore -> cursor))
                 .collect(Collectors.toList());
     }
 
-    @Nonnull
-    private <T, L extends List<T>> List<Function<byte[], RecordCursor<T>>> listsToFunctions(@Nonnull List<L> lists) {
+    private <T, L extends List<T>> List<Function<byte[], RecordCursor<T>>> listsToFunctions(List<L> lists) {
         return lists.stream()
                 .map(list -> (Function<byte[], RecordCursor<T>>)(continuation -> RecordCursor.fromList(list, continuation)))
                 .collect(Collectors.toList());
@@ -250,7 +247,7 @@ public class ProbableIntersectionCursorTest {
         }
     }
 
-    private void verifyResults(@Nonnull RecordCursor<Integer> cursor, @Nonnull RecordCursor.NoNextReason expectedReason, int... expectedResults) {
+    private void verifyResults(RecordCursor<Integer> cursor, RecordCursor.NoNextReason expectedReason, int... expectedResults) {
         for (int expectedResult : expectedResults) {
             RecordCursorResult<Integer> result = cursor.getNext();
             assertThat(result.hasNext(), is(true));

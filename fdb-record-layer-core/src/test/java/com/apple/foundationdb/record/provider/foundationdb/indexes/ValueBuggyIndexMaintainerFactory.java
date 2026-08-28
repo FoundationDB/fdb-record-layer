@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactor
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.google.auto.service.AutoService;
 
-import javax.annotation.Nonnull;
 import java.util.Collections;
 
 /**
@@ -35,21 +34,18 @@ import java.util.Collections;
  */
 @AutoService(IndexMaintainerFactory.class)
 public class ValueBuggyIndexMaintainerFactory implements IndexMaintainerFactory {
-    @Nonnull
     @Override
     public Iterable<String> getIndexTypes() {
         return Collections.singletonList("value_buggy");
     }
 
-    @Nonnull
     @Override
     public IndexValidator getIndexValidator(Index index) {
         return new IndexValidator(index);
     }
 
-    @Nonnull
     @Override
-    public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
+    public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
         return new ValueBuggyIndexMaintainer(state);
     }
 }

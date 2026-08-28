@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 
 
@@ -31,22 +30,18 @@ import java.util.Objects;
  */
 @API(API.Status.UNSTABLE)
 public class ResolverKeyValue {
-    @Nonnull
     private final String key;
-    @Nonnull
     private final ResolverResult value;
 
-    public ResolverKeyValue(@Nonnull final String key, @Nonnull final ResolverResult value) {
+    public ResolverKeyValue(final String key, final ResolverResult value) {
         this.key = key;
         this.value = value;
     }
 
-    @Nonnull
     public String getKey() {
         return key;
     }
 
-    @Nonnull
     public ResolverResult getValue() {
         return value;
     }

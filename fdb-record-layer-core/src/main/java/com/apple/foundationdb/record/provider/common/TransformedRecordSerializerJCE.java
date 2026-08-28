@@ -24,8 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 import java.security.GeneralSecurityException;
@@ -41,7 +40,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
     @Nullable
     protected final SerializationKeyManager keyManager;
 
-    protected TransformedRecordSerializerJCE(@Nonnull RecordSerializer<M> inner,
+    protected TransformedRecordSerializerJCE(RecordSerializer<M> inner,
                                              boolean compressWhenSerializing,
                                              int compressionLevel,
                                              boolean encryptWhenSerializing,
@@ -55,7 +54,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
     }
 
     @Override
-    protected void encrypt(@Nonnull TransformedRecordSerializerState state, @Nullable StoreTimer timer) throws GeneralSecurityException {
+    protected void encrypt(TransformedRecordSerializerState state, @Nullable StoreTimer timer) throws GeneralSecurityException {
         if (keyManager == null) {
             throw new RecordSerializationException("attempted to encrypt without setting key manager (cipher name and key)");
         }
@@ -89,7 +88,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
     }
 
     @Override
-    protected void decrypt(@Nonnull TransformedRecordSerializerState state, @Nullable StoreTimer timer) throws GeneralSecurityException {
+    protected void decrypt(TransformedRecordSerializerState state, @Nullable StoreTimer timer) throws GeneralSecurityException {
         if (keyManager == null) {
             throw new RecordSerializationException("missing encryption key or provider during decryption");
         }
@@ -115,7 +114,6 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
         }
     }
 
-    @Nonnull
     @Override
     public RecordSerializer<Message> widen() {
         return new TransformedRecordSerializerJCE<>(inner.widen(), compressWhenSerializing, compressionLevel,
@@ -145,7 +143,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
      * @param <M> type of {@link Message} that underlying records will use
      * @return <code>Builder</code> instance that can be used to specify transformations
      */
-    public static <M extends Message> Builder<M> newBuilder(@Nonnull RecordSerializer<M> inner) {
+    public static <M extends Message> Builder<M> newBuilder(RecordSerializer<M> inner) {
         return new Builder<>(inner);
     }
 
@@ -169,19 +167,17 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
         @Nullable
         protected SecureRandom secureRandom;
 
-        protected Builder(@Nonnull RecordSerializer<M> inner) {
+        protected Builder(RecordSerializer<M> inner) {
             super(inner);
         }
 
         @Override
-        @Nonnull
         public Builder<M> setCompressWhenSerializing(boolean compressWhenSerializing) {
             super.setCompressWhenSerializing(compressWhenSerializing);
             return this;
         }
 
         @Override
-        @Nonnull
         public Builder<M> setCompressionLevel(int level) {
             super.setCompressionLevel(level);
             return this;
@@ -197,7 +193,6 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
          * @return this <code>Builder</code>
          */
         @Override
-        @Nonnull
         public Builder<M> setEncryptWhenSerializing(boolean encryptWhenSerializing) {
             super.setEncryptWhenSerializing(encryptWhenSerializing);
             return this;
@@ -210,7 +205,6 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
          * @return this <code>Builder</code>
          */
         @Override
-        @Nonnull
         public Builder<M> setWriteValidationRatio(final double writeValidationRatio) {
             super.setWriteValidationRatio(writeValidationRatio);
             return this;
@@ -228,7 +222,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
          * @param encryptionKey key to supply to encryption method
          * @return this <code>Builder</code>
          */
-        public Builder<M> setEncryptionKey(@Nonnull Key encryptionKey) {
+        public Builder<M> setEncryptionKey(Key encryptionKey) {
             this.encryptionKey = encryptionKey;
             return this;
         }
@@ -240,7 +234,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
          * @param cipherName name of the cipher algorithm to use
          * @return this <code>Builder</code>
          */
-        public Builder<M> setCipherName(@Nonnull String cipherName) {
+        public Builder<M> setCipherName(String cipherName) {
             this.cipherName = cipherName;
             return this;
         }
@@ -264,7 +258,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
          * @param secureRandom a secure random number generator
          * @return this <code>Builder</code>
          */
-        public Builder<M> setSecureRandom(@Nonnull SecureRandom secureRandom) {
+        public Builder<M> setSecureRandom(SecureRandom secureRandom) {
             this.secureRandom = secureRandom;
             return this;
         }
@@ -284,7 +278,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
          * @param keyManager key manager to use for encrypting and decrypting
          * @return this <code>Builder</code>
          */
-        public Builder<M> setKeyManager(@Nonnull SerializationKeyManager keyManager) {
+        public Builder<M> setKeyManager(SerializationKeyManager keyManager) {
             this.keyManager = keyManager;
             return this;
         }

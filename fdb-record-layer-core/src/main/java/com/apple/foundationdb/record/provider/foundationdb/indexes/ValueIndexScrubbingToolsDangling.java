@@ -40,7 +40,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScrubbingTools;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -121,7 +120,7 @@ public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<Ind
         }
     }
 
-    private Issue scrubDanglingEntry(@Nonnull FDBRecordStore store, @Nonnull IndexEntry indexEntry, @Nonnull List<Tuple> conflictPrimaryKeys) {
+    private Issue scrubDanglingEntry(FDBRecordStore store, IndexEntry indexEntry, List<Tuple> conflictPrimaryKeys) {
         // Here: the index entry is dangling. Fix it (if allowed) and report the issue.
         final Tuple valueKey = indexEntry.getKey();
 

@@ -65,8 +65,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -109,17 +108,16 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         MAX(Comparator.reverseOrder()),
         ;
 
-        @Nonnull
         private final Comparator<Tuple> valueComparator;
 
-        Type(@Nonnull Comparator<Tuple> valueComparator) {
+        Type(Comparator<Tuple> valueComparator) {
             this.valueComparator = valueComparator;
         }
 
         /**
          * Returns true if candidate is strictly better than worst.
          */
-        public boolean isBetter(@Nonnull Tuple candidate, @Nonnull Tuple worst) {
+        public boolean isBetter(Tuple candidate, Tuple worst) {
             return valueComparator.compare(candidate, worst) < 0;
         }
 
@@ -127,7 +125,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
          * Returns true if entry is in the window (on the "good" side of the boundary, inclusive).
          * ASC/MIN: window = entries ≤ boundary. DESC/MAX: window = entries ≥ boundary.
          */
-        public boolean isInWindow(@Nonnull Tuple entryKey, @Nonnull Tuple boundaryKey) {
+        public boolean isInWindow(Tuple entryKey, Tuple boundaryKey) {
             // isBetter means entryKey is on the good side; equals means it IS the boundary
             return isBetter(entryKey, boundaryKey) || entryKey.equals(boundaryKey);
         }
@@ -136,7 +134,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
          * Returns true if the new entry is worse than (or equal to) the current boundary.
          * Used to determine if the boundary should be updated when the window is not yet full.
          */
-        public boolean isWorseOrEqual(@Nonnull Tuple candidate, @Nonnull Tuple boundary) {
+        public boolean isWorseOrEqual(Tuple candidate, Tuple boundary) {
             return !isBetter(candidate, boundary);
         }
 
@@ -145,10 +143,9 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
          * ASC/MIN: overflow is after boundary → forward scan from boundary (exclusive).
          * DESC/MAX: overflow is before boundary → reverse scan up to boundary (exclusive).
          */
-        @Nonnull
-        public CompletableFuture<KeyValue> getBestInOverflow(@Nonnull Subspace entriesSubspace,
-                                                             @Nonnull Transaction tr,
-                                                             @Nonnull byte[] boundaryPackedKey) {
+        public CompletableFuture<KeyValue> getBestInOverflow(Subspace entriesSubspace,
+                                                             Transaction tr,
+                                                             byte[] boundaryPackedKey) {
             if (this == MIN) {
                 // Overflow is after boundary: scan forward starting just after boundary
                 final byte[] begin = ByteArrayUtil.keyAfter(boundaryPackedKey);
@@ -170,10 +167,9 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
          * ASC/MIN: new boundary = entry just before old boundary (reverse scan).
          * DESC/MAX: new boundary = entry just after old boundary (forward scan).
          */
-        @Nonnull
-        public CompletableFuture<KeyValue> getNewBoundaryAfterEviction(@Nonnull Subspace entriesSubspace,
-                                                                       @Nonnull Transaction tr,
-                                                                       @Nonnull byte[] oldBoundaryPackedKey) {
+        public CompletableFuture<KeyValue> getNewBoundaryAfterEviction(Subspace entriesSubspace,
+                                                                       Transaction tr,
+                                                                       byte[] oldBoundaryPackedKey) {
             if (this == MIN) {
                 // Window is on the left; new boundary = entry just before old boundary
                 final byte[] begin = entriesSubspace.range().begin;
@@ -200,19 +196,16 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     /** Meta key for the boundary pointer (packed tuple of windowValue + primaryKey). */
     private static final Tuple BOUNDARY_KEY = Tuple.from(4);
 
-    @Nonnull
     private final IndexMaintainer delegate;
-    @Nonnull
     private final Type extremumType;
     private final int windowSize;
-    @Nonnull
     private final KeyExpression windowKey;
     private final int windowKeyColumnSize;
     @Nullable
     private final KeyExpression partitionKey;
     private final int partitionKeyColumnSize;
 
-    public SlidingWindowIndexMaintainer(@Nonnull IndexMaintainerState state, @Nonnull IndexMaintainer delegate) {
+    public SlidingWindowIndexMaintainer(IndexMaintainerState state, IndexMaintainer delegate) {
         super(state);
         this.delegate = delegate;
         final IndexPredicate.RowNumberWindowPredicate predicate = getQualifyPredicate(state.index);
@@ -225,8 +218,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         this.partitionKeyColumnSize = predicate.getPartitionKeyColumnSize();
     }
 
-    @Nonnull
-    protected static IndexPredicate.RowNumberWindowPredicate getQualifyPredicate(@Nonnull Index index) {
+    protected static IndexPredicate.RowNumberWindowPredicate getQualifyPredicate(Index index) {
         IndexPredicate predicate = index.getPredicate();
         if (predicate instanceof IndexPredicate.RowNumberWindowPredicate) {
             return (IndexPredicate.RowNumberWindowPredicate)predicate;
@@ -244,38 +236,33 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
 
     // ===== Delegate all read/query operations to the inner maintainer =====
 
-    @Nonnull
     @Override
-    public RecordCursor<IndexEntry> scan(@Nonnull IndexScanType scanType,
-                                         @Nonnull TupleRange range,
+    public RecordCursor<IndexEntry> scan(IndexScanType scanType,
+                                         TupleRange range,
                                          @Nullable byte[] continuation,
-                                         @Nonnull ScanProperties scanProperties) {
+                                         ScanProperties scanProperties) {
         return delegate.scan(scanType, range, continuation, scanProperties);
     }
 
-    @Nonnull
     @Override
-    public RecordCursor<IndexEntry> scan(@Nonnull IndexScanBounds scanBounds,
+    public RecordCursor<IndexEntry> scan(IndexScanBounds scanBounds,
                                          @Nullable byte[] continuation,
-                                         @Nonnull ScanProperties scanProperties) {
+                                         ScanProperties scanProperties) {
         return delegate.scan(scanBounds, continuation, scanProperties);
     }
 
-    @Nonnull
     @Override
-    public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range,
+    public RecordCursor<IndexEntry> scanUniquenessViolations(TupleRange range,
                                                              @Nullable byte[] continuation,
-                                                             @Nonnull ScanProperties scanProperties) {
+                                                             ScanProperties scanProperties) {
         return delegate.scanUniquenessViolations(range, continuation, scanProperties);
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<Void> clearUniquenessViolations() {
         return delegate.clearUniquenessViolations();
     }
 
-    @Nonnull
     @Override
     public RecordCursor<InvalidIndexEntry> validateEntries(@Nullable byte[] continuation,
                                                            @Nullable ScanProperties scanProperties) {
@@ -283,13 +270,13 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     }
 
     @Override
-    public boolean canEvaluateRecordFunction(@Nonnull IndexRecordFunction<?> function) {
+    public boolean canEvaluateRecordFunction(IndexRecordFunction<?> function) {
         return delegate.canEvaluateRecordFunction(function);
     }
 
     @Nullable
     @Override
-    public <M extends Message> List<IndexEntry> evaluateIndex(@Nonnull FDBRecord<M> record) {
+    public <M extends Message> List<IndexEntry> evaluateIndex(FDBRecord<M> record) {
         return delegate.evaluateIndex(record);
     }
 
@@ -299,29 +286,27 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         return delegate.filteredIndexEntries(savedRecord);
     }
 
-    @Nonnull
     @Override
-    public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(@Nonnull EvaluationContext context,
-                                                                              @Nonnull IndexRecordFunction<T> function,
-                                                                              @Nonnull FDBRecord<M> record) {
+    public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(EvaluationContext context,
+                                                                              IndexRecordFunction<T> function,
+                                                                              FDBRecord<M> record) {
         return delegate.evaluateRecordFunction(context, function, record);
     }
 
     @Override
-    public boolean canEvaluateAggregateFunction(@Nonnull IndexAggregateFunction function) {
+    public boolean canEvaluateAggregateFunction(IndexAggregateFunction function) {
         return delegate.canEvaluateAggregateFunction(function);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull IndexAggregateFunction function,
-                                                              @Nonnull TupleRange range,
-                                                              @Nonnull IsolationLevel isolationLevel) {
+    public CompletableFuture<Tuple> evaluateAggregateFunction(IndexAggregateFunction function,
+                                                              TupleRange range,
+                                                              IsolationLevel isolationLevel) {
         return delegate.evaluateAggregateFunction(function, range, isolationLevel);
     }
 
     @Override
-    public boolean canDeleteWhere(@Nonnull QueryToKeyMatcher matcher, @Nonnull Key.Evaluated evaluated) {
+    public boolean canDeleteWhere(QueryToKeyMatcher matcher, Key.Evaluated evaluated) {
         if (!delegate.canDeleteWhere(matcher, evaluated)) {
             return false;
         }
@@ -332,25 +317,22 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         return StandardIndexMaintainer.canDeleteWhere(state, match, evaluated);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<IndexOperationResult> performOperation(@Nonnull IndexOperation operation) {
+    public CompletableFuture<IndexOperationResult> performOperation(IndexOperation operation) {
         return delegate.performOperation(operation);
     }
 
-    @Nonnull
     @Override
     @API(API.Status.EXPERIMENTAL)
-    public RecordCursor<FDBIndexedRawRecord> scanRemoteFetch(@Nonnull final IndexScanBounds scanBounds,
+    public RecordCursor<FDBIndexedRawRecord> scanRemoteFetch(final IndexScanBounds scanBounds,
                                                              @Nullable final byte[] continuation,
-                                                             @Nonnull final ScanProperties scanProperties,
+                                                             final ScanProperties scanProperties,
                                                              int commonPrimaryKeyLength) {
         return delegate.scanRemoteFetch(scanBounds, continuation, scanProperties, commonPrimaryKeyLength);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Boolean> addedRangeWithKey(@Nonnull Tuple primaryKey) {
+    public CompletableFuture<Boolean> addedRangeWithKey(Tuple primaryKey) {
         return delegate.addedRangeWithKey(primaryKey);
     }
 
@@ -370,7 +352,6 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         return delegate.isPendingWriteQueueAllowed();
     }
 
-    @Nonnull
     @Override
     public <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
                                                               @Nullable FDBIndexableRecord<M> newRecord) {
@@ -390,7 +371,6 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         });
     }
 
-    @Nonnull
     @Override
     public <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable FDBIndexableRecord<M> oldRecord,
                                                                             @Nullable FDBIndexableRecord<M> newRecord) {
@@ -419,11 +399,10 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                 () -> delegate.updateWhileWriteOnly(null, newRecord));
     }
 
-    @Nonnull
     private CompletableFuture<Void> updateWindowWhileWriteOnly(@Nullable final EntryKey oldKey,
                                                                @Nullable final EntryKey newKey,
-                                                               @Nonnull final Supplier<CompletableFuture<Void>> delegateDelete,
-                                                               @Nonnull final Supplier<CompletableFuture<Void>> delegateInsert) {
+                                                               final Supplier<CompletableFuture<Void>> delegateDelete,
+                                                               final Supplier<CompletableFuture<Void>> delegateInsert) {
         final Subspace swSubspace = getSlidingWindowSubspace();
         return state.context.doWithWriteLock(new LockIdentifier(swSubspace), () -> {
             CompletableFuture<Void> future = AsyncUtil.DONE;
@@ -441,7 +420,6 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         });
     }
 
-    @Nonnull
     @Override
     public <M extends Message> Any serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
         // The maintenance filter is applied here, at enqueue time, so a record filtered out of this index is never
@@ -472,9 +450,8 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         return filteringType == IndexMaintenanceFilter.IndexValues.ALL;
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Void> updateFromQueue(@Nonnull final Any data) {
+    public CompletableFuture<Void> updateFromQueue(final Any data) {
         final IndexBuildProto.SlidingWindowQueueEntry entry;
         try {
             entry = data.unpack(IndexBuildProto.SlidingWindowQueueEntry.class);
@@ -493,7 +470,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
                 () -> delegate.updateFromQueue(delegateInsert));
     }
 
-    private void validateOrThrowEx(boolean isValid, @Nonnull String msg) {
+    private void validateOrThrowEx(boolean isValid, String msg) {
         if (!isValid) {
             throw new RecordCoreException(msg,
                     LogMessageKeys.INDEX_NAME, state.index.getName());
@@ -505,15 +482,13 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
      * window-key value, and the primary key. This is all the window bookkeeping needs, and it is what is deferred
      * onto the pending write queue.
      */
-    private record EntryKey(@Nonnull Tuple partition, @Nonnull Tuple windowValue, @Nonnull Tuple primaryKey) {
+    private record EntryKey(Tuple partition, Tuple windowValue, Tuple primaryKey) {
         /** The key within the entries subspace: window value followed by primary key. */
-        @Nonnull
         Tuple entriesKey() {
             return windowValue.addAll(primaryKey);
         }
 
         /** Flatten to the packed tuple {@code (partition..., windowValue..., primaryKey...)} for the queue. */
-        @Nonnull
         ByteString pack() {
             return ByteString.copyFrom(partition.addAll(windowValue).addAll(primaryKey).pack());
         }
@@ -522,8 +497,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     /**
      * Computes the {@link EntryKey} for a record from the partition and window key expressions.
      */
-    @Nonnull
-    private <M extends Message> EntryKey entryKeyOf(@Nonnull final FDBIndexableRecord<M> rec) {
+    private <M extends Message> EntryKey entryKeyOf(final FDBIndexableRecord<M> rec) {
         return new EntryKey(evaluatePartition(rec),
                 windowKey.evaluateSingleton(rec).toTuple(),
                 rec.getPrimaryKey());
@@ -533,8 +507,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
      * Reconstructs an {@link EntryKey} from its packed form, splitting the tuple back into partition, window value,
      * and primary key by the (fixed) partition and window key column counts.
      */
-    @Nonnull
-    private EntryKey entryKeyOf(@Nonnull final ByteString packed) {
+    private EntryKey entryKeyOf(final ByteString packed) {
         final Tuple tuple = Tuple.fromBytes(packed.toByteArray());
         final int windowEnd = partitionKeyColumnSize + windowKeyColumnSize;
         return new EntryKey(TupleHelpers.subTuple(tuple, 0, partitionKeyColumnSize),
@@ -545,8 +518,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     /**
      * Evaluates the partition key from a record. Returns an empty tuple if there is no partition.
      */
-    @Nonnull
-    private <M extends Message> Tuple evaluatePartition(@Nonnull FDBIndexableRecord<M> record) {
+    private <M extends Message> Tuple evaluatePartition(FDBIndexableRecord<M> record) {
         if (partitionKey == null) {
             return Tuple.from();
         }
@@ -554,9 +526,8 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    @Nonnull
-    private CompletableFuture<Void> handleInsert(@Nonnull final EntryKey key,
-                                                 @Nonnull final Supplier<CompletableFuture<Void>> delegateInsert) {
+    private CompletableFuture<Void> handleInsert(final EntryKey key,
+                                                 final Supplier<CompletableFuture<Void>> delegateInsert) {
         final Subspace swSubspace = getSlidingWindowSubspace();
         final Transaction tr = state.store.ensureContextActive();
         final Tuple primaryKey = key.primaryKey();
@@ -615,9 +586,8 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    @Nonnull
-    private CompletableFuture<Void> handleDelete(@Nonnull final EntryKey key,
-                                                 @Nonnull final Supplier<CompletableFuture<Void>> delegateDelete) {
+    private CompletableFuture<Void> handleDelete(final EntryKey key,
+                                                 final Supplier<CompletableFuture<Void>> delegateDelete) {
         final Subspace swSubspace = getSlidingWindowSubspace();
         final Transaction tr = state.store.ensureContextActive();
         final Tuple partitionTuple = key.partition();
@@ -680,14 +650,13 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
      * and updates the boundary pointer. If the evicted boundary was the only window entry
      * (window size 1), the new entry itself becomes the boundary.
      */
-    @Nonnull
     private CompletableFuture<Void> evictBoundaryAndReplace(
-            @Nonnull Tuple newEntryKey,
-            @Nonnull Subspace entriesSubspace,
-            @Nonnull Transaction tr,
-            @Nonnull Tuple boundaryEntryKey,
-            @Nonnull byte[] boundaryMetaKey,
-            @Nonnull Supplier<CompletableFuture<Void>> delegateInsert) {
+            Tuple newEntryKey,
+            Subspace entriesSubspace,
+            Transaction tr,
+            Tuple boundaryEntryKey,
+            byte[] boundaryMetaKey,
+            Supplier<CompletableFuture<Void>> delegateInsert) {
         final Tuple boundaryPrimaryKey = TupleHelpers.subTuple(boundaryEntryKey,
                 windowKeyColumnSize, boundaryEntryKey.size());
         final byte[] oldBoundaryPackedKey = entriesSubspace.pack(boundaryEntryKey);
@@ -724,14 +693,13 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
      *
      * @return the packed key of the current boundary, or {@code null} if no entries remain
      */
-    @Nonnull
     private CompletableFuture<byte[]> updateBoundaryAfterDelete(
-            @Nonnull Subspace entriesSubspace,
-            @Nonnull Transaction tr,
-            @Nonnull Tuple entryKey,
-            @Nonnull Tuple boundaryEntryKey,
-            @Nonnull byte[] boundaryMetaKey,
-            @Nonnull byte[] packedEntryKey) {
+            Subspace entriesSubspace,
+            Transaction tr,
+            Tuple entryKey,
+            Tuple boundaryEntryKey,
+            byte[] boundaryMetaKey,
+            byte[] packedEntryKey) {
         if (!entryKey.equals(boundaryEntryKey)) {
             incrementCounter(SlidingWindowCounter.SW_WINDOW_ENTRY_DELETED);
             return CompletableFuture.completedFuture(entriesSubspace.pack(boundaryEntryKey));
@@ -755,13 +723,12 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
      * Promotes the best overflow entry into the window by adding it to the delegate index
      * and updating the boundary pointer.
      */
-    @Nonnull
     private CompletableFuture<Void> reElectFromOverflow(
-            @Nonnull Subspace entriesSubspace,
-            @Nonnull Transaction tr,
+            Subspace entriesSubspace,
+            Transaction tr,
             @Nullable byte[] currentBoundaryPacked,
-            @Nonnull byte[] boundaryMetaKey,
-            @Nonnull byte[] counterKey,
+            byte[] boundaryMetaKey,
+            byte[] counterKey,
             long newCount) {
         if (currentBoundaryPacked == null) {
             return AsyncUtil.DONE;
@@ -791,7 +758,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     }
 
     @Override
-    public CompletableFuture<Void> deleteWhere(@Nonnull Transaction tr, @Nonnull Tuple prefix) {
+    public CompletableFuture<Void> deleteWhere(Transaction tr, Tuple prefix) {
         // deleteWhere is only supported when the sliding window has a partition prefix
         // (validated by canDeleteWhere). The given prefix must be an actual prefix of the partitioning key.
         Verify.verify(partitionKeyColumnSize >= prefix.size(),
@@ -812,23 +779,22 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         return Tuple.fromBytes(bytes).getLong(0);
     }
 
-    private void incrementCounter(@Nonnull SlidingWindowCounter counter) {
+    private void incrementCounter(SlidingWindowCounter counter) {
         final FDBStoreTimer timer = state.context.getTimer();
         if (timer != null) {
             timer.increment(counter);
         }
     }
 
-    private void recordSize(@Nonnull SlidingWindowSizeEvent event, long size) {
+    private void recordSize(SlidingWindowSizeEvent event, long size) {
         final FDBStoreTimer timer = state.context.getTimer();
         if (timer != null) {
             timer.recordSize(event, size);
         }
     }
 
-    @Nonnull
-    private <T> CompletableFuture<T> instrument(@Nonnull final SlidingWindowEvent event,
-                                                @Nonnull final CompletableFuture<T> future) {
+    private <T> CompletableFuture<T> instrument(final SlidingWindowEvent event,
+                                                final CompletableFuture<T> future) {
         final FDBStoreTimer timer = state.context.getTimer();
         if (timer == null) {
             return future;
@@ -850,10 +816,9 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         SW_PREEMPTIVE_DELETE_WRITE_ONLY("preemptive delete during write-only index build"),
         SW_PARTITION_CLEARED("partition cleared via deleteWhere");
 
-        @Nonnull
         private final String title;
 
-        SlidingWindowCounter(@Nonnull final String title) {
+        SlidingWindowCounter(final String title) {
             this.title = title;
         }
 
@@ -876,10 +841,9 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         SW_DELEGATE_INSERT("insert into the delegate index"),
         SW_DELEGATE_DELETE("delete from the delegate index");
 
-        @Nonnull
         private final String title;
 
-        SlidingWindowEvent(@Nonnull final String title) {
+        SlidingWindowEvent(final String title) {
             this.title = title;
         }
 
@@ -892,10 +856,9 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     public enum SlidingWindowSizeEvent implements StoreTimer.SizeEvent {
         SW_WINDOW_COUNT("window count after update");
 
-        @Nonnull
         private final String title;
 
-        SlidingWindowSizeEvent(@Nonnull final String title) {
+        SlidingWindowSizeEvent(final String title) {
             this.title = title;
         }
 

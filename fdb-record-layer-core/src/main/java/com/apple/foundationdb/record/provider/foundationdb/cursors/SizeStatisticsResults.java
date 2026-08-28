@@ -25,7 +25,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursorProto;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -56,7 +55,7 @@ public class SizeStatisticsResults {
      *
      * @param kv latest key and value for partial stats update
      */
-    public void updateStatistics(@Nonnull KeyValue kv) {
+    public void updateStatistics(KeyValue kv) {
         this.keyCount += 1;
         this.keySize += kv.getKey().length;
         this.maxKeySize = Math.max(this.maxKeySize, kv.getKey().length);
@@ -267,7 +266,6 @@ public class SizeStatisticsResults {
      *
      * @return an array with a distribution of the sizes of key-value pairs
      */
-    @Nonnull
     public long[] getSizeBuckets() {
         // Defensively copy this array. It is only 8 * 32 = 256 bytes anyway and this
         // is not performance critical.

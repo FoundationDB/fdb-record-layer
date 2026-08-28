@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorEndContinuation;
-import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -33,32 +32,31 @@ import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.List;
 
-class IntersectionCursorContinuation extends MergeCursorContinuation<RecordCursorProto.IntersectionContinuation.Builder, RecordCursorContinuation> {
-    @Nonnull
-    private static final RecordCursorProto.IntersectionContinuation.CursorState EXHAUSTED_PROTO = RecordCursorProto.IntersectionContinuation.CursorState.newBuilder()
+import static com.apple.foundationdb.record.RecordCursorProto.IntersectionContinuation;
+
+class IntersectionCursorContinuation extends MergeCursorContinuation<IntersectionContinuation.Builder, RecordCursorContinuation> {
+    private static final IntersectionContinuation.CursorState EXHAUSTED_PROTO = IntersectionContinuation.CursorState.newBuilder()
             .setStarted(true)
             .build();
-    @Nonnull
-    private static final RecordCursorProto.IntersectionContinuation.CursorState START_PROTO = RecordCursorProto.IntersectionContinuation.CursorState.newBuilder()
+    private static final IntersectionContinuation.CursorState START_PROTO = IntersectionContinuation.CursorState.newBuilder()
             .setStarted(false)
             .build();
 
-    private IntersectionCursorContinuation(@Nonnull List<RecordCursorContinuation> continuations,
-                                           @Nullable RecordCursorProto.IntersectionContinuation originalProto) {
+    private IntersectionCursorContinuation(List<RecordCursorContinuation> continuations,
+                                           @Nullable IntersectionContinuation originalProto) {
         super(continuations, originalProto);
     }
 
-    private IntersectionCursorContinuation(@Nonnull List<RecordCursorContinuation> continuations) {
+    private IntersectionCursorContinuation(List<RecordCursorContinuation> continuations) {
         this(continuations, null);
     }
 
     @Override
-    protected void setFirstChild(@Nonnull RecordCursorProto.IntersectionContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
+    protected void setFirstChild(IntersectionContinuation.Builder builder, RecordCursorContinuation continuation) {
         ByteString asBytes = continuation.toByteString();
         if (asBytes.isEmpty() && !continuation.isEnd()) { // first cursor has not started
             builder.setFirstStarted(false);
@@ -71,7 +69,7 @@ class IntersectionCursorContinuation extends MergeCursorContinuation<RecordCurso
     }
 
     @Override
-    protected void setSecondChild(@Nonnull RecordCursorProto.IntersectionContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
+    protected void setSecondChild(IntersectionContinuation.Builder builder, RecordCursorContinuation continuation) {
         ByteString asBytes = continuation.toByteString();
         if (asBytes.isEmpty() && !continuation.isEnd()) { // second cursor not started
             builder.setSecondStarted(false);
@@ -84,8 +82,8 @@ class IntersectionCursorContinuation extends MergeCursorContinuation<RecordCurso
     }
 
     @Override
-    protected void addOtherChild(@Nonnull RecordCursorProto.IntersectionContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
-        final RecordCursorProto.IntersectionContinuation.CursorState cursorState;
+    protected void addOtherChild(IntersectionContinuation.Builder builder, RecordCursorContinuation continuation) {
+        final IntersectionContinuation.CursorState cursorState;
         if (continuation.isEnd()) {
             cursorState = EXHAUSTED_PROTO;
         } else {
@@ -93,7 +91,7 @@ class IntersectionCursorContinuation extends MergeCursorContinuation<RecordCurso
             if (asBytes.isEmpty() && !continuation.isEnd()) {
                 cursorState = START_PROTO;
             } else {
-                cursorState = RecordCursorProto.IntersectionContinuation.CursorState.newBuilder()
+                cursorState = IntersectionContinuation.CursorState.newBuilder()
                         .setStarted(true)
                         .setContinuation(asBytes)
                         .build();
@@ -103,9 +101,8 @@ class IntersectionCursorContinuation extends MergeCursorContinuation<RecordCurso
     }
 
     @Override
-    @Nonnull
-    protected RecordCursorProto.IntersectionContinuation.Builder newProtoBuilder() {
-        return RecordCursorProto.IntersectionContinuation.newBuilder();
+    protected IntersectionContinuation.Builder newProtoBuilder() {
+        return IntersectionContinuation.newBuilder();
     }
 
     @Override
@@ -114,26 +111,23 @@ class IntersectionCursorContinuation extends MergeCursorContinuation<RecordCurso
         return getContinuations().stream().anyMatch(RecordCursorContinuation::isEnd);
     }
 
-    @Nonnull
-    static IntersectionCursorContinuation from(@Nonnull IntersectionCursorBase<?, ?> cursor) {
+    static IntersectionCursorContinuation from(IntersectionCursorBase<?, ?> cursor) {
         return new IntersectionCursorContinuation(cursor.getChildContinuations());
     }
 
-    @Nonnull
     static IntersectionCursorContinuation from(@Nullable byte[] bytes, int numberOfChildren) {
         if (bytes == null) {
             return new IntersectionCursorContinuation(Collections.nCopies(numberOfChildren, RecordCursorStartContinuation.START));
         }
         try {
-            return IntersectionCursorContinuation.from(RecordCursorProto.IntersectionContinuation.parseFrom(bytes), numberOfChildren);
+            return IntersectionCursorContinuation.from(IntersectionContinuation.parseFrom(bytes), numberOfChildren);
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("invalid continuation", ex)
                     .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes));
         }
     }
 
-    @Nonnull
-    static IntersectionCursorContinuation from(@Nonnull RecordCursorProto.IntersectionContinuation parsed, int numberOfChildren) {
+    static IntersectionCursorContinuation from(IntersectionContinuation parsed, int numberOfChildren) {
         ImmutableList.Builder<RecordCursorContinuation> builder = ImmutableList.builder();
         if (!parsed.getFirstStarted()) {
             builder.add(RecordCursorStartContinuation.START);
@@ -149,7 +143,7 @@ class IntersectionCursorContinuation extends MergeCursorContinuation<RecordCurso
         } else {
             builder.add(RecordCursorEndContinuation.END);
         }
-        for (RecordCursorProto.IntersectionContinuation.CursorState state : parsed.getOtherChildStateList()) {
+        for (IntersectionContinuation.CursorState state : parsed.getOtherChildStateList()) {
             if (!state.getStarted()) {
                 builder.add(RecordCursorStartContinuation.START);
             } else if (state.hasContinuation()) {

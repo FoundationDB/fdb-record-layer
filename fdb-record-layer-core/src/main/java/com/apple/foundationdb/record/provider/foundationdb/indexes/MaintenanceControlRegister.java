@@ -24,8 +24,6 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 
-import javax.annotation.Nonnull;
-
 /**
  * A {@link TaskEventRegister} that flags its index as needing a background merge — through the record store's
  * {@link IndexDeferredMaintenanceControl#setMergeRequiredIndexes(Index)} — the first time a deferred maintenance task
@@ -39,22 +37,20 @@ import javax.annotation.Nonnull;
  * the index already that signal is not useful.
  */
 final class MaintenanceControlRegister implements TaskEventRegister {
-    @Nonnull
     private final IndexDeferredMaintenanceControl mergeControl;
-    @Nonnull
     private final Index index;
     // A single write may enqueue tasks from several executor threads; volatile makes the flip promptly visible to
     // them. The check-then-set is not atomic, so a rare race may signal twice — harmless, as setMergeRequiredIndexes
     // is synchronized and idempotent.
     private volatile boolean signaled;
 
-    MaintenanceControlRegister(@Nonnull final IndexDeferredMaintenanceControl mergeControl, @Nonnull final Index index) {
+    MaintenanceControlRegister(final IndexDeferredMaintenanceControl mergeControl, final Index index) {
         this.mergeControl = mergeControl;
         this.index = index;
     }
 
     @Override
-    public void onTaskEnqueued(@Nonnull final Transaction transaction) {
+    public void onTaskEnqueued(final Transaction transaction) {
         if (!signaled) {
             signaled = true;
             mergeControl.setMergeRequiredIndexes(index);
@@ -62,7 +58,7 @@ final class MaintenanceControlRegister implements TaskEventRegister {
     }
 
     @Override
-    public void onTaskExecuted(@Nonnull final Transaction transaction) {
+    public void onTaskExecuted(final Transaction transaction) {
         // No-op: executing a queued task drains merge work, it does not create it.
     }
 

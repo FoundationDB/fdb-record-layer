@@ -21,4 +21,7 @@
 /**
  * Test fixtures for the text-indexing support classes in the production package.
  */
+@NullMarked
 package com.apple.foundationdb.record.provider.common.text;
+
+import org.jspecify.annotations.NullMarked;

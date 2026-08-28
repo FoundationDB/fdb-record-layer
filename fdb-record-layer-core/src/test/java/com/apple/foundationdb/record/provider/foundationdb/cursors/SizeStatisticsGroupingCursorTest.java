@@ -45,7 +45,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CancellationException;
@@ -370,49 +369,49 @@ public class SizeStatisticsGroupingCursorTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private long getStoreTotalSize(@Nonnull FDBRecordStore store) {
+    private long getStoreTotalSize(FDBRecordStore store) {
         return getStoreTotalResult(store).getStats().getTotalSize();
     }
 
-    private SizeStatisticsGroupedResults getStoreTotalResult(@Nonnull FDBRecordStore store) {
+    private SizeStatisticsGroupedResults getStoreTotalResult(FDBRecordStore store) {
         final List<SizeStatisticsGroupedResults> allResults = getAllResults(getStoreCursor(store, ScanProperties.FORWARD_SCAN, null, 0));
         assertThat(allResults).hasSize(1);
         return allResults.get(0);
     }
 
-    private long getRecordsTotalSize(@Nonnull FDBRecordStore store) {
+    private long getRecordsTotalSize(FDBRecordStore store) {
         return getTotalSize(getAllResults(getRecordsCursor(store, ScanProperties.FORWARD_SCAN, null, 0)));
     }
 
-    private long getIndexTotalSize(@Nonnull FDBRecordStore store, @Nonnull String indexName) {
+    private long getIndexTotalSize(FDBRecordStore store, String indexName) {
         return getTotalSize(getAllResults(getIndexCursor(store, indexName, ScanProperties.FORWARD_SCAN, null, 0)));
     }
 
-    private long getSubspaceTotalSize(@Nonnull FDBRecordStore store, @Nonnull Subspace subspace) {
+    private long getSubspaceTotalSize(FDBRecordStore store, Subspace subspace) {
         return getTotalSize(getAllResults(getSubspaceCursor(store, subspace, ScanProperties.FORWARD_SCAN, null, 0)));
     }
 
-    private SizeStatisticsGroupingCursor getStoreCursor(@Nonnull FDBRecordStore store, ScanProperties scanProperties, byte[] continuation, int aggregationDepth) {
+    private SizeStatisticsGroupingCursor getStoreCursor(FDBRecordStore store, ScanProperties scanProperties, byte[] continuation, int aggregationDepth) {
         return SizeStatisticsGroupingCursor.ofStore(store, store.getContext(), scanProperties, continuation, aggregationDepth);
     }
 
-    private SizeStatisticsGroupingCursor getRecordsCursor(@Nonnull FDBRecordStore store, ScanProperties scanProperties, byte[] continuation, int aggregationDepth) {
+    private SizeStatisticsGroupingCursor getRecordsCursor(FDBRecordStore store, ScanProperties scanProperties, byte[] continuation, int aggregationDepth) {
         return SizeStatisticsGroupingCursor.ofRecords(store, store.getContext(), scanProperties, continuation, aggregationDepth);
     }
 
-    private SizeStatisticsGroupingCursor getIndexCursor(@Nonnull FDBRecordStore store, String indexName, ScanProperties scanProperties, byte[] continuation, int aggregationDepth) {
+    private SizeStatisticsGroupingCursor getIndexCursor(FDBRecordStore store, String indexName, ScanProperties scanProperties, byte[] continuation, int aggregationDepth) {
         return SizeStatisticsGroupingCursor.ofIndex(store, indexName, store.getContext(), scanProperties, continuation, aggregationDepth);
     }
 
-    private SizeStatisticsGroupingCursor getSubspaceCursor(@Nonnull FDBRecordStore store, Subspace subspace, ScanProperties scanProperties, byte[] continuation, int aggregationDepth) {
+    private SizeStatisticsGroupingCursor getSubspaceCursor(FDBRecordStore store, Subspace subspace, ScanProperties scanProperties, byte[] continuation, int aggregationDepth) {
         return SizeStatisticsGroupingCursor.ofSubspace(subspace, store.getContext(), scanProperties, continuation, aggregationDepth);
     }
 
-    private RecordCursorResult<SizeStatisticsGroupedResults> getStoreSizeResult(@Nonnull FDBRecordStore store) {
+    private RecordCursorResult<SizeStatisticsGroupedResults> getStoreSizeResult(FDBRecordStore store) {
         return getStoreSizeResult(store, ScanProperties.FORWARD_SCAN, null, 0);
     }
 
-    private List<SizeStatisticsGroupedResults> getAllResults(@Nonnull SizeStatisticsGroupingCursor cursor) {
+    private List<SizeStatisticsGroupedResults> getAllResults(SizeStatisticsGroupingCursor cursor) {
         return cursor.asList().join();
     }
 
@@ -434,7 +433,7 @@ public class SizeStatisticsGroupingCursorTest extends FDBRecordStoreTestBase {
         return true;
     }
 
-    private RecordCursorResult<SizeStatisticsGroupedResults> getStoreSizeResult(@Nonnull FDBRecordStore store, final ScanProperties scanProperties, byte[] continuation, int aggregationDepth) {
+    private RecordCursorResult<SizeStatisticsGroupedResults> getStoreSizeResult(FDBRecordStore store, final ScanProperties scanProperties, byte[] continuation, int aggregationDepth) {
         try (SizeStatisticsGroupingCursor statsCursor = SizeStatisticsGroupingCursor.ofStore(store, store.getContext(), scanProperties, continuation, aggregationDepth)) {
             return statsCursor.getNext();
         }

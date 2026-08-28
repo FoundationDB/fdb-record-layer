@@ -42,7 +42,6 @@ import com.apple.foundationdb.record.query.plan.cascades.MatchCandidateExpansion
 import com.apple.foundationdb.record.query.plan.cascades.VectorIndexExpansionVisitor;
 import com.google.auto.service.AutoService;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Set;
 
@@ -56,35 +55,30 @@ public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
     private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(false);
 
     @Override
-    @Nonnull
     public Iterable<String> getIndexTypes() {
         return Arrays.asList(TYPES);
     }
 
     @Override
-    @Nonnull
     public IndexValidator getIndexValidator(Index index) {
         return new VectorIndexValidator(index);
     }
 
     @Override
-    @Nonnull
-    public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
+    public IndexMaintainer getIndexMaintainer(final IndexMaintainerState state) {
         return new VectorIndexMaintainer(state);
     }
 
-    @Nonnull
     @Override
-    public Iterable<MatchCandidate> createMatchCandidates(@Nonnull final RecordMetaData metaData, @Nonnull final Index index, final boolean reverse) {
+    public Iterable<MatchCandidate> createMatchCandidates(final RecordMetaData metaData, final Index index, final boolean reverse) {
         final IndexExpansionInfo info = IndexExpansionInfo.createInfo(metaData, index, reverse);
         final ExpansionVisitor<?> expansionVisitor = new VectorIndexExpansionVisitor(info.getIndex(), info.getIndexedRecordTypes());
         return MatchCandidateExpansion.optionalToIterable(
                 MatchCandidateExpansion.expandIndexMatchCandidate(info, false, info.getCommonPrimaryKeyForTypes(), expansionVisitor));
     }
 
-    @Nonnull
     @Override
-    public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
+    public IndexGeneralAttributes getIndexGeneralAttributes(final Index index) {
         return GENERAL_ATTRIBUTES;
     }
 
@@ -99,7 +93,7 @@ public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
         }
 
         @Override
-        public void validate(@Nonnull final MetaDataValidator metaDataValidator) {
+        public void validate(final MetaDataValidator metaDataValidator) {
             super.validate(metaDataValidator);
             validateStructure();
 
@@ -152,8 +146,8 @@ public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
         }
 
         @Override
-        public void validateChangedOptions(@Nonnull final Index oldIndex,
-                                           @Nonnull final Set<String> changedOptions) {
+        public void validateChangedOptions(final Index oldIndex,
+                                           final Set<String> changedOptions) {
             if (!changedOptions.isEmpty()) {
                 // Let the engine handle its own options (removing the ones it accepts); anything it leaves in the set
                 // is rejected by the super implementation.

@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactor
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.google.auto.service.AutoService;
 
-import javax.annotation.Nonnull;
 import java.util.Collections;
 
 /**
@@ -41,32 +40,28 @@ import java.util.Collections;
 public class NoOpIndexMaintainerFactory implements IndexMaintainerFactory {
     private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
 
-    @Nonnull
     @Override
     public Iterable<String> getIndexTypes() {
         return Collections.singletonList("permissive");
     }
 
-    @Nonnull
     @Override
     public IndexValidator getIndexValidator(Index index) {
         return new IndexValidator(index) {
             @Override
-            public void validate(@Nonnull MetaDataValidator metaDataValidator) {
+            public void validate(MetaDataValidator metaDataValidator) {
                 // nothing to validate
             }
         };
     }
 
-    @Nonnull
     @Override
-    public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
+    public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
         return new NoOpIndexMaintainer(state);
     }
 
-    @Nonnull
     @Override
-    public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
+    public IndexGeneralAttributes getIndexGeneralAttributes(final Index index) {
         return GENERAL_ATTRIBUTES;
     }
 }

@@ -24,8 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 
-import javax.annotation.Nonnull;
-
 /**
  * Exception to be thrown when attempting to save data at a path that is not a leaf.
  * This has, historically not been enforced, so there may be data already in this state.
@@ -34,7 +32,7 @@ import javax.annotation.Nonnull;
 public class DataNotAtLeafException extends RecordCoreException {
     private static final long serialVersionUID = 1L;
 
-    public DataNotAtLeafException(@Nonnull final KeySpacePath path) {
+    public DataNotAtLeafException(final KeySpacePath path) {
         super("Data cannot be saved at non-leaf keyspace",
                 LogMessageKeys.KEY_SPACE_PATH, path);
     }

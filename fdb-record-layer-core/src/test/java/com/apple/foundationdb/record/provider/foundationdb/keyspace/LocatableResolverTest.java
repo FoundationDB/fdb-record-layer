@@ -53,7 +53,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 
-import javax.annotation.Nonnull;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -839,7 +838,7 @@ public abstract class LocatableResolverTest {
         assertLocked(database, globalScope);
     }
 
-    private void assertLocked(@Nonnull final FDBDatabase database, @Nonnull final LocatableResolver resolver) {
+    private void assertLocked(final FDBDatabase database, final LocatableResolver resolver) {
         try (FDBRecordContext context = database.openContext()) {
             eventually("write lock is enabled", () -> {
                 try {

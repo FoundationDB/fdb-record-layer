@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactor
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.google.auto.service.AutoService;
 
-import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.Set;
 
@@ -48,21 +47,18 @@ public class NonCascadesValueIndexMaintainer extends ValueIndexMaintainer {
         private static final Set<String> INDEX_TYPES = Collections.singleton(INDEX_TYPE);
         private static final ValueIndexMaintainerFactory underlying = new ValueIndexMaintainerFactory();
 
-        @Nonnull
         @Override
         public Iterable<String> getIndexTypes() {
             return INDEX_TYPES;
         }
 
-        @Nonnull
         @Override
         public IndexValidator getIndexValidator(final Index index) {
             return underlying.getIndexValidator(index);
         }
 
-        @Nonnull
         @Override
-        public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
+        public IndexMaintainer getIndexMaintainer(final IndexMaintainerState state) {
             return new NonCascadesValueIndexMaintainer(state);
         }
     }

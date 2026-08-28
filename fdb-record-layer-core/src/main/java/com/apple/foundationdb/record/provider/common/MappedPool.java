@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
-import javax.annotation.Nonnull;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -64,7 +63,7 @@ public class MappedPool<K, V, E extends Exception> {
         this.mappedPoolProvider = mappedPoolProvider;
     }
 
-    public V poll(@Nonnull K key) throws E {
+    public V poll(K key) throws E {
         try {
             V next = pool.get(key, loader).poll();
             return next == null ? mappedPoolProvider.get(key) : next;
@@ -80,7 +79,7 @@ public class MappedPool<K, V, E extends Exception> {
      * @param value value offered
      * @return boolean if offer was added to pool
      */
-    public boolean offer(@Nonnull K key, @Nonnull V value) {
+    public boolean offer(K key, V value) {
         try {
             return pool.get(key, loader).offer(value);
         } catch (Exception e) {

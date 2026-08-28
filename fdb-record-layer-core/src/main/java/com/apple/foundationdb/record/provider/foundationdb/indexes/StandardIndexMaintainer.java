@@ -78,8 +78,7 @@ import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -111,7 +110,6 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         return state.context.getTimer();
     }
 
-    @Nonnull
     protected Executor getExecutor() {
         return state.context.getExecutor();
     }
@@ -124,9 +122,9 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * @return a cursor of index entries within the given range
      */
     @SuppressWarnings("PMD.CloseResource")
-    protected RecordCursor<IndexEntry> scan(@Nonnull final TupleRange range,
+    protected RecordCursor<IndexEntry> scan(final TupleRange range,
                                             @Nullable byte[] continuation,
-                                            @Nonnull ScanProperties scanProperties) {
+                                            ScanProperties scanProperties) {
         final RecordCursor<KeyValue> keyValues = KeyValueCursor.Builder.withSubspace(state.indexSubspace)
                 .setContext(state.context)
                 .setRange(range)
@@ -140,16 +138,15 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         });
     }
 
-    @Nonnull
     /**
      * An implementation of the {@link #scanRemoteFetch} method for the {@link IndexScanType.BY_VALUE} case.
      * Index Maintainers that support the {@link #scanRemoteFetch} method can use this implementation. Note that this
      * method is not supported by default by an index maintainer.
      */
     @SuppressWarnings("PMD.CloseResource")
-    protected RecordCursor<FDBIndexedRawRecord> scanRemoteFetchByValue(@Nonnull final IndexScanBounds scanBounds,
+    protected RecordCursor<FDBIndexedRawRecord> scanRemoteFetchByValue(final IndexScanBounds scanBounds,
                                                                        @Nullable final byte[] continuation,
-                                                                       @Nonnull final ScanProperties scanProperties,
+                                                                       final ScanProperties scanProperties,
                                                                        int commonPrimaryKeyLength) {
         if (commonPrimaryKeyLength <= 0) {
             throw new RecordCoreArgumentException("scanRemoteFetch requires a positive commonPrimaryKeyLength");
@@ -173,8 +170,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * @param kv a raw key-value from the database
      * @return an index entry
      */
-    @Nonnull
-    protected IndexEntry unpackKeyValue(@Nonnull final KeyValue kv) {
+    protected IndexEntry unpackKeyValue(final KeyValue kv) {
         return unpackKeyValue(state.indexSubspace, kv);
     }
 
@@ -184,13 +180,11 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * @param kv a raw key-value within {@code subspace}
      * @return an index entry
      */
-    @Nonnull
-    protected IndexEntry unpackKeyValue(@Nonnull final Subspace subspace, @Nonnull final KeyValue kv) {
+    protected IndexEntry unpackKeyValue(final Subspace subspace, final KeyValue kv) {
         return new IndexEntry(state.index, unpackKey(subspace, kv), decodeValue(kv.getValue()));
     }
 
-    @Nonnull
-    protected FDBIndexedRawRecord unpackRemoteFetchRecord(@Nonnull MappedKeyValue indexKeyValue) {
+    protected FDBIndexedRawRecord unpackRemoteFetchRecord(MappedKeyValue indexKeyValue) {
         IndexEntry indexEntry = new IndexEntry(state.index, unpackKey(state.indexSubspace, indexKeyValue), decodeValue(indexKeyValue.getValue()));
         return new FDBIndexedRawRecord(indexEntry, indexKeyValue);
     }
@@ -201,8 +195,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * @return a decoded tuple of any values stored in the value side of the index, which is
      * usually empty
      */
-    @Nonnull
-    protected Tuple decodeValue(@Nonnull final byte[] value) {
+    protected Tuple decodeValue(final byte[] value) {
         return value.length == 0 ? TupleHelpers.EMPTY : Tuple.fromBytes(value);
     }
 
@@ -211,7 +204,6 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     }
 
     @Override
-    @Nonnull
     public <M extends Message> CompletableFuture<Void> update(@Nullable final FDBIndexableRecord<M> oldRecord,
                                                               @Nullable final FDBIndexableRecord<M> newRecord) {
         List<IndexEntry> oldIndexEntries = filteredIndexEntries(oldRecord);
@@ -251,7 +243,6 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     }
 
     @Override
-    @Nonnull
     public <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
         if (isIdempotent()) {
             // Idempotent indexes can just update the index data structures directly
@@ -289,7 +280,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     }
 
     @SuppressWarnings("java:S3776") // Trying to simplify this method cognitive complexity seems to make it harder to follow
-    private <M extends Message> CompletableFuture<Void> updateWriteOnlyByIndex(@Nonnull Index sourceIndex, @Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
+    private <M extends Message> CompletableFuture<Void> updateWriteOnlyByIndex(Index sourceIndex, @Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
         IndexMaintainer sourceIndexMaintainer = state.store.getIndexMaintainer(sourceIndex);
         Tuple oldEntryKey = evaluateSingletonIndexKey(sourceIndex, sourceIndexMaintainer, oldRecord);
         Tuple newEntryKey = evaluateSingletonIndexKey(sourceIndex, sourceIndexMaintainer, newRecord);
@@ -387,9 +378,8 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         return indexEntries;
     }
 
-    @Nonnull
-    protected List<IndexEntry> commonKeys(@Nonnull List<IndexEntry> oldIndexEntries,
-                                          @Nonnull List<IndexEntry> newIndexEntries) {
+    protected List<IndexEntry> commonKeys(List<IndexEntry> oldIndexEntries,
+                                          List<IndexEntry> newIndexEntries) {
         List<IndexEntry> commonKeys = new ArrayList<>();
         for (IndexEntry oldEntry : oldIndexEntries) {
             if (newIndexEntries.contains(oldEntry)) {
@@ -399,8 +389,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         return commonKeys;
     }
 
-    @Nonnull
-    protected static <T> List<T> makeMutable(@Nonnull List<T> list) {
+    protected static <T> List<T> makeMutable(List<T> list) {
         if (list instanceof ArrayList) {
             return list;
         } else {
@@ -408,10 +397,9 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         }
     }
 
-    @Nonnull
-    protected <M extends Message> Function<Void, CompletableFuture<Void>> updateIndexKeysFunction(@Nonnull final FDBIndexableRecord<M> savedRecord,
+    protected <M extends Message> Function<Void, CompletableFuture<Void>> updateIndexKeysFunction(final FDBIndexableRecord<M> savedRecord,
                                                                                                   final boolean remove,
-                                                                                                  @Nonnull final List<IndexEntry> indexEntries) {
+                                                                                                  final List<IndexEntry> indexEntries) {
         return vignore -> updateIndexKeys(savedRecord, remove, indexEntries);
     }
 
@@ -424,9 +412,9 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * @param indexEntries the result of {@link #evaluateIndex(FDBRecord)}
      * @return a future completed when update is done
      */
-    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
+    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(final FDBIndexableRecord<M> savedRecord,
                                                                           final boolean remove,
-                                                                          @Nonnull final List<IndexEntry> indexEntries) {
+                                                                          final List<IndexEntry> indexEntries) {
         return CompletableFuture.allOf(indexEntries.stream()
                 .map(entry -> updateOneKeyAsync(savedRecord, remove, entry))
                 .toArray(CompletableFuture[]::new));
@@ -440,9 +428,9 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * @param indexEntry the entry for the index to be updated
      * @return a future completed when the key is updated
      */
-    protected <M extends Message> CompletableFuture<Void> updateOneKeyAsync(@Nonnull final FDBIndexableRecord<M> savedRecord,
+    protected <M extends Message> CompletableFuture<Void> updateOneKeyAsync(final FDBIndexableRecord<M> savedRecord,
                                                                             final boolean remove,
-                                                                            @Nonnull final IndexEntry indexEntry) {
+                                                                            final IndexEntry indexEntry) {
         final Tuple valueKey = indexEntry.getKey();
         final Tuple value = indexEntry.getValue();
         final long startTime = System.nanoTime();
@@ -485,7 +473,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         }
     }
 
-    protected <M extends Message> void checkUniqueness(@Nonnull FDBIndexableRecord<M> savedRecord, @Nonnull IndexEntry indexEntry) {
+    protected <M extends Message> void checkUniqueness(FDBIndexableRecord<M> savedRecord, IndexEntry indexEntry) {
         Tuple valueKey = indexEntry.getKey();
         AsyncIterable<KeyValue> kvs = state.transaction.getRange(state.indexSubspace.range(valueKey));
         Tuple primaryKey = savedRecord.getPrimaryKey();
@@ -520,7 +508,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * @param primaryKey the primary key of one record that is causing a violation
      * @param existingKey the primary key of another record that is causing a violation (or <code>null</code> if none specified)
      */
-    protected void addUniquenessViolation(@Nonnull Tuple valueKey, @Nonnull Tuple primaryKey, @Nullable Tuple existingKey) {
+    protected void addUniquenessViolation(Tuple valueKey, Tuple primaryKey, @Nullable Tuple existingKey) {
         byte[] uniquenessKeyBytes = state.store.indexUniquenessViolationsSubspace(state.index).pack(FDBRecordStoreBase.uniquenessViolationKey(valueKey, primaryKey));
         state.transaction.set(uniquenessKeyBytes, (existingKey == null) ? new byte[0] : existingKey.pack());
     }
@@ -537,9 +525,8 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * @param primaryKey the primary key of one record that is causing a violation
      * @return a future that is complete when the uniqueness violation is removed
      */
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    protected CompletableFuture<Void> removeUniquenessViolationsAsync(@Nonnull Tuple valueKey, @Nonnull Tuple primaryKey) {
+    protected CompletableFuture<Void> removeUniquenessViolationsAsync(Tuple valueKey, Tuple primaryKey) {
         Subspace uniqueValueSubspace = state.store.indexUniquenessViolationsSubspace(state.index).subspace(valueKey);
         state.transaction.clear(uniqueValueSubspace.pack(primaryKey));
         // Remove the last entry if it was the second last entry in the unique value subspace.
@@ -559,9 +546,8 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     }
 
     @Override
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+    public RecordCursor<IndexEntry> scanUniquenessViolations(TupleRange range, @Nullable byte[] continuation, ScanProperties scanProperties) {
         final Subspace uniquenessViolationsSubspace = state.store.indexUniquenessViolationsSubspace(state.index);
         RecordCursor<KeyValue> keyValues = KeyValueCursor.Builder.withSubspace(uniquenessViolationsSubspace)
                 .setContext(state.context)
@@ -591,7 +577,6 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * @param scanProperties skip, limit and other properties of the validation (use default values if <code>null</code>)
      * @return a cursor over invalid index entries including reasons (the default is an empty cursor)
      */
-    @Nonnull
     @Override
     public RecordCursor<InvalidIndexEntry> validateEntries(@Nullable byte[] continuation,
                                                            @Nullable ScanProperties scanProperties) {
@@ -604,9 +589,8 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * @param scanProperties skip, limit and other properties of the validation
      * @return a cursor over index entries that have no associated records including the reason
      */
-    @Nonnull
     protected RecordCursor<InvalidIndexEntry> validateOrphanEntries(@Nullable byte[] continuation,
-                                                                    @Nonnull ScanProperties scanProperties) {
+                                                                    ScanProperties scanProperties) {
         return scan(IndexScanType.BY_VALUE, TupleRange.ALL, continuation, scanProperties)
                 .filterAsync(
                         indexEntry -> state.store
@@ -623,9 +607,8 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * @param scanProperties skip, limit and other properties of the validation
      * @return a cursor over records that have no associated index entries including the reason
      */
-    @Nonnull
     protected RecordCursor<InvalidIndexEntry> validateMissingEntries(@Nullable byte[] continuation,
-                                                                     @Nonnull ScanProperties scanProperties) {
+                                                                     ScanProperties scanProperties) {
         final Collection<RecordType> recordTypes = state.store.getRecordMetaData().recordTypesForIndex(state.index);
         final FDBRecordStoreBase.PipelineSizer pipelineSizer = state.store.getPipelineSizer();
         return RecordCursor.flatMapPipelined(
@@ -651,9 +634,9 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         }, pipelineSizer.getPipelineSize(PipelineOperation.INDEX_ASYNC_FILTER));
     }
 
-    protected <M extends Message> void checkKeyValueSizes(@Nonnull FDBIndexableRecord<M> savedRecord,
-                                                          @Nonnull Tuple valueKey, @Nonnull Tuple value,
-                                                          @Nonnull byte[] keyBytes, @Nonnull byte[] valueBytes) {
+    protected <M extends Message> void checkKeyValueSizes(FDBIndexableRecord<M> savedRecord,
+                                                          Tuple valueKey, Tuple value,
+                                                          byte[] keyBytes, byte[] valueBytes) {
         if (keyBytes.length > state.store.getKeySizeLimit()) {
             throw new FDBExceptions.FDBStoreKeySizeException("index entry is too large to be stored in FDB key",
                         LogMessageKeys.PRIMARY_KEY, savedRecord.getPrimaryKey(),
@@ -668,7 +651,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         }
     }
 
-    protected static String trimTooLargeTuple(@Nonnull Tuple tuple) {
+    protected static String trimTooLargeTuple(Tuple tuple) {
         final String fullString = tuple.toString();
         if (fullString.length() > TOO_LARGE_VALUE_MESSAGE_LIMIT) {
             return fullString.substring(0, TOO_LARGE_VALUE_MESSAGE_LIMIT) + "...";
@@ -684,8 +667,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * @param primaryKey the primary key for the record
      * @return the key to use for an index entry
      */
-    @Nonnull
-    protected Tuple indexEntryKey(@Nonnull Tuple valueKey, @Nonnull Tuple primaryKey) {
+    protected Tuple indexEntryKey(Tuple valueKey, Tuple primaryKey) {
         return FDBRecordStoreBase.indexEntryKey(state.index, valueKey, primaryKey);
     }
 
@@ -699,28 +681,26 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     }
 
     @Override
-    public boolean canEvaluateRecordFunction(@Nonnull IndexRecordFunction<?> function) {
+    public boolean canEvaluateRecordFunction(IndexRecordFunction<?> function) {
         return false;
     }
 
     @Override
-    @Nonnull
-    public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(@Nonnull EvaluationContext context,
-                                                                              @Nonnull IndexRecordFunction<T> function,
-                                                                              @Nonnull FDBRecord<M> record) {
+    public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(EvaluationContext context,
+                                                                              IndexRecordFunction<T> function,
+                                                                              FDBRecord<M> record) {
         return unsupportedRecordFunction(function);
     }
 
     @Override
-    public boolean canEvaluateAggregateFunction(@Nonnull IndexAggregateFunction function) {
+    public boolean canEvaluateAggregateFunction(IndexAggregateFunction function) {
         return false;
     }
 
     @Override
-    @Nonnull
-    public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull IndexAggregateFunction function,
-                                                              @Nonnull TupleRange range,
-                                                              @Nonnull final IsolationLevel isolationLevel) {
+    public CompletableFuture<Tuple> evaluateAggregateFunction(IndexAggregateFunction function,
+                                                              TupleRange range,
+                                                              final IsolationLevel isolationLevel) {
         return unsupportedAggregateFunction(function);
     }
 
@@ -738,13 +718,12 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     }
 
     @Override
-    @Nonnull
-    public CompletableFuture<Boolean> addedRangeWithKey(@Nonnull Tuple primaryKey) {
+    public CompletableFuture<Boolean> addedRangeWithKey(Tuple primaryKey) {
         IndexingRangeSet rangeSet = IndexingRangeSet.forIndexBuild(state.store, state.index);
         return rangeSet.containsAsync(primaryKey.pack());
     }
 
-    static boolean canDeleteWhere(@Nonnull IndexMaintainerState state, @Nonnull QueryToKeyMatcher.Match match, @Nonnull Key.Evaluated evaluated) {
+    static boolean canDeleteWhere(IndexMaintainerState state, QueryToKeyMatcher.Match match, Key.Evaluated evaluated) {
         if (match.getType() != QueryToKeyMatcher.MatchType.EQUALITY) {
             return false;
         }
@@ -761,12 +740,12 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     }
 
     @Override
-    public boolean canDeleteWhere(@Nonnull QueryToKeyMatcher matcher, @Nonnull Key.Evaluated evaluated) {
+    public boolean canDeleteWhere(QueryToKeyMatcher matcher, Key.Evaluated evaluated) {
         final QueryToKeyMatcher.Match match = matcher.matchesSatisfyingQuery(state.index.getRootExpression());
         return canDeleteWhere(state, match, evaluated);
     }
 
-    protected boolean canDeleteGroup(@Nonnull QueryToKeyMatcher matcher, @Nonnull Key.Evaluated evaluated) {
+    protected boolean canDeleteGroup(QueryToKeyMatcher matcher, Key.Evaluated evaluated) {
         KeyExpression rootExpression = state.index.getRootExpression();
         if (!(rootExpression instanceof GroupingKeyExpression)) {
             return false;
@@ -777,7 +756,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
 
     // Update index for deleting records where primary key starts with prefix. Prefix must be a prefix of the index grouping.
     @Override
-    public CompletableFuture<Void> deleteWhere(Transaction tr, @Nonnull Tuple prefix) {
+    public CompletableFuture<Void> deleteWhere(Transaction tr, Tuple prefix) {
         // NOTE: Range.startsWith(), Subspace.range() and so on cover keys *strictly* within the range, but we sometimes
         // store data at the prefix key itself.
         final byte[] key = state.indexSubspace.pack(prefix);
@@ -787,7 +766,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     }
 
     @Override
-    public CompletableFuture<IndexOperationResult> performOperation(@Nonnull IndexOperation operation) {
+    public CompletableFuture<IndexOperationResult> performOperation(IndexOperation operation) {
         throw new RecordCoreException("Unsupported index operation",
                     LogMessageKeys.INDEX_NAME, state.index.getName(),
                     LogMessageKeys.INDEX_OPERATION, operation.getClass().getSimpleName());
@@ -800,7 +779,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * @return a list of index keys and values
      */
     @Override
-    public <M extends Message> List<IndexEntry> evaluateIndex(@Nonnull FDBRecord<M> record) {
+    public <M extends Message> List<IndexEntry> evaluateIndex(FDBRecord<M> record) {
         final KeyExpression rootExpression = state.index.getRootExpression();
         final List<Key.Evaluated> indexKeys = rootExpression.evaluate(record);
 
@@ -825,7 +804,6 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * @param commonPrimaryKeyLength the length (# of elements) of the primary key (used to construct the PK locations in the de-referenced record)
      * @return A Tuple representing the Mapper structure required by the FDB getMappedRange call
      */
-    @Nonnull
     private Tuple createRemoteFetchMapper(int commonPrimaryKeyLength) {
         int prefixLength = Tuple.fromBytes(state.indexSubspace.pack()).size();
         List<Integer> keyLocations = state.index.getEntryPrimaryKeyPositions(commonPrimaryKeyLength);

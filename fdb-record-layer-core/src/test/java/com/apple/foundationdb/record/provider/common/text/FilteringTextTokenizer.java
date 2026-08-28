@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.common.text;
 
-import javax.annotation.Nonnull;
 import java.util.Iterator;
 import java.util.function.BiPredicate;
 
@@ -34,8 +33,8 @@ public class FilteringTextTokenizer implements TextTokenizer {
     private final int minVersion;
     private final int maxVersion;
 
-    private FilteringTextTokenizer(@Nonnull String name, @Nonnull TextTokenizerFactory tokenizerFactory,
-                                   @Nonnull BiPredicate<? super CharSequence, ? super Integer> filter) {
+    private FilteringTextTokenizer(String name, TextTokenizerFactory tokenizerFactory,
+                                   BiPredicate<? super CharSequence, ? super Integer> filter) {
         this.name = name;
         this.tokenizerFactory = tokenizerFactory;
         this.filter = filter;
@@ -45,9 +44,8 @@ public class FilteringTextTokenizer implements TextTokenizer {
         this.maxVersion = tokenizer.getMaxVersion();
     }
 
-    @Nonnull
     @Override
-    public Iterator<? extends CharSequence> tokenize(@Nonnull String text, int version, @Nonnull TokenizerMode tokenizerMode) {
+    public Iterator<? extends CharSequence> tokenize(String text, int version, TokenizerMode tokenizerMode) {
         TextTokenizer underlying = tokenizerFactory.getTokenizer();
         Iterator<? extends CharSequence> tokenIterator = underlying.tokenize(text, version, tokenizerMode);
         return new Iterator<CharSequence>() {
@@ -78,24 +76,20 @@ public class FilteringTextTokenizer implements TextTokenizer {
         return maxVersion;
     }
 
-    @Nonnull
     @Override
     public String getName() {
         return name;
     }
 
-    @Nonnull
-    public static TextTokenizerFactory create(@Nonnull String name, @Nonnull TextTokenizerFactory tokenizerFactory,
-                                              @Nonnull BiPredicate<? super CharSequence, ? super Integer> filter) {
+    public static TextTokenizerFactory create(String name, TextTokenizerFactory tokenizerFactory,
+                                              BiPredicate<? super CharSequence, ? super Integer> filter) {
         TextTokenizer tokenizer = new FilteringTextTokenizer(name, tokenizerFactory, filter);
         return new TextTokenizerFactory() {
-            @Nonnull
             @Override
             public String getName() {
                 return name;
             }
 
-            @Nonnull
             @Override
             public TextTokenizer getTokenizer() {
                 return tokenizer;

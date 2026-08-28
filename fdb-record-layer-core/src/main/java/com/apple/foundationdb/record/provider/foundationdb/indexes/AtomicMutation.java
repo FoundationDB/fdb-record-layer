@@ -27,8 +27,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.function.BiFunction;
@@ -43,7 +42,6 @@ public interface AtomicMutation {
      * Get the underlying mutation performed by the FDB API.
      * @return the underlying mutation type
      */
-    @Nonnull
     MutationType getMutationType();
 
     /**
@@ -61,7 +59,6 @@ public interface AtomicMutation {
      * @return a function that combines a running aggregate with a single entry to produce a new aggregate
      * @see com.apple.foundationdb.record.RecordCursor#reduce
      */
-    @Nonnull
     BiFunction<Tuple, Tuple, Tuple> getAggregator();
 
     /**
@@ -134,15 +131,13 @@ public interface AtomicMutation {
         COUNT_NOT_NULL_CLEAR_WHEN_ZERO(MutationType.ADD),
         SUM_LONG_CLEAR_WHEN_ZERO(MutationType.ADD);
         
-        @Nonnull
         private final MutationType mutationType;
 
-        Standard(@Nonnull MutationType mutationType) {
+        Standard(MutationType mutationType) {
             this.mutationType = mutationType;
         }
 
         @Override
-        @Nonnull
         public MutationType getMutationType() {
             return mutationType;
         }
@@ -213,7 +208,6 @@ public interface AtomicMutation {
             }
         }
 
-        @Nonnull
         private byte[] getMutationParamForCount(boolean remove) {
             if (remove) {
                 return FDBRecordStore.LITTLE_ENDIAN_INT64_MINUS_ONE;
@@ -222,7 +216,6 @@ public interface AtomicMutation {
             }
         }
 
-        @Nonnull
         public static byte[] encodeUnsignedLong(long value) {
             return ByteBuffer.allocate(Long.BYTES).order(ByteOrder.LITTLE_ENDIAN).putLong(value).array();
         }
@@ -231,7 +224,6 @@ public interface AtomicMutation {
             return ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).getLong();
         }
 
-        @Nonnull
         public static byte[] encodeSignedLong(long value) {
             return encodeUnsignedLong(value - Long.MIN_VALUE);
         }
@@ -241,7 +233,6 @@ public interface AtomicMutation {
         }
 
         @Override
-        @Nonnull
         public BiFunction<Tuple, Tuple, Tuple> getAggregator() {
             switch (this) {
                 case COUNT:

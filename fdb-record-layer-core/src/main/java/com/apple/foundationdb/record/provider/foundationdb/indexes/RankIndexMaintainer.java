@@ -49,8 +49,7 @@ import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.collect.Maps;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -131,12 +130,11 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
         this.config = RankedSetIndexHelper.getConfig(state.index);
     }
 
-    @Nonnull
     @Override
-    public RecordCursor<IndexEntry> scan(@Nonnull IndexScanType scanType,
-                                         @Nonnull TupleRange rankRange,
+    public RecordCursor<IndexEntry> scan(IndexScanType scanType,
+                                         TupleRange rankRange,
                                          @Nullable byte[] continuation,
-                                         @Nonnull ScanProperties scanProperties) {
+                                         ScanProperties scanProperties) {
         if (scanType.equals(IndexScanType.BY_VALUE)) {
             return scan(rankRange, continuation, scanProperties);
         } else if (!scanType.equals(IndexScanType.BY_RANK)) {
@@ -156,9 +154,9 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
+    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(final FDBIndexableRecord<M> savedRecord,
                                                                           final boolean remove,
-                                                                          @Nonnull final List<IndexEntry> indexEntries) {
+                                                                          final List<IndexEntry> indexEntries) {
         final int groupPrefixSize = getGroupingCount();
         final Subspace extraSubspace = getSecondarySubspace();
         final List<CompletableFuture<Void>> ordinaryIndexFutures = new ArrayList<>(indexEntries.size());
@@ -204,17 +202,16 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    public boolean canEvaluateRecordFunction(@Nonnull IndexRecordFunction<?> function) {
+    public boolean canEvaluateRecordFunction(IndexRecordFunction<?> function) {
         return FunctionNames.RANK.equals(function.getName()) &&
                 state.index.getRootExpression().equals(function.getOperand());
     }
 
     @Override
-    @Nonnull
     @SuppressWarnings("unchecked")
-    public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(@Nonnull EvaluationContext context,
-                                                                              @Nonnull IndexRecordFunction<T> function,
-                                                                              @Nonnull FDBRecord<M> record) {
+    public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(EvaluationContext context,
+                                                                              IndexRecordFunction<T> function,
+                                                                              FDBRecord<M> record) {
         if (FunctionNames.RANK.equals(function.getName())) {
             return (CompletableFuture<T>)rank(context, (IndexRecordFunction<Long>)function, record);
         } else {
@@ -222,13 +219,13 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
         }
     }
 
-    public <M extends Message> CompletableFuture<Long> rank(@Nonnull FDBRecord<M> record) {
+    public <M extends Message> CompletableFuture<Long> rank(FDBRecord<M> record) {
         return rank(EvaluationContext.empty(), null, record);
     }
 
-    protected <M extends Message> CompletableFuture<Long> rank(@Nonnull EvaluationContext context,
+    protected <M extends Message> CompletableFuture<Long> rank(EvaluationContext context,
                                                                @Nullable IndexRecordFunction<Long> function,
-                                                               @Nonnull FDBRecord<M> record) {
+                                                               FDBRecord<M> record) {
         final int groupPrefixSize = getGroupingCount();
         Key.Evaluated indexKey = IndexFunctionHelper.recordFunctionIndexEntry(state.store, state.index, context, function, record, groupPrefixSize);
         if (indexKey == null) {
@@ -246,7 +243,7 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    public CompletableFuture<Void> deleteWhere(Transaction tr, @Nonnull Tuple prefix) {
+    public CompletableFuture<Void> deleteWhere(Transaction tr, Tuple prefix) {
         return super.deleteWhere(tr, prefix).thenApply(v -> {
             // NOTE: Range.startsWith(), Subspace.range() and so on cover keys *strictly* within the range, but we sometimes
             // store data at the prefix key itself.
@@ -258,7 +255,7 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    public boolean canEvaluateAggregateFunction(@Nonnull IndexAggregateFunction function) {
+    public boolean canEvaluateAggregateFunction(IndexAggregateFunction function) {
         // Can do COUNT_DISTINCT(score BY group) by sizing the ranked set.
         if (FunctionNames.COUNT_DISTINCT.equals(function.getName()) &&
                 function.getOperand().equals(state.index.getRootExpression())) {
@@ -280,11 +277,10 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
         return super.canEvaluateAggregateFunction(function);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull IndexAggregateFunction function,
-                                                              @Nonnull TupleRange range,
-                                                              @Nonnull final IsolationLevel isolationLevel) {
+    public CompletableFuture<Tuple> evaluateAggregateFunction(IndexAggregateFunction function,
+                                                              TupleRange range,
+                                                              final IsolationLevel isolationLevel) {
         if ((FunctionNames.COUNT.equals(function.getName()) ||
                 FunctionNames.COUNT_DISTINCT.equals(function.getName())) &&
                 range.isEquals()) {
@@ -307,12 +303,11 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
     }
 
     private interface EvaluateEqualRange {
-        @Nonnull
-        CompletableFuture<Tuple> apply(@Nonnull RankedSet rankedSet, @Nonnull Tuple values);
+        CompletableFuture<Tuple> apply(RankedSet rankedSet, Tuple values);
     }
 
-    private CompletableFuture<Tuple> evaluateEqualRange(@Nonnull TupleRange range,
-                                                        @Nonnull EvaluateEqualRange function) {
+    private CompletableFuture<Tuple> evaluateEqualRange(TupleRange range,
+                                                        EvaluateEqualRange function) {
         Subspace rankSubspace = getSecondarySubspace();
         Tuple values = range.getLow();
         final int groupingCount = getGroupingCount();

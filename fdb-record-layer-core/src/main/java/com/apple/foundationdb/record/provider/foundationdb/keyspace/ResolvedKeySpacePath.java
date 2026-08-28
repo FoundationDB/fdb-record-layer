@@ -26,8 +26,7 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -43,9 +42,7 @@ import java.util.Objects;
 public class ResolvedKeySpacePath {
     @Nullable
     private final ResolvedKeySpacePath parent;
-    @Nonnull
     private final KeySpacePath inner;
-    @Nonnull
     private final PathValue value;
     @Nullable
     private final Tuple remainder;
@@ -64,8 +61,8 @@ public class ResolvedKeySpacePath {
      * @param remainder if the path was resolved from a <code>Tuple</code> this is the remaining portion that
      *   extends beyond the end of the path.
      */
-    protected ResolvedKeySpacePath(@Nullable ResolvedKeySpacePath parent, @Nonnull KeySpacePath inner,
-                                   @Nonnull PathValue value, @Nullable Tuple remainder) {
+    protected ResolvedKeySpacePath(@Nullable ResolvedKeySpacePath parent, KeySpacePath inner,
+                                   PathValue value, @Nullable Tuple remainder) {
         this.parent = parent;
         this.inner = inner;
         this.value = value;
@@ -93,7 +90,6 @@ public class ResolvedKeySpacePath {
      * Returns the directory name for this path element.
      * @return the directory name
      */
-    @Nonnull
     public String getDirectoryName() {
         return inner.getDirectoryName();
     }
@@ -102,7 +98,6 @@ public class ResolvedKeySpacePath {
      * Returns the directory that corresponds to this path entry.
      * @return returns the directory that corresponds to this path entry
      */
-    @Nonnull
     public KeySpaceDirectory getDirectory() {
         return inner.getDirectory();
     }
@@ -123,7 +118,6 @@ public class ResolvedKeySpacePath {
      *
      * @return the value that will be stored stored for the path element
      */
-    @Nonnull
     public PathValue getResolvedPathValue() {
         return value;
     }
@@ -157,7 +151,6 @@ public class ResolvedKeySpacePath {
      *
      * @return the <code>Tuple</code> form of the resolved path
      */
-    @Nonnull
     public Tuple toTuple() {
         if (cachedTuple == null) {
             final int len = size();
@@ -173,7 +166,6 @@ public class ResolvedKeySpacePath {
         return cachedTuple;
     }
 
-    @Nonnull
     public Subspace toSubspace() {
         if (cachedSubspace == null) {
             cachedSubspace = new Subspace(toTuple().pack());
@@ -186,7 +178,6 @@ public class ResolvedKeySpacePath {
      *
      * @return The <code>KeySpacePath</code> for this resolved path
      */
-    @Nonnull
     public KeySpacePath toPath() {
         return inner;
     }
@@ -207,7 +198,6 @@ public class ResolvedKeySpacePath {
      *
      * @return this path as a list
      */
-    @Nonnull
     public List<ResolvedKeySpacePath> flatten() {
         final int len = size();
         final ResolvedKeySpacePath[] flat = new ResolvedKeySpacePath[len];
@@ -278,7 +268,6 @@ public class ResolvedKeySpacePath {
      * @param newRemainder a new remainder. This can be {@code null} to remove the remainder entirely.
      * @return a new {@code ResolvedKeySpacePath} that is the same as this, except with a different {@link #getRemainder()}.
      */
-    @Nonnull
     @VisibleForTesting
     ResolvedKeySpacePath withRemainder(@Nullable final Tuple newRemainder) {
         // this could probably copy the cachedTuple & cachedSubspace

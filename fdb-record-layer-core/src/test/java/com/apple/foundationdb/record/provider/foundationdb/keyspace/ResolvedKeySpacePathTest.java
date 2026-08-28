@@ -32,8 +32,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.UUID;
@@ -67,7 +66,6 @@ class ResolvedKeySpacePathTest {
             KeyType.DOUBLE, new TestValuePair(() -> 1.5d, () -> 2.5d)
     );
 
-    @Nonnull
     static Stream<Arguments> testEqualsHashCode() {
         return ParameterizedTestUtils.cartesianProduct(
                 Arrays.stream(KeyType.values()),
@@ -81,8 +79,8 @@ class ResolvedKeySpacePathTest {
      */
     @ParameterizedTest
     @MethodSource("testEqualsHashCode")
-    void testEqualsHashCode(@Nonnull KeyType keyType, boolean constantDirectory, boolean differenceInParent) {
-        @Nonnull TestValuePair values = TYPE_TEST_VALUES.get(keyType);
+    void testEqualsHashCode(KeyType keyType, boolean constantDirectory, boolean differenceInParent) {
+        TestValuePair values = TYPE_TEST_VALUES.get(keyType);
 
         // Create a single KeySpace with the appropriate directory structure
         KeySpaceDirectory rootDir = new KeySpaceDirectory("root", KeyType.STRING, "root");
@@ -298,8 +296,7 @@ class ResolvedKeySpacePathTest {
         assertEquals(freshlyCreated.hashCode(), modified.hashCode());
     }
 
-    @Nonnull
-    private KeySpacePath createKeySpacePath(@Nonnull ResolvedKeySpacePath parent, @Nonnull KeyType keyType, @Nullable Object value,
+    private KeySpacePath createKeySpacePath(ResolvedKeySpacePath parent, KeyType keyType, @Nullable Object value,
                                             boolean constantDirectory) {
         // Create child directory based on constantDirectory parameter
         KeySpaceDirectory childDir;
@@ -317,7 +314,6 @@ class ResolvedKeySpacePathTest {
         }
     }
 
-    @Nonnull
     private static ResolvedKeySpacePath createRootParent() {
         final KeySpaceDirectory parentDir = new KeySpaceDirectory("root", KeyType.STRING, "root");
         KeySpacePath parent = new KeySpace(parentDir).path("root");
@@ -330,12 +326,10 @@ class ResolvedKeySpacePathTest {
      * we want to catch if it doesn't consider those equal.
      */
     private static class TestValuePair {
-        @Nonnull
         private final Supplier<Object> value1Supplier;
-        @Nonnull
         private final Supplier<Object> value2Supplier;
         
-        TestValuePair(@Nonnull Supplier<Object> value1Supplier, @Nonnull Supplier<Object> value2Supplier) {
+        TestValuePair(Supplier<Object> value1Supplier, Supplier<Object> value2Supplier) {
             this.value1Supplier = value1Supplier;
             this.value2Supplier = value2Supplier;
         }

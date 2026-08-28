@@ -20,8 +20,7 @@
 
 package com.apple.foundationdb.record.provider.common;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.security.Key;
 import java.security.SecureRandom;
 import java.util.Random;
@@ -34,7 +33,7 @@ public class FixedZeroKeyManager implements SerializationKeyManager {
     private final String cipherName;
     private final Random random;
 
-    public FixedZeroKeyManager(@Nonnull Key encryptionKey, @Nullable String cipherName, @Nullable Random random) {
+    public FixedZeroKeyManager(Key encryptionKey, @Nullable String cipherName, @Nullable Random random) {
         if (cipherName == null) {
             cipherName = CipherPool.DEFAULT_CIPHER;
         }

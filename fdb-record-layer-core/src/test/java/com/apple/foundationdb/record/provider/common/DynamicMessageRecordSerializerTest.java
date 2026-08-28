@@ -30,7 +30,6 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.function.UnaryOperator;
 
@@ -44,8 +43,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Tests for {@link DynamicMessageRecordSerializer}.
  */
 public class DynamicMessageRecordSerializerTest {
-    @Nonnull private static RecordMetaData metaData;
-    @Nonnull private static DynamicMessageRecordSerializer serializer;
+    private static RecordMetaData metaData;
+    private static DynamicMessageRecordSerializer serializer;
 
     @BeforeAll
     @SuppressWarnings("unchecked")
@@ -54,13 +53,13 @@ public class DynamicMessageRecordSerializerTest {
         serializer = (DynamicMessageRecordSerializer)DynamicMessageRecordSerializer.instance();
     }
 
-    private Descriptors.FileDescriptor buildRecordDescriptor(@Nonnull DescriptorProtos.FileDescriptorProto proto) throws Descriptors.DescriptorValidationException {
+    private Descriptors.FileDescriptor buildRecordDescriptor(DescriptorProtos.FileDescriptorProto proto) throws Descriptors.DescriptorValidationException {
         final Descriptors.FileDescriptor[] dependencies = new Descriptors.FileDescriptor[metaData.getRecordsDescriptor().getDependencies().size()];
         metaData.getRecordsDescriptor().getDependencies().toArray(dependencies);
         return Descriptors.FileDescriptor.buildFrom(proto, dependencies);
     }
 
-    private Descriptors.Descriptor mutateUnionDescriptor(@Nonnull UnaryOperator<DescriptorProtos.DescriptorProto> mutation) throws Descriptors.DescriptorValidationException {
+    private Descriptors.Descriptor mutateUnionDescriptor(UnaryOperator<DescriptorProtos.DescriptorProto> mutation) throws Descriptors.DescriptorValidationException {
         final Descriptors.Descriptor oldUnionDescriptor = metaData.getUnionDescriptor();
         final DescriptorProtos.DescriptorProto oldUnionDescriptorProto = oldUnionDescriptor.toProto();
         final DescriptorProtos.FileDescriptorProto fileDescriptorProto = metaData.getRecordsDescriptor().toProto();
@@ -71,7 +70,7 @@ public class DynamicMessageRecordSerializerTest {
         return buildRecordDescriptor(newFileDescriptorProto).findMessageTypeByName(oldUnionDescriptor.getName());
     }
 
-    private Descriptors.Descriptor addFieldToUnionDescriptor(@Nonnull String name, @Nonnull DescriptorProtos.FieldDescriptorProto.Type type) throws Descriptors.DescriptorValidationException {
+    private Descriptors.Descriptor addFieldToUnionDescriptor(String name, DescriptorProtos.FieldDescriptorProto.Type type) throws Descriptors.DescriptorValidationException {
         final int fieldNumber = metaData.getUnionDescriptor().getFields().stream()
                 .mapToInt(Descriptors.FieldDescriptor::getNumber)
                 .max()
@@ -89,7 +88,7 @@ public class DynamicMessageRecordSerializerTest {
         );
     }
 
-    private Descriptors.Descriptor removeFieldFromUnionDescriptor(@Nonnull String name) throws Descriptors.DescriptorValidationException {
+    private Descriptors.Descriptor removeFieldFromUnionDescriptor(String name) throws Descriptors.DescriptorValidationException {
         final int fieldIndex = metaData.getUnionDescriptor().findFieldByName(name).getIndex();
         return mutateUnionDescriptor(oldUnionDescriptorProto ->
                 oldUnionDescriptorProto.toBuilder()

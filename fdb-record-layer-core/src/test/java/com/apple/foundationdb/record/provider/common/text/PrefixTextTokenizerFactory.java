@@ -22,20 +22,16 @@ package com.apple.foundationdb.record.provider.common.text;
 
 import com.google.auto.service.AutoService;
 
-import javax.annotation.Nonnull;
-
 /**
  * A {@link TextTokenizerFactory} for {@link PrefixTextTokenizer}.
  */
 @AutoService(TextTokenizerFactory.class)
 public class PrefixTextTokenizerFactory implements TextTokenizerFactory {
-    @Nonnull
     @Override
     public String getName() {
         return PrefixTextTokenizer.NAME;
     }
 
-    @Nonnull
     @Override
     public TextTokenizer getTokenizer() {
         return PrefixTextTokenizer.instance();

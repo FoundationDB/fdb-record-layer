@@ -31,8 +31,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -500,7 +499,6 @@ class KeySpacePathSerializerTest {
         assertEquals(ByteString.copyFrom(value), deserializedData.getValue());
     }
 
-    @Nonnull
     private static DataInKeySpacePath serializeAndDeserialize(final KeySpacePath rootPath, final DataInKeySpacePath data) {
         final KeySpacePathSerializer serializer = new KeySpacePathSerializer(rootPath);
         return serializer.deserialize(serializer.serialize(data));

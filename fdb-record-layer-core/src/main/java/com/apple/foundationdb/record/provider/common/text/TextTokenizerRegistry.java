@@ -25,8 +25,7 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Map;
 
 /**
@@ -54,7 +53,6 @@ public interface TextTokenizerRegistry {
      * @return the tokenizer registered with the given name
      * @throws MetaDataException if no such tokenizer exists
      */
-    @Nonnull
     TextTokenizer getTokenizer(@Nullable String name);
 
     /**
@@ -66,13 +64,12 @@ public interface TextTokenizerRegistry {
      * @param tokenizerFactory new tokenizer to register
      * @throws RecordCoreArgumentException if there is a tokenizer of the same name already registered
      */
-    void register(@Nonnull TextTokenizerFactory tokenizerFactory);
+    void register(TextTokenizerFactory tokenizerFactory);
 
     /**
      * Returns all registered tokenizers.
      * @return a map from tokenizer name to {@link TextTokenizerFactory}
      */
-    @Nonnull
     Map<String, TextTokenizerFactory> getRegistry();
 
     /**

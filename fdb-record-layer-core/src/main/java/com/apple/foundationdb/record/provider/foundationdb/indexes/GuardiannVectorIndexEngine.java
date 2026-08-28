@@ -46,8 +46,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -96,23 +95,20 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
             // back-pressure valve (does not reinterpret on-disk data)
             VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_HARD_MAX);
 
-    @Nonnull
     private final Config config;
-    @Nonnull
     private final VectorIndexTaskCounts taskCounts;
 
-    GuardiannVectorIndexEngine(@Nonnull final Config config, @Nonnull final Subspace indexSecondarySubspace) {
+    GuardiannVectorIndexEngine(final Config config, final Subspace indexSecondarySubspace) {
         this.config = config;
         // Own the outstanding-work register, built once (cheaply) from the index's secondary subspace.
         this.taskCounts = new VectorIndexTaskCounts(indexSecondarySubspace);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<List<? extends ResultEntry>> search(@Nonnull final FDBRecordContext context,
+    public CompletableFuture<List<? extends ResultEntry>> search(final FDBRecordContext context,
                                                                  final boolean snapshot,
-                                                                 @Nonnull final Subspace subspace,
-                                                                 @Nonnull final VectorIndexScanBounds scanBounds) {
+                                                                 final Subspace subspace,
+                                                                 final VectorIndexScanBounds scanBounds) {
         final Guardiann guardiann =
                 new Guardiann(subspace, context.getExecutor(), config, OnWriteListener.NOOP,
                         OnRead.fromTimer(context.getTimer()));
@@ -121,14 +117,13 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
                 Objects.requireNonNull(scanBounds.getQueryVector()));
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CloseResource") // context owns the transaction returned by ensureActive(); we don't close it
-    public CompletableFuture<Void> insert(@Nonnull final FDBRecordContext context,
-                                          @Nonnull final Subspace subspace,
-                                          @Nonnull final Tuple primaryKey,
-                                          @Nonnull final RealVector vector,
-                                          @Nonnull final TaskEventRegister register,
+    public CompletableFuture<Void> insert(final FDBRecordContext context,
+                                          final Subspace subspace,
+                                          final Tuple primaryKey,
+                                          final RealVector vector,
+                                          final TaskEventRegister register,
                                           final boolean maintainInTransaction) {
         // Insert reads (to find candidate clusters) and writes (references and deferred-task bookkeeping), so wire both
         // listeners. The write listener also maintains the outstanding-task register as tasks are enqueued/executed.
@@ -149,7 +144,7 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
      * record-layer exceptions across the module boundary) and passing every other failure through unchanged. Never
      * returns normally; the {@code Void} return type is only there to satisfy {@code exceptionally}.
      */
-    private static Void translateInsertBackPressure(@Nonnull final Throwable throwable) {
+    private static Void translateInsertBackPressure(final Throwable throwable) {
         final Set<Throwable> seen = Sets.newIdentityHashSet();
         Throwable cause = throwable;
         seen.add(cause);
@@ -168,14 +163,13 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
         throw new CompletionException(throwable);
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CloseResource") // context owns the transaction returned by ensureActive(); we don't close it
-    public CompletableFuture<Void> delete(@Nonnull final FDBRecordContext context,
-                                          @Nonnull final Subspace subspace,
-                                          @Nonnull final Tuple primaryKey,
-                                          @Nonnull final RealVector vector,
-                                          @Nonnull final TaskEventRegister register,
+    public CompletableFuture<Void> delete(final FDBRecordContext context,
+                                          final Subspace subspace,
+                                          final Tuple primaryKey,
+                                          final RealVector vector,
+                                          final TaskEventRegister register,
                                           final boolean maintainInTransaction) {
         // Guardiann needs the vector to locate the cluster references to remove; it reads while probing candidate
         // clusters and writes as it removes references, so both listeners are wired. The write listener also maintains
@@ -188,7 +182,6 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
         return guardiann.delete(transaction, primaryKey, vector, maintainInTransaction);
     }
 
-    @Nonnull
     @Override
     public VectorIndexTaskCounts getTaskCounts() {
         return taskCounts;
@@ -201,13 +194,12 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
         return !maintainInTransaction;
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CloseResource") // context owns the transaction returned by ensureActive(); we don't close it
-    public CompletableFuture<Integer> executeDeferredTasks(@Nonnull final FDBRecordContext context,
-                                                           @Nonnull final Subspace subspace,
+    public CompletableFuture<Integer> executeDeferredTasks(final FDBRecordContext context,
+                                                           final Subspace subspace,
                                                            final int numTasks,
-                                                           @Nonnull final TaskEventRegister register,
+                                                           final TaskEventRegister register,
                                                            final long deadlineMillis) {
         // Draining runs queued tasks, which is a write path: wire OnWrite so each executed task both attributes to the
         // timer and — via the register — decrements the partition's outstanding-work count in this same transaction.
@@ -227,8 +219,7 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
      * @param scanBounds the per-query scan bounds carrying the scan options
      * @return the search config for this query
      */
-    @Nonnull
-    private static SearchConfig searchConfig(@Nonnull final VectorIndexScanBounds scanBounds) {
+    private static SearchConfig searchConfig(final VectorIndexScanBounds scanBounds) {
         final VectorIndexScanOptions scanOptions = scanBounds.getVectorIndexScanOptions();
         final SearchConfig.SearchConfigBuilder builder = new SearchConfig.SearchConfigBuilder();
         applyScanDouble(scanOptions, VectorIndexScanOptions.GUARDIANN_CANDIDATE_POOL_FACTOR,
@@ -248,18 +239,18 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
         return builder.build();
     }
 
-    private static void applyScanInteger(@Nonnull final VectorIndexScanOptions scanOptions,
-                                         @Nonnull final VectorOptionKey<Integer> key,
-                                         @Nonnull final IntConsumer setter) {
+    private static void applyScanInteger(final VectorIndexScanOptions scanOptions,
+                                         final VectorOptionKey<Integer> key,
+                                         final IntConsumer setter) {
         final Integer value = scanOptions.getOption(key);
         if (value != null) {
             setter.accept(value);
         }
     }
 
-    private static void applyScanDouble(@Nonnull final VectorIndexScanOptions scanOptions,
-                                        @Nonnull final VectorOptionKey<Double> key,
-                                        @Nonnull final DoubleConsumer setter) {
+    private static void applyScanDouble(final VectorIndexScanOptions scanOptions,
+                                        final VectorOptionKey<Double> key,
+                                        final DoubleConsumer setter) {
         final Double value = scanOptions.getOption(key);
         if (value != null) {
             setter.accept(value);
@@ -274,9 +265,8 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
      * @param indexSecondarySubspace the index's secondary subspace
      * @return the Guardiann engine
      */
-    @Nonnull
-    static GuardiannVectorIndexEngine fromIndex(@Nonnull final Index index,
-                                                @Nonnull final Subspace indexSecondarySubspace) {
+    static GuardiannVectorIndexEngine fromIndex(final Index index,
+                                                final Subspace indexSecondarySubspace) {
         return new GuardiannVectorIndexEngine(parseConfig(index), indexSecondarySubspace);
     }
 
@@ -290,8 +280,7 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
      * @param index the index definition
      * @return the parsed Guardiann config
      */
-    @Nonnull
-    static Config parseConfig(@Nonnull final Index index) {
+    static Config parseConfig(final Index index) {
         final ConfigBuilder builder = Guardiann.newConfigBuilder();
 
         builder.setMetric(VectorIndexOptionKeys.METRIC.read(index, Metric.EUCLIDEAN_METRIC));
@@ -373,8 +362,8 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
      * @param newIndex the post-change index
      * @param changedOptions the mutable set of changed option names; handled options are removed
      */
-    static void validateChangedOptions(@Nonnull final Index oldIndex, @Nonnull final Index newIndex,
-                                       @Nonnull final Set<String> changedOptions) {
+    static void validateChangedOptions(final Index oldIndex, final Index newIndex,
+                                       final Set<String> changedOptions) {
         final Config oldConfig = parseConfig(oldIndex);
         final Config newConfig = parseConfig(newIndex);
         final String name = newIndex.getName();
@@ -445,37 +434,34 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
      * reads are counted against the generic index-load counters plus a Guardiann-specific vector-read counter.
      */
     static final class OnRead implements OnReadListener {
-        @Nonnull
         private final FDBStoreTimer timer;
 
-        OnRead(@Nonnull final FDBStoreTimer timer) {
+        OnRead(final FDBStoreTimer timer) {
             this.timer = timer;
         }
 
         @Override
-        public <T> CompletableFuture<T> onAsyncRead(@Nonnull final CompletableFuture<T> future) {
+        public <T> CompletableFuture<T> onAsyncRead(final CompletableFuture<T> future) {
             return timer.instrument(VectorIndexHelper.Events.VECTOR_SCAN, future);
         }
 
-        @Nonnull
         @Override
-        public AsyncIterable<KeyValue> onAsyncReadRange(@Nonnull final AsyncIterable<KeyValue> iterable) {
+        public AsyncIterable<KeyValue> onAsyncReadRange(final AsyncIterable<KeyValue> iterable) {
             return TimedAsyncIterable.wrap(iterable,
                     elapsed -> timer.record(VectorIndexHelper.Events.VECTOR_SCAN, elapsed));
         }
 
         @Override
-        public void onKeyValueRead(@Nonnull final byte[] key, @Nullable final byte[] value) {
+        public void onKeyValueRead(final byte[] key, @Nullable final byte[] value) {
             VectorIndexInstrumentation.recordKeyValueRead(timer, key, value);
         }
 
         @Override
-        public void onVectorRead(@Nonnull final UUID clusterId, @Nonnull final Tuple primaryKey,
-                                 @Nonnull final UUID vectorUuid, @Nonnull final Transformed<RealVector> vector) {
+        public void onVectorRead(final UUID clusterId, final Tuple primaryKey,
+                                 final UUID vectorUuid, final Transformed<RealVector> vector) {
             timer.increment(FDBStoreTimer.Counts.VECTOR_VECTOR_READS);
         }
 
-        @Nonnull
         private static OnReadListener fromTimer(@Nullable final FDBStoreTimer timer) {
             return timer == null ? OnReadListener.NOOP : new OnRead(timer);
         }
@@ -490,28 +476,26 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
     static final class OnWrite implements OnWriteListener {
         @Nullable
         private final FDBStoreTimer timer;
-        @Nonnull
         private final Transaction transaction;
-        @Nonnull
         private final TaskEventRegister register;
 
-        private OnWrite(@Nullable final FDBStoreTimer timer, @Nonnull final Transaction transaction,
-                        @Nonnull final TaskEventRegister register) {
+        private OnWrite(@Nullable final FDBStoreTimer timer, final Transaction transaction,
+                        final TaskEventRegister register) {
             this.timer = timer;
             this.transaction = transaction;
             this.register = register;
         }
 
         @Override
-        public void onKeyValueWritten(@Nonnull final byte[] key, @Nonnull final byte[] value) {
+        public void onKeyValueWritten(final byte[] key, final byte[] value) {
             if (timer != null) {
                 VectorIndexInstrumentation.recordKeyValueWritten(timer, key, value);
             }
         }
 
         @Override
-        public void onTaskEnqueued(@Nonnull final TaskKind kind, @Nonnull final UUID taskId,
-                                   @Nonnull final Set<UUID> targetClusterIds) {
+        public void onTaskEnqueued(final TaskKind kind, final UUID taskId,
+                                   final Set<UUID> targetClusterIds) {
             if (timer != null) {
                 timer.increment(FDBStoreTimer.Counts.VECTOR_TASK_ENQUEUED);
             }
@@ -519,8 +503,8 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
         }
 
         @Override
-        public void onTaskExecuted(@Nonnull final TaskKind taskKind, @Nonnull final UUID taskId,
-                                   @Nonnull final Set<UUID> targetClusterIds) {
+        public void onTaskExecuted(final TaskKind taskKind, final UUID taskId,
+                                   final Set<UUID> targetClusterIds) {
             if (timer != null) {
                 timer.increment(FDBStoreTimer.Counts.VECTOR_TASK_EXECUTED);
             }
@@ -529,10 +513,9 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
 
         // Listener for insert/delete/drain: metrics plus forwarding task enqueue/execute events to the register
         // (e.g. count maintenance and/or merge-required signaling) against the operation's transaction.
-        @Nonnull
         private static OnWriteListener forWrites(@Nullable final FDBStoreTimer timer,
-                                                 @Nonnull final Transaction transaction,
-                                                 @Nonnull final TaskEventRegister register) {
+                                                 final Transaction transaction,
+                                                 final TaskEventRegister register) {
             return new OnWrite(timer, transaction, register);
         }
     }

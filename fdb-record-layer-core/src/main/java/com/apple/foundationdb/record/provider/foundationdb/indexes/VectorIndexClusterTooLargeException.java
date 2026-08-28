@@ -22,8 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.record.RecordCoreException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Signals that an insert into a Guardiann vector index would grow a cluster beyond its configured hard cap
@@ -35,7 +34,7 @@ import javax.annotation.Nullable;
  */
 @SuppressWarnings("serial")
 public class VectorIndexClusterTooLargeException extends RecordCoreException {
-    public VectorIndexClusterTooLargeException(@Nonnull final String msg, @Nullable final Throwable cause) {
+    public VectorIndexClusterTooLargeException(final String msg, @Nullable final Throwable cause) {
         super(msg, cause);
     }
 }

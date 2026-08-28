@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
 import java.text.Collator;
 import java.util.Locale;
 import java.util.Map;
@@ -56,21 +55,18 @@ public class TextCollatorRegistryJRE implements TextCollatorRegistry {
     private TextCollatorRegistryJRE() {
     }
 
-    @Nonnull
     @Override
     public String getName() {
         return "jre";
     }
 
     @Override
-    @Nonnull
     public TextCollator getTextCollator(int strength) {
         return getTextCollator(DEFAULT_LOCALE, strength);
     }
 
     @Override
-    @Nonnull
-    public TextCollator getTextCollator(@Nonnull String locale, int strength) {
+    public TextCollator getTextCollator(String locale, int strength) {
         return MapUtils.computeIfAbsent(collators, NonnullPair.of(locale, strength), key -> {
             final Collator collator = DEFAULT_LOCALE.equals(locale) ?
                                       Collator.getInstance(Locale.ROOT) :
@@ -82,21 +78,19 @@ public class TextCollatorRegistryJRE implements TextCollatorRegistry {
     }
 
     protected static class TextCollatorJRE implements TextCollator {
-        @Nonnull
         private final Collator collator;
         
-        protected TextCollatorJRE(@Nonnull Collator collator) {
+        protected TextCollatorJRE(Collator collator) {
             this.collator = collator;
         }
 
         @Override
-        public int compare(@Nonnull String str1, @Nonnull String str2) {
+        public int compare(String str1, String str2) {
             return collator.compare(str1, str2);
         }
 
-        @Nonnull
         @Override
-        public ByteString getKey(@Nonnull String str) {
+        public ByteString getKey(String str) {
             return ZeroCopyByteString.wrap(collator.getCollationKey(str).toByteArray());
         }
     }

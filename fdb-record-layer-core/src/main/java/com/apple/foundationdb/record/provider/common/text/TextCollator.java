@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.common.text;
 import com.apple.foundationdb.annotation.API;
 import com.google.protobuf.ByteString;
 
-import javax.annotation.Nonnull;
 import java.util.Comparator;
 
 /**
@@ -69,7 +68,7 @@ public interface TextCollator extends Comparator<String> {
      * should sort before the second, or greater than zero if the first string should sort after the second.
      */
     @Override
-    int compare(@Nonnull String str1, @Nonnull String str2);
+    int compare(String str1, String str2);
 
     /**
      * Get a representation of a string suitable for storing in an index for this collation.
@@ -78,6 +77,5 @@ public interface TextCollator extends Comparator<String> {
      * @param str the string to index
      * @return a byte string for storing in an index
      */
-    @Nonnull
-    ByteString getKey(@Nonnull String str);
+    ByteString getKey(String str);
 }

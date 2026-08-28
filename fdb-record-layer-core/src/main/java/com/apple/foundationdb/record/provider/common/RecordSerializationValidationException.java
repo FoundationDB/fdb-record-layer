@@ -29,8 +29,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.util.LoggableKeysAndValues;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Exception class thrown by {@link RecordSerializer#validateSerialization(RecordMetaData, RecordType, Message, byte[], StoreTimer)}.
@@ -41,7 +40,7 @@ import javax.annotation.Nullable;
 @API(API.Status.UNSTABLE)
 @SuppressWarnings("serial")
 public class RecordSerializationValidationException extends RecordCoreException {
-    RecordSerializationValidationException(@Nonnull String message, @Nonnull RecordType recordType, @Nullable Tuple primaryKey, @Nullable Throwable cause) {
+    RecordSerializationValidationException(String message, RecordType recordType, @Nullable Tuple primaryKey, @Nullable Throwable cause) {
         super(message, cause);
         addLogInfo(LogMessageKeys.RECORD_TYPE, recordType);
         if (primaryKey != null) {
@@ -52,7 +51,7 @@ public class RecordSerializationValidationException extends RecordCoreException 
         }
     }
 
-    RecordSerializationValidationException(@Nonnull String message, @Nonnull RecordType recordType, @Nonnull Tuple primaryKey) {
+    RecordSerializationValidationException(String message, RecordType recordType, Tuple primaryKey) {
         this(message, recordType, primaryKey, null);
     }
 }

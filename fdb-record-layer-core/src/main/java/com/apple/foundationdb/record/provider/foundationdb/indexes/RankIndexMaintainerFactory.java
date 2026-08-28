@@ -41,7 +41,6 @@ import com.apple.foundationdb.record.query.plan.cascades.WindowedIndexExpansionV
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Set;
 
@@ -55,24 +54,22 @@ public class RankIndexMaintainerFactory implements IndexMaintainerFactory {
     private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
 
     @Override
-    @Nonnull
     public Iterable<String> getIndexTypes() {
         return Arrays.asList(TYPES);
     }
 
     @Override
-    @Nonnull
     public IndexValidator getIndexValidator(Index index) {
         return new IndexValidator(index) {
             @Override
-            public void validate(@Nonnull MetaDataValidator metaDataValidator) {
+            public void validate(MetaDataValidator metaDataValidator) {
                 super.validate(metaDataValidator);
                 validateGrouping(1);
                 validateNotVersion();
             }
 
             @Override
-            public void validateChangedOptions(@Nonnull Index oldIndex, @Nonnull Set<String> changedOptions) {
+            public void validateChangedOptions(Index oldIndex, Set<String> changedOptions) {
                 if (!changedOptions.isEmpty()) {
                     // Allow changing from unspecified to the default (or vice versa), but not otherwise.
                     RankedSet.Config oldOptions = RankedSetIndexHelper.getConfig(oldIndex);
@@ -105,14 +102,12 @@ public class RankIndexMaintainerFactory implements IndexMaintainerFactory {
     }
 
     @Override
-    @Nonnull
-    public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
+    public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
         return new RankIndexMaintainer(state);
     }
 
-    @Nonnull
     @Override
-    public Iterable<MatchCandidate> createMatchCandidates(@Nonnull final RecordMetaData metaData, @Nonnull final Index index, final boolean reverse) {
+    public Iterable<MatchCandidate> createMatchCandidates(final RecordMetaData metaData, final Index index, final boolean reverse) {
         final IndexExpansionInfo info = IndexExpansionInfo.createInfo(metaData, index, reverse);
         final ImmutableList.Builder<MatchCandidate> resultBuilder = ImmutableList.builder();
 
@@ -125,9 +120,8 @@ public class RankIndexMaintainerFactory implements IndexMaintainerFactory {
         return resultBuilder.build();
     }
 
-    @Nonnull
     @Override
-    public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
+    public IndexGeneralAttributes getIndexGeneralAttributes(final Index index) {
         return GENERAL_ATTRIBUTES;
     }
 }

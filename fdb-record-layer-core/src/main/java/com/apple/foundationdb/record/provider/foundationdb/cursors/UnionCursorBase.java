@@ -24,8 +24,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -38,20 +37,16 @@ import java.util.Set;
  * @param <T> the type of elements returned by each child cursor
  */
 abstract class UnionCursorBase<T, S extends MergeCursorState<T>> extends MergeCursor<T, T, S> {
-    @Nonnull
     static final Set<StoreTimer.Event> duringEvents = Collections.singleton(FDBStoreTimer.Events.QUERY_UNION);
-    @Nonnull
     static final Set<StoreTimer.Count> uniqueCounts = Collections.singleton(FDBStoreTimer.Counts.QUERY_UNION_PLAN_UNIQUES);
-    @Nonnull
     static final Set<StoreTimer.Count> duplicateCounts =
             ImmutableSet.of(FDBStoreTimer.Counts.QUERY_UNION_PLAN_DUPLICATES, FDBStoreTimer.Counts.QUERY_DISCARDED);
 
-    UnionCursorBase(@Nonnull List<S> cursorStates, @Nullable FDBStoreTimer timer) {
+    UnionCursorBase(List<S> cursorStates, @Nullable FDBStoreTimer timer) {
         super(cursorStates, timer);
     }
 
     @Override
-    @Nonnull
     protected UnionCursorContinuation getContinuationObject() {
         return UnionCursorContinuation.from(this);
     }
@@ -66,8 +61,7 @@ abstract class UnionCursorBase<T, S extends MergeCursorState<T>> extends MergeCu
      * @return the result to return from this cursor given these elements appear in the union
      */
     @Override
-    @Nonnull
-    protected T getNextResult(@Nonnull List<S> chosenStates) {
+    protected T getNextResult(List<S> chosenStates) {
         return chosenStates.get(0).getResult().get();
     }
 
@@ -78,7 +72,6 @@ abstract class UnionCursorBase<T, S extends MergeCursorState<T>> extends MergeCu
      * @return the strongest reason for stopping
      */
     @Override
-    @Nonnull
     protected NoNextReason mergeNoNextReasons() {
         return getStrongestNoNextReason(getCursorStates());
     }

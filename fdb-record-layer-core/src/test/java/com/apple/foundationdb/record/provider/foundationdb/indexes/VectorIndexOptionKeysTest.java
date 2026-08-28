@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.vector.TestRecordsVectorsProto;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.HashMap;
@@ -176,8 +175,7 @@ class VectorIndexOptionKeysTest {
         MetaDataEvolutionValidator.getDefaultInstance().validate(v1, v2);
     }
 
-    @Nonnull
-    private static RecordMetaData vectorMetaData(@Nonnull final String metricOptionName) {
+    private static RecordMetaData vectorMetaData(final String metricOptionName) {
         final RecordMetaDataBuilder builder =
                 RecordMetaData.newBuilder().setRecords(TestRecordsVectorsProto.getDescriptor());
         builder.getRecordType("VectorRecord").setPrimaryKey(concatenateFields("group_id", "rec_no"));

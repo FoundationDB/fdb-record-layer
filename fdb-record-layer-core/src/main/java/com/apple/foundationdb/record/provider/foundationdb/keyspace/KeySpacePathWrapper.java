@@ -27,8 +27,7 @@ import com.apple.foundationdb.record.ValueRange;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -95,14 +94,12 @@ public class KeySpacePathWrapper implements KeySpacePath {
     }
 
     @Override
-    @Nonnull
-    public KeySpacePath add(@Nonnull String dirName) {
+    public KeySpacePath add(String dirName) {
         return inner.add(dirName);
     }
 
     @Override
-    @Nonnull
-    public KeySpacePath add(@Nonnull String dirName, @Nullable Object value) {
+    public KeySpacePath add(String dirName, @Nullable Object value) {
         return inner.add(dirName, value);
     }
 
@@ -113,13 +110,11 @@ public class KeySpacePathWrapper implements KeySpacePath {
     }
 
     @Override
-    @Nonnull
     public String getDirectoryName() {
         return inner.getDirectoryName();
     }
 
     @Override
-    @Nonnull
     public KeySpaceDirectory getDirectory() {
         return inner.getDirectory();
     }
@@ -130,48 +125,41 @@ public class KeySpacePathWrapper implements KeySpacePath {
     }
 
     @Override
-    @Nonnull
-    public CompletableFuture<PathValue> resolveAsync(@Nonnull FDBRecordContext context) {
+    public CompletableFuture<PathValue> resolveAsync(FDBRecordContext context) {
         return inner.resolveAsync(context);
     }
 
     @Override
-    @Nonnull
-    public CompletableFuture<Tuple> toTupleAsync(@Nonnull FDBRecordContext context) {
+    public CompletableFuture<Tuple> toTupleAsync(FDBRecordContext context) {
         return inner.toTupleAsync(context);
     }
 
     @Override
-    @Nonnull
     public List<KeySpacePath> flatten() {
         return inner.flatten();
     }
 
     @Override
-    @Nonnull
-    public CompletableFuture<Boolean> hasDataAsync(@Nonnull FDBRecordContext context) {
+    public CompletableFuture<Boolean> hasDataAsync(FDBRecordContext context) {
         return inner.hasDataAsync(context);
     }
 
     @Override
-    @Nonnull
-    public CompletableFuture<Void> deleteAllDataAsync(@Nonnull FDBRecordContext context) {
+    public CompletableFuture<Void> deleteAllDataAsync(FDBRecordContext context) {
         return inner.deleteAllDataAsync(context);
     }
 
-    @Nonnull
     @Override
-    public RecordCursor<ResolvedKeySpacePath> listSubdirectoryAsync(@Nonnull FDBRecordContext context,
-                                                                    @Nonnull String subdirName,
+    public RecordCursor<ResolvedKeySpacePath> listSubdirectoryAsync(FDBRecordContext context,
+                                                                    String subdirName,
                                                                     @Nullable ValueRange<?> range,
                                                                     @Nullable byte[] continuation,
-                                                                    @Nonnull ScanProperties scanProperties) {
+                                                                    ScanProperties scanProperties) {
         return inner.listSubdirectoryAsync(context, subdirName, range, continuation, scanProperties);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(@Nonnull FDBRecordContext context) {
+    public CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(FDBRecordContext context) {
         return inner.toResolvedPathAsync(context);
     }
 
@@ -191,22 +179,20 @@ public class KeySpacePathWrapper implements KeySpacePath {
     }
 
     @Override
-    public String toString(@Nonnull Tuple t) {
+    public String toString(Tuple t) {
         return inner.toString(t);
     }
 
-    @Nonnull
     @Override
-    public RecordCursor<DataInKeySpacePath> exportAllData(@Nonnull FDBRecordContext context,
+    public RecordCursor<DataInKeySpacePath> exportAllData(FDBRecordContext context,
                                                           @Nullable byte[] continuation,
-                                                          @Nonnull ScanProperties scanProperties) {
+                                                          ScanProperties scanProperties) {
         return inner.exportAllData(context, continuation, scanProperties);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Void> importData(@Nonnull FDBRecordContext context,
-                                              @Nonnull Iterable<DataInKeySpacePath> dataToImport) {
+    public CompletableFuture<Void> importData(FDBRecordContext context,
+                                              Iterable<DataInKeySpacePath> dataToImport) {
         return inner.importData(context, dataToImport);
     }
 }

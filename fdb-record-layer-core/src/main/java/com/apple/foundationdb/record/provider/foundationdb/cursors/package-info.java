@@ -21,4 +21,7 @@
 /**
  * Record cursors that depend on having access to an actual record store.
  */
+@NullMarked
 package com.apple.foundationdb.record.provider.foundationdb.cursors;
+
+import org.jspecify.annotations.NullMarked;

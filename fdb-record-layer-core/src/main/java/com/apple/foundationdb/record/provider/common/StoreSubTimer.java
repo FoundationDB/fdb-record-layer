@@ -22,8 +22,7 @@ package com.apple.foundationdb.record.provider.common;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link StoreTimer} wrapping an underlying {@code StoreTimer} that accumulates the events
@@ -59,7 +58,7 @@ public class StoreSubTimer extends StoreTimer {
     }
 
     @Override
-    public void increment(@Nonnull final StoreTimer.Count event, int amount) {
+    public void increment(final StoreTimer.Count event, int amount) {
         if (underlying != null) {
             underlying.increment(event, amount);
         }

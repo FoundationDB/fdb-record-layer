@@ -84,7 +84,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -209,9 +208,9 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
     }
 
     // Need to explicitly construct QueryComponent because we're using an internal parameter
-    private QueryComponent rankComparisonFor(@Nonnull String fieldName,
-                                             @Nonnull Comparisons.Type type,
-                                             @Nonnull String rankParameter) {
+    private QueryComponent rankComparisonFor(String fieldName,
+                                             Comparisons.Type type,
+                                             String rankParameter) {
         return new FieldWithComparison(fieldName,
                 new Comparisons.ParameterComparison(type, rankParameter, Bindings.Internal.RANK));
     }

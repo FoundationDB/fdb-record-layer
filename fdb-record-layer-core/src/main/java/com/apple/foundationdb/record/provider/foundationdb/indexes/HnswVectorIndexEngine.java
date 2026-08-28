@@ -40,8 +40,7 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -72,19 +71,17 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
             VectorIndexOptionKeys.HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES,
             VectorIndexOptionKeys.HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER);
 
-    @Nonnull
     private final Config config;
 
-    HnswVectorIndexEngine(@Nonnull final Config config) {
+    HnswVectorIndexEngine(final Config config) {
         this.config = config;
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<List<? extends ResultEntry>> search(@Nonnull final FDBRecordContext context,
+    public CompletableFuture<List<? extends ResultEntry>> search(final FDBRecordContext context,
                                                                  final boolean snapshot,
-                                                                 @Nonnull final Subspace subspace,
-                                                                 @Nonnull final VectorIndexScanBounds scanBounds) {
+                                                                 final Subspace subspace,
+                                                                 final VectorIndexScanBounds scanBounds) {
         final HNSW hnsw = new HNSW(subspace, context.getExecutor(), config, OnWriteListener.NOOP,
                 OnRead.fromTimer(context.getTimer()));
         return hnsw.kNearestNeighborsSearch(context.readTransaction(snapshot), scanBounds.getAdjustedLimit(),
@@ -92,13 +89,12 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
                 Objects.requireNonNull(scanBounds.getQueryVector()));
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Void> insert(@Nonnull final FDBRecordContext context,
-                                          @Nonnull final Subspace subspace,
-                                          @Nonnull final Tuple primaryKey,
-                                          @Nonnull final RealVector vector,
-                                          @Nonnull final TaskEventRegister register,
+    public CompletableFuture<Void> insert(final FDBRecordContext context,
+                                          final Subspace subspace,
+                                          final Tuple primaryKey,
+                                          final RealVector vector,
+                                          final TaskEventRegister register,
                                           final boolean maintainInTransaction) {
         // Insert traverses the graph greedily from the entry point, so it reads many nodes; wire a real read listener
         // in addition to the write listener so that read work is instrumented too. HNSW does all its work inline, so it
@@ -110,13 +106,12 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
         return hnsw.insert(context.ensureActive(), primaryKey, vector, null);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Void> delete(@Nonnull final FDBRecordContext context,
-                                          @Nonnull final Subspace subspace,
-                                          @Nonnull final Tuple primaryKey,
-                                          @Nonnull final RealVector vector,
-                                          @Nonnull final TaskEventRegister register,
+    public CompletableFuture<Void> delete(final FDBRecordContext context,
+                                          final Subspace subspace,
+                                          final Tuple primaryKey,
+                                          final RealVector vector,
+                                          final TaskEventRegister register,
                                           final boolean maintainInTransaction) {
         // HNSW keys nodes on the primary key alone, so the vector is not needed to locate the node to delete. Delete
         // reads heavily to repair the graph around the removed node, so it also gets a real read listener. HNSW enqueues
@@ -141,12 +136,11 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
         return false;
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Integer> executeDeferredTasks(@Nonnull final FDBRecordContext context,
-                                                           @Nonnull final Subspace subspace,
+    public CompletableFuture<Integer> executeDeferredTasks(final FDBRecordContext context,
+                                                           final Subspace subspace,
                                                            final int numTasks,
-                                                           @Nonnull final TaskEventRegister register,
+                                                           final TaskEventRegister register,
                                                            final long deadlineMillis) {
         // HNSW does all its work inline during insert/delete, so it never enqueues deferred tasks. It tracks no task
         // counts (getTaskCounts() is null), so the maintainer never routes a merge here; being asked to is a
@@ -154,7 +148,7 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
         throw new RecordCoreException("the HNSW vector engine has no deferred tasks to execute");
     }
 
-    private int efSearch(@Nonnull final VectorIndexScanBounds scanBounds) {
+    private int efSearch(final VectorIndexScanBounds scanBounds) {
         final VectorIndexScanOptions scanOptions = scanBounds.getVectorIndexScanOptions();
         final Integer efSearchOptionValue = scanOptions.getOption(VectorIndexScanOptions.HNSW_EF_SEARCH);
         if (efSearchOptionValue != null) {
@@ -170,8 +164,7 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
      * @param index the index definition
      * @return the HNSW engine
      */
-    @Nonnull
-    static HnswVectorIndexEngine fromIndex(@Nonnull final Index index) {
+    static HnswVectorIndexEngine fromIndex(final Index index) {
         return new HnswVectorIndexEngine(parseConfig(index));
     }
 
@@ -183,8 +176,7 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
      * @param index the index definition
      * @return the parsed HNSW config
      */
-    @Nonnull
-    static Config parseConfig(@Nonnull final Index index) {
+    static Config parseConfig(final Index index) {
         final ConfigBuilder builder = HNSW.newConfigBuilder();
 
         builder.setMetric(VectorIndexOptionKeys.METRIC.read(index, Metric.EUCLIDEAN_METRIC));
@@ -224,8 +216,8 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
      * @param newIndex the post-change index
      * @param changedOptions the mutable set of changed option names; handled options are removed
      */
-    static void validateChangedOptions(@Nonnull final Index oldIndex, @Nonnull final Index newIndex,
-                                       @Nonnull final Set<String> changedOptions) {
+    static void validateChangedOptions(final Index oldIndex, final Index newIndex,
+                                       final Set<String> changedOptions) {
         final Config oldConfig = parseConfig(oldIndex);
         final Config newConfig = parseConfig(newIndex);
         final String name = newIndex.getName();
@@ -262,20 +254,19 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
      * Read listener that attributes HNSW node reads to the store timer.
      */
     static final class OnRead implements OnReadListener {
-        @Nonnull
         private final FDBStoreTimer timer;
 
-        OnRead(@Nonnull final FDBStoreTimer timer) {
+        OnRead(final FDBStoreTimer timer) {
             this.timer = timer;
         }
 
         @Override
-        public <N extends NodeReference, T extends Node<N>> CompletableFuture<T> onAsyncRead(@Nonnull CompletableFuture<T> future) {
+        public <N extends NodeReference, T extends Node<N>> CompletableFuture<T> onAsyncRead(CompletableFuture<T> future) {
             return timer.instrument(VectorIndexHelper.Events.VECTOR_SCAN, future);
         }
 
         @Override
-        public void onNodeRead(final int layer, @Nonnull final Node<? extends NodeReference> node) {
+        public void onNodeRead(final int layer, final Node<? extends NodeReference> node) {
             if (layer == 0) {
                 timer.increment(FDBStoreTimer.Counts.VECTOR_NODE0_READS);
             } else {
@@ -284,7 +275,7 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
         }
 
         @Override
-        public void onKeyValueRead(final int layer, @Nonnull final byte[] key, @Nullable final byte[] value) {
+        public void onKeyValueRead(final int layer, final byte[] key, @Nullable final byte[] value) {
             VectorIndexInstrumentation.recordKeyValueRead(timer, key, value);
 
             final int totalLength = key.length + (value == null ? 0 : value.length);
@@ -295,7 +286,6 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
             }
         }
 
-        @Nonnull
         private static OnReadListener fromTimer(@Nullable final FDBStoreTimer timer) {
             return timer == null ? OnReadListener.NOOP : new OnRead(timer);
         }
@@ -305,15 +295,14 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
      * Write listener that attributes HNSW node writes to the store timer.
      */
     static final class OnWrite implements OnWriteListener {
-        @Nonnull
         private final FDBStoreTimer timer;
 
-        OnWrite(@Nonnull final FDBStoreTimer timer) {
+        OnWrite(final FDBStoreTimer timer) {
             this.timer = timer;
         }
 
         @Override
-        public void onNodeWritten(final int layer, @Nonnull final Node<? extends NodeReference> node) {
+        public void onNodeWritten(final int layer, final Node<? extends NodeReference> node) {
             if (layer == 0) {
                 timer.increment(FDBStoreTimer.Counts.VECTOR_NODE0_WRITES);
             } else {
@@ -322,7 +311,7 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
         }
 
         @Override
-        public void onKeyValueWritten(final int layer, @Nonnull final byte[] key, @Nonnull final byte[] value) {
+        public void onKeyValueWritten(final int layer, final byte[] key, final byte[] value) {
             final int totalLength = key.length + value.length;
             VectorIndexInstrumentation.recordKeyValueWritten(timer, key, value);
 
@@ -333,7 +322,6 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
             }
         }
 
-        @Nonnull
         private static OnWriteListener fromTimer(@Nullable final FDBStoreTimer timer) {
             return timer == null ? OnWriteListener.NOOP : new OnWrite(timer);
         }

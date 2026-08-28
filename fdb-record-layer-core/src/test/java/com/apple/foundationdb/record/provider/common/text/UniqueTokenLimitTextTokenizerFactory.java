@@ -22,20 +22,16 @@ package com.apple.foundationdb.record.provider.common.text;
 
 import com.google.auto.service.AutoService;
 
-import javax.annotation.Nonnull;
-
 /**
  * A factory for {@link UniqueTokenLimitTextTokenizer}.
  */
 @AutoService(TextTokenizerFactory.class)
 public class UniqueTokenLimitTextTokenizerFactory implements TextTokenizerFactory {
-    @Nonnull
     @Override
     public String getName() {
         return UniqueTokenLimitTextTokenizer.NAME;
     }
 
-    @Nonnull
     @Override
     public UniqueTokenLimitTextTokenizer getTokenizer() {
         return UniqueTokenLimitTextTokenizer.instance();

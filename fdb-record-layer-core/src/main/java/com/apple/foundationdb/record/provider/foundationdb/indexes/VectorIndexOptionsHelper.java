@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -49,7 +48,7 @@ final class VectorIndexOptionsHelper {
      * @return the number of dimensions
      * @throws MetaDataException if the dimensions option is set under none of its names
      */
-    static int getNumDimensions(@Nonnull final Index index) {
+    static int getNumDimensions(final Index index) {
         final Integer numDimensions = VectorIndexOptionKeys.NUM_DIMENSIONS.read(index);
         if (numDimensions == null) {
             throw new MetaDataException("need to specify the number of dimensions",
@@ -67,8 +66,8 @@ final class VectorIndexOptionsHelper {
      * @param keys the option keys to check (each key's {@link VectorOptionKey#allNames() names} are inspected)
      * @throws MetaDataException if any key has more than one of its names set on the index
      */
-    static void validateNoAliasConflicts(@Nonnull final Index index,
-                                         @Nonnull final Iterable<VectorOptionKey<?>> keys) {
+    static void validateNoAliasConflicts(final Index index,
+                                         final Iterable<VectorOptionKey<?>> keys) {
         for (final VectorOptionKey<?> key : keys) {
             boolean seen = false;
             for (final String name : key.allNames()) {
@@ -93,24 +92,24 @@ final class VectorIndexOptionsHelper {
      * @param index the index definition
      * @param setter the sink for the value when present
      */
-    static void applyInteger(@Nonnull final VectorOptionKey<Integer> key, @Nonnull final Index index,
-                             @Nonnull final IntConsumer setter) {
+    static void applyInteger(final VectorOptionKey<Integer> key, final Index index,
+                             final IntConsumer setter) {
         final Integer value = key.read(index);
         if (value != null) {
             setter.accept(value);
         }
     }
 
-    static void applyDouble(@Nonnull final VectorOptionKey<Double> key, @Nonnull final Index index,
-                            @Nonnull final DoubleConsumer setter) {
+    static void applyDouble(final VectorOptionKey<Double> key, final Index index,
+                            final DoubleConsumer setter) {
         final Double value = key.read(index);
         if (value != null) {
             setter.accept(value);
         }
     }
 
-    static void applyBoolean(@Nonnull final VectorOptionKey<Boolean> key, @Nonnull final Index index,
-                             @Nonnull final Consumer<Boolean> setter) {
+    static void applyBoolean(final VectorOptionKey<Boolean> key, final Index index,
+                             final Consumer<Boolean> setter) {
         final Boolean value = key.read(index);
         if (value != null) {
             setter.accept(value);
@@ -134,9 +133,9 @@ final class VectorIndexOptionsHelper {
      * @param indexName the name of the index (for error reporting)
      * @param <T> the value type
      */
-    static <T> void disallowChange(@Nonnull final Set<String> changedOptions, @Nonnull final String optionName,
-                                   @Nonnull final T oldValue, @Nonnull final T newValue,
-                                   @Nonnull final String indexName) {
+    static <T> void disallowChange(final Set<String> changedOptions, final String optionName,
+                                   final T oldValue, final T newValue,
+                                   final String indexName) {
         if (changedOptions.contains(optionName)) {
             if (!Objects.equals(oldValue, newValue)) {
                 throw new MetaDataException("attempted to change immutable vector index option",
@@ -159,9 +158,9 @@ final class VectorIndexOptionsHelper {
      * @param indexName the name of the index (for error reporting)
      * @param <T> the value type
      */
-    static <T> void disallowChange(@Nonnull final Set<String> changedOptions, @Nonnull final VectorOptionKey<?> key,
-                                   @Nonnull final T oldValue, @Nonnull final T newValue,
-                                   @Nonnull final String indexName) {
+    static <T> void disallowChange(final Set<String> changedOptions, final VectorOptionKey<?> key,
+                                   final T oldValue, final T newValue,
+                                   final String indexName) {
         for (final String name : key.allNames()) {
             disallowChange(changedOptions, name, oldValue, newValue, indexName);
         }
@@ -174,7 +173,7 @@ final class VectorIndexOptionsHelper {
      * @param changedOptions the mutable set of changed option names
      * @param key the option to allow changing
      */
-    static void allowChange(@Nonnull final Set<String> changedOptions, @Nonnull final VectorOptionKey<?> key) {
+    static void allowChange(final Set<String> changedOptions, final VectorOptionKey<?> key) {
         for (final String name : key.allNames()) {
             changedOptions.remove(name);
         }
@@ -192,7 +191,7 @@ final class VectorIndexOptionsHelper {
      * @param useRaBitQ whether the engine's configuration uses RaBitQ quantization
      * @return whether the search should include vectors in its results
      */
-    static boolean returnVectors(@Nonnull final VectorIndexScanBounds scanBounds, final boolean useRaBitQ) {
+    static boolean returnVectors(final VectorIndexScanBounds scanBounds, final boolean useRaBitQ) {
         final VectorIndexScanOptions scanOptions = scanBounds.getVectorIndexScanOptions();
         final Boolean returnVectorsValue = scanOptions.getOption(VectorIndexScanOptions.VECTOR_RETURN_VECTORS);
         if (returnVectorsValue != null) {

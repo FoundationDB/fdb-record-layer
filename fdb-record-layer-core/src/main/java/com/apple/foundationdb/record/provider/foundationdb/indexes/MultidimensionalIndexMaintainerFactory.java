@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactor
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.google.auto.service.AutoService;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Set;
@@ -54,17 +53,15 @@ public class MultidimensionalIndexMaintainerFactory implements IndexMaintainerFa
     private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(false);
 
     @Override
-    @Nonnull
     public Iterable<String> getIndexTypes() {
         return Arrays.asList(TYPES);
     }
 
     @Override
-    @Nonnull
     public IndexValidator getIndexValidator(Index index) {
         return new IndexValidator(index) {
             @Override
-            public void validate(@Nonnull MetaDataValidator metaDataValidator) {
+            public void validate(MetaDataValidator metaDataValidator) {
                 super.validate(metaDataValidator);
                 validateNotGrouping();
                 validateNotVersion();
@@ -129,7 +126,7 @@ public class MultidimensionalIndexMaintainerFactory implements IndexMaintainerFa
                 }
             }
 
-            private void validateDimensions(@Nonnull final DimensionsKeyExpression dimensionsKeyExpression) {
+            private void validateDimensions(final DimensionsKeyExpression dimensionsKeyExpression) {
                 if (dimensionsKeyExpression.getPrefixSize() + dimensionsKeyExpression.getDimensionsSize() >
                         dimensionsKeyExpression.getColumnSize()) {
                     throw new KeyExpression.InvalidExpressionException(
@@ -141,7 +138,7 @@ public class MultidimensionalIndexMaintainerFactory implements IndexMaintainerFa
             }
 
             @Override
-            public void validateChangedOptions(@Nonnull Index oldIndex, @Nonnull Set<String> changedOptions) {
+            public void validateChangedOptions(Index oldIndex, Set<String> changedOptions) {
                 if (!changedOptions.isEmpty()) {
                     // Allow changing from unspecified to the default (or vice versa), but not otherwise.
                     final RTree.Config oldOptions = MultiDimensionalIndexHelper.getConfig(oldIndex);
@@ -195,14 +192,12 @@ public class MultidimensionalIndexMaintainerFactory implements IndexMaintainerFa
     }
 
     @Override
-    @Nonnull
-    public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
+    public IndexMaintainer getIndexMaintainer(final IndexMaintainerState state) {
         return new MultidimensionalIndexMaintainer(state);
     }
 
-    @Nonnull
     @Override
-    public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
+    public IndexGeneralAttributes getIndexGeneralAttributes(final Index index) {
         return GENERAL_ATTRIBUTES;
     }
 }

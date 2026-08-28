@@ -30,7 +30,6 @@ import com.google.common.hash.Funnel;
 import com.google.common.hash.PrimitiveSink;
 import com.google.protobuf.ByteString;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -58,16 +57,14 @@ import java.util.function.Function;
  * @param <T> the type of elements returned by the wrapping cursor
  */
 class ProbableIntersectionCursorState<T> extends KeyedMergeCursorState<T> {
-    @Nonnull
     private final BloomFilter<List<Object>> bloomFilter;
-    @Nonnull
     private final Set<List<Object>> seenSet;
     private final boolean firstIteration;
 
-    private ProbableIntersectionCursorState(@Nonnull RecordCursor<T> cursor, @Nonnull BloomFilterCursorContinuation continuation,
-                                    @Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction,
-                                    @Nonnull BloomFilter<List<Object>> bloomFilter,
-                                    @Nonnull Set<List<Object>> seenSet, boolean firstIteration) {
+    private ProbableIntersectionCursorState(RecordCursor<T> cursor, BloomFilterCursorContinuation continuation,
+                                    Function<? super T, ? extends List<Object>> comparisonKeyFunction,
+                                    BloomFilter<List<Object>> bloomFilter,
+                                    Set<List<Object>> seenSet, boolean firstIteration) {
         super(cursor, continuation.getChild(), comparisonKeyFunction);
         this.bloomFilter = bloomFilter;
         this.seenSet = seenSet;
@@ -83,7 +80,6 @@ class ProbableIntersectionCursorState<T> extends KeyedMergeCursorState<T> {
     }
 
     @Override
-    @Nonnull
     public BloomFilterCursorContinuation getContinuation() {
         try (ByteString.Output bloomOutput = ByteString.newOutput()) {
             bloomFilter.writeTo(bloomOutput);
@@ -107,7 +103,7 @@ class ProbableIntersectionCursorState<T> extends KeyedMergeCursorState<T> {
      * @param otherComparisonKey comparison key from another cursor
      * @return whether this key might have seen that comparison key before
      */
-    boolean mightContain(@Nonnull List<Object> otherComparisonKey) {
+    boolean mightContain(List<Object> otherComparisonKey) {
         // If the comparison key is in this state's list of seen elements, then
         // it is definitely contained. If this is the first iteration (i.e., this
         // cursor has not been resumed after a continuation), then it might be
@@ -156,11 +152,10 @@ class ProbableIntersectionCursorState<T> extends KeyedMergeCursorState<T> {
         }
     }
 
-    @Nonnull
     static <T> ProbableIntersectionCursorState<T> from(
-            @Nonnull Function<byte[], RecordCursor<T>> cursorFunction,
-            @Nonnull BloomFilterCursorContinuation continuation,
-            @Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction,
+            Function<byte[], RecordCursor<T>> cursorFunction,
+            BloomFilterCursorContinuation continuation,
+            Function<? super T, ? extends List<Object>> comparisonKeyFunction,
             long expectedInsertions, double falsePositiveRate) {
         BloomFilter<List<Object>> bloomFilter;
         if (continuation.getBloomBytes() == null) {

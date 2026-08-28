@@ -27,7 +27,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Utility methods for transforming {@link DataInKeySpacePath} entries during export/import operations.
@@ -49,8 +49,7 @@ public final class DataInKeySpacePathUtil {
      * @throws InvalidProtocolBufferException if the value of a store info entry cannot be parsed as a
      *         {@link RecordMetaDataProto.DataStoreInfo}
      */
-    @Nonnull
-    public static DataInKeySpacePath bumpIncarnationIfStoreInfo(@Nonnull DataInKeySpacePath dataInKeySpacePath)
+    public static DataInKeySpacePath bumpIncarnationIfStoreInfo(DataInKeySpacePath dataInKeySpacePath)
             throws InvalidProtocolBufferException {
         if (!isStoreInfoRemainder(dataInKeySpacePath.getRemainder())) {
             return dataInKeySpacePath;
@@ -83,7 +82,7 @@ public final class DataInKeySpacePathUtil {
                 updatedStoreInfo.toByteString());
     }
 
-    private static boolean isStoreInfoRemainder(@javax.annotation.Nullable Tuple remainder) {
+    private static boolean isStoreInfoRemainder(@Nullable Tuple remainder) {
         if (remainder == null || remainder.size() != 1) {
             return false;
         }

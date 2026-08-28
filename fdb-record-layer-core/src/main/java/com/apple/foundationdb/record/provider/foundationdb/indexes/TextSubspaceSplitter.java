@@ -25,31 +25,29 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 // A (package private) implementation of the SubspaceSplitter interface that is
 // used by the text index. This will group the subspace by the number of grouping
 // columns to provided the tuple to prefix elements of an index scan with.
 class TextSubspaceSplitter implements SubspaceSplitter<Tuple> {
-    @Nonnull private final Subspace indexSubspace;
+    private final Subspace indexSubspace;
     private final int groupingColumns;
 
-    public TextSubspaceSplitter(@Nonnull Subspace indexSubspace, int groupingColumns) {
+    public TextSubspaceSplitter(Subspace indexSubspace, int groupingColumns) {
         this.indexSubspace = indexSubspace;
         this.groupingColumns = groupingColumns;
     }
 
-    @Nonnull
     @Override
-    public Subspace subspaceOf(@Nonnull byte[] keyBytes) {
+    public Subspace subspaceOf(byte[] keyBytes) {
         Tuple t = indexSubspace.unpack(keyBytes);
         return indexSubspace.subspace(TupleHelpers.subTuple(t, 0, groupingColumns));
     }
 
     @Nullable
     @Override
-    public Tuple subspaceTag(@Nonnull Subspace subspace) {
+    public Tuple subspaceTag(Subspace subspace) {
         return indexSubspace.unpack(subspace.getKey());
     }
 }
