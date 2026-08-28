@@ -18,6 +18,10 @@
  * limitations under the License.
  */
 
+plugins {
+    alias(libs.plugins.errorprone)
+}
+
 apply from: rootProject.file('gradle/publishing.gradle')
 
 dependencies {
@@ -28,7 +32,23 @@ dependencies {
     // barring that, we can exclude it as a transitive dependency when importing
     implementation(libs.javaPoet)
     compileOnly(libs.autoService)
+    compileOnly(libs.jspecify)
     annotationProcessor(libs.autoService)
+
+    errorprone(libs.errorprone.core)
+    errorprone(libs.nullaway)
+}
+
+// jspecify + NullAway, scoped to this module only. See @NullMarked package-info.java in
+// com.apple.foundationdb.annotation.
+tasks.withType(JavaCompile).configureEach {
+    options.errorprone {
+        disableAllChecks = true
+        error("NullAway")
+        option("NullAway:AnnotatedPackages", "com.apple.foundationdb.annotation")
+        option("NullAway:JSpecifyMode", "true")
+        option("NullAway:AcknowledgeRestrictiveAnnotations", "true")
+    }
 }
 
 publishing {
