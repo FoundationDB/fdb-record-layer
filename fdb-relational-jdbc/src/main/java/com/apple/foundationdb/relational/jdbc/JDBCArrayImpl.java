@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.jdbc;
 
 import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
 
-import javax.annotation.Nonnull;
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -37,10 +36,9 @@ import java.util.Map;
  * {@link RelationalArrayFacade#getArray()} returns a type other than a Java array).
  */
 public class JDBCArrayImpl implements Array {
-    @Nonnull
     private final com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array underlying;
 
-    public JDBCArrayImpl(@Nonnull final com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array underlying) {
+    public JDBCArrayImpl(final com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array underlying) {
         this.underlying = underlying;
     }
 
@@ -102,7 +100,6 @@ public class JDBCArrayImpl implements Array {
      * Package protected getter.
      * @return the underlying protobuf struct
      */
-    @Nonnull
     com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array getUnderlying() {
         return underlying;
     }

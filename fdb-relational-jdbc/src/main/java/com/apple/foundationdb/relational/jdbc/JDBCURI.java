@@ -22,7 +22,8 @@ package com.apple.foundationdb.relational.jdbc;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
+
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URLDecoder;
@@ -63,6 +64,7 @@ public final class JDBCURI {
      * @param map Map to search.
      * @return First value in values list or null if no values found.
      */
+    @Nullable
     public static String getFirstValue(String key, Map<String, List<String>> map) {
         List<String> values = map.get(key);
         return values == null ? null : values.get(0);
@@ -74,7 +76,6 @@ public final class JDBCURI {
      * @param  uri JDBC Connect URL.
      * @return Map of lists of query string parameters keyed by query parameter name.
      */
-    @Nonnull
     public static Map<String, List<String>> splitQuery(URI uri) {
         final Map<String, List<String>> params = new LinkedHashMap<>();
         if (uri.getQuery() == null || uri.getQuery().length() <= 0) {

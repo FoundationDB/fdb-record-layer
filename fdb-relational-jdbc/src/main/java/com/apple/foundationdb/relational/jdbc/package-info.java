@@ -58,7 +58,10 @@
  * phenomenon as we learn of the type of exceptions we'll be seeing. We've installed an interceptor for the JDBCService
  * to catch unhandled SQLExceptions and which we can enhance as we learn more about the types of problems we'll see.
  */
+@NullMarked
 package com.apple.foundationdb.relational.jdbc;
+
+import org.jspecify.annotations.NullMarked;
 
 // Names in this package are overwrought; we are in the relational.jdbc package yet names have a JDBCRelational prefix.
 // Ideally, the JDBCRelationalDriver class (com.apple.foundationdb.relational.jdbc.JDBCRelationalDriver) would be known as

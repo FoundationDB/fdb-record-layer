@@ -26,7 +26,8 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.Parameter;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
+
 import java.sql.Array;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -53,7 +54,7 @@ class JDBCRelationalPreparedStatement implements RelationalPreparedStatement {
 
     private final String sql;
 
-    JDBCRelationalPreparedStatement(@Nonnull String sql, @Nonnull final JDBCRelationalConnection connection) throws SQLException {
+    JDBCRelationalPreparedStatement(String sql, final JDBCRelationalConnection connection) throws SQLException {
         this.statement = new JDBCRelationalStatement(connection);
         this.sql = sql;
     }
@@ -238,6 +239,7 @@ class JDBCRelationalPreparedStatement implements RelationalPreparedStatement {
     }
 
     @Override
+    @Nullable
     public SQLWarning getWarnings() throws SQLException {
         return this.statement.getWarnings();
     }
