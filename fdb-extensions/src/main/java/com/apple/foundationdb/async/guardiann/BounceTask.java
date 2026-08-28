@@ -36,8 +36,7 @@ import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
@@ -68,33 +67,27 @@ import java.util.concurrent.Executor;
  * remain, the bounce enqueues its follow-up work (see {@link #enqueueFollowUpTasks}).
  */
 class BounceTask extends AbstractDeferredTask {
-    @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(BounceTask.class);
 
-    @Nonnull
     private final Set<UUID> dependentTaskIds;
-    @Nonnull
     private final TaskKind finalTaskKind;
 
-    private BounceTask(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
-                       @Nonnull final UUID taskId, @Nonnull final Set<UUID> targetClusterIds,
-                       @Nonnull final Set<UUID> dependentTaskIds, @Nonnull final TaskKind finalTaskKind) {
+    private BounceTask(final Locator locator, final AccessInfo accessInfo,
+                       final UUID taskId, final Set<UUID> targetClusterIds,
+                       final Set<UUID> dependentTaskIds, final TaskKind finalTaskKind) {
         super(locator, accessInfo, taskId, targetClusterIds);
         this.dependentTaskIds = ImmutableSet.copyOf(dependentTaskIds);
         this.finalTaskKind = finalTaskKind;
     }
 
-    @Nonnull
     Set<UUID> getDependentTaskIds() {
         return dependentTaskIds;
     }
 
-    @Nonnull
     TaskKind getFinalTaskKind() {
         return finalTaskKind;
     }
 
-    @Nonnull
     @Override
     public Tuple valueTuple() {
         return Tuple.from(getKind().getCode(), StorageAdapter.tupleFromClusterIds(getTargetClusterIds()),
@@ -102,7 +95,7 @@ class BounceTask extends AbstractDeferredTask {
     }
 
     @Override
-    protected void writeDeferredTask(@Nonnull final Transaction transaction) {
+    protected void writeDeferredTask(final Transaction transaction) {
         super.writeDeferredTask(transaction);
         if (logger.isDebugEnabled()) {
             logger.debug("enqueuing BOUNCE; taskId={}; targetClusterIds={}; newDependentTaskIds={}",
@@ -110,15 +103,13 @@ class BounceTask extends AbstractDeferredTask {
         }
     }
 
-    @Nonnull
     @Override
     public TaskKind getKind() {
         return TaskKind.BOUNCE;
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Void> runTask(@Nonnull final Transaction transaction) {
+    public CompletableFuture<Void> runTask(final Transaction transaction) {
         logStart(logger);
         final SplittableRandom splittableRandom = RandomHelpers.random(getTaskId());
 
@@ -216,9 +207,8 @@ class BounceTask extends AbstractDeferredTask {
      * @return a future that completes once the follow-up tasks have been enqueued
      */
     @SuppressWarnings("checkstyle:Indentation")
-    @Nonnull
-    private CompletableFuture<Void> enqueueFollowUpTasks(@Nonnull final Transaction transaction,
-                                                         @Nonnull final SplittableRandom random) {
+    private CompletableFuture<Void> enqueueFollowUpTasks(final Transaction transaction,
+                                                         final SplittableRandom random) {
         final Primitives primitives = getLocator().primitives();
         final Executor executor = getLocator().getExecutor();
         final HNSW centroidsHnsw = primitives.getClusterCentroidsHnsw();
@@ -262,12 +252,12 @@ class BounceTask extends AbstractDeferredTask {
      * @param resultEntry the cluster's centroid entry fetched from the centroid HNSW, or {@code null} if it is gone
      * @param targetClusterMetadata the cluster's current metadata
      */
-    private void enqueueFollowUpTaskForCluster(@Nonnull final Transaction transaction,
-                                               @Nonnull final UUID targetClusterId,
-                                               @Nonnull final SplittableRandom random,
-                                               @Nonnull final StorageTransform storageTransform,
+    private void enqueueFollowUpTaskForCluster(final Transaction transaction,
+                                               final UUID targetClusterId,
+                                               final SplittableRandom random,
+                                               final StorageTransform storageTransform,
                                                @Nullable final ResultEntry resultEntry,
-                                               @Nonnull final ClusterMetadata targetClusterMetadata) {
+                                               final ClusterMetadata targetClusterMetadata) {
         if (resultEntry == null) {
             // Centroid gone: the target cluster was deleted before this bounce ran its follow-up (see javadoc).
             if (logger.isDebugEnabled()) {
@@ -312,9 +302,8 @@ class BounceTask extends AbstractDeferredTask {
         }
     }
 
-    @Nonnull
-    static BounceTask fromTuples(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
-                                 @Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple) {
+    static BounceTask fromTuples(final Locator locator, final AccessInfo accessInfo,
+                                 final Tuple keyTuple, final Tuple valueTuple) {
         Verify.verify(TaskKind.fromValueTuple(valueTuple) == TaskKind.BOUNCE);
 
         final Set<UUID> targetClusterIds = StorageAdapter.clusterIdsFromTuple(valueTuple.getNestedTuple(1));
@@ -324,10 +313,9 @@ class BounceTask extends AbstractDeferredTask {
                 targetClusterIds, dependentTaskIds, finalTaskKind);
     }
 
-    @Nonnull
-    static BounceTask of(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
-                         @Nonnull final UUID taskId, @Nonnull final Set<UUID> targetClusterIds,
-                         @Nonnull final Set<UUID> dependentTaskIds, @Nonnull final TaskKind finalTaskKind) {
+    static BounceTask of(final Locator locator, final AccessInfo accessInfo,
+                         final UUID taskId, final Set<UUID> targetClusterIds,
+                         final Set<UUID> dependentTaskIds, final TaskKind finalTaskKind) {
         return new BounceTask(locator, accessInfo, taskId, targetClusterIds, dependentTaskIds, finalTaskKind);
     }
 }

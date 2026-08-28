@@ -28,7 +28,6 @@ import com.google.common.collect.Iterables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -45,13 +44,10 @@ import java.util.function.Predicate;
  * @param <N> the type of the node reference, which must extend {@link NodeReference}
  */
 class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChangeSet<N> {
-    @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(InsertNeighborsChangeSet.class);
 
-    @Nonnull
     private final NeighborsChangeSet<N> parent;
 
-    @Nonnull
     private final Map<Tuple, N> insertedNeighborsMap;
 
     /**
@@ -64,8 +60,8 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
      * @param parent the parent {@link NeighborsChangeSet} on which this insertion is based.
      * @param insertedNeighbors the list of neighbors to be inserted.
      */
-    public InsertNeighborsChangeSet(@Nonnull final NeighborsChangeSet<N> parent,
-                                    @Nonnull final List<N> insertedNeighbors) {
+    public InsertNeighborsChangeSet(final NeighborsChangeSet<N> parent,
+                                    final List<N> insertedNeighbors) {
         this.parent = parent;
         final ImmutableMap.Builder<Tuple, N> insertedNeighborsMapBuilder = ImmutableMap.builder();
         for (final N insertedNeighbor : insertedNeighbors) {
@@ -79,7 +75,6 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
      * Gets the parent {@code NeighborsChangeSet} from which this change set was derived.
      * @return the parent {@link NeighborsChangeSet}, which is never {@code null}.
      */
-    @Nonnull
     @Override
     public NeighborsChangeSet<N> getParent() {
         return parent;
@@ -98,7 +93,6 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
      * set of neighbors from this node and all its ancestors.
      * @return a non-null {@code Iterable} containing all neighbors from this node and its ancestors.
      */
-    @Nonnull
     @Override
     public Iterable<N> merge() {
         return Iterables.concat(Iterables.filter(getParent().merge(),
@@ -121,9 +115,9 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
      * @param tuplePredicate a predicate to filter which neighbor tuples should be written; must not be null
      */
     @Override
-    public void writeDelta(@Nonnull final InliningStorageAdapter storageAdapter, @Nonnull final Transaction transaction,
-                           @Nonnull final Quantizer quantizer, final int layer, @Nonnull final AbstractNode<N> node,
-                           @Nonnull final Predicate<Tuple> tuplePredicate) {
+    public void writeDelta(final InliningStorageAdapter storageAdapter, final Transaction transaction,
+                           final Quantizer quantizer, final int layer, final AbstractNode<N> node,
+                           final Predicate<Tuple> tuplePredicate) {
         getParent().writeDelta(storageAdapter, transaction, quantizer, layer, node,
                 tuplePredicate.and(tuple -> !insertedNeighborsMap.containsKey(tuple)));
 

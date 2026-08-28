@@ -23,7 +23,6 @@ package com.apple.foundationdb.async.rtree;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 
-import javax.annotation.Nonnull;
 import java.math.BigInteger;
 
 /**
@@ -31,8 +30,8 @@ import java.math.BigInteger;
  * is refined in the subclasses {@link ItemSlot} and {@link ChildSlot}.
  */
 public interface NodeSlot {
-    static int compareHilbertValueKeyPair(@Nonnull final BigInteger hilbertValue1, @Nonnull final Tuple key1,
-                                          @Nonnull final BigInteger hilbertValue2, @Nonnull final Tuple key2) {
+    static int compareHilbertValueKeyPair(final BigInteger hilbertValue1, final Tuple key1,
+                                          final BigInteger hilbertValue2, final Tuple key2) {
         final int hilbertValueCompare = hilbertValue1.compareTo(hilbertValue2);
         if (hilbertValueCompare != 0) {
             return hilbertValueCompare;
@@ -40,24 +39,18 @@ public interface NodeSlot {
         return TupleHelpers.compare(key1, key2);
     }
 
-    @Nonnull
     BigInteger getSmallestHilbertValue();
 
-    @Nonnull
     BigInteger getLargestHilbertValue();
 
-    @Nonnull
     Tuple getSmallestKey();
 
-    @Nonnull
     default Tuple getSmallestKeySuffix() {
         return getSmallestKey().getNestedTuple(1);
     }
 
-    @Nonnull
     Tuple getLargestKey();
 
-    @Nonnull
     default Tuple getLargestKeySuffix() {
         return getLargestKey().getNestedTuple(1);
     }
@@ -70,7 +63,6 @@ public interface NodeSlot {
      *
      * @return a new tuple
      */
-    @Nonnull
     Tuple getSlotKey(boolean storeHilbertValues);
 
     /**
@@ -79,7 +71,6 @@ public interface NodeSlot {
      *
      * @return a new tuple
      */
-    @Nonnull
     Tuple getSlotValue();
 
     /**
@@ -91,8 +82,8 @@ public interface NodeSlot {
      *
      * @return {@code -1, 0, 1} if this node slot's pair is less/equal/greater than the pair passed in
      */
-    default int compareSmallestHilbertValueAndKey(@Nonnull final BigInteger hilbertValue,
-                                                  @Nonnull final Tuple key) {
+    default int compareSmallestHilbertValueAndKey(final BigInteger hilbertValue,
+                                                  final Tuple key) {
         return compareHilbertValueKeyPair(getSmallestHilbertValue(), getSmallestKey(), hilbertValue, key);
     }
 
@@ -105,8 +96,8 @@ public interface NodeSlot {
      *
      * @return {@code -1, 0, 1} if this node slot's pair is less/equal/greater than the pair passed in
      */
-    default int compareLargestHilbertValueAndKey(@Nonnull final BigInteger hilbertValue,
-                                                 @Nonnull final Tuple key) {
+    default int compareLargestHilbertValueAndKey(final BigInteger hilbertValue,
+                                                 final Tuple key) {
         return compareHilbertValueKeyPair(getLargestHilbertValue(), getLargestKey(), hilbertValue, key);
     }
 }

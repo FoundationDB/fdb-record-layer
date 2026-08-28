@@ -22,7 +22,6 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.ReadTransaction;
 
-import javax.annotation.Nonnull;
 
 /**
  * A coarse classification of how many nodes live on a layer of the graph. It is deliberately coarse — only the
@@ -47,7 +46,6 @@ public enum Cardinality {
      *
      * @return the matching {@link Cardinality}
      */
-    @Nonnull
     static Cardinality fromCount(final int count) {
         if (count <= 0) {
             return EMPTY;

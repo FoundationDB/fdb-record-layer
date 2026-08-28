@@ -23,7 +23,6 @@ package com.apple.foundationdb.async.guardiann;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -46,12 +45,12 @@ import java.util.UUID;
  * @param references every vector reference stored in the cluster (primaries, replicas and collapsed), retaining
  *        each reference's flags and stored {@code replicationPriority}
  */
-record ClusterView(@Nonnull UUID clusterId,
-                   @Nonnull RealVector centroid,
-                   @Nonnull Transformed<RealVector> transformedCentroid,
-                   @Nonnull ClusterMetadata metadata,
-                   @Nonnull Set<VectorId> primaries,
-                   @Nonnull Set<VectorId> replicas,
-                   @Nonnull Set<VectorId> collapsedRefs,
-                   @Nonnull List<VectorReference> references) {
+record ClusterView(UUID clusterId,
+                   RealVector centroid,
+                   Transformed<RealVector> transformedCentroid,
+                   ClusterMetadata metadata,
+                   Set<VectorId> primaries,
+                   Set<VectorId> replicas,
+                   Set<VectorId> collapsedRefs,
+                   List<VectorReference> references) {
 }

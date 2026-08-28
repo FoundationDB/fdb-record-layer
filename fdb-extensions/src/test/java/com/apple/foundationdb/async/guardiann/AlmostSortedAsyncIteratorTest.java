@@ -28,8 +28,7 @@ import com.apple.foundationdb.test.TestExecutors;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -120,15 +119,13 @@ class AlmostSortedAsyncIteratorTest {
 
     // ------------------------------------------------------------------------------------------------------------
 
-    @Nonnull
-    private static AlmostSortedAsyncIterator<Integer> almostSorted(@Nonnull final List<Integer> input,
+    private static AlmostSortedAsyncIterator<Integer> almostSorted(final List<Integer> input,
                                                                    final int maxQueueSize) {
         return new AlmostSortedAsyncIterator<>(new NonAsyncIterator<>(input.iterator()),
                 Comparator.naturalOrder(), maxQueueSize, EXECUTOR);
     }
 
-    @Nonnull
-    private static <T> List<T> drain(@Nonnull final AsyncIterator<T> iterator) {
+    private static <T> List<T> drain(final AsyncIterator<T> iterator) {
         final List<T> result = new ArrayList<>();
         while (iterator.onHasNext().join()) {
             result.add(iterator.next());
@@ -138,12 +135,11 @@ class AlmostSortedAsyncIteratorTest {
 
     /** A closeable {@link AsyncIterator} over a list that records whether it was closed or cancelled. */
     private static final class RecordingCloseableIterator<T> implements CloseableAsyncIterator<T> {
-        @Nonnull
         private final Iterator<T> underlying;
         boolean closed;
         boolean cancelled;
 
-        RecordingCloseableIterator(@Nonnull final List<T> items) {
+        RecordingCloseableIterator(final List<T> items) {
             this.underlying = items.iterator();
         }
 
@@ -178,12 +174,11 @@ class AlmostSortedAsyncIteratorTest {
      * caches the pending answer until {@link #next()} consumes it (as a real async iterator does).
      */
     private static final class DelayingAsyncIterator<T> implements AsyncIterator<T> {
-        @Nonnull
         private final Iterator<T> underlying;
         @Nullable
         private CompletableFuture<Boolean> pending;
 
-        DelayingAsyncIterator(@Nonnull final List<T> items) {
+        DelayingAsyncIterator(final List<T> items) {
             this.underlying = items.iterator();
         }
 

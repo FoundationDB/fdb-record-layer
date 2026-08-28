@@ -22,7 +22,6 @@ package com.apple.foundationdb.async;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
 import java.util.NoSuchElementException;
 
 /**
@@ -69,7 +68,7 @@ public interface AsyncPeekIterator<T> extends AsyncIterator<T> {
      * @return an scan over the same values as <code>scan</code> that
      *         supports peek semantics
      */
-    static <T> AsyncPeekIterator<T> wrap(@Nonnull AsyncIterator<T> iterator) {
+    static <T> AsyncPeekIterator<T> wrap(AsyncIterator<T> iterator) {
         if (iterator instanceof AsyncPeekIterator) {
             // Don't actually wrap the iterator if it is already
             // a peek iterator.

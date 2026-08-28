@@ -24,8 +24,7 @@ import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.util.Lens;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.UUID;
 
@@ -37,17 +36,16 @@ import java.util.UUID;
  * @param clusterId the id of the referenced cluster
  * @param centroid the transformed centroid of the referenced cluster
  */
-record ClusterReference(@Nonnull UUID clusterId, @Nonnull Transformed<RealVector> centroid) {
+record ClusterReference(UUID clusterId, Transformed<RealVector> centroid) {
 
     static final Lens<ClusterMetadataWithDistance, ClusterReference> FROM_CLUSTER_METADATA_AND_DISTANCE =
             new Lens<>() {
                 @Override
-                public ClusterReference get(@Nonnull final ClusterMetadataWithDistance clusterMetadataWithDistance) {
+                public ClusterReference get(final ClusterMetadataWithDistance clusterMetadataWithDistance) {
                     return new ClusterReference(clusterMetadataWithDistance.clusterMetadata().id(),
                             clusterMetadataWithDistance.centroid());
                 }
 
-                @Nonnull
                 @Override
                 public ClusterMetadataWithDistance set(@Nullable final ClusterMetadataWithDistance clusterMetadataWithDistance,
                                                        @Nullable final ClusterReference clusterReference) {
@@ -64,8 +62,7 @@ record ClusterReference(@Nonnull UUID clusterId, @Nonnull Transformed<RealVector
      *
      * @return the projected references, one per input, in the same order
      */
-    @Nonnull
-    static List<ClusterReference> fromClusterMetadataAndDistances(@Nonnull List<ClusterMetadataWithDistance> clusterMetadataWithDistances) {
+    static List<ClusterReference> fromClusterMetadataAndDistances(List<ClusterMetadataWithDistance> clusterMetadataWithDistances) {
         return Lens.extract(FROM_CLUSTER_METADATA_AND_DISTANCE, clusterMetadataWithDistances);
     }
 }

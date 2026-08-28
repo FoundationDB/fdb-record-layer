@@ -23,7 +23,6 @@ package com.apple.foundationdb.async.guardiann;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 
-import javax.annotation.Nonnull;
 
 /**
  * A {@link ClusterMetadata} paired with its centroid and the distance from a reference point (typically the query
@@ -34,10 +33,9 @@ import javax.annotation.Nonnull;
  * @param centroid the transformed centroid of the cluster
  * @param distance the distance from the reference point to {@code centroid}
  */
-record ClusterMetadataWithDistance(@Nonnull ClusterMetadata clusterMetadata,
-                                   @Nonnull Transformed<RealVector> centroid,
+record ClusterMetadataWithDistance(ClusterMetadata clusterMetadata,
+                                   Transformed<RealVector> centroid,
                                    double distance) {
-    @Nonnull
     public ClusterMetadataWithDistance withNewDistance(final double newDistance) {
         return new ClusterMetadataWithDistance(clusterMetadata(), centroid(), newDistance);
     }

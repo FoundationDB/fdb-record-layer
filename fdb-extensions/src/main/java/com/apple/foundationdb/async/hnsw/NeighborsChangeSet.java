@@ -24,8 +24,7 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.function.Predicate;
 
 /**
@@ -65,7 +64,6 @@ interface NeighborsChangeSet<N extends NodeReference> {
      *
      * @return a non-null {@code Iterable} containing the merged sequence of elements.
      */
-    @Nonnull
     Iterable<N> merge();
 
     /**
@@ -83,7 +81,7 @@ interface NeighborsChangeSet<N extends NodeReference> {
      * @param primaryKeyPredicate a predicate to filter records by their primary key. Only records
      *        for which the predicate returns {@code true} will be written. Must not be null.
      */
-    void writeDelta(@Nonnull InliningStorageAdapter storageAdapter, @Nonnull Transaction transaction,
-                    @Nonnull Quantizer quantizer, int layer, @Nonnull AbstractNode<N> node,
-                    @Nonnull Predicate<Tuple /* primary key */> primaryKeyPredicate);
+    void writeDelta(InliningStorageAdapter storageAdapter, Transaction transaction,
+                    Quantizer quantizer, int layer, AbstractNode<N> node,
+                    Predicate<Tuple /* primary key */> primaryKeyPredicate);
 }

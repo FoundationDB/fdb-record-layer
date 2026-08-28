@@ -41,7 +41,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -91,19 +90,16 @@ public class DeleteReplicationPersistenceTest implements BaseTest {
 
     private static Database db;
 
-    @Nonnull
     @Override
     public Database getDb() {
         return Objects.requireNonNull(db);
     }
 
-    @Nonnull
     @Override
     public Subspace getSubspace() {
         return subspaceExtension.getSubspace();
     }
 
-    @Nonnull
     @Override
     public Path getTempDir() {
         return tempDir;
@@ -114,7 +110,6 @@ public class DeleteReplicationPersistenceTest implements BaseTest {
         db = dbExtension.getDatabase();
     }
 
-    @Nonnull
     private static Stream<Long> seeds() {
         return RandomizedTestUtils.randomSeeds(0xC0FFEEL, 0xDEADBEEFL, 0x5EED1234L);
     }
@@ -208,7 +203,6 @@ public class DeleteReplicationPersistenceTest implements BaseTest {
         GuardiannStructureAsserts.assertGuardiannInvariantsAfterDeletes(db, guardiann);
     }
 
-    @Nonnull
     private List<PrimaryKeyAndVector> buildInserts(final long seed) throws Exception {
         final List<PrimaryKeyAndVector> baseLoaded =
                 VecsDatasetLoaders.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 1);

@@ -22,7 +22,6 @@ package com.apple.foundationdb.async.guardiann;
 
 import com.apple.foundationdb.util.LoggableException;
 
-import javax.annotation.Nonnull;
 import java.util.UUID;
 
 /**
@@ -36,7 +35,7 @@ import java.util.UUID;
  */
 @SuppressWarnings("serial")
 public class ClusterCapacityExceededException extends LoggableException {
-    public ClusterCapacityExceededException(@Nonnull final UUID clusterId, final int numPrimaryVectors,
+    public ClusterCapacityExceededException(final UUID clusterId, final int numPrimaryVectors,
                                             final int primaryClusterHardMax) {
         super("primary cluster reached its hard cap while the deferred split backlog is not being drained",
                 "clusterId", clusterId,

@@ -22,7 +22,6 @@ package com.apple.foundationdb.async.guardiann;
 
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
 import java.util.UUID;
 
 /**
@@ -61,15 +60,14 @@ import java.util.UUID;
  *        maintenance write, and replaced only when the record is re-inserted (updated); shared by every copy of that
  *        generation, so stale copies from an earlier generation can be filtered by UUID mismatch
  */
-record VectorId(@Nonnull Tuple primaryKey, @Nonnull UUID uuid) implements Comparable<VectorId> {
-    @Nonnull
+record VectorId(Tuple primaryKey, UUID uuid) implements Comparable<VectorId> {
     @Override
     public String toString() {
         return "VId[" + primaryKey + ";" + uuid + "]";
     }
 
     @Override
-    public int compareTo(@Nonnull final VectorId o) {
+    public int compareTo(final VectorId o) {
         final int cmp = primaryKey.compareTo(o.primaryKey());
         if (cmp != 0) {
             return cmp;

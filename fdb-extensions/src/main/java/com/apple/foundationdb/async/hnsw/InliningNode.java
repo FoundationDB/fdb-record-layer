@@ -26,8 +26,7 @@ import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 
@@ -40,20 +39,17 @@ import java.util.Objects;
  * {@link CompactNode}.
  */
 class InliningNode extends AbstractNode<NodeReferenceWithVector> {
-    @Nonnull
     private static final NodeFactory<NodeReferenceWithVector> FACTORY = new NodeFactory<>() {
         @SuppressWarnings("unchecked")
-        @Nonnull
         @Override
-        public AbstractNode<NodeReferenceWithVector> create(@Nonnull final Tuple primaryKey,
+        public AbstractNode<NodeReferenceWithVector> create(final Tuple primaryKey,
                                                             @Nullable final Transformed<RealVector> vector,
                                                             @Nullable final Tuple additionalValues,
-                                                            @Nonnull final List<? extends NodeReference> neighbors) {
+                                                            final List<? extends NodeReference> neighbors) {
             Verify.verify(additionalValues == null, "inlining nodes do not carry additional values");
             return new InliningNode(primaryKey, (List<NodeReferenceWithVector>)neighbors);
         }
 
-        @Nonnull
         @Override
         public NodeKind getNodeKind() {
             return NodeKind.INLINING;
@@ -70,8 +66,8 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
      * @param neighbors the non-null list of neighbors for this node, where each neighbor
      * is a {@link NodeReferenceWithVector}.
      */
-    public InliningNode(@Nonnull final Tuple primaryKey,
-                        @Nonnull final List<NodeReferenceWithVector> neighbors) {
+    public InliningNode(final Tuple primaryKey,
+                        final List<NodeReferenceWithVector> neighbors) {
         super(primaryKey, neighbors);
     }
 
@@ -86,7 +82,6 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
      *
      * @throws NullPointerException if the provided {@code vector} is null.
      */
-    @Nonnull
     @Override
     @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
     public NodeReferenceWithVector getSelfReference(@Nullable final Transformed<RealVector> vector) {
@@ -98,7 +93,6 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
      * @return the non-null {@link NodeKind} of this node, which is always
      * {@code NodeKind.INLINING}.
      */
-    @Nonnull
     @Override
     public NodeKind getKind() {
         return NodeKind.INLINING;
@@ -117,7 +111,6 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
      * @return this node as a {@link CompactNode}, never {@code null}
      * @throws IllegalStateException always, as this node is not a compact node
      */
-    @Nonnull
     @Override
     public CompactNode asCompactNode() {
         throw new IllegalStateException("this is not a compact node");
@@ -134,7 +127,6 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
      * As this class is already an instance of {@code InliningNode}, this method simply returns {@code this}.
      * @return this object, which is guaranteed to be an {@code InliningNode} and never {@code null}.
      */
-    @Nonnull
     @Override
     public InliningNode asInliningNode() {
         return this;
@@ -148,7 +140,6 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
      *
      * @return the singleton {@link NodeFactory} instance, never {@code null}.
      */
-    @Nonnull
     public static NodeFactory<NodeReferenceWithVector> factory() {
         return FACTORY;
     }

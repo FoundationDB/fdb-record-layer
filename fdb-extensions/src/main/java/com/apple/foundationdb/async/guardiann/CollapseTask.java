@@ -42,7 +42,6 @@ import com.google.common.collect.Maps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
@@ -83,30 +82,25 @@ import java.util.concurrent.CompletableFuture;
  * occur naturally when the cluster was merged away or otherwise re-tasked between this task being enqueued and run.
  */
 class CollapseTask extends AbstractDeferredTask {
-    @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(CollapseTask.class);
 
-    @Nonnull
     private final Transformed<RealVector> centroid;
 
-    private CollapseTask(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
-                         @Nonnull final UUID taskId, @Nonnull final UUID targetClusterId,
-                         @Nonnull final Transformed<RealVector> centroid) {
+    private CollapseTask(final Locator locator, final AccessInfo accessInfo,
+                         final UUID taskId, final UUID targetClusterId,
+                         final Transformed<RealVector> centroid) {
         super(locator, accessInfo, taskId, ImmutableSet.of(targetClusterId));
         this.centroid = centroid;
     }
 
-    @Nonnull
     public Transformed<RealVector> getCentroid() {
         return centroid;
     }
 
-    @Nonnull
     public UUID getTargetClusterId() {
         return Iterables.getOnlyElement(getTargetClusterIds());
     }
 
-    @Nonnull
     @Override
     public Tuple valueTuple() {
         final Quantizer quantizer = getLocator().primitives().quantizer(getAccessInfo());
@@ -117,7 +111,7 @@ class CollapseTask extends AbstractDeferredTask {
     }
 
     @Override
-    protected void writeDeferredTask(@Nonnull final Transaction transaction) {
+    protected void writeDeferredTask(final Transaction transaction) {
         super.writeDeferredTask(transaction);
         if (logger.isDebugEnabled()) {
             logger.debug("enqueuing COLLAPSE; taskId={}; targetClusterIds={}",
@@ -125,15 +119,13 @@ class CollapseTask extends AbstractDeferredTask {
         }
     }
 
-    @Nonnull
     @Override
     public TaskKind getKind() {
         return TaskKind.COLLAPSE;
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Void> runTask(@Nonnull final Transaction transaction) {
+    public CompletableFuture<Void> runTask(final Transaction transaction) {
         logStart(logger);
 
         final Primitives primitives = getLocator().primitives();
@@ -161,10 +153,9 @@ class CollapseTask extends AbstractDeferredTask {
                 }).thenAccept(ignored -> logSuccessful(logger));
     }
 
-    @Nonnull
-    private CompletableFuture<Void> collapse(@Nonnull final Transaction transaction,
-                                             @Nonnull final ClusterMetadata targetClusterMetadata,
-                                             @Nonnull final RealVector targetClusterCentroid) {
+    private CompletableFuture<Void> collapse(final Transaction transaction,
+                                             final ClusterMetadata targetClusterMetadata,
+                                             final RealVector targetClusterCentroid) {
         final Primitives primitives = getLocator().primitives();
         final AccessInfo accessInfo = getAccessInfo();
         final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
@@ -193,11 +184,10 @@ class CollapseTask extends AbstractDeferredTask {
                 });
     }
 
-    @Nonnull
-    private CollapseAssignments computeCollapseAssignments(@Nonnull final SplittableRandom random,
-                                                           @Nonnull final DistanceEstimator estimator,
-                                                           @Nonnull final ClusterMetadataWithDistance targetClusterMetadataWithDistance,
-                                                           @Nonnull final List<VectorReference> vectorReferences) {
+    private CollapseAssignments computeCollapseAssignments(final SplittableRandom random,
+                                                           final DistanceEstimator estimator,
+                                                           final ClusterMetadataWithDistance targetClusterMetadataWithDistance,
+                                                           final List<VectorReference> vectorReferences) {
         final Config config = getConfig();
         final Transformed<RealVector> targetClusterCentroid = targetClusterMetadataWithDistance.centroid();
 
@@ -315,11 +305,11 @@ class CollapseTask extends AbstractDeferredTask {
      * @param delta the vectors to write to and delete from the target cluster
      * @param quantizer the quantizer used to encode vectors before persisting
      */
-    private void persistCollapse(@Nonnull final Transaction transaction,
-                                 @Nonnull final ClusterMetadataWithDistance targetClusterMetadataWithDistance,
-                                 @Nonnull final CollapseAssignments collapseAssignments,
-                                 @Nonnull final TargetClusterDelta delta,
-                                 @Nonnull final Quantizer quantizer) {
+    private void persistCollapse(final Transaction transaction,
+                                 final ClusterMetadataWithDistance targetClusterMetadataWithDistance,
+                                 final CollapseAssignments collapseAssignments,
+                                 final TargetClusterDelta delta,
+                                 final Quantizer quantizer) {
         final CollapseCounters counters = countAssignments(collapseAssignments);
         persistTargetClusterDelta(transaction, quantizer, targetClusterMetadataWithDistance.clusterMetadata().id(), delta);
         writeCollapsedVectorIds(transaction, collapseAssignments);
@@ -334,8 +324,7 @@ class CollapseTask extends AbstractDeferredTask {
      *
      * @return the primary-underreplicated and replicated vector counts for the assignments
      */
-    @Nonnull
-    private CollapseCounters countAssignments(@Nonnull final CollapseAssignments collapseAssignments) {
+    private CollapseCounters countAssignments(final CollapseAssignments collapseAssignments) {
         int numPrimaryUnderreplicatedVectors = 0;
         int numReplicatedVectors = 0;
 
@@ -360,10 +349,10 @@ class CollapseTask extends AbstractDeferredTask {
      * @param targetClusterId the id of the cluster the delta is applied to
      * @param delta the vectors to delete from and write to the target cluster
      */
-    private void persistTargetClusterDelta(@Nonnull final Transaction transaction,
-                                           @Nonnull final Quantizer quantizer,
-                                           @Nonnull final UUID targetClusterId,
-                                           @Nonnull final TargetClusterDelta delta) {
+    private void persistTargetClusterDelta(final Transaction transaction,
+                                           final Quantizer quantizer,
+                                           final UUID targetClusterId,
+                                           final TargetClusterDelta delta) {
         final Primitives primitives = getLocator().primitives();
 
         for (final Tuple primaryKey : delta.toDelete()) {
@@ -382,8 +371,8 @@ class CollapseTask extends AbstractDeferredTask {
      * @param transaction the transaction to write into
      * @param collapseAssignments the assignments holding the collapsed vector-id mappings to persist
      */
-    private void writeCollapsedVectorIds(@Nonnull final Transaction transaction,
-                                         @Nonnull final CollapseAssignments collapseAssignments) {
+    private void writeCollapsedVectorIds(final Transaction transaction,
+                                         final CollapseAssignments collapseAssignments) {
         final Primitives primitives = getLocator().primitives();
         final ListMultimap<UUID, VectorId> collapsedAssignmentsMap = collapseAssignments.collapsedAssignmentsMap();
         for (final Map.Entry<UUID, VectorId> entry : collapsedAssignmentsMap.entries()) {
@@ -401,11 +390,11 @@ class CollapseTask extends AbstractDeferredTask {
      * @param counters the primary-underreplicated and replicated vector counts to store
      * @param delta the applied delta, used only for trace logging of deleted/written counts
      */
-    private void writeClusterMetadata(@Nonnull final Transaction transaction,
-                                      @Nonnull final ClusterMetadataWithDistance targetClusterMetadataWithDistance,
-                                      @Nonnull final CollapseAssignments collapseAssignments,
-                                      @Nonnull final CollapseCounters counters,
-                                      @Nonnull final TargetClusterDelta delta) {
+    private void writeClusterMetadata(final Transaction transaction,
+                                      final ClusterMetadataWithDistance targetClusterMetadataWithDistance,
+                                      final CollapseAssignments collapseAssignments,
+                                      final CollapseCounters counters,
+                                      final TargetClusterDelta delta) {
         final Primitives primitives = getLocator().primitives();
         final ClusterMetadata targetClusterMetadata = targetClusterMetadataWithDistance.clusterMetadata();
 
@@ -442,9 +431,8 @@ class CollapseTask extends AbstractDeferredTask {
                                     int numReplicatedVectors) {
     }
 
-    @Nonnull
-    static CollapseTask fromTuples(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
-                                   @Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple) {
+    static CollapseTask fromTuples(final Locator locator, final AccessInfo accessInfo,
+                                   final Tuple keyTuple, final Tuple valueTuple) {
         Verify.verify(TaskKind.fromValueTuple(valueTuple) == TaskKind.COLLAPSE);
         final StorageTransform storageTransform = locator.primitives().storageTransform(accessInfo);
 
@@ -455,10 +443,9 @@ class CollapseTask extends AbstractDeferredTask {
         return new CollapseTask(locator, accessInfo, keyTuple.getUUID(0), targetClusterId, centroid);
     }
 
-    @Nonnull
-    static CollapseTask of(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
-                           @Nonnull final UUID taskId, @Nonnull final UUID clusterId,
-                           @Nonnull final Transformed<RealVector> centroid) {
+    static CollapseTask of(final Locator locator, final AccessInfo accessInfo,
+                           final UUID taskId, final UUID clusterId,
+                           final Transformed<RealVector> centroid) {
         return new CollapseTask(locator, accessInfo, taskId, clusterId, centroid);
     }
 
@@ -473,8 +460,7 @@ class CollapseTask extends AbstractDeferredTask {
         return maximumCollapsiblePerDuplicate;
     }
 
-    @Nonnull
-    static Map<UUID, Integer> collapsibleVectorsCountersMap(@Nonnull final List<VectorReference> vectorReferences) {
+    static Map<UUID, Integer> collapsibleVectorsCountersMap(final List<VectorReference> vectorReferences) {
         final Map<UUID, Integer> countersMap = Maps.newHashMapWithExpectedSize(vectorReferences.size());
         for (final VectorReference vectorReference : vectorReferences) {
             if (vectorReference.isPrimaryCopy()) {
@@ -485,8 +471,7 @@ class CollapseTask extends AbstractDeferredTask {
         return countersMap;
     }
 
-    @Nonnull
-    static ImmutableSetMultimap<VectorId, UUID> vectorReferenceToSignatureMap(@Nonnull final List<VectorReference> vectorReferences) {
+    static ImmutableSetMultimap<VectorId, UUID> vectorReferenceToSignatureMap(final List<VectorReference> vectorReferences) {
         final ImmutableSetMultimap.Builder<VectorId, UUID> resultMapBuilder = ImmutableSetMultimap.builder();
         for (final VectorReference vectorReference : vectorReferences) {
             if (vectorReference.isPrimaryCopy()) {
@@ -505,8 +490,8 @@ class CollapseTask extends AbstractDeferredTask {
      * @param updatedStandardDeviation the recomputed running statistics of member distances to the centroid
      * @param collapsedAssignmentsMap a multimap from a collapsed reference's id to the {@link VectorId}s absorbed into it
      */
-    private record CollapseAssignments(@Nonnull List<VectorReference> assignments,
-                                       @Nonnull RunningStats updatedStandardDeviation,
-                                       @Nonnull ListMultimap<UUID, VectorId> collapsedAssignmentsMap) {
+    private record CollapseAssignments(List<VectorReference> assignments,
+                                       RunningStats updatedStandardDeviation,
+                                       ListMultimap<UUID, VectorId> collapsedAssignmentsMap) {
     }
 }

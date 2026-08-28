@@ -21,4 +21,7 @@
 /**
  * Common logic for all kinds of structures for effectively searching, retrieving and managing vectors.
  */
+@NullMarked
 package com.apple.foundationdb.async.common;
+
+import org.jspecify.annotations.NullMarked;

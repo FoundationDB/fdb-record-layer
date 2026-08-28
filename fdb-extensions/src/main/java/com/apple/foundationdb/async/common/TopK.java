@@ -24,7 +24,6 @@ import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -44,12 +43,11 @@ import static com.apple.foundationdb.async.AsyncUtil.forEachRemaining;
  * @param <T> the type of element collected
  */
 public class TopK<T> {
-    @Nonnull
     private final PriorityQueue<T> queue;
     @SuppressWarnings("checkstyle:MemberName")
     private final int k;
 
-    private TopK(@Nonnull final Comparator<T> comparator, final int k) {
+    private TopK(final Comparator<T> comparator, final int k) {
         this.queue = new PriorityQueue<>(comparator);
         this.k = k;
     }
@@ -62,7 +60,7 @@ public class TopK<T> {
      *
      * @return {@code true} if the element was retained, {@code false} if it was rejected
      */
-    public boolean add(@Nonnull T item) {
+    public boolean add(T item) {
         if (queue.size() < k) {
             return queue.add(item);
         }
@@ -83,7 +81,6 @@ public class TopK<T> {
      *
      * @return the retained elements, unordered
      */
-    @Nonnull
     public List<T> toUnsortedList() {
         return ImmutableList.copyOf(queue);
     }
@@ -109,7 +106,6 @@ public class TopK<T> {
      *
      * @return the worst retained element, or {@link Optional#empty()} if the collector is empty
      */
-    @Nonnull
     public Optional<T> worstElement() {
         if (queue.isEmpty()) {
             return Optional.empty();
@@ -126,7 +122,6 @@ public class TopK<T> {
      *
      * @return a future completing with the retained top-K elements, sorted from best to worst
      */
-    @Nonnull
     public CompletableFuture<List<T>> collect(final AsyncIterable<T> iterable,
                                               final Executor executor) {
         return collectRemaining(iterable.iterator(), executor);
@@ -156,8 +151,7 @@ public class TopK<T> {
      *
      * @return a new collector retaining the k smallest elements
      */
-    @Nonnull
-    public static <T> TopK<T> min(@Nonnull final Comparator<T> comparator, final int k) {
+    public static <T> TopK<T> min(final Comparator<T> comparator, final int k) {
         return new TopK<>(comparator.reversed(), k);
     }
 
@@ -171,8 +165,7 @@ public class TopK<T> {
      *
      * @return a new collector retaining the k largest elements
      */
-    @Nonnull
-    public static <T> TopK<T> max(@Nonnull final Comparator<T> comparator, final int k) {
+    public static <T> TopK<T> max(final Comparator<T> comparator, final int k) {
         return new TopK<>(comparator, k);
     }
 }

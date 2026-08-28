@@ -23,8 +23,7 @@ package com.apple.foundationdb.async.hnsw;
 import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.linear.RealVector;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 
 /**
@@ -37,7 +36,6 @@ class AccessInfo {
     /**
      * The current entry point. All searches start here.
      */
-    @Nonnull
     private final EntryNodeReference entryNodeReference;
 
     /**
@@ -55,14 +53,13 @@ class AccessInfo {
     @Nullable
     private final RealVector negatedCentroid;
 
-    public AccessInfo(@Nonnull final EntryNodeReference entryNodeReference, final long rotatorSeed,
+    public AccessInfo(final EntryNodeReference entryNodeReference, final long rotatorSeed,
                       @Nullable final RealVector negatedCentroid) {
         this.entryNodeReference = entryNodeReference;
         this.rotatorSeed = rotatorSeed;
         this.negatedCentroid = negatedCentroid;
     }
 
-    @Nonnull
     public EntryNodeReference getEntryNodeReference() {
         return entryNodeReference;
     }
@@ -80,8 +77,7 @@ class AccessInfo {
         return negatedCentroid;
     }
 
-    @Nonnull
-    public AccessInfo withNewEntryNodeReference(@Nonnull final EntryNodeReference entryNodeReference) {
+    public AccessInfo withNewEntryNodeReference(final EntryNodeReference entryNodeReference) {
         return new AccessInfo(entryNodeReference, getRotatorSeed(), getNegatedCentroid());
     }
 
@@ -101,7 +97,6 @@ class AccessInfo {
         return Objects.hash(entryNodeReference, rotatorSeed, negatedCentroid);
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return "AccessInfo[" +

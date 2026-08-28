@@ -24,8 +24,7 @@ import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 
 /**
@@ -46,7 +45,7 @@ class NodeReferenceWithVectorAndAdditionalValues extends NodeReferenceWithVector
      * @param additionalValues additional values that are stored with and associated with the node this reference
      *        refers to.
      */
-    public NodeReferenceWithVectorAndAdditionalValues(@Nonnull final Tuple primaryKey, @Nonnull final Transformed<RealVector> vector,
+    public NodeReferenceWithVectorAndAdditionalValues(final Tuple primaryKey, final Transformed<RealVector> vector,
                                                       @Nullable final Tuple additionalValues) {
         super(primaryKey, vector);
         this.additionalValues = additionalValues;

@@ -43,7 +43,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -92,19 +91,16 @@ public class ReassignConvergenceTest implements BaseTest {
 
     private static Database db;
 
-    @Nonnull
     @Override
     public Database getDb() {
         return Objects.requireNonNull(db);
     }
 
-    @Nonnull
     @Override
     public Subspace getSubspace() {
         return subspaceExtension.getSubspace();
     }
 
-    @Nonnull
     @Override
     public Path getTempDir() {
         return tempDir;
@@ -134,8 +130,8 @@ public class ReassignConvergenceTest implements BaseTest {
      * Shared convergence flow: insert {@code sample} and run to quiescence, then drive two reassign rounds and
      * assert the wrong-assignment count drops after round 1 and the under-replication count drops after round 2.
      */
-    private void runConvergence(final long seed, @Nonnull final Guardiann guardiann,
-                                @Nonnull final List<PrimaryKeyAndVector> sample) throws Exception {
+    private void runConvergence(final long seed, final Guardiann guardiann,
+                                final List<PrimaryKeyAndVector> sample) throws Exception {
         // ---- Phase 0: insert the sample; let everything (including auto-enqueued reassigns) run. ----
         logger.info("seed={} inserting {} vectors", seed, sample.size());
         TestHelpers.insertRecords(getDb(), guardiann, sample, BATCH_SIZE);
@@ -191,7 +187,7 @@ public class ReassignConvergenceTest implements BaseTest {
      * calling {@link ReassignTask#reassign} directly with {@code enqueueFollowUpTasks=false} (so no follow-up
      * tasks are enqueued). Logs progress so a long run is visibly advancing.
      */
-    private void reassignEveryClusterOnce(@Nonnull final Guardiann guardiann, @Nonnull final String roundName) {
+    private void reassignEveryClusterOnce(final Guardiann guardiann, final String roundName) {
         final StructureSnapshot snapshot = GuardiannStructureAsserts.snapshotStructure(getDb(), guardiann);
         if (snapshot == null) {
             return;
@@ -210,9 +206,9 @@ public class ReassignConvergenceTest implements BaseTest {
     }
 
     /** Reassigns a single cluster in its own transaction; builds the {@link ReassignTask} in memory. */
-    private void reassignOneCluster(@Nonnull final Guardiann guardiann,
-                                    @Nonnull final UUID clusterId,
-                                    @Nonnull final Transformed<RealVector> centroid) {
+    private void reassignOneCluster(final Guardiann guardiann,
+                                    final UUID clusterId,
+                                    final Transformed<RealVector> centroid) {
         final Locator locator = guardiann.getLocator();
         final Primitives primitives = locator.primitives();
         final int numNearestClusters = 1 + guardiann.getConfig().reassignNumNeighboringClusters();
@@ -247,7 +243,6 @@ public class ReassignConvergenceTest implements BaseTest {
     // ---------------------------------------------------------------------------------------------------------
 
     /** A deterministic, seed-shuffled subsample of the SIFT-small base set (uses the always-present 10k file). */
-    @Nonnull
     private static List<PrimaryKeyAndVector> seededSample(final long seed, final int size) throws Exception {
         final List<PrimaryKeyAndVector> all =
                 new ArrayList<>(VecsDatasetLoaders.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 10_000));
@@ -260,7 +255,6 @@ public class ReassignConvergenceTest implements BaseTest {
      * {@code ReassignScenarioTest}) so the post-insert structure is rich in mis-homed and under-replicated
      * primaries for the rounds to converge.
      */
-    @Nonnull
     private Guardiann newGuardiannSmall() {
         return guardiannFor(Guardiann.newConfigBuilder()
                 .setUseRaBitQ(true)
@@ -286,7 +280,6 @@ public class ReassignConvergenceTest implements BaseTest {
      * the replica capacity ({@code replicatedClusterTarget}) stays proportionally small (~1/10 of the primary cap,
      * the library default) so under-replication still arises for the rounds to converge.
      */
-    @Nonnull
     private Guardiann newGuardiannBig() {
         return guardiannFor(Guardiann.newConfigBuilder()
                 .setUseRaBitQ(true)
@@ -302,8 +295,7 @@ public class ReassignConvergenceTest implements BaseTest {
                 .build(128));
     }
 
-    @Nonnull
-    private Guardiann guardiannFor(@Nonnull final Config config) {
+    private Guardiann guardiannFor(final Config config) {
         return new Guardiann(getSubspace(),
                 TestExecutors.defaultThreadPool(),
                 config,

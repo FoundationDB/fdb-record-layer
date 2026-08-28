@@ -44,7 +44,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
@@ -138,7 +137,7 @@ public class RTreeModificationTest {
 
     @ParameterizedTest
     @MethodSource("numSamplesAndNumDeletes")
-    public void testRandomDeletes(@Nonnull final RTree.Config config, final long seed, final int numSamples, final int numDeletes) {
+    public void testRandomDeletes(final RTree.Config config, final long seed, final int numSamples, final int numDeletes) {
         final RTreeScanTest.OnReadCounters onReadCounters = new RTreeScanTest.OnReadCounters();
         final RTree rTree = new RTree(rtSubspace.getSubspace(), rtSecondarySubspace.getSubspace(), TestExecutors.defaultThreadPool(), config,
                 RTreeHilbertCurveHelpers::hilbertValue, NodeHelpers::newSequentialNodeId, OnWriteListener.NOOP,
@@ -179,7 +178,7 @@ public class RTreeModificationTest {
     void dumpRTree() {
         final OnReadListener onReadListener = new OnReadListener() {
             @Override
-            public <T extends Node> CompletableFuture<T> onAsyncRead(@Nonnull final CompletableFuture<T> future) {
+            public <T extends Node> CompletableFuture<T> onAsyncRead(final CompletableFuture<T> future) {
                 return future.thenApply(node -> {
                     if (node instanceof IntermediateNode) {
                         final IntermediateNode intermediateNode = (IntermediateNode)node;
@@ -244,7 +243,7 @@ public class RTreeModificationTest {
         return argumentsBuilder.build().stream();
     }
 
-    static Item[] randomInserts(@Nonnull final Database db, @Nonnull final RTree rTree, final long seed,
+    static Item[] randomInserts(final Database db, final RTree rTree, final long seed,
                                 final int numSamples) {
         final Random random = new Random(seed);
         final Item[] items = new Item[numSamples];
@@ -257,7 +256,7 @@ public class RTreeModificationTest {
         return items;
     }
 
-    static Item[] randomInsertsWithNulls(@Nonnull final Database db, @Nonnull final RTree rTree,
+    static Item[] randomInsertsWithNulls(final Database db, final RTree rTree,
                                          final long seed, final int numSamples) {
         final Random random = new Random(seed);
         final Item[] items = new Item[numSamples];
@@ -273,7 +272,7 @@ public class RTreeModificationTest {
         return items;
     }
 
-    static Item[] bitemporalInserts(@Nonnull final Database db, @Nonnull RTree rTree, final long seed, int numSamples) {
+    static Item[] bitemporalInserts(final Database db, RTree rTree, final long seed, int numSamples) {
         final int smear = 100;
         final Random random = new Random(seed);
         final Item[] items = new Item[numSamples];
@@ -298,7 +297,7 @@ public class RTreeModificationTest {
         return items;
     }
 
-    static void insertData(@Nonnull final Database db, @Nonnull final RTree rTree, @Nonnull final Item[] items) {
+    static void insertData(final Database db, final RTree rTree, final Item[] items) {
         final int numInsertsPerBatch = 1_000;
         for (int i = 0; i < items.length; ) {
             final int batchStart = i; // lambdas
@@ -319,35 +318,29 @@ public class RTreeModificationTest {
         }
     }
 
-    static void validateRTree(@Nonnull final Database db, @Nonnull final RTree rt) {
+    static void validateRTree(final Database db, final RTree rt) {
         rt.validate(db);
     }
 
     static class Item {
-        @Nonnull
         private final RTree.Point point;
-        @Nonnull
         private final Tuple keySuffix;
-        @Nonnull
         private final Tuple value;
 
-        public Item(@Nonnull final RTree.Point point, @Nonnull final Tuple keySuffix, @Nonnull final Tuple value) {
+        public Item(final RTree.Point point, final Tuple keySuffix, final Tuple value) {
             this.point = point;
             this.keySuffix = keySuffix;
             this.value = value;
         }
 
-        @Nonnull
         public RTree.Point getPoint() {
             return point;
         }
 
-        @Nonnull
         public Tuple getKeySuffix() {
             return keySuffix;
         }
 
-        @Nonnull
         public Tuple getValue() {
             return value;
         }

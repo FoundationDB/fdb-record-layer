@@ -29,7 +29,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -577,13 +576,11 @@ public class MoreAsyncUtilTest {
         return MoreAsyncUtil.iterableFromCollection(CompletableFuture.completedFuture(Arrays.asList(items)), EXECUTOR);
     }
 
-    @Nonnull
-    private static Matcher<String> isCurrentThreadNameOr(@Nonnull String threadName) {
+    private static Matcher<String> isCurrentThreadNameOr(String threadName) {
         return isCurrentThreadNameOr(equalTo(threadName));
     }
 
-    @Nonnull
-    private static Matcher<String> isCurrentThreadNameOr(@Nonnull Matcher<String> threadMatcher) {
+    private static Matcher<String> isCurrentThreadNameOr(Matcher<String> threadMatcher) {
         return either(threadMatcher).or(equalTo(Thread.currentThread().getName()));
     }
 }

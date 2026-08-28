@@ -26,8 +26,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -85,11 +84,9 @@ public class MoreAsyncUtil {
         return alreadyCancelled;
     }
 
-    @Nonnull
-    public static <T> AsyncIterable<T> iterableOf(@Nonnull final Supplier<AsyncIterator<T>> iteratorSupplier,
-                                                  @Nonnull final Executor executor) {
+    public static <T> AsyncIterable<T> iterableOf(final Supplier<AsyncIterator<T>> iteratorSupplier,
+                                                  final Executor executor) {
         return new AsyncIterable<>() {
-            @Nonnull
             @Override
             public AsyncIterator<T> iterator() {
                 return iteratorSupplier.get();
@@ -115,9 +112,8 @@ public class MoreAsyncUtil {
      * @return a future that completes with {@code null} once the iterable is exhausted, or exceptionally if advancing
      *         it fails
      */
-    @Nonnull
-    public static <T> CompletableFuture<Void> consume(@Nonnull final AsyncIterable<T> iterable,
-                                                      @Nonnull final Executor executor) {
+    public static <T> CompletableFuture<Void> consume(final AsyncIterable<T> iterable,
+                                                      final Executor executor) {
         return consumeRemaining(iterable.iterator(), executor);
     }
 
@@ -133,20 +129,17 @@ public class MoreAsyncUtil {
      * @return a future that completes with {@code null} once the iterator is exhausted, or exceptionally if advancing
      *         it fails
      */
-    @Nonnull
-    public static <T> CompletableFuture<Void> consumeRemaining(@Nonnull final AsyncIterator<T> iterator,
-                                                               @Nonnull final Executor executor) {
+    public static <T> CompletableFuture<Void> consumeRemaining(final AsyncIterator<T> iterator,
+                                                               final Executor executor) {
         return tag(AsyncUtil.forEachRemaining(iterator, t -> { }, executor), null);
     }
 
-    @Nonnull
-    public static <T> AsyncIterable<T> limitIterable(@Nonnull final AsyncIterable<T> iterable,
-                                                     final int limit, @Nonnull final Executor executor) {
+    public static <T> AsyncIterable<T> limitIterable(final AsyncIterable<T> iterable,
+                                                     final int limit, final Executor executor) {
         return iterableOf(() -> limitRemaining(iterable.iterator(), limit), executor);
     }
 
-    @Nonnull
-    public static <T> CloseableAsyncIterator<T> limitRemaining(@Nonnull final AsyncIterator<T> iterator,
+    public static <T> CloseableAsyncIterator<T> limitRemaining(final AsyncIterator<T> iterator,
                                                                final int limit) {
         return new CloseableAsyncIterator<T>() {
             int count = 0;
@@ -198,10 +191,9 @@ public class MoreAsyncUtil {
      *
      * @return an {@link AsyncIterable} over the leading run of matching elements
      */
-    @Nonnull
-    public static <T> AsyncIterable<T> takeWhileIterable(@Nonnull final AsyncIterable<T> iterable,
-                                                         @Nonnull final Predicate<T> whilePredicate,
-                                                         @Nonnull final Executor executor) {
+    public static <T> AsyncIterable<T> takeWhileIterable(final AsyncIterable<T> iterable,
+                                                         final Predicate<T> whilePredicate,
+                                                         final Executor executor) {
         return iterableOf(() -> takeWhileRemaining(iterable.iterator(), whilePredicate), executor);
     }
 
@@ -225,9 +217,8 @@ public class MoreAsyncUtil {
      *
      * @return a {@link CloseableAsyncIterator} over the leading run of matching elements
      */
-    @Nonnull
-    public static <T> CloseableAsyncIterator<T> takeWhileRemaining(@Nonnull final AsyncIterator<T> iterator,
-                                                                   @Nonnull final Predicate<T> whilePredicate) {
+    public static <T> CloseableAsyncIterator<T> takeWhileRemaining(final AsyncIterator<T> iterator,
+                                                                   final Predicate<T> whilePredicate) {
         return new CloseableAsyncIterator<>() {
             boolean done = false;
             @Nullable
@@ -299,30 +290,26 @@ public class MoreAsyncUtil {
      * @param <T> the source type
      * @return a new {@code AsyncIterable} that only contains those items in iterable for which filter returns {@code true}
      */
-    @Nonnull
-    public static <T> AsyncIterable<T> filterIterable(@Nonnull final AsyncIterable<T> iterable,
-                                                      @Nonnull final Function<T, Boolean> filter) {
+    public static <T> AsyncIterable<T> filterIterable(final AsyncIterable<T> iterable,
+                                                      final Function<T, Boolean> filter) {
         return filterIterable(ForkJoinPool.commonPool(), iterable, filter);
     }
 
-    @Nonnull
-    public static <T> AsyncIterable<T> filterIterable(@Nonnull final Executor executor,
-                                                      @Nonnull final AsyncIterable<T> iterable,
-                                                      @Nonnull final Function<T, Boolean> filter) {
+    public static <T> AsyncIterable<T> filterIterable(final Executor executor,
+                                                      final AsyncIterable<T> iterable,
+                                                      final Function<T, Boolean> filter) {
         return iterableOf(() -> filterRemaining(executor, iterable.iterator(), filter), executor);
     }
 
-    @Nonnull
-    public static <T> CloseableAsyncIterator<T> filterRemaining(@Nonnull Executor executor,
-                                                                @Nonnull final AsyncIterator<T> iterator,
-                                                                @Nonnull final Function<T, Boolean> filter) {
+    public static <T> CloseableAsyncIterator<T> filterRemaining(Executor executor,
+                                                                final AsyncIterator<T> iterator,
+                                                                final Function<T, Boolean> filter) {
         return new CloseableAsyncIterator<T>() {
             T next;
             boolean haveNext;
             @Nullable
             CompletableFuture<Boolean> nextFuture;
 
-            @Nonnull
             @Override
             public CompletableFuture<Boolean> onHasNext() {
                 if (nextFuture != null) {
@@ -389,19 +376,16 @@ public class MoreAsyncUtil {
      * @param <T> the source type
      * @return a new {@code AsyncIterable} that only contains those items in iterable for which the previous item was different
      */
-    @Nonnull
-    public static <T> AsyncIterable<T> dedupIterable(@Nonnull final AsyncIterable<T> iterable) {
+    public static <T> AsyncIterable<T> dedupIterable(final AsyncIterable<T> iterable) {
         return dedupIterable(ForkJoinPool.commonPool(), iterable);
     }
 
-    @Nonnull
-    public static <T> AsyncIterable<T> dedupIterable(@Nonnull Executor executor,
-                                                     @Nonnull final AsyncIterable<T> iterable) {
+    public static <T> AsyncIterable<T> dedupIterable(Executor executor,
+                                                     final AsyncIterable<T> iterable) {
         return filterIterable(executor, iterable,
                 new Function<>() {
                     private Object lastObj;
 
-                    @Nonnull
                     @Override
                     public Boolean apply(T obj) {
                         if ((lastObj != null) && lastObj.equals(obj)) {
@@ -421,17 +405,14 @@ public class MoreAsyncUtil {
      * @return a new {@code AsyncIterable} that starts with all the elements of the first iterable provided,
      * then all the elements of the second iterable and so on
      */
-    @Nonnull
     @SuppressWarnings("unchecked") // parameterized vararg
-    public static <T> AsyncIterable<T> concatIterables(@Nonnull final AsyncIterable<T>... iterables) {
+    public static <T> AsyncIterable<T> concatIterables(final AsyncIterable<T>... iterables) {
         return concatIterables(ForkJoinPool.commonPool(), iterables);
     }
 
-    @Nonnull
     @SuppressWarnings("unchecked") // parameterized vararg
-    public static <T> AsyncIterable<T> concatIterables(@Nonnull Executor executor, @Nonnull final AsyncIterable<T>... iterables) {
+    public static <T> AsyncIterable<T> concatIterables(Executor executor, final AsyncIterable<T>... iterables) {
         return new AsyncIterable<T>() {
-            @Nonnull
             @Override
             public CloseableAsyncIterator<T> iterator() {
                 return new CloseableAsyncIterator<T>() {
@@ -442,7 +423,6 @@ public class MoreAsyncUtil {
                     @Nullable
                     CompletableFuture<Boolean> nextFuture;
 
-                    @Nonnull
                     @Override
                     public CompletableFuture<Boolean> onHasNext() {
                         if (nextFuture != null) {
@@ -557,13 +537,11 @@ public class MoreAsyncUtil {
      * @param <T2> the type of the destination iterables
      * @return the results of all the {@code AsyncIterable}s returned by func for each value of iterable, concatenated
      */
-    @Nonnull
-    public static <T1, T2> AsyncIterable<T2> mapConcatIterable(@Nonnull Executor executor,
-                                                               @Nonnull final AsyncIterable<T1> iterable,
-                                                               @Nonnull final Function<T1, AsyncIterable<T2>> func,
+    public static <T1, T2> AsyncIterable<T2> mapConcatIterable(Executor executor,
+                                                               final AsyncIterable<T1> iterable,
+                                                               final Function<T1, AsyncIterable<T2>> func,
                                                                final int pipelineSize) {
         return new AsyncIterable<>() {
-            @Nonnull
             @Override
             public CloseableAsyncIterator<T2> iterator() {
                 CloseableAsyncIterator<T2> it = new CloseableAsyncIterator<T2>() {
@@ -574,7 +552,6 @@ public class MoreAsyncUtil {
                     @Nullable
                     CompletableFuture<Boolean> nextFuture;
 
-                    @Nonnull
                     @Override
                     public CompletableFuture<Boolean> onHasNext() {
                         if (nextFuture != null) {
@@ -708,9 +685,8 @@ public class MoreAsyncUtil {
      * @return an {@code AsyncIterable} that will either contain item or nothing, depending on the result
      * of filter
      */
-    @Nonnull
     public static <T> AsyncIterable<T> filterToIterable(final T item,
-                                                        @Nonnull final Function<T, CompletableFuture<Boolean>> filter) {
+                                                        final Function<T, CompletableFuture<Boolean>> filter) {
         return new AsyncIterable<T>() {
             @Nullable
             @Override
@@ -776,10 +752,9 @@ public class MoreAsyncUtil {
         };
     }
 
-    @Nonnull
-    public static <T> AsyncIterable<T> filterIterablePipelined(@Nonnull Executor executor,
-                                                               @Nonnull AsyncIterable<T> iterable,
-                                                               @Nonnull final Function<T, CompletableFuture<Boolean>> filter,
+    public static <T> AsyncIterable<T> filterIterablePipelined(Executor executor,
+                                                               AsyncIterable<T> iterable,
+                                                               final Function<T, CompletableFuture<Boolean>> filter,
                                                                int pipelineSize) {
         return mapConcatIterable(executor, iterable,
                 item -> filterToIterable(item, filter),
@@ -794,9 +769,8 @@ public class MoreAsyncUtil {
      * @param <T2> the destination type
      * @return a new {@code AsyncIterable} containing the result of func(item)
      */
-    @Nonnull
     public static <T1, T2> AsyncIterable<T2> mapToIterable(final T1 item,
-                                                           @Nonnull final Function<T1, CompletableFuture<T2>> func) {
+                                                           final Function<T1, CompletableFuture<T2>> func) {
         return new AsyncIterable<T2>() {
             @Nullable
             @Override
@@ -876,9 +850,8 @@ public class MoreAsyncUtil {
      * @param <T2> the destination type
      * @return a new {@code AsyncIterable} with the results of applying func to each of the elements of iterable
      */
-    @Nonnull
-    public static <T1, T2> AsyncIterable<T2> mapIterablePipelined(@Nonnull AsyncIterable<T1> iterable,
-                                                                  @Nonnull final Function<T1, CompletableFuture<T2>> func,
+    public static <T1, T2> AsyncIterable<T2> mapIterablePipelined(AsyncIterable<T1> iterable,
+                                                                  final Function<T1, CompletableFuture<T2>> func,
                                                                   int pipelineSize) {
         return mapIterablePipelined(ForkJoinPool.commonPool(), iterable, func, pipelineSize);
     }
@@ -895,10 +868,9 @@ public class MoreAsyncUtil {
      * @param <T2> the destination type
      * @return a new {@code AsyncIterable} with the results of applying func to each of the elements of iterable
      */
-    @Nonnull
-    public static <T1, T2> AsyncIterable<T2> mapIterablePipelined(@Nonnull final Executor executor,
-                                                                  @Nonnull final AsyncIterable<T1> iterable,
-                                                                  @Nonnull final Function<T1, CompletableFuture<T2>> func,
+    public static <T1, T2> AsyncIterable<T2> mapIterablePipelined(final Executor executor,
+                                                                  final AsyncIterable<T1> iterable,
+                                                                  final Function<T1, CompletableFuture<T2>> func,
                                                                   int pipelineSize) {
         return mapConcatIterable(executor, iterable,
                 item -> mapToIterable(item, func),
@@ -927,14 +899,14 @@ public class MoreAsyncUtil {
      * @return the reduced result
      */
     @Nullable
-    public static <U, T> CompletableFuture<U> reduce(@Nonnull AsyncIterator<T> iterator, U identity,
+    public static <U, T> CompletableFuture<U> reduce(AsyncIterator<T> iterator, U identity,
                                                      BiFunction<U, ? super T, U> accumulator) {
         return reduce(ForkJoinPool.commonPool(), iterator, identity, accumulator);
     }
 
     @Nullable
-    public static <U, T> CompletableFuture<U> reduce(@Nonnull Executor executor,
-                                                     @Nonnull AsyncIterator<T> iterator, U identity,
+    public static <U, T> CompletableFuture<U> reduce(Executor executor,
+                                                     AsyncIterator<T> iterator, U identity,
                                                      BiFunction<U, ? super T, U> accumulator) {
         Holder<U> holder = new Holder<>(identity);
         return whileTrue(() -> iterator.onHasNext().thenApply(hasNext -> {
@@ -953,7 +925,7 @@ public class MoreAsyncUtil {
      * @return whether the future has completed without exception
      */
     @API(API.Status.UNSTABLE)
-    public static boolean isCompletedNormally(@Nonnull CompletableFuture<?> future) {
+    public static boolean isCompletedNormally(CompletableFuture<?> future) {
         return future.isDone() && !future.isCompletedExceptionally();
     }
 
@@ -972,7 +944,6 @@ public class MoreAsyncUtil {
      * @return an executor service that allows for tasks to be efficiently scheduled for later
      * @see #delayedFuture(long, TimeUnit, ScheduledExecutorService)
      */
-    @Nonnull
     public static ScheduledExecutorService getDefaultScheduledExecutor() {
         return scheduledExecutorSupplier.get();
     }
@@ -988,8 +959,7 @@ public class MoreAsyncUtil {
      * @see #delayedFuture(long, TimeUnit, ScheduledExecutorService)
      */
     @API(API.Status.UNSTABLE)
-    @Nonnull
-    public static CompletableFuture<Void> delayedFuture(long delay, @Nonnull TimeUnit unit) {
+    public static CompletableFuture<Void> delayedFuture(long delay, TimeUnit unit) {
         return delayedFuture(delay, unit, getDefaultScheduledExecutor());
     }
 
@@ -1007,8 +977,7 @@ public class MoreAsyncUtil {
      * @return a {@link CompletableFuture} that will fire after the given delay
      */
     @API(API.Status.UNSTABLE)
-    @Nonnull
-    public static CompletableFuture<Void> delayedFuture(long delay, @Nonnull TimeUnit unit, @Nonnull ScheduledExecutorService scheduledExecutor) {
+    public static CompletableFuture<Void> delayedFuture(long delay, TimeUnit unit, ScheduledExecutorService scheduledExecutor) {
         if (delay <= 0) {
             return AsyncUtil.DONE;
         }
@@ -1031,8 +1000,8 @@ public class MoreAsyncUtil {
      */
     @API(API.Status.EXPERIMENTAL)
     public static <T> CompletableFuture<T> getWithDeadline(long deadlineTimeMillis,
-                                                           @Nonnull Supplier<CompletableFuture<T>> supplier,
-                                                           @Nonnull ScheduledExecutorService scheduledExecutor) {
+                                                           Supplier<CompletableFuture<T>> supplier,
+                                                           ScheduledExecutorService scheduledExecutor) {
         final CompletableFuture<T> valueFuture = supplier.get();
         if (deadlineTimeMillis == Long.MAX_VALUE) {
             return valueFuture;
@@ -1052,7 +1021,7 @@ public class MoreAsyncUtil {
      * @param iterator iterator to close
      */
     @API(API.Status.UNSTABLE)
-    public static void closeIterator(@Nonnull Iterator<?> iterator) {
+    public static void closeIterator(Iterator<?> iterator) {
         if (iterator instanceof CloseableAsyncIterator) {
             ((CloseableAsyncIterator<?>)iterator).close();
         } else if (iterator instanceof AsyncIterator) {
@@ -1079,8 +1048,8 @@ public class MoreAsyncUtil {
      * @see #composeWhenCompleteAndHandle(CompletableFuture, BiFunction, Function)
      */
     public static <V> CompletableFuture<V> composeWhenComplete(
-            @Nonnull CompletableFuture<V> future,
-            @Nonnull BiFunction<V, Throwable, CompletableFuture<Void>> handler,
+            CompletableFuture<V> future,
+            BiFunction<V, Throwable, CompletableFuture<Void>> handler,
             @Nullable Function<Throwable, RuntimeException> exceptionMapper) {
         return composeWhenCompleteAndHandle(
                 future,
@@ -1102,8 +1071,8 @@ public class MoreAsyncUtil {
      * @see AsyncUtil#composeHandle(CompletableFuture, BiFunction)
      */
     public static <V, T> CompletableFuture<T> composeWhenCompleteAndHandle(
-            @Nonnull CompletableFuture<V> future,
-            @Nonnull BiFunction<V, Throwable, ? extends CompletableFuture<T>> handler,
+            CompletableFuture<V> future,
+            BiFunction<V, Throwable, ? extends CompletableFuture<T>> handler,
             @Nullable Function<Throwable, RuntimeException> exceptionMapper) {
         return AsyncUtil.composeHandle(future, (futureResult, futureException) -> {
             try {
@@ -1150,7 +1119,7 @@ public class MoreAsyncUtil {
         }
     }
 
-    private static RuntimeException getRuntimeException(@Nonnull Throwable exception,
+    private static RuntimeException getRuntimeException(Throwable exception,
                                                         @Nullable Function<Throwable, RuntimeException> exceptionMapper) {
         return exceptionMapper == null ? new RuntimeException(exception) : exceptionMapper.apply(exception);
     }
@@ -1193,8 +1162,8 @@ public class MoreAsyncUtil {
      * @return a future that will complete successfully if  {@code future} completed successfully, <em>or</em> the
      * {@code shouldSwallow} predicate returned {@code true} for the error that {@code future} threw
      */
-    public static CompletableFuture<Void> swallowException(@Nonnull CompletableFuture<Void> future,
-                                                           @Nonnull Predicate<Throwable> shouldSwallow) {
+    public static CompletableFuture<Void> swallowException(CompletableFuture<Void> future,
+                                                           Predicate<Throwable> shouldSwallow) {
         CompletableFuture<Void> result = new CompletableFuture<>();
         future.whenComplete((vignore, err) -> {
             if (err == null || shouldSwallow.test(err) ||
@@ -1224,12 +1193,11 @@ public class MoreAsyncUtil {
      * @param <U> the type of the result of the body {@link BiFunction}
      * @return a {@link CompletableFuture} containing the result of the last iteration's body invocation.
      */
-    @Nonnull
     public static <U> CompletableFuture<U> forLoop(final int startI, @Nullable final U startU,
-                                                   @Nonnull final IntPredicate conditionPredicate,
-                                                   @Nonnull final IntUnaryOperator stepFunction,
-                                                   @Nonnull final BiFunction<Integer, U, CompletableFuture<U>> body,
-                                                   @Nonnull final Executor executor) {
+                                                   final IntPredicate conditionPredicate,
+                                                   final IntUnaryOperator stepFunction,
+                                                   final BiFunction<Integer, U, CompletableFuture<U>> body,
+                                                   final Executor executor) {
         return forLoop(startI, startU,
                 (i, ignored) -> conditionPredicate.test(i),
                 stepFunction, body, executor);
@@ -1252,12 +1220,11 @@ public class MoreAsyncUtil {
      * @param <U> the type of the result of the body {@link BiFunction}
      * @return a {@link CompletableFuture} containing the result of the last iteration's body invocation.
      */
-    @Nonnull
     public static <U> CompletableFuture<U> forLoop(final int startI, @Nullable final U startU,
-                                                   @Nonnull final BiPredicate<Integer, U> conditionPredicate,
-                                                   @Nonnull final IntUnaryOperator stepFunction,
-                                                   @Nonnull final BiFunction<Integer, U, CompletableFuture<U>> body,
-                                                   @Nonnull final Executor executor) {
+                                                   final BiPredicate<Integer, U> conditionPredicate,
+                                                   final IntUnaryOperator stepFunction,
+                                                   final BiFunction<Integer, U, CompletableFuture<U>> body,
+                                                   final Executor executor) {
         final AtomicInteger loopVariableAtomic = new AtomicInteger(startI);
         final AtomicReference<U> lastResultAtomic = new AtomicReference<>(startU);
         return whileTrue(() -> {
@@ -1285,12 +1252,11 @@ public class MoreAsyncUtil {
      * @param <U> the type of the result
      * @return a {@link CompletableFuture} containing a list of results collected from the individual body invocations
      */
-    @Nonnull
     @SuppressWarnings({"unchecked", "PMD.CompareObjectsWithEquals"}) // identity check against a null stand-in sentinel
-    public static <T, U> CompletableFuture<List<U>> forEach(@Nonnull final Iterable<T> items,
-                                                            @Nonnull final Function<T, CompletableFuture<U>> body,
+    public static <T, U> CompletableFuture<List<U>> forEach(final Iterable<T> items,
+                                                            final Function<T, CompletableFuture<U>> body,
                                                             final int parallelism,
-                                                            @Nonnull final Executor executor) {
+                                                            final Executor executor) {
         if (parallelism < 1) {
             throw new IllegalArgumentException("parallelism must be at least 1, got " + parallelism);
         }
@@ -1330,14 +1296,12 @@ public class MoreAsyncUtil {
         }, executor).thenApply(ignored -> Arrays.asList((U[])resultArray));
     }
 
-    @Nonnull
-    public static <T> AsyncIterable<T> iterableFromCollection(@Nonnull final CompletableFuture<Collection<T>> collectionFuture,
-                                                              @Nonnull final Executor executor) {
+    public static <T> AsyncIterable<T> iterableFromCollection(final CompletableFuture<Collection<T>> collectionFuture,
+                                                              final Executor executor) {
         return iterableOf(() -> iteratorFromCollection(collectionFuture), executor);
     }
 
-    @Nonnull
-    public static <T> AsyncIterator<T> iteratorFromCollection(@Nonnull final CompletableFuture<Collection<T>> collectionFuture) {
+    public static <T> AsyncIterator<T> iteratorFromCollection(final CompletableFuture<Collection<T>> collectionFuture) {
         return new CloseableAsyncIterator<>() {
             @Nullable
             Iterator<T> iterator = null;
@@ -1379,7 +1343,6 @@ public class MoreAsyncUtil {
      */
     public static class AlwaysTrue<T> implements Function<T, Boolean> {
 
-        @Nonnull
         @Override
         public Boolean apply(T t) {
             return true;

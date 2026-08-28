@@ -52,8 +52,7 @@ import com.google.common.collect.Streams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -78,10 +77,8 @@ import static com.apple.foundationdb.async.MoreAsyncUtil.forEach;
  */
 @API(API.Status.EXPERIMENTAL)
 public class Primitives {
-    @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(Primitives.class);
 
-    @Nonnull
     private final Locator locator;
 
     /**
@@ -93,11 +90,10 @@ public class Primitives {
      * @param locator the {@link Locator} where the graph data is stored, which config to use, which executor to use,
      *        etc.
      */
-    public Primitives(@Nonnull final Locator locator) {
+    public Primitives(final Locator locator) {
         this.locator = locator;
     }
 
-    @Nonnull
     public Locator getLocator() {
         return locator;
     }
@@ -107,7 +103,6 @@ public class Primitives {
      *
      * @return the non-null subspace
      */
-    @Nonnull
     private Subspace getSubspace() {
         return getLocator().getSubspace();
     }
@@ -116,7 +111,6 @@ public class Primitives {
      * Get the executor used by this hnsw.
      * @return executor used when running asynchronous tasks
      */
-    @Nonnull
     private Executor getExecutor() {
         return getLocator().getExecutor();
     }
@@ -125,7 +119,6 @@ public class Primitives {
      * Get this hnsw's configuration.
      * @return hnsw configuration
      */
-    @Nonnull
     private Config getConfig() {
         return getLocator().getConfig();
     }
@@ -134,7 +127,6 @@ public class Primitives {
      * Get the on-write listener.
      * @return the on-write listener
      */
-    @Nonnull
     private OnWriteListener getOnWriteListener() {
         return getLocator().getOnWriteListener();
     }
@@ -143,7 +135,6 @@ public class Primitives {
      * Get the on-read listener.
      * @return the on-read listener
      */
-    @Nonnull
     private OnReadListener getOnReadListener() {
         return getLocator().getOnReadListener();
     }
@@ -152,7 +143,6 @@ public class Primitives {
         return getConfig().metric() == Metric.COSINE_METRIC;
     }
 
-    @Nonnull
     StorageTransform storageTransform(@Nullable final AccessInfo accessInfo) {
         if (accessInfo == null || !accessInfo.canUseRaBitQ()) {
             return StorageTransform.identity();
@@ -163,14 +153,12 @@ public class Primitives {
                 isMetricNeedsNormalizedVectors());
     }
 
-    @Nonnull
     StorageTransform storageTransform(@Nullable final Long rotatorSeed,
                                       @Nullable final RealVector negatedCentroid,
                                       final boolean normalizeVectors) {
         return storageTransform(rotatorSeed, negatedCentroid, normalizeVectors, getConfig().numDimensions());
     }
 
-    @Nonnull
     Quantizer quantizer(@Nullable final AccessInfo accessInfo) {
         if (accessInfo == null || !accessInfo.canUseRaBitQ()) {
             return Quantizer.noOpQuantizer(getConfig().metric());
@@ -192,9 +180,8 @@ public class Primitives {
      * @return a {@link CompletableFuture} that will be completed with the cached {@link AbstractNode}
      * @throws IllegalArgumentException if the node is not already present in the cache
      */
-    @Nonnull
-    <N extends NodeReference> AbstractNode<N> nodeFromCache(@Nonnull final Tuple primaryKey,
-                                                            @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
+    <N extends NodeReference> AbstractNode<N> nodeFromCache(final Tuple primaryKey,
+                                                            final Map<Tuple, AbstractNode<N>> nodeCache) {
         final AbstractNode<N> nodeFromCache = nodeCache.get(primaryKey);
         if (nodeFromCache == null) {
             throw new IllegalStateException("node should already have been fetched: " + primaryKey);
@@ -223,14 +210,13 @@ public class Primitives {
      *
      * @return a {@link CompletableFuture} that will be completed with the fetched or cached {@link AbstractNode}
      */
-    @Nonnull
     <N extends NodeReference> CompletableFuture<AbstractNode<N>>
-            fetchNodeIfNotCached(@Nonnull final StorageAdapter<N> storageAdapter,
-                                 @Nonnull final ReadTransaction readTransaction,
-                                 @Nonnull final StorageTransform storageTransform,
+            fetchNodeIfNotCached(final StorageAdapter<N> storageAdapter,
+                                 final ReadTransaction readTransaction,
+                                 final StorageTransform storageTransform,
                                  final int layer,
-                                 @Nonnull final NodeReference nodeReference,
-                                 @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
+                                 final NodeReference nodeReference,
+                                 final Map<Tuple, AbstractNode<N>> nodeCache) {
         return fetchNodeIfNecessaryAndApply(storageAdapter, readTransaction, storageTransform, layer, nodeReference,
                 nR -> nodeCache.get(nR.getPrimaryKey()),
                 (nR, node) -> {
@@ -272,15 +258,14 @@ public class Primitives {
      * @return A {@link CompletableFuture} that will complete with the result from either the
      * {@code fetchBypassFunction} or the {@code biMapFunction}.
      */
-    @Nonnull
     private <R extends NodeReference, N extends NodeReference, U> CompletableFuture<U>
-            fetchNodeIfNecessaryAndApply(@Nonnull final StorageAdapter<N> storageAdapter,
-                                         @Nonnull final ReadTransaction readTransaction,
-                                         @Nonnull final StorageTransform storageTransform,
+            fetchNodeIfNecessaryAndApply(final StorageAdapter<N> storageAdapter,
+                                         final ReadTransaction readTransaction,
+                                         final StorageTransform storageTransform,
                                          final int layer,
-                                         @Nonnull final R nodeReference,
-                                         @Nonnull final Function<R, U> fetchBypassFunction,
-                                         @Nonnull final BiFunction<R, AbstractNode<N>, U> biMapFunction) {
+                                         final R nodeReference,
+                                         final Function<R, U> fetchBypassFunction,
+                                         final BiFunction<R, AbstractNode<N>, U> biMapFunction) {
         final U bypass = fetchBypassFunction.apply(nodeReference);
         if (bypass != null) {
             return CompletableFuture.completedFuture(bypass);
@@ -314,14 +299,13 @@ public class Primitives {
      * @return a {@link CompletableFuture} that, upon completion, will contain a list of
      *         {@link NodeReferenceWithVectorAndAdditionalValues} objects for the specified neighbors
      */
-    @Nonnull
     <N extends NodeReference> CompletableFuture<List<NodeReferenceWithVectorAndAdditionalValues>>
-            fetchNeighborhoodReferences(@Nonnull final StorageAdapter<N> storageAdapter,
-                                        @Nonnull final ReadTransaction readTransaction,
-                                        @Nonnull final StorageTransform storageTransform,
+            fetchNeighborhoodReferences(final StorageAdapter<N> storageAdapter,
+                                        final ReadTransaction readTransaction,
+                                        final StorageTransform storageTransform,
                                         final int layer,
-                                        @Nonnull final Iterable<? extends NodeReference> neighborReferences,
-                                        @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
+                                        final Iterable<? extends NodeReference> neighborReferences,
+                                        final Map<Tuple, AbstractNode<N>> nodeCache) {
         return fetchSomeNodesAndApply(storageAdapter, readTransaction, storageTransform, layer, neighborReferences,
                 neighborReference -> {
                     if (storageAdapter.isInliningStorageAdapter() && neighborReference.isNodeReferenceWithVector()) {
@@ -378,14 +362,13 @@ public class Primitives {
      * @return A {@link CompletableFuture} which will complete with a {@link List} of {@link NodeReferenceAndNode}
      *         objects, pairing each requested reference with its corresponding node.
      */
-    @Nonnull
     <T extends NodeReferenceWithVector, N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<T, N>>>
-            fetchSomeNodesIfNotCached(@Nonnull final StorageAdapter<N> storageAdapter,
-                                      @Nonnull final ReadTransaction readTransaction,
-                                      @Nonnull final StorageTransform storageTransform,
+            fetchSomeNodesIfNotCached(final StorageAdapter<N> storageAdapter,
+                                      final ReadTransaction readTransaction,
+                                      final StorageTransform storageTransform,
                                       final int layer,
-                                      @Nonnull final Iterable<T> nodeReferences,
-                                      @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
+                                      final Iterable<T> nodeReferences,
+                                      final Map<Tuple, AbstractNode<N>> nodeCache) {
         return fetchSomeNodesAndApply(storageAdapter, readTransaction, storageTransform, layer, nodeReferences,
                 nodeReference -> {
                     final AbstractNode<N> node = nodeCache.get(nodeReference.getPrimaryKey());
@@ -430,15 +413,14 @@ public class Primitives {
      * @return A {@link CompletableFuture} that, upon completion, will hold a {@link List} of non-null results
      * of type {@code U}
      */
-    @Nonnull
     private <R extends NodeReference, N extends NodeReference, U> CompletableFuture<List<U>>
-            fetchSomeNodesAndApply(@Nonnull final StorageAdapter<N> storageAdapter,
-                                   @Nonnull final ReadTransaction readTransaction,
-                                   @Nonnull final StorageTransform storageTransform,
+            fetchSomeNodesAndApply(final StorageAdapter<N> storageAdapter,
+                                   final ReadTransaction readTransaction,
+                                   final StorageTransform storageTransform,
                                    final int layer,
-                                   @Nonnull final Iterable<R> nodeReferences,
-                                   @Nonnull final Function<R, U> fetchBypassFunction,
-                                   @Nonnull final BiFunction<R, AbstractNode<N>, U> biMapFunction) {
+                                   final Iterable<R> nodeReferences,
+                                   final Function<R, U> fetchBypassFunction,
+                                   final BiFunction<R, AbstractNode<N>, U> biMapFunction) {
         return forEach(nodeReferences,
                 currentNeighborReference -> fetchNodeIfNecessaryAndApply(storageAdapter, readTransaction,
                         storageTransform, layer, currentNeighborReference, fetchBypassFunction, biMapFunction),
@@ -455,12 +437,11 @@ public class Primitives {
                 });
     }
 
-    @Nonnull
     <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<NodeReferenceWithVector, N>>>
-            filterExisting(@Nonnull final StorageAdapter<N> storageAdapter,
-                           @Nonnull final ReadTransaction readTransaction,
-                           @Nonnull final StorageTransform storageTransform,
-                           @Nonnull final Iterable<? extends NodeReferenceAndNode<? extends NodeReferenceWithVector, N>> nodeReferenceAndNodes) {
+            filterExisting(final StorageAdapter<N> storageAdapter,
+                           final ReadTransaction readTransaction,
+                           final StorageTransform storageTransform,
+                           final Iterable<? extends NodeReferenceAndNode<? extends NodeReferenceWithVector, N>> nodeReferenceAndNodes) {
         if (!storageAdapter.isInliningStorageAdapter()) {
             final ImmutableList.Builder<NodeReferenceAndNode<NodeReferenceWithVector, N>> resultBuilder =
                     ImmutableList.builder();
@@ -505,9 +486,8 @@ public class Primitives {
                 });
     }
 
-    @Nonnull
-    CompletableFuture<Boolean> exists(@Nonnull final ReadTransaction readTransaction,
-                                      @Nonnull final Tuple primaryKey) {
+    CompletableFuture<Boolean> exists(final ReadTransaction readTransaction,
+                                      final Tuple primaryKey) {
         //
         // Call fetchBaseNode() to check for the node's existence; we are handing in the identity operator,
         // since we do not care about the vector itself at all.
@@ -516,9 +496,8 @@ public class Primitives {
                 .thenApply(Objects::nonNull);
     }
 
-    @Nonnull
-    CompletableFuture<ResultEntry> fetch(@Nonnull final ReadTransaction readTransaction,
-                                         @Nonnull final Tuple primaryKey) {
+    CompletableFuture<ResultEntry> fetch(final ReadTransaction readTransaction,
+                                         final Tuple primaryKey) {
         return StorageAdapter.fetchAccessInfo(getConfig(), readTransaction, getSubspace(), getOnReadListener())
                 .thenCompose(accessInfo -> {
                     if (accessInfo == null) {
@@ -537,10 +516,9 @@ public class Primitives {
                 });
     }
 
-    @Nonnull
-    CompletableFuture<CompactNode> fetchBaseNode(@Nonnull final ReadTransaction readTransaction,
-                                                 @Nonnull final StorageTransform storageTransform,
-                                                 @Nonnull final Tuple primaryKey) {
+    CompletableFuture<CompactNode> fetchBaseNode(final ReadTransaction readTransaction,
+                                                 final StorageTransform storageTransform,
+                                                 final Tuple primaryKey) {
         final StorageAdapter<? extends NodeReference> storageAdapter = storageAdapterForLayer(0);
 
         return storageAdapter.fetchNode(readTransaction, storageTransform, 0, primaryKey)
@@ -562,15 +540,13 @@ public class Primitives {
      *
      * @return a {@link CompletableFuture} that completes with the {@link Cardinality} of layer 0
      */
-    @Nonnull
-    CompletableFuture<Cardinality> cardinality(@Nonnull final ReadTransaction readTransaction) {
+    CompletableFuture<Cardinality> cardinality(final ReadTransaction readTransaction) {
         return cardinality(readTransaction, storageAdapterForLayer(0));
     }
 
-    @Nonnull
     private <N extends NodeReference> CompletableFuture<Cardinality>
-            cardinality(@Nonnull final ReadTransaction readTransaction,
-                        @Nonnull final StorageAdapter<N> storageAdapter) {
+            cardinality(final ReadTransaction readTransaction,
+                        final StorageAdapter<N> storageAdapter) {
         // Reading just two nodes is enough to tell empty / single / multiple apart; passing maxNumRead == 2
         // bounds the underlying range read to (at most) two key/value pairs, so the cost does not grow with the
         // size of the graph. Layer 0 is always backed by a CompactStorageAdapter (inlining is only used for
@@ -605,17 +581,16 @@ public class Primitives {
      * @return a {@link CompletableFuture} which completes with a list of the newly selected neighbors for the pruned node.
      * If no pruning was necessary, it completes with {@code null}.
      */
-    @Nonnull
     <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<NodeReferenceWithDistance, N>>>
-            pruneNeighborsIfNecessary(@Nonnull final StorageAdapter<N> storageAdapter,
-                                      @Nonnull final Transaction transaction,
-                                      @Nonnull final StorageTransform storageTransform,
-                                      @Nonnull final DistanceEstimator distanceEstimator,
+            pruneNeighborsIfNecessary(final StorageAdapter<N> storageAdapter,
+                                      final Transaction transaction,
+                                      final StorageTransform storageTransform,
+                                      final DistanceEstimator distanceEstimator,
                                       final int layer,
-                                      @Nonnull final NodeReferenceWithVector nodeReferenceWithVector,
+                                      final NodeReferenceWithVector nodeReferenceWithVector,
                                       final int mMax,
-                                      @Nonnull final NeighborsChangeSet<N> neighborChangeSet,
-                                      @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
+                                      final NeighborsChangeSet<N> neighborChangeSet,
+                                      final Map<Tuple, AbstractNode<N>> nodeCache) {
         final int numNeighbors =
                 Iterables.size(neighborChangeSet.merge()); // this is a view over the iterable neighbors in the set
         if (numNeighbors < mMax) {
@@ -677,14 +652,14 @@ public class Primitives {
      * each represented as a {@link NodeReferenceAndNode}
      */
     <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<NodeReferenceWithDistance, N>>>
-            selectCandidates(@Nonnull final StorageAdapter<N> storageAdapter,
-                             @Nonnull final ReadTransaction readTransaction,
-                             @Nonnull final StorageTransform storageTransform,
-                             @Nonnull final DistanceEstimator distanceEstimator,
-                             @Nonnull final Iterable<NodeReferenceWithDistance> initialCandidates,
+            selectCandidates(final StorageAdapter<N> storageAdapter,
+                             final ReadTransaction readTransaction,
+                             final StorageTransform storageTransform,
+                             final DistanceEstimator distanceEstimator,
+                             final Iterable<NodeReferenceWithDistance> initialCandidates,
                              final int layer,
                              final int m,
-                             @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
+                             final Map<Tuple, AbstractNode<N>> nodeCache) {
         final Metric metric = getConfig().metric();
 
         final List<NodeReferenceWithDistance> selected = Lists.newArrayListWithExpectedSize(m);
@@ -763,15 +738,15 @@ public class Primitives {
      * containing the original candidates and potentially their neighbors
      */
     <N extends NodeReference> CompletableFuture<List<NodeReferenceWithDistance>>
-            extendCandidatesIfNecessary(@Nonnull final StorageAdapter<N> storageAdapter,
-                                        @Nonnull final ReadTransaction readTransaction,
-                                        @Nonnull final StorageTransform storageTransform,
-                                        @Nonnull final DistanceEstimator distanceEstimator,
-                                        @Nonnull final Collection<NodeReferenceAndNode<NodeReferenceWithDistance, N>> candidates,
+            extendCandidatesIfNecessary(final StorageAdapter<N> storageAdapter,
+                                        final ReadTransaction readTransaction,
+                                        final StorageTransform storageTransform,
+                                        final DistanceEstimator distanceEstimator,
+                                        final Collection<NodeReferenceAndNode<NodeReferenceWithDistance, N>> candidates,
                                         final int layer,
                                         final boolean isExtendCandidates,
-                                        @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache,
-                                        @Nonnull final Transformed<RealVector> vector) {
+                                        final Map<Tuple, AbstractNode<N>> nodeCache,
+                                        final Transformed<RealVector> vector) {
         final ImmutableList.Builder<NodeReferenceWithDistance> resultBuilder = ImmutableList.builder();
 
         if (isExtendCandidates) {
@@ -815,14 +790,14 @@ public class Primitives {
      * @return a {@link CompletableFuture} which will complete with a list of fetched nodes
      */
     <T extends NodeReference, N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<NodeReferenceWithVector, N>>>
-            neighbors(@Nonnull final StorageAdapter<N> storageAdapter,
-                      @Nonnull final ReadTransaction readTransaction,
-                      @Nonnull final StorageTransform storageTransform,
-                      @Nonnull final SplittableRandom random,
-                      @Nonnull final Collection<NodeReferenceAndNode<T, N>> initialNodeReferenceAndNodes,
-                      @Nonnull final CandidatePredicate samplingPredicate,
+            neighbors(final StorageAdapter<N> storageAdapter,
+                      final ReadTransaction readTransaction,
+                      final StorageTransform storageTransform,
+                      final SplittableRandom random,
+                      final Collection<NodeReferenceAndNode<T, N>> initialNodeReferenceAndNodes,
+                      final CandidatePredicate samplingPredicate,
                       final int layer,
-                      @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
+                      final Map<Tuple, AbstractNode<N>> nodeCache) {
         return neighborReferences(storageAdapter, readTransaction, storageTransform, random,
                 initialNodeReferenceAndNodes, samplingPredicate, layer, nodeCache)
                 .thenCompose(neighbors ->
@@ -852,14 +827,14 @@ public class Primitives {
      * @return a {@link CompletableFuture} which will complete with a list of {@link NodeReferenceWithVector}
      */
     private <T extends NodeReference, N extends NodeReference> CompletableFuture<? extends List<? extends NodeReferenceWithVector>>
-            neighborReferences(@Nonnull final StorageAdapter<N> storageAdapter,
-                               @Nonnull final ReadTransaction readTransaction,
-                               @Nonnull final StorageTransform storageTransform,
+            neighborReferences(final StorageAdapter<N> storageAdapter,
+                               final ReadTransaction readTransaction,
+                               final StorageTransform storageTransform,
                                @Nullable final SplittableRandom random,
-                               @Nonnull final Collection<NodeReferenceAndNode<T, N>> initialNodeReferenceAndNodes,
-                               @Nonnull final CandidatePredicate samplingPredicate,
+                               final Collection<NodeReferenceAndNode<T, N>> initialNodeReferenceAndNodes,
+                               final CandidatePredicate samplingPredicate,
                                final int layer,
-                               @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
+                               final Map<Tuple, AbstractNode<N>> nodeCache) {
         final Iterable<NodeReference> toBeFetched =
                 findNeighborReferences(initialNodeReferenceAndNodes, random, samplingPredicate);
         return fetchNeighborhoodReferences(storageAdapter, readTransaction, storageTransform, layer, toBeFetched,
@@ -875,9 +850,9 @@ public class Primitives {
      * @return a {@link CompletableFuture} which will complete with a set of {@link NodeReference}s
      */
     private <T extends NodeReference, N extends NodeReference> Set<NodeReference>
-            findNeighborReferences(@Nonnull final Collection<NodeReferenceAndNode<T, N>> initialNodeReferenceAndNodes,
+            findNeighborReferences(final Collection<NodeReferenceAndNode<T, N>> initialNodeReferenceAndNodes,
                                    @Nullable final SplittableRandom random,
-                                   @Nonnull final CandidatePredicate candidatePredicate) {
+                                   final CandidatePredicate candidatePredicate) {
         final Set<NodeReference> neighborReferences = Sets.newLinkedHashSet();
         final ImmutableMap.Builder<Tuple, NodeReferenceAndNode<T, N>> initialNodesMapBuilder = ImmutableMap.builder();
         for (final NodeReferenceAndNode<T, N> nodeReferenceAndNode : initialNodeReferenceAndNodes) {
@@ -941,10 +916,10 @@ public class Primitives {
      * @param highestLayerInclusive the highest layer (inclusive) to begin writing lonely nodes on
      * @param lowestLayerExclusive the lowest layer (exclusive) at which to stop writing lonely nodes
      */
-    void writeLonelyNodes(@Nonnull final Quantizer quantizer,
-                          @Nonnull final Transaction transaction,
-                          @Nonnull final Tuple primaryKey,
-                          @Nonnull final Transformed<RealVector> vector,
+    void writeLonelyNodes(final Quantizer quantizer,
+                          final Transaction transaction,
+                          final Tuple primaryKey,
+                          final Transformed<RealVector> vector,
                           @Nullable final Tuple additionalValues,
                           final int highestLayerInclusive,
                           final int lowestLayerExclusive) {
@@ -971,12 +946,12 @@ public class Primitives {
      * @param vector the vector data for the new node; must not be null
      * @param additionalValues additional values associated with the vector that is written
      */
-    <N extends NodeReference> void writeLonelyNodeOnLayer(@Nonnull final Quantizer quantizer,
-                                                          @Nonnull final StorageAdapter<N> storageAdapter,
-                                                          @Nonnull final Transaction transaction,
+    <N extends NodeReference> void writeLonelyNodeOnLayer(final Quantizer quantizer,
+                                                          final StorageAdapter<N> storageAdapter,
+                                                          final Transaction transaction,
                                                           final int layer,
-                                                          @Nonnull final Tuple primaryKey,
-                                                          @Nonnull final Transformed<RealVector> vector,
+                                                          final Tuple primaryKey,
+                                                          final Transformed<RealVector> vector,
                                                           @Nullable final Tuple additionalValues) {
         final AbstractNode<N> node =
                 storageAdapter.getNodeFactory()
@@ -1002,10 +977,9 @@ public class Primitives {
      * @param candidateChangeSetMap the initialized candidate change set map.
      * @return a list of existing primary neighbors
      */
-    @Nonnull
     <N extends NodeReference> ImmutableList<N>
-            primaryNeighbors(@Nonnull final AbstractNode<N> toBeDeletedNode,
-                             @Nonnull final Map<Tuple, NeighborsChangeSet<N>> candidateChangeSetMap) {
+            primaryNeighbors(final AbstractNode<N> toBeDeletedNode,
+                             final Map<Tuple, NeighborsChangeSet<N>> candidateChangeSetMap) {
         //
         // All entries in the change set map definitely exist and the candidate change set map hold all keys for all
         // existing primary candidates.
@@ -1040,8 +1014,8 @@ public class Primitives {
      * operations to transform the neighbors from the "before" state to the "after" state.
      */
     <N extends NodeReference> NeighborsChangeSet<N>
-            resolveChangeSetFromNewNeighbors(@Nonnull final NeighborsChangeSet<N> beforeChangeSet,
-                                             @Nonnull final Iterable<NodeReferenceAndNode<NodeReferenceWithDistance, N>> afterNeighbors) {
+            resolveChangeSetFromNewNeighbors(final NeighborsChangeSet<N> beforeChangeSet,
+                                             final Iterable<NodeReferenceAndNode<NodeReferenceWithDistance, N>> afterNeighbors) {
         final Map<Tuple, N> beforeNeighborsMap = Maps.newLinkedHashMap();
         for (final N n : beforeChangeSet.merge()) {
             beforeNeighborsMap.put(n.getPrimaryKey(), n);
@@ -1092,7 +1066,6 @@ public class Primitives {
      * @param layer the layer number for which to get the storage adapter
      * @return a non-null {@link StorageAdapter} instance
      */
-    @Nonnull
     StorageAdapter<? extends NodeReference> storageAdapterForLayer(final int layer) {
         return storageAdapterForLayer(getConfig(), getSubspace(), getOnWriteListener(), getOnReadListener(), layer);
     }
@@ -1107,13 +1080,12 @@ public class Primitives {
      * @param primaryKey the primary key of the record to be inserted/updated/deleted
      * @return a non-negative integer representing the randomly selected layer
      */
-    int topLayer(@Nonnull final Tuple primaryKey) {
+    int topLayer(final Tuple primaryKey) {
         double lambda = 1.0 / Math.log(getConfig().m());
         double u = 1.0 - RandomHelpers.splitMixDouble(primaryKey.hashCode());  // Avoid log(0)
         return (int) Math.floor(-Math.log(u) * lambda);
     }
 
-    @Nonnull
     static StorageTransform storageTransform(@Nullable final Long rotatorSeed,
                                              @Nullable final RealVector negatedCentroid,
                                              final boolean normalizeVectors,
@@ -1126,12 +1098,12 @@ public class Primitives {
     }
 
     @VisibleForTesting
-    static void scanLayer(@Nonnull final Config config,
-                          @Nonnull final Subspace subspace,
-                          @Nonnull final Database db,
+    static void scanLayer(final Config config,
+                          final Subspace subspace,
+                          final Database db,
                           final int layer,
                           final int batchSize,
-                          @Nonnull final Consumer<ResultEntry> nodeConsumer) {
+                          final Consumer<ResultEntry> nodeConsumer) {
         final AccessInfo accessInfo = db.run(readTransaction ->
                 StorageAdapter.fetchAccessInfo(config, readTransaction, subspace, OnReadListener.NOOP).join());
         final StorageTransform storageTransform =
@@ -1163,12 +1135,12 @@ public class Primitives {
      * found in the layer.
      */
     @VisibleForTesting
-    static void scanLayerInternal(@Nonnull final Config config,
-                                  @Nonnull final Subspace subspace,
-                                  @Nonnull final Database db,
+    static void scanLayerInternal(final Config config,
+                                  final Subspace subspace,
+                                  final Database db,
                                   final int layer,
                                   final int batchSize,
-                                  @Nonnull final Consumer<AbstractNode<? extends NodeReference>> nodeConsumer) {
+                                  final Consumer<AbstractNode<? extends NodeReference>> nodeConsumer) {
         final StorageAdapter<? extends NodeReference> storageAdapter =
                 storageAdapterForLayer(config, subspace, OnWriteListener.NOOP, OnReadListener.NOOP, layer);
         final AtomicReference<Tuple> lastPrimaryKeyAtomic = new AtomicReference<>();
@@ -1201,21 +1173,19 @@ public class Primitives {
      * @param layer the layer number for which to get the storage adapter
      * @return a non-null {@link StorageAdapter} instance
      */
-    @Nonnull
     @VisibleForTesting
     static StorageAdapter<? extends NodeReference>
-            storageAdapterForLayer(@Nonnull final Config config,
-                                   @Nonnull final Subspace subspace,
-                                   @Nonnull final OnWriteListener onWriteListener,
-                                   @Nonnull final OnReadListener onReadListener,
+            storageAdapterForLayer(final Config config,
+                                   final Subspace subspace,
+                                   final OnWriteListener onWriteListener,
+                                   final OnReadListener onReadListener,
                                    final int layer) {
         return config.useInlining() && layer > 0
                ? new InliningStorageAdapter(config, InliningNode.factory(), subspace, onWriteListener, onReadListener)
                : new CompactStorageAdapter(config, CompactNode.factory(), subspace, onWriteListener, onReadListener);
     }
 
-    @Nonnull
-    static <T> List<T> drain(@Nonnull Queue<T> queue) {
+    static <T> List<T> drain(Queue<T> queue) {
         final ImmutableList.Builder<T> resultBuilder = ImmutableList.builder();
         while (!queue.isEmpty()) {
             resultBuilder.add(queue.poll());
@@ -1231,12 +1201,11 @@ public class Primitives {
 
     @FunctionalInterface
     interface CandidatePredicate {
-        @Nonnull
         static CandidatePredicate tautology() {
             return (random, initialNodeKeys, size, nodeReference) -> true;
         }
 
-        boolean test(@Nullable SplittableRandom random, @Nonnull Set<Tuple> initialNodeKeys, int size, NodeReference nodeReference);
+        boolean test(@Nullable SplittableRandom random, Set<Tuple> initialNodeKeys, int size, NodeReference nodeReference);
     }
 
     static class AccessInfoAndNodeExistence {

@@ -52,7 +52,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -97,19 +96,16 @@ public class CollapseScenarioTest implements BaseTest {
     /** Set by {@link #newGuardiann} so each test can read the COLLAPSE task counter. */
     private TestHelpers.TestOnWriteListener onWriteListener;
 
-    @Nonnull
     @Override
     public Database getDb() {
         return Objects.requireNonNull(db);
     }
 
-    @Nonnull
     @Override
     public Subspace getSubspace() {
         return subspaceExtension.getSubspace();
     }
 
-    @Nonnull
     @Override
     public Path getTempDir() {
         return tempDir;
@@ -846,7 +842,6 @@ public class CollapseScenarioTest implements BaseTest {
         }
     }
 
-    @Nonnull
     private Guardiann newGuardiann(final int primaryClusterMax, final int collapseMinDuplicates) {
         onWriteListener = new TestHelpers.TestOnWriteListener();
         final Config config = Guardiann.newConfigBuilder()
@@ -869,14 +864,12 @@ public class CollapseScenarioTest implements BaseTest {
     }
 
     /** The first SIFT-small base vector, used as the vector we insert many identical copies of. */
-    @Nonnull
     private RealVector duplicateVector() throws Exception {
         return VecsDatasetLoaders.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 1).get(0).vector();
     }
 
     /** Inserts {@code count} copies of {@code vector} under distinct primary keys {@code [pkBase, pkBase+count)}. */
-    @Nonnull
-    private List<Tuple> insertIdentical(@Nonnull final Guardiann guardiann, @Nonnull final RealVector vector,
+    private List<Tuple> insertIdentical(final Guardiann guardiann, final RealVector vector,
                                         final long pkBase, final int count) {
         final List<Tuple> primaryKeys = new ArrayList<>(count);
         for (int i = 0; i < count; i++) {
@@ -890,20 +883,19 @@ public class CollapseScenarioTest implements BaseTest {
         return primaryKeys;
     }
 
-    @Nonnull
-    private ClusterView onlyCluster(@Nonnull final StructureSnapshot snapshot) {
+    private ClusterView onlyCluster(final StructureSnapshot snapshot) {
         return Iterables.getOnlyElement(snapshot.clusters().values());
     }
 
     /** Marks the single cluster COLLAPSE and runs a {@link CollapseTask} on it directly. */
-    private void collapseOnlyCluster(@Nonnull final Guardiann guardiann) {
+    private void collapseOnlyCluster(final Guardiann guardiann) {
         final ClusterView cluster = onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann)));
         setCollapseState(guardiann, cluster.clusterId());
         runCollapseDirectly(guardiann, cluster.clusterId(), cluster.transformedCentroid());
     }
 
     /** Adds {@link ClusterMetadata.State#COLLAPSE} to the cluster's states (preserving any others). */
-    private void setCollapseState(@Nonnull final Guardiann guardiann, @Nonnull final UUID clusterId) {
+    private void setCollapseState(final Guardiann guardiann, final UUID clusterId) {
         db.run(tr -> {
             final Primitives primitives = guardiann.getLocator().primitives();
             final ClusterMetadata metadata =
@@ -916,8 +908,8 @@ public class CollapseScenarioTest implements BaseTest {
     }
 
     /** Builds a {@link CollapseTask} in memory and runs it in its own transaction. */
-    private void runCollapseDirectly(@Nonnull final Guardiann guardiann, @Nonnull final UUID clusterId,
-                                     @Nonnull final Transformed<RealVector> transformedCentroid) {
+    private void runCollapseDirectly(final Guardiann guardiann, final UUID clusterId,
+                                     final Transformed<RealVector> transformedCentroid) {
         db.run(tr -> {
             final Primitives primitives = guardiann.getLocator().primitives();
             final AccessInfo accessInfo = Objects.requireNonNull(primitives.fetchAccessInfo(tr).join());
@@ -929,14 +921,13 @@ public class CollapseScenarioTest implements BaseTest {
         });
     }
 
-    @Nonnull
-    private List<VectorId> fetchCollapsedIds(@Nonnull final Guardiann guardiann, @Nonnull final UUID signature) {
+    private List<VectorId> fetchCollapsedIds(final Guardiann guardiann, final UUID signature) {
         return db.run(tr -> guardiann.getLocator().primitives().fetchCollapsedVectorIds(tr, signature).join());
     }
 
     /** Asserts a kNN query for {@code vector} returns all of {@code primaryKeys} (collapsed members included). */
-    private void assertAllResolvable(@Nonnull final Guardiann guardiann, @Nonnull final RealVector vector,
-                                     @Nonnull final List<Tuple> primaryKeys) {
+    private void assertAllResolvable(final Guardiann guardiann, final RealVector vector,
+                                     final List<Tuple> primaryKeys) {
         final int k = primaryKeys.size();
         // Keep a generous pool so every near-duplicate survives to the result: at least 2x k, but never below an
         // absolute floor of 128 for small k. Expressed as a k-relative factor, that floor becomes 128/k.
@@ -953,8 +944,8 @@ public class CollapseScenarioTest implements BaseTest {
     }
 
     /** Direct-drives a {@link ReassignTask} on a single cluster in its own transaction (no follow-up tasks). */
-    private void reassignCluster(@Nonnull final Guardiann guardiann, @Nonnull final UUID clusterId,
-                                 @Nonnull final Transformed<RealVector> transformedCentroid) {
+    private void reassignCluster(final Guardiann guardiann, final UUID clusterId,
+                                 final Transformed<RealVector> transformedCentroid) {
         final Locator locator = guardiann.getLocator();
         final Primitives primitives = locator.primitives();
         final int numNearestClusters = 1 + guardiann.getConfig().reassignNumNeighboringClusters();

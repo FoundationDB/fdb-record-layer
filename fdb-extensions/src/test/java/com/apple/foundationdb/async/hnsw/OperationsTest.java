@@ -68,7 +68,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -121,19 +120,16 @@ class OperationsTest implements BaseTest {
         db = dbExtension.getDatabase();
     }
 
-    @Nonnull
     @Override
     public Database getDb() {
         return db;
     }
 
-    @Nonnull
     @Override
     public Subspace getSubspace() {
         return subspaceExtension.getSubspace();
     }
 
-    @Nonnull
     @Override
     public Path getTempDir() {
         return tempDir;
@@ -235,7 +231,6 @@ class OperationsTest implements BaseTest {
                 .isGreaterThan(0);
     }
 
-    @Nonnull
     private static Stream<Arguments> seedAndIsNormalized() {
         return RandomizedTestUtils.randomSeeds(0xdeadc0deL, 0x1234567890L)
                 .flatMap(seed -> ImmutableSet.of(false, true).stream()
@@ -271,12 +266,10 @@ class OperationsTest implements BaseTest {
         }
     }
 
-    @Nonnull
     private static Stream<Arguments> differentConfigsAndMetrics() {
         return Streams.concat(differentConfigs(), differentMetrics());
     }
 
-    @Nonnull
     private static Stream<Arguments> differentConfigs() {
         return RandomizedTestUtils.randomSeeds(0xdeadc0deL)
                 .flatMap(seed -> Sets.cartesianProduct(ImmutableSet.of(false, true),
@@ -301,7 +294,6 @@ class OperationsTest implements BaseTest {
                                         .build(128)}))));
     }
 
-    @Nonnull
     private static Stream<Arguments> differentMetrics() {
         return RandomizedTestUtils.randomSeeds(0xdeadc0deL)
                 .flatMap(seed -> Sets.cartesianProduct(ImmutableSet.of(Metric.COSINE_METRIC,

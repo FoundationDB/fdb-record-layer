@@ -23,7 +23,6 @@ package com.apple.foundationdb.async.common;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 
-import javax.annotation.Nonnull;
 
 /**
  * A record-like class wrapping a {@link RealVector} and a count. This data structure is used to keep a running sum
@@ -31,8 +30,7 @@ import javax.annotation.Nonnull;
  * @param partialCount count aggregate to indicate how many vectors have been aggregated to form {@code partialVector}
  * @param partialVector the vector aggregate (mostly the sum of all individual vectors)
  */
-public record AggregatedVector(int partialCount, @Nonnull Transformed<RealVector> partialVector) {
-    @Nonnull
+public record AggregatedVector(int partialCount, Transformed<RealVector> partialVector) {
     @Override
     public String toString() {
         return "AggregatedVector[" + partialCount + ", " + partialVector + "]";

@@ -40,8 +40,7 @@ import com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -76,10 +75,8 @@ import static com.apple.foundationdb.async.MoreAsyncUtil.mapIterablePipelined;
  * </ol>
  */
 class Search {
-    @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(Search.class);
 
-    @Nonnull
     private final Locator locator;
 
     /**
@@ -87,11 +84,10 @@ class Search {
      *
      * @param locator the {@link Locator} providing access to storage, configuration, and execution context
      */
-    public Search(@Nonnull final Locator locator) {
+    public Search(final Locator locator) {
         this.locator = locator;
     }
 
-    @Nonnull
     public Locator getLocator() {
         return locator;
     }
@@ -101,7 +97,6 @@ class Search {
      *
      * @return the non-null subspace
      */
-    @Nonnull
     public Subspace getSubspace() {
         return getLocator().getSubspace();
     }
@@ -110,7 +105,6 @@ class Search {
      * Get the executor used by this hnsw.
      * @return executor used when running asynchronous tasks
      */
-    @Nonnull
     public Executor getExecutor() {
         return getLocator().getExecutor();
     }
@@ -119,7 +113,6 @@ class Search {
      * Get the configuration of this hnsw.
      * @return hnsw configuration
      */
-    @Nonnull
     public Config getConfig() {
         return getLocator().getConfig();
     }
@@ -128,7 +121,6 @@ class Search {
      * Get the on-write listener.
      * @return the on-write listener
      */
-    @Nonnull
     public OnWriteListener getOnWriteListener() {
         return getLocator().getOnWriteListener();
     }
@@ -137,12 +129,10 @@ class Search {
      * Get the on-read listener.
      * @return the on-read listener
      */
-    @Nonnull
     public OnReadListener getOnReadListener() {
         return getLocator().getOnReadListener();
     }
 
-    @Nonnull
     private Primitives primitives() {
         return getLocator().primitives();
     }
@@ -158,14 +148,13 @@ class Search {
      * @param queryVector the query vector to search for
      * @return a future completing with up to {@code k} nearest neighbors sorted by distance
      */
-    @Nonnull
     @SuppressWarnings("checkstyle:MethodName")
     public CompletableFuture<List<? extends ResultEntry>>
-            kNearestNeighborsSearch(@Nonnull final ReadTransaction readTransaction,
+            kNearestNeighborsSearch(final ReadTransaction readTransaction,
                                     final int k,
-                                    @Nonnull final SearchConfig searchConfig,
+                                    final SearchConfig searchConfig,
                                     final boolean includeVectors,
-                                    @Nonnull final RealVector queryVector) {
+                                    final RealVector queryVector) {
         return search(readTransaction, k, searchConfig, queryVector)
                 .thenApply(searchResult ->
                         searchResult == null
@@ -185,11 +174,10 @@ class Search {
      * @param queryVector the query vector
      * @return a future completing with the search result, or {@code null} if no vectors exist yet
      */
-    @Nonnull
-    CompletableFuture<SearchResult> search(@Nonnull final ReadTransaction readTransaction,
+    CompletableFuture<SearchResult> search(final ReadTransaction readTransaction,
                                            final int k,
-                                           @Nonnull final SearchConfig searchConfig,
-                                           @Nonnull final RealVector queryVector) {
+                                           final SearchConfig searchConfig,
+                                           final RealVector queryVector) {
         final Primitives primitives = primitives();
 
         return primitives.fetchAccessInfo(readTransaction)
@@ -226,13 +214,12 @@ class Search {
      * @param searchConfig the search tuning knobs (probed-cluster cap and centroid-walk exploration factors)
      * @return a future completing with the candidate clusters sorted by centroid distance (ascending)
      */
-    @Nonnull
     private CompletableFuture<List<ClusterMetadataWithDistance>>
-            fetchCandidateClusters(@Nonnull final ReadTransaction readTransaction,
-                                   @Nonnull final Primitives primitives,
-                                   @Nonnull final StorageTransform storageTransform,
-                                   @Nonnull final RealVector queryVector,
-                                   @Nonnull final SearchConfig searchConfig) {
+            fetchCandidateClusters(final ReadTransaction readTransaction,
+                                   final Primitives primitives,
+                                   final StorageTransform storageTransform,
+                                   final RealVector queryVector,
+                                   final SearchConfig searchConfig) {
         final AsyncIterable<ResultEntry> clusterCentroidEntriesByDistanceIterable =
                 MoreAsyncUtil.limitIterable(MoreAsyncUtil.iterableOf(() ->
                         primitives.centroidsOrderedByDistance(readTransaction, queryVector, 0.0d, null,
@@ -266,10 +253,9 @@ class Search {
      * @param searchConfig the search tuning knobs (the min-clusters floor and distance-ratio cutoff)
      * @return the pruned sublist
      */
-    @Nonnull
     private List<ClusterMetadataWithDistance>
-            pruneClusters(@Nonnull final List<ClusterMetadataWithDistance> clusterMetadataWithDistances,
-                          @Nonnull final SearchConfig searchConfig) {
+            pruneClusters(final List<ClusterMetadataWithDistance> clusterMetadataWithDistances,
+                          final SearchConfig searchConfig) {
         final int searchMinClustersBeforePruning = searchConfig.searchMinClustersBeforePruning();
         final double searchDistanceRatioCutoff = searchConfig.searchDistanceRatioCutoff();
         if (clusterMetadataWithDistances.size() <= searchMinClustersBeforePruning) {
@@ -308,16 +294,15 @@ class Search {
      * @param searchConfig the search tuning knobs (candidate-pool factor and fan-out concurrency)
      * @return a future completing with the top candidates sorted by distance (best first)
      */
-    @Nonnull
     private CompletableFuture<List<VectorReferenceAndDistance>>
-            retrieveVectorReferencesFromClusters(@Nonnull final ReadTransaction readTransaction,
-                                                 @Nonnull final Primitives primitives,
-                                                 @Nonnull final StorageTransform storageTransform,
-                                                 @Nonnull final DistanceEstimator estimator,
-                                                 @Nonnull final Transformed<RealVector> transformedQueryVector,
-                                                 @Nonnull final List<ClusterMetadataWithDistance> clusters,
+            retrieveVectorReferencesFromClusters(final ReadTransaction readTransaction,
+                                                 final Primitives primitives,
+                                                 final StorageTransform storageTransform,
+                                                 final DistanceEstimator estimator,
+                                                 final Transformed<RealVector> transformedQueryVector,
+                                                 final List<ClusterMetadataWithDistance> clusters,
                                                  final int k,
-                                                 @Nonnull final SearchConfig searchConfig) {
+                                                 final SearchConfig searchConfig) {
         final AsyncIterable<ClusterMetadataWithDistance> boundedClusterMetadataIterable =
                 MoreAsyncUtil.iterableFromCollection(
                         CompletableFuture.completedFuture(clusters), getExecutor());
@@ -354,13 +339,12 @@ class Search {
      * @param searchConfig the search tuning knobs (candidate-pool factor for the expanded top-K and concurrency)
      * @return a future completing with the expanded top candidates
      */
-    @Nonnull
     private CompletableFuture<List<VectorReferenceAndDistance>>
-            expandCollapsedReferencesIfNecessary(@Nonnull final ReadTransaction readTransaction,
-                                                 @Nonnull final Primitives primitives,
-                                                 @Nonnull final List<VectorReferenceAndDistance> topReferences,
+            expandCollapsedReferencesIfNecessary(final ReadTransaction readTransaction,
+                                                 final Primitives primitives,
+                                                 final List<VectorReferenceAndDistance> topReferences,
                                                  final int k,
-                                                 @Nonnull final SearchConfig searchConfig) {
+                                                 final SearchConfig searchConfig) {
         boolean foundCollapsedReferences = false;
         for (final VectorReferenceAndDistance referenceAndDistance : topReferences) {
             if (referenceAndDistance.vectorReference().isCollapsed()) {
@@ -411,13 +395,12 @@ class Search {
      * @param searchConfig the search tuning knobs (fan-out concurrency)
      * @return a future completing with the filtered and enriched results
      */
-    @Nonnull
     private CompletableFuture<List<VectorRecord>>
-            enrichResults(@Nonnull final ReadTransaction readTransaction,
-                          @Nonnull final Primitives primitives,
-                          @Nonnull final List<VectorReferenceAndDistance> topReferences,
+            enrichResults(final ReadTransaction readTransaction,
+                          final Primitives primitives,
+                          final List<VectorReferenceAndDistance> topReferences,
                           final int k,
-                          @Nonnull final SearchConfig searchConfig) {
+                          final SearchConfig searchConfig) {
         final Map<Tuple, CompletableFuture<VectorMetadata>> primaryKeyToVectorMetadataFutureMap =
                 Maps.newConcurrentMap();
 
@@ -464,11 +447,10 @@ class Search {
                 });
     }
 
-    @Nonnull
-    CompletableFuture<SearchResult> searchOrderedByDistance(@Nonnull final ReadTransaction readTransaction,
+    CompletableFuture<SearchResult> searchOrderedByDistance(final ReadTransaction readTransaction,
                                                             final int k,
-                                                            @Nonnull final SearchConfig searchConfig,
-                                                            @Nonnull final RealVector queryVector,
+                                                            final SearchConfig searchConfig,
+                                                            final RealVector queryVector,
                                                             final double minimumRadiusCluster,
                                                             final double minimumRadius,
                                                             @Nullable final Tuple minimumPrimaryKey) {
@@ -540,12 +522,11 @@ class Search {
      * @param includeVectors whether to include reconstructed vector data in the results
      * @return a future completing with up to {@code k} results in ascending distance order
      */
-    @Nonnull
     CompletableFuture<List<? extends ResultEntry>>
-            searchOrderedByDistanceResults(@Nonnull final ReadTransaction readTransaction,
+            searchOrderedByDistanceResults(final ReadTransaction readTransaction,
                                            final int k,
-                                           @Nonnull final SearchConfig searchConfig,
-                                           @Nonnull final RealVector queryVector,
+                                           final SearchConfig searchConfig,
+                                           final RealVector queryVector,
                                            final double minimumRadiusCluster,
                                            final double minimumRadius,
                                            @Nullable final Tuple minimumPrimaryKey,
@@ -565,13 +546,12 @@ class Search {
      * (approximate) distance order, drops references whose metadata is stale, de-duplicates by primary key, then
      * takes the nearest {@code k} and enriches each with its full metadata.
      */
-    @Nonnull
     private CompletableFuture<List<VectorRecord>> collectNearestKOrderedByDistance(
-            @Nonnull final ReadTransaction readTransaction,
-            @Nonnull final Primitives primitives,
-            @Nonnull final AsyncIterable<VectorReferenceAndDistance> vectorReferenceAndDistancesIterable,
+            final ReadTransaction readTransaction,
+            final Primitives primitives,
+            final AsyncIterable<VectorReferenceAndDistance> vectorReferenceAndDistancesIterable,
             final int k,
-            @Nonnull final SearchConfig searchConfig,
+            final SearchConfig searchConfig,
             final double minimumRadius,
             @Nullable final Tuple minimumPrimaryKey) {
         // Expand collapsed references inline: a collapsed reference becomes one entry
@@ -654,9 +634,8 @@ class Search {
      * @param includeVectors whether to include the reconstructed vector data in each result entry
      * @return the search results as a list of {@link ResultEntry} instances
      */
-    @Nonnull
-    private ImmutableList<ResultEntry> postProcessSearchResult(@Nonnull final StorageTransform storageTransform,
-                                                               @Nonnull final List<VectorRecord> nearestRecords,
+    private ImmutableList<ResultEntry> postProcessSearchResult(final StorageTransform storageTransform,
+                                                               final List<VectorRecord> nearestRecords,
                                                                final boolean includeVectors) {
         final ImmutableList.Builder<ResultEntry> resultBuilder = ImmutableList.builder();
 
@@ -688,11 +667,10 @@ class Search {
      * @param searchConfig the search tuning knobs (fan-out concurrency)
      * @return a future completing with a list of overlap counts (one per query vector)
      */
-    @Nonnull
-    CompletableFuture<List<Integer>> clusterOverlapDiagnostics(@Nonnull final ReadTransaction readTransaction,
-                                                               @Nonnull final List<RealVector> queryVectors,
-                                                               @Nonnull final List<ResultEntry> centroids,
-                                                               @Nonnull final SearchConfig searchConfig) {
+    CompletableFuture<List<Integer>> clusterOverlapDiagnostics(final ReadTransaction readTransaction,
+                                                               final List<RealVector> queryVectors,
+                                                               final List<ResultEntry> centroids,
+                                                               final SearchConfig searchConfig) {
         final Primitives primitives = primitives();
 
         return primitives.fetchAccessInfo(readTransaction)
@@ -771,10 +749,9 @@ class Search {
      * @return a future completing with the topology snapshot (an empty snapshot if the structure has no access
      *         info yet)
      */
-    @Nonnull
-    CompletableFuture<StructureSnapshot> snapshotStructure(@Nonnull final ReadTransaction readTransaction,
-                                                           @Nonnull final List<ResultEntry> centroids,
-                                                           @Nonnull final SearchConfig searchConfig) {
+    CompletableFuture<StructureSnapshot> snapshotStructure(final ReadTransaction readTransaction,
+                                                           final List<ResultEntry> centroids,
+                                                           final SearchConfig searchConfig) {
         final Primitives primitives = primitives();
 
         return primitives.fetchAccessInfo(readTransaction)
@@ -812,10 +789,9 @@ class Search {
      * Builds a single {@link ClusterView} from a fetched {@link Cluster}, bucketing its references into primaries,
      * replicas and collapsed (a reference is collapsed first, then primary, else a replica).
      */
-    @Nonnull
-    private static ClusterView buildClusterView(@Nonnull final UUID clusterId,
-                                                @Nonnull final RealVector untransformedCentroid,
-                                                @Nonnull final Cluster cluster) {
+    private static ClusterView buildClusterView(final UUID clusterId,
+                                                final RealVector untransformedCentroid,
+                                                final Cluster cluster) {
         final ImmutableSet.Builder<VectorId> primariesBuilder = ImmutableSet.builder();
         final ImmutableSet.Builder<VectorId> replicasBuilder = ImmutableSet.builder();
         final ImmutableSet.Builder<VectorId> collapsedBuilder = ImmutableSet.builder();
@@ -833,10 +809,9 @@ class Search {
                 ImmutableList.copyOf(cluster.vectorReferences()));
     }
 
-    @Nonnull
     private static AsyncIterable<VectorReferenceAndDistance>
-            almostSortedVectorReferencesIterable(@Nonnull final AsyncIterable<VectorReferenceAndDistance> iterable,
-                                                 final int maxQueueSize, @Nonnull final Executor executor) {
+            almostSortedVectorReferencesIterable(final AsyncIterable<VectorReferenceAndDistance> iterable,
+                                                 final int maxQueueSize, final Executor executor) {
         return MoreAsyncUtil.iterableOf(() -> new AlmostSortedAsyncIterator<>(iterable.iterator(),
                         Comparator.comparing(VectorReferenceAndDistance::distance)
                                 .thenComparing(d -> d.vectorReference().id()), maxQueueSize, executor),
@@ -853,9 +828,8 @@ class Search {
      * @param distance the computed distance between this vector and the query vector
      * @return the enriched record carrying the metadata, the stored vector, and the distance
      */
-    @Nonnull
-    private static VectorRecord enrichVectorReference(@Nonnull final Map<Tuple, CompletableFuture<VectorMetadata>> primaryKeyToVectorMetadataUuidFutureMap,
-                                                      @Nonnull final VectorReference vectorReference,
+    private static VectorRecord enrichVectorReference(final Map<Tuple, CompletableFuture<VectorMetadata>> primaryKeyToVectorMetadataUuidFutureMap,
+                                                      final VectorReference vectorReference,
                                                       final double distance) {
         // Every metadata future was already awaited by the enclosing forEach(...).thenApply(...), so it is complete.
         final CompletableFuture<VectorMetadata> metadataFuture =
@@ -875,11 +849,11 @@ class Search {
      * @param nearestRecords the enriched search results sorted by distance (best first), defensively copied
      */
     record SearchResult(@Nullable AccessInfo accessInfo,
-                        @Nonnull StorageTransform storageTransform,
-                        @Nonnull List<VectorRecord> nearestRecords) {
+                        StorageTransform storageTransform,
+                        List<VectorRecord> nearestRecords) {
         SearchResult(@Nullable final AccessInfo accessInfo,
-                     @Nonnull final StorageTransform storageTransform,
-                     @Nonnull final List<VectorRecord> nearestRecords) {
+                     final StorageTransform storageTransform,
+                     final List<VectorRecord> nearestRecords) {
             this.accessInfo = accessInfo;
             this.storageTransform = storageTransform;
             this.nearestRecords = ImmutableList.copyOf(nearestRecords);

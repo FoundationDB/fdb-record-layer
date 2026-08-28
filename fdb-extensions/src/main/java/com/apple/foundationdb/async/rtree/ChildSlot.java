@@ -25,7 +25,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
 import java.math.BigInteger;
 
 /**
@@ -37,23 +36,17 @@ public class ChildSlot implements NodeSlot {
     static final int SLOT_KEY_TUPLE_SIZE = 4;
     static final int SLOT_VALUE_TUPLE_SIZE = 2;
 
-    @Nonnull
     private final byte[] childId;
-    @Nonnull
     private final RTree.Rectangle mbr;
 
-    @Nonnull
     private final BigInteger smallestHilbertValue;
-    @Nonnull
     private final Tuple smallestKey;
-    @Nonnull
     private final BigInteger largestHilbertValue;
-    @Nonnull
     private final Tuple largestKey;
 
-    ChildSlot(@Nonnull final BigInteger smallestHilbertValue, @Nonnull final Tuple smallestKey,
-              @Nonnull final BigInteger largestHilbertValue, @Nonnull final Tuple largestKey,
-              @Nonnull final byte[] childId, @Nonnull final RTree.Rectangle mbr) {
+    ChildSlot(final BigInteger smallestHilbertValue, final Tuple smallestKey,
+              final BigInteger largestHilbertValue, final Tuple largestKey,
+              final byte[] childId, final RTree.Rectangle mbr) {
         this.smallestHilbertValue = smallestHilbertValue;
         this.smallestKey = smallestKey;
         this.largestHilbertValue = largestHilbertValue;
@@ -62,48 +55,40 @@ public class ChildSlot implements NodeSlot {
         this.mbr = mbr;
     }
 
-    @Nonnull
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
     public byte[] getChildId() {
         return childId;
     }
 
-    @Nonnull
     @Override
     public BigInteger getSmallestHilbertValue() {
         return smallestHilbertValue;
     }
 
-    @Nonnull
     @Override
     public Tuple getSmallestKey() {
         return smallestKey;
     }
 
-    @Nonnull
     @Override
     public BigInteger getLargestHilbertValue() {
         return largestHilbertValue;
     }
 
-    @Nonnull
     @Override
     public Tuple getLargestKey() {
         return largestKey;
     }
 
-    @Nonnull
     public RTree.Rectangle getMbr() {
         return mbr;
     }
 
-    @Nonnull
     @Override
     public Tuple getSlotKey(final boolean storeHilbertValue) {
         return Tuple.from(getSmallestHilbertValue(), getSmallestKey(), getLargestHilbertValue(), getLargestKey());
     }
 
-    @Nonnull
     @Override
     public Tuple getSlotValue() {
         return Tuple.from(getChildId(), getMbr().getRanges());
@@ -128,14 +113,12 @@ public class ChildSlot implements NodeSlot {
         return positionTupleCompare == 0;
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return "[" + getMbr() + ";" + getSmallestHilbertValue() + "; " + getLargestHilbertValue() + "]";
     }
 
-    @Nonnull
-    static ChildSlot fromKeyAndValue(@Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple) {
+    static ChildSlot fromKeyAndValue(final Tuple keyTuple, final Tuple valueTuple) {
         Verify.verify(keyTuple.size() == SLOT_KEY_TUPLE_SIZE);
         Verify.verify(valueTuple.size() == SLOT_VALUE_TUPLE_SIZE);
         return new ChildSlot(keyTuple.getBigInteger(0), keyTuple.getNestedTuple(1),

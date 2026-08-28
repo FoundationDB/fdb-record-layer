@@ -21,4 +21,7 @@
 /**
  * Classes and interfaces related to the Hilbert R-tree implementation.
  */
+@NullMarked
 package com.apple.foundationdb.async.rtree;
+
+import org.jspecify.annotations.NullMarked;

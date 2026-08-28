@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.async;
 
-import javax.annotation.Nonnull;
 import java.util.function.Consumer;
 
 /**
@@ -46,7 +45,7 @@ public interface AsyncPeekCallbackIterator<T> extends AsyncPeekIterator<T> {
      * @param callback a callback to call when {@link #next()} produces a result
      * @return an iterator over the same values as <code>iterator</code> that supports peek and callback semantics
      */
-    static <T> AsyncPeekCallbackIterator<T> wrap(@Nonnull AsyncIterator<T> iterator, @Nonnull Consumer<T> callback) {
+    static <T> AsyncPeekCallbackIterator<T> wrap(AsyncIterator<T> iterator, Consumer<T> callback) {
         if (iterator instanceof AsyncPeekCallbackIterator) {
             final Consumer<T> originalCallback = ((AsyncPeekCallbackIterator<T>)iterator).getCallback();
             ((AsyncPeekCallbackIterator<T>)iterator).setCallback(t -> {
@@ -62,12 +61,11 @@ public interface AsyncPeekCallbackIterator<T> extends AsyncPeekIterator<T> {
      * Set the callback to the provided {@link Consumer}.
      * @param callback a consumer to call when a new result is produced by {@link #next()}
      */
-    void setCallback(@Nonnull Consumer<T> callback);
+    void setCallback(Consumer<T> callback);
 
     /**
      * Return the callback that this iterator calls before a new result is returned by {@link #next()}.
      * @return the callback that this iterator calls before a new result is returned by {@link #next()};W
      */
-    @Nonnull
     Consumer<T> getCallback();
 }

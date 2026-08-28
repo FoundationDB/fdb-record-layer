@@ -25,8 +25,7 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.math.BigInteger;
 import java.util.List;
 import java.util.Objects;
@@ -37,24 +36,19 @@ import java.util.function.Function;
  * Implementations and attributes common to all concrete implementations of {@link StorageAdapter}.
  */
 abstract class AbstractStorageAdapter implements StorageAdapter {
-    @Nonnull
     private final RTree.Config config;
-    @Nonnull
     private final Subspace subspace;
     @Nullable
     private final NodeSlotIndexAdapter nodeSlotIndexAdapter;
-    @Nonnull
     private final Function<RTree.Point, BigInteger> hilbertValueFunction;
-    @Nonnull
     private final OnWriteListener onWriteListener;
-    @Nonnull
     private final OnReadListener onReadListener;
 
-    protected AbstractStorageAdapter(@Nonnull final RTree.Config config, @Nonnull final Subspace subspace,
-                                     @Nonnull final Subspace nodeSlotIndexSubspace,
-                                     @Nonnull final Function<RTree.Point, BigInteger> hilbertValueFunction,
-                                     @Nonnull final OnWriteListener onWriteListener,
-                                     @Nonnull final OnReadListener onReadListener) {
+    protected AbstractStorageAdapter(final RTree.Config config, final Subspace subspace,
+                                     final Subspace nodeSlotIndexSubspace,
+                                     final Function<RTree.Point, BigInteger> hilbertValueFunction,
+                                     final OnWriteListener onWriteListener,
+                                     final OnReadListener onReadListener) {
         this.config = config;
         this.subspace = subspace;
         this.nodeSlotIndexAdapter = config.isUseNodeSlotIndex()
@@ -66,13 +60,11 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
     }
 
     @Override
-    @Nonnull
     public RTree.Config getConfig() {
         return config;
     }
 
     @Override
-    @Nonnull
     public Subspace getSubspace() {
         return subspace;
     }
@@ -83,31 +75,28 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
         return nodeSlotIndexAdapter == null ? null : nodeSlotIndexAdapter.getNodeSlotIndexSubspace();
     }
 
-    @Nonnull
     protected Function<RTree.Point, BigInteger> getHilbertValueFunction() {
         return hilbertValueFunction;
     }
 
     @Override
-    @Nonnull
     public OnWriteListener getOnWriteListener() {
         return onWriteListener;
     }
 
     @Override
-    @Nonnull
     public OnReadListener getOnReadListener() {
         return onReadListener;
     }
 
     @Override
-    public void writeNodes(@Nonnull final Transaction transaction, @Nonnull final List<? extends Node> nodes) {
+    public void writeNodes(final Transaction transaction, final List<? extends Node> nodes) {
         for (final Node node : nodes) {
             writeNode(transaction, node);
         }
     }
 
-    protected void writeNode(@Nonnull final Transaction transaction, @Nonnull final Node node) {
+    protected void writeNode(final Transaction transaction, final Node node) {
         final Node.ChangeSet changeSet = node.getChangeSet();
         if (changeSet == null) {
             return;
@@ -117,17 +106,15 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
         getOnWriteListener().onNodeWritten(node);
     }
 
-    @Nonnull
     public byte[] packWithSubspace(final byte[] key) {
         return getSubspace().pack(key);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Node> scanNodeIndexAndFetchNode(@Nonnull final ReadTransaction transaction,
+    public CompletableFuture<Node> scanNodeIndexAndFetchNode(final ReadTransaction transaction,
                                                              final int level,
-                                                             @Nonnull final BigInteger hilbertValue,
-                                                             @Nonnull final Tuple key,
+                                                             final BigInteger hilbertValue,
+                                                             final Tuple key,
                                                              final boolean isInsertUpdate) {
         Objects.requireNonNull(nodeSlotIndexAdapter);
         return nodeSlotIndexAdapter.scanIndexForNodeId(transaction, level, hilbertValue, key, isInsertUpdate)
@@ -137,8 +124,8 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
     }
 
     @Override
-    public void insertIntoNodeIndexIfNecessary(@Nonnull final Transaction transaction, final int level,
-                                               @Nonnull final NodeSlot nodeSlot) {
+    public void insertIntoNodeIndexIfNecessary(final Transaction transaction, final int level,
+                                               final NodeSlot nodeSlot) {
         if (!getConfig().isUseNodeSlotIndex() || !(nodeSlot instanceof ChildSlot)) {
             return;
         }
@@ -148,8 +135,8 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
     }
 
     @Override
-    public void deleteFromNodeIndexIfNecessary(@Nonnull final Transaction transaction, final int level,
-                                               @Nonnull final NodeSlot nodeSlot) {
+    public void deleteFromNodeIndexIfNecessary(final Transaction transaction, final int level,
+                                               final NodeSlot nodeSlot) {
         if (!getConfig().isUseNodeSlotIndex() || !(nodeSlot instanceof ChildSlot)) {
             return;
         }
@@ -158,14 +145,12 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
         nodeSlotIndexAdapter.clearChildSlot(transaction, level, (ChildSlot)nodeSlot);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Node> fetchNode(@Nonnull final ReadTransaction transaction, @Nonnull final byte[] nodeId) {
+    public CompletableFuture<Node> fetchNode(final ReadTransaction transaction, final byte[] nodeId) {
         return getOnWriteListener().onAsyncReadForWrite(fetchNodeInternal(transaction, nodeId).thenApply(this::checkNode));
     }
 
-    @Nonnull
-    protected abstract CompletableFuture<Node> fetchNodeInternal(@Nonnull ReadTransaction transaction, @Nonnull byte[] nodeId);
+    protected abstract CompletableFuture<Node> fetchNodeInternal(ReadTransaction transaction, byte[] nodeId);
 
     /**
      * Method to perform basic invariant check(s) on a newly-fetched node.
@@ -186,15 +171,12 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
         return node;
     }
 
-    @Nonnull
     abstract <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
-            newInsertChangeSet(@Nonnull N node, int level, @Nonnull List<S> insertedSlots);
+            newInsertChangeSet(N node, int level, List<S> insertedSlots);
 
-    @Nonnull
     abstract <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
-            newUpdateChangeSet(@Nonnull N node, int level, @Nonnull S originalSlot, @Nonnull S updatedSlot);
+            newUpdateChangeSet(N node, int level, S originalSlot, S updatedSlot);
 
-    @Nonnull
     abstract <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
-            newDeleteChangeSet(@Nonnull N node, int level, @Nonnull List<S> deletedSlots);
+            newDeleteChangeSet(N node, int level, List<S> deletedSlots);
 }

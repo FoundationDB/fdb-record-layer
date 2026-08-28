@@ -23,7 +23,6 @@ package com.apple.foundationdb.async.common;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
 
 /**
  * A test fixture pairing a primary key and vector with a distance (e.g. to a query vector), used to build
@@ -34,5 +33,5 @@ import javax.annotation.Nonnull;
  * @param vector the vector
  * @param distance the distance associated with this vector
  */
-public record PrimaryKeyVectorAndDistance(@Nonnull Tuple primaryKey, @Nonnull RealVector vector, double distance) {
+public record PrimaryKeyVectorAndDistance(Tuple primaryKey, RealVector vector, double distance) {
 }

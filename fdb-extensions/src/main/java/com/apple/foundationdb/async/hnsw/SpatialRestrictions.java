@@ -24,8 +24,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Comparator;
 import java.util.NavigableSet;
 import java.util.TreeSet;
@@ -41,9 +40,7 @@ class SpatialRestrictions {
     @Nullable
     private final Tuple minimumPrimaryKey;
 
-    @Nonnull
     private final NavigableSet<NodeReferenceWithDistance> insideRadius; // inclusive
-    @Nonnull
     private final NavigableSet<NodeReferenceWithDistance> outsideRadius; // exclusive
 
     public SpatialRestrictions(final int insideLimit,
@@ -56,11 +53,11 @@ class SpatialRestrictions {
         this.outsideRadius = new TreeSet<>(COMPARATOR);
     }
 
-    boolean isGreaterThanMinimum(@Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance) {
+    boolean isGreaterThanMinimum(final NodeReferenceWithDistance nodeReferenceWithDistance) {
         return compareAgainstMinimum(nodeReferenceWithDistance) < 0;
     }
 
-    boolean isGreaterThanOrEqualMinimum(@Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance) {
+    boolean isGreaterThanOrEqualMinimum(final NodeReferenceWithDistance nodeReferenceWithDistance) {
         return compareAgainstMinimum(nodeReferenceWithDistance) <= 0;
     }
 
@@ -73,7 +70,7 @@ class SpatialRestrictions {
      * @return a negative integer, zero, or a positive integer when {@code lastEmitted} is
      * less than, equal, or greater than the parameter {@code t}.
      */
-    int compareAgainstMinimum(@Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance) {
+    int compareAgainstMinimum(final NodeReferenceWithDistance nodeReferenceWithDistance) {
         if (minimumRadius == 0.0d || minimumPrimaryKey == null) {
             return -1;
         }
@@ -85,7 +82,7 @@ class SpatialRestrictions {
         return minimumPrimaryKey.compareTo(nodeReferenceWithDistance.getPrimaryKey());
     }
 
-    boolean shouldBeAdded(@Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance) {
+    boolean shouldBeAdded(final NodeReferenceWithDistance nodeReferenceWithDistance) {
         if (insideRadius.size() >= insideLimit) {
             final NodeReferenceWithDistance least = insideRadius.first();
             if (COMPARATOR.compare(nodeReferenceWithDistance, least) <= 0) {
@@ -102,7 +99,7 @@ class SpatialRestrictions {
     }
 
     @CanIgnoreReturnValue
-    boolean add(@Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance) {
+    boolean add(final NodeReferenceWithDistance nodeReferenceWithDistance) {
         if (isGreaterThanOrEqualMinimum(nodeReferenceWithDistance)) {
             return outsideRadius.add(nodeReferenceWithDistance);
         }

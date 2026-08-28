@@ -40,7 +40,6 @@ import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -85,19 +84,16 @@ public class SplitMergeSplitScenarioTest implements BaseTest {
     private static Guardiann guardiann;
     private static TestHelpers.TestOnWriteListener onWriteListener;
 
-    @Nonnull
     @Override
     public Database getDb() {
         return Objects.requireNonNull(db);
     }
 
-    @Nonnull
     @Override
     public Subspace getSubspace() {
         return subspaceExtension.getSubspace();
     }
 
-    @Nonnull
     @Override
     public Path getTempDir() {
         return tempDir;

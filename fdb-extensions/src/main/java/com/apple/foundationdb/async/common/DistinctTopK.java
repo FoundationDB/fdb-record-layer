@@ -26,7 +26,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
 import java.util.Comparator;
 import java.util.List;
 import java.util.NavigableSet;
@@ -46,12 +45,11 @@ import static com.apple.foundationdb.async.AsyncUtil.forEachRemaining;
  * @param <T> the type of element collected
  */
 public class DistinctTopK<T> {
-    @Nonnull
     private final NavigableSet<T> set;
     @SuppressWarnings("checkstyle:MemberName")
     private final int k;
 
-    private DistinctTopK(@Nonnull final Comparator<T> comparator, final int k) {
+    private DistinctTopK(final Comparator<T> comparator, final int k) {
         Preconditions.checkArgument(k > 0, "k must be positive");
         this.set = Sets.newTreeSet(comparator);
         this.k = k;
@@ -67,7 +65,7 @@ public class DistinctTopK<T> {
      *
      * @return {@code true} if the element was retained, {@code false} if it was a duplicate or was rejected
      */
-    public boolean add(@Nonnull T item) {
+    public boolean add(T item) {
         if (set.contains(item)) {
             return false;
         }
@@ -101,7 +99,6 @@ public class DistinctTopK<T> {
      *
      * @return the worst retained element, or {@link Optional#empty()} if the collector is empty
      */
-    @Nonnull
     public Optional<T> worstElement() {
         if (set.isEmpty()) {
             return Optional.empty();
@@ -118,7 +115,6 @@ public class DistinctTopK<T> {
      *
      * @return a future completing with the retained distinct top-K elements, sorted from best to worst
      */
-    @Nonnull
     public CompletableFuture<List<T>> collect(final AsyncIterable<T> iterable,
                                               final Executor executor) {
         return collectRemaining(iterable.iterator(), executor);
@@ -150,8 +146,7 @@ public class DistinctTopK<T> {
      *
      * @throws IllegalArgumentException if {@code k} is not positive
      */
-    @Nonnull
-    public static <T> DistinctTopK<T> min(@Nonnull final Comparator<T> comparator, final int k) {
+    public static <T> DistinctTopK<T> min(final Comparator<T> comparator, final int k) {
         return new DistinctTopK<>(comparator.reversed(), k);
     }
 
@@ -167,8 +162,7 @@ public class DistinctTopK<T> {
      *
      * @throws IllegalArgumentException if {@code k} is not positive
      */
-    @Nonnull
-    public static <T> DistinctTopK<T> max(@Nonnull final Comparator<T> comparator, final int k) {
+    public static <T> DistinctTopK<T> max(final Comparator<T> comparator, final int k) {
         return new DistinctTopK<>(comparator, k);
     }
 }

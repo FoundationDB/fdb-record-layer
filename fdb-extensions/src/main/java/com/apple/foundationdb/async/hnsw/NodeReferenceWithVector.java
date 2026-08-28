@@ -24,7 +24,6 @@ import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
@@ -37,7 +36,6 @@ import java.util.Objects;
  * may not.
  */
 public class NodeReferenceWithVector extends NodeReference {
-    @Nonnull
     private final Transformed<RealVector> vector;
 
     /**
@@ -50,7 +48,7 @@ public class NodeReferenceWithVector extends NodeReference {
      * @param primaryKey the primary key of the node, must not be null
      * @param vector the vector associated with the node, must not be null
      */
-    public NodeReferenceWithVector(@Nonnull final Tuple primaryKey, @Nonnull final Transformed<RealVector> vector) {
+    public NodeReferenceWithVector(final Tuple primaryKey, final Transformed<RealVector> vector) {
         super(primaryKey);
         this.vector = vector;
     }
@@ -63,7 +61,6 @@ public class NodeReferenceWithVector extends NodeReference {
      *
      * @return the vector of {@code Half} objects; will never be {@code null}.
      */
-    @Nonnull
     public Transformed<RealVector> getVector() {
         return vector;
     }
@@ -81,7 +78,6 @@ public class NodeReferenceWithVector extends NodeReference {
      * Returns this instance cast as a {@code NodeReferenceWithVector}.
      * @return this instance as a {@code NodeReferenceWithVector}, which is never {@code null}.
      */
-    @Nonnull
     @Override
     public NodeReferenceWithVector asNodeReferenceWithVector() {
         return this;

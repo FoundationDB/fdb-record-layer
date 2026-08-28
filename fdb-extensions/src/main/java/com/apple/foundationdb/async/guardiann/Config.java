@@ -25,7 +25,6 @@ import com.apple.foundationdb.linear.Metric;
 import com.google.common.base.Preconditions;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
-import javax.annotation.Nonnull;
 
 /**
  * Configuration for the Guardiann vector structure.
@@ -76,7 +75,7 @@ import javax.annotation.Nonnull;
  *        knobs are consulted there
  */
 @SuppressWarnings("checkstyle:MemberName")
-public record Config(@Nonnull Metric metric,
+public record Config(Metric metric,
                      int numDimensions,
                      int primaryClusterMin,
                      int primaryClusterMax,
@@ -115,9 +114,9 @@ public record Config(@Nonnull Metric metric,
                      int collapseConcurrency,
                      int bounceConcurrency,
                      // construction (centroid-walk tuning for the non-search insert/delete/maintenance paths)
-                     @Nonnull SearchConfig constructionSearchConfig) implements VectorEncodingConfig {
+                     SearchConfig constructionSearchConfig) implements VectorEncodingConfig {
 
-    @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
+    public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
     public static final int DEFAULT_PRIMARY_CLUSTER_MIN = 100;
     public static final int DEFAULT_PRIMARY_CLUSTER_MAX = 1000;
     public static final int DEFAULT_PRIMARY_CLUSTER_HARD_MAX = 2 * DEFAULT_PRIMARY_CLUSTER_MAX;
@@ -160,7 +159,6 @@ public record Config(@Nonnull Metric metric,
     public static final int DEFAULT_REASSIGN_CONCURRENCY = 10;
     public static final int DEFAULT_COLLAPSE_CONCURRENCY = 10;
     public static final int DEFAULT_BOUNCE_CONCURRENCY = 10;
-    @Nonnull
     public static final SearchConfig DEFAULT_CONSTRUCTION_SEARCH_CONFIG = new SearchConfig.SearchConfigBuilder().build();
 
     public Config {
@@ -171,7 +169,6 @@ public record Config(@Nonnull Metric metric,
                 "primaryClusterHardMax must be > primaryClusterMax");
     }
 
-    @Nonnull
     public ConfigBuilder toBuilder() {
         return new ConfigBuilder(metric(), primaryClusterMin(), primaryClusterMax(), primaryClusterHardMax(),
                 underreplicatedPrimaryClusterMax(), replicatedClusterMaxWrites(), replicatedClusterTarget(),
@@ -189,7 +186,6 @@ public record Config(@Nonnull Metric metric,
     }
 
     @Override
-    @Nonnull
     public String toString() {
         return "Config[metric=" + metric() + ", numDimensions=" + numDimensions() +
                 ", primaryClusterMin=" + primaryClusterMin() + ", primaryClusterMax=" + primaryClusterMax() +
@@ -231,7 +227,6 @@ public record Config(@Nonnull Metric metric,
     @CanIgnoreReturnValue
     @SuppressWarnings("checkstyle:MemberName")
     public static class ConfigBuilder {
-        @Nonnull
         private Metric metric = DEFAULT_METRIC;
         private int primaryClusterMin = DEFAULT_PRIMARY_CLUSTER_MIN;
         private int primaryClusterMax = DEFAULT_PRIMARY_CLUSTER_MAX;
@@ -274,13 +269,12 @@ public record Config(@Nonnull Metric metric,
         private int collapseConcurrency = DEFAULT_COLLAPSE_CONCURRENCY;
         private int bounceConcurrency = DEFAULT_BOUNCE_CONCURRENCY;
         // construction (centroid-walk tuning for the non-search insert/delete/maintenance paths)
-        @Nonnull
         private SearchConfig constructionSearchConfig = DEFAULT_CONSTRUCTION_SEARCH_CONFIG;
 
         public ConfigBuilder() {
         }
 
-        public ConfigBuilder(@Nonnull final Metric metric, final int primaryClusterMin, final int primaryClusterMax,
+        public ConfigBuilder(final Metric metric, final int primaryClusterMin, final int primaryClusterMax,
                              final int primaryClusterHardMax,
                              final int underreplicatedPrimaryClusterMax, final int replicatedClusterMaxWrites,
                              final int replicatedClusterTarget, final double replicationPriorityMin,
@@ -300,7 +294,7 @@ public record Config(@Nonnull Metric metric,
                              final int splitMergeConcurrency, final int reassignConcurrency,
                              final int collapseConcurrency,
                              final int bounceConcurrency,
-                             @Nonnull final SearchConfig constructionSearchConfig) {
+                             final SearchConfig constructionSearchConfig) {
             this.metric = metric;
             this.primaryClusterMin = primaryClusterMin;
             this.primaryClusterMax = primaryClusterMax;
@@ -335,14 +329,12 @@ public record Config(@Nonnull Metric metric,
             this.constructionSearchConfig = constructionSearchConfig;
         }
 
-        @Nonnull
         public Metric getMetric() {
             return metric;
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
-        public ConfigBuilder setMetric(@Nonnull final Metric metric) {
+        public ConfigBuilder setMetric(final Metric metric) {
             this.metric = metric;
             return this;
         }
@@ -352,7 +344,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setPrimaryClusterMin(final int primaryClusterMin) {
             this.primaryClusterMin = primaryClusterMin;
             return this;
@@ -363,7 +354,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setPrimaryClusterMax(final int primaryClusterMax) {
             this.primaryClusterMax = primaryClusterMax;
             return this;
@@ -374,7 +364,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setPrimaryClusterHardMax(final int primaryClusterHardMax) {
             this.primaryClusterHardMax = primaryClusterHardMax;
             return this;
@@ -385,7 +374,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setUnderreplicatedPrimaryClusterMax(final int underreplicatedPrimaryClusterMax) {
             this.underreplicatedPrimaryClusterMax = underreplicatedPrimaryClusterMax;
             return this;
@@ -396,7 +384,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setReplicatedClusterMaxWrites(final int replicatedClusterMaxWrites) {
             this.replicatedClusterMaxWrites = replicatedClusterMaxWrites;
             return this;
@@ -407,7 +394,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setReplicatedClusterTarget(final int replicatedClusterTarget) {
             this.replicatedClusterTarget = replicatedClusterTarget;
             return this;
@@ -418,7 +404,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setReplicationPriorityMin(final double replicationPriorityMin) {
             this.replicationPriorityMin = replicationPriorityMin;
             return this;
@@ -429,7 +414,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setReplicationDistanceRatioWeight(final double replicationDistanceRatioWeight) {
             this.replicationDistanceRatioWeight = replicationDistanceRatioWeight;
             return this;
@@ -440,7 +424,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setReplicationZScoreWeight(final double replicationZScoreWeight) {
             this.replicationZScoreWeight = replicationZScoreWeight;
             return this;
@@ -451,7 +434,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setReplicationStatsMinSampleSize(final int replicationStatsMinSampleSize) {
             this.replicationStatsMinSampleSize = replicationStatsMinSampleSize;
             return this;
@@ -462,7 +444,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setSampleVectorStatsProbability(final double sampleVectorStatsProbability) {
             this.sampleVectorStatsProbability = sampleVectorStatsProbability;
             return this;
@@ -473,7 +454,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setMaintainStatsProbability(final double maintainStatsProbability) {
             this.maintainStatsProbability = maintainStatsProbability;
             return this;
@@ -484,7 +464,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setStatsThreshold(final int statsThreshold) {
             this.statsThreshold = statsThreshold;
             return this;
@@ -495,7 +474,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setUseRaBitQ(final boolean useRaBitQ) {
             this.useRaBitQ = useRaBitQ;
             return this;
@@ -506,7 +484,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setRaBitQNumExBits(final int raBitQNumExBits) {
             this.raBitQNumExBits = raBitQNumExBits;
             return this;
@@ -517,7 +494,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setDeterministicRandomness(final boolean deterministicRandomness) {
             this.deterministicRandomness = deterministicRandomness;
             return this;
@@ -528,7 +504,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setSampleBatchSize(final int sampleBatchSize) {
             this.sampleBatchSize = sampleBatchSize;
             return this;
@@ -539,7 +514,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setInsertMaxCandidateClusters(final int insertMaxCandidateClusters) {
             this.insertMaxCandidateClusters = insertMaxCandidateClusters;
             return this;
@@ -550,7 +524,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setDeleteMaxCandidateClusters(final int deleteMaxCandidateClusters) {
             this.deleteMaxCandidateClusters = deleteMaxCandidateClusters;
             return this;
@@ -561,7 +534,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setDeleteConcurrency(final int deleteConcurrency) {
             this.deleteConcurrency = deleteConcurrency;
             return this;
@@ -572,7 +544,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setSplitNumNearestClusters(final int splitNumNearestClusters) {
             this.splitNumNearestClusters = splitNumNearestClusters;
             return this;
@@ -583,7 +554,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setMergeNumNearestClusters(final int mergeNumNearestClusters) {
             this.mergeNumNearestClusters = mergeNumNearestClusters;
             return this;
@@ -594,7 +564,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setKMeansMaxIterations(final int kMeansMaxIterations) {
             this.kMeansMaxIterations = kMeansMaxIterations;
             return this;
@@ -605,7 +574,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setKMeansMaxRestarts(final int kMeansMaxRestarts) {
             this.kMeansMaxRestarts = kMeansMaxRestarts;
             return this;
@@ -616,7 +584,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setReassignNumNeighboringClusters(final int reassignNumNeighboringClusters) {
             this.reassignNumNeighboringClusters = reassignNumNeighboringClusters;
             return this;
@@ -627,7 +594,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setCollapseMinDuplicates(final int collapseMinDuplicates) {
             this.collapseMinDuplicates = collapseMinDuplicates;
             return this;
@@ -638,7 +604,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setSplitMergeConcurrency(final int splitMergeConcurrency) {
             this.splitMergeConcurrency = splitMergeConcurrency;
             return this;
@@ -649,7 +614,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setReassignConcurrency(final int reassignConcurrency) {
             this.reassignConcurrency = reassignConcurrency;
             return this;
@@ -660,7 +624,6 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setCollapseConcurrency(final int collapseConcurrency) {
             this.collapseConcurrency = collapseConcurrency;
             return this;
@@ -671,20 +634,17 @@ public record Config(@Nonnull Metric metric,
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public ConfigBuilder setBounceConcurrency(final int bounceConcurrency) {
             this.bounceConcurrency = bounceConcurrency;
             return this;
         }
 
-        @Nonnull
         public SearchConfig getConstructionSearchConfig() {
             return constructionSearchConfig;
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
-        public ConfigBuilder setConstructionSearchConfig(@Nonnull final SearchConfig constructionSearchConfig) {
+        public ConfigBuilder setConstructionSearchConfig(final SearchConfig constructionSearchConfig) {
             this.constructionSearchConfig = constructionSearchConfig;
             return this;
         }

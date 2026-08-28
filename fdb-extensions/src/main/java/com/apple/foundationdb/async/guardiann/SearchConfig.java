@@ -23,7 +23,6 @@ package com.apple.foundationdb.async.guardiann;
 import com.google.common.base.Preconditions;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
-import javax.annotation.Nonnull;
 
 /**
  * The performance/recall tuning knobs for a single Guardiann search. These are the parameters that change how hard the
@@ -99,14 +98,12 @@ public record SearchConfig(double candidatePoolFactor,
         return Math.max(k, (int) Math.ceil(candidatePoolFactor() * k));
     }
 
-    @Nonnull
     public SearchConfigBuilder toBuilder() {
         return new SearchConfigBuilder(candidatePoolFactor(), searchMaxClusters(), searchMinClustersBeforePruning(),
                 searchDistanceRatioCutoff(), centroidEfRingSearch(), centroidEfOutwardSearch(), searchConcurrency());
     }
 
     @Override
-    @Nonnull
     public String toString() {
         return "SearchConfig[candidatePoolFactor=" + candidatePoolFactor() +
                 ", searchMaxClusters=" + searchMaxClusters() +
@@ -152,7 +149,6 @@ public record SearchConfig(double candidatePoolFactor,
             return candidatePoolFactor;
         }
 
-        @Nonnull
         public SearchConfigBuilder setCandidatePoolFactor(final double candidatePoolFactor) {
             this.candidatePoolFactor = candidatePoolFactor;
             return this;
@@ -162,7 +158,6 @@ public record SearchConfig(double candidatePoolFactor,
             return searchMaxClusters;
         }
 
-        @Nonnull
         public SearchConfigBuilder setSearchMaxClusters(final int searchMaxClusters) {
             this.searchMaxClusters = searchMaxClusters;
             return this;
@@ -172,7 +167,6 @@ public record SearchConfig(double candidatePoolFactor,
             return searchMinClustersBeforePruning;
         }
 
-        @Nonnull
         public SearchConfigBuilder setSearchMinClustersBeforePruning(final int searchMinClustersBeforePruning) {
             this.searchMinClustersBeforePruning = searchMinClustersBeforePruning;
             return this;
@@ -182,7 +176,6 @@ public record SearchConfig(double candidatePoolFactor,
             return searchDistanceRatioCutoff;
         }
 
-        @Nonnull
         public SearchConfigBuilder setSearchDistanceRatioCutoff(final double searchDistanceRatioCutoff) {
             this.searchDistanceRatioCutoff = searchDistanceRatioCutoff;
             return this;
@@ -192,7 +185,6 @@ public record SearchConfig(double candidatePoolFactor,
             return centroidEfRingSearch;
         }
 
-        @Nonnull
         public SearchConfigBuilder setCentroidEfRingSearch(final int centroidEfRingSearch) {
             this.centroidEfRingSearch = centroidEfRingSearch;
             return this;
@@ -202,7 +194,6 @@ public record SearchConfig(double candidatePoolFactor,
             return centroidEfOutwardSearch;
         }
 
-        @Nonnull
         public SearchConfigBuilder setCentroidEfOutwardSearch(final int centroidEfOutwardSearch) {
             this.centroidEfOutwardSearch = centroidEfOutwardSearch;
             return this;
@@ -212,13 +203,11 @@ public record SearchConfig(double candidatePoolFactor,
             return searchConcurrency;
         }
 
-        @Nonnull
         public SearchConfigBuilder setSearchConcurrency(final int searchConcurrency) {
             this.searchConcurrency = searchConcurrency;
             return this;
         }
 
-        @Nonnull
         public SearchConfig build() {
             return new SearchConfig(getCandidatePoolFactor(), getSearchMaxClusters(),
                     getSearchMinClustersBeforePruning(), getSearchDistanceRatioCutoff(), getCentroidEfRingSearch(),

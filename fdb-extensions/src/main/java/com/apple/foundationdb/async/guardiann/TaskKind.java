@@ -22,7 +22,6 @@ package com.apple.foundationdb.async.guardiann;
 
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
@@ -51,7 +50,7 @@ public enum TaskKind {
     private final int code;
     private final TaskCreationFunction taskCreationFunction;
 
-    TaskKind(final int code, @Nonnull final TaskCreationFunction taskCreationFunction) {
+    TaskKind(final int code, final TaskCreationFunction taskCreationFunction) {
         this.code = code;
         this.taskCreationFunction = taskCreationFunction;
     }
@@ -65,11 +64,10 @@ public enum TaskKind {
         return code;
     }
 
-    @Nonnull
-    AbstractDeferredTask create(@Nonnull final Locator locator,
-                                @Nonnull final AccessInfo accessInfo,
-                                @Nonnull final Tuple keyTuple,
-                                @Nonnull final Tuple valueTuple) {
+    AbstractDeferredTask create(final Locator locator,
+                                final AccessInfo accessInfo,
+                                final Tuple keyTuple,
+                                final Tuple valueTuple) {
         return taskCreationFunction.create(locator, accessInfo, keyTuple, valueTuple);
     }
 
@@ -79,8 +77,7 @@ public enum TaskKind {
      * @param valueTuple the task's stored value tuple
      * @return the decoded kind
      */
-    @Nonnull
-    static TaskKind fromValueTuple(@Nonnull final Tuple valueTuple) {
+    static TaskKind fromValueTuple(final Tuple valueTuple) {
         return TaskKind.ofCode(Math.toIntExact(valueTuple.getLong(0)));
     }
 
@@ -91,7 +88,6 @@ public enum TaskKind {
      * @return the matching kind
      * @throws NullPointerException if the code does not correspond to any kind
      */
-    @Nonnull
     static TaskKind ofCode(final int code) {
         return Objects.requireNonNull(BY_CODE.getOrDefault(code, null));
     }
@@ -101,9 +97,9 @@ public enum TaskKind {
      */
     @FunctionalInterface
     private interface TaskCreationFunction {
-        AbstractDeferredTask create(@Nonnull Locator locator,
-                                    @Nonnull AccessInfo accessInfo,
-                                    @Nonnull Tuple keyTuple,
-                                    @Nonnull Tuple valueTuple);
+        AbstractDeferredTask create(Locator locator,
+                                    AccessInfo accessInfo,
+                                    Tuple keyTuple,
+                                    Tuple valueTuple);
     }
 }

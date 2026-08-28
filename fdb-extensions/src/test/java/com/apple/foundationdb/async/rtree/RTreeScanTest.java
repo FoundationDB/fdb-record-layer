@@ -47,8 +47,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -96,7 +95,6 @@ public class RTreeScanTest  {
         items = ObjectArrays.concat(items1, items2, Item.class);
     }
 
-    @Nonnull
     public static Stream<Arguments> queries() {
         final Random random = new Random(1);
         final ImmutableList.Builder<Arguments> argumentsBuilder = ImmutableList.builder();
@@ -117,7 +115,7 @@ public class RTreeScanTest  {
 
     @ParameterizedTest
     @MethodSource("queries")
-    public void queryWithFilters(@Nonnull final RTree.Rectangle query) {
+    public void queryWithFilters(final RTree.Rectangle query) {
         final Predicate<RTree.Rectangle> mbrPredicate =
                 rectangle -> rectangle.isOverlapping(query);
 
@@ -186,7 +184,7 @@ public class RTreeScanTest  {
     @SuppressWarnings({"UnstableApiUsage", "ResultOfMethodCallIgnored"})
     @ParameterizedTest
     @MethodSource("queries")
-    public void queryTopNWithFilters(@Nonnull final RTree.Rectangle query) {
+    public void queryTopNWithFilters(final RTree.Rectangle query) {
         final Comparator<Item> itemComparator =
                 Comparator.<Item>comparingLong(item -> item.getPoint().getCoordinates().getLong(0))
                         .thenComparing(Item::getKeySuffix);
@@ -246,20 +244,17 @@ public class RTreeScanTest  {
                 Comparator.<ItemSlot>comparingLong(itemSlot -> itemSlot.getPosition().getCoordinates().getLong(0))
                         .thenComparing(ItemSlot::getKeySuffix);
 
-        @Nonnull
         private RTree.Rectangle query;
         private final int num;
-        @Nonnull
         private final MinMaxPriorityQueue<ItemSlot> queue;
 
         @SuppressWarnings("UnstableApiUsage")
-        public TopNTraversal(@Nonnull final RTree.Rectangle query, final int num) {
+        public TopNTraversal(final RTree.Rectangle query, final int num) {
             this.query = query;
             this.num = num;
             this.queue = MinMaxPriorityQueue.orderedBy(comparator).maximumSize(num).create();
         }
 
-        @Nonnull
         public MinMaxPriorityQueue<ItemSlot> getQueue() {
             return queue;
         }
@@ -269,7 +264,7 @@ public class RTreeScanTest  {
             return rectangle.isOverlapping(query);
         }
 
-        public void addItemSlot(@Nonnull final ItemSlot itemSlot) {
+        public void addItemSlot(final ItemSlot itemSlot) {
             queue.add(itemSlot);
 
             if (queue.size() == num) {
@@ -343,17 +338,17 @@ public class RTreeScanTest  {
         }
 
         @Override
-        public void onSlotIndexEntryRead(@Nonnull final byte[] key) {
+        public void onSlotIndexEntryRead(final byte[] key) {
             readSlotIndexEntryCounter.incrementAndGet();
         }
 
         @Override
-        public <T extends Node> CompletableFuture<T> onAsyncRead(@Nonnull final CompletableFuture<T> future) {
+        public <T extends Node> CompletableFuture<T> onAsyncRead(final CompletableFuture<T> future) {
             return future;
         }
 
         @Override
-        public void onNodeRead(@Nonnull final Node node) {
+        public void onNodeRead(final Node node) {
             if (node.getKind() == NodeKind.LEAF) {
                 readLeafNodesCounter.incrementAndGet();
             } else {
@@ -363,7 +358,7 @@ public class RTreeScanTest  {
         }
 
         @Override
-        public void onKeyValueRead(@Nonnull final Node node, @Nonnull final byte[] key, @Nonnull final byte[] value) {
+        public void onKeyValueRead(final Node node, final byte[] key, final byte[] value) {
             if (node.getKind() == NodeKind.LEAF) {
                 readLeafKeyValueCounter.incrementAndGet();
                 readLeafKeyValueBytes.addAndGet(key.length + value.length);
@@ -461,18 +456,18 @@ public class RTreeScanTest  {
         }
 
         @Override
-        public void onSlotIndexEntryWritten(@Nonnull final byte[] key) {
+        public void onSlotIndexEntryWritten(final byte[] key) {
             slotIndexEntryWrittenCounter.incrementAndGet();
             slotIndexEntryWrittenBytes.addAndGet(key.length);
         }
 
         @Override
-        public void onSlotIndexEntryCleared(@Nonnull final byte[] key) {
+        public void onSlotIndexEntryCleared(final byte[] key) {
             slotIndexEntryClearedBytes.addAndGet(key.length);
         }
 
         @Override
-        public void onNodeWritten(@Nonnull final Node node) {
+        public void onNodeWritten(final Node node) {
             if (node.getKind() == NodeKind.LEAF) {
                 leafNodeWrittenCounter.incrementAndGet();
             } else {
@@ -482,7 +477,7 @@ public class RTreeScanTest  {
         }
 
         @Override
-        public void onKeyValueWritten(@Nonnull final Node node, @Nonnull final byte[] key, @Nonnull final byte[] value) {
+        public void onKeyValueWritten(final Node node, final byte[] key, final byte[] value) {
             if (node.getKind() == NodeKind.LEAF) {
                 leafKeyValueWrittenCounter.incrementAndGet();
                 leafKeyValueWrittenBytes.addAndGet(key.length + value.length);
@@ -494,7 +489,7 @@ public class RTreeScanTest  {
         }
 
         @Override
-        public void onKeyCleared(@Nonnull final Node node, @Nonnull final byte[] key) {
+        public void onKeyCleared(final Node node, final byte[] key) {
             if (node.getKind() == NodeKind.LEAF) {
                 leafKeyValueClearedBytes.addAndGet(key.length);
             } else {

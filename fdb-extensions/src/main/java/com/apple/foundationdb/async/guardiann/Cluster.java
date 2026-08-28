@@ -23,7 +23,6 @@ package com.apple.foundationdb.async.guardiann;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
@@ -36,11 +35,10 @@ import java.util.List;
  * @param centroid the cluster's centroid in the transformed coordinate space
  * @param vectorReferences all vector references stored in this cluster (primary and replicated)
  */
-record Cluster(@Nonnull ClusterMetadata clusterMetadata,
-               @Nonnull Transformed<RealVector> centroid,
-               @Nonnull List<VectorReference> vectorReferences) {
+record Cluster(ClusterMetadata clusterMetadata,
+               Transformed<RealVector> centroid,
+               List<VectorReference> vectorReferences) {
     @Override
-    @Nonnull
     public String toString() {
         return "C[" + clusterMetadata + "]";
     }

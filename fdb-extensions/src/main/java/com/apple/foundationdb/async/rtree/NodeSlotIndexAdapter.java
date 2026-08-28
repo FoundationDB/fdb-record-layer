@@ -31,7 +31,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 import com.google.common.collect.Lists;
 
-import javax.annotation.Nonnull;
 import java.math.BigInteger;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -82,31 +81,26 @@ class NodeSlotIndexAdapter {
 
     private static final byte[] emptyArray = { };
 
-    @Nonnull
     private final Subspace nodeSlotIndexSubspace;
 
-    @Nonnull
     private final OnWriteListener onWriteListener;
-    @Nonnull
     private final OnReadListener onReadListener;
 
-    NodeSlotIndexAdapter(@Nonnull final Subspace nodeSlotIndexSubspace, @Nonnull final OnWriteListener onWriteListener,
-                         @Nonnull final OnReadListener onReadListener) {
+    NodeSlotIndexAdapter(final Subspace nodeSlotIndexSubspace, final OnWriteListener onWriteListener,
+                         final OnReadListener onReadListener) {
         this.nodeSlotIndexSubspace = nodeSlotIndexSubspace;
         this.onWriteListener = onWriteListener;
         this.onReadListener = onReadListener;
     }
 
-    @Nonnull
     public Subspace getNodeSlotIndexSubspace() {
         return nodeSlotIndexSubspace;
     }
 
-    @Nonnull
-    CompletableFuture<byte[]> scanIndexForNodeId(@Nonnull final ReadTransaction transaction,
+    CompletableFuture<byte[]> scanIndexForNodeId(final ReadTransaction transaction,
                                                  final int level,
-                                                 @Nonnull final BigInteger hilbertValue,
-                                                 @Nonnull final Tuple key,
+                                                 final BigInteger hilbertValue,
+                                                 final Tuple key,
                                                  final boolean isInsertUpdate) {
         final List<Object> keys = Lists.newArrayList();
         keys.add(level);
@@ -175,29 +169,27 @@ class NodeSlotIndexAdapter {
                 });
     }
 
-    void writeChildSlot(@Nonnull final Transaction transaction, final int level,
-                        @Nonnull final ChildSlot childSlot) {
+    void writeChildSlot(final Transaction transaction, final int level,
+                        final ChildSlot childSlot) {
         final Tuple indexKeyTuple = createIndexKeyTuple(level, childSlot);
         final byte[] packedKey = nodeSlotIndexSubspace.pack(indexKeyTuple);
         transaction.set(packedKey, emptyArray);
         onWriteListener.onSlotIndexEntryWritten(packedKey);
     }
 
-    void clearChildSlot(@Nonnull final Transaction transaction, final int level, @Nonnull final ChildSlot childSlot) {
+    void clearChildSlot(final Transaction transaction, final int level, final ChildSlot childSlot) {
         final Tuple indexKeyTuple = createIndexKeyTuple(level, childSlot);
         final byte[] packedKey = nodeSlotIndexSubspace.pack(indexKeyTuple);
         transaction.clear(packedKey);
         onWriteListener.onSlotIndexEntryCleared(packedKey);
     }
 
-    @Nonnull
-    private Tuple createIndexKeyTuple(final int level, @Nonnull final ChildSlot childSlot) {
+    private Tuple createIndexKeyTuple(final int level, final ChildSlot childSlot) {
         return createIndexKeyTuple(level, childSlot.getLargestHilbertValue(), childSlot.getLargestKey(), childSlot.getChildId());
     }
 
-    @Nonnull
-    private Tuple createIndexKeyTuple(final int level, @Nonnull final BigInteger largestHilbertValue,
-                                      @Nonnull final Tuple largestKey, @Nonnull final byte[] nodeId) {
+    private Tuple createIndexKeyTuple(final int level, final BigInteger largestHilbertValue,
+                                      final Tuple largestKey, final byte[] nodeId) {
         final List<Object> keys = Lists.newArrayList();
         keys.add(level);
         keys.add(largestHilbertValue);
@@ -206,7 +198,6 @@ class NodeSlotIndexAdapter {
         return Tuple.fromList(keys);
     }
 
-    @Nonnull
     private byte[] getNodeIdFromIndexKeyTuple(final Tuple tuple) {
         return tuple.getBytes(tuple.size() - 1);
     }

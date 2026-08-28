@@ -33,7 +33,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
@@ -217,7 +216,7 @@ class DataRecordsTest {
 
     @ParameterizedTest
     @EnumSource(ClusterMetadata.State.class)
-    void stateCodeIsASingleDistinctBit(@Nonnull final ClusterMetadata.State state) {
+    void stateCodeIsASingleDistinctBit(final ClusterMetadata.State state) {
         final int code = state.getCode();
         Assertions.assertThat(code).as("state %s must have a positive code", state).isPositive();
         // A single set bit == a power of two; this is what directly rejects a stray non-power-of-two code like 3.
@@ -246,8 +245,8 @@ class DataRecordsTest {
      */
     @ParameterizedTest
     @MethodSource
-    void stateCodesUseIndependentBits(@Nonnull final ClusterMetadata.State state1,
-                                      @Nonnull final ClusterMetadata.State state2) {
+    void stateCodesUseIndependentBits(final ClusterMetadata.State state1,
+                                      final ClusterMetadata.State state2) {
         Assertions.assertThat(state1.getCode() & state2.getCode())
                 .as("states %s (code=%d) and %s (code=%d) must not share any bit",
                         state1, state1.getCode(), state2, state2.getCode())
@@ -263,8 +262,8 @@ class DataRecordsTest {
     // ---------------------------------------------------------------------------------------------------------
 
     private static <T> void assertHashCodeEqualsToString(final long randomSeed,
-                                                         @Nonnull final Function<Random, T> createFunction,
-                                                         @Nonnull final BiFunction<Random, T, T> createDifferentFunction) {
+                                                         final Function<Random, T> createFunction,
+                                                         final BiFunction<Random, T, T> createDifferentFunction) {
         final Random random = new Random(randomSeed);
         final long dependentRandomSeed = random.nextLong();
         final T t1 = createFunction.apply(new Random(dependentRandomSeed));
@@ -282,65 +281,54 @@ class DataRecordsTest {
     // Per-type builders: each has a create(Random) and a create(Random, original) that guarantees a different value
     // ---------------------------------------------------------------------------------------------------------
 
-    @Nonnull
-    private static VectorId vectorId(@Nonnull final Random random) {
+    private static VectorId vectorId(final Random random) {
         return new VectorId(primaryKey(random), new UUID(random.nextLong(), random.nextLong()));
     }
 
-    @Nonnull
-    private static VectorId vectorId(@Nonnull final Random random, @Nonnull final VectorId original) {
+    private static VectorId vectorId(final Random random, final VectorId original) {
         return new VectorId(primaryKey(random, original.primaryKey()),
                 new UUID(differentLong(random, original.uuid().getMostSignificantBits()), random.nextLong()));
     }
 
-    @Nonnull
-    private static VectorReference primaryCopy(@Nonnull final Random random) {
+    private static VectorReference primaryCopy(final Random random) {
         return VectorReference.primaryCopy(vectorId(random), transformed(random),
                 random.nextBoolean(), random.nextBoolean());
     }
 
-    @Nonnull
-    private static VectorReference primaryCopy(@Nonnull final Random random, @Nonnull final VectorReference original) {
+    private static VectorReference primaryCopy(final Random random, final VectorReference original) {
         return VectorReference.primaryCopy(vectorId(random, original.id()), transformed(random, original.vector()),
                 !original.isUnderreplicated(), !original.isCollapsed());
     }
 
-    @Nonnull
-    private static VectorReference replicatedCopy(@Nonnull final Random random) {
+    private static VectorReference replicatedCopy(final Random random) {
         return VectorReference.replicatedCopy(vectorId(random), transformed(random),
                 random.nextDouble(), random.nextBoolean());
     }
 
-    @Nonnull
-    private static VectorReference replicatedCopy(@Nonnull final Random random, @Nonnull final VectorReference original) {
+    private static VectorReference replicatedCopy(final Random random, final VectorReference original) {
         return VectorReference.replicatedCopy(vectorId(random, original.id()), transformed(random, original.vector()),
                 differentDouble(random, original.replicationPriority()), !original.isCollapsed());
     }
 
-    @Nonnull
-    private static AccessInfo accessInfo(@Nonnull final Random random) {
+    private static AccessInfo accessInfo(final Random random) {
         return new AccessInfo(random.nextLong(), rawVector(random));
     }
 
-    @Nonnull
-    private static AccessInfo accessInfo(@Nonnull final Random random, @Nonnull final AccessInfo original) {
+    private static AccessInfo accessInfo(final Random random, final AccessInfo original) {
         return new AccessInfo(differentLong(random, original.rotatorSeed()),
                 differentRawVector(random, original.negatedCentroid()));
     }
 
-    @Nonnull
-    private static ClusterMetadata clusterMetadata(@Nonnull final Random random) {
+    private static ClusterMetadata clusterMetadata(final Random random) {
         return clusterMetadata(random, new UUID(random.nextLong(), random.nextLong()));
     }
 
-    @Nonnull
-    private static ClusterMetadata clusterMetadata(@Nonnull final Random random, @Nonnull final ClusterMetadata original) {
+    private static ClusterMetadata clusterMetadata(final Random random, final ClusterMetadata original) {
         return clusterMetadata(random,
                 new UUID(differentLong(random, original.id().getMostSignificantBits()), random.nextLong()));
     }
 
-    @Nonnull
-    private static ClusterMetadata clusterMetadata(@Nonnull final Random random, @Nonnull final UUID id) {
+    private static ClusterMetadata clusterMetadata(final Random random, final UUID id) {
         final int numPrimaryUnderreplicatedVectors = random.nextInt(4);
         final int numReplicatedVectors = random.nextInt(6);
         // The constructor requires numElements >= numPrimaryUnderreplicatedVectors, so seed at least that many.
@@ -353,32 +341,27 @@ class DataRecordsTest {
                 random.nextInt(8));
     }
 
-    @Nonnull
-    private static Cluster cluster(@Nonnull final Random random) {
+    private static Cluster cluster(final Random random) {
         return new Cluster(clusterMetadata(random), transformed(random), vectorReferences(random));
     }
 
-    @Nonnull
-    private static Cluster cluster(@Nonnull final Random random, @Nonnull final Cluster original) {
+    private static Cluster cluster(final Random random, final Cluster original) {
         return new Cluster(clusterMetadata(random, original.clusterMetadata()),
                 transformed(random, original.centroid()), vectorReferences(random));
     }
 
-    @Nonnull
-    private static ClusterReference clusterReference(@Nonnull final Random random) {
+    private static ClusterReference clusterReference(final Random random) {
         return new ClusterReference(new UUID(random.nextLong(), random.nextLong()), transformed(random));
     }
 
-    @Nonnull
-    private static ClusterReference clusterReference(@Nonnull final Random random,
-                                                    @Nonnull final ClusterReference original) {
+    private static ClusterReference clusterReference(final Random random,
+                                                    final ClusterReference original) {
         return new ClusterReference(
                 new UUID(differentLong(random, original.clusterId().getMostSignificantBits()), random.nextLong()),
                 transformed(random, original.centroid()));
     }
 
-    @Nonnull
-    private static List<VectorReference> vectorReferences(@Nonnull final Random random) {
+    private static List<VectorReference> vectorReferences(final Random random) {
         final ImmutableList.Builder<VectorReference> builder = ImmutableList.builder();
         final int size = random.nextInt(4);
         for (int i = 0; i < size; i++) {
@@ -387,13 +370,11 @@ class DataRecordsTest {
         return builder.build();
     }
 
-    @Nonnull
-    private static Tuple primaryKey(@Nonnull final Random random) {
+    private static Tuple primaryKey(final Random random) {
         return Tuple.from(random.nextInt(1000));
     }
 
-    @Nonnull
-    private static Tuple primaryKey(@Nonnull final Random random, @Nonnull final Tuple original) {
+    private static Tuple primaryKey(final Random random, final Tuple original) {
         final int originalKey = Math.toIntExact(original.getLong(0));
         int key;
         do {
@@ -402,24 +383,20 @@ class DataRecordsTest {
         return Tuple.from(key);
     }
 
-    @Nonnull
-    private static Transformed<RealVector> transformed(@Nonnull final Random random) {
+    private static Transformed<RealVector> transformed(final Random random) {
         return AffineOperator.identity().transform(rawVector(random));
     }
 
-    @Nonnull
-    private static Transformed<RealVector> transformed(@Nonnull final Random random,
-                                                       @Nonnull final Transformed<RealVector> original) {
+    private static Transformed<RealVector> transformed(final Random random,
+                                                       final Transformed<RealVector> original) {
         return AffineOperator.identity().transform(differentRawVector(random, original.getUnderlyingVector()));
     }
 
-    @Nonnull
-    private static RealVector rawVector(@Nonnull final Random random) {
+    private static RealVector rawVector(final Random random) {
         return RealVectorTest.createRandomDoubleVector(random, DIMENSIONS);
     }
 
-    @Nonnull
-    private static RealVector differentRawVector(@Nonnull final Random random, @Nonnull final RealVector original) {
+    private static RealVector differentRawVector(final Random random, final RealVector original) {
         RealVector randomVector;
         do {
             randomVector = RealVectorTest.createRandomDoubleVector(random, DIMENSIONS);
@@ -427,7 +404,7 @@ class DataRecordsTest {
         return randomVector;
     }
 
-    private static long differentLong(@Nonnull final Random random, final long original) {
+    private static long differentLong(final Random random, final long original) {
         long randomLong;
         do {
             randomLong = random.nextLong();
@@ -435,7 +412,7 @@ class DataRecordsTest {
         return randomLong;
     }
 
-    private static double differentDouble(@Nonnull final Random random, final double original) {
+    private static double differentDouble(final Random random, final double original) {
         double randomDouble;
         do {
             randomDouble = random.nextDouble();

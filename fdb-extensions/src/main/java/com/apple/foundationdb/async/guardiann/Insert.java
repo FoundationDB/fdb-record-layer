@@ -44,8 +44,7 @@ import com.google.common.util.concurrent.AtomicDouble;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
@@ -71,10 +70,8 @@ import static com.apple.foundationdb.async.common.StorageHelpers.deleteAllSample
  */
 @SuppressWarnings("PMD.TooManyStaticImports")
 class Insert {
-    @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(Insert.class);
 
-    @Nonnull
     private final Locator locator;
 
     /**
@@ -84,11 +81,10 @@ class Insert {
      * @param locator the {@link Locator} where the graph data is stored, which config to use, which executor to use,
      *        etc.
      */
-    public Insert(@Nonnull final Locator locator) {
+    public Insert(final Locator locator) {
         this.locator = locator;
     }
 
-    @Nonnull
     public Locator getLocator() {
         return locator;
     }
@@ -98,7 +94,6 @@ class Insert {
      *
      * @return the non-null subspace
      */
-    @Nonnull
     public Subspace getSubspace() {
         return getLocator().getSubspace();
     }
@@ -107,7 +102,6 @@ class Insert {
      * Get the executor used by this Guardiann structure.
      * @return executor used when running asynchronous tasks
      */
-    @Nonnull
     public Executor getExecutor() {
         return getLocator().getExecutor();
     }
@@ -116,7 +110,6 @@ class Insert {
      * Get the configuration of this Guardiann structure.
      * @return the configuration
      */
-    @Nonnull
     public Config getConfig() {
         return getLocator().getConfig();
     }
@@ -125,7 +118,6 @@ class Insert {
      * Get the on-write listener.
      * @return the on-write listener
      */
-    @Nonnull
     public OnWriteListener getOnWriteListener() {
         return getLocator().getOnWriteListener();
     }
@@ -134,22 +126,18 @@ class Insert {
      * Get the on-read listener.
      * @return the on-read listener
      */
-    @Nonnull
     public OnReadListener getOnReadListener() {
         return getLocator().getOnReadListener();
     }
 
-    @Nonnull
     private Primitives primitives() {
         return getLocator().primitives();
     }
 
-    @Nonnull
     private StorageAdapter getStorageAdapter() {
         return getLocator().getStorageAdapter();
     }
 
-    @Nonnull
     private Subspace getSamplesSubspace() {
         return getStorageAdapter().getSamplesSubspace();
     }
@@ -177,9 +165,8 @@ class Insert {
      *
      * @return a {@link CompletableFuture} that completes when the insertion operation is finished
      */
-    @Nonnull
-    public CompletableFuture<Void> insert(@Nonnull final Transaction transaction, @Nonnull final Tuple newPrimaryKey,
-                                          @Nonnull final RealVector newVector,
+    public CompletableFuture<Void> insert(final Transaction transaction, final Tuple newPrimaryKey,
+                                          final RealVector newVector,
                                           @Nullable final Tuple newAdditionalValues,
                                           final boolean maintainInTransaction) {
         final SplittableRandom random = RandomHelpers.random(newPrimaryKey);
@@ -215,12 +202,11 @@ class Insert {
                                 newPrimaryKey, newVector, newAdditionalValues, maintainInTransaction));
     }
 
-    @Nonnull
-    private CompletableFuture<Void> insertIntoClusters(@Nonnull final Transaction transaction,
-                                                       @Nonnull final SplittableRandom random,
-                                                       @Nonnull final AccessInfoAndNodeExistence accessInfoAndNodeExistence,
-                                                       @Nonnull final Tuple newPrimaryKey,
-                                                       @Nonnull final RealVector newVector,
+    private CompletableFuture<Void> insertIntoClusters(final Transaction transaction,
+                                                       final SplittableRandom random,
+                                                       final AccessInfoAndNodeExistence accessInfoAndNodeExistence,
+                                                       final Tuple newPrimaryKey,
+                                                       final RealVector newVector,
                                                        @Nullable final Tuple newAdditionalValues,
                                                        final boolean maintainInTransaction) {
         if (accessInfoAndNodeExistence.nodeExists()) {
@@ -302,16 +288,16 @@ class Insert {
                         addToStatsIfNecessary(transaction, random, accessInfo, transformedNewVector));
     }
 
-    private void writeNeighboringClusterReferences(@Nonnull final Transaction transaction,
-                                                   @Nonnull final SplittableRandom random,
-                                                   @Nonnull final AccessInfo accessInfo,
-                                                   @Nonnull final Quantizer quantizer,
-                                                   @Nonnull final DistanceEstimator estimator,
+    private void writeNeighboringClusterReferences(final Transaction transaction,
+                                                   final SplittableRandom random,
+                                                   final AccessInfo accessInfo,
+                                                   final Quantizer quantizer,
+                                                   final DistanceEstimator estimator,
                                                    @Nullable final UUID primaryClusterId,
                                                    final double distanceToPrimaryCentroid,
-                                                   @Nonnull final VectorMetadata newVectorMetadata,
-                                                   @Nonnull final Transformed<RealVector> transformedNewVector,
-                                                   @Nonnull final List<ClusterMetadataWithDistance> replicationCandidates,
+                                                   final VectorMetadata newVectorMetadata,
+                                                   final Transformed<RealVector> transformedNewVector,
+                                                   final List<ClusterMetadataWithDistance> replicationCandidates,
                                                    final boolean maintainInTransaction) {
         final Config config = getConfig();
         final Primitives primitives = primitives();
@@ -392,10 +378,9 @@ class Insert {
      *
      * @return a future of the {@link AccessInfo} established for the structure
      */
-    @Nonnull
-    private CompletableFuture<AccessInfo> initialAccessInfoAndFirstCluster(@Nonnull final Transaction transaction,
-                                                                           @Nonnull final SplittableRandom random,
-                                                                           @Nonnull final RealVector newVector) {
+    private CompletableFuture<AccessInfo> initialAccessInfoAndFirstCluster(final Transaction transaction,
+                                                                           final SplittableRandom random,
+                                                                           final RealVector newVector) {
         final Config config = getConfig();
         final Primitives primitives = primitives();
         final long rotatorSeed;
@@ -451,11 +436,10 @@ class Insert {
      *
      * @return a future that returns {@code null} when completed
      */
-    @Nonnull
-    private CompletableFuture<Void> addToStatsIfNecessary(@Nonnull final Transaction transaction,
-                                                          @Nonnull final SplittableRandom random,
-                                                          @Nonnull final AccessInfo currentAccessInfo,
-                                                          @Nonnull final Transformed<RealVector> transformedNewVector) {
+    private CompletableFuture<Void> addToStatsIfNecessary(final Transaction transaction,
+                                                          final SplittableRandom random,
+                                                          final AccessInfo currentAccessInfo,
+                                                          final Transformed<RealVector> transformedNewVector) {
         final Config config = getConfig();
         final Subspace samplesSubspace = getSamplesSubspace();
         if (config.useRaBitQ() &&
@@ -509,11 +493,11 @@ class Insert {
         return AsyncUtil.DONE;
     }
 
-    private boolean shouldSampleVector(@Nonnull final SplittableRandom random) {
+    private boolean shouldSampleVector(final SplittableRandom random) {
         return random.nextDouble() < getConfig().sampleVectorStatsProbability();
     }
 
-    private boolean shouldMaintainStats(@Nonnull final SplittableRandom random) {
+    private boolean shouldMaintainStats(final SplittableRandom random) {
         return random.nextDouble() < getConfig().maintainStatsProbability();
     }
 }

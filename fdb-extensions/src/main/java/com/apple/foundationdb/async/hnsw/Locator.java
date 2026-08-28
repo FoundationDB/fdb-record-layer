@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.subspace.Subspace;
 import com.google.common.base.Suppliers;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 
@@ -34,27 +33,18 @@ import java.util.function.Supplier;
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
 public class Locator {
-    @Nonnull
     private final Subspace subspace;
-    @Nonnull
     private final Executor executor;
-    @Nonnull
     private final Config config;
-    @Nonnull
     private final OnWriteListener onWriteListener;
-    @Nonnull
     private final OnReadListener onReadListener;
 
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Primitives> primitivesSupplier = Suppliers.memoize(() -> new Primitives(this));
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Search> searchSupplier = Suppliers.memoize(() -> new Search(this));
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Insert> insertSupplier = Suppliers.memoize(() -> new Insert(this));
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Delete> deleteSupplier = Suppliers.memoize(() -> new Delete(this));
 
@@ -72,11 +62,11 @@ public class Locator {
      *
      * @throws NullPointerException if any of the parameters are {@code null}.
      */
-    public Locator(@Nonnull final Subspace subspace,
-                   @Nonnull final Executor executor,
-                   @Nonnull final Config config,
-                   @Nonnull final OnWriteListener onWriteListener,
-                   @Nonnull final OnReadListener onReadListener) {
+    public Locator(final Subspace subspace,
+                   final Executor executor,
+                   final Config config,
+                   final OnWriteListener onWriteListener,
+                   final OnReadListener onReadListener) {
         this.subspace = subspace;
         this.executor = executor;
         this.config = config;
@@ -90,7 +80,6 @@ public class Locator {
      *
      * @return the non-null subspace
      */
-    @Nonnull
     public Subspace getSubspace() {
         return subspace;
     }
@@ -99,7 +88,6 @@ public class Locator {
      * Get the executor used by this hnsw.
      * @return executor used when running asynchronous tasks
      */
-    @Nonnull
     public Executor getExecutor() {
         return executor;
     }
@@ -108,7 +96,6 @@ public class Locator {
      * Get this hnsw's configuration.
      * @return hnsw configuration
      */
-    @Nonnull
     public Config getConfig() {
         return config;
     }
@@ -117,7 +104,6 @@ public class Locator {
      * Get the on-write listener.
      * @return the on-write listener
      */
-    @Nonnull
     public OnWriteListener getOnWriteListener() {
         return onWriteListener;
     }
@@ -126,27 +112,22 @@ public class Locator {
      * Get the on-read listener.
      * @return the on-read listener
      */
-    @Nonnull
     public OnReadListener getOnReadListener() {
         return onReadListener;
     }
 
-    @Nonnull
     Primitives primitives() {
         return primitivesSupplier.get();
     }
 
-    @Nonnull
     Search search() {
         return searchSupplier.get();
     }
 
-    @Nonnull
     Insert insert() {
         return insertSupplier.get();
     }
 
-    @Nonnull
     Delete delete() {
         return deleteSupplier.get();
     }

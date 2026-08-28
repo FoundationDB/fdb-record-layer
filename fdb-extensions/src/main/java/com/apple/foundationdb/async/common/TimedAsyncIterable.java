@@ -23,7 +23,6 @@ package com.apple.foundationdb.async.common;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncIterator;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -63,22 +62,19 @@ public final class TimedAsyncIterable {
      *
      * @return a timing wrapper around {@code iterable}
      */
-    @Nonnull
-    public static <T> AsyncIterable<T> wrap(@Nonnull final AsyncIterable<T> iterable,
-                                            @Nonnull final LongConsumer elapsedNanosConsumer) {
+    public static <T> AsyncIterable<T> wrap(final AsyncIterable<T> iterable,
+                                            final LongConsumer elapsedNanosConsumer) {
         return new TimedIterable<>(iterable, elapsedNanosConsumer);
     }
 
-    private record TimedIterable<T>(@Nonnull AsyncIterable<T> delegate, @Nonnull LongConsumer elapsedNanosConsumer)
+    private record TimedIterable<T>(AsyncIterable<T> delegate, LongConsumer elapsedNanosConsumer)
             implements AsyncIterable<T> {
 
-        @Nonnull
         @Override
         public AsyncIterator<T> iterator() {
             return new TimedAsyncIterator<>(delegate.iterator(), elapsedNanosConsumer);
         }
 
-        @Nonnull
         @Override
         public CompletableFuture<List<T>> asList() {
             final long startNanos = System.nanoTime();
@@ -88,17 +84,13 @@ public final class TimedAsyncIterable {
     }
 
     private static final class TimedAsyncIterator<T> implements AsyncIterator<T> {
-        @Nonnull
         private final AsyncIterator<T> delegate;
-        @Nonnull
         private final LongConsumer elapsedNanosConsumer;
-        @Nonnull
         private final AtomicLong elapsedNanos = new AtomicLong();
-        @Nonnull
         private final AtomicBoolean reported = new AtomicBoolean();
 
-        private TimedAsyncIterator(@Nonnull final AsyncIterator<T> delegate,
-                                   @Nonnull final LongConsumer elapsedNanosConsumer) {
+        private TimedAsyncIterator(final AsyncIterator<T> delegate,
+                                   final LongConsumer elapsedNanosConsumer) {
             this.delegate = delegate;
             this.elapsedNanosConsumer = elapsedNanosConsumer;
         }

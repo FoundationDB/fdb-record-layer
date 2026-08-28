@@ -32,6 +32,7 @@ dependencies {
     implementation(libs.guava)
     implementation(libs.slf4j.api)
     compileOnly(libs.jsr305)
+    compileOnly(libs.jspecify)
 
     testImplementation project(':fdb-test-utils')
     testImplementation(libs.bundles.test.impl)

@@ -24,7 +24,6 @@ import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
 import java.util.Comparator;
 import java.util.Objects;
 
@@ -52,7 +51,7 @@ public class NodeReferenceWithDistance extends NodeReferenceWithVector {
      * @param vector the vector associated with the referenced node. Must not be null.
      * @param distance the calculated distance of this node reference to some query vector or similar.
      */
-    public NodeReferenceWithDistance(@Nonnull final Tuple primaryKey, @Nonnull final Transformed<RealVector> vector,
+    public NodeReferenceWithDistance(final Tuple primaryKey, final Transformed<RealVector> vector,
                                      final double distance) {
         super(primaryKey, vector);
         this.distance = distance;
@@ -95,12 +94,10 @@ public class NodeReferenceWithDistance extends NodeReferenceWithVector {
         return Objects.hash(super.hashCode(), distance);
     }
 
-    @Nonnull
     public static Comparator<NodeReferenceWithDistance> comparator() {
         return COMPARATOR;
     }
 
-    @Nonnull
     public static Comparator<NodeReferenceWithDistance> reversedComparator() {
         return REVERSED_COMPARATOR;
     }

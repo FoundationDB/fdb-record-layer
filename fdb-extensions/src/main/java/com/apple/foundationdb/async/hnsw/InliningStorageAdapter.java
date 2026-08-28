@@ -38,8 +38,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -69,18 +68,17 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      * @param onWriteListener the listener to be notified on write operations
      * @param onReadListener the listener to be notified on read operations
      */
-    public InliningStorageAdapter(@Nonnull final Config config,
-                                  @Nonnull final NodeFactory<NodeReferenceWithVector> nodeFactory,
-                                  @Nonnull final Subspace subspace,
-                                  @Nonnull final OnWriteListener onWriteListener,
-                                  @Nonnull final OnReadListener onReadListener) {
+    public InliningStorageAdapter(final Config config,
+                                  final NodeFactory<NodeReferenceWithVector> nodeFactory,
+                                  final Subspace subspace,
+                                  final OnWriteListener onWriteListener,
+                                  final OnReadListener onReadListener) {
         super(config, nodeFactory, subspace, onWriteListener, onReadListener);
     }
 
-    @Nonnull
     @Override
-    public Transformed<RealVector> getVector(@Nonnull final NodeReferenceWithVector nodeReference,
-                                             @Nonnull final AbstractNode<NodeReferenceWithVector> node) {
+    public Transformed<RealVector> getVector(final NodeReferenceWithVector nodeReference,
+                                             final AbstractNode<NodeReferenceWithVector> node) {
         Verify.verify(nodeReference.isNodeReferenceWithVector());
         return nodeReference.asNodeReferenceWithVector().getVector();
     }
@@ -105,13 +103,12 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      * @return a {@link CompletableFuture} that will complete with the fetched {@link AbstractNode} containing
      *         {@link NodeReferenceWithVector}s
      */
-    @Nonnull
     @Override
     protected CompletableFuture<AbstractNode<NodeReferenceWithVector>>
-              fetchNodeInternal(@Nonnull final ReadTransaction readTransaction,
-                                @Nonnull final StorageTransform storageTransform,
+              fetchNodeInternal(final ReadTransaction readTransaction,
+                                final StorageTransform storageTransform,
                                 final int layer,
-                                @Nonnull final Tuple primaryKey) {
+                                final Tuple primaryKey) {
         final byte[] rangeKey = getNodeKey(layer, primaryKey);
 
         return AsyncUtil.collect(readTransaction.getRange(Range.startsWith(rangeKey),
@@ -138,11 +135,10 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      *
      * @return a non-null, fully constructed {@link AbstractNode} object with its neighbors
      */
-    @Nonnull
-    private AbstractNode<NodeReferenceWithVector> nodeFromRaw(@Nonnull final StorageTransform storageTransform,
+    private AbstractNode<NodeReferenceWithVector> nodeFromRaw(final StorageTransform storageTransform,
                                                               final int layer,
-                                                              @Nonnull final Tuple primaryKey,
-                                                              @Nonnull final List<KeyValue> keyValues) {
+                                                              final Tuple primaryKey,
+                                                              final List<KeyValue> keyValues) {
         final OnReadListener onReadListener = getOnReadListener();
 
         final ImmutableList.Builder<NodeReferenceWithVector> nodeReferencesWithVectorBuilder = ImmutableList.builder();
@@ -173,9 +169,8 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      * @return a new {@link NodeReferenceWithVector} instance representing the deserialized neighbor.
      * @throws IllegalArgumentException if the key or value byte arrays are malformed and cannot be unpacked.
      */
-    @Nonnull
-    private NodeReferenceWithVector neighborFromRaw(@Nonnull final StorageTransform storageTransform, final int layer,
-                                                    @Nonnull final byte[] key, @Nonnull final byte[] value) {
+    private NodeReferenceWithVector neighborFromRaw(final StorageTransform storageTransform, final int layer,
+                                                    final byte[] key, final byte[] value) {
         final OnReadListener onReadListener = getOnReadListener();
         onReadListener.onKeyValueRead(layer, key, value);
 
@@ -195,9 +190,8 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      * @return a new {@link NodeReferenceWithVector} instance representing the deserialized neighbor.
      * @throws IllegalArgumentException if the key or value byte arrays are malformed and cannot be unpacked.
      */
-    @Nonnull
-    private NodeReferenceWithVector neighborFromTuples(@Nonnull final StorageTransform storageTransform,
-                                                       @Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple) {
+    private NodeReferenceWithVector neighborFromTuples(final StorageTransform storageTransform,
+                                                       final Tuple keyTuple, final Tuple valueTuple) {
         final Tuple neighborPrimaryKey = keyTuple.getNestedTuple(2); // neighbor primary key
         //
         // Transform the raw vector that was just fetched into the internal coordinate system. If we do not have
@@ -229,9 +223,9 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      * persisted; must not be null
      */
     @Override
-    public void writeNodeInternal(@Nonnull final Transaction transaction, @Nonnull final Quantizer quantizer,
-                                  final int layer, @Nonnull final AbstractNode<NodeReferenceWithVector> node,
-                                  @Nonnull final NeighborsChangeSet<NodeReferenceWithVector> neighborsChangeSet) {
+    public void writeNodeInternal(final Transaction transaction, final Quantizer quantizer,
+                                  final int layer, final AbstractNode<NodeReferenceWithVector> node,
+                                  final NeighborsChangeSet<NodeReferenceWithVector> neighborsChangeSet) {
         Verify.verify(node.isInliningNode());
         final InliningNode inliningNode = node.asInliningNode();
 
@@ -240,8 +234,8 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
     }
 
     @Override
-    protected void deleteNodeInternal(@Nonnull final Transaction transaction, final int layer,
-                                      @Nonnull final Tuple primaryKey) {
+    protected void deleteNodeInternal(final Transaction transaction, final int layer,
+                                      final Tuple primaryKey) {
         final byte[] key = getNodeKey(layer, primaryKey);
         final Range range = Range.startsWith(key);
         transaction.clear(range);
@@ -262,8 +256,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      *
      * @return a byte array representing the packed key for the specified node
      */
-    @Nonnull
-    private byte[] getNodeKey(final int layer, @Nonnull final Tuple primaryKey) {
+    private byte[] getNodeKey(final int layer, final Tuple primaryKey) {
         return getDataSubspace().pack(Tuple.from(layer, primaryKey));
     }
 
@@ -280,9 +273,9 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      * @param node the source {@link AbstractNode} for which the neighbor is being written
      * @param neighbor the {@link NodeReferenceWithVector} representing the neighbor to persist
      */
-    public void writeNeighbor(@Nonnull final Transaction transaction, @Nonnull final Quantizer quantizer,
-                              final int layer, @Nonnull final AbstractNode<NodeReferenceWithVector> node,
-                              @Nonnull final NodeReferenceWithVector neighbor) {
+    public void writeNeighbor(final Transaction transaction, final Quantizer quantizer,
+                              final int layer, final AbstractNode<NodeReferenceWithVector> node,
+                              final NodeReferenceWithVector neighbor) {
         final byte[] neighborKey = getNeighborKey(layer, node, neighbor.getPrimaryKey());
         // getting underlying vector is okay as it is only written to the database
         final byte[] value =
@@ -304,9 +297,9 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      * @param node the node from which the neighbor edge is removed
      * @param neighborPrimaryKey the primary key of the neighbor node to be deleted
      */
-    public void deleteNeighbor(@Nonnull final Transaction transaction, final int layer,
-                               @Nonnull final AbstractNode<NodeReferenceWithVector> node,
-                               @Nonnull final Tuple neighborPrimaryKey) {
+    public void deleteNeighbor(final Transaction transaction, final int layer,
+                               final AbstractNode<NodeReferenceWithVector> node,
+                               final Tuple neighborPrimaryKey) {
         transaction.clear(getNeighborKey(layer, node, neighborPrimaryKey));
         getOnWriteListener().onNeighborDeleted(layer, node, neighborPrimaryKey);
     }
@@ -323,10 +316,9 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      * @param neighborPrimaryKey the non-null primary key of the neighbor node
      * @return a non-null byte array representing the packed key for the neighbor relationship
      */
-    @Nonnull
     private byte[] getNeighborKey(final int layer,
-                                  @Nonnull final AbstractNode<NodeReferenceWithVector> node,
-                                  @Nonnull final Tuple neighborPrimaryKey) {
+                                  final AbstractNode<NodeReferenceWithVector> node,
+                                  final Tuple neighborPrimaryKey) {
         return getDataSubspace().pack(Tuple.from(layer, node.getPrimaryKey(), neighborPrimaryKey));
     }
 
@@ -347,9 +339,8 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      * @return an {@code Iterable} of {@link AbstractNode} objects reconstructed from the scanned layer. Each node
      *         contains its neighbors within that layer.
      */
-    @Nonnull
     @Override
-    public Iterable<AbstractNode<NodeReferenceWithVector>> scanLayer(@Nonnull final ReadTransaction readTransaction,
+    public Iterable<AbstractNode<NodeReferenceWithVector>> scanLayer(final ReadTransaction readTransaction,
                                                                      int layer,
                                                                      @Nullable final Tuple lastPrimaryKey,
                                                                      int maxNumRead) {

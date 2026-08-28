@@ -25,7 +25,6 @@ import com.apple.foundationdb.async.hnsw.Node;
 import com.apple.foundationdb.async.hnsw.NodeReference;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 import java.util.UUID;
 
@@ -47,8 +46,8 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
      * @param targetClusterIds the cluster ids the task targets
      */
     @SuppressWarnings("unused")
-    default void onTaskEnqueued(@Nonnull final TaskKind kind, @Nonnull UUID taskId,
-                                @Nonnull final Set<UUID> targetClusterIds) {
+    default void onTaskEnqueued(final TaskKind kind, UUID taskId,
+                                final Set<UUID> targetClusterIds) {
         // nothing
     }
 
@@ -62,8 +61,8 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
      * @param targetClusterIds target cluster ids of the task
      */
     @SuppressWarnings("unused")
-    default void onTaskExecuted(@Nonnull final TaskKind taskKind, @Nonnull final UUID taskId,
-                                @Nonnull final Set<UUID> targetClusterIds) {
+    default void onTaskExecuted(final TaskKind taskKind, final UUID taskId,
+                                final Set<UUID> targetClusterIds) {
         // nothing
     }
 
@@ -81,8 +80,8 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
      * @param neighbor the {@link NodeReference} of the neighbor that was written; must not be null
      */
     @SuppressWarnings("unused")
-    default void onNeighborWritten(final int layer, @Nonnull final Node<? extends NodeReference> node,
-                                   @Nonnull final NodeReference neighbor) {
+    default void onNeighborWritten(final int layer, final Node<? extends NodeReference> node,
+                                   final NodeReference neighbor) {
         // nothing
     }
 
@@ -95,7 +94,7 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
      * @param primaryKey the {@link Tuple} used as key to identify the node that was deleted; guaranteed to be non-null.
      */
     @SuppressWarnings("unused")
-    default void onNodeDeleted(final int layer, @Nonnull final Tuple primaryKey) {
+    default void onNodeDeleted(final int layer, final Tuple primaryKey) {
         // nothing
     }
 
@@ -110,8 +109,8 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
      * @param neighborPrimaryKey the primary key (as a {@link Tuple}) of the neighbor that was deleted
      */
     @SuppressWarnings("unused")
-    default void onNeighborDeleted(final int layer, @Nonnull final Node<? extends NodeReference> node,
-                                   @Nonnull final Tuple neighborPrimaryKey) {
+    default void onNeighborDeleted(final int layer, final Node<? extends NodeReference> node,
+                                   final Tuple neighborPrimaryKey) {
         // nothing
     }
 }

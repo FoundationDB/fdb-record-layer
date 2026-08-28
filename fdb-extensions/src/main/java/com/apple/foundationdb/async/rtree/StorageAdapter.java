@@ -25,8 +25,7 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.math.BigInteger;
 import java.util.List;
 import java.util.UUID;
@@ -40,7 +39,6 @@ interface StorageAdapter {
      * Get the {@link RTree.Config} associated with this storage adapter.
      * @return the configuration used by this storage adapter
      */
-    @Nonnull
     RTree.Config getConfig();
 
     /**
@@ -48,7 +46,6 @@ interface StorageAdapter {
      *
      * @return r-tree subspace
      */
-    @Nonnull
     Subspace getSubspace();
 
     /**
@@ -64,7 +61,6 @@ interface StorageAdapter {
      *
      * @return the on-write listener.
      */
-    @Nonnull
     OnWriteListener getOnWriteListener();
 
     /**
@@ -72,7 +68,6 @@ interface StorageAdapter {
      *
      * @return the on-read listener.
      */
-    @Nonnull
     OnReadListener getOnReadListener();
 
     /**
@@ -82,7 +77,7 @@ interface StorageAdapter {
      * @param level the level counting starting at {@code 0} indicating the leaf level increasing upwards
      * @param nodeSlot the {@link NodeSlot} to be inserted
      */
-    void insertIntoNodeIndexIfNecessary(@Nonnull Transaction transaction, int level, @Nonnull NodeSlot nodeSlot);
+    void insertIntoNodeIndexIfNecessary(Transaction transaction, int level, NodeSlot nodeSlot);
 
     /**
      * Deletes an entry from the node index if configuration indicates we should maintain such an index.
@@ -91,7 +86,7 @@ interface StorageAdapter {
      * @param level the level counting starting at {@code 0} indicating the leaf level increasing upwards
      * @param nodeSlot the {@link NodeSlot} to be deleted
      */
-    void deleteFromNodeIndexIfNecessary(@Nonnull Transaction transaction, int level, @Nonnull NodeSlot nodeSlot);
+    void deleteFromNodeIndexIfNecessary(Transaction transaction, int level, NodeSlot nodeSlot);
 
     /**
      * Persist a node slot.
@@ -100,7 +95,7 @@ interface StorageAdapter {
      * @param node node whose slot to persist
      * @param itemSlot the node slot to persist
      */
-    void writeLeafNodeSlot(@Nonnull Transaction transaction, @Nonnull LeafNode node, @Nonnull ItemSlot itemSlot);
+    void writeLeafNodeSlot(Transaction transaction, LeafNode node, ItemSlot itemSlot);
 
     /**
      * Clear out a leaf node slot.
@@ -109,7 +104,7 @@ interface StorageAdapter {
      * @param node node whose slot is cleared out
      * @param itemSlot the node slot to clear out
      */
-    void clearLeafNodeSlot(@Nonnull Transaction transaction, @Nonnull LeafNode node, @Nonnull ItemSlot itemSlot);
+    void clearLeafNodeSlot(Transaction transaction, LeafNode node, ItemSlot itemSlot);
 
     /**
      * Method to (re-)persist a list of nodes passed in.
@@ -117,7 +112,7 @@ interface StorageAdapter {
      * @param transaction the transaction to use
      * @param nodes a list of nodes to be (re-persisted)
      */
-    void writeNodes(@Nonnull Transaction transaction, @Nonnull List<? extends Node> nodes);
+    void writeNodes(Transaction transaction, List<? extends Node> nodes);
 
     /**
      * Scan the node slot index for the given Hilbert Value/key pair and return the appropriate {@link Node}.
@@ -134,9 +129,8 @@ interface StorageAdapter {
      * @return a future that when completed holds the appropriate {@link Node} or {@code null} if such a
      * {@link Node} could not be found.
      */
-    @Nonnull
-    CompletableFuture<Node> scanNodeIndexAndFetchNode(@Nonnull ReadTransaction transaction, int level,
-                                                      @Nonnull BigInteger hilbertValue, @Nonnull Tuple key,
+    CompletableFuture<Node> scanNodeIndexAndFetchNode(ReadTransaction transaction, int level,
+                                                      BigInteger hilbertValue, Tuple key,
                                                       boolean isInsertUpdate);
 
     /**
@@ -151,6 +145,5 @@ interface StorageAdapter {
      * @return A completable future containing the {@link Node} that was fetched from the database once completed.
      * The node may be an object of {@link LeafNode} or of {@link IntermediateNode}.
      */
-    @Nonnull
-    CompletableFuture<Node> fetchNode(@Nonnull ReadTransaction transaction, @Nonnull byte[] nodeId);
+    CompletableFuture<Node> fetchNode(ReadTransaction transaction, byte[] nodeId);
 }

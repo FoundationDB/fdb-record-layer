@@ -21,4 +21,7 @@
 /**
  * Classes and interfaces related to the HNSW implementation as used for vector indexes.
  */
+@NullMarked
 package com.apple.foundationdb.async.hnsw;
+
+import org.jspecify.annotations.NullMarked;

@@ -37,7 +37,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -83,7 +82,7 @@ public class RangeSetTest {
         return keys;
     }
 
-    private int checkConsistent(@Nonnull List<Range> ranges, @Nonnull List<byte[]> keys) {
+    private int checkConsistent(List<Range> ranges, List<byte[]> keys) {
         List<CompletableFuture<Void>> futures = new ArrayList<>();
         int present = 0;
         for (byte[] key : keys) {
@@ -101,7 +100,7 @@ public class RangeSetTest {
         return present;
     }
 
-    private boolean disjoint(@Nonnull Range r1, @Nonnull Range r2) {
+    private boolean disjoint(Range r1, Range r2) {
         return ByteArrayUtil.compareUnsigned(r1.end, r2.begin) <= 0 || ByteArrayUtil.compareUnsigned(r2.end, r1.begin) <= 0;
     }
 

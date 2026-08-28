@@ -22,8 +22,7 @@ package com.apple.foundationdb.async.rtree;
 
 import com.google.common.collect.Lists;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 
 /**
@@ -32,17 +31,17 @@ import java.util.List;
  * {@code largestKey} can be derived (and recomputed) if the children of this node are available to be introspected.
  */
 class IntermediateNode extends AbstractNode<ChildSlot, IntermediateNode> {
-    public IntermediateNode(@Nonnull final byte[] id) {
+    public IntermediateNode(final byte[] id) {
         this(id, Lists.newArrayList());
     }
 
-    public IntermediateNode(@Nonnull final byte[] id,
-                            @Nonnull final List<ChildSlot> childSlots) {
+    public IntermediateNode(final byte[] id,
+                            final List<ChildSlot> childSlots) {
         this(id, childSlots, null, -1);
     }
 
-    public IntermediateNode(@Nonnull final byte[] id,
-                            @Nonnull final List<ChildSlot> childSlots,
+    public IntermediateNode(final byte[] id,
+                            final List<ChildSlot> childSlots,
                             @Nullable final IntermediateNode parentNode,
                             final int slotIndexInParent) {
         super(id, childSlots, parentNode, slotIndexInParent);
@@ -53,21 +52,18 @@ class IntermediateNode extends AbstractNode<ChildSlot, IntermediateNode> {
         return this;
     }
 
-    @Nonnull
     @Override
-    public ChildSlot narrowSlot(@Nonnull final NodeSlot slot) {
+    public ChildSlot narrowSlot(final NodeSlot slot) {
         return (ChildSlot)slot;
     }
 
-    @Nonnull
     @Override
     public NodeKind getKind() {
         return NodeKind.INTERMEDIATE;
     }
 
-    @Nonnull
     @Override
-    public IntermediateNode newOfSameKind(@Nonnull final byte[] nodeId) {
+    public IntermediateNode newOfSameKind(final byte[] nodeId) {
         return new IntermediateNode(nodeId, Lists.newArrayList());
     }
 }

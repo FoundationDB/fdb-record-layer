@@ -24,8 +24,7 @@ import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 
 /**
@@ -48,7 +47,6 @@ public interface Node<N extends NodeReference> {
      *
      * @return the primary key as a {@code Tuple}, which is never {@code null}
      */
-    @Nonnull
     Tuple getPrimaryKey();
 
     /**
@@ -60,7 +58,6 @@ public interface Node<N extends NodeReference> {
      * @return a non-null reference to this object ({@code this}) for further
      * method calls.
      */
-    @Nonnull
     N getSelfReference(@Nullable Transformed<RealVector> vector);
 
     /**
@@ -70,13 +67,11 @@ public interface Node<N extends NodeReference> {
      *
      * @return a non-null list of neighboring nodes.
      */
-    @Nonnull
     List<N> getNeighbors();
 
     /**
      * Return the kind of the node, i.e. {@link NodeKind#COMPACT} or {@link NodeKind#INLINING}.
      * @return the kind of this node as a {@link NodeKind}
      */
-    @Nonnull
     NodeKind getKind();
 }

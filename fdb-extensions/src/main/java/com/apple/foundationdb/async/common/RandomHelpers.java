@@ -24,7 +24,6 @@ import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.SplittableRandom;
@@ -47,8 +46,7 @@ public final class RandomHelpers {
      *
      * @return a new {@link SplittableRandom}
      */
-    @Nonnull
-    public static SplittableRandom random(@Nonnull final Tuple primaryKey) {
+    public static SplittableRandom random(final Tuple primaryKey) {
         return new SplittableRandom(seedFromBytes(primaryKey.pack()));
     }
 
@@ -60,8 +58,7 @@ public final class RandomHelpers {
      *
      * @return a new {@link SplittableRandom}
      */
-    @Nonnull
-    public static SplittableRandom random(@Nonnull final UUID identity) {
+    public static SplittableRandom random(final UUID identity) {
         return new SplittableRandom(seedFromBytes(bytesOf(identity)));
     }
 
@@ -98,7 +95,7 @@ public final class RandomHelpers {
      *
      * @return a 64-bit seed
      */
-    private static long seedFromBytes(@Nonnull final byte[] bytes) {
+    private static long seedFromBytes(final byte[] bytes) {
         long seed = 0L;
         for (final byte b : bytes) {
             seed = splitMixLong(seed ^ (b & 0xffL));
@@ -113,8 +110,7 @@ public final class RandomHelpers {
      *
      * @return its 16-byte representation
      */
-    @Nonnull
-    private static byte[] bytesOf(@Nonnull final UUID uuid) {
+    private static byte[] bytesOf(final UUID uuid) {
         return ByteBuffer.allocate(Long.BYTES * 2)
                 .putLong(uuid.getMostSignificantBits())
                 .putLong(uuid.getLeastSignificantBits())
@@ -130,8 +126,7 @@ public final class RandomHelpers {
      *
      * @return a new UUID
      */
-    @Nonnull
-    public static UUID randomUuid(@Nonnull final SplittableRandom random, final boolean deterministicRandomness) {
+    public static UUID randomUuid(final SplittableRandom random, final boolean deterministicRandomness) {
         return deterministicRandomness ? randomUuid(random) : UUID.randomUUID();
     }
 
@@ -143,8 +138,7 @@ public final class RandomHelpers {
      *
      * @return a type-4 UUID derived from {@code random}
      */
-    @Nonnull
-    public static UUID randomUuid(@Nonnull final SplittableRandom random) {
+    public static UUID randomUuid(final SplittableRandom random) {
         long msb = random.nextLong();
         long lsb = random.nextLong();
 
@@ -170,8 +164,7 @@ public final class RandomHelpers {
      *
      * @return a new UUID
      */
-    @Nonnull
-    public static UUID randomUuid(@Nonnull final Tuple primaryKey, final boolean deterministicRandomness) {
+    public static UUID randomUuid(final Tuple primaryKey, final boolean deterministicRandomness) {
         return deterministicRandomness ? UUID.nameUUIDFromBytes(primaryKey.pack()) : UUID.randomUUID();
     }
 
@@ -185,8 +178,7 @@ public final class RandomHelpers {
      *
      * @return a new UUID
      */
-    @Nonnull
-    public static UUID randomUuid(@Nonnull final UUID identity, final boolean deterministicRandomness) {
+    public static UUID randomUuid(final UUID identity, final boolean deterministicRandomness) {
         return deterministicRandomness ? UUID.nameUUIDFromBytes(bytesOf(identity)) : UUID.randomUUID();
     }
 
@@ -204,12 +196,11 @@ public final class RandomHelpers {
      *
      * @return a future completing with the per-item results
      */
-    @Nonnull
-    public static <T, U> CompletableFuture<List<U>> forEach(@Nonnull final SplittableRandom splittableRandom,
-                                                            @Nonnull final Iterable<T> items,
-                                                            @Nonnull final BiFunction<T, SplittableRandom, CompletableFuture<U>> body,
+    public static <T, U> CompletableFuture<List<U>> forEach(final SplittableRandom splittableRandom,
+                                                            final Iterable<T> items,
+                                                            final BiFunction<T, SplittableRandom, CompletableFuture<U>> body,
                                                             final int parallelism,
-                                                            @Nonnull final Executor executor) {
+                                                            final Executor executor) {
         final Iterable<ItemRandomPair<T>> itemWithRandoms =
                 Iterables.transform(items, item -> new ItemRandomPair<>(item, splittableRandom.split()));
 
@@ -225,22 +216,18 @@ public final class RandomHelpers {
      * @param <T> the type of the paired item
      */
     private static class ItemRandomPair<T> {
-        @Nonnull
         private final T item;
-        @Nonnull
         private final SplittableRandom random;
 
-        public ItemRandomPair(@Nonnull final T item, @Nonnull final SplittableRandom random) {
+        public ItemRandomPair(final T item, final SplittableRandom random) {
             this.item = item;
             this.random = random;
         }
 
-        @Nonnull
         public T getItem() {
             return item;
         }
 
-        @Nonnull
         public SplittableRandom getRandom() {
             return random;
         }

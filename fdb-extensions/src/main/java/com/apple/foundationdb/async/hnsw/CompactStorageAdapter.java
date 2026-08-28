@@ -40,8 +40,7 @@ import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -54,7 +53,6 @@ import java.util.concurrent.CompletableFuture;
  * just neighbor primary keys. It extends {@link AbstractStorageAdapter} to inherit common storage logic.
  */
 class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implements StorageAdapter<NodeReference> {
-    @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(CompactStorageAdapter.class);
 
     /**
@@ -66,17 +64,16 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * @param onWriteListener the listener to be notified of write events, must not be null.
      * @param onReadListener the listener to be notified of read events, must not be null.
      */
-    public CompactStorageAdapter(@Nonnull final Config config,
-                                 @Nonnull final NodeFactory<NodeReference> nodeFactory,
-                                 @Nonnull final Subspace subspace,
-                                 @Nonnull final OnWriteListener onWriteListener,
-                                 @Nonnull final OnReadListener onReadListener) {
+    public CompactStorageAdapter(final Config config,
+                                 final NodeFactory<NodeReference> nodeFactory,
+                                 final Subspace subspace,
+                                 final OnWriteListener onWriteListener,
+                                 final OnReadListener onReadListener) {
         super(config, nodeFactory, subspace, onWriteListener, onReadListener);
     }
 
-    @Nonnull
     @Override
-    public Transformed<RealVector> getVector(@Nonnull final NodeReference nodeReference, @Nonnull final AbstractNode<NodeReference> node) {
+    public Transformed<RealVector> getVector(final NodeReference nodeReference, final AbstractNode<NodeReference> node) {
         return node.asCompactNode().getVector();
     }
 
@@ -96,12 +93,11 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * @return a future that will complete with the fetched {@link AbstractNode} or {@code null} if the node cannot
      *         be fetched
      */
-    @Nonnull
     @Override
-    protected CompletableFuture<AbstractNode<NodeReference>> fetchNodeInternal(@Nonnull final ReadTransaction readTransaction,
-                                                                               @Nonnull final StorageTransform storageTransform,
+    protected CompletableFuture<AbstractNode<NodeReference>> fetchNodeInternal(final ReadTransaction readTransaction,
+                                                                               final StorageTransform storageTransform,
                                                                                final int layer,
-                                                                               @Nonnull final Tuple primaryKey) {
+                                                                               final Tuple primaryKey) {
         final byte[] keyBytes = getNodeKey(layer, primaryKey);
         return readTransaction.get(keyBytes)
                 .thenApply(valueBytes -> {
@@ -129,10 +125,9 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      *
      * @return a non-null, deserialized {@link AbstractNode} object
      */
-    @Nonnull
-    private AbstractNode<NodeReference> nodeFromRaw(@Nonnull final StorageTransform storageTransform, final int layer,
-                                                    final @Nonnull Tuple primaryKey,
-                                                    @Nonnull final byte[] keyBytes, @Nonnull final byte[] valueBytes) {
+    private AbstractNode<NodeReference> nodeFromRaw(final StorageTransform storageTransform, final int layer,
+                                                    final Tuple primaryKey,
+                                                    final byte[] keyBytes, final byte[] valueBytes) {
         final Tuple nodeTuple = Tuple.fromBytes(valueBytes);
         final AbstractNode<NodeReference> node = nodeFromKeyValuesTuples(storageTransform, primaryKey, nodeTuple);
         final OnReadListener onReadListener = getOnReadListener();
@@ -160,10 +155,9 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * @throws com.google.common.base.VerifyException if the node kind encoded in {@code valueTuple} is not
      *         {@link NodeKind#COMPACT}
      */
-    @Nonnull
-    private AbstractNode<NodeReference> nodeFromKeyValuesTuples(@Nonnull final StorageTransform storageTransform,
-                                                                @Nonnull final Tuple primaryKey,
-                                                                @Nonnull final Tuple valueTuple) {
+    private AbstractNode<NodeReference> nodeFromKeyValuesTuples(final StorageTransform storageTransform,
+                                                                final Tuple primaryKey,
+                                                                final Tuple valueTuple) {
         final NodeKind nodeKind = NodeKind.fromSerializedNodeKind((byte)valueTuple.getLong(0));
         Verify.verify(nodeKind == NodeKind.COMPACT);
 
@@ -191,12 +185,11 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      *
      * @return a new {@code Node} instance containing the deserialized data from the input tuples
      */
-    @Nonnull
-    private AbstractNode<NodeReference> compactNodeFromTuples(@Nonnull final StorageTransform storageTransform,
-                                                              @Nonnull final Tuple primaryKey,
-                                                              @Nonnull final Tuple vectorTuple,
+    private AbstractNode<NodeReference> compactNodeFromTuples(final StorageTransform storageTransform,
+                                                              final Tuple primaryKey,
+                                                              final Tuple vectorTuple,
                                                               @Nullable final Tuple additionalValuesTuple,
-                                                              @Nonnull final Tuple neighborsTuple) {
+                                                              final Tuple neighborsTuple) {
         final Transformed<RealVector> vector =
                 storageTransform.transform(StorageHelpers.vectorFromTuple(getConfig(), vectorTuple));
         final List<NodeReference> nodeReferences = Lists.newArrayListWithExpectedSize(neighborsTuple.size());
@@ -226,9 +219,9 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * merged to determine the final set of neighbors to be written.
      */
     @Override
-    public void writeNodeInternal(@Nonnull final Transaction transaction, @Nonnull final Quantizer quantizer,
-                                  final int layer, @Nonnull final AbstractNode<NodeReference> node,
-                                  @Nonnull final NeighborsChangeSet<NodeReference> neighborsChangeSet) {
+    public void writeNodeInternal(final Transaction transaction, final Quantizer quantizer,
+                                  final int layer, final AbstractNode<NodeReference> node,
+                                  final NeighborsChangeSet<NodeReference> neighborsChangeSet) {
         final byte[] key = getNodeKey(layer, node.getPrimaryKey());
 
         final CompactNode compactNode = node.asCompactNode();
@@ -263,8 +256,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
     }
 
     @Override
-    protected void deleteNodeInternal(@Nonnull final Transaction transaction, final int layer,
-                                      @Nonnull final Tuple primaryKey) {
+    protected void deleteNodeInternal(final Transaction transaction, final int layer,
+                                      final Tuple primaryKey) {
         final byte[] key = getNodeKey(layer, primaryKey);
         transaction.clear(key);
         getOnWriteListener().onNodeDeleted(layer, primaryKey);
@@ -284,8 +277,7 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      *
      * @return a byte array representing the packed key for the specified node
      */
-    @Nonnull
-    private byte[] getNodeKey(final int layer, @Nonnull final Tuple primaryKey) {
+    private byte[] getNodeKey(final int layer, final Tuple primaryKey) {
         return getDataSubspace().pack(Tuple.from(layer, primaryKey));
     }
 
@@ -305,9 +297,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
      * @return an {@link Iterable} of {@link AbstractNode} objects found in the specified layer,
      * limited by {@code maxNumRead}
      */
-    @Nonnull
     @Override
-    public AsyncIterable<AbstractNode<NodeReference>> scanLayer(@Nonnull final ReadTransaction readTransaction, int layer,
+    public AsyncIterable<AbstractNode<NodeReference>> scanLayer(final ReadTransaction readTransaction, int layer,
                                                                 @Nullable final Tuple lastPrimaryKey, int maxNumRead) {
         final byte[] layerPrefix = getDataSubspace().pack(Tuple.from(layer));
         final Range range =

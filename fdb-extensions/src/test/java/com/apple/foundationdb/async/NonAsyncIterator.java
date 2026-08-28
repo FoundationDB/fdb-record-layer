@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.async;
 
-import javax.annotation.Nonnull;
 import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
 
@@ -29,9 +28,9 @@ import java.util.concurrent.CompletableFuture;
  * @param <T> type of iterator elements
  */
 public class NonAsyncIterator<T> implements AsyncIterator<T> {
-    @Nonnull private Iterator<T> underlying;
+    private Iterator<T> underlying;
 
-    public NonAsyncIterator(@Nonnull Iterator<T> underlying) {
+    public NonAsyncIterator(Iterator<T> underlying) {
         this.underlying = underlying;
     }
 

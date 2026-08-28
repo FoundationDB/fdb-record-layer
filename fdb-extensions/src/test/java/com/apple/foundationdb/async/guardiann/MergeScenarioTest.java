@@ -40,7 +40,6 @@ import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -97,19 +96,16 @@ public class MergeScenarioTest implements BaseTest {
     private static Guardiann guardiann;
     private static TestHelpers.TestOnWriteListener onWriteListener;
 
-    @Nonnull
     @Override
     public Database getDb() {
         return Objects.requireNonNull(db);
     }
 
-    @Nonnull
     @Override
     public Subspace getSubspace() {
         return subspaceExtension.getSubspace();
     }
 
-    @Nonnull
     @Override
     public Path getTempDir() {
         return tempDir;
@@ -207,7 +203,7 @@ public class MergeScenarioTest implements BaseTest {
                 .isEqualTo(REMAINING_AFTER_DELETE);
     }
 
-    private void deleteRecords(@Nonnull final List<PrimaryKeyAndVector> records) throws Exception {
+    private void deleteRecords(final List<PrimaryKeyAndVector> records) throws Exception {
         TestHelpers.deleteToCompletion(getDb(), guardiann, records);
     }
 }

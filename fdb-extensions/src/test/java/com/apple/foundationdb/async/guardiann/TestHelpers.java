@@ -37,8 +37,7 @@ import com.google.common.collect.Maps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
@@ -91,12 +90,11 @@ class TestHelpers {
      */
     private static final int MAX_ORDERED_BY_DISTANCE_INDEX_SIZE = 25_000;
 
-    @Nonnull
-    static List<PrimaryKeyAndVector> basicInsertBatch(@Nonnull final Database db,
-                                                      @Nonnull final Guardiann guardiann,
+    static List<PrimaryKeyAndVector> basicInsertBatch(final Database db,
+                                                      final Guardiann guardiann,
                                                       final int batchSize,
                                                       final long firstId,
-                                                      @Nonnull final BiFunction<Transaction, Long, PrimaryKeyAndVector> insertFunction)
+                                                      final BiFunction<Transaction, Long, PrimaryKeyAndVector> insertFunction)
             throws ExecutionException, InterruptedException, TimeoutException {
 
         return db.runAsync(tr -> {
@@ -152,10 +150,9 @@ class TestHelpers {
      * advancing past those records on the next call. This mirrors the contract of
      * {@link #basicInsertBatch}.
      */
-    @Nonnull
-    static List<PrimaryKeyAndVector> basicDeleteBatch(@Nonnull final Database db,
-                                                      @Nonnull final Guardiann guardiann,
-                                                      @Nonnull final List<PrimaryKeyAndVector> recordsToDelete)
+    static List<PrimaryKeyAndVector> basicDeleteBatch(final Database db,
+                                                      final Guardiann guardiann,
+                                                      final List<PrimaryKeyAndVector> recordsToDelete)
             throws ExecutionException, InterruptedException, TimeoutException {
 
         final int batchSize = recordsToDelete.size();
@@ -204,9 +201,9 @@ class TestHelpers {
      * @param guardiann the structure to delete from
      * @param records the records to delete
      */
-    static void deleteToCompletion(@Nonnull final Database db,
-                                   @Nonnull final Guardiann guardiann,
-                                   @Nonnull final List<PrimaryKeyAndVector> records)
+    static void deleteToCompletion(final Database db,
+                                   final Guardiann guardiann,
+                                   final List<PrimaryKeyAndVector> records)
             throws ExecutionException, InterruptedException, TimeoutException {
         final List<PrimaryKeyAndVector> remaining = new ArrayList<>(records);
         while (!remaining.isEmpty()) {
@@ -223,7 +220,7 @@ class TestHelpers {
      *
      * @return the total number of under-replicated primaries across all clusters
      */
-    static int countUnderReplicatedPrimaries(@Nonnull final StructureSnapshot snapshot) {
+    static int countUnderReplicatedPrimaries(final StructureSnapshot snapshot) {
         return snapshot.clusters().values().stream()
                 .mapToInt(cv -> cv.metadata().numPrimaryUnderreplicatedVectors())
                 .sum();
@@ -236,7 +233,7 @@ class TestHelpers {
      * @param a first sample
      * @param b second sample, disjoint from {@code a}
      */
-    record Samples(@Nonnull List<PrimaryKeyAndVector> a, @Nonnull List<PrimaryKeyAndVector> b) {
+    record Samples(List<PrimaryKeyAndVector> a, List<PrimaryKeyAndVector> b) {
     }
 
     /**
@@ -256,8 +253,7 @@ class TestHelpers {
      * @param sizeB size of the second sample
      * @return a {@link Samples} pair
      */
-    @Nonnull
-    static Samples loadDisjointSamples(@Nonnull final String baseFile, final long seed, final int sizeA, final int sizeB) throws IOException {
+    static Samples loadDisjointSamples(final String baseFile, final long seed, final int sizeA, final int sizeB) throws IOException {
         Verify.verify(sizeA > 0 && sizeB > 0, "sample sizes must be positive (sizeA=%s, sizeB=%s)", sizeA, sizeB);
         final List<PrimaryKeyAndVector> sampled = reservoirSample(baseFile, seed, sizeA + sizeB);
         return new Samples(
@@ -277,8 +273,7 @@ class TestHelpers {
      *
      * @return the sampled records
      */
-    @Nonnull
-    static List<PrimaryKeyAndVector> loadSample(@Nonnull final String baseFile, final long seed, final int size) throws IOException {
+    static List<PrimaryKeyAndVector> loadSample(final String baseFile, final long seed, final int size) throws IOException {
         Verify.verify(size > 0, "sample size must be positive (size=%s)", size);
         return ImmutableList.copyOf(reservoirSample(baseFile, seed, size));
     }
@@ -289,8 +284,7 @@ class TestHelpers {
      * {@code totalSize * 1KB} regardless of source-file size. Each record's primary key is its original index in
      * the stream, so any two disjoint slices of the result are collision-free by construction.
      */
-    @Nonnull
-    private static List<PrimaryKeyAndVector> reservoirSample(@Nonnull final String baseFile, final long seed, final int totalSize) throws IOException {
+    private static List<PrimaryKeyAndVector> reservoirSample(final String baseFile, final long seed, final int totalSize) throws IOException {
         // Two parallel arrays so we don't pay an Object[] indirection per slot.
         final long[] reservoirIndices = new long[totalSize];
         final DoubleRealVector[] reservoirVectors = new DoubleRealVector[totalSize];
@@ -348,9 +342,9 @@ class TestHelpers {
      * @param records the records to insert, in order
      * @param batchSize the number of records per insert transaction
      */
-    static void insertRecords(@Nonnull final Database db,
-                              @Nonnull final Guardiann guardiann,
-                              @Nonnull final List<PrimaryKeyAndVector> records,
+    static void insertRecords(final Database db,
+                              final Guardiann guardiann,
+                              final List<PrimaryKeyAndVector> records,
                               final int batchSize) throws Exception {
         for (int i = 0; i < records.size(); i += batchSize) {
             final int end = Math.min(i + batchSize, records.size());
@@ -364,9 +358,9 @@ class TestHelpers {
      * mid-transaction, until the whole batch is inserted. {@code firstGlobalIndex} is only the index base handed to
      * {@code basicInsertBatch}; the batch records carry their own primary keys.
      */
-    private static void insertBatchWithRetry(@Nonnull final Database db,
-                                             @Nonnull final Guardiann guardiann,
-                                             @Nonnull final List<PrimaryKeyAndVector> batch,
+    private static void insertBatchWithRetry(final Database db,
+                                             final Guardiann guardiann,
+                                             final List<PrimaryKeyAndVector> batch,
                                              final long firstGlobalIndex) throws Exception {
         final List<PrimaryKeyAndVector> remaining = new ArrayList<>(batch);
         long base = firstGlobalIndex;
@@ -391,8 +385,8 @@ class TestHelpers {
      * top-k); without dedup, a single in-truth primary would otherwise be counted once per
      * duplicate.
      */
-    private static double singleQueryRecall(@Nonnull final Set<Integer> groundTruthIndices,
-                                            @Nonnull final List<? extends ResultEntry> results) {
+    private static double singleQueryRecall(final Set<Integer> groundTruthIndices,
+                                            final List<? extends ResultEntry> results) {
         final Set<Integer> resultIndices = results.stream()
                 .map(re -> (int) re.primaryKey().getLong(0))
                 .collect(ImmutableSet.toImmutableSet());
@@ -430,10 +424,10 @@ class TestHelpers {
      * @param k top-k to retrieve per query
      * @param minMeanRecall floor that the mean recall must meet or exceed
      */
-    static void assertRecallAtKAtLeast(@Nonnull final Database db,
-                                       @Nonnull final Guardiann guardiann,
-                                       @Nonnull final List<? extends RealVector> queries,
-                                       @Nonnull final List<? extends Set<Integer>> groundTruth,
+    static void assertRecallAtKAtLeast(final Database db,
+                                       final Guardiann guardiann,
+                                       final List<? extends RealVector> queries,
+                                       final List<? extends Set<Integer>> groundTruth,
                                        final int k,
                                        final double minMeanRecall) {
         Verify.verify(queries.size() == groundTruth.size(),
@@ -483,10 +477,10 @@ class TestHelpers {
      * @param minMeanRecall floor that the mean recall must meet or exceed
      * @return the observed mean recall (for logging/assertions in the caller)
      */
-    static double assertRecallAtKAtLeastDynamic(@Nonnull final Database db,
-                                                @Nonnull final Guardiann guardiann,
-                                                @Nonnull final List<? extends RealVector> queries,
-                                                @Nonnull final Map<Tuple, ? extends RealVector> active,
+    static double assertRecallAtKAtLeastDynamic(final Database db,
+                                                final Guardiann guardiann,
+                                                final List<? extends RealVector> queries,
+                                                final Map<Tuple, ? extends RealVector> active,
                                                 final int k,
                                                 final double minMeanRecall) {
         Verify.verify(active.size() >= k,
@@ -534,8 +528,7 @@ class TestHelpers {
      * @param <T> the element type
      * @return up to {@code count} elements of {@code items} in a deterministic, seed-dependent order
      */
-    @Nonnull
-    static <T> List<T> deterministicSample(@Nonnull final List<T> items, final long seed, final int count) {
+    static <T> List<T> deterministicSample(final List<T> items, final long seed, final int count) {
         if (items.size() <= count) {
             return items;
         }
@@ -572,9 +565,9 @@ class TestHelpers {
      * @param minMeanQuality floor that the mean quality must meet or exceed
      * @return the observed mean quality, or {@link Double#NaN} if the check was skipped
      */
-    static double assertOrderedByDistanceQualityAtLeast(@Nonnull final Database db,
-                                                        @Nonnull final Guardiann guardiann,
-                                                        @Nonnull final List<? extends RealVector> queries,
+    static double assertOrderedByDistanceQualityAtLeast(final Database db,
+                                                        final Guardiann guardiann,
+                                                        final List<? extends RealVector> queries,
                                                         final int indexSize,
                                                         final double minMeanQuality) {
         if (indexSize > MAX_ORDERED_BY_DISTANCE_INDEX_SIZE) {
@@ -633,7 +626,7 @@ class TestHelpers {
      * @param indexSize the number of live vectors the scan should have returned (completeness denominator)
      * @return the quality score in {@code [0, 1]}
      */
-    private static double orderedByDistanceQuality(@Nonnull final List<? extends ResultEntry> results, final int indexSize) {
+    private static double orderedByDistanceQuality(final List<? extends ResultEntry> results, final int indexSize) {
         final int numReturned = results.size();
         final double completenessScore =
                 indexSize <= 0 ? 1.0d : Math.min(1.0d, (double) numReturned / (double) indexSize);
@@ -672,9 +665,8 @@ class TestHelpers {
      * Returned indices are extracted as {@code (int) primaryKey.getLong(0)}, matching the
      * convention used by {@link #singleQueryRecall} so the two are directly comparable.
      */
-    @Nonnull
-    static Set<Integer> bruteForceTopKByEuclidean(@Nonnull final RealVector query,
-                                                  @Nonnull final Map<Tuple, ? extends RealVector> active,
+    static Set<Integer> bruteForceTopKByEuclidean(final RealVector query,
+                                                  final Map<Tuple, ? extends RealVector> active,
                                                   final int k) {
         // Local record so we don't need a top-level helper class.
         record IndexedDistance(double distance, int index) { }
@@ -688,7 +680,6 @@ class TestHelpers {
     }
 
     static class TestOnWriteListener implements OnWriteListener {
-        @Nonnull
         private final ArrayDeque<Frame> frames;
 
         public TestOnWriteListener() {
@@ -696,15 +687,15 @@ class TestHelpers {
         }
 
         @Override
-        public void onKeyValueWritten(@Nonnull final byte[] key, @Nonnull final byte[] value) {
+        public void onKeyValueWritten(final byte[] key, final byte[] value) {
             for (final Frame frame : frames) {
                 frame.bytesWritten().addAndGet(key.length + value.length);
             }
         }
 
         @Override
-        public void onTaskEnqueued(@Nonnull final TaskKind taskKind,
-                                   @Nonnull final UUID taskId, @Nonnull final Set<UUID> targetClusterIds) {
+        public void onTaskEnqueued(final TaskKind taskKind,
+                                   final UUID taskId, final Set<UUID> targetClusterIds) {
             for (final Frame frame : frames) {
                 frame.numTasksEnqueuedByKind()
                         .compute(taskKind, (ignored, counter) ->
@@ -713,20 +704,18 @@ class TestHelpers {
         }
 
         @Override
-        public void onTaskExecuted(@Nonnull final TaskKind taskKind,
-                                   @Nonnull final UUID taskId, @Nonnull final Set<UUID> targetClusterIds) {
+        public void onTaskExecuted(final TaskKind taskKind,
+                                   final UUID taskId, final Set<UUID> targetClusterIds) {
             for (final Frame frame : frames) {
                 frame.numTasksExecutedByKind().compute(taskKind, (ignored, counter) ->
                         Objects.requireNonNullElse(counter, 0) + 1);
             }
         }
 
-        @Nonnull
         public Map<TaskKind, Integer> getNumTasksEnqueuedByKind() {
             return Objects.requireNonNull(frames.peek()).numTasksEnqueuedByKind();
         }
 
-        @Nonnull
         public Map<TaskKind, Integer> getNumTasksExecutedByKind() {
             return Objects.requireNonNull(frames.peek()).numTasksExecutedByKind();
         }
@@ -735,7 +724,6 @@ class TestHelpers {
             return Objects.requireNonNull(frames.peek()).numTasksExecutedByKind().values().stream().mapToInt(i -> i).sum();
         }
 
-        @Nonnull
         public Long getBytesWritten() {
             return Objects.requireNonNull(frames.peek()).bytesWritten().get();
         }
@@ -748,14 +736,13 @@ class TestHelpers {
             frames.pop();
         }
 
-        private record Frame(@Nonnull AtomicLong bytesWritten,
-                             @Nonnull Map<TaskKind, Integer> numTasksEnqueuedByKind,
-                             @Nonnull Map<TaskKind, Integer> numTasksExecutedByKind) {
+        private record Frame(AtomicLong bytesWritten,
+                             Map<TaskKind, Integer> numTasksEnqueuedByKind,
+                             Map<TaskKind, Integer> numTasksExecutedByKind) {
         }
     }
 
     static class TestOnReadListener implements OnReadListener {
-        @Nonnull
         private final ArrayDeque<AtomicLong> frames;
 
         public TestOnReadListener() {
@@ -767,7 +754,7 @@ class TestHelpers {
         }
 
         @Override
-        public void onKeyValueRead(@Nonnull final byte[] key, @Nullable final byte[] value) {
+        public void onKeyValueRead(final byte[] key, @Nullable final byte[] value) {
             for (final AtomicLong frame : frames) {
                 frame.addAndGet(key.length + (value == null ? 0 : value.length));
             }

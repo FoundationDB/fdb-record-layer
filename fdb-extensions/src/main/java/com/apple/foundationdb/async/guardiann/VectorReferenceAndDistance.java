@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.async.guardiann;
 
-import javax.annotation.Nonnull;
 
 /**
  * Pairs a {@link VectorReference} with its computed distance to a query vector. Used during search
@@ -29,7 +28,7 @@ import javax.annotation.Nonnull;
  * @param vectorReference the vector reference from a cluster
  * @param distance the computed distance between this vector and the query vector
  */
-record VectorReferenceAndDistance(@Nonnull VectorReference vectorReference, double distance) {
+record VectorReferenceAndDistance(VectorReference vectorReference, double distance) {
 
     /**
      * Returns a copy of this pair with a different vector reference, preserving the same distance.
@@ -39,8 +38,7 @@ record VectorReferenceAndDistance(@Nonnull VectorReference vectorReference, doub
      * @param vectorReference the replacement vector reference
      * @return a new pair with the given reference and the original distance
      */
-    @Nonnull
-    public VectorReferenceAndDistance withVectorReference(@Nonnull final VectorReference vectorReference) {
+    public VectorReferenceAndDistance withVectorReference(final VectorReference vectorReference) {
         return new VectorReferenceAndDistance(vectorReference, distance());
     }
 }
