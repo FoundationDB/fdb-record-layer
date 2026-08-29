@@ -24,7 +24,8 @@ import com.apple.foundationdb.EventKeeper;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;

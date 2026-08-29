@@ -32,8 +32,8 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.Collections;
 
@@ -62,7 +62,7 @@ public class TimeWindowForFunction implements PlanHashable, PlanSerializable {
         return leaderboardType;
     }
 
-    public int getLeaderboardType(@Nonnull EvaluationContext context) {
+    public int getLeaderboardType(EvaluationContext context) {
         if (leaderboardTypeParameter == null) {
             return leaderboardType;
         } else {
@@ -74,7 +74,7 @@ public class TimeWindowForFunction implements PlanHashable, PlanSerializable {
         return leaderboardTimestamp;
     }
 
-    public long getLeaderboardTimestamp(@Nonnull EvaluationContext context) {
+    public long getLeaderboardTimestamp(EvaluationContext context) {
         if (leaderboardTimestampParameter == null) {
             return leaderboardTimestamp;
         } else {
@@ -92,8 +92,7 @@ public class TimeWindowForFunction implements PlanHashable, PlanSerializable {
         return leaderboardTimestampParameter;
     }
 
-    @Nonnull
-    public ScanComparisons prependLeaderboardKeys(@Nonnull ScanComparisons scanComparisons) {
+    public ScanComparisons prependLeaderboardKeys(ScanComparisons scanComparisons) {
         final Comparisons.Comparison typeComparison = leaderboardTypeParameter == null ?
                 new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, leaderboardType) :
                 new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, leaderboardTypeParameter);
@@ -104,23 +103,20 @@ public class TimeWindowForFunction implements PlanHashable, PlanSerializable {
                 .append(scanComparisons);
     }
 
-    @Nonnull
-    public TupleRange prependLeaderboardKeys(@Nonnull EvaluationContext context, @Nonnull TupleRange tupleRange) {
+    public TupleRange prependLeaderboardKeys(EvaluationContext context, TupleRange tupleRange) {
         return tupleRange.prepend(Tuple.from(getLeaderboardType(context), getLeaderboardTimestamp(context)));
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, leaderboardType, leaderboardTimestamp, leaderboardTypeParameter,
                 leaderboardTimestampParameter);
     }
 
-    @Nonnull
     public String leaderboardTypeString() {
         return leaderboardTypeParameter == null ? Integer.toString(leaderboardType) : ("$" + leaderboardTypeParameter);
     }
 
-    @Nonnull
     public String leaderboardTimestampString() {
         return leaderboardTimestampParameter == null ? Long.toString(leaderboardTimestamp) : ("$" + leaderboardTimestampParameter);
     }
@@ -162,9 +158,8 @@ public class TimeWindowForFunction implements PlanHashable, PlanSerializable {
         return result;
     }
 
-    @Nonnull
     @Override
-    public PTimeWindowForFunction toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PTimeWindowForFunction toProto(final PlanSerializationContext serializationContext) {
         final PTimeWindowForFunction.Builder builder = PTimeWindowForFunction.newBuilder();
         builder.setLeaderboardType(leaderboardType);
         builder.setLeaderboardTimestamp(leaderboardTimestamp);
@@ -177,10 +172,9 @@ public class TimeWindowForFunction implements PlanHashable, PlanSerializable {
         return builder.build();
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    public static TimeWindowForFunction fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                  @Nonnull final PTimeWindowForFunction timeWindowForFunctionProto) {
+    public static TimeWindowForFunction fromProto(final PlanSerializationContext serializationContext,
+                                                  final PTimeWindowForFunction timeWindowForFunctionProto) {
         Verify.verify(timeWindowForFunctionProto.hasLeaderboardType());
         Verify.verify(timeWindowForFunctionProto.hasLeaderboardTimestamp());
 

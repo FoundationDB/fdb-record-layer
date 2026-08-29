@@ -33,8 +33,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
@@ -45,28 +45,25 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.INTERNAL)
 public class StringInterningLayer {
-    @Nonnull
     private final Subspace mappingSubspace;
-    @Nonnull
     private final Subspace reverseMappingSubspace;
-    @Nonnull
     private final Subspace counterSubspace;
     private final boolean isRootLevel;
 
-    public StringInterningLayer(@Nonnull Subspace baseSubspace) {
+    public StringInterningLayer(Subspace baseSubspace) {
         this(baseSubspace, false);
     }
 
-    public StringInterningLayer(@Nonnull Subspace baseSubspace, boolean isRootLevel) {
+    public StringInterningLayer(Subspace baseSubspace, boolean isRootLevel) {
         this(baseSubspace.get(2),
                 baseSubspace.get(1),
                 baseSubspace.get(0),
                 isRootLevel);
     }
 
-    private StringInterningLayer(@Nonnull Subspace mappingSubspace,
-                                 @Nonnull Subspace reverseMappingSubspace,
-                                 @Nonnull Subspace counterSubspace,
+    private StringInterningLayer(Subspace mappingSubspace,
+                                 Subspace reverseMappingSubspace,
+                                 Subspace counterSubspace,
                                  boolean isRootLevel) {
         this.mappingSubspace = mappingSubspace;
         this.reverseMappingSubspace = reverseMappingSubspace;
@@ -74,7 +71,7 @@ public class StringInterningLayer {
         this.isRootLevel = isRootLevel;
     }
 
-    protected CompletableFuture<ResolverResult> intern(@Nonnull FDBRecordContext context, @Nonnull final String toIntern) {
+    protected CompletableFuture<ResolverResult> intern(FDBRecordContext context, final String toIntern) {
         CompletableFuture<Optional<ResolverResult>> readResult;
         synchronized (this) {
             readResult = read(context, toIntern);
@@ -84,35 +81,35 @@ public class StringInterningLayer {
                 .thenCompose(value -> value.orElseGet(() -> createMapping(context, toIntern, null)));
     }
 
-    protected CompletableFuture<Boolean> exists(@Nonnull FDBRecordContext context, @Nonnull final String toRead) {
+    protected CompletableFuture<Boolean> exists(FDBRecordContext context, final String toRead) {
         return context.ensureActive().get(mappingSubspace.pack(toRead))
                 .thenApply(Objects::nonNull);
     }
 
-    protected CompletableFuture<Optional<ResolverResult>> read(@Nonnull FDBRecordContext context, @Nonnull final String toRead) {
+    protected CompletableFuture<Optional<ResolverResult>> read(FDBRecordContext context, final String toRead) {
         return context.ensureActive().get(mappingSubspace.pack(toRead))
                 .thenApply(Optional::ofNullable)
                 .thenApply(maybeValue -> maybeValue.map(StringInterningLayer::deserializeValue));
     }
 
 
-    protected CompletableFuture<Optional<String>> readReverse(@Nonnull FDBRecordContext context, @Nonnull final Long internedValue) {
+    protected CompletableFuture<Optional<String>> readReverse(FDBRecordContext context, final Long internedValue) {
         return context.ensureActive().get(reverseMappingSubspace.pack(internedValue))
                 .thenApply(Optional::ofNullable)
                 .thenApply(maybeValue -> maybeValue.map(bytes -> Tuple.fromBytes(bytes).getString(0)));
     }
 
     @VisibleForTesting
-    protected void deleteReverseForTesting(@Nonnull FDBRecordContext context, @Nonnull final Long internedValue) {
+    protected void deleteReverseForTesting(FDBRecordContext context, final Long internedValue) {
         context.ensureActive().clear(reverseMappingSubspace.pack(internedValue));
     }
 
-    protected void putReverse(@Nonnull FDBRecordContext context, @Nonnull final Long internedValue, @Nonnull String key) {
+    protected void putReverse(FDBRecordContext context, final Long internedValue, String key) {
         context.ensureActive().set(reverseMappingSubspace.pack(internedValue), Tuple.from(key).pack());
     }
 
-    protected CompletableFuture<ResolverResult> create(@Nonnull FDBRecordContext context,
-                                                       @Nonnull final String toIntern,
+    protected CompletableFuture<ResolverResult> create(FDBRecordContext context,
+                                                       final String toIntern,
                                                        @Nullable final byte[] metadata) {
         return exists(context, toIntern)
                 .thenCompose(present -> {
@@ -124,8 +121,8 @@ public class StringInterningLayer {
                 });
     }
 
-    protected CompletableFuture<Void> updateMetadata(@Nonnull final FDBRecordContext context,
-                                                     @Nonnull final String key,
+    protected CompletableFuture<Void> updateMetadata(final FDBRecordContext context,
+                                                     final String key,
                                                      @Nullable final byte[] metadata) {
         return read(context, key).thenApply(maybeRead ->
                 maybeRead.map(read -> new ResolverResult(read.getValue(), metadata))
@@ -133,9 +130,9 @@ public class StringInterningLayer {
                 .thenAccept(newResult -> context.ensureActive().set(mappingSubspace.pack(key), serializeValue(newResult)));
     }
 
-    protected CompletableFuture<Void> setMapping(@Nonnull final FDBRecordContext context,
-                                                 @Nonnull final String key,
-                                                 @Nonnull final ResolverResult value) {
+    protected CompletableFuture<Void> setMapping(final FDBRecordContext context,
+                                                 final String key,
+                                                 final ResolverResult value) {
         return read(context, key).thenCombine(readReverse(context, value.getValue()), (maybeRead, maybeReverseRead) -> {
             maybeRead.ifPresent(read -> {
                 if (!read.equals(value)) {
@@ -162,7 +159,7 @@ public class StringInterningLayer {
         });
     }
 
-    protected CompletableFuture<Void> setWindow(@Nonnull final FDBRecordContext context, long count) {
+    protected CompletableFuture<Void> setWindow(final FDBRecordContext context, long count) {
         getHca(context).setWindow(count);
         return AsyncUtil.DONE;
     }
@@ -171,8 +168,8 @@ public class StringInterningLayer {
         return mappingSubspace;
     }
 
-    private CompletableFuture<ResolverResult> createMapping(@Nonnull FDBRecordContext context,
-                                                            @Nonnull final String toIntern,
+    private CompletableFuture<ResolverResult> createMapping(FDBRecordContext context,
+                                                            final String toIntern,
                                                             @Nullable final byte[] metadata) {
         final HighContentionAllocator hca = getHca(context);
         final byte[] mappingKey = mappingSubspace.pack(toIntern);
@@ -184,13 +181,13 @@ public class StringInterningLayer {
                 });
     }
 
-    private HighContentionAllocator getHca(@Nonnull FDBRecordContext context) {
+    private HighContentionAllocator getHca(FDBRecordContext context) {
         return isRootLevel ?
                 HighContentionAllocator.forRoot(context, counterSubspace, reverseMappingSubspace) :
                 new HighContentionAllocator(context, counterSubspace, reverseMappingSubspace);
     }
 
-    private byte[] serializeValue(@Nonnull ResolverResult allocated) {
+    private byte[] serializeValue(ResolverResult allocated) {
         byte[] metadata = allocated.getMetadata();
         StringInterningProto.Data.Builder builder = StringInterningProto.Data.newBuilder();
         builder.setInternedValue(allocated.getValue());

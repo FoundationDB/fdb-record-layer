@@ -58,8 +58,8 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Map;
@@ -71,6 +71,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
+import static com.google.protobuf.Descriptors.FileDescriptor;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThan;
@@ -831,7 +832,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
         }
 
         @Override
-        public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
+        public CompletableFuture<Integer> checkUserVersion(final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
             return CompletableFuture.completedFuture(storeHeader.getUserVersion());
         }
 
@@ -846,7 +847,6 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
             return fail("should not call count-based needRebuildIndexMethod on size-based user version checker");
         }
 
-        @Nonnull
         @Override
         public CompletableFuture<IndexState> needRebuildIndex(final Index index,
                                                               final Supplier<CompletableFuture<Long>> lazyRecordCount,
@@ -1114,43 +1114,41 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
     }
 
 
-    @Nonnull
-    private FDBMetaDataStore createMetaDataStore(@Nonnull FDBRecordContext context, @Nonnull KeySpacePath metaDataPath,
-                                                 @Nonnull Subspace metaDataSubspace,
-                                                 @Nullable Descriptors.FileDescriptor localFileDescriptor) {
+    private FDBMetaDataStore createMetaDataStore(FDBRecordContext context, KeySpacePath metaDataPath,
+                                                 Subspace metaDataSubspace,
+                                                 @Nullable FileDescriptor localFileDescriptor) {
         FDBMetaDataStore metaDataStore = new FDBMetaDataStore(context, metaDataPath);
         metaDataStore.setMaintainHistory(false);
         assertEquals(metaDataSubspace, metaDataStore.getSubspace());
-        metaDataStore.setDependencies(new Descriptors.FileDescriptor[]{RecordMetaDataOptionsProto.getDescriptor()});
+        metaDataStore.setDependencies(new FileDescriptor[]{RecordMetaDataOptionsProto.getDescriptor()});
         metaDataStore.setLocalFileDescriptor(localFileDescriptor);
         return metaDataStore;
     }
 
-    private FDBRecordStore.Builder storeBuilder(@Nonnull FDBRecordContext context, @Nonnull RecordMetaDataProvider metaDataProvider) {
+    private FDBRecordStore.Builder storeBuilder(FDBRecordContext context, RecordMetaDataProvider metaDataProvider) {
         return FDBRecordStore.newBuilder()
                 .setContext(context)
                 .setMetaDataProvider(metaDataProvider)
                 .setKeySpacePath(path);
     }
 
-    private static byte[] getStoreInfoKey(@Nonnull FDBRecordStore store) {
+    private static byte[] getStoreInfoKey(FDBRecordStore store) {
         return store.getSubspace().pack(FDBRecordStoreKeyspace.STORE_INFO.key());
     }
 
-    @Nonnull
     private static RecordMetaDataBuilder simpleMetaDataBuilder() {
         return RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
     }
 
     @SuppressWarnings("deprecation")
-    private static RecordMetaDataBuilder addRecordCountKey(@Nonnull final RecordMetaDataBuilder recordMetaDataBuilder,
-                                                           @Nonnull final KeyExpression keyExpression) {
+    private static RecordMetaDataBuilder addRecordCountKey(final RecordMetaDataBuilder recordMetaDataBuilder,
+                                                           final KeyExpression keyExpression) {
         recordMetaDataBuilder.setRecordCountKey(keyExpression);
         return recordMetaDataBuilder;
     }
 
-    private static String addCountIndex(@Nonnull final RecordMetaDataBuilder recordMetaDataBuilder,
-                                        @Nonnull final KeyExpression keyExpression) {
+    private static String addCountIndex(final RecordMetaDataBuilder recordMetaDataBuilder,
+                                        final KeyExpression keyExpression) {
         final String indexName = "record_count";
         addIndex(indexName, keyExpression, IndexTypes.COUNT, recordMetaDataBuilder);
         return indexName;
@@ -1218,7 +1216,6 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
             return CompletableFuture.completedFuture(1);
         }
 
-        @Nonnull
         @Override
         public CompletableFuture<IndexState> needRebuildIndex(final Index indexToRebuild,
                                                               final Supplier<CompletableFuture<Long>> lazyRecordCount,

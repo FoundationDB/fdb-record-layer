@@ -26,8 +26,8 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -41,20 +41,18 @@ import java.util.function.Supplier;
 public class RecordLayerPropertyStorage {
     private static final RecordLayerPropertyStorage EMPTY_PROPERTY_STORAGE = new RecordLayerPropertyStorage(ImmutableMap.of());
 
-    @Nonnull
     private final ImmutableMap<RecordLayerPropertyKey<?>, RecordLayerPropertyValue<?>> propertyMap;
 
-    private RecordLayerPropertyStorage(@Nonnull ImmutableMap<RecordLayerPropertyKey<?>, RecordLayerPropertyValue<?>> propertyMap) {
+    private RecordLayerPropertyStorage(ImmutableMap<RecordLayerPropertyKey<?>, RecordLayerPropertyValue<?>> propertyMap) {
         this.propertyMap = propertyMap;
     }
 
-    @Nonnull
     public ImmutableMap<RecordLayerPropertyKey<?>, RecordLayerPropertyValue<?>> getPropertyMap() {
         return propertyMap;
     }
 
     @Nullable
-    public <T> T getPropertyValue(@Nonnull RecordLayerPropertyKey<T> propertyKey) {
+    public <T> T getPropertyValue(RecordLayerPropertyKey<T> propertyKey) {
         if (propertyMap.containsKey(propertyKey)) {
             Object value = Preconditions.checkNotNull(propertyMap.get(propertyKey)).getValue();
             try {
@@ -69,7 +67,6 @@ public class RecordLayerPropertyStorage {
         }
     }
 
-    @Nonnull
     public Builder toBuilder() {
         return new Builder(propertyMap);
     }
@@ -96,15 +93,15 @@ public class RecordLayerPropertyStorage {
             this.propertyMap = new HashMap<>(properties);
         }
 
-        public <T> boolean hasProp(@Nonnull RecordLayerPropertyKey<T> propKey) {
+        public <T> boolean hasProp(RecordLayerPropertyKey<T> propKey) {
             return propertyMap.containsKey(propKey);
         }
 
-        public <T> void removeProp(@Nonnull RecordLayerPropertyKey<T> propKey) {
+        public <T> void removeProp(RecordLayerPropertyKey<T> propKey) {
             propertyMap.remove(propKey);
         }
 
-        public <T> Builder addProp(@Nonnull RecordLayerPropertyValue<T> propValue) {
+        public <T> Builder addProp(RecordLayerPropertyValue<T> propValue) {
             if (this.propertyMap.putIfAbsent(propValue.getKey(), propValue) != null) {
                 throw new RecordCoreException("Duplicate property name is added")
                         .addLogInfo(LogMessageKeys.PROPERTY_NAME, propValue.getKey().getName());
@@ -112,12 +109,12 @@ public class RecordLayerPropertyStorage {
             return this;
         }
 
-        public <T> Builder addProp(@Nonnull RecordLayerPropertyKey<T> propKey, @Nonnull Supplier<T> valueSupplier) {
+        public <T> Builder addProp(RecordLayerPropertyKey<T> propKey, Supplier<T> valueSupplier) {
             final RecordLayerPropertyValue<T> propValue = propKey.buildValue(valueSupplier);
             return this.addProp(propValue);
         }
 
-        public <T> Builder addProp(@Nonnull RecordLayerPropertyKey<T> propKey, @Nonnull T value) {
+        public <T> Builder addProp(RecordLayerPropertyKey<T> propKey, T value) {
             final RecordLayerPropertyValue<T> propValue = propKey.buildValue(() -> value);
             return this.addProp(propValue);
         }

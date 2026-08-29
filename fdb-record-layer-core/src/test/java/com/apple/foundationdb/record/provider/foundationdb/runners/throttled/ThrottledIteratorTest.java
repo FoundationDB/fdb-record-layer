@@ -49,7 +49,6 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.MDC;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -940,7 +939,6 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         };
     }
 
-    @Nonnull
     private static CursorFactory<Tuple> createCursorFactory() {
         return (store, lastResult, rowLimit) -> {
             final byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
@@ -968,7 +966,6 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
             this.executor = executor;
         }
 
-        @Nonnull
         @Override
         public CompletableFuture<RecordCursorResult<T>> onNext() {
             if (done) {
@@ -989,14 +986,13 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
             return done;
         }
 
-        @Nonnull
         @Override
         public Executor getExecutor() {
             return executor;
         }
 
         @Override
-        public boolean accept(@Nonnull final RecordCursorVisitor visitor) {
+        public boolean accept(final RecordCursorVisitor visitor) {
             visitor.visitEnter(this);
             return visitor.visitLeave(this);
         }

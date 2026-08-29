@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 
-import javax.annotation.Nonnull;
 
 /**
  * A factory for creating {@link PassThroughRecordStoreStateCache}s. That class is a singleton, but it is useful
@@ -38,9 +37,8 @@ public class PassThroughRecordStoreStateCacheFactory implements FDBRecordStoreSt
     private PassThroughRecordStoreStateCacheFactory() {
     }
 
-    @Nonnull
     @Override
-    public PassThroughRecordStoreStateCache getCache(@Nonnull FDBDatabase database) {
+    public PassThroughRecordStoreStateCache getCache(FDBDatabase database) {
         // Parameter purposefully ignored. All databases can share the same instance.
         return PassThroughRecordStoreStateCache.instance();
     }
@@ -51,7 +49,6 @@ public class PassThroughRecordStoreStateCacheFactory implements FDBRecordStoreSt
      *
      * @return the factory's singleton
      */
-    @Nonnull
     public static PassThroughRecordStoreStateCacheFactory instance() {
         return INSTANCE;
     }

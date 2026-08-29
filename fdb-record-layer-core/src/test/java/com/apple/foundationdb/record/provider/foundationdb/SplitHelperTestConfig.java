@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.record.FDBRecordStoreProperties;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.stream.Stream;
 
@@ -45,8 +44,7 @@ public class SplitHelperTestConfig {
         this.useVersionInKey = useVersionInKey;
     }
 
-    @Nonnull
-    public RecordLayerPropertyStorage.Builder setProps(@Nonnull RecordLayerPropertyStorage.Builder props) {
+    public RecordLayerPropertyStorage.Builder setProps(RecordLayerPropertyStorage.Builder props) {
         return props
                 .addProp(FDBRecordStoreProperties.UNROLL_SINGLE_RECORD_DELETES, unrollRecordDeletes)
                 .addProp(FDBRecordStoreProperties.LOAD_RECORDS_VIA_GETS, loadViaGets);

@@ -33,8 +33,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexingSubspaces;
 import com.apple.foundationdb.subspace.Subspace;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -46,12 +46,10 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.INTERNAL)
 public class IndexingRangeSet {
-    @Nonnull
     private final FDBRecordContext context;
-    @Nonnull
     private final RangeSet rangeSet;
 
-    private IndexingRangeSet(@Nonnull FDBRecordContext context, @Nonnull RangeSet rangeSet) {
+    private IndexingRangeSet(FDBRecordContext context, RangeSet rangeSet) {
         this.context = context;
         this.rangeSet = rangeSet;
     }
@@ -62,7 +60,6 @@ public class IndexingRangeSet {
      *
      * @return a future that returns whether or not the set is empty
      */
-    @Nonnull
     public CompletableFuture<Boolean> isEmptyAsync() {
         long startTime = System.nanoTime();
         return context.instrument(FDBStoreTimer.Events.RANGE_SET_IS_EMPTY,
@@ -87,8 +84,7 @@ public class IndexingRangeSet {
      *
      * @see RangeSet#contains(TransactionContext, byte[])
      */
-    @Nonnull
-    public CompletableFuture<Boolean> containsAsync(@Nonnull byte[] key) {
+    public CompletableFuture<Boolean> containsAsync(byte[] key) {
         long startTime = System.nanoTime();
         return context.instrument(FDBStoreTimer.Events.RANGE_SET_CONTAINS,
                 rangeSet.contains(context.ensureActive(), key), startTime);
@@ -103,7 +99,6 @@ public class IndexingRangeSet {
      * @see #firstMissingRangeAsync(byte[], byte[])
      * @see RangeSet#missingRanges(ReadTransaction)
      */
-    @Nonnull
     public CompletableFuture<Range> firstMissingRangeAsync() {
         return firstMissingRangeAsync(null, null);
     }
@@ -121,7 +116,6 @@ public class IndexingRangeSet {
      *
      * @see RangeSet#missingRanges(ReadTransaction, byte[], byte[])
      */
-    @Nonnull
     public CompletableFuture<Range> firstMissingRangeAsync(@Nullable byte[] begin, @Nullable byte[] end) {
         final long startTime = System.nanoTime();
         final AsyncIterator<Range> ranges = rangeSet.missingRanges(context.ensureActive(), begin, end, 1).iterator();
@@ -142,7 +136,6 @@ public class IndexingRangeSet {
      *
      * @see #listMissingRangesAsync(byte[], byte[])
      */
-    @Nonnull
     public CompletableFuture<List<Range>> listMissingRangesAsync() {
         return listMissingRangesAsync(null, null);
     }
@@ -157,7 +150,6 @@ public class IndexingRangeSet {
      *
      * @see RangeSet#missingRanges(ReadTransaction, byte[], byte[])
      */
-    @Nonnull
     public CompletableFuture<List<Range>> listMissingRangesAsync(@Nullable byte[] begin, @Nullable byte[] end) {
         final long startTime = System.nanoTime();
         CompletableFuture<List<Range>> future = rangeSet.missingRanges(context.ensureActive(), begin, end)
@@ -175,7 +167,6 @@ public class IndexingRangeSet {
      *
      * @see RangeSet#insertRange(TransactionContext, byte[], byte[])
      */
-    @Nonnull
     public CompletableFuture<Boolean> insertRangeAsync(@Nullable byte[] begin, @Nullable byte[] end) {
         return insertRangeAsync(begin, end, false);
     }
@@ -193,7 +184,6 @@ public class IndexingRangeSet {
      *
      * @see RangeSet#insertRange(TransactionContext, byte[], byte[], boolean)
      */
-    @Nonnull
     public CompletableFuture<Boolean> insertRangeAsync(@Nullable byte[] begin, @Nullable byte[] end, boolean requireEmpty) {
         final long startTime = System.nanoTime();
         return context.instrument(FDBStoreTimer.Events.RANGE_SET_INSERT,
@@ -209,8 +199,7 @@ public class IndexingRangeSet {
      *
      * @return a {@code WrappedRangeSet} for an index build of a specific store
      */
-    @Nonnull
-    public static IndexingRangeSet forIndexBuild(@Nonnull FDBRecordStore store, @Nonnull Index index) {
+    public static IndexingRangeSet forIndexBuild(FDBRecordStore store, Index index) {
         RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
         return new IndexingRangeSet(store.getRecordContext(), rangeSet);
     }
@@ -225,8 +214,7 @@ public class IndexingRangeSet {
      *
      * @return a {@code WrappedRangeSet} for scrubbing the index's entries
      */
-    @Nonnull
-    public static IndexingRangeSet forScrubbingIndex(@Nonnull FDBRecordStore store, @Nonnull Index index, int rangeId) {
+    public static IndexingRangeSet forScrubbingIndex(FDBRecordStore store, Index index, int rangeId) {
         final Subspace subspace = IndexingSubspaces.indexScrubIndexRangeSubspace(store, index, rangeId);
         final RangeSet rangeSet = new RangeSet(subspace);
         return new IndexingRangeSet(store.getRecordContext(), rangeSet);
@@ -242,8 +230,7 @@ public class IndexingRangeSet {
      *
      * @return a {@code WrappedRangeSet} for scrubbing the index's records
      */
-    @Nonnull
-    public static IndexingRangeSet forScrubbingRecords(@Nonnull FDBRecordStore store, @Nonnull Index index, int rangeId) {
+    public static IndexingRangeSet forScrubbingRecords(FDBRecordStore store, Index index, int rangeId) {
         final Subspace subspace = IndexingSubspaces.indexScrubRecordsRangeSubspace(store, index, rangeId);
         final RangeSet rangeSet = new RangeSet(subspace);
         return new IndexingRangeSet(store.getRecordContext(), rangeSet);

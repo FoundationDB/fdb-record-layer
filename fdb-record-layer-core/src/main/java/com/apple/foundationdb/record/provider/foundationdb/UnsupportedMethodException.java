@@ -23,8 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Exception thrown when a call is made for an API that is unsupported by the current {@link APIVersion}.
@@ -33,7 +32,7 @@ import javax.annotation.Nullable;
 @SuppressWarnings({"serial", "java:S110"})
 @API(API.Status.EXPERIMENTAL)
 public class UnsupportedMethodException extends RecordCoreException {
-    public UnsupportedMethodException(@Nonnull String msg, @Nullable Object ... keyValues) {
+    public UnsupportedMethodException(String msg, @Nullable Object ... keyValues) {
         super(msg, keyValues);
     }
 
@@ -41,7 +40,7 @@ public class UnsupportedMethodException extends RecordCoreException {
         super(cause);
     }
 
-    public UnsupportedMethodException(@Nonnull String msg, @Nullable Throwable cause) {
+    public UnsupportedMethodException(String msg, @Nullable Throwable cause) {
         super(msg, cause);
     }
 }

@@ -31,8 +31,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
@@ -55,9 +55,9 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
 
     public InstrumentedTransaction(@Nullable StoreTimer timer,
                                    @Nullable StoreTimer delayedTimer,
-                                   @Nonnull FDBDatabase database,
+                                   FDBDatabase database,
                                    @Nullable TransactionListener listener,
-                                   @Nonnull Transaction underlying,
+                                   Transaction underlying,
                                    boolean enableAssertions) {
         super(timer, delayedTimer, underlying, enableAssertions);
         this.startNanos = System.nanoTime();
@@ -263,7 +263,7 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
     }
 
     private static class Snapshot extends InstrumentedReadTransaction<ReadTransaction> implements ReadTransaction {
-        public Snapshot(@Nullable StoreTimer timer, @Nullable StoreTimer delayedTimer, @Nonnull ReadTransaction underlying, boolean enableAssertions) {
+        public Snapshot(@Nullable StoreTimer timer, @Nullable StoreTimer delayedTimer, ReadTransaction underlying, boolean enableAssertions) {
             super(timer, delayedTimer, underlying, enableAssertions);
         }
 

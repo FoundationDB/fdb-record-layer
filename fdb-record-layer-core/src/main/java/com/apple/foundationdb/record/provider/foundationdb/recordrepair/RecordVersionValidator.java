@@ -31,7 +31,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -44,15 +43,14 @@ import java.util.concurrent.CompletableFuture;
 public class RecordVersionValidator implements RecordValidator {
     private static final Logger logger = LoggerFactory.getLogger(RecordVersionValidator.class);
 
-    @Nonnull
     private final FDBRecordStore store;
 
-    public RecordVersionValidator(@Nonnull final FDBRecordStore store) {
+    public RecordVersionValidator(final FDBRecordStore store) {
         this.store = store;
     }
 
     @Override
-    public CompletableFuture<RecordRepairResult> validateRecordAsync(@Nonnull final Tuple primaryKey) {
+    public CompletableFuture<RecordRepairResult> validateRecordAsync(final Tuple primaryKey) {
         // In case the metadata says to not store versions, we will not actually check to see if a version exists
         if ( ! store.getRecordMetaData().isStoreRecordVersions()) {
             return CompletableFuture.completedFuture(RecordRepairResult.valid(primaryKey));
@@ -70,7 +68,7 @@ public class RecordVersionValidator implements RecordValidator {
     }
 
     @Override
-    public CompletableFuture<RecordRepairResult> repairRecordAsync(@Nonnull final RecordRepairResult validationResult) {
+    public CompletableFuture<RecordRepairResult> repairRecordAsync(final RecordRepairResult validationResult) {
         if (validationResult.isValid()) {
             // do nothing
             return CompletableFuture.completedFuture(validationResult.withRepair(RecordRepairResult.REPAIR_NOT_NEEDED));

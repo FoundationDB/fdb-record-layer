@@ -23,8 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Exception thrown when the record store has a newer meta-data version than the one from the given {@link com.apple.foundationdb.record.RecordMetaDataProvider}.
@@ -34,7 +33,7 @@ import javax.annotation.Nullable;
 @SuppressWarnings("serial")
 @API(API.Status.UNSTABLE)
 public class RecordStoreStaleMetaDataVersionException extends RecordCoreStorageException {
-    public RecordStoreStaleMetaDataVersionException(@Nonnull String msg, @Nullable Object ... keyValues) {
+    public RecordStoreStaleMetaDataVersionException(String msg, @Nullable Object ... keyValues) {
         super(msg, keyValues);
     }
 }

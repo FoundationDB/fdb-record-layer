@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
@@ -42,19 +42,19 @@ import java.util.function.UnaryOperator;
 @SuppressWarnings("PMD.AvoidUsingHardCodedIP") // Dear PMD, the version string in "deprecated since" is not an IP.
 public class OnlineIndexScrubber implements AutoCloseable {
 
-    @Nonnull private final IndexingCommon common;
-    @Nonnull private final FDBDatabaseRunner runner;
-    @Nonnull private final ScrubbingPolicy scrubbingPolicy;
+    private final IndexingCommon common;
+    private final FDBDatabaseRunner runner;
+    private final ScrubbingPolicy scrubbingPolicy;
 
     @SuppressWarnings("squid:S00107")
-    OnlineIndexScrubber(@Nonnull FDBDatabaseRunner runner,
-                        @Nonnull FDBRecordStore.Builder recordStoreBuilder,
-                        @Nonnull Index index,
-                        @Nonnull Collection<RecordType> recordTypes,
-                        @Nonnull UnaryOperator<OnlineIndexOperationConfig> configLoader,
-                        @Nonnull OnlineIndexOperationConfig config,
+    OnlineIndexScrubber(FDBDatabaseRunner runner,
+                        FDBRecordStore.Builder recordStoreBuilder,
+                        Index index,
+                        Collection<RecordType> recordTypes,
+                        UnaryOperator<OnlineIndexOperationConfig> configLoader,
+                        OnlineIndexOperationConfig config,
                         boolean trackProgress,
-                        @Nonnull OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy) {
+                        OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy) {
 
         this.runner = runner;
         this.scrubbingPolicy = scrubbingPolicy;
@@ -72,7 +72,6 @@ public class OnlineIndexScrubber implements AutoCloseable {
         return new IndexScrubbing(common, OnlineIndexer.IndexingPolicy.DEFAULT, scrubbingPolicy, count, type);
     }
 
-    @Nonnull
     private CompletableFuture<Void> scrubIndexAsync(IndexScrubbingTools.ScrubbingType type, AtomicLong count) {
         return AsyncUtil.composeHandle(
                 getScrubber(type, count).buildIndexAsync(false),
@@ -112,11 +111,10 @@ public class OnlineIndexScrubber implements AutoCloseable {
      * This method was designed to be used as a global reset to clean unwanted partial index scrubbing information and
      * should probably not be used as a routine.
      */
-    public void eraseAllIndexingScrubbingData(@Nonnull FDBRecordContext context, @Nonnull FDBRecordStore store) {
+    public void eraseAllIndexingScrubbingData(FDBRecordContext context, FDBRecordStore store) {
         IndexingSubspaces.eraseAllIndexingScrubbingData(context, store, common.getIndex());
     }
 
-    @Nonnull
     public static Builder newBuilder() {
         return new Builder();
     }
@@ -166,7 +164,6 @@ public class OnlineIndexScrubber implements AutoCloseable {
          * Create an scrubbing policy builder.
          * @return a new {@link ScrubbingPolicy} builder
          */
-        @Nonnull
         public static Builder newBuilder() {
             return new Builder();
         }
@@ -296,7 +293,6 @@ public class OnlineIndexScrubber implements AutoCloseable {
          * @param index the index to be scrubbed
          * @return this builder
          */
-        @Nonnull
         public Builder setIndex(@Nullable Index index) {
             this.index = index;
             return this;
@@ -307,8 +303,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
          * @param indexName the index to be scrubbed
          * @return this builder
          */
-        @Nonnull
-        public Builder setIndex(@Nonnull String indexName) {
+        public Builder setIndex(String indexName) {
             this.index = getRecordMetaData().getIndex(indexName);
             return this;
         }
@@ -320,7 +315,6 @@ public class OnlineIndexScrubber implements AutoCloseable {
          * @param recordTypes the record types to be indexed or {@code null} to infer from the index
          * @return this builder
          */
-        @Nonnull
         public Builder setRecordTypes(@Nullable Collection<RecordType> recordTypes) {
             this.recordTypes = recordTypes;
             return this;
@@ -333,7 +327,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
          * @param scrubbingPolicy see {@link ScrubbingPolicy}
          * @return this Builder
          */
-        public Builder setScrubbingPolicy(@Nonnull final ScrubbingPolicy scrubbingPolicy) {
+        public Builder setScrubbingPolicy(final ScrubbingPolicy scrubbingPolicy) {
             this.scrubbingPolicyBuilder = null;
             this.scrubbingPolicy = scrubbingPolicy;
             return this;
@@ -346,7 +340,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
          * @param scrubbingPolicyBuilder see {@link ScrubbingPolicy.Builder}
          * @return this Builder
          */
-        public Builder setScrubbingPolicy(@Nonnull final ScrubbingPolicy.Builder scrubbingPolicyBuilder) {
+        public Builder setScrubbingPolicy(final ScrubbingPolicy.Builder scrubbingPolicyBuilder) {
             this.scrubbingPolicy = null;
             this.scrubbingPolicyBuilder = scrubbingPolicyBuilder;
             return this;

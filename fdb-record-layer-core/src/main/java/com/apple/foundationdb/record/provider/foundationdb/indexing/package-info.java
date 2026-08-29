@@ -37,4 +37,7 @@
  * {@link com.apple.foundationdb.record.provider.foundationdb.IndexingBase IndexingBase} and its subclasses.
  * </p>
  */
+@NullMarked
 package com.apple.foundationdb.record.provider.foundationdb.indexing;
+
+import org.jspecify.annotations.NullMarked;

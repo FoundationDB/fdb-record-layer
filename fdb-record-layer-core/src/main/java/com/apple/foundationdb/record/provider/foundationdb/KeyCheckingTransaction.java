@@ -27,7 +27,6 @@ import com.apple.foundationdb.Range;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
@@ -38,7 +37,7 @@ import java.util.function.Function;
 @API(API.Status.EXPERIMENTAL)
 public class KeyCheckingTransaction extends KeyCheckingReadTransaction<Transaction> implements Transaction {
 
-    public KeyCheckingTransaction(@Nonnull final Transaction underlying, @Nonnull KeyChecker keyChecker) {
+    public KeyCheckingTransaction(final Transaction underlying, KeyChecker keyChecker) {
         super(underlying, keyChecker);
     }
 

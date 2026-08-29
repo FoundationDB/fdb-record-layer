@@ -57,8 +57,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -1247,7 +1247,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         scrubAndValidate(List.of(index));
     }
 
-    private boolean isIndexReadableInNewContext(@Nonnull final Index index) {
+    private boolean isIndexReadableInNewContext(final Index index) {
         try (FDBRecordContext context = fdb.openContext()) {
             final FDBRecordStore store = createStoreBuilder().setContext(context)
                     .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
@@ -1281,8 +1281,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
      * An indexer builder configured to build {@code targetIndexes} with a {@link OnlineIndexer.IndexingPolicy}
      * requesting a write pending queue for {@code queuedIndexes}, at a small scan limit.
      */
-    @Nonnull
-    private OnlineIndexer.Builder queueIndexerBuilder(@Nonnull final List<Index> targetIndexes, @Nonnull final List<Index> queuedIndexes) {
+    private OnlineIndexer.Builder queueIndexerBuilder(final List<Index> targetIndexes, final List<Index> queuedIndexes) {
         return newIndexerBuilder(targetIndexes)
                 .setLimit(10)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
@@ -1290,8 +1289,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                         .build());
     }
 
-    @Nonnull
-    private OnlineIndexer.Builder queueIndexerBuilder(@Nonnull final Index targetIndex, @Nonnull final List<Index> queuedIndexes) {
+    private OnlineIndexer.Builder queueIndexerBuilder(final Index targetIndex, final List<Index> queuedIndexes) {
         return queueIndexerBuilder(List.of(targetIndex), queuedIndexes);
     }
 
@@ -1300,8 +1298,8 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
      * {@code whilePaused} can perform concurrent writes that get deferred to the pending writes queue, then let the
      * build finish. Asserts the build completed without error.
      */
-    private void buildIndexPausingOnceForWrites(@Nonnull final OnlineIndexer.Builder indexerBuilder,
-                                                @Nonnull final Runnable whilePaused) throws InterruptedException {
+    private void buildIndexPausingOnceForWrites(final OnlineIndexer.Builder indexerBuilder,
+                                                final Runnable whilePaused) throws InterruptedException {
         final Semaphore pauseSemaphore = new Semaphore(1);
         final Semaphore startBuildingSemaphore = new Semaphore(1);
         pauseSemaphore.acquire();
@@ -1335,9 +1333,9 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
      * than after the first. The caller must ensure the build has more than {@code passesCount} passes, otherwise the
      * pause point is never reached and this method deadlocks waiting for it.
      */
-    private void buildIndexPausingAfterNPassesForWrites(@Nonnull final OnlineIndexer.Builder indexerBuilder,
+    private void buildIndexPausingAfterNPassesForWrites(final OnlineIndexer.Builder indexerBuilder,
                                                         final int passesCount,
-                                                        @Nonnull final Runnable whilePaused) throws InterruptedException {
+                                                        final Runnable whilePaused) throws InterruptedException {
         final Semaphore pauseSemaphore = new Semaphore(1);
         final Semaphore startBuildingSemaphore = new Semaphore(1);
         pauseSemaphore.acquire();
@@ -1384,7 +1382,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         return oldConfig;
     }
 
-    private void saveSimpleRecord(@Nonnull final FDBRecordStore store, final int recNo, final int numValue2) {
+    private void saveSimpleRecord(final FDBRecordStore store, final int recNo, final int numValue2) {
         store.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
                 .setRecNo(recNo)
                 .setNumValue2(numValue2)
@@ -1392,7 +1390,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                 .build());
     }
 
-    private void writeNewRecords(@Nonnull final List<Integer> recNos) {
+    private void writeNewRecords(final List<Integer> recNos) {
         try (FDBRecordContext context = openContext()) {
             for (int recNo : recNos) {
                 saveSimpleRecord(recordStore, recNo, recNo * 19);
@@ -1401,7 +1399,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         }
     }
 
-    private long indexEntryCount(@Nonnull final Index index) {
+    private long indexEntryCount(final Index index) {
         try (FDBRecordContext context = openContext()) {
             final long count = recordStore.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
                     .getCount().join();
@@ -1414,8 +1412,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
      * The primary keys of the index entries whose leading (indexed) value equals {@code value}, for a value index over
      * a single field.
      */
-    @Nonnull
-    private List<Long> indexPrimaryKeysForValue(@Nonnull final Index index, final int value) {
+    private List<Long> indexPrimaryKeysForValue(final Index index, final int value) {
         try (FDBRecordContext context = openContext()) {
             final List<Long> primaryKeys = recordStore.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(value)), null, ScanProperties.FORWARD_SCAN)
                     .map(entry -> entry.getKey().getLong(entry.getKey().size() - 1))
@@ -1429,7 +1426,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
      * The value of the pending writes queue size counter for {@code index}, or {@code null} if the counter key has
      * been cleared (e.g. after the queue data was erased when the index became readable).
      */
-    private Long queueSizeCounter(@Nonnull final Index index) {
+    private Long queueSizeCounter(final Index index) {
         try (FDBRecordContext context = openContext()) {
             final Long size = IndexingPendingWriteQueue.getIndexingQueue(recordStore, index)
                     .getQueueSizeNoConflict(context).join();
@@ -1442,7 +1439,6 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
      * Open a context whose properties enable {@link FDBRecordStoreProperties#DISABLE_INDEX_ON_PENDING_WRITE_QUEUE_OVERFLOW}
      * and cap the pending-writes queue at {@code maxQueueSize} so an overflow can be forced without enqueuing many entries.
      */
-    @Nonnull
     private FDBRecordContext openContextWithDisableOnQueueFull(@Nullable final FDBStoreTimer timer, final boolean disableIndexOnQueueFull, final int maxQueueSize) {
         final FDBRecordContextConfig.Builder configBuilder = FDBRecordContextConfig.newBuilder()
                 .setRecordContextProperties(RecordLayerPropertyStorage.newBuilder()
@@ -1455,7 +1451,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         return fdb.openContext(configBuilder.build());
     }
 
-    private void markWriteOnlyWithQueue(@Nonnull final Index index) {
+    private void markWriteOnlyWithQueue(final Index index) {
         try (FDBRecordContext context = openContext()) {
             recordStore.markIndexWriteOnlyWithQueue(index).join();
             context.commit();
@@ -1474,8 +1470,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
      * {@code numValue2}. The index is keyed {@code num_value_2} with primary key {@code (num_value_2, rec_no)}, so
      * {@code rec_no} is the trailing entry key column.
      */
-    @Nonnull
-    private Set<Long> indexRecNosForGroup(@Nonnull final Index index, final int numValue2) {
+    private Set<Long> indexRecNosForGroup(final Index index, final int numValue2) {
         try (FDBRecordContext context = openContext()) {
             final Set<Long> recNos = new HashSet<>(recordStore.scanIndex(index, IndexScanType.BY_VALUE,
                             TupleRange.allOf(Tuple.from(numValue2)), null, ScanProperties.FORWARD_SCAN)
@@ -1497,7 +1492,6 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
             super(state);
         }
 
-        @Nonnull
         @Override
         public <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable final FDBIndexableRecord<M> oldRecord,
                                                                                 @Nullable final FDBIndexableRecord<M> newRecord) {
@@ -1536,21 +1530,18 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
             private static final Set<String> INDEX_TYPES = Collections.singleton(INDEX_TYPE);
             private static final ValueIndexMaintainerFactory underlying = new ValueIndexMaintainerFactory();
 
-            @Nonnull
             @Override
             public Iterable<String> getIndexTypes() {
                 return INDEX_TYPES;
             }
 
-            @Nonnull
             @Override
             public IndexValidator getIndexValidator(final Index index) {
                 return underlying.getIndexValidator(index);
             }
 
-            @Nonnull
             @Override
-            public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
+            public IndexMaintainer getIndexMaintainer(final IndexMaintainerState state) {
                 return new ReEnqueueDuringDrainIndexMaintainer(state);
             }
         }
@@ -1572,7 +1563,6 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
             super(state);
         }
 
-        @Nonnull
         @Override
         public <M extends Message> CompletableFuture<Void> update(@Nullable final FDBIndexableRecord<M> oldRecord,
                                                                   @Nullable final FDBIndexableRecord<M> newRecord) {
@@ -1607,21 +1597,18 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
             private static final Set<String> INDEX_TYPES = Collections.singleton(INDEX_TYPE);
             private static final ValueIndexMaintainerFactory underlying = new ValueIndexMaintainerFactory();
 
-            @Nonnull
             @Override
             public Iterable<String> getIndexTypes() {
                 return INDEX_TYPES;
             }
 
-            @Nonnull
             @Override
             public IndexValidator getIndexValidator(final Index index) {
                 return underlying.getIndexValidator(index);
             }
 
-            @Nonnull
             @Override
-            public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
+            public IndexMaintainer getIndexMaintainer(final IndexMaintainerState state) {
                 return new EnqueueDuringIndexingIndexMaintainer(state);
             }
         }

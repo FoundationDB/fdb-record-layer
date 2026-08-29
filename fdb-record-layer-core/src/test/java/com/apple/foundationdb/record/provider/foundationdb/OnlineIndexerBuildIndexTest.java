@@ -39,8 +39,8 @@ import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -74,12 +74,12 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(OnlineIndexerBuildIndexTest.class);
 
     <M extends Message> void singleRebuild(
-            @Nonnull OnlineIndexerTestRecordHandler<M> recordHandler,
-            @Nonnull List<M> records,
+            OnlineIndexerTestRecordHandler<M> recordHandler,
+            List<M> records,
             @Nullable List<M> recordsWhileBuilding,
             @Nullable List<Tuple> deleteWhileBuilding,
             int agents, boolean overlap, boolean splitLongRecords,
-            @Nonnull Index index, @Nullable Index sourceIndex, @Nonnull Runnable beforeBuild, @Nonnull Runnable afterBuild, @Nonnull Runnable afterReadable) {
+            Index index, @Nullable Index sourceIndex, Runnable beforeBuild, Runnable afterBuild, Runnable afterReadable) {
         LOGGER.info(KeyValueLogMessage.of("beginning rebuild test",
                 TestLogMessageKeys.RECORDS, records.size(),
                 LogMessageKeys.RECORDS_WHILE_BUILDING, recordsWhileBuilding == null ? 0 : recordsWhileBuilding.size(),
@@ -348,18 +348,18 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
         );
     }
 
-    <T> void executeQuery(@Nonnull RecordQuery query, @Nonnull String planString, @Nonnull List<T> expected, @Nonnull Function<FDBQueriedRecord<Message>, T> projection) {
+    <T> void executeQuery(RecordQuery query, String planString, List<T> expected, Function<FDBQueriedRecord<Message>, T> projection) {
         RecordQueryPlan plan = planner.plan(query);
         assertEquals(planString, plan.toString());
         List<T> retrieved = recordStore.executeQuery(plan).map(projection).asList().join();
         assertEquals(expected, retrieved);
     }
 
-    void executeQuery(@Nonnull RecordQuery query, @Nonnull String planString, @Nonnull List<Message> expected) {
+    void executeQuery(RecordQuery query, String planString, List<Message> expected) {
         executeQuery(query, planString, expected, FDBQueriedRecord::getRecord);
     }
 
-    <K, V extends Message> Map<K, List<Message>> group(@Nonnull List<V> values, @Nonnull Function<V, K> keyFunction) {
+    <K, V extends Message> Map<K, List<Message>> group(List<V> values, Function<V, K> keyFunction) {
         Map<K, List<Message>> map = new HashMap<>();
         for (V value : values) {
             K key = keyFunction.apply(value);
@@ -374,8 +374,7 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
         return map;
     }
 
-    @Nonnull
-    <M extends Message> List<M> updated(@Nonnull OnlineIndexerTestRecordHandler<M> recordHandler, @Nonnull List<M> origRecords, @Nullable List<M> addedRecords, @Nullable List<Tuple> deletedKeys) {
+    <M extends Message> List<M> updated(OnlineIndexerTestRecordHandler<M> recordHandler, List<M> origRecords, @Nullable List<M> addedRecords, @Nullable List<Tuple> deletedKeys) {
         if ((addedRecords == null || addedRecords.isEmpty()) && (deletedKeys == null || deletedKeys.isEmpty())) {
             return origRecords;
         }
@@ -398,7 +397,7 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
         return updatedRecords;
     }
 
-    <M extends Message> FDBStoredRecord<Message> createStoredMessage(@Nonnull OnlineIndexerTestRecordHandler<M> recordHandler, @Nonnull M rec) {
+    <M extends Message> FDBStoredRecord<Message> createStoredMessage(OnlineIndexerTestRecordHandler<M> recordHandler, M rec) {
         return FDBStoredRecord.newBuilder()
                 .setPrimaryKey(recordHandler.getPrimaryKey(rec))
                 .setRecordType(recordStore.getRecordMetaData().getRecordType(rec.getDescriptorForType().getName()))
@@ -406,7 +405,6 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                 .build();
     }
 
-    @Nonnull
     static Stream<Long> randomSeeds() {
         return RandomizedTestUtils.randomSeeds(0xdeadc0deL, 0xfdb5ca1eL, 0xf005ba1L);
     }

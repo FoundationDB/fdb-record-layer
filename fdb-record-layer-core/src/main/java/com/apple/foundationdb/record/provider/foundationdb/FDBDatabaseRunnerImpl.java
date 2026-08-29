@@ -36,8 +36,8 @@ import com.apple.foundationdb.subspace.Subspace;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -53,13 +53,10 @@ import java.util.function.Function;
 public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseRunnerImpl.class);
 
-    @Nonnull
     private final FDBDatabase database;
     private final TransactionalRunner transactionalRunner;
     private final FutureAutoClose futureManager;
-    @Nonnull
     private FDBRecordContextConfig.Builder contextConfigBuilder;
-    @Nonnull
     private Executor executor;
 
     private int maxAttempts;
@@ -69,7 +66,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     private boolean closed;
 
     @API(API.Status.INTERNAL)
-    FDBDatabaseRunnerImpl(@Nonnull FDBDatabase database, FDBRecordContextConfig.Builder contextConfigBuilder) {
+    FDBDatabaseRunnerImpl(FDBDatabase database, FDBRecordContextConfig.Builder contextConfigBuilder) {
         this.database = database;
         this.contextConfigBuilder = contextConfigBuilder;
         this.executor = database.newContextExecutor(contextConfigBuilder.getMdcContext());
@@ -83,19 +80,17 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     }
 
     @Override
-    @Nonnull
     public FDBDatabase getDatabase() {
         return database;
     }
 
     @Override
-    @Nonnull
     public FDBRecordContextConfig.Builder getContextConfigBuilder() {
         return contextConfigBuilder;
     }
 
     @Override
-    public void setContextConfigBuilder(@Nonnull final FDBRecordContextConfig.Builder contextConfigBuilder) {
+    public void setContextConfigBuilder(final FDBRecordContextConfig.Builder contextConfigBuilder) {
         this.contextConfigBuilder = contextConfigBuilder;
     }
 
@@ -159,13 +154,12 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     }
 
     @Override
-    @Nonnull
     public FDBRecordContext openContext() {
         return transactionalRunner.openContext();
     }
 
     private class RunRetriable<T> {
-        @Nonnull private final ExponentialDelay delay;
+        private final ExponentialDelay delay;
         private int currAttempt = 0;
         @Nullable T retVal = null;
         @Nullable RuntimeException exception = null;
@@ -176,7 +170,6 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
             this.delay = createExponentialDelay();
         }
 
-        @Nonnull
         private CompletableFuture<Boolean> handle(@Nullable T val, @Nullable Throwable e) {
             if (closed) {
                 // Outermost future should be cancelled, but be sure that this doesn't appear to be successful.
@@ -234,8 +227,8 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
         }
 
         @SuppressWarnings("squid:S1181")
-        public CompletableFuture<T> runAsync(@Nonnull final Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
-                                             @Nonnull final BiFunction<? super T, Throwable, Result<? extends T, ? extends Throwable>> handlePostTransaction) {
+        public CompletableFuture<T> runAsync(final Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
+                                             final BiFunction<? super T, Throwable, Result<? extends T, ? extends Throwable>> handlePostTransaction) {
             CompletableFuture<T> future = futureManager.newFuture();
             AsyncUtil.whileTrue(() -> {
                 try {
@@ -263,7 +256,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
         }
 
         @SuppressWarnings("squid:S1181")
-        public T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable) {
+        public T run(Function<? super FDBRecordContext, ? extends T> retriable) {
             boolean again = true;
             while (again) {
                 try {
@@ -283,23 +276,22 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
 
     @Override
     @API(API.Status.EXPERIMENTAL)
-    public <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable,
+    public <T> T run(Function<? super FDBRecordContext, ? extends T> retriable,
                      @Nullable List<Object> additionalLogMessageKeyValues) {
         return new RunRetriable<T>(additionalLogMessageKeyValues).run(retriable);
     }
 
     @Override
-    @Nonnull
     @API(API.Status.EXPERIMENTAL)
-    public <T> CompletableFuture<T> runAsync(@Nonnull final Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
-                                             @Nonnull final BiFunction<? super T, Throwable, Result<? extends T, ? extends Throwable>> handlePostTransaction,
+    public <T> CompletableFuture<T> runAsync(final Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
+                                             final BiFunction<? super T, Throwable, Result<? extends T, ? extends Throwable>> handlePostTransaction,
                                              @Nullable List<Object> additionalLogMessageKeyValues) {
         return new RunRetriable<T>(additionalLogMessageKeyValues).runAsync(retriable, handlePostTransaction);
     }
 
     @Override
     @Nullable
-    public <T> T asyncToSync(FDBStoreTimer.Wait event, @Nonnull CompletableFuture<T> async) {
+    public <T> T asyncToSync(FDBStoreTimer.Wait event, CompletableFuture<T> async) {
         return database.asyncToSync(getTimer(), event, async);
     }
 
@@ -331,17 +323,17 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     }
 
     @Override
-    public CompletableFuture<SynchronizedSessionRunner> startSynchronizedSessionAsync(@Nonnull Subspace lockSubspace, long leaseLengthMillis) {
+    public CompletableFuture<SynchronizedSessionRunner> startSynchronizedSessionAsync(Subspace lockSubspace, long leaseLengthMillis) {
         return SynchronizedSessionRunner.startSessionAsync(lockSubspace, leaseLengthMillis, this);
     }
 
     @Override
-    public SynchronizedSessionRunner startSynchronizedSession(@Nonnull Subspace lockSubspace, long leaseLengthMillis) {
+    public SynchronizedSessionRunner startSynchronizedSession(Subspace lockSubspace, long leaseLengthMillis) {
         return SynchronizedSessionRunner.startSession(lockSubspace, leaseLengthMillis, this);
     }
 
     @Override
-    public SynchronizedSessionRunner joinSynchronizedSession(@Nonnull Subspace lockSubspace, @Nonnull UUID sessionId, long leaseLengthMillis) {
+    public SynchronizedSessionRunner joinSynchronizedSession(Subspace lockSubspace, UUID sessionId, long leaseLengthMillis) {
         return SynchronizedSessionRunner.joinSession(lockSubspace, sessionId, leaseLengthMillis, this);
     }
 }

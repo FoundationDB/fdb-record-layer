@@ -44,8 +44,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -275,7 +275,6 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         }
     }
 
-    @Nonnull
     private Index runAsyncSetup() {
         Index index = new Index("newIndex", field("num_value_2"));
         openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index));
@@ -847,7 +846,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         }
     }
 
-    void mayRetryAfterHandlingException(@Nonnull IndexingThrottle.Booker booker, @Nullable Throwable ex, int currTries, boolean shouldRetryExpected) {
+    void mayRetryAfterHandlingException(IndexingThrottle.Booker booker, @Nullable Throwable ex, int currTries, boolean shouldRetryExpected) {
         final FDBException fdbException = IndexingThrottle.getFDBException(ex);
         final boolean shouldRetry = booker.mayRetryAfterHandlingException(fdbException, Collections.emptyList(), currTries, true);
         assertEquals(shouldRetryExpected, shouldRetry);

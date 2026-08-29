@@ -31,8 +31,8 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.tuple.TupleHelpers;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -52,7 +52,6 @@ public abstract class IndexAggregateGroupKeys {
      * @param context context in which to evaluate keys
      * @return the grouping key
      */
-    @Nonnull
     public abstract Key.Evaluated getGroupKeys(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context);
 
     /**
@@ -62,13 +61,13 @@ public abstract class IndexAggregateGroupKeys {
      */
     public abstract int getColumnSize();
 
-    public static Optional<IndexAggregateGroupKeys> conditionsToGroupKeys(@Nonnull IndexAggregateFunction function,
+    public static Optional<IndexAggregateGroupKeys> conditionsToGroupKeys(IndexAggregateFunction function,
                                                                           @Nullable QueryComponent conditions) {
         return conditionsToGroupKeys(function.getOperand(), conditions);
     }
 
     @SuppressWarnings("PMD.EmptyCatchBlock")
-    public static Optional<IndexAggregateGroupKeys> conditionsToGroupKeys(@Nonnull KeyExpression operand,
+    public static Optional<IndexAggregateGroupKeys> conditionsToGroupKeys(KeyExpression operand,
                                                                           @Nullable QueryComponent conditions) {
         final KeyExpression groupingKey = IndexFunctionHelper.getGroupingKey(operand);
         if (conditions == null) {
@@ -85,21 +84,19 @@ public abstract class IndexAggregateGroupKeys {
         return Optional.empty();
     }
 
-    public static IndexAggregateGroupKeys indexScanToGroupKeys(@Nonnull String recordKey, int prefixSize) {
+    public static IndexAggregateGroupKeys indexScanToGroupKeys(String recordKey, int prefixSize) {
         return new IndexScan(recordKey, prefixSize);
     }
 
     @API(API.Status.EXPERIMENTAL)
     protected static class Conditions extends IndexAggregateGroupKeys {
-        @Nonnull
         private final List<Comparisons.Comparison> comparisons;
 
-        protected Conditions(@Nonnull List<Comparisons.Comparison> comparisons) {
+        protected Conditions(List<Comparisons.Comparison> comparisons) {
             this.comparisons = comparisons;
         }
 
         @Override
-        @Nonnull
         public Key.Evaluated getGroupKeys(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
             if (comparisons.isEmpty()) {
                 return Key.Evaluated.EMPTY;
@@ -116,17 +113,15 @@ public abstract class IndexAggregateGroupKeys {
 
     @API(API.Status.EXPERIMENTAL)
     protected static class IndexScan extends IndexAggregateGroupKeys {
-        @Nonnull
         private final String recordKey;
         private final int prefixSize;
 
-        protected IndexScan(@Nonnull String recordKey, int prefixSize) {
+        protected IndexScan(String recordKey, int prefixSize) {
             this.recordKey = recordKey;
             this.prefixSize = prefixSize;
         }
 
         @Override
-        @Nonnull
         public Key.Evaluated getGroupKeys(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
             if (context == null) {
                 throw Comparisons.EvaluationContextRequiredException.instance();

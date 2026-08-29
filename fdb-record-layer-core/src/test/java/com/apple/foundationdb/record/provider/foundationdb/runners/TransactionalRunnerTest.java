@@ -47,8 +47,8 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.MDC;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -587,7 +587,6 @@ class TransactionalRunnerTest {
         assertArrayEquals(value, runner.runAsync(false, context -> context.ensureActive().get(key)).join());
     }
 
-    @Nonnull
     private TransactionalRunner defaultTransactionalRunner() {
         final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
                 .setTimer(timer)
@@ -612,7 +611,6 @@ class TransactionalRunnerTest {
         assertEquals(FDBError.NOT_COMMITTED.code(), ((FDBException) exception.getCause()).getCode());
     }
 
-    @Nonnull
     private static byte[] randomBytes(final int count, final Random random) {
         final byte[] key = new byte[count];
         random.nextBytes(key);

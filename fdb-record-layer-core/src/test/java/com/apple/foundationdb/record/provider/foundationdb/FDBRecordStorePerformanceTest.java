@@ -53,7 +53,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -146,7 +145,7 @@ public class FDBRecordStorePerformanceTest {
         }
 
         @Override
-        public int getPipelineSize(@Nonnull PipelineOperation pipelineOperation) {
+        public int getPipelineSize(PipelineOperation pipelineOperation) {
             return pipelineSize;
         }
 

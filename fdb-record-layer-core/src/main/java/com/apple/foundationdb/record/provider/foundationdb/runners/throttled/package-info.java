@@ -22,4 +22,7 @@
  * Throttled iterator: Iterator that cam handle resource constraints and retry on failures.
  * {@link com.apple.foundationdb.record.provider.foundationdb.runners.throttled.ThrottledRetryingIterator}
  */
+@NullMarked
 package com.apple.foundationdb.record.provider.foundationdb.runners.throttled;
+
+import org.jspecify.annotations.NullMarked;

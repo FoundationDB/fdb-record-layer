@@ -42,8 +42,8 @@ import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -88,7 +88,6 @@ import java.util.stream.Collectors;
  */
 public class IndexingMutuallyByRecords extends IndexingBase {
     private IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp = null;
-    @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(IndexingMutuallyByRecords.class);
 
     private List<Tuple> fragmentBoundaries;
@@ -111,7 +110,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
     }
 
     @SuppressWarnings("this-escape")
-    public IndexingMutuallyByRecords(@Nonnull final IndexingCommon common, @Nonnull final OnlineIndexer.IndexingPolicy policy,
+    public IndexingMutuallyByRecords(final IndexingCommon common, final OnlineIndexer.IndexingPolicy policy,
                                      @Nullable List<Tuple> fragmentBoundaries) {
         super(common, policy);
         this.fragmentBoundaries = fragmentBoundaries;
@@ -119,7 +118,6 @@ public class IndexingMutuallyByRecords extends IndexingBase {
     }
 
     @Override
-    @Nonnull
     IndexBuildProto.IndexBuildIndexingStamp getIndexingTypeStamp(FDBRecordStore store) {
         if (myIndexingTypeStamp == null) {
             myIndexingTypeStamp = compileIndexingTypeStamp(common.getTargetIndexesNames());
@@ -127,7 +125,6 @@ public class IndexingMutuallyByRecords extends IndexingBase {
         return myIndexingTypeStamp;
     }
 
-    @Nonnull
     private static IndexBuildProto.IndexBuildIndexingStamp compileIndexingTypeStamp(List<String> targetIndexes) {
         if (targetIndexes.isEmpty()) {
             throw new ValidationException("No target index was set");
@@ -138,7 +135,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                 .build();
     }
 
-    private static boolean areTheyAllIdempotent(@Nonnull FDBRecordStore store, List<Index> targetIndexes) {
+    private static boolean areTheyAllIdempotent(FDBRecordStore store, List<Index> targetIndexes) {
         return targetIndexes.stream()
                 .allMatch(targetIndex -> store.getIndexMaintainer(targetIndex).isIdempotent());
     }
@@ -153,7 +150,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
         return list;
     }
 
-    private List<Tuple> getPrimaryKeyBoundaries(@Nonnull FDBRecordStore store) {
+    private List<Tuple> getPrimaryKeyBoundaries(FDBRecordStore store) {
         TupleRange tupleRange = common.computeRecordsRange();
         store.getContext().getReadVersion(); // for instrumentation reasons
         List<Tuple> boundaries;
@@ -206,7 +203,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
         return 1;
     }
 
-    private void setFragmentationData(@Nonnull FDBRecordStore store) {
+    private void setFragmentationData(FDBRecordStore store) {
         if (fragmentBoundaries == null || fragmentBoundaries.isEmpty()) {
             fragmentBoundaries = getPrimaryKeyBoundaries(store);
         }
@@ -262,7 +259,6 @@ public class IndexingMutuallyByRecords extends IndexingBase {
         }
     }
 
-    @Nonnull
     @Override
     CompletableFuture<Void> buildIndexInternalAsync() {
         return getRunner().runAsync(context -> openRecordStore(context)
@@ -277,7 +273,6 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                         fragmentLogMessageKeyValues()));
     }
 
-    @Nonnull
     private CompletableFuture<Void> buildMultiTargetIndex() {
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "mutualMultiTargetIndex-wrapper");
         return maybePresetRecordsRangeAsync().thenCompose(ignore ->
@@ -285,8 +280,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                         (store, recordsScanned) -> buildRangeOnly(store)));
     }
 
-    @Nonnull
-    private CompletableFuture<Boolean> buildRangeOnly(@Nonnull FDBRecordStore store) {
+    private CompletableFuture<Boolean> buildRangeOnly(FDBRecordStore store) {
         // return false when done
         /* Mutual indexing:
          * 1. detects missing ranges
@@ -362,7 +356,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
         }
     }
 
-    private CompletableFuture<Boolean> buildThisRangeOnly(@Nonnull FDBRecordStore store, @Nonnull AtomicLong recordsScanned,
+    private CompletableFuture<Boolean> buildThisRangeOnly(FDBRecordStore store, AtomicLong recordsScanned,
                                                           Range thisRange) {
 
         final List<Index> targetIndexes = common.getTargetIndexes();
@@ -544,14 +538,13 @@ public class IndexingMutuallyByRecords extends IndexingBase {
     }
 
     @SuppressWarnings("unused")
-    private  CompletableFuture<FDBStoredRecord<Message>> getRecordIfTypeMatch(FDBRecordStore store, @Nonnull RecordCursorResult<FDBStoredRecord<Message>> cursorResult) {
+    private  CompletableFuture<FDBStoredRecord<Message>> getRecordIfTypeMatch(FDBRecordStore store, RecordCursorResult<FDBStoredRecord<Message>> cursorResult) {
         // No need to "translate" rec, so store is unused
         FDBStoredRecord<Message> rec = cursorResult.get();
         return recordIfInIndexedTypes(rec);
     }
 
     // support rebuildIndexAsync
-    @Nonnull
     @Override
     CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store) {
         throw new ValidationException("Mutual inline rebuild doesn't make any sense");

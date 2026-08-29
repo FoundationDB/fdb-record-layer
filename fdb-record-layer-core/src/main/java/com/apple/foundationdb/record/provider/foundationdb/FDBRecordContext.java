@@ -55,8 +55,8 @@ import com.google.common.base.Utf8;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.nio.charset.Charset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -82,6 +82,8 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+
+import static com.apple.foundationdb.record.provider.foundationdb.FDBDatabase.WeakReadSemantics;
 
 /**
  * An open transaction against FDB.
@@ -151,39 +153,29 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private boolean logged;
     @Nullable
     private byte[] versionStamp;
-    @Nonnull
     private AtomicInteger localVersion;
-    @Nonnull
     private ConcurrentNavigableMap<byte[], Integer> localVersionCache;
-    @Nonnull
     private ConcurrentNavigableMap<byte[], NonnullPair<MutationType, byte[]>> versionMutationCache;
-    @Nonnull
     private final FDBRecordContextConfig config;
     private final long timeoutMillis;
     @Nullable
     private Consumer<FDBStoreTimer.Wait> hookForAsyncToSync = null;
-    @Nonnull
     private final Map<String, CommitCheckAsync> commitChecks = new LinkedHashMap<>();
-    @Nonnull
     private final Map<String, PostCommit> postCommits = new LinkedHashMap<>();
-    @Nonnull
     private final Map<String, PostCommit> postClose = new LinkedHashMap<>();
     private boolean dirtyStoreState;
     private boolean dirtyMetaDataVersionStamp;
     private long trackOpenTimeNanos;
-    @Nonnull
     private final Map<Object, Object> session = new LinkedHashMap<>();
     @Nullable
     private List<Range> notCommittedConflictingKeys = null;
-    @Nonnull
     private final LockRegistry lockRegistry;
-    @Nonnull
     private final TempTable.Factory tempTableFactory = TempTable.Factory.instance();
 
     @SuppressWarnings("PMD.CloseResource")
-    protected FDBRecordContext(@Nonnull FDBDatabase fdb,
-                               @Nonnull Transaction transaction,
-                               @Nonnull FDBRecordContextConfig config,
+    protected FDBRecordContext(FDBDatabase fdb,
+                               Transaction transaction,
+                               FDBRecordContextConfig config,
                                @Nullable FDBStoreTimer delayedTimer) {
         super(fdb, transaction, config.getTimer(), delayedTimer);
         this.transactionCreateTime = System.currentTimeMillis();
@@ -252,13 +244,12 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @return the config
      * @see FDBDatabase#openContext(FDBRecordContextConfig)
      */
-    @Nonnull
     public FDBRecordContextConfig getConfig() {
         return config;
     }
 
     @Nullable
-    private static String getSanitizedId(@Nonnull FDBRecordContextConfig config) {
+    private static String getSanitizedId(FDBRecordContextConfig config) {
         if (config.getTransactionId() != null) {
             return getSanitizedId(config.getTransactionId());
         } else if (config.getMdcContext() != null) {
@@ -270,7 +261,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     @Nullable
-    private static String getSanitizedId(@Nonnull String id) {
+    private static String getSanitizedId(String id) {
         try {
             if (Utf8.encodedLength(id) > MAX_TR_ID_SIZE) {
                 if (CharMatcher.ascii().matchesAllOf(id)) {
@@ -290,7 +281,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         }
     }
 
-    private static long getTimeoutMillisToSet(@Nonnull FDBDatabase fdb, @Nonnull FDBRecordContextConfig config) {
+    private static long getTimeoutMillisToSet(FDBDatabase fdb, FDBRecordContextConfig config) {
         if (config.getTransactionTimeoutMillis() != FDBDatabaseFactory.DEFAULT_TR_TIMEOUT_MILLIS) {
             return config.getTransactionTimeoutMillis();
         } else {
@@ -455,8 +446,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         }
     }
 
-    @Nonnull
-    private CompletableFuture<Void> injectLatency(@Nonnull FDBLatencySource latencySource) {
+    private CompletableFuture<Void> injectLatency(FDBLatencySource latencySource) {
         final long latencyMillis = database.getLatencyToInject(latencySource);
         if (latencyMillis <= 0L) {
             return AsyncUtil.DONE;
@@ -544,7 +534,6 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     @Override
-    @Nonnull
     public Transaction ensureActive() {
         if (transaction == null) {
             throw new RecordContextNotActiveException("Transaction is no longer active.");
@@ -598,7 +587,6 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @return a future that will contain the read version of this transaction
      * @see Transaction#getReadVersion()
      */
-    @Nonnull
     public synchronized CompletableFuture<Long> getReadVersionAsync() {
         if (readVersionFuture != null) {
             return readVersionFuture;
@@ -658,7 +646,6 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         return readVersion != UNSET_VERSION;
     }
 
-    @Nonnull
     public ReadTransaction readTransaction(boolean snapshot) {
         if (snapshot) {
             return ensureActive().snapshot();
@@ -722,7 +709,6 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
          * it can be called while processing the transaction.
          * @return a future that will be complete (exceptionally if the check fails) when the check has been performed
          */
-        @Nonnull
         CompletableFuture<Void> checkAsync();
 
         /**
@@ -734,14 +720,13 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
          * @param check the future to base the commit check on
          * @return a commit check wrapping the given future
          */
-        static CommitCheckAsync fromFuture(@Nonnull CompletableFuture<Void> check) {
+        static CommitCheckAsync fromFuture(CompletableFuture<Void> check) {
             return new CommitCheckAsync() {
                 @Override
                 public boolean isReady() {
                     return check.isDone();
                 }
 
-                @Nonnull
                 @Override
                 public CompletableFuture<Void> checkAsync() {
                     return check;
@@ -758,7 +743,6 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      */
     public interface CommitCheck extends CommitCheckAsync {
         @Override
-        @Nonnull
         default CompletableFuture<Void> checkAsync() {
             check();
             return AsyncUtil.DONE;
@@ -785,7 +769,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @return all commit checks that pass the given filter
      */
     @API(API.Status.INTERNAL)
-    public synchronized List<CommitCheckAsync> getCommitChecks(@Nonnull Predicate<CommitCheckAsync> filter) {
+    public synchronized List<CommitCheckAsync> getCommitChecks(Predicate<CommitCheckAsync> filter) {
         return commitChecks.values().stream()
                 .filter(filter)
                 .collect(Collectors.toList());
@@ -806,8 +790,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      */
     @API(API.Status.INTERNAL)
     public synchronized List<CompletableFuture<Void>> removeCommitChecks(
-            @Nonnull Function<CommitCheckAsync, Boolean> filter,
-            @Nonnull Predicate<Throwable> shouldSwallow) {
+            Function<CommitCheckAsync, Boolean> filter,
+            Predicate<Throwable> shouldSwallow) {
         // we need to extract from the original list, because if the commitCheck is already done, removeCommitCheck
         // would be called in the same thread, which could cause a ConcurrentModificationException due to removing the
         // entry from the map while iterating over it.
@@ -832,7 +816,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      *
      * @param check the check to be performed
      */
-    public synchronized void addCommitCheck(@Nonnull CompletableFuture<Void> check) {
+    public synchronized void addCommitCheck(CompletableFuture<Void> check) {
         addCommitCheck(CommitCheckAsync.fromFuture(check));
     }
 
@@ -845,7 +829,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      *
      * @param check the check to be performed
      */
-    public void addCommitCheck(@Nonnull CommitCheckAsync check) {
+    public void addCommitCheck(CommitCheckAsync check) {
         addAnonymousCommitHookToMap(commitChecks, check);
     }
 
@@ -858,7 +842,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @param check the check to be performed
      * @see #addCommitCheck(CommitCheckAsync)
      */
-    public void addCommitCheck(@Nonnull String name, @Nonnull CommitCheckAsync check) {
+    public void addCommitCheck(String name, CommitCheckAsync check) {
         addCommitHook(commitChecks, name, check);
     }
 
@@ -871,8 +855,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @return the existing or newly created commit check
      * @see #addCommitCheck(CommitCheckAsync)
      */
-    @Nonnull
-    public CommitCheckAsync getOrCreateCommitCheck(@Nonnull String name, @Nonnull Function<String, CommitCheckAsync> ifNotExists) {
+    public CommitCheckAsync getOrCreateCommitCheck(String name, Function<String, CommitCheckAsync> ifNotExists) {
         return getOrCreateCommitHook(commitChecks, name, ifNotExists);
     }
 
@@ -886,7 +869,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @see #addCommitCheck(String, CommitCheckAsync)
      */
     @Nullable
-    public CommitCheckAsync getCommitCheck(@Nonnull String name) {
+    public CommitCheckAsync getCommitCheck(String name) {
         return getCommitHook(commitChecks, name);
     }
 
@@ -894,7 +877,6 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * Run any {@link CommitCheckAsync}s that are still outstanding.
      * @return a future that is complete when all checks have been performed
      */
-    @Nonnull
     public CompletableFuture<Void> runCommitChecks() {
         List<CompletableFuture<Void>> futures;
         synchronized (commitChecks) {
@@ -933,8 +915,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      *   called to install a new hook by the provided name
      * @return post commit hook
      */
-    @Nonnull
-    public PostCommit getOrCreatePostCommit(@Nonnull String name, @Nonnull Function<String, PostCommit> ifNotExists) {
+    public PostCommit getOrCreatePostCommit(String name, Function<String, PostCommit> ifNotExists) {
         return getOrCreateCommitHook(postCommits, name, ifNotExists);
     }
 
@@ -946,7 +927,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      *   provided {@code name}
      */
     @Nullable
-    public PostCommit getPostCommit(@Nonnull String name) {
+    public PostCommit getPostCommit(String name) {
         return getCommitHook(postCommits, name);
     }
 
@@ -963,7 +944,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @param name name of the post-commit
      * @param postCommit the post commit to install
      */
-    public void addPostCommit(@Nonnull String name, @Nonnull PostCommit postCommit) {
+    public void addPostCommit(String name, PostCommit postCommit) {
         addCommitHook(postCommits, name, postCommit);
     }
 
@@ -973,7 +954,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      *
      * @param postCommit post-commit hook to install
      */
-    public void addPostCommit(@Nonnull PostCommit postCommit) {
+    public void addPostCommit(PostCommit postCommit) {
         addAnonymousCommitHookToMap(postCommits, postCommit);
     }
 
@@ -988,11 +969,11 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @param name the (unique per transaction) name for the hook
      * @param postCloseHook the hook to invoke
      */
-    public void addPostCloseHook(@Nonnull String name, @Nonnull PostCommit postCloseHook) {
+    public void addPostCloseHook(String name, PostCommit postCloseHook) {
         addCommitHook(postClose, name, postCloseHook);
     }
 
-    private <T> void addAnonymousCommitHookToMap(@Nonnull Map<String, T> map, @Nonnull T item) {
+    private <T> void addAnonymousCommitHookToMap(Map<String, T> map, T item) {
         synchronized (map) {
             String name;
             // Yes, a collision is exceedingly unlikely, but...
@@ -1003,7 +984,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         }
     }
 
-    private <T> void addCommitHook(@Nonnull Map<String, T> map, @Nonnull String name, @Nonnull T item) {
+    private <T> void addCommitHook(Map<String, T> map, String name, T item) {
         checkCommitHookName(name);
         synchronized (map) {
             if (map.containsKey(name)) {
@@ -1014,8 +995,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         }
     }
 
-    private <T> T getOrCreateCommitHook(@Nonnull Map<String, T> map, @Nonnull String name,
-                                        @Nonnull Function<String, T> ifNotExists) {
+    private <T> T getOrCreateCommitHook(Map<String, T> map, String name,
+                                        Function<String, T> ifNotExists) {
         checkCommitHookName(name);
         synchronized (map) {
             return MapUtils.computeIfAbsent(map, name, ifNotExists);
@@ -1023,7 +1004,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     @Nullable
-    private <T> T getCommitHook(@Nonnull Map<String, T> map, @Nonnull String name) {
+    private <T> T getCommitHook(Map<String, T> map, String name) {
         // Callers of the public API cannot "see" anonymous or internal post-commit hooks.
         if (isInternalCommitHookName(name)) {
             return null;
@@ -1040,7 +1021,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @return {@code null} if the hook does not exist, otherwise the handle to the previously installed hook
      */
     @Nullable
-    public PostCommit removePostCommit(@Nonnull String name) {
+    public PostCommit removePostCommit(String name) {
         checkCommitHookName(name);
         synchronized (postCommits) {
             return postCommits.remove(name);
@@ -1052,7 +1033,6 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * This method does its best to ensure all callbacks are invoked, regardless if some throw exceptions.
      * @return a future that completes when all callbacks were invoked and all futures have completed
      */
-    @Nonnull
     private CompletableFuture<Void> runPostCommits() {
         synchronized (postCommits) {
             return runPostCommits(postCommits);
@@ -1064,14 +1044,12 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * This method does its best to ensure all callbacks are invoked, regardless if some throw exceptions.
      * @return a future that completes when all callbacks were invoked and all futures have completed
      */
-    @Nonnull
     private CompletableFuture<Void> runPostClose() {
         synchronized (postClose) {
             return runPostCommits(postClose);
         }
     }
 
-    @Nonnull
     private CompletableFuture<Void> runPostCommits(Map<String, PostCommit> hooksToRun) {
         if (hooksToRun.isEmpty()) {
             return AsyncUtil.DONE;
@@ -1091,14 +1069,14 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         return pc::get;
     }
 
-    private void checkCommitHookName(@Nonnull String name) {
+    private void checkCommitHookName(String name) {
         if (isInternalCommitHookName(name)) {
             throw new RecordCoreArgumentException("Invalid commit hook name")
                     .addLogInfo(LogMessageKeys.COMMIT_NAME, name);
         }
     }
 
-    private boolean isInternalCommitHookName(@Nonnull String name) {
+    private boolean isInternalCommitHookName(String name) {
         return name.startsWith(INTERNAL_COMMIT_HOOK_PREFIX);
     }
 
@@ -1108,7 +1086,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      *
      * @param afterCommit code to be executed following successful commit
      */
-    public void addAfterCommit(@Nonnull AfterCommit afterCommit) {
+    public void addAfterCommit(AfterCommit afterCommit) {
         synchronized (postCommits) {
             @Nullable
             AfterCommitPostCommit adapter = (AfterCommitPostCommit) postCommits.get(AFTER_COMMIT_HOOK_NAME);
@@ -1176,8 +1154,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @return a future that will complete with the current value of the meta-data version stamp or {@code null} if it is
      *      unset or has been updated during the course of this transaction
      */
-    @Nonnull
-    public CompletableFuture<byte[]> getMetaDataVersionStampAsync(@Nonnull IsolationLevel isolationLevel) {
+    public CompletableFuture<byte[]> getMetaDataVersionStampAsync(IsolationLevel isolationLevel) {
         if (dirtyMetaDataVersionStamp) {
             // Ensure the transaction is active before returning so that if the transaction has been committed, but that
             // transaction also updates the store state of some transaction, the user still gets an error.
@@ -1210,7 +1187,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @see #getMetaDataVersionStampAsync(IsolationLevel)
      */
     @Nullable
-    public byte[] getMetaDataVersionStamp(@Nonnull IsolationLevel isolationLevel) {
+    public byte[] getMetaDataVersionStamp(IsolationLevel isolationLevel) {
         return asyncToSync(FDBStoreTimer.Waits.WAIT_META_DATA_VERSION_STAMP, getMetaDataVersionStampAsync(isolationLevel));
     }
 
@@ -1233,7 +1210,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     @Nullable
-    public <T> T asyncToSync(FDBStoreTimer.Wait event, @Nonnull CompletableFuture<T> async) {
+    public <T> T asyncToSync(FDBStoreTimer.Wait event, CompletableFuture<T> async) {
         if (hookForAsyncToSync != null && !MoreAsyncUtil.isCompletedNormally(async)) {
             hookForAsyncToSync.accept(event);
         }
@@ -1317,7 +1294,6 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * </ul>
      * @return a new database runner based on this context
      */
-    @Nonnull
     public FDBDatabaseRunner newRunner() {
         return database.newRunner(config.toBuilder());
     }
@@ -1343,7 +1319,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @param recordVersionKey key to associate with the local version
      * @param version the local version of the key
      */
-    void addToLocalVersionCache(@Nonnull byte[] recordVersionKey, int version) {
+    void addToLocalVersionCache(byte[] recordVersionKey, int version) {
         localVersionCache.put(recordVersionKey, version);
     }
 
@@ -1355,7 +1331,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @param recordVersionKey the key associated with the local version being cleared
      * @return whether the key was already in the local version cache
      */
-    boolean removeLocalVersion(@Nonnull byte[] recordVersionKey) {
+    boolean removeLocalVersion(byte[] recordVersionKey) {
         return localVersionCache.remove(recordVersionKey) != null;
     }
 
@@ -1384,8 +1360,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @param recordVersionKey key to retrieve the local version of
      * @return the associated version or an unset {@link Optional}
      */
-    @Nonnull
-    Optional<Integer> getLocalVersion(@Nonnull byte[] recordVersionKey) {
+    Optional<Integer> getLocalVersion(byte[] recordVersionKey) {
         return Optional.ofNullable(localVersionCache.get(recordVersionKey));
     }
 
@@ -1403,7 +1378,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @return the previous value set for the given key or <code>null</code> if unset
      */
     @Nullable
-    public byte[] addVersionMutation(@Nonnull MutationType mutationType, @Nonnull byte[] key, @Nonnull byte[] value) {
+    public byte[] addVersionMutation(MutationType mutationType, byte[] key, byte[] value) {
         NonnullPair<MutationType, byte[]> valuePair = NonnullPair.of(mutationType, value);
         NonnullPair<MutationType, byte[]> existingPair = versionMutationCache.put(key, valuePair);
         return existingPair != null ? existingPair.getRight() : null;
@@ -1422,7 +1397,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @return the previous value set for the given key or <code>null</code> if unset
      */
     @Nullable
-    public byte[] removeVersionMutation(@Nonnull byte[] key) {
+    public byte[] removeVersionMutation(byte[] key) {
         NonnullPair<MutationType, byte[]> existingValue = versionMutationCache.remove(key);
         return existingValue != null ? existingValue.getRight() : null;
     }
@@ -1436,7 +1411,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @param range the {@link Range} of keys to clear out from the mutation cache
      */
     @API(API.Status.INTERNAL)
-    public void removeVersionMutationRange(@Nonnull Range range) {
+    public void removeVersionMutationRange(Range range) {
         versionMutationCache.subMap(range.begin, range.end).clear();
     }
 
@@ -1448,7 +1423,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @param key the key to clear out
      */
     @API(API.Status.INTERNAL)
-    public void clear(@Nonnull byte[] key) {
+    public void clear(byte[] key) {
         ensureActive().clear(key);
         removeVersionMutation(key);
         removeLocalVersion(key);
@@ -1462,15 +1437,15 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @param range the range to clear out
      */
     @API(API.Status.INTERNAL)
-    public void clear(@Nonnull Range range) {
+    public void clear(Range range) {
         ensureActive().clear(range);
         removeVersionMutationRange(range);
         removeLocalVersionRange(range);
     }
 
     @Nullable
-    public byte[] updateVersionMutation(@Nonnull MutationType mutationType, @Nonnull byte[] key, @Nonnull byte[] value,
-                                        @Nonnull BiFunction<byte[], byte[], byte[]> remappingFunction) {
+    public byte[] updateVersionMutation(MutationType mutationType, byte[] key, byte[] value,
+                                        BiFunction<byte[], byte[], byte[]> remappingFunction) {
         NonnullPair<MutationType, byte[]> valuePair = NonnullPair.of(mutationType, value);
         return versionMutationCache.merge(key, valuePair, (origPair, newPair) -> {
             if (origPair.getLeft().equals(newPair.getLeft())) {
@@ -1483,7 +1458,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     @Nullable
-    public FDBDatabase.WeakReadSemantics getWeakReadSemantics() {
+    public WeakReadSemantics getWeakReadSemantics() {
         return config.getWeakReadSemantics();
     }
 
@@ -1495,12 +1470,11 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @return this transaction's priority
      * @see FDBTransactionPriority
      */
-    @Nonnull
     public FDBTransactionPriority getPriority() {
         return config.getPriority();
     }
 
-    public void setHookForAsyncToSync(@Nonnull Consumer<FDBStoreTimer.Wait> hook) {
+    public void setHookForAsyncToSync(Consumer<FDBStoreTimer.Wait> hook) {
         this.hookForAsyncToSync = hook;
     }
 
@@ -1518,10 +1492,9 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * post-commit API's.
      */
     private static class AfterCommitPostCommit implements PostCommit {
-        @Nonnull
         private final Queue<AfterCommit> afterCommits = new ArrayDeque<>();
 
-        public synchronized void addAfterCommit(@Nonnull AfterCommit afterCommit) {
+        public synchronized void addAfterCommit(AfterCommit afterCommit) {
             afterCommits.add(afterCommit);
         }
 
@@ -1548,7 +1521,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @SuppressWarnings("unchecked")
     @API(API.Status.EXPERIMENTAL)
     @Nullable
-    public synchronized <T> T getInSession(@Nonnull Object key, @Nonnull Class<T> clazz) {
+    public synchronized <T> T getInSession(Object key, Class<T> clazz) {
         return (T) session.get(key);
     }
 
@@ -1561,7 +1534,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      */
     @Nullable
     @API(API.Status.EXPERIMENTAL)
-    public synchronized <T> T getInSession(@Nonnull ContextSessionKey<T> key) {
+    public synchronized <T> T getInSession(ContextSessionKey<T> key) {
         return key.cast(session.get(key));
     }
 
@@ -1573,7 +1546,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @param value value
      */
     @API(API.Status.EXPERIMENTAL)
-    public synchronized <T extends Object> void putInSessionIfAbsent(@Nonnull Object key, @Nonnull T value) {
+    public synchronized <T extends Object> void putInSessionIfAbsent(Object key, T value) {
         session.put(key, value);
     }
 
@@ -1585,7 +1558,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @param <T> the value type, as declared by the key constant
      */
     @API(API.Status.EXPERIMENTAL)
-    public synchronized <T> void putInSession(@Nonnull ContextSessionKey<T> key, @Nonnull T value) {
+    public synchronized <T> void putInSession(ContextSessionKey<T> key, T value) {
         session.put(key, value);
     }
 
@@ -1600,7 +1573,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      */
     @API(API.Status.EXPERIMENTAL)
     @SuppressWarnings("unchecked")
-    public synchronized <T> void addToSessionSet(@Nonnull ContextSessionKey<Set<T>> key, @Nonnull T value) {
+    public synchronized <T> void addToSessionSet(ContextSessionKey<Set<T>> key, T value) {
         Set<T> valueSet = (Set<T>) session.computeIfAbsent(key, k -> new HashSet<>());
         valueSet.add(value);
     }
@@ -1615,7 +1588,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      */
     @SuppressWarnings("unchecked")
     @API(API.Status.EXPERIMENTAL)
-    public synchronized <T> T removeFromSession(@Nonnull String key, @Nonnull Class<T> clazz) {
+    public synchronized <T> T removeFromSession(String key, Class<T> clazz) {
         return (T) session.remove(key);
     }
 
@@ -1629,7 +1602,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      */
     @Nullable
     @API(API.Status.EXPERIMENTAL)
-    public synchronized <T> T removeFromSession(@Nonnull ContextSessionKey<T> key) {
+    public synchronized <T> T removeFromSession(ContextSessionKey<T> key) {
         return key.cast(session.remove(key));
     }
 
@@ -1652,7 +1625,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         return notCommittedConflictingKeys;
     }
 
-    private static CompletableFuture<List<Range>> readConflictingKeys(@Nonnull Transaction tr, @Nonnull Executor executor) {
+    private static CompletableFuture<List<Range>> readConflictingKeys(Transaction tr, Executor executor) {
         final List<Range> result = new ArrayList<>();
         return AsyncUtil.forEach(tr.getRange(Range.startsWith(SystemKeyspace.TRANSACTION_CONFLICTING_KEYS_PREFIX)),
                 kv -> {
@@ -1670,22 +1643,22 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     @API(API.Status.INTERNAL)
-    public CompletableFuture<AsyncLock> acquireReadLock(@Nonnull final LockIdentifier id) {
+    public CompletableFuture<AsyncLock> acquireReadLock(final LockIdentifier id) {
         return lockRegistry.acquireReadLock(id);
     }
 
     @API(API.Status.INTERNAL)
-    public CompletableFuture<AsyncLock> acquireWriteLock(@Nonnull final LockIdentifier id) {
+    public CompletableFuture<AsyncLock> acquireWriteLock(final LockIdentifier id) {
         return lockRegistry.acquireWriteLock(id);
     }
 
     @API(API.Status.INTERNAL)
-    public <T> CompletableFuture<T> doWithReadLock(@Nonnull final LockIdentifier identifier, @Nonnull final Supplier<CompletableFuture<T>> operation) {
+    public <T> CompletableFuture<T> doWithReadLock(final LockIdentifier identifier, final Supplier<CompletableFuture<T>> operation) {
         return lockRegistry.doWithReadLock(identifier, operation);
     }
 
     @API(API.Status.INTERNAL)
-    public <T> CompletableFuture<T> doWithWriteLock(@Nonnull final LockIdentifier identifier, @Nonnull final Supplier<CompletableFuture<T>> operation) {
+    public <T> CompletableFuture<T> doWithWriteLock(final LockIdentifier identifier, final Supplier<CompletableFuture<T>> operation) {
         return lockRegistry.doWithWriteLock(identifier, operation);
     }
 
@@ -1694,7 +1667,6 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @return a factory of {@link TempTable}s bound to this transactional context.
      */
     @API(API.Status.INTERNAL)
-    @Nonnull
     public TempTable.Factory getTempTableFactory() {
         return tempTableFactory;
     }

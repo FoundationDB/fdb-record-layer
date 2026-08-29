@@ -54,7 +54,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -271,7 +270,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
         // Need to allow immediate rebuild of new count index.
         final FDBRecordStoreBase.UserVersionChecker alwaysEnabled = new FDBRecordStoreBase.UserVersionChecker() {
             @Override
-            public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
+            public CompletableFuture<Integer> checkUserVersion(final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
                 return CompletableFuture.completedFuture(1);
             }
 
@@ -1074,19 +1073,18 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
         return recBuilder.build();
     }
 
-    private static void addCountIndex(@Nonnull final RecordMetaDataBuilder recordMetaDataBuilder,
-                                      @Nonnull final KeyExpression keyExpression) {
+    private static void addCountIndex(final RecordMetaDataBuilder recordMetaDataBuilder,
+                                      final KeyExpression keyExpression) {
         addCountIndex(keyExpression, -1, recordMetaDataBuilder);
     }
 
     @SuppressWarnings("deprecation")
-    private static RecordMetaDataBuilder addRecordCountKey(@Nonnull final RecordMetaDataBuilder recordMetaDataBuilder,
-                                                           @Nonnull final KeyExpression keyExpression) {
+    private static RecordMetaDataBuilder addRecordCountKey(final RecordMetaDataBuilder recordMetaDataBuilder,
+                                                           final KeyExpression keyExpression) {
         recordMetaDataBuilder.setRecordCountKey(keyExpression);
         return recordMetaDataBuilder;
     }
 
-    @Nonnull
     private static RecordMetaDataBuilder simpleMetaDataBuilder() {
         return RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
     }

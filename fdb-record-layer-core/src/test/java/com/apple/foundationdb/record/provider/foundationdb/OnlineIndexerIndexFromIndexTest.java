@@ -36,7 +36,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
@@ -48,6 +49,7 @@ import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer.IndexingPolicy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -81,7 +83,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         return allIndexesHook(List.of(srcIndex, tgtIndex));
     }
 
-    private void buildIndexAndCrashHalfway(Index tgtIndex, int chunkSize, int count, FDBStoreTimer timer, @Nullable OnlineIndexer.IndexingPolicy policy) {
+    private void buildIndexAndCrashHalfway(Index tgtIndex, int chunkSize, int count, FDBStoreTimer timer, @Nullable IndexingPolicy policy) {
         final AtomicLong counter = new AtomicLong(0);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(policy)
@@ -117,7 +119,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .build())
@@ -148,7 +150,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .setReverseScanOrder(reverseScan)
@@ -184,7 +186,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .setReverseScanOrder(reverseScan)
                         .build())
@@ -218,7 +220,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         // Because the store already has this format version, though it should be allowed
         this.formatVersion = FormatVersionTestUtils.previous(FormatVersion.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .build())
                 .build()) {
@@ -251,7 +253,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .setReverseScanOrder(reverseScan)
                         .build())
@@ -284,7 +286,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .build())
@@ -323,7 +325,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .build())
@@ -354,7 +356,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .build())
@@ -393,7 +395,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         openContext();
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .build())
@@ -436,7 +438,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         boolean reverse1 = 0 != (reverseSeed & 1);
         boolean reverse2 = 0 != (reverseSeed & 2);
         buildIndexAndCrashHalfway(tgtIndex, chunkSize, 1, timer,
-                OnlineIndexer.IndexingPolicy.newBuilder()
+                IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .setReverseScanOrder(reverse1)
@@ -444,7 +446,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .setReverseScanOrder(reverse2)
@@ -481,18 +483,18 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook);
         buildIndexAndCrashHalfway(tgtIndex, chunkSize, 1, timer,
-                OnlineIndexer.IndexingPolicy.newBuilder()
+                IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .build());
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                        .setIfDisabled(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
-                        .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
-                        .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
-                        .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
+                        .setIfDisabled(IndexingPolicy.DesiredAction.CONTINUE)
+                        .setIfWriteOnly(IndexingPolicy.DesiredAction.CONTINUE)
+                        .setIfMismatchPrevious(IndexingPolicy.DesiredAction.ERROR)
+                        .setIfReadable(IndexingPolicy.DesiredAction.ERROR)
                 )
                 .build()) {
 
@@ -503,7 +505,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .build())
@@ -538,18 +540,18 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook);
         buildIndexAndCrashHalfway(tgtIndex, chunkSize, 3, timer,
-                OnlineIndexer.IndexingPolicy.newBuilder()
+                IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .setForbidRecordScan(true)
                         .build());
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                        .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
-                        .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
-                        .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
-                        .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE))
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
+                        .setIfReadable(IndexingPolicy.DesiredAction.CONTINUE)
+                        .setIfWriteOnly(IndexingPolicy.DesiredAction.CONTINUE)
+                        .setIfMismatchPrevious(IndexingPolicy.DesiredAction.ERROR)
+                        .setIfReadable(IndexingPolicy.DesiredAction.CONTINUE))
                 .build()) {
 
             // now try building by records, a failure is expected
@@ -591,10 +593,10 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
-                        .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
+                        .setIfMismatchPrevious(IndexingPolicy.DesiredAction.ERROR)
                         .build())
                 .build()) {
 
@@ -605,7 +607,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .build())
@@ -643,10 +645,10 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
-                        .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
+                        .setIfMismatchPrevious(IndexingPolicy.DesiredAction.ERROR)
                         .build())
                 .build()) {
             // erase the previous type stamp - of the by-records
@@ -659,7 +661,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                        .forbidRecordScan()
                         .build())
@@ -698,10 +700,10 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         timer.reset();
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
-                        .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
+                        .setIfMismatchPrevious(IndexingPolicy.DesiredAction.REBUILD)
                         .build())
                 .build()) {
 
@@ -736,10 +738,10 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         timer.reset();
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
-                        .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
+                        .setIfWriteOnly(IndexingPolicy.DesiredAction.REBUILD)
                         .build())
                 .setLimit(chunkSize)
                 .build()) {
@@ -755,11 +757,11 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         timer.reset();
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
-                        .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
-                        .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
+                        .setIfWriteOnly(IndexingPolicy.DesiredAction.REBUILD)
+                        .setIfReadable(IndexingPolicy.DesiredAction.REBUILD)
                         .build())
                 .setLimit(chunkSize)
                 .build()) {
@@ -775,9 +777,9 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         timer.reset();
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                        .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
-                        .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR))
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
+                        .setIfWriteOnly(IndexingPolicy.DesiredAction.ERROR)
+                        .setIfReadable(IndexingPolicy.DesiredAction.ERROR))
                 .build()) {
 
             // now try building if disabled, nothing should be happening
@@ -795,9 +797,9 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexer = newIndexerBuilder(srcIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                        .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
-                        .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR))
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
+                        .setIfWriteOnly(IndexingPolicy.DesiredAction.ERROR)
+                        .setIfReadable(IndexingPolicy.DesiredAction.ERROR))
                 .build()) {
             indexer.buildIndex(true);
         }
@@ -825,7 +827,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         // partly build by-index
         openSimpleMetaData(hook);
         buildIndexAndCrashHalfway(tgtIndex, chunkSize, 4, timer,
-                OnlineIndexer.IndexingPolicy.newBuilder()
+                IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .build());
@@ -845,7 +847,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         // try index continuation, expect failure
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .build())
@@ -859,10 +861,10 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         timer.reset();
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
-                        .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
+                        .setIfMismatchPrevious(IndexingPolicy.DesiredAction.REBUILD)
                         .build())
                 .setLimit(chunkSize)
                 .build()) {
@@ -905,7 +907,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         // partly build by-index src_index
         openSimpleMetaData(hook);
         buildIndexAndCrashHalfway(tgtIndex, chunkSize, 7, timer,
-                OnlineIndexer.IndexingPolicy.newBuilder()
+                IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .build());
@@ -913,10 +915,10 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         // try index continuation with src_index2, expect failure
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index2")
                         .forbidRecordScan()
-                        .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
+                        .setIfMismatchPrevious(IndexingPolicy.DesiredAction.ERROR)
                         .build())
                 .build()) {
 
@@ -927,7 +929,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         // try indexing with src_index2, but allow continuation of previous method (src_index)
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index2")
                         .build()) // continue previous if policy changed
                 .setLimit(chunkSize)
@@ -971,7 +973,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         // partly build by-index src_index
         openSimpleMetaData(hook);
         buildIndexAndCrashHalfway(tgtIndex, chunkSize, 3, timer,
-                OnlineIndexer.IndexingPolicy.newBuilder()
+                IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .build());
@@ -992,7 +994,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         timer.reset();
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index2")
                         .build()) // rebuild after failing to continue prev
                 .setLimit(chunkSize)
@@ -1024,7 +1026,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         try (FDBRecordContext context = openContext()) {
             try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                    .setIndexingPolicy(IndexingPolicy.newBuilder()
                             .setSourceIndex("src_index")
                             .forbidRecordScan()
                             .build())
@@ -1059,7 +1061,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         try (FDBRecordContext context = openContext()) {
             try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                    .setIndexingPolicy(IndexingPolicy.newBuilder()
                             .setSourceIndex("src_index")
                             .forbidRecordScan()
                             .setReverseScanOrder(true)
@@ -1090,7 +1092,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(sourceIndex, tgtIndex);
         openSimpleMetaData(hook);
         buildIndexAndCrashHalfway(tgtIndex, chunkSize, 1, timer,
-                OnlineIndexer.IndexingPolicy.newBuilder()
+                IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .build());
@@ -1123,7 +1125,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         // ensure blocked
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .build())
@@ -1140,7 +1142,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         // Successfully build
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .setAllowUnblock(true)
@@ -1184,7 +1186,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
             try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex)
                     .setLeaseLengthMillis(TimeUnit.SECONDS.toMillis(20))
                     .setLimit(4)
-                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                    .setIndexingPolicy(IndexingPolicy.newBuilder()
                             .setSourceIndex("src_index")
                             .forbidRecordScan())
                     .setConfigLoader(old -> pauseAfterOnePass(old, passed, startBuildingSemaphore, pauseMutualBuildSemaphore))
@@ -1197,7 +1199,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         startBuildingSemaphore.release();
         // Try one index at a time
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan())
                 .build()) {

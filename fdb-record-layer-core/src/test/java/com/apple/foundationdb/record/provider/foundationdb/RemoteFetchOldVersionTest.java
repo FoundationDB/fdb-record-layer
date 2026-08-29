@@ -40,8 +40,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -81,7 +80,6 @@ public class RemoteFetchOldVersionTest extends RemoteFetchTestBase {
         assertThat(count, equalTo(10));
     }
 
-    @Nonnull
     protected final RecordMetaDataHook simpleVersionHook = metaDataBuilder -> {
         metaDataBuilder.setSplitLongRecords(false);
         metaDataBuilder.addUniversalIndex(new Index("globalCount", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));

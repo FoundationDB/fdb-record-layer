@@ -95,7 +95,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -1620,7 +1619,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Nonnull
     static Stream<Arguments> resetIndexStateOnIndexRecreation() {
         return ParameterizedTestUtils.cartesianProduct(
                 Stream.of(IndexState.values()),
@@ -1631,7 +1629,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest
     @MethodSource
-    void resetIndexStateOnIndexRecreation(@Nonnull IndexState desiredIndexState, boolean useNumericSubspaceKeys, boolean onNewType) {
+    void resetIndexStateOnIndexRecreation(IndexState desiredIndexState, boolean useNumericSubspaceKeys, boolean onNewType) {
         final String reusedIndexName = "reused_index_name";
 
         // Add the index and disable it.
@@ -1696,11 +1694,10 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                         }
 
                         @Override
-                        public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
+                        public CompletableFuture<Integer> checkUserVersion(final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
                             return CompletableFuture.completedFuture(storeHeader.getUserVersion());
                         }
 
-                        @Nonnull
                         @Override
                         public CompletableFuture<IndexState> needRebuildIndex(final Index index, final Supplier<CompletableFuture<Long>> lazyRecordCount, final Supplier<CompletableFuture<Long>> lazyEstimatedSize, final boolean indexOnNewRecordTypes) {
                             checkVersionUpdatedIndexes.add(index.getName());
@@ -2428,7 +2425,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
             FDBRecordStoreBase.UserVersionChecker userVersionChecker = new FDBRecordStoreBase.UserVersionChecker() {
                 @Override
-                public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
+                public CompletableFuture<Integer> checkUserVersion(final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
                     return CompletableFuture.completedFuture(1);
                 }
 
@@ -2479,7 +2476,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         final FDBRecordStoreBase.UserVersionChecker alwaysDisabled = new FDBRecordStoreBase.UserVersionChecker() {
             @Override
-            public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
+            public CompletableFuture<Integer> checkUserVersion(final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
                 return CompletableFuture.completedFuture(1);
             }
 
@@ -2497,7 +2494,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         final FDBRecordStoreBase.UserVersionChecker alwaysEnabled = new FDBRecordStoreBase.UserVersionChecker() {
             @Override
-            public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
+            public CompletableFuture<Integer> checkUserVersion(final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
                 return CompletableFuture.completedFuture(1);
             }
 
@@ -2646,7 +2643,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     public void testSelectiveIndexDisable() {
         final FDBRecordStoreBase.UserVersionChecker selectiveEnable = new FDBRecordStoreBase.UserVersionChecker() {
             @Override
-            public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
+            public CompletableFuture<Integer> checkUserVersion(final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
                 return CompletableFuture.completedFuture(1);
             }
 
@@ -3277,7 +3274,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void testRangeCount(@Nonnull FDBRecordContext context, @Nonnull ArrayList<byte[]> keys, byte[] upperBound, int rangeCount) {
+    private void testRangeCount(FDBRecordContext context, ArrayList<byte[]> keys, byte[] upperBound, int rangeCount) {
         MockedLocalityUtil.init(keys, rangeCount);
         CloseableAsyncIterator<byte[]> cursor = MockedLocalityUtil.instance().getBoundaryKeys(context.ensureActive(), keys.get(0), upperBound);
         assertTrue(rangeCount == Iterators.size(cursor) || MockedLocalityUtil.getLastRange().equals(upperBound));

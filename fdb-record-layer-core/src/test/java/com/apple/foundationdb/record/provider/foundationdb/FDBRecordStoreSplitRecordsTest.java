@@ -51,7 +51,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -380,7 +379,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         // If we did build, we'd create a read conflict on the new index. Without building, we don't care about the concurrent record write
         final FDBRecordStoreBase.UserVersionChecker dontBuild = new FDBRecordStoreBase.UserVersionChecker() {
             @Override
-            public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
+            public CompletableFuture<Integer> checkUserVersion(final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
                 return CompletableFuture.completedFuture(0);
             }
 
@@ -908,7 +907,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
                 .createOrOpen();
     }
 
-    private void checkForConflicts(FormatVersion formatVersion, boolean splitLongRecords, @Nonnull Consumer<FDBRecordStore> operation1, @Nonnull Consumer<FDBRecordStore> operation2) {
+    private void checkForConflicts(FormatVersion formatVersion, boolean splitLongRecords, Consumer<FDBRecordStore> operation1, Consumer<FDBRecordStore> operation2) {
         final FDBRecordStore.Builder storeBuilder;
         try (FDBRecordContext context = openContext()) {
             // Ensure the store is created here to avoid conflicts on the store header

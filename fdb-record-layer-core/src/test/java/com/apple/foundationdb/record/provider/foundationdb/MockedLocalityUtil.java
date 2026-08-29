@@ -24,7 +24,6 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.CloseableAsyncIterator;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -36,13 +35,11 @@ import java.util.concurrent.CompletableFuture;
 public class MockedLocalityUtil implements FDBLocalityProvider {
 
     private static class KeyRange {
-        @Nonnull
         private byte[] key;
-        @Nonnull
         private Tuple tuple;
         private int rangeIndex;
 
-        public KeyRange(@Nonnull byte[] key, @Nonnull Tuple tuple, int rangeIndex) {
+        public KeyRange(byte[] key, Tuple tuple, int rangeIndex) {
             this.key = key;
             this.tuple = tuple;
             this.rangeIndex = rangeIndex;
@@ -50,9 +47,7 @@ public class MockedLocalityUtil implements FDBLocalityProvider {
     }
 
     private static final MockedLocalityUtil INSTANCE = new MockedLocalityUtil();
-    @Nonnull
     private List<KeyRange> keyRanges;
-    @Nonnull
     private List<Integer> ranges;
 
     private MockedLocalityUtil() {
@@ -62,7 +57,6 @@ public class MockedLocalityUtil implements FDBLocalityProvider {
      * Get the single instance of this utility class.
      * @return the only instance of the class
      */
-    @Nonnull
     public static MockedLocalityUtil instance() {
         return INSTANCE;
     }
@@ -87,7 +81,7 @@ public class MockedLocalityUtil implements FDBLocalityProvider {
      * @param keys a sorted list of keys
      * @param rangeCount the number of ranges to return.
      */
-    public static void init(@Nonnull List<byte[]> keys, int rangeCount) {
+    public static void init(List<byte[]> keys, int rangeCount) {
         if (keys.size() < rangeCount) {
             throw new IllegalArgumentException("rangeCount must be less than (or equal) the size of keys");
         }
@@ -126,8 +120,7 @@ public class MockedLocalityUtil implements FDBLocalityProvider {
      *
      * @return a sequence of keys denoting the start of the ranges
      */
-    @Nonnull
-    public CloseableAsyncIterator<byte[]> getBoundaryKeys(@Nonnull Transaction tr, @Nonnull byte[] begin, @Nonnull byte[] end) {
+    public CloseableAsyncIterator<byte[]> getBoundaryKeys(Transaction tr, byte[] begin, byte[] end) {
         // This mocked locality API does not need tr.
         return new MockedBoundaryIterator(keyRanges, ranges, begin, end);
     }
@@ -136,7 +129,7 @@ public class MockedLocalityUtil implements FDBLocalityProvider {
         private List<byte[]> ranges;
         int lastBeginIndex;
 
-        MockedBoundaryIterator(@Nonnull List<KeyRange> keyRanges, @Nonnull List<Integer> ranges, @Nonnull byte[] begin, @Nonnull byte[] end) {
+        MockedBoundaryIterator(List<KeyRange> keyRanges, List<Integer> ranges, byte[] begin, byte[] end) {
             this.ranges = new ArrayList<>();
             Tuple beginTuple = Tuple.fromBytes(begin);
             Tuple endTuple = Tuple.fromBytes(end);

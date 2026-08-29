@@ -37,7 +37,6 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
@@ -157,29 +156,29 @@ public class FDBRecordStoreEstimateSizeTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private static long estimateStoreSize(@Nonnull FDBRecordStore store) {
+    private static long estimateStoreSize(FDBRecordStore store) {
         return store.getRecordContext().asyncToSync(FDBStoreTimer.Waits.WAIT_ESTIMATE_SIZE, store.estimateStoreSizeAsync());
     }
 
-    private static long estimateRecordsSize(@Nonnull FDBRecordStore store) {
+    private static long estimateRecordsSize(FDBRecordStore store) {
         return store.getRecordContext().asyncToSync(FDBStoreTimer.Waits.WAIT_ESTIMATE_SIZE, store.estimateRecordsSizeAsync());
     }
 
-    private static long estimateRecordsSize(@Nonnull FDBRecordStore store, @Nonnull TupleRange range) {
+    private static long estimateRecordsSize(FDBRecordStore store, TupleRange range) {
         return store.getRecordContext().asyncToSync(FDBStoreTimer.Waits.WAIT_ESTIMATE_SIZE, store.estimateRecordsSizeAsync(range));
     }
 
-    private static long getExactStoreSize(@Nonnull FDBRecordStore store) {
+    private static long getExactStoreSize(FDBRecordStore store) {
         SizeStatisticsCollectorCursor statsCursor = SizeStatisticsCollectorCursor.ofStore(store, store.getContext(), ScanProperties.FORWARD_SCAN, null);
         return getTotalSize(statsCursor);
     }
 
-    private static long getExactRecordsSize(@Nonnull FDBRecordStore store) {
+    private static long getExactRecordsSize(FDBRecordStore store) {
         SizeStatisticsCollectorCursor statsCursor = SizeStatisticsCollectorCursor.ofRecords(store, store.getContext(), ScanProperties.FORWARD_SCAN, null);
         return getTotalSize(statsCursor);
     }
 
-    private static long getTotalSize(@Nonnull SizeStatisticsCollectorCursor statsCursor) {
+    private static long getTotalSize(SizeStatisticsCollectorCursor statsCursor) {
         final RecordCursorResult<SizeStatisticsCollectorCursor.SizeStatisticsResults> result = statsCursor.getNext();
         assertTrue(result.hasNext());
         return result.get().getTotalSize();

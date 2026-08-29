@@ -32,8 +32,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreKeyspac
 import com.apple.foundationdb.record.provider.foundationdb.SubspaceProvider;
 import com.apple.foundationdb.subspace.Subspace;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -50,18 +50,15 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.INTERNAL)
 public class FDBRecordStoreStateCacheEntry {
-    @Nonnull
     private final SubspaceProvider subspaceProvider;
-    @Nonnull
     private final Subspace subspace;
-    @Nonnull
     private final RecordStoreState recordStoreState;
     @Nullable
     private final byte[] metaDataVersionStamp;
 
-    private FDBRecordStoreStateCacheEntry(@Nonnull SubspaceProvider subspaceProvider,
-                                          @Nonnull Subspace subspace,
-                                          @Nonnull RecordStoreState recordStoreState,
+    private FDBRecordStoreStateCacheEntry(SubspaceProvider subspaceProvider,
+                                          Subspace subspace,
+                                          RecordStoreState recordStoreState,
                                           @Nullable byte[] metaDataVersionStamp) {
         this.subspaceProvider = subspaceProvider;
         this.subspace = subspace;
@@ -74,7 +71,6 @@ public class FDBRecordStoreStateCacheEntry {
      *
      * @return the {@link RecordStoreState} contained within this entry
      */
-    @Nonnull
     public RecordStoreState getRecordStoreState() {
         return recordStoreState;
     }
@@ -84,17 +80,15 @@ public class FDBRecordStoreStateCacheEntry {
         return metaDataVersionStamp;
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    CompletableFuture<Void> handleCachedState(@Nonnull FDBRecordContext context, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
+    CompletableFuture<Void> handleCachedState(FDBRecordContext context, FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
         final Transaction tr = context.ensureActive();
         tr.addReadConflictKey(subspace.pack(FDBRecordStoreKeyspace.STORE_INFO.key()));
         return FDBRecordStore.checkStoreHeader(recordStoreState.getStoreHeader(), context, subspaceProvider, subspace, existenceCheck);
     }
 
-    @Nonnull
-    static CompletableFuture<FDBRecordStoreStateCacheEntry> load(@Nonnull FDBRecordStore recordStore,
-                                                                 @Nonnull FDBRecordStore.StoreExistenceCheck existenceCheck) {
+    static CompletableFuture<FDBRecordStoreStateCacheEntry> load(FDBRecordStore recordStore,
+                                                                 FDBRecordStore.StoreExistenceCheck existenceCheck) {
         // This is primarily needed because of https://github.com/apple/foundationdb/issues/11500 where the call to
         // getMetaDataVersionStampAsync might never complete. In the tests we don't set a timeout on the futures, and
         // thus the overall test times out, but in production situations, this should mostly make a difference, because

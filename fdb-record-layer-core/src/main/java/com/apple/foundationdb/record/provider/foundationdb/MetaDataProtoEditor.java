@@ -33,14 +33,15 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 
 import static com.apple.foundationdb.record.RecordMetaDataBuilder.DEFAULT_UNION_NAME;
+import static com.google.protobuf.DescriptorProtos.FieldDescriptorProto.Builder;
 
 /**
  * A utility class for mutating the metadata proto.
@@ -62,9 +63,9 @@ public class MetaDataProtoEditor {
      * @param newRecordType the new record type
      * @param primaryKey the primary key of the new record type
      */
-    public static void addRecordType(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
-                                     @Nonnull DescriptorProtos.DescriptorProto newRecordType,
-                                     @Nonnull KeyExpression primaryKey) {
+    public static void addRecordType(RecordMetaDataProto.MetaData.Builder metaDataBuilder,
+                                     DescriptorProtos.DescriptorProto newRecordType,
+                                     KeyExpression primaryKey) {
         RecordTypeOptions.Usage newRecordTypeUsage = getMessageTypeUsage(newRecordType);
         if (DEFAULT_UNION_NAME.equals(newRecordType.getName()) ||
                 newRecordTypeUsage == RecordTypeOptions.Usage.UNION) {
@@ -92,27 +93,26 @@ public class MetaDataProtoEditor {
      *
      * @return {@code "_" + recordTypeName}
      */
-    @Nonnull
-    private static String canonicalUnionFieldName(@Nonnull String recordTypeName) {
+    private static String canonicalUnionFieldName(String recordTypeName) {
         return "_" + recordTypeName;
     }
 
     /**
      * Returns whether the name of a union field is the canonical {@code _recordTypeName} form.
      */
-    private static boolean isCanonicalUnionFieldName(@Nonnull String unionFieldName, @Nonnull String recordTypeName) {
+    private static boolean isCanonicalUnionFieldName(String unionFieldName, String recordTypeName) {
         return unionFieldName.length() == recordTypeName.length() + 1
                 && unionFieldName.charAt(0) == '_'
                 && unionFieldName.regionMatches(1, recordTypeName, 0, recordTypeName.length());
     }
 
-    private static void addFieldToUnion(@Nonnull DescriptorProtos.DescriptorProto.Builder unionBuilder,
-                                        @Nonnull DescriptorProtos.FileDescriptorProtoOrBuilder fileBuilder,
-                                        @Nonnull String typeName) {
+    private static void addFieldToUnion(DescriptorProtos.DescriptorProto.Builder unionBuilder,
+                                        DescriptorProtos.FileDescriptorProtoOrBuilder fileBuilder,
+                                        String typeName) {
         if (unionBuilder.getOneofDeclCount() > 0) {
             throw new MetaDataException("Adding record type to oneof is not allowed");
         }
-        DescriptorProtos.FieldDescriptorProto.Builder fieldBuilder = DescriptorProtos.FieldDescriptorProto.newBuilder()
+        Builder fieldBuilder = DescriptorProtos.FieldDescriptorProto.newBuilder()
                 .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
                 .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
                 .setTypeName(fullyQualifiedTypeName(fileBuilder, typeName))
@@ -124,15 +124,13 @@ public class MetaDataProtoEditor {
     /**
      * Returns the names of the top-level record types declared in the metadata.
      */
-    @Nonnull
-    public static List<String> getRecordTypes(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder) {
+    public static List<String> getRecordTypes(RecordMetaDataProto.MetaData.Builder metaDataBuilder) {
         return metaDataBuilder.getRecordTypesList().stream().map(RecordMetaDataProto.RecordType::getName).toList();
     }
 
     /**
      * Returns the top-level message type descriptor with the given name, throwing if it is not found.
      */
-    @Nonnull
     private static Descriptors.Descriptor getMessageTypeByName(Descriptors.FileDescriptor fileDescriptor, String name) {
         final Descriptors.Descriptor descriptor = fileDescriptor.findMessageTypeByName(name);
         if (descriptor == null) {
@@ -145,19 +143,21 @@ public class MetaDataProtoEditor {
     /**
      * Returns the builder for the top-level message type with the given name, or {@code null} if none is found.
      */
-    @Nullable
+    // Note: jspecify's @Nullable cannot be expressed on the qualified DescriptorProtos.DescriptorProto.Builder
+    // return type here without colliding with the "Builder" static import used below for
+    // DescriptorProtos.FieldDescriptorProto.Builder, and the Outer.@Nullable Inner syntax is not parseable by
+    // the PMD version used in this project. Revisit once NullAway is enabled for this module.
     private static DescriptorProtos.DescriptorProto.Builder findMessageTypeByName(
-            @Nonnull DescriptorProtos.FileDescriptorProto.Builder recordsBuilder,
-            @Nonnull String recordType) {
+            DescriptorProtos.FileDescriptorProto.Builder recordsBuilder,
+            String recordType) {
         return recordsBuilder.getMessageTypeBuilderList().stream()
                 .filter(m -> m.getName().equals(recordType))
                 .findAny()
                 .orElse(null);
     }
 
-    @Nonnull
     private static DescriptorProtos.DescriptorProto.Builder fetchUnionBuilder(
-            @Nonnull DescriptorProtos.FileDescriptorProto.Builder fileBuilder) {
+            DescriptorProtos.FileDescriptorProto.Builder fileBuilder) {
         for (DescriptorProtos.DescriptorProto.Builder messageTypeBuilder : fileBuilder.getMessageTypeBuilderList()) {
             if (isUnion(messageTypeBuilder)) {
                 return messageTypeBuilder;
@@ -166,20 +166,19 @@ public class MetaDataProtoEditor {
         throw new MetaDataException("Union descriptor not found");
     }
 
-    @Nullable
-    private static DescriptorProtos.FieldDescriptorProto.Builder fetchUnionFieldBuilder(
-            @Nonnull DescriptorProtos.FileDescriptorProto.Builder recordsBuilder,
-            @Nonnull DescriptorProtos.DescriptorProto.Builder unionBuilder,
-            @Nonnull Descriptors.Descriptor unionDescriptor,
-            @Nonnull String recordTypeName) {
-        DescriptorProtos.FieldDescriptorProto.Builder foundField = null;
+    private static @Nullable Builder fetchUnionFieldBuilder(
+            DescriptorProtos.FileDescriptorProto.Builder recordsBuilder,
+            DescriptorProtos.DescriptorProto.Builder unionBuilder,
+            Descriptors.Descriptor unionDescriptor,
+            String recordTypeName) {
+        Builder foundField = null;
         if (recordTypeName.contains(".")) {
             throw new MetaDataException("Record Type Name cannot contain '.'");
         }
         if (unionBuilder.getNestedTypeCount() > 0) {
             throw new MetaDataException("Nested types in union type not supported");
         }
-        for (DescriptorProtos.FieldDescriptorProto.Builder unionField : unionBuilder.getFieldBuilderList()) {
+        for (Builder unionField : unionBuilder.getFieldBuilderList()) {
             final FieldTypeMatch unionFieldMatch = fieldIsType(recordsBuilder, unionDescriptor, unionField, recordTypeName);
             if (FieldTypeMatch.MATCHES.equals(unionFieldMatch)
                     && (foundField == null
@@ -196,17 +195,16 @@ public class MetaDataProtoEditor {
      * Returns the declared {@code usage} of a message type. If the message type declares no {@code record} options,
      * or no {@code usage} within them, returns {@code UNSET} (which is the Protobuf default for the field).
      */
-    @Nonnull
     private static RecordTypeOptions.Usage getMessageTypeUsage(
-            @Nonnull DescriptorProtos.DescriptorProtoOrBuilder messageType) {
+            DescriptorProtos.DescriptorProtoOrBuilder messageType) {
         return messageType.getOptions().getExtension(RecordMetaDataOptionsProto.record).getUsage();
     }
 
     /**
      * Sets the usage of a message type, preserving any other options already set on the {@code record} extension.
      */
-    private static void setMessageTypeUsage(@Nonnull DescriptorProtos.DescriptorProto.Builder messageTypeBuilder,
-                                            @Nonnull RecordTypeOptions.Usage usage) {
+    private static void setMessageTypeUsage(DescriptorProtos.DescriptorProto.Builder messageTypeBuilder,
+                                            RecordTypeOptions.Usage usage) {
         RecordTypeOptions.Builder recordOptionsBuilder =
                 messageTypeBuilder.getOptions().hasExtension(RecordMetaDataOptionsProto.record)
                 ? messageTypeBuilder.getOptionsBuilder().getExtension(RecordMetaDataOptionsProto.record).toBuilder()
@@ -217,18 +215,17 @@ public class MetaDataProtoEditor {
                 recordOptionsBuilder.build());
     }
 
-    private static boolean isUnion(@Nonnull DescriptorProtos.DescriptorProtoOrBuilder messageType) {
+    private static boolean isUnion(DescriptorProtos.DescriptorProtoOrBuilder messageType) {
         return DEFAULT_UNION_NAME.equals(messageType.getName())
                 || getMessageTypeUsage(messageType) == RecordTypeOptions.Usage.UNION;
     }
 
-    private static boolean isUnion(@Nonnull Descriptors.Descriptor messageType) {
+    private static boolean isUnion(Descriptors.Descriptor messageType) {
         return DEFAULT_UNION_NAME.equals(messageType.getName())
                 || getMessageTypeUsage(messageType.toProto()) == RecordTypeOptions.Usage.UNION;
     }
 
-    @Nonnull
-    private static String fullyQualifiedTypeName(@Nonnull String namespace, @Nonnull String typeName) {
+    private static String fullyQualifiedTypeName(String namespace, String typeName) {
         if (typeName.startsWith(".")) {
             return typeName;
         } else if (!namespace.isEmpty()) {
@@ -238,9 +235,8 @@ public class MetaDataProtoEditor {
         }
     }
 
-    @Nonnull
-    private static String fullyQualifiedTypeName(@Nonnull DescriptorProtos.FileDescriptorProtoOrBuilder file,
-                                                 @Nonnull String typeName) {
+    private static String fullyQualifiedTypeName(DescriptorProtos.FileDescriptorProtoOrBuilder file,
+                                                 String typeName) {
         return fullyQualifiedTypeName(file.getPackage(), typeName);
     }
 
@@ -269,8 +265,8 @@ public class MetaDataProtoEditor {
      */
     @Nullable
     private static String resolveFieldTypeFullName(
-            @Nonnull Descriptors.Descriptor messageDescriptor,
-            @Nonnull DescriptorProtos.FieldDescriptorProtoOrBuilder field) {
+            Descriptors.Descriptor messageDescriptor,
+            DescriptorProtos.FieldDescriptorProtoOrBuilder field) {
         final Descriptors.FieldDescriptor resolvedField = Objects.requireNonNull(
                 messageDescriptor.findFieldByNumber(field.getNumber()),
                 "Could not find field from protobuf in descriptor");
@@ -310,10 +306,9 @@ public class MetaDataProtoEditor {
      *
      * @return whether the field matches or might match the given type
      */
-    @Nonnull
-    private static FieldTypeMatch fieldIsType(@Nonnull Descriptors.Descriptor messageDescriptor,
-                                              @Nonnull DescriptorProtos.FieldDescriptorProtoOrBuilder field,
-                                              @Nonnull String fullTypeName) {
+    private static FieldTypeMatch fieldIsType(Descriptors.Descriptor messageDescriptor,
+                                              DescriptorProtos.FieldDescriptorProtoOrBuilder field,
+                                              String fullTypeName) {
         // Protobuf type name resolution is moderately complicated. Rather than trying to re-implement it on protobufs,
         // we require that the actual Descriptor be passed in so that we can work on fully qualified type names, which
         // is much, much easier, and less likely to have a bug.
@@ -334,15 +329,14 @@ public class MetaDataProtoEditor {
     }
 
     @VisibleForTesting
-    @Nonnull
-    static FieldTypeMatch fieldIsType(@Nonnull DescriptorProtos.FileDescriptorProtoOrBuilder file,
-                                      @Nonnull Descriptors.Descriptor descriptorForMessage,
-                                      @Nonnull DescriptorProtos.FieldDescriptorProtoOrBuilder field,
-                                      @Nonnull String typeName) {
+    static FieldTypeMatch fieldIsType(DescriptorProtos.FileDescriptorProtoOrBuilder file,
+                                      Descriptors.Descriptor descriptorForMessage,
+                                      DescriptorProtos.FieldDescriptorProtoOrBuilder field,
+                                      String typeName) {
         return fieldIsType(descriptorForMessage, field, fullyQualifiedTypeName(file, typeName));
     }
 
-    private static int assignFieldNumber(@Nonnull DescriptorProtos.DescriptorProto.Builder messageType) {
+    private static int assignFieldNumber(DescriptorProtos.DescriptorProto.Builder messageType) {
         if (messageType.getFieldCount() == 0) {
             return 1;
         }
@@ -361,8 +355,8 @@ public class MetaDataProtoEditor {
      * @param newRecordType the new record type
      */
     public static void addNestedRecordType(
-            @Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
-            @Nonnull DescriptorProtos.DescriptorProto newRecordType) {
+            RecordMetaDataProto.MetaData.Builder metaDataBuilder,
+            DescriptorProtos.DescriptorProto newRecordType) {
         RecordTypeOptions.Usage newRecordTypeUsage = getMessageTypeUsage(newRecordType);
         if (newRecordTypeUsage != RecordTypeOptions.Usage.NESTED &&
                 newRecordTypeUsage != RecordTypeOptions.Usage.UNSET) {
@@ -383,9 +377,9 @@ public class MetaDataProtoEditor {
      * @param metaDataBuilder the metadata builder
      * @param recordType the record type to be deprecated
      */
-    public static void deprecateRecordType(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
-                                           @Nonnull String recordType,
-                                           @Nonnull Descriptors.FileDescriptor[] dependencies) {
+    public static void deprecateRecordType(RecordMetaDataProto.MetaData.Builder metaDataBuilder,
+                                           String recordType,
+                                           Descriptors.FileDescriptor[] dependencies) {
         final DescriptorProtos.FileDescriptorProto.Builder fileBuilder = metaDataBuilder.getRecordsBuilder();
         DescriptorProtos.DescriptorProto.Builder unionBuilder = fetchUnionBuilder(fileBuilder);
         if (unionBuilder.getName().equals(recordType)) {
@@ -396,7 +390,7 @@ public class MetaDataProtoEditor {
         final Descriptors.Descriptor unionDescriptor = fileDescriptor.findMessageTypeByName(unionBuilder.getName());
         // deprecate all fields of type recordType from the union.
         boolean found = false;
-        for (DescriptorProtos.FieldDescriptorProto.Builder fieldBuilder : unionBuilder.getFieldBuilderList()) {
+        for (Builder fieldBuilder : unionBuilder.getFieldBuilderList()) {
             final FieldTypeMatch fieldTypeMatch = fieldIsType(fileBuilder, unionDescriptor, fieldBuilder, recordType);
             if (FieldTypeMatch.MATCHES.equals(fieldTypeMatch) || FieldTypeMatch.MATCHES_AS_NESTED.equals(fieldTypeMatch)) {
                 setDeprecated(fieldBuilder);
@@ -408,9 +402,9 @@ public class MetaDataProtoEditor {
         }
     }
 
-    public static void renameRecordTypes(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
-                                         @Nonnull Function<String, String> renamer,
-                                         @Nonnull Descriptors.FileDescriptor[] dependencies) {
+    public static void renameRecordTypes(RecordMetaDataProto.MetaData.Builder metaDataBuilder,
+                                         Function<String, String> renamer,
+                                         Descriptors.FileDescriptor[] dependencies) {
         for (final String recordType : MetaDataProtoEditor.getRecordTypes(metaDataBuilder)) {
             MetaDataProtoEditor.renameRecordType(metaDataBuilder,
                     recordType, renamer.apply(recordType), dependencies);
@@ -437,10 +431,10 @@ public class MetaDataProtoEditor {
      * @param recordTypeName the name of the existing top-level record type
      * @param newRecordTypeName the new name to give to the record type
      */
-    public static void renameRecordType(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
-                                        @Nonnull String recordTypeName,
-                                        @Nonnull String newRecordTypeName,
-                                        @Nonnull Descriptors.FileDescriptor[] dependencies) {
+    public static void renameRecordType(RecordMetaDataProto.MetaData.Builder metaDataBuilder,
+                                        String recordTypeName,
+                                        String newRecordTypeName,
+                                        Descriptors.FileDescriptor[] dependencies) {
         // Validate the rename. Rather than calling `metaDataBuilder.getRecordsBuilder()`, create a copy of the records
         // builder to avoid corrupting the one in `metaDataBuilder` before all validation has been done.
         final DescriptorProtos.FileDescriptorProto records = metaDataBuilder.getRecords();
@@ -472,7 +466,7 @@ public class MetaDataProtoEditor {
             usage = RecordTypeOptions.Usage.UNION;
         } else {
             final Descriptors.Descriptor unionDescriptor = getMessageTypeByName(fileDescriptor, unionBuilder.getName());
-            DescriptorProtos.FieldDescriptorProto.Builder unionFieldBuilder = fetchUnionFieldBuilder(recordsBuilder,
+            Builder unionFieldBuilder = fetchUnionFieldBuilder(recordsBuilder,
                     unionBuilder, unionDescriptor, recordTypeName);
             if (unionFieldBuilder == null) {
                 usage = RecordTypeOptions.Usage.NESTED;
@@ -515,9 +509,9 @@ public class MetaDataProtoEditor {
      * Renames a record type within the records file. To this end, updates references to it in the fields of every
      * message type (recursively, including nested types). If it is the union type, also update its usage option.
      */
-    private static void renameRecordTypeUsages(@Nonnull DescriptorProtos.FileDescriptorProto.Builder recordsBuilder,
-                                               @Nonnull String recordTypeName, @Nonnull String newRecordTypeName,
-                                               @Nonnull Descriptors.FileDescriptor fileDescriptor) {
+    private static void renameRecordTypeUsages(DescriptorProtos.FileDescriptorProto.Builder recordsBuilder,
+                                               String recordTypeName, String newRecordTypeName,
+                                               Descriptors.FileDescriptor fileDescriptor) {
         final String namespace = recordsBuilder.getPackage();
         final String fullRecordTypeName = fullyQualifiedTypeName(namespace, recordTypeName);
         final String fullNewRecordTypeName = fullyQualifiedTypeName(namespace, newRecordTypeName);
@@ -540,13 +534,13 @@ public class MetaDataProtoEditor {
     /**
      * Renames references to a record type among the fields of a single message type, recursing into its nested types.
      */
-    private static void renameRecordTypeUsages(@Nonnull String namespace,
-                                               @Nonnull DescriptorProtos.DescriptorProto.Builder messageTypeBuilder,
-                                               @Nonnull String fullRecordTypeName,
-                                               @Nonnull String fullNewRecordTypeName,
+    private static void renameRecordTypeUsages(String namespace,
+                                               DescriptorProtos.DescriptorProto.Builder messageTypeBuilder,
+                                               String fullRecordTypeName,
+                                               String fullNewRecordTypeName,
                                                final Descriptors.Descriptor descriptorForMessage) {
         // Rename any fields within the record type to the new type name.
-        for (DescriptorProtos.FieldDescriptorProto.Builder field : messageTypeBuilder.getFieldBuilderList()) {
+        for (Builder field : messageTypeBuilder.getFieldBuilderList()) {
             final FieldTypeMatch fieldTypeMatch = fieldIsType(descriptorForMessage, field, fullRecordTypeName);
             if (FieldTypeMatch.MATCHES.equals(fieldTypeMatch)) {
                 field.setTypeName(fullNewRecordTypeName);
@@ -580,9 +574,9 @@ public class MetaDataProtoEditor {
      * renamed record type. Throws if the metadata has {@code UserDefinedFunctions}, since renaming is not supported
      * in that case.
      */
-    private static void renameTopLevelRecordType(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
-                                                 @Nonnull String recordTypeName,
-                                                 @Nonnull String newRecordTypeName) {
+    private static void renameTopLevelRecordType(RecordMetaDataProto.MetaData.Builder metaDataBuilder,
+                                                 String recordTypeName,
+                                                 String newRecordTypeName) {
         List<RecordMetaDataProto.RecordType> recordTypes =
                 new ArrayList<>(metaDataBuilder.getRecordTypesBuilderList().size());
         boolean foundRecordType = false;
@@ -632,9 +626,9 @@ public class MetaDataProtoEditor {
     /**
      * Updates joined record types' constituents that reference a renamed record type.
      */
-    private static void updateJoinedRecordTypes(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
-                                                @Nonnull String recordTypeName,
-                                                @Nonnull String newRecordTypeName) {
+    private static void updateJoinedRecordTypes(RecordMetaDataProto.MetaData.Builder metaDataBuilder,
+                                                String recordTypeName,
+                                                String newRecordTypeName) {
         for (var joined : metaDataBuilder.getJoinedRecordTypesBuilderList()) {
             for (var constituent : joined.getJoinConstituentsBuilderList()) {
                 if (constituent.getRecordType().equals(recordTypeName)) {
@@ -647,11 +641,11 @@ public class MetaDataProtoEditor {
     /**
      * Updates unnested record types' constituents that reference a renamed record type as their (non-nested) parent.
      */
-    private static void renameRecordTypeUsagesInUnnested(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
-                                                         @Nonnull Descriptors.FileDescriptor fileDescriptor,
-                                                         @Nonnull String recordTypeName,
-                                                         @Nonnull String newRecordTypeName,
-                                                         @Nonnull Descriptors.Descriptor oldTypeDescriptor) {
+    private static void renameRecordTypeUsagesInUnnested(RecordMetaDataProto.MetaData.Builder metaDataBuilder,
+                                                         Descriptors.FileDescriptor fileDescriptor,
+                                                         String recordTypeName,
+                                                         String newRecordTypeName,
+                                                         Descriptors.Descriptor oldTypeDescriptor) {
         for (var unnested : metaDataBuilder.getUnnestedRecordTypesBuilderList()) {
             for (var constituent : unnested.getNestedConstituentsBuilderList()) {
                 // The nested constituents would most likely be nested types, not record types, and thus would not be
@@ -681,8 +675,8 @@ public class MetaDataProtoEditor {
      * @param targetDescriptor a type that may or may not be nested in {@code typeDescriptor}
      * @return {@code true} if the {@code targetDescriptor} is the same as {@code typeDescriptor} or a nested type of it
      */
-    private static boolean isNested(@Nonnull Descriptors.Descriptor typeDescriptor,
-                                    @Nonnull Descriptors.Descriptor targetDescriptor) {
+    private static boolean isNested(Descriptors.Descriptor typeDescriptor,
+                                    Descriptors.Descriptor targetDescriptor) {
         if (typeDescriptor.equals(targetDescriptor)) {
             return true;
         } else if (typeDescriptor.getContainingType() == null) {
@@ -699,15 +693,15 @@ public class MetaDataProtoEditor {
      * @param recordType the record type to add the field to
      * @param field the field to be added
      */
-    public static void addField(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
-                                @Nonnull String recordType,
-                                @Nonnull DescriptorProtos.FieldDescriptorProto field) {
+    public static void addField(RecordMetaDataProto.MetaData.Builder metaDataBuilder,
+                                String recordType,
+                                DescriptorProtos.FieldDescriptorProto field) {
         DescriptorProtos.DescriptorProto.Builder messageType =
                 findMessageTypeByName(metaDataBuilder.getRecordsBuilder(), recordType);
         if (messageType == null) {
             throw new MetaDataException("Record type " + recordType + " does not exist");
         }
-        DescriptorProtos.FieldDescriptorProto.Builder fieldBuilder = findFieldByName(messageType, field.getName());
+        Builder fieldBuilder = findFieldByName(messageType, field.getName());
         if (fieldBuilder != null) {
             throw new MetaDataException("Field " + field.getName() + " already exists in record type " + recordType);
         }
@@ -721,22 +715,22 @@ public class MetaDataProtoEditor {
      * @param recordType the record type to deprecate the field from
      * @param fieldName the name of the field to be deprecated
      */
-    public static void deprecateField(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
-                                      @Nonnull String recordType,
-                                      @Nonnull String fieldName) {
+    public static void deprecateField(RecordMetaDataProto.MetaData.Builder metaDataBuilder,
+                                      String recordType,
+                                      String fieldName) {
         DescriptorProtos.DescriptorProto.Builder messageType =
                 findMessageTypeByName(metaDataBuilder.getRecordsBuilder(), recordType);
         if (messageType == null) {
             throw new MetaDataException("Record type " + recordType + " does not exist");
         }
-        DescriptorProtos.FieldDescriptorProto.Builder fieldBuilder = findFieldByName(messageType, fieldName);
+        Builder fieldBuilder = findFieldByName(messageType, fieldName);
         if (fieldBuilder == null) {
             throw new MetaDataException("Field " + fieldName + " not found in record type " + recordType);
         }
         setDeprecated(fieldBuilder);
     }
 
-    private static void setDeprecated(DescriptorProtos.FieldDescriptorProto.Builder fieldBuilder) {
+    private static void setDeprecated(Builder fieldBuilder) {
         if (fieldBuilder.hasOptions()) {
             fieldBuilder.getOptionsBuilder().setDeprecated(true);
         } else {
@@ -744,10 +738,9 @@ public class MetaDataProtoEditor {
         }
     }
 
-    @Nullable
-    private static DescriptorProtos.FieldDescriptorProto.Builder findFieldByName(
-            @Nonnull DescriptorProtos.DescriptorProto.Builder messageType,
-            @Nonnull String fieldName) {
+    private static @Nullable Builder findFieldByName(
+            DescriptorProtos.DescriptorProto.Builder messageType,
+            String fieldName) {
         return messageType.getFieldBuilderList().stream()
                 .filter(m -> m.getName().equals(fieldName))
                 .findAny()
@@ -764,8 +757,7 @@ public class MetaDataProtoEditor {
      * @param fileDescriptor the records descriptor of the record metadata
      * @return the resulting records descriptor
      */
-    @Nonnull
-    public static Descriptors.FileDescriptor addDefaultUnionIfMissing(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
+    public static Descriptors.FileDescriptor addDefaultUnionIfMissing(Descriptors.FileDescriptor fileDescriptor) {
         if (MetaDataProtoEditor.hasUnion(fileDescriptor)) {
             return fileDescriptor;
         }
@@ -793,9 +785,8 @@ public class MetaDataProtoEditor {
      * @param baseUnionDescriptor the base union descriptor
      * @return the builder for the union
      */
-    @Nonnull
-    public static Descriptors.FileDescriptor addDefaultUnionIfMissing(@Nonnull Descriptors.FileDescriptor fileDescriptor,
-                                                                      @Nonnull Descriptors.Descriptor baseUnionDescriptor) {
+    public static Descriptors.FileDescriptor addDefaultUnionIfMissing(Descriptors.FileDescriptor fileDescriptor,
+                                                                      Descriptors.Descriptor baseUnionDescriptor) {
         if (MetaDataProtoEditor.hasUnion(fileDescriptor)) {
             return fileDescriptor;
         }
@@ -825,8 +816,7 @@ public class MetaDataProtoEditor {
         }
     }
 
-    @Nonnull
-    private static DescriptorProtos.DescriptorProto.Builder createDefaultUnion(@Nonnull DescriptorProtos.FileDescriptorProtoOrBuilder recordsDescriptor) {
+    private static DescriptorProtos.DescriptorProto.Builder createDefaultUnion(DescriptorProtos.FileDescriptorProtoOrBuilder recordsDescriptor) {
         DescriptorProtos.DescriptorProto.Builder unionMessageType = DescriptorProtos.DescriptorProto.newBuilder();
         unionMessageType.setName(DEFAULT_UNION_NAME);
         for (DescriptorProtos.DescriptorProtoOrBuilder messageType : recordsDescriptor.getMessageTypeOrBuilderList()) {
@@ -846,10 +836,9 @@ public class MetaDataProtoEditor {
      * @param baseUnionDescriptor the base union descriptor
      * @return the builder for the union
      */
-    @Nonnull
     @API(API.Status.INTERNAL)
-    public static DescriptorProtos.DescriptorProto.Builder createSyntheticUnion(@Nonnull Descriptors.FileDescriptor fileDescriptor,
-                                                                                @Nonnull Descriptors.Descriptor baseUnionDescriptor) {
+    public static DescriptorProtos.DescriptorProto.Builder createSyntheticUnion(Descriptors.FileDescriptor fileDescriptor,
+                                                                                Descriptors.Descriptor baseUnionDescriptor) {
         DescriptorProtos.DescriptorProto.Builder unionMessageType = DescriptorProtos.DescriptorProto.newBuilder();
         unionMessageType.setName(DEFAULT_UNION_NAME);
         if (!baseUnionDescriptor.getOneofs().isEmpty()) {
@@ -875,7 +864,7 @@ public class MetaDataProtoEditor {
      * @param fileDescriptor the file descriptor
      * @return true if the file descriptor has a union
      */
-    public static boolean hasUnion(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
+    public static boolean hasUnion(Descriptors.FileDescriptor fileDescriptor) {
         for (Descriptors.Descriptor messageType : fileDescriptor.getMessageTypes()) {
             if (isUnion(messageType)) {
                 return true;

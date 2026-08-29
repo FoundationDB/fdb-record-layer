@@ -32,8 +32,8 @@ import com.apple.foundationdb.TransactionOptions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterable;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -44,14 +44,12 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 public class KeyCheckingReadTransaction<T extends ReadTransaction> implements ReadTransaction {
-    @Nonnull
     protected final T underlying;
-    @Nonnull
     protected final KeyChecker keyChecker;
     @Nullable
     private ReadTransaction snapshot;
 
-    protected KeyCheckingReadTransaction(@Nonnull final T underlying, @Nonnull KeyChecker keyChecker) {
+    protected KeyCheckingReadTransaction(final T underlying, KeyChecker keyChecker) {
         this.underlying = underlying;
         this.keyChecker = keyChecker;
     }

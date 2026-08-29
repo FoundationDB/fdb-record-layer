@@ -23,8 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An exception that can be thrown by {@link FDBRecordStore}s if they are used before they have been properly
@@ -47,7 +46,7 @@ import javax.annotation.Nullable;
 public class UninitializedRecordStoreException extends RecordCoreException {
     private static final long serialVersionUID = 1L;
 
-    UninitializedRecordStoreException(@Nonnull String msg, @Nullable Object... keyValues) {
+    UninitializedRecordStoreException(String msg, @Nullable Object... keyValues) {
         super(msg, keyValues);
     }
 }

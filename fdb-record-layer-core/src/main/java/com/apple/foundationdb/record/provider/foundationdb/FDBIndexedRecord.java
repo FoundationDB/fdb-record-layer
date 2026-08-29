@@ -29,8 +29,8 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 
 /**
@@ -39,7 +39,6 @@ import java.util.Objects;
  */
 @API(API.Status.UNSTABLE)
 public class FDBIndexedRecord<M extends Message> implements FDBRecord<M>, FDBStoredSizes {
-    @Nonnull
     private final IndexEntry indexEntry;
     // When scanning for orphaned index entries (which can happen when index maintenance is too expensive to perform
     // in-line in a transaction), this will be null to indicate that the entry in the index has no corresponding record.
@@ -54,7 +53,7 @@ public class FDBIndexedRecord<M extends Message> implements FDBRecord<M>, FDBSto
      * @param storedRecord the {@link FDBStoredRecord} containing the record's data
      */
     @API(API.Status.INTERNAL)
-    public FDBIndexedRecord(@Nonnull IndexEntry indexEntry, @Nullable FDBStoredRecord<M> storedRecord) {
+    public FDBIndexedRecord(IndexEntry indexEntry, @Nullable FDBStoredRecord<M> storedRecord) {
         this.indexEntry = indexEntry;
         this.storedRecord = storedRecord;
     }
@@ -63,7 +62,6 @@ public class FDBIndexedRecord<M extends Message> implements FDBRecord<M>, FDBSto
      * Get the index for this record.
      * @return the index that contained the entry pointing to this record
      */
-    @Nonnull
     public Index getIndex() {
         return indexEntry.getIndex();
     }
@@ -72,7 +70,6 @@ public class FDBIndexedRecord<M extends Message> implements FDBRecord<M>, FDBSto
      * Get the index entry for this record.
      * @return the index entry that pointed to this record
      */
-    @Nonnull
     public IndexEntry getIndexEntry() {
         return indexEntry;
     }
@@ -86,7 +83,6 @@ public class FDBIndexedRecord<M extends Message> implements FDBRecord<M>, FDBSto
         return storedRecord != null;
     }
 
-    @Nonnull
     public FDBStoredRecord<M> getStoredRecord() {
         if (storedRecord == null) {
             throw new RecordCoreException("No record associated with index entry").addLogInfo(
@@ -96,19 +92,16 @@ public class FDBIndexedRecord<M extends Message> implements FDBRecord<M>, FDBSto
         return storedRecord;
     }
 
-    @Nonnull
     @Override
     public Tuple getPrimaryKey() {
         return getStoredRecord().getPrimaryKey();
     }
 
-    @Nonnull
     @Override
     public RecordType getRecordType() {
         return getStoredRecord().getRecordType();
     }
 
-    @Nonnull
     @Override
     public M getRecord() {
         return getStoredRecord().getRecord();

@@ -30,8 +30,8 @@ import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
 import com.apple.foundationdb.util.LoggableKeysAndValues;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Set;
@@ -176,7 +176,7 @@ public class FDBExceptions {
         }
     }
 
-    public static RuntimeException wrapException(@Nonnull Throwable ex) {
+    public static RuntimeException wrapException(Throwable ex) {
         //transfer any logging details into mapped exception
         Object[] logInfo;
         if (ex instanceof LoggableKeysAndValues) {
@@ -269,8 +269,8 @@ public class FDBExceptions {
      * @param type the exception type to look for in the cause chain
      * @return {@code true} if {@code type} is found at or below {@code throwable}
      */
-    public static boolean isOrHasCause(@Nonnull final Throwable throwable,
-                                       @Nonnull final Class<? extends Throwable> type) {
+    public static boolean isOrHasCause(final Throwable throwable,
+                                       final Class<? extends Throwable> type) {
         final Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());
         for (Throwable current = throwable; current != null && seen.add(current); current = current.getCause()) {
             if (type.isInstance(current)) {

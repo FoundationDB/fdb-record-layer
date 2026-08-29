@@ -42,8 +42,8 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -55,6 +55,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static com.apple.foundationdb.record.metadata.Key.Evaluated;
 
 /**
  * Helper class for finding appropriate indexes for {@link IndexRecordFunction} and {@link IndexAggregateFunction}.
@@ -71,9 +73,9 @@ public class IndexFunctionHelper {
      * @param record the record to evaluate against
      * @return an index maintainer that can evaluate the function or {@code Optional.empty()}
      */
-    public static Optional<IndexMaintainer> indexMaintainerForRecordFunction(@Nonnull FDBRecordStore store,
-                                                                             @Nonnull IndexRecordFunction<?> function,
-                                                                             @Nonnull FDBRecord<?> record) {
+    public static Optional<IndexMaintainer> indexMaintainerForRecordFunction(FDBRecordStore store,
+                                                                             IndexRecordFunction<?> function,
+                                                                             FDBRecord<?> record) {
         final String recordType = record.getRecordType().getName();
         return indexMaintainerForRecordFunction(store, function, Collections.singletonList(recordType));
     }
@@ -85,9 +87,9 @@ public class IndexFunctionHelper {
      * @param recordTypeNames the names of all the record types for which the function will be evaluated
      * @return an index maintainer that can evaluate the function or {@code Optional.empty()}
      */
-    public static Optional<IndexMaintainer> indexMaintainerForRecordFunction(@Nonnull FDBRecordStore store,
-                                                                             @Nonnull IndexRecordFunction<?> function,
-                                                                             @Nonnull List<String> recordTypeNames) {
+    public static Optional<IndexMaintainer> indexMaintainerForRecordFunction(FDBRecordStore store,
+                                                                             IndexRecordFunction<?> function,
+                                                                             List<String> recordTypeNames) {
         if (function.getIndex() != null) {
             final Index index = store.getRecordMetaData().getIndex(function.getIndex());
             if (store.getRecordStoreState().isReadable(index)) {
@@ -103,10 +105,10 @@ public class IndexFunctionHelper {
     }
 
     public static Optional<IndexMaintainer> indexMaintainerForAggregateFunction(
-            @Nonnull FDBRecordStore store,
-            @Nonnull IndexAggregateFunction function,
-            @Nonnull List<String> recordTypeNames,
-            @Nonnull IndexQueryabilityFilter indexFilter) {
+            FDBRecordStore store,
+            IndexAggregateFunction function,
+            List<String> recordTypeNames,
+            IndexQueryabilityFilter indexFilter) {
         if (function.getIndex() != null) {
             final Index index = store.getRecordMetaData().getIndex(function.getIndex());
             if (store.getRecordStoreState().isReadable(index)) {
@@ -135,10 +137,10 @@ public class IndexFunctionHelper {
      *         was found, {@code Optional.empty()} otherwise.
      */
     protected static Optional<Pair<IndexAggregateFunction, IndexMaintainer>> bindIndexForPermutableAggregateFunctionCall(
-            @Nonnull FDBRecordStore store,
-            @Nonnull IndexAggregateFunctionCall functionCall,
-            @Nonnull List<String> recordTypeNames,
-            @Nonnull IndexQueryabilityFilter indexFilter) {
+            FDBRecordStore store,
+            IndexAggregateFunctionCall functionCall,
+            List<String> recordTypeNames,
+            IndexQueryabilityFilter indexFilter) {
         Verify.verify(functionCall.isGroupingPermutable());
         return indexesForRecordTypes(store, recordTypeNames)
                 .filter(index -> store.getIndexState(index).isReadable())
@@ -164,8 +166,8 @@ public class IndexFunctionHelper {
      * @param recordTypeNames the names of the record types for which indexes are needed
      * @return a stream of indexes
      */
-    public static Stream<Index> indexesForRecordTypes(@Nonnull FDBRecordStore store,
-                                                      @Nonnull List<String> recordTypeNames) {
+    public static Stream<Index> indexesForRecordTypes(FDBRecordStore store,
+                                                      List<String> recordTypeNames) {
         return indexesForRecordTypes(store.getRecordMetaData(), recordTypeNames);
     }
 
@@ -175,8 +177,8 @@ public class IndexFunctionHelper {
      * @param recordTypeNames the names of the record types for which indexes are needed
      * @return a stream of indexes
      */
-    public static Stream<Index> indexesForRecordTypes(@Nonnull RecordMetaData metaData,
-                                                      @Nonnull Collection<String> recordTypeNames) {
+    public static Stream<Index> indexesForRecordTypes(RecordMetaData metaData,
+                                                      Collection<String> recordTypeNames) {
         if (recordTypeNames.isEmpty()) {
             return metaData.getUniversalIndexes().stream();
         } else if (recordTypeNames.size() == 1) {
@@ -195,7 +197,7 @@ public class IndexFunctionHelper {
      * @param indexRoot the index's expression
      * @return {@code true} if the operand is compatible with the index
      */
-    public static boolean isGroupPrefix(@Nonnull KeyExpression functionOperand, @Nonnull KeyExpression indexRoot) {
+    public static boolean isGroupPrefix(KeyExpression functionOperand, KeyExpression indexRoot) {
         if (functionOperand.equals(indexRoot)) {
             return true;
         }
@@ -203,7 +205,7 @@ public class IndexFunctionHelper {
             getGroupingKey(functionOperand).isPrefixKey(getGroupingKey(indexRoot));
     }
 
-    public static KeyExpression getGroupedKey(@Nonnull KeyExpression key) {
+    public static KeyExpression getGroupedKey(KeyExpression key) {
         if (!(key instanceof GroupingKeyExpression)) {
             return key;
         }
@@ -211,7 +213,7 @@ public class IndexFunctionHelper {
         return groupKey(getSubKey(grouping.getWholeKey(), grouping.getGroupingCount(), grouping.getColumnSize()));
     }
 
-    public static KeyExpression getGroupingKey(@Nonnull KeyExpression key) {
+    public static KeyExpression getGroupingKey(KeyExpression key) {
         if (!(key instanceof GroupingKeyExpression)) {
             return EmptyKeyExpression.EMPTY;
         }
@@ -219,7 +221,7 @@ public class IndexFunctionHelper {
         return groupKey(getSubKey(grouping.getWholeKey(), 0, grouping.getGroupingCount()));
     }
 
-    protected static KeyExpression groupKey(@Nonnull KeyExpression key) {
+    protected static KeyExpression groupKey(KeyExpression key) {
         if (key instanceof ThenKeyExpression) {
             final List<KeyExpression> children = ((ThenKeyExpression) key).getChildren();
             int n = children.size();
@@ -294,22 +296,22 @@ public class IndexFunctionHelper {
         throw new RecordCoreException("column counts are not consistent");
     }
 
-    public static IndexAggregateFunction count(@Nonnull KeyExpression by) {
+    public static IndexAggregateFunction count(KeyExpression by) {
         return new IndexAggregateFunction(FunctionNames.COUNT,
                 new GroupingKeyExpression(by, 0),
                 null);
     }
 
-    public static IndexAggregateFunction countUpdates(@Nonnull KeyExpression by) {
+    public static IndexAggregateFunction countUpdates(KeyExpression by) {
         return new IndexAggregateFunction(FunctionNames.COUNT_UPDATES,
                 new GroupingKeyExpression(by, 0),
                 null);
     }
 
-    public static Optional<IndexAggregateFunction> bindAggregateFunction(@Nonnull FDBRecordStore store,
-                                                                         @Nonnull IndexAggregateFunction function,
-                                                                         @Nonnull List<String> recordTypeNames,
-                                                                         @Nonnull IndexQueryabilityFilter indexFilter) {
+    public static Optional<IndexAggregateFunction> bindAggregateFunction(FDBRecordStore store,
+                                                                         IndexAggregateFunction function,
+                                                                         List<String> recordTypeNames,
+                                                                         IndexQueryabilityFilter indexFilter) {
         return indexMaintainerForAggregateFunction(store, function, recordTypeNames, indexFilter)
                 .map(i -> function.cloneWithIndex(i.state.index.getName()));
     }
@@ -327,10 +329,10 @@ public class IndexFunctionHelper {
      * @return an optional of a bound {@link IndexAggregateFunction} if a matching index
      *         was found, {@code Optional.empty()} otherwise.
      */
-    public static Optional<IndexAggregateFunction> bindAggregateFunctionCall(@Nonnull FDBRecordStore store,
-                                                                             @Nonnull IndexAggregateFunctionCall functionCall,
-                                                                             @Nonnull List<String> recordTypeNames,
-                                                                             @Nonnull IndexQueryabilityFilter indexFilter) {
+    public static Optional<IndexAggregateFunction> bindAggregateFunctionCall(FDBRecordStore store,
+                                                                             IndexAggregateFunctionCall functionCall,
+                                                                             List<String> recordTypeNames,
+                                                                             IndexQueryabilityFilter indexFilter) {
         if (functionCall.isGroupingPermutable()) {
             return bindIndexForPermutableAggregateFunctionCall(store, functionCall, recordTypeNames, indexFilter)
                     .map(Pair::getLeft);
@@ -341,11 +343,10 @@ public class IndexFunctionHelper {
 
     static class IndexRecordFunctionWithSubrecordValues<T> extends IndexRecordFunction<T> {
         private final int scalarPrefixCount;
-        @Nonnull
         private final QueryToKeyMatcher.Match match;
 
-        protected IndexRecordFunctionWithSubrecordValues(@Nonnull IndexRecordFunction<T> recordFunction, @Nonnull Index index,
-                                                         int scalarPrefixCount, @Nonnull QueryToKeyMatcher.Match match) {
+        protected IndexRecordFunctionWithSubrecordValues(IndexRecordFunction<T> recordFunction, Index index,
+                                                         int scalarPrefixCount, QueryToKeyMatcher.Match match) {
             super(recordFunction.getName(), recordFunction.getOperand(), index.getName());
             this.scalarPrefixCount = scalarPrefixCount;
             this.match = match;
@@ -355,7 +356,7 @@ public class IndexFunctionHelper {
             return scalarPrefixCount;
         }
 
-        public Key.Evaluated getValues(@Nonnull FDBRecordStore store, @Nonnull EvaluationContext context) {
+        public Evaluated getValues(FDBRecordStore store, EvaluationContext context) {
             return match.getEquality(store, context);
         }
 
@@ -390,11 +391,10 @@ public class IndexFunctionHelper {
      * @param <T> return type of function
      * @return a new function that remembers the condition for matching
      */
-    @Nonnull
-    public static <T> IndexRecordFunction<T> recordFunctionWithSubrecordCondition(@Nonnull FDBRecordStore store,
-                                                                                  @Nonnull IndexRecordFunction<T> recordFunction,
-                                                                                  @Nonnull FDBRecord<?> record,
-                                                                                  @Nonnull QueryComponent condition) {
+    public static <T> IndexRecordFunction<T> recordFunctionWithSubrecordCondition(FDBRecordStore store,
+                                                                                  IndexRecordFunction<T> recordFunction,
+                                                                                  FDBRecord<?> record,
+                                                                                  QueryComponent condition) {
         final IndexMaintainer indexMaintainer = indexMaintainerForRecordFunction(store, recordFunction, record)
                 .orElseThrow(() -> new RecordCoreException("Record function " + recordFunction +
                                                            " requires appropriate index on " + record.getRecordType().getName()));
@@ -438,11 +438,11 @@ public class IndexFunctionHelper {
      * @return an index entry or {@code null} if none matches a bound condition
      */
     @Nullable
-    public static Key.Evaluated recordFunctionIndexEntry(@Nonnull FDBRecordStore store,
-                                                         @Nonnull Index index,
-                                                         @Nonnull EvaluationContext context,
+    public static Evaluated recordFunctionIndexEntry(FDBRecordStore store,
+                                                         Index index,
+                                                         EvaluationContext context,
                                                          @Nullable IndexRecordFunction<?> recordFunction,
-                                                         @Nonnull FDBRecord<?> record,
+                                                         FDBRecord<?> record,
                                                          int groupSize) {
         final KeyExpression expression = index.getRootExpression();
         if (!(recordFunction instanceof IndexRecordFunctionWithSubrecordValues)) {
@@ -452,8 +452,8 @@ public class IndexFunctionHelper {
         final int scalarPrefixCount = recordFunctionWithSubrecordValues.getScalarPrefixCount();
         final List<Object> toMatch = recordFunctionWithSubrecordValues.getValues(store, context).values();
         List<Object> prev = null;
-        Key.Evaluated match = null;
-        for (Key.Evaluated key : expression.evaluate(record)) {
+        Evaluated match = null;
+        for (Evaluated key : expression.evaluate(record)) {
             final List<Object> subrecord = key.values();
             for (int i = 0; i < groupSize; i++) {
                 if (i < scalarPrefixCount) {

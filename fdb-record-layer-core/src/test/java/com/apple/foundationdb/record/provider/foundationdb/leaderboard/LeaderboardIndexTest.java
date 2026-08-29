@@ -75,7 +75,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Collection;

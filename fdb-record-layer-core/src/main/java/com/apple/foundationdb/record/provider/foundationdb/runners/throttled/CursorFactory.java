@@ -25,8 +25,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Create a cursor with the given store and last result.
@@ -45,5 +44,5 @@ public interface CursorFactory<T> {
      * @param rowLimit the adjusted row limit to use
      * @return a newly created cursor with the given continuation and limit
      */
-    RecordCursor<T> createCursor(@Nonnull FDBRecordStore store, @Nullable RecordCursorResult<T> lastResult, int rowLimit);
+    RecordCursor<T> createCursor(FDBRecordStore store, @Nullable RecordCursorResult<T> lastResult, int rowLimit);
 }

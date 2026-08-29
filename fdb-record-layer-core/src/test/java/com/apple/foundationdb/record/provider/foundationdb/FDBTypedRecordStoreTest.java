@@ -41,7 +41,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -137,7 +136,6 @@ public class FDBTypedRecordStoreTest {
         }
     }
 
-    @Nonnull
     private List<TestRecords1Proto.MySimpleRecord> insertTestData() {
         List<TestRecords1Proto.MySimpleRecord> inserted = new ArrayList<>();
         try (FDBRecordContext context = fdb.openContext()) {

@@ -30,4 +30,7 @@
  * underlying database that can degrade performance. To avoid that performance pathology, the classes in
  * this package can be used to cache the store state information.
  */
+@NullMarked
 package com.apple.foundationdb.record.provider.foundationdb.storestate;
+
+import org.jspecify.annotations.NullMarked;

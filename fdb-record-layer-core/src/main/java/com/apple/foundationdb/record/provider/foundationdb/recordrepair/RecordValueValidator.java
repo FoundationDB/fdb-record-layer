@@ -31,7 +31,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
@@ -48,15 +47,14 @@ import java.util.concurrent.CompletionException;
 public class RecordValueValidator implements RecordValidator {
     private static final Logger logger = LoggerFactory.getLogger(RecordValueValidator.class);
 
-    @Nonnull
     private final FDBRecordStore store;
 
-    public RecordValueValidator(@Nonnull final FDBRecordStore store) {
+    public RecordValueValidator(final FDBRecordStore store) {
         this.store = store;
     }
 
     @Override
-    public CompletableFuture<RecordRepairResult> validateRecordAsync(@Nonnull final Tuple primaryKey) {
+    public CompletableFuture<RecordRepairResult> validateRecordAsync(final Tuple primaryKey) {
         return store.loadRecordAsync(primaryKey).handle((rec, exception) -> {
             if (exception != null) {
                 if (exception instanceof CompletionException) {
@@ -84,7 +82,7 @@ public class RecordValueValidator implements RecordValidator {
     }
 
     @Override
-    public CompletableFuture<RecordRepairResult> repairRecordAsync(@Nonnull RecordRepairResult validationResult) {
+    public CompletableFuture<RecordRepairResult> repairRecordAsync(RecordRepairResult validationResult) {
         if (validationResult.isValid()) {
             // do nothing
             return CompletableFuture.completedFuture(validationResult.withRepair(RecordRepairResult.REPAIR_NOT_NEEDED));

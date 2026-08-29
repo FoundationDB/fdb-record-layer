@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Map;
@@ -236,7 +235,6 @@ public enum FormatVersion implements Comparable<FormatVersion> {
         }
     }
 
-    @Nonnull
     @API(API.Status.INTERNAL)
     public static FormatVersion getFormatVersion(int candidateVersion) {
         final FormatVersion candidate = VERSIONS.get(candidateVersion);

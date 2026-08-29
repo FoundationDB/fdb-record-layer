@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.async.TaskNotifyingExecutor;
 import org.slf4j.MDC;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.concurrent.Executor;
 
@@ -32,10 +31,9 @@ import java.util.concurrent.Executor;
  * available to all completion tasks produced from it.
  */
 class ContextRestoringExecutor extends TaskNotifyingExecutor {
-    @Nonnull
     private final Map<String, String> mdcContext;
 
-    public ContextRestoringExecutor(@Nonnull Executor delegate, @Nonnull Map<String, String> mdcContext) {
+    public ContextRestoringExecutor(Executor delegate, Map<String, String> mdcContext) {
         super(delegate);
         this.mdcContext = mdcContext;
     }
@@ -50,16 +48,15 @@ class ContextRestoringExecutor extends TaskNotifyingExecutor {
         clearMdc(mdcContext);
     }
 
-    @Nonnull
     public Map<String, String> getMdcContext() {
         return mdcContext;
     }
 
-    static void restoreMdc(@Nonnull Map<String, String> mdcContext) {
+    static void restoreMdc(Map<String, String> mdcContext) {
         MDC.setContextMap(mdcContext);
     }
 
-    static void clearMdc(@Nonnull Map<String, String> mdcContext) {
+    static void clearMdc(Map<String, String> mdcContext) {
         Map<String, String> map = MDC.getMDCAdapter().getCopyOfContextMap();
         for (String key : mdcContext.keySet()) {
             map.remove(key);

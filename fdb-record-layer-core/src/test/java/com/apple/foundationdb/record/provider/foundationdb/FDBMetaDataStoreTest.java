@@ -73,7 +73,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -801,37 +800,37 @@ public class FDBMetaDataStoreTest {
         }
     }
 
-    private void addRecordType(@Nonnull DescriptorProtos.DescriptorProto newRecordType, @Nonnull KeyExpression primaryKey) {
+    private void addRecordType(DescriptorProtos.DescriptorProto newRecordType, KeyExpression primaryKey) {
         metaDataStore.mutateMetaData(metaDataProto -> MetaDataProtoEditor.addRecordType(metaDataProto, newRecordType, primaryKey));
     }
 
-    private void addRecordType(@Nonnull DescriptorProtos.DescriptorProto newRecordType, @Nonnull KeyExpression primaryKey, @Nonnull Index index) {
+    private void addRecordType(DescriptorProtos.DescriptorProto newRecordType, KeyExpression primaryKey, Index index) {
         metaDataStore.mutateMetaData(metaDataProto -> MetaDataProtoEditor.addRecordType(metaDataProto, newRecordType, primaryKey),
                 recordMetaDataBuilder -> recordMetaDataBuilder.addIndex(newRecordType.getName(), index));
     }
 
-    private void deprecateRecordType(@Nonnull String recordType) {
+    private void deprecateRecordType(String recordType) {
         metaDataStore.mutateMetaData((metaDataProto) -> {
             Descriptors.FileDescriptor[] dependencies = RecordMetaDataBuilder.getDependencies(metaDataProto.build(), Map.of());
             MetaDataProtoEditor.deprecateRecordType(metaDataProto, recordType, dependencies);
         });
     }
 
-    private void addField(@Nonnull String recordType, @Nonnull DescriptorProtos.FieldDescriptorProto field) {
+    private void addField(String recordType, DescriptorProtos.FieldDescriptorProto field) {
         metaDataStore.mutateMetaData((metaDataProto) -> MetaDataProtoEditor.addField(metaDataProto, recordType, field));
     }
 
-    private void deprecateField(@Nonnull String recordType, @Nonnull String fieldName) {
+    private void deprecateField(String recordType, String fieldName) {
         metaDataStore.mutateMetaData((metaDataProto) -> MetaDataProtoEditor.deprecateField(metaDataProto, recordType, fieldName));
     }
 
-    private void renameRecordType(@Nonnull String recordType, @Nonnull String newRecordTypeName) {
+    private void renameRecordType(String recordType, String newRecordTypeName) {
         metaDataStore.mutateMetaData((metaDataProto) ->
                 MetaDataProtoEditor.renameRecordType(metaDataProto, recordType, newRecordTypeName,
                         RecordMetaDataBuilder.getDependencies(metaDataProto.build(), Map.of())));
     }
 
-    private static void assertDeprecated(@Nonnull RecordMetaData metaData, @Nonnull String recordType) {
+    private static void assertDeprecated(RecordMetaData metaData, String recordType) {
         RecordType recordTypeObj = metaData.getRecordType(recordType);
         assertTrue(metaData.getUnionFieldForRecordType(recordTypeObj).getOptions().getDeprecated());
     }
@@ -1544,7 +1543,6 @@ public class FDBMetaDataStoreTest {
             this.fileDescriptor = fileDescriptor;
         }
 
-        @Nonnull
         public Descriptors.FileDescriptor getFileDescriptor() {
             return fileDescriptor;
         }
@@ -1552,7 +1550,7 @@ public class FDBMetaDataStoreTest {
 
     @EnumSource(TestProtoFiles.class)
     @ParameterizedTest(name = "noUnion [protoFile = {0}]")
-    public void noUnion(@Nonnull TestProtoFiles protoFile) {
+    public void noUnion(TestProtoFiles protoFile) {
         int version;
         try (FDBRecordContext context = fdb.openContext()) {
             openMetaDataStore(context);
@@ -2164,7 +2162,7 @@ public class FDBMetaDataStoreTest {
         }
     }
 
-    private static void validateInnerRecordsInRightPlaces(@Nonnull RecordMetaData metaData) {
+    private static void validateInnerRecordsInRightPlaces(RecordMetaData metaData) {
         Descriptors.FileDescriptor recordsDescriptor = metaData.getRecordsDescriptor();
         Descriptors.Descriptor innerRecord = recordsDescriptor.findMessageTypeByName("InnerRecord");
         assertNotNull(innerRecord);

@@ -21,4 +21,7 @@
 /**
  * Classes for interacting with system key client logs in record layer terms.
  */
+@NullMarked
 package com.apple.foundationdb.record.provider.foundationdb.clientlog;
+
+import org.jspecify.annotations.NullMarked;

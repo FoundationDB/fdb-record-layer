@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -39,12 +38,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Utilities for testing interactions with {@link FDBRecordStoreStateCache}.
  */
 public class FDBRecordStoreStateCacheTestUtils {
-    @Nonnull
     static final ReadVersionRecordStoreStateCacheFactory readVersionCacheFactory = ReadVersionRecordStoreStateCacheFactory.newInstance();
-    @Nonnull
     static final MetaDataVersionStampStoreStateCacheFactory metaDataVersionStampCacheFactory = MetaDataVersionStampStoreStateCacheFactory.newInstance();
 
-    @Nonnull
     public static Stream<StateCacheTestContext> testContextSource() {
         return Stream.of(new ReadVersionStateCacheTestContext(), new MetaDataVersionStampStateCacheTestContext());
     }
@@ -69,35 +65,30 @@ public class FDBRecordStoreStateCacheTestUtils {
      * implementations.
      */
     public interface StateCacheTestContext {
-        @Nonnull
-        FDBRecordStoreStateCache getCache(@Nonnull FDBDatabase database);
+        FDBRecordStoreStateCache getCache(FDBDatabase database);
 
-        @Nonnull
-        default FDBRecordContext getCachedContext(@Nonnull FDBDatabase fdb, @Nonnull FDBRecordStore.Builder storeBuilder) {
+        default FDBRecordContext getCachedContext(FDBDatabase fdb, FDBRecordStore.Builder storeBuilder) {
             return getCachedContext(fdb, storeBuilder, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NO_INFO_AND_NOT_EMPTY);
         }
 
-        @Nonnull
-        FDBRecordContext getCachedContext(@Nonnull FDBDatabase fdb, @Nonnull FDBRecordStore.Builder storeBuilder,
-                                          @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck);
+        FDBRecordContext getCachedContext(FDBDatabase fdb, FDBRecordStore.Builder storeBuilder,
+                                          FDBRecordStoreBase.StoreExistenceCheck existenceCheck);
 
-        void invalidateCache(@Nonnull FDBDatabase fdb);
+        void invalidateCache(FDBDatabase fdb);
     }
 
     /**
      * An implementation of the {@link StateCacheTestContext} that handles caching by read version.
      */
     public static class ReadVersionStateCacheTestContext implements StateCacheTestContext {
-        @Nonnull
         @Override
-        public FDBRecordStoreStateCache getCache(@Nonnull FDBDatabase database) {
+        public FDBRecordStoreStateCache getCache(FDBDatabase database) {
             return readVersionCacheFactory.getCache(database);
         }
 
-        @Nonnull
         @Override
-        public FDBRecordContext getCachedContext(@Nonnull FDBDatabase fdb, @Nonnull FDBRecordStore.Builder storeBuilder,
-                                                 @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
+        public FDBRecordContext getCachedContext(FDBDatabase fdb, FDBRecordStore.Builder storeBuilder,
+                                                 FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
             long readVersion;
             try (FDBRecordContext context = fdb.openContext()) {
                 storeBuilder.copyBuilder().setContext(context).createOrOpen(existenceCheck);
@@ -109,7 +100,7 @@ public class FDBRecordStoreStateCacheTestUtils {
         }
 
         @Override
-        public void invalidateCache(@Nonnull FDBDatabase fdb) {
+        public void invalidateCache(FDBDatabase fdb) {
             // Ensure that the next read version includes at least one new commit.
             try (FDBRecordContext context = fdb.openContext()) {
                 context.ensureActive().addWriteConflictKey(Tuple.from(UUID.randomUUID()).pack());
@@ -128,16 +119,14 @@ public class FDBRecordStoreStateCacheTestUtils {
      */
     public static class MetaDataVersionStampStateCacheTestContext implements StateCacheTestContext {
 
-        @Nonnull
         @Override
-        public FDBRecordStoreStateCache getCache(@Nonnull FDBDatabase database) {
+        public FDBRecordStoreStateCache getCache(FDBDatabase database) {
             return metaDataVersionStampCacheFactory.getCache(database);
         }
 
-        @Nonnull
         @Override
-        public FDBRecordContext getCachedContext(@Nonnull FDBDatabase fdb, @Nonnull FDBRecordStore.Builder storeBuilder,
-                                                 @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
+        public FDBRecordContext getCachedContext(FDBDatabase fdb, FDBRecordStore.Builder storeBuilder,
+                                                 FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
             boolean cacheable = true;
             try (FDBRecordContext context = fdb.openContext()) {
                 FDBRecordStore store = storeBuilder.copyBuilder().setContext(context).createOrOpen(existenceCheck);
@@ -159,7 +148,7 @@ public class FDBRecordStoreStateCacheTestUtils {
         }
 
         @Override
-        public void invalidateCache(@Nonnull FDBDatabase fdb) {
+        public void invalidateCache(FDBDatabase fdb) {
             // Ensure that the next read version includes at least one new commit.
             try (FDBRecordContext context = fdb.openContext()) {
                 context.setMetaDataVersionStamp();

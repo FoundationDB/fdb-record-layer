@@ -27,8 +27,8 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Versionstamp;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
@@ -75,11 +75,11 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
                                                                             (byte)0xff, (byte)0xff, (byte)0xff, (byte)0xff, (byte)0xfe,
                                                                             (byte)0xff, (byte)0xff});
 
-    @Nonnull private final byte[] versionBytes;
+    private final byte[] versionBytes;
     private final boolean complete;
     private final int localVersion;
 
-    private static boolean isGlobalVersionComplete(@Nonnull byte[] versionBytes) {
+    private static boolean isGlobalVersionComplete(byte[] versionBytes) {
         for (int i = 0; i < GLOBAL_VERSION_LENGTH; i++) {
             if (versionBytes[i] != INCOMPLETE_GLOBAL_VERSION[i]) {
                 return true;
@@ -94,7 +94,7 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
         }
     }
 
-    private FDBRecordVersion(boolean complete, @Nonnull byte[] versionBytes, boolean copy) {
+    private FDBRecordVersion(boolean complete, byte[] versionBytes, boolean copy) {
         if (versionBytes.length != VERSION_LENGTH) {
             throw new RecordCoreException("Specified version has invalid byte length " + versionBytes.length + " != " + VERSION_LENGTH);
         }
@@ -119,8 +119,7 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * @param localVersion the local version associated with this version
      * @return a new complete <code>FDBRecordVersion</code>
      */
-    @Nonnull
-    public static FDBRecordVersion complete(@Nonnull byte[] globalVersion, int localVersion) {
+    public static FDBRecordVersion complete(byte[] globalVersion, int localVersion) {
         if (globalVersion.length != GLOBAL_VERSION_LENGTH) {
             throw new RecordCoreException("Specified global version has invalid length " + globalVersion.length);
         }
@@ -146,8 +145,7 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * @param versionBytes the byte representation of a version
      * @return a version object wrapping the given bytes
      */
-    @Nonnull
-    public static FDBRecordVersion complete(@Nonnull byte[] versionBytes) {
+    public static FDBRecordVersion complete(byte[] versionBytes) {
         return complete(versionBytes, true);
     }
 
@@ -165,8 +163,7 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * @param copy whether to copy the array for the new <code>FDBRecordVersion</code>
      * @return a version object wrapping the given bytes
      */
-    @Nonnull
-    public static FDBRecordVersion complete(@Nonnull byte[] versionBytes, boolean copy) {
+    public static FDBRecordVersion complete(byte[] versionBytes, boolean copy) {
         return new FDBRecordVersion(true, versionBytes, copy);
     }
 
@@ -177,7 +174,6 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * @param localVersion the local version associated with this version
      * @return a new incomplete <code>FDBRecordVersion</code>
      */
-    @Nonnull
     public static FDBRecordVersion incomplete(int localVersion) {
         validateLocalVersion(localVersion);
         ByteBuffer buffer = ByteBuffer.allocate(VERSION_LENGTH).order(ByteOrder.BIG_ENDIAN);
@@ -200,8 +196,7 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * @param versionBytes the byte representation of a version
      * @return a version object wrapping the given bytes
      */
-    @Nonnull
-    public static FDBRecordVersion fromBytes(@Nonnull byte[] versionBytes) {
+    public static FDBRecordVersion fromBytes(byte[] versionBytes) {
         return fromBytes(versionBytes, true);
     }
 
@@ -221,8 +216,7 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * @param copy whether to copy the array for the new <code>FDBRecordVersion</code>
      * @return a version object wrapping the given bytes
      */
-    @Nonnull
-    public static FDBRecordVersion fromBytes(@Nonnull byte[] versionBytes, boolean copy) {
+    public static FDBRecordVersion fromBytes(byte[] versionBytes, boolean copy) {
         if (versionBytes.length != VERSION_LENGTH) {
             throw new RecordCoreException("Specified version bytes have invalid length " + versionBytes.length);
         }
@@ -244,8 +238,7 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * @param versionstamp {@link Versionstamp} instance to convert
      * @return a <code>FDBRecordVersion</code> with equivalent information
      */
-    @Nonnull
-    public static FDBRecordVersion fromVersionstamp(@Nonnull Versionstamp versionstamp) {
+    public static FDBRecordVersion fromVersionstamp(Versionstamp versionstamp) {
         return fromVersionstamp(versionstamp, true);
     }
 
@@ -264,8 +257,7 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * @param copy whether to copy the underlying array for the new <code>FDBRecordVersion</code>
      * @return a <code>FDBRecordVersion</code> with equivalent information
      */
-    @Nonnull
-    public static FDBRecordVersion fromVersionstamp(@Nonnull Versionstamp versionstamp, boolean copy) {
+    public static FDBRecordVersion fromVersionstamp(Versionstamp versionstamp, boolean copy) {
         return new FDBRecordVersion(versionstamp.isComplete(), versionstamp.getBytes(), copy);
     }
 
@@ -277,7 +269,6 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * @param dbVersion the database version to base this <code>FDBRecordVersion</code> on
      * @return the first version possibly written at this database version or newer
      */
-    @Nonnull
     public static FDBRecordVersion firstInDBVersion(long dbVersion) {
         return FDBRecordVersion.complete(
                 ByteBuffer.allocate(VERSION_LENGTH).order(ByteOrder.BIG_ENDIAN).putLong(dbVersion).putInt(0).array(),
@@ -292,7 +283,7 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * @param globalVersion the global version of the new version
      * @return the first version possibly written at the given global version or newer
      */
-    public static FDBRecordVersion firstInGlobalVersion(@Nonnull byte[] globalVersion) {
+    public static FDBRecordVersion firstInGlobalVersion(byte[] globalVersion) {
         return FDBRecordVersion.complete(globalVersion, 0);
     }
 
@@ -318,7 +309,7 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * @param globalVersion the global version of the new version
      * @return the last version possibly written at the given global version or older
      */
-    public static FDBRecordVersion lastInGlobalVersion(@Nonnull byte[] globalVersion) {
+    public static FDBRecordVersion lastInGlobalVersion(byte[] globalVersion) {
         return FDBRecordVersion.complete(globalVersion, 0xffff);
     }
 
@@ -333,7 +324,6 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * takes a boolean as an argument.
      * @return {@link Versionstamp} representation of this version
      */
-    @Nonnull
     public Versionstamp toVersionstamp() {
         return toVersionstamp(true);
     }
@@ -352,7 +342,6 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * @param copy whether to copy the underlying data arrays for the new instance
      * @return {@link Versionstamp} representation of this version
      */
-    @Nonnull
     public Versionstamp toVersionstamp(boolean copy) {
         return Versionstamp.fromBytes(toBytes(copy));
     }
@@ -371,7 +360,6 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      *
      * @return byte representation of this version
      */
-    @Nonnull
     public byte[] toBytes() {
         return toBytes(true);
     }
@@ -392,7 +380,6 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * @param copy whether to copy the underlying data array
      * @return byte representation of this version
      */
-    @Nonnull
     @SpotBugsSuppressWarnings(value = "EI", justification = "option is explicitly set to do this")
     public byte[] toBytes(boolean copy) {
         if (copy) {
@@ -416,8 +403,7 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * @return the same byte buffer
      * @see #toBytes()
      */
-    @Nonnull
-    public ByteBuffer writeTo(@Nonnull ByteBuffer buffer) {
+    public ByteBuffer writeTo(ByteBuffer buffer) {
         return buffer.put(versionBytes);
     }
 
@@ -433,7 +419,7 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * @see #toBytes()
      * @see #writeTo(byte[], int)
      */
-    public int writeTo(@Nonnull byte[] bytes) {
+    public int writeTo(byte[] bytes) {
         return writeTo(bytes, 0);
     }
 
@@ -449,7 +435,7 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * @throws RecordCoreArgumentException if there is insufficient space within <code>bytes</code>
      * @see #toBytes()
      */
-    public int writeTo(@Nonnull byte[] bytes, int offset) {
+    public int writeTo(byte[] bytes, int offset) {
         if (offset < 0 || offset + versionBytes.length > bytes.length) {
             throw new RecordCoreArgumentException("insufficient space in array to write version information");
         }
@@ -502,7 +488,6 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * @see FDBRecordContext#getVersionStamp()
      * @throws IncompleteRecordVersionException if the global version is unset
      */
-    @Nonnull
     public byte[] getGlobalVersion() {
         if (isComplete()) {
             return Arrays.copyOfRange(versionBytes, 0, GLOBAL_VERSION_LENGTH);
@@ -542,7 +527,6 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      *
      * @return the next highest <code>FDBRecordVersion</code> instance
      */
-    @Nonnull
     public FDBRecordVersion next() {
         if (isComplete()) {
             // This is essentially implementing +1 on a 12 byte unsigned big-endian integer.
@@ -575,7 +559,6 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      *
      * @return the previous <code>FDBRecordVersion</code> instance
      */
-    @Nonnull
     public FDBRecordVersion prev() {
         if (isComplete()) {
             // This is essentially implementing -1 on a 12 byte unsigned big-endian integer.
@@ -605,7 +588,6 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * @param committedVersion the result of {@link FDBRecordContext#getVersionStamp}
      * @return a new record version with a complete version
      */
-    @Nonnull
     public FDBRecordVersion withCommittedVersion(@Nullable byte[] committedVersion) {
         if (isComplete()) {
             throw new RecordCoreException("version is already complete");
@@ -668,7 +650,7 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * @return -1 if this instance is older, 0 if they are the same, or 1 if this instance is newer
      */
     @Override
-    public int compareTo(@Nonnull FDBRecordVersion other) {
+    public int compareTo(FDBRecordVersion other) {
         if (isComplete()) {
             if (other.isComplete()) {
                 return ByteArrayUtil.compareUnsigned(versionBytes, other.versionBytes);
@@ -702,7 +684,6 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * @return human-readable representation of the record version
      */
     @Override
-    @Nonnull
     public String toString() {
         return "FDBRecordVersion(" + ByteArrayUtil.printable(versionBytes) + ")";
     }

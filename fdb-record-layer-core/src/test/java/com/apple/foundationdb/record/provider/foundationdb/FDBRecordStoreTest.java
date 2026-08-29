@@ -77,8 +77,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -870,14 +870,13 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             this.metaData2 = metaData2;
         }
 
-        @Nonnull
         @Override
         public RecordMetaData getRecordMetaData() {
             return needOld ? metaData1 : metaData2;
         }
 
         @Override
-        public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
+        public CompletableFuture<Integer> checkUserVersion(final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
             if (storeHeader.getFormatVersion() == 0) {
                 return CompletableFuture.completedFuture(defaultVersion);
             }
@@ -1090,8 +1089,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         });
     }
 
-    @Nonnull
-    private FDBMetaDataStore openMetaDataStore(@Nonnull FDBRecordContext context, @Nonnull KeySpacePath metaDataPath, boolean clear) {
+    private FDBMetaDataStore openMetaDataStore(FDBRecordContext context, KeySpacePath metaDataPath, boolean clear) {
         FDBMetaDataStore metaDataStore = new FDBMetaDataStore(context, metaDataPath);
         metaDataStore.setDependencies(new Descriptors.FileDescriptor[] {
                 RecordMetaDataOptionsProto.getDescriptor()
@@ -1237,7 +1235,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private long checkLastUpdateTimeUpdated(long previousUpdateTime, @Nullable RecordMetaDataHook metaDataHook, @Nonnull Consumer<FDBRecordStore> updateOperation) {
+    private long checkLastUpdateTimeUpdated(long previousUpdateTime, @Nullable RecordMetaDataHook metaDataHook, Consumer<FDBRecordStore> updateOperation) {
         long updateTime;
         try (FDBRecordContext context = openContext()) {
             final long beforeOpenTime = System.currentTimeMillis();
@@ -1525,7 +1523,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     private static FDBRecordStore openWithSlowRecordCount(FDBRecordStore.Builder standardBuilder) {
         return new FDBRecordStore.Builder(standardBuilder) {
             @Override
-            @Nonnull
             public FDBRecordStore build() {
                 return new FDBRecordStore(getContext(), subspaceProvider, getFormatVersionEnum(),
                         getMetaDataProvider(), getSerializer(),
@@ -1533,11 +1530,10 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                         getPipelineSizer(), getStoreStateCache(),
                         getStateCacheabilityOnOpen(), getUserVersionChecker(),
                         getBypassFullStoreLockReason(), getPlanSerializationRegistry()) {
-                    @Nonnull
                     @Override
                     protected CompletableFuture<Long> getRecordCountForRebuildIndexes(
                             boolean newStore, boolean rebuildRecordCounts,
-                            @Nonnull Map<Index, List<RecordType>> indexes,
+                            Map<Index, List<RecordType>> indexes,
                             @Nullable RecordType singleRecordTypeWithPrefixKey) {
                         recordStoreStateRef.get().beginRead();
                         return MoreAsyncUtil.delayedFuture(100, TimeUnit.MILLISECONDS).thenApply(vignore -> {
@@ -1563,7 +1559,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
         @Override
         public CompletableFuture<Integer> checkUserVersion(
-                @Nonnull RecordMetaDataProto.DataStoreInfo storeHeader,
+                RecordMetaDataProto.DataStoreInfo storeHeader,
                 RecordMetaDataProvider metaData) {
             return CompletableFuture.completedFuture(storeHeader.getUserVersion());
         }
@@ -1575,7 +1571,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             return Assertions.fail(); // if we've hit this, then we've gone down an unexpected path
         }
 
-        @Nonnull
         @Override
         public CompletableFuture<IndexState> needRebuildIndex(Index index,
                                                               Supplier<CompletableFuture<Long>> lazyRecordCount,

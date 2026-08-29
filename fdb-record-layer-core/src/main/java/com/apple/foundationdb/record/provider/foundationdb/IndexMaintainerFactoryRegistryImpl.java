@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -39,20 +38,15 @@ import java.util.Map;
  */
 @API(API.Status.INTERNAL)
 public class IndexMaintainerFactoryRegistryImpl implements IndexMaintainerFactoryRegistry {
-    @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(IndexMaintainerFactoryRegistryImpl.class);
-    @Nonnull
     protected static final IndexMaintainerFactoryRegistryImpl INSTANCE = new IndexMaintainerFactoryRegistryImpl();
 
-    @Nonnull
     private final Map<String, IndexMaintainerFactory> registry;
 
-    @Nonnull
     public static IndexMaintainerFactoryRegistry instance() {
         return INSTANCE;
     }
 
-    @Nonnull
     protected static Map<String, IndexMaintainerFactory> initRegistry() {
         final Map<String, IndexMaintainerFactory> registry = new HashMap<>();
         for (IndexMaintainerFactory factory : ServiceLoaderProvider.load(IndexMaintainerFactory.class)) {
@@ -73,9 +67,8 @@ public class IndexMaintainerFactoryRegistryImpl implements IndexMaintainerFactor
         registry = initRegistry();
     }
 
-    @Nonnull
     @Override
-    public IndexMaintainerFactory getIndexMaintainerFactory(@Nonnull final Index index) {
+    public IndexMaintainerFactory getIndexMaintainerFactory(final Index index) {
         final IndexMaintainerFactory factory = registry.get(index.getType());
         if (factory == null) {
             throw new MetaDataException("Unknown index type for " + index);

@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.provider.foundationdb.SubspaceProvider;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.google.common.cache.Cache;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -56,18 +55,15 @@ import java.util.concurrent.CompletableFuture;
  * @see FDBRecordContext#getMetaDataVersionStamp(IsolationLevel)
  */
 public class MetaDataVersionStampStoreStateCache implements FDBRecordStoreStateCache {
-    @Nonnull
     private final FDBDatabase database;
-    @Nonnull
     private final Cache<SubspaceProvider, FDBRecordStoreStateCacheEntry> cache;
 
-    MetaDataVersionStampStoreStateCache(@Nonnull FDBDatabase database, @Nonnull Cache<SubspaceProvider, FDBRecordStoreStateCacheEntry> cache) {
+    MetaDataVersionStampStoreStateCache(FDBDatabase database, Cache<SubspaceProvider, FDBRecordStoreStateCacheEntry> cache) {
         this.database = database;
         this.cache = cache;
     }
 
-    @Nonnull
-    private FDBRecordStoreStateCacheEntry getNewerEntry(@Nonnull FDBRecordStoreStateCacheEntry entry1, @Nonnull FDBRecordStoreStateCacheEntry entry2) {
+    private FDBRecordStoreStateCacheEntry getNewerEntry(FDBRecordStoreStateCacheEntry entry1, FDBRecordStoreStateCacheEntry entry2) {
         if (entry1.getMetaDataVersionStamp() == null) {
             return entry2;
         } else if (entry2.getMetaDataVersionStamp() == null) {
@@ -77,7 +73,7 @@ public class MetaDataVersionStampStoreStateCache implements FDBRecordStoreStateC
         }
     }
 
-    private void addToCache(@Nonnull SubspaceProvider subspaceProvider, @Nonnull FDBRecordStoreStateCacheEntry cacheEntry) {
+    private void addToCache(SubspaceProvider subspaceProvider, FDBRecordStoreStateCacheEntry cacheEntry) {
         cache.asMap().merge(subspaceProvider, cacheEntry, (entry1, entry2) -> {
             final FDBRecordStoreStateCacheEntry newerEntry = getNewerEntry(entry1, entry2);
             if (newerEntry.getRecordStoreState().getStoreHeader().getCacheable()) {
@@ -88,7 +84,7 @@ public class MetaDataVersionStampStoreStateCache implements FDBRecordStoreStateC
         });
     }
 
-    private void invalidateOlderEntry(@Nonnull SubspaceProvider subspaceProvider, @Nonnull byte[] metaDataVersionStamp) {
+    private void invalidateOlderEntry(SubspaceProvider subspaceProvider, byte[] metaDataVersionStamp) {
         cache.asMap().computeIfPresent(subspaceProvider, (ignore, existingEntry) -> {
             // Invalidate the key unless the cached meta-data is newer than or matches this meta-data version stamp
             if (existingEntry.getMetaDataVersionStamp() == null || ByteArrayUtil.compareUnsigned(metaDataVersionStamp, existingEntry.getMetaDataVersionStamp()) > 0) {
@@ -99,10 +95,9 @@ public class MetaDataVersionStampStoreStateCache implements FDBRecordStoreStateC
         });
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CloseResource")
-    public CompletableFuture<FDBRecordStoreStateCacheEntry> get(@Nonnull FDBRecordStore recordStore, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
+    public CompletableFuture<FDBRecordStoreStateCacheEntry> get(FDBRecordStore recordStore, FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
         final FDBRecordContext context = recordStore.getContext();
         validateContext(context);
         if (context.hasDirtyStoreState()) {
@@ -142,7 +137,7 @@ public class MetaDataVersionStampStoreStateCache implements FDBRecordStoreStateC
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public void validateDatabase(@Nonnull FDBDatabase database) {
+    public void validateDatabase(FDBDatabase database) {
         if (database != this.database) {
             throw new RecordCoreArgumentException("record store state cache used with different database than the one it was initialized with");
         }

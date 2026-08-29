@@ -26,7 +26,6 @@ import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.subspace.Subspace;
 
-import javax.annotation.Nonnull;
 
 /**
  * The basic cursor for scanning ranges of the FDB database.
@@ -34,12 +33,12 @@ import javax.annotation.Nonnull;
 @API(API.Status.UNSTABLE)
 public class KeyValueCursor extends KeyValueCursorBase<KeyValue> {
 
-    private KeyValueCursor(@Nonnull final FDBRecordContext context,
-                             @Nonnull final AsyncIterator<KeyValue> iterator,
+    private KeyValueCursor(final FDBRecordContext context,
+                             final AsyncIterator<KeyValue> iterator,
                              int prefixLength,
-                             @Nonnull final CursorLimitManager limitManager,
+                             final CursorLimitManager limitManager,
                              int valuesLimit,
-                             @Nonnull SerializationMode serializationMode) {
+                             SerializationMode serializationMode) {
         super(context, iterator, prefixLength, limitManager, valuesLimit, serializationMode);
     }
 
@@ -58,18 +57,18 @@ public class KeyValueCursor extends KeyValueCursorBase<KeyValue> {
     @API(API.Status.UNSTABLE)
     public static class Builder extends KeyValueCursorBase.Builder<Builder> {
 
-        protected Builder(@Nonnull Subspace subspace) {
+        protected Builder(Subspace subspace) {
             super(subspace);
         }
 
         /*
          * This will be deprecated: Use the {@link #newBuilder(Subspace)} instead
          */
-        public static Builder withSubspace(@Nonnull Subspace subspace) {
+        public static Builder withSubspace(Subspace subspace) {
             return new Builder(subspace);
         }
 
-        public static Builder newBuilder(@Nonnull Subspace subspace) {
+        public static Builder newBuilder(Subspace subspace) {
             return new Builder(subspace);
         }
 

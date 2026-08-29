@@ -38,8 +38,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
@@ -76,7 +76,6 @@ public final class VectorIndexScanOptions implements PlanHashable, PlanSerializa
 
     private static final VectorIndexScanOptions EMPTY = new VectorIndexScanOptions(ImmutableMap.of());
 
-    @Nonnull
     private static final ImmutableList<VectorOptionKey<?>> ALL_KEYS =
             ImmutableList.of(VECTOR_RETURN_VECTORS, HNSW_EF_SEARCH, GUARDIANN_CANDIDATE_POOL_FACTOR,
                     GUARDIANN_SEARCH_MAX_CLUSTERS, GUARDIANN_SEARCH_MIN_CLUSTERS_BEFORE_PRUNING,
@@ -85,38 +84,34 @@ public final class VectorIndexScanOptions implements PlanHashable, PlanSerializa
 
     // Maps every wire name — canonical and legacy alias alike — to its canonical key, so a value serialized under a
     // legacy name (e.g. "hnswReturnVectors") deserializes to the same key as one written under the current name.
-    @Nonnull
     private static final Map<String /* wireName */, VectorOptionKey<?>> optionsNameMap = buildNameMap();
 
-    @Nonnull
     private final Map<VectorOptionKey<?>, Object> optionsMap;
 
-    private VectorIndexScanOptions(@Nonnull final Map<VectorOptionKey<?>, Object> optionsMap) {
+    private VectorIndexScanOptions(final Map<VectorOptionKey<?>, Object> optionsMap) {
         this.optionsMap = optionsMap;
     }
 
-    public boolean containsOption(@Nonnull final VectorOptionKey<?> key) {
+    public boolean containsOption(final VectorOptionKey<?> key) {
         return optionsMap.containsKey(key);
     }
 
     @Nullable
-    public <T> T getOption(@Nonnull final VectorOptionKey<T> key) {
+    public <T> T getOption(final VectorOptionKey<T> key) {
         return key.getType().cast(optionsMap.get(key));
     }
 
-    @Nonnull
     public VectorIndexScanOptions.Builder toBuilder() {
         return new Builder(optionsMap);
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode hashMode) {
+    public int planHash(final PlanHashMode hashMode) {
         return PlanHashable.objectPlanHash(hashMode, optionsMap);
     }
 
-    @Nonnull
     @Override
-    public PVectorIndexScanOptions toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PVectorIndexScanOptions toProto(final PlanSerializationContext serializationContext) {
         final PVectorIndexScanOptions.Builder scanOptionsBuilder = PVectorIndexScanOptions.newBuilder();
         for (final Map.Entry<VectorOptionKey<?>, Object> entry : optionsMap.entrySet()) {
             scanOptionsBuilder.addOptionEntries(
@@ -129,7 +124,6 @@ public final class VectorIndexScanOptions implements PlanHashable, PlanSerializa
         return scanOptionsBuilder.build();
     }
 
-    @Nonnull
     public ExplainTokensWithPrecedence explain() {
         final var explainTokens =
                 new ExplainTokens().addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
@@ -166,7 +160,6 @@ public final class VectorIndexScanOptions implements PlanHashable, PlanSerializa
         return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
     }
 
-    @Nonnull
     private static Map<String, VectorOptionKey<?>> buildNameMap() {
         final ImmutableMap.Builder<String, VectorOptionKey<?>> builder = ImmutableMap.builder();
         for (final VectorOptionKey<?> key : ALL_KEYS) {
@@ -177,18 +170,15 @@ public final class VectorIndexScanOptions implements PlanHashable, PlanSerializa
         return builder.build();
     }
 
-    @Nonnull
     public static VectorIndexScanOptions.Builder builder() {
         return new Builder();
     }
 
-    @Nonnull
     public static VectorIndexScanOptions empty() {
         return EMPTY;
     }
 
-    @Nonnull
-    public static VectorIndexScanOptions fromProto(@Nonnull final PVectorIndexScanOptions vectorIndexScanOptionsProto) {
+    public static VectorIndexScanOptions fromProto(final PVectorIndexScanOptions vectorIndexScanOptionsProto) {
         final Map<VectorOptionKey<?>, Object> optionsMap =
                 Maps.newHashMapWithExpectedSize(vectorIndexScanOptionsProto.getOptionEntriesCount());
         for (int i = 0; i < vectorIndexScanOptionsProto.getOptionEntriesCount(); i ++) {
@@ -206,31 +196,27 @@ public final class VectorIndexScanOptions implements PlanHashable, PlanSerializa
     }
 
     public static class Builder {
-        @Nonnull
         private final Map<VectorOptionKey<?>, Object> optionsMap;
 
         public Builder() {
             this(ImmutableMap.of());
         }
 
-        public Builder(@Nonnull final Map<VectorOptionKey<?>, Object> optionsMap) {
+        public Builder(final Map<VectorOptionKey<?>, Object> optionsMap) {
             // creating an ordinary hashmap here since it is not null-averse
             this.optionsMap = Maps.newHashMap(optionsMap);
         }
 
-        @Nonnull
-        public <T> Builder putOption(@Nonnull final VectorOptionKey<T> key, T value) {
+        public <T> Builder putOption(final VectorOptionKey<T> key, T value) {
             optionsMap.put(key, value);
             return this;
         }
 
-        @Nonnull
-        public <T> Builder removeOption(@Nonnull final VectorOptionKey<T> key) {
+        public <T> Builder removeOption(final VectorOptionKey<T> key) {
             optionsMap.remove(key);
             return this;
         }
 
-        @Nonnull
         public VectorIndexScanOptions build() {
             if (optionsMap.isEmpty()) {
                 return EMPTY;
@@ -261,16 +247,14 @@ public final class VectorIndexScanOptions implements PlanHashable, PlanSerializa
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PVectorIndexScanOptions, VectorIndexScanOptions> {
-        @Nonnull
         @Override
         public Class<PVectorIndexScanOptions> getProtoMessageClass() {
             return PVectorIndexScanOptions.class;
         }
 
-        @Nonnull
         @Override
-        public VectorIndexScanOptions fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                @Nonnull final PVectorIndexScanOptions vectorIndexScanOptionsProto) {
+        public VectorIndexScanOptions fromProto(final PlanSerializationContext serializationContext,
+                                                final PVectorIndexScanOptions vectorIndexScanOptionsProto) {
             return VectorIndexScanOptions.fromProto(vectorIndexScanOptionsProto);
         }
     }
