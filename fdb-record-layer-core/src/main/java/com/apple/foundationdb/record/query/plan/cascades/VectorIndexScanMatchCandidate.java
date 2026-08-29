@@ -42,8 +42,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -108,7 +108,6 @@ public class VectorIndexScanMatchCandidate implements WithPrimaryKeyMatchCandida
     /**
      * Index metadata structure.
      */
-    @Nonnull
     private final Index index;
 
     /**
@@ -116,54 +115,45 @@ public class VectorIndexScanMatchCandidate implements WithPrimaryKeyMatchCandida
      */
     private final List<RecordType> queriedRecordTypes;
 
-    @Nonnull
     private final List<CorrelationIdentifier> parameters;
 
-    @Nonnull
     private final List<CorrelationIdentifier> orderingAliases;
 
-    @Nonnull
     private final Set<CorrelationIdentifier> parametersRequiredForBinding;
 
     /**
      * Base type.
      */
-    @Nonnull
     private final Type.Record baseType;
 
     /**
      * Base alias.
      */
-    @Nonnull
     private final CorrelationIdentifier baseAlias;
 
     /**
      * Traversal object of the expanded index scan graph.
      */
-    @Nonnull
     private final Traversal traversal;
 
-    @Nonnull
     private final KeyExpression fullKeyExpression;
 
     @Nullable
     private final KeyExpression primaryKey;
 
-    @Nonnull
     private final Supplier<Optional<List<Value>>> primaryKeyValuesOptionalSupplier;
 
-    @Nonnull
     private final Supplier<VectorIndexEngineKind> indexEngineKindSupplier;
 
-    public VectorIndexScanMatchCandidate(@Nonnull final Index index,
-                                         @Nonnull final Collection<RecordType> queriedRecordTypes,
-                                         @Nonnull final Traversal traversal,
-                                         @Nonnull final List<CorrelationIdentifier> parameters,
-                                         @Nonnull final List<CorrelationIdentifier> orderingAliases,
-                                         @Nonnull final Set<CorrelationIdentifier> parametersRequiredForBinding,
-                                         @Nonnull final Type.Record baseType,
-                                         @Nonnull final CorrelationIdentifier baseAlias,
-                                         @Nonnull final KeyExpression fullKeyExpression,
+    public VectorIndexScanMatchCandidate(final Index index,
+                                         final Collection<RecordType> queriedRecordTypes,
+                                         final Traversal traversal,
+                                         final List<CorrelationIdentifier> parameters,
+                                         final List<CorrelationIdentifier> orderingAliases,
+                                         final Set<CorrelationIdentifier> parametersRequiredForBinding,
+                                         final Type.Record baseType,
+                                         final CorrelationIdentifier baseAlias,
+                                         final KeyExpression fullKeyExpression,
                                          @Nullable final KeyExpression primaryKey) {
         this.index = index;
         this.queriedRecordTypes = ImmutableList.copyOf(queriedRecordTypes);
@@ -190,54 +180,45 @@ public class VectorIndexScanMatchCandidate implements WithPrimaryKeyMatchCandida
         return index.isUnique();
     }
 
-    @Nonnull
     @Override
     public String getName() {
         return index.getName();
     }
 
-    @Nonnull
     @Override
     public List<RecordType> getQueriedRecordTypes() {
         return queriedRecordTypes;
     }
 
-    @Nonnull
     @Override
     public Traversal getTraversal() {
         return traversal;
     }
 
-    @Nonnull
     @Override
     public List<CorrelationIdentifier> getSargableAliases() {
         return parameters;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getSargableAliasesRequiredForBinding() {
         return parametersRequiredForBinding;
     }
 
-    @Nonnull
     @Override
     public List<CorrelationIdentifier> getOrderingAliases() {
         return orderingAliases;
     }
 
-    @Nonnull
     @Override
     public Type.Record getBaseType() {
         return baseType;
     }
 
-    @Nonnull
     public CorrelationIdentifier getBaseAlias() {
         return baseAlias;
     }
 
-    @Nonnull
     @Override
     public KeyExpression getFullKeyExpression() {
         return fullKeyExpression;
@@ -258,9 +239,8 @@ public class VectorIndexScanMatchCandidate implements WithPrimaryKeyMatchCandida
         return queriedRecordTypes.size() == 1 || hasAndOrderedByRecordTypeKey();
     }
 
-    @Nonnull
     @Override
-    public List<OrderingPart.MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull final MatchInfo matchInfo, @Nonnull final List<CorrelationIdentifier> sortParameterIds, final boolean isReverse) {
+    public List<OrderingPart.MatchedOrderingPart> computeMatchedOrderingParts(final MatchInfo matchInfo, final List<CorrelationIdentifier> sortParameterIds, final boolean isReverse) {
         final var parameterBindingMap =
                 matchInfo.getRegularMatchInfo().getParameterBindingMap();
 
@@ -278,7 +258,7 @@ public class VectorIndexScanMatchCandidate implements WithPrimaryKeyMatchCandida
 
             Objects.requireNonNull(parameterId);
             Objects.requireNonNull(normalizedKeyExpression);
-            @Nullable final var comparisonRange = parameterBindingMap.get(parameterId);
+            @Nullable final ComparisonRange comparisonRange = parameterBindingMap.get(parameterId);
 
             if (normalizedKeyExpression.createsDuplicates()) {
                 if (comparisonRange != null) {
@@ -314,9 +294,8 @@ public class VectorIndexScanMatchCandidate implements WithPrimaryKeyMatchCandida
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    public Ordering computeOrderingFromScanComparisons(@Nonnull final ScanComparisons scanComparisons, final boolean isReverse, final boolean isDistinct) {
+    public Ordering computeOrderingFromScanComparisons(final ScanComparisons scanComparisons, final boolean isReverse, final boolean isDistinct) {
         final var bindingMapBuilder = ImmutableSetMultimap.<Value, Ordering.Binding>builder();
         final var normalizedKeyExpressions = getFullKeyExpression().normalizeKeyForPositions();
         final var equalityComparisons = scanComparisons.getEqualityComparisons();
@@ -390,23 +369,20 @@ public class VectorIndexScanMatchCandidate implements WithPrimaryKeyMatchCandida
      *
      * @return the engine kind backing this candidate's index
      */
-    @Nonnull
     public VectorIndexEngineKind getIndexEngineKind() {
         return indexEngineKindSupplier.get();
     }
 
-    @Nonnull
     @Override
     public Optional<List<Value>> getPrimaryKeyValuesMaybe() {
         return primaryKeyValuesOptionalSupplier.get();
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPlan toEquivalentPlan(@Nonnull final PartialMatch partialMatch,
-                                            @Nonnull final PlanContext planContext,
-                                            @Nonnull final Memoizer memoizer,
-                                            @Nonnull final List<ComparisonRange> comparisonRanges,
+    public RecordQueryPlan toEquivalentPlan(final PartialMatch partialMatch,
+                                            final PlanContext planContext,
+                                            final Memoizer memoizer,
+                                            final List<ComparisonRange> comparisonRanges,
                                             final boolean reverseScanOrder) {
         final var matchInfo = partialMatch.getRegularMatchInfo();
         final var vectorIndexScanComparison = toVectorIndexScanComparisons(comparisonRanges);
@@ -422,8 +398,7 @@ public class VectorIndexScanMatchCandidate implements WithPrimaryKeyMatchCandida
                 matchInfo.getConstraint());
     }
 
-    @Nonnull
-    private static VectorIndexScanComparisons toVectorIndexScanComparisons(@Nonnull final List<ComparisonRange> comparisonRanges) {
+    private static VectorIndexScanComparisons toVectorIndexScanComparisons(final List<ComparisonRange> comparisonRanges) {
         final var scanRangesBuilder = ImmutableList.<ComparisonRange>builder();
         final var distanceRankComparisonsBuilder = ImmutableList.<Comparisons.DistanceRankValueComparison>builder();
 
@@ -449,8 +424,7 @@ public class VectorIndexScanMatchCandidate implements WithPrimaryKeyMatchCandida
                 distanceRankComparisonsBuilder.build().get(0));
     }
 
-    @Nonnull
-    private static ScanComparisons toScanComparisons(@Nonnull final List<ComparisonRange> comparisonRanges) {
+    private static ScanComparisons toScanComparisons(final List<ComparisonRange> comparisonRanges) {
         ScanComparisons.Builder builder = new ScanComparisons.Builder();
         for (ComparisonRange comparisonRange : comparisonRanges) {
             builder.addComparisonRange(comparisonRange);

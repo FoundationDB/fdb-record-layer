@@ -41,7 +41,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
@@ -66,14 +65,12 @@ class PlanningCostModelVectorEngineTest {
      *
      * @return the base type
      */
-    @Nonnull
     private static Type.Record baseType() {
         return Type.Record.fromFields(ImmutableList.of(
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.DOUBLE), Optional.of("embedding"))));
     }
 
-    @Nonnull
-    private static RecordQueryIndexPlan vectorIndexPlan(@Nonnull final String indexName, final boolean guardiann) {
+    private static RecordQueryIndexPlan vectorIndexPlan(final String indexName, final boolean guardiann) {
         final Index index = vectorIndex(indexName, guardiann);
         final Type.Record baseType = baseType();
         final VectorIndexScanMatchCandidate matchCandidate =
@@ -99,8 +96,7 @@ class PlanningCostModelVectorEngineTest {
                 QueryPlanConstraint.noConstraint());
     }
 
-    @Nonnull
-    private static Index vectorIndex(@Nonnull final String indexName, final boolean guardiann) {
+    private static Index vectorIndex(final String indexName, final boolean guardiann) {
         return guardiann
                ? new Index(indexName, field("embedding"), IndexTypes.VECTOR,
                        Collections.singletonMap(IndexOptions.VECTOR_ENGINE, "GUARDIANN"))
@@ -114,8 +110,7 @@ class PlanningCostModelVectorEngineTest {
      * @param indexName the name of the index scanned
      * @return an index plan that is not a vector index scan
      */
-    @Nonnull
-    private static RecordQueryIndexPlan nonVectorIndexPlan(@Nonnull final String indexName) {
+    private static RecordQueryIndexPlan nonVectorIndexPlan(final String indexName) {
         final Index index = new Index(indexName, field("embedding"), IndexTypes.VALUE);
         final Type.Record baseType = baseType();
         final ValueIndexScanMatchCandidate matchCandidate =
@@ -141,8 +136,7 @@ class PlanningCostModelVectorEngineTest {
                 QueryPlanConstraint.noConstraint());
     }
 
-    @Nonnull
-    private static PlanningCostModel costModel(@Nonnull final VectorIndexEnginePreference preference) {
+    private static PlanningCostModel costModel(final VectorIndexEnginePreference preference) {
         return new PlanningCostModel(RecordQueryPlannerConfiguration.builder()
                 .setVectorIndexEnginePreference(preference)
                 .build());
@@ -285,9 +279,9 @@ class PlanningCostModelVectorEngineTest {
      * @param b the second plan
      * @param preference the preference that should make no difference
      */
-    private static void assertSameAsWithoutPreference(@Nonnull final RecordQueryIndexPlan a,
-                                                      @Nonnull final RecordQueryIndexPlan b,
-                                                      @Nonnull final VectorIndexEnginePreference preference) {
+    private static void assertSameAsWithoutPreference(final RecordQueryIndexPlan a,
+                                                      final RecordQueryIndexPlan b,
+                                                      final VectorIndexEnginePreference preference) {
         final int withoutPreference = costModel(VectorIndexEnginePreference.NO_PREFERENCE).compare(a, b);
         assertEquals(withoutPreference, costModel(preference).compare(a, b),
                 () -> "preference " + preference + " should not have changed the comparison");
@@ -299,8 +293,7 @@ class PlanningCostModelVectorEngineTest {
      * @param accesses the index accesses the member makes
      * @return the map of interesting operators
      */
-    @Nonnull
-    private static Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapOf(@Nonnull final RecordQueryIndexPlan... accesses) {
+    private static Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapOf(final RecordQueryIndexPlan... accesses) {
         return ImmutableMap.of(RecordQueryPlanWithIndex.class, LinkedIdentitySet.of(accesses));
     }
 }

@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.google.common.collect.Lists;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 
@@ -72,7 +72,7 @@ public interface SimpleExpressionVisitor<T> extends RelationalExpressionVisitorW
      *         be visited
      */
     @SuppressWarnings("unused")
-    default boolean shouldVisit(@Nonnull RelationalExpression expression) {
+    default boolean shouldVisit(RelationalExpression expression) {
         return true;
     }
 
@@ -87,7 +87,7 @@ public interface SimpleExpressionVisitor<T> extends RelationalExpressionVisitorW
      *         visited
      */
     @SuppressWarnings("unused")
-    default boolean shouldVisit(@Nonnull Reference ref) {
+    default boolean shouldVisit(Reference ref) {
         return true;
     }
 
@@ -103,7 +103,7 @@ public interface SimpleExpressionVisitor<T> extends RelationalExpressionVisitorW
      *         {@code false} if it should not be visited
      */
     @SuppressWarnings("unused")
-    default boolean shouldVisit(@Nonnull Quantifier quantifier) {
+    default boolean shouldVisit(Quantifier quantifier) {
         return true;
     }
 
@@ -116,8 +116,7 @@ public interface SimpleExpressionVisitor<T> extends RelationalExpressionVisitorW
      * @param childResults the results for the children of {@code expression}
      * @return the evaluated result the given expression
      */
-    @Nonnull
-    T evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<T> childResults);
+    T evaluateAtExpression(RelationalExpression expression, List<T> childResults);
 
     /**
      * Visits the given reference to evaluate a result, using the results of visiting its members.
@@ -128,8 +127,7 @@ public interface SimpleExpressionVisitor<T> extends RelationalExpressionVisitorW
      * @param memberResults the results of the property evaluated at the members of {@code ref}
      * @return the evaluated result at the given reference
      */
-    @Nonnull
-    T evaluateAtRef(@Nonnull Reference ref, @Nonnull List<T> memberResults);
+    T evaluateAtRef(Reference ref, List<T> memberResults);
 
     /**
      * Visits the given quantifier, using the result of visiting the reference the quantifier ranges
@@ -141,24 +139,21 @@ public interface SimpleExpressionVisitor<T> extends RelationalExpressionVisitorW
      *        ranges over
      * @return the evaluated result at the given quantifier
      */
-    @Nonnull
     @SuppressWarnings("unused")
     @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
-    default T evaluateAtQuantifier(@Nonnull final Quantifier quantifier, @Nullable T rangesOverResult) {
+    default T evaluateAtQuantifier(final Quantifier quantifier, @Nullable T rangesOverResult) {
         // since we visit the expression reference under the quantifier, we can insist that rangesOverResult is never
         // null
         return Objects.requireNonNull(rangesOverResult);
     }
 
-    @Nonnull
     @Override
-    default T visitDefault(@Nonnull final RelationalExpression relationalExpression) {
+    default T visitDefault(final RelationalExpression relationalExpression) {
         final var quantifierResults = visitQuantifiers(relationalExpression);
         return evaluateAtExpression(relationalExpression, quantifierResults);
     }
 
-    @Nonnull
-    default List<T> visitQuantifiers(@Nonnull final RelationalExpression relationalExpression) {
+    default List<T> visitQuantifiers(final RelationalExpression relationalExpression) {
         final List<? extends Quantifier> quantifiers = relationalExpression.getQuantifiers();
         final var quantifierResults = Lists.<T>newArrayListWithCapacity(quantifiers.size());
         for (final Quantifier quantifier : quantifiers) {

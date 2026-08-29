@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 import java.util.Set;
 
@@ -37,22 +36,19 @@ public class ReferencedFieldsConstraint implements PlannerConstraint<ReferencedF
      * A set of referenced field values.
      */
     public static class ReferencedFields {
-        @Nonnull
         private final Set<FieldValue> referencedFieldValues;
 
-        public ReferencedFields(@Nonnull final Set<FieldValue> referencedFieldValues) {
+        public ReferencedFields(final Set<FieldValue> referencedFieldValues) {
             this.referencedFieldValues = referencedFieldValues;
         }
 
-        @Nonnull
         public Set<FieldValue> getReferencedFieldValues() {
             return referencedFieldValues;
         }
     }
 
-    @Nonnull
     @Override
-    public Optional<ReferencedFields> combine(@Nonnull final ReferencedFields currentConstraint, @Nonnull final ReferencedFields newConstraint) {
+    public Optional<ReferencedFields> combine(final ReferencedFields currentConstraint, final ReferencedFields newConstraint) {
         final ImmutableSet<FieldValue> referencedFields =
                 ImmutableSet.<FieldValue>builder()
                         .addAll(currentConstraint.getReferencedFieldValues())

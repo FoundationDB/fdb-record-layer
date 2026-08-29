@@ -28,8 +28,6 @@ import com.google.common.collect.Iterables;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
-
 public class MatchInfoTests {
     @Test
     void testCollectPredicates() {
@@ -64,13 +62,11 @@ public class MatchInfoTests {
                 .isEmpty();
     }
 
-    @Nonnull
     private static FullUnorderedScanExpression fuse() {
         return new FullUnorderedScanExpression(ImmutableSet.of("someType"),
                 someRecordType(), new AccessHints());
     }
 
-    @Nonnull
     private static Type.Record someRecordType() {
         return RuleTestHelper.TYPE_S;
     }

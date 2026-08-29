@@ -30,8 +30,8 @@ import com.google.common.collect.ImmutableList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Optional;
 import java.util.Set;
 
@@ -46,7 +46,6 @@ import java.util.Set;
  */
 @API(API.Status.INTERNAL)
 public final class MatchCandidateExpansion {
-    @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(MatchCandidateExpansion.class);
 
     private MatchCandidateExpansion() {
@@ -60,44 +59,38 @@ public final class MatchCandidateExpansion {
      * @param optional an optional that may contain a match candidate
      * @return a collection containing the contents of the optional if set
      */
-    @Nonnull
-    public static <T> Iterable<T> optionalToIterable(@Nonnull Optional<T> optional) {
+    public static <T> Iterable<T> optionalToIterable(Optional<T> optional) {
         return optional
                 .map(ImmutableList::of)
                 .orElse(ImmutableList.of());
     }
 
-    @Nonnull
-    public static Iterable<MatchCandidate> expandValueIndexMatchCandidate(@Nonnull RecordMetaData metaData, @Nonnull Index index, boolean isReverse) {
+    public static Iterable<MatchCandidate> expandValueIndexMatchCandidate(RecordMetaData metaData, Index index, boolean isReverse) {
         final IndexExpansionInfo info = IndexExpansionInfo.createInfo(metaData, index, isReverse);
         return optionalToIterable(expandValueIndexMatchCandidate(info));
     }
 
-    @Nonnull
-    public static Optional<MatchCandidate> expandValueIndexMatchCandidate(@Nonnull IndexExpansionInfo info) {
+    public static Optional<MatchCandidate> expandValueIndexMatchCandidate(IndexExpansionInfo info) {
         return expandIndexMatchCandidate(info, false, info.getCommonPrimaryKeyForTypes(),
                 new ValueIndexExpansionVisitor(info.getIndex(), info.getIndexedRecordTypes()));
     }
 
-    @Nonnull
-    public static Iterable<MatchCandidate> expandAggregateIndexMatchCandidate(@Nonnull RecordMetaData metaData, @Nonnull Index index, boolean isReverse) {
+    public static Iterable<MatchCandidate> expandAggregateIndexMatchCandidate(RecordMetaData metaData, Index index, boolean isReverse) {
         final IndexExpansionInfo info = IndexExpansionInfo.createInfo(metaData, index, isReverse);
         return optionalToIterable(expandAggregateIndexMatchCandidate(info));
     }
 
-    @Nonnull
-    public static Optional<MatchCandidate> expandAggregateIndexMatchCandidate(@Nonnull IndexExpansionInfo info) {
+    public static Optional<MatchCandidate> expandAggregateIndexMatchCandidate(IndexExpansionInfo info) {
         // Override the common primary key here. We always want it to be null because the primary key is not
         // included in the expanded aggregate index
         return expandIndexMatchCandidate(info, false, null,
                 new AggregateIndexExpansionVisitor(info.getIndex(), info.getIndexedRecordTypes()));
     }
 
-    @Nonnull
-    public static Optional<MatchCandidate> expandIndexMatchCandidate(@Nonnull IndexExpansionInfo info,
+    public static Optional<MatchCandidate> expandIndexMatchCandidate(IndexExpansionInfo info,
                                                                      boolean forRankIndex,
                                                                      @Nullable KeyExpression commonPrimaryKey,
-                                                                     @Nonnull final ExpansionVisitor<?> expansionVisitor) {
+                                                                     final ExpansionVisitor<?> expansionVisitor) {
         try {
             final var accessHint = new IndexAccessHint(info.getIndexName());
             final MatchCandidate matchCandidate;
@@ -131,9 +124,8 @@ public final class MatchCandidateExpansion {
         return Optional.empty();
     }
 
-    @Nonnull
-    public static Optional<MatchCandidate> fromPrimaryDefinition(@Nonnull final RecordMetaData metaData,
-                                                                 @Nonnull final Set<String> queriedRecordTypeNames,
+    public static Optional<MatchCandidate> fromPrimaryDefinition(final RecordMetaData metaData,
+                                                                 final Set<String> queriedRecordTypeNames,
                                                                  @Nullable KeyExpression primaryKey,
                                                                  final boolean isReverse) {
         if (primaryKey != null) {

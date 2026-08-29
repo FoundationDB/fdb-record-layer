@@ -29,46 +29,39 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Optional;
 
 /**
  * Map-like interface that is used to specify translations.
  */
 public interface TranslationMap {
-    @Nonnull
     Optional<AliasMap> getAliasMapMaybe();
 
     boolean definesOnlyIdentities();
 
     boolean containsSourceAlias(@Nullable CorrelationIdentifier sourceAlias);
 
-    @Nonnull
-    Optional<CorrelationIdentifier> getTargetMaybe(@Nonnull CorrelationIdentifier sourceAlias);
+    Optional<CorrelationIdentifier> getTargetMaybe(CorrelationIdentifier sourceAlias);
 
-    @Nonnull
-    Value applyTranslationFunction(@Nonnull CorrelationIdentifier sourceAlias,
-                                   @Nonnull LeafValue leafValue);
+    Value applyTranslationFunction(CorrelationIdentifier sourceAlias,
+                                   LeafValue leafValue);
 
-    @Nonnull
     static RegularTranslationMap empty() {
         return RegularTranslationMap.empty();
     }
 
-    @Nonnull
     static RegularTranslationMap.Builder regularBuilder() {
         return RegularTranslationMap.builder();
     }
 
-    @Nonnull
-    static RegularTranslationMap rebaseWithAliasMap(@Nonnull final AliasMap aliasMap) {
+    static RegularTranslationMap rebaseWithAliasMap(final AliasMap aliasMap) {
         return RegularTranslationMap.rebaseWithAliasMap(aliasMap);
     }
 
-    @Nonnull
-    static RegularTranslationMap ofAliases(@Nonnull final CorrelationIdentifier source,
-                                           @Nonnull final CorrelationIdentifier target) {
+    static RegularTranslationMap ofAliases(final CorrelationIdentifier source,
+                                           final CorrelationIdentifier target) {
         return RegularTranslationMap.ofAliases(source, target);
     }
 
@@ -77,12 +70,10 @@ public interface TranslationMap {
      */
     @FunctionalInterface
     interface TranslationFunction {
-        @Nonnull
-        Value apply(@Nonnull CorrelationIdentifier sourceAlias,
-                    @Nonnull LeafValue leafValue);
+        Value apply(CorrelationIdentifier sourceAlias,
+                    LeafValue leafValue);
 
-        @Nonnull
-        static TranslationFunction adjustValueType(@Nonnull final Value translationTargetValue) {
+        static TranslationFunction adjustValueType(final Value translationTargetValue) {
             final var translationTargetType = translationTargetValue.getResultType();
             if (translationTargetValue instanceof QuantifiedObjectValue) {
                 if (translationTargetType instanceof Type.Erasable &&

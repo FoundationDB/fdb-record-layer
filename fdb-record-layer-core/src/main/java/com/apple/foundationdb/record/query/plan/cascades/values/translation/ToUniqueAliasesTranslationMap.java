@@ -26,8 +26,8 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.LeafValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -40,27 +40,23 @@ import java.util.Optional;
  * then mapped again, the previously fixed target is returned.
  */
 public class ToUniqueAliasesTranslationMap implements TranslationMap {
-    @Nonnull
     private final Map<CorrelationIdentifier, CorrelationIdentifier> sourceToTargetMap;
 
     public ToUniqueAliasesTranslationMap() {
         this.sourceToTargetMap = new LinkedHashMap<>();
     }
 
-    @Nonnull
     @Override
     public Optional<AliasMap> getAliasMapMaybe() {
         return Optional.empty();
     }
 
-    @Nonnull
     public AliasMap getSnapshotAliasMap() {
         return AliasMap.copyOf(sourceToTargetMap);
     }
 
-    @Nonnull
     @Override
-    public Optional<CorrelationIdentifier> getTargetMaybe(@Nonnull final CorrelationIdentifier sourceAlias) {
+    public Optional<CorrelationIdentifier> getTargetMaybe(final CorrelationIdentifier sourceAlias) {
         return Optional.of(computeTargetIfAbsent(sourceAlias));
     }
 
@@ -75,15 +71,13 @@ public class ToUniqueAliasesTranslationMap implements TranslationMap {
         return true;
     }
 
-    @Nonnull
     @Override
-    public Value applyTranslationFunction(@Nonnull final CorrelationIdentifier sourceAlias,
-                                          @Nonnull final LeafValue leafValue) {
+    public Value applyTranslationFunction(final CorrelationIdentifier sourceAlias,
+                                          final LeafValue leafValue) {
         return leafValue.rebaseLeaf(computeTargetIfAbsent(sourceAlias));
     }
 
-    @Nonnull
-    private CorrelationIdentifier computeTargetIfAbsent(@Nonnull final CorrelationIdentifier sourceAlias) {
+    private CorrelationIdentifier computeTargetIfAbsent(final CorrelationIdentifier sourceAlias) {
         return sourceToTargetMap.computeIfAbsent(sourceAlias,
                 ignored0 -> Quantifier.uniqueId());
     }

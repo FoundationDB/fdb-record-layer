@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 
 /**
@@ -34,7 +33,7 @@ public interface ExploratoryYields {
      * exploratory expressions of the current reference.
      * @param expressions a set of {@link RelationalExpression}s
      */
-    default void yieldExploratoryExpressions(@Nonnull final Set<? extends RelationalExpression> expressions) {
+    default void yieldExploratoryExpressions(final Set<? extends RelationalExpression> expressions) {
         for (final var expression : expressions) {
             yieldExploratoryExpression(expression);
         }
@@ -45,5 +44,5 @@ public interface ExploratoryYields {
      * exploratory expressions of the current reference.
      * @param expression a {@link RelationalExpression}s
      */
-    void yieldExploratoryExpression(@Nonnull RelationalExpression expression);
+    void yieldExploratoryExpression(RelationalExpression expression);
 }

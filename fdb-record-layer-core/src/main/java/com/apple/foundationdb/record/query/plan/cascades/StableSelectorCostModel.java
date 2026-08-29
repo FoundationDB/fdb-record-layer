@@ -26,8 +26,6 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
-import javax.annotation.Nonnull;
-
 /**
  * A comparator implementing a simple cost model for the {@link CascadesPlanner} to choose the plan with the smallest
  * plan hash.
@@ -35,14 +33,13 @@ import javax.annotation.Nonnull;
 @API(API.Status.EXPERIMENTAL)
 @SpotBugsSuppressWarnings("SE_COMPARATOR_SHOULD_BE_SERIALIZABLE")
 public class StableSelectorCostModel implements CascadesCostModel {
-    @Nonnull
     @Override
     public RecordQueryPlannerConfiguration getConfiguration() {
         return RecordQueryPlannerConfiguration.defaultPlannerConfiguration();
     }
 
     @Override
-    public int compare(@Nonnull final RelationalExpression a, @Nonnull final RelationalExpression b) {
+    public int compare(final RelationalExpression a, final RelationalExpression b) {
         //
         // If plans are indistinguishable from a cost perspective, select one by planHash. This makes the cost model
         // stable (select the same plan on subsequent plannings).

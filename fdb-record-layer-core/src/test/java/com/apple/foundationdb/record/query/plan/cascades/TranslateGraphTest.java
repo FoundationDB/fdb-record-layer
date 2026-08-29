@@ -36,7 +36,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import org.junit.jupiter.api.Assertions;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.forEach;
@@ -187,8 +186,7 @@ public class TranslateGraphTest extends FDBRecordStoreQueryTestBase {
                 translatedQuantifierMap.get(snapshotAliasMap.getTarget(fullScanQuantifierForReviewer.getAlias())).getRangesOver());
     }
 
-    @Nonnull
-    private Set<Quantifier> collectQuantifiers(@Nonnull Reference reference) {
+    private Set<Quantifier> collectQuantifiers(Reference reference) {
         final var partialOrder = referencesAndDependencies().evaluate(reference);
         final var references =
                 TopologicalSort.anyTopologicalOrderPermutation(partialOrder)
@@ -199,7 +197,6 @@ public class TranslateGraphTest extends FDBRecordStoreQueryTestBase {
                 .collect(LinkedIdentitySet.toLinkedIdentitySet());
     }
 
-    @Nonnull
     private CascadesPlanner setUp() {
         final CascadesPlanner cascadesPlanner;
 

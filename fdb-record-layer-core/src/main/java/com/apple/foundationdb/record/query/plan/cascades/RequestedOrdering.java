@@ -34,7 +34,6 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -66,9 +65,7 @@ public class RequestedOrdering {
      * A list of {@link KeyExpression}s where none of the contained expressions is equality-bound. This list
      * defines the actual order of records.
      */
-    @Nonnull
     private final List<RequestedOrderingPart> orderingParts;
-    @Nonnull
     private final Distinctness distinctness;
 
     /**
@@ -77,11 +74,10 @@ public class RequestedOrdering {
      */
     private final boolean isExhaustive;
 
-    @Nonnull
     private final Supplier<Map<Value, RequestedSortOrder>> valueRequestedSortOrderMapSupplier;
 
-    private RequestedOrdering(@Nonnull final List<RequestedOrderingPart> orderingParts,
-                              @Nonnull final Distinctness distinctness,
+    private RequestedOrdering(final List<RequestedOrderingPart> orderingParts,
+                              final Distinctness distinctness,
                               final boolean isExhaustive) {
         this.orderingParts = ImmutableList.copyOf(orderingParts);
         this.distinctness = distinctness;
@@ -89,7 +85,6 @@ public class RequestedOrdering {
         this.valueRequestedSortOrderMapSupplier = Suppliers.memoize(this::computeValueSortOrderMap);
     }
 
-    @Nonnull
     public Distinctness getDistinctness() {
         return distinctness;
     }
@@ -115,12 +110,10 @@ public class RequestedOrdering {
         return orderingParts.isEmpty();
     }
 
-    @Nonnull
     public List<RequestedOrderingPart> getOrderingParts() {
         return orderingParts;
     }
 
-    @Nonnull
     public Iterable<Value> getOrderingValues() {
         return () -> getOrderingParts().stream().map(OrderingPart::getValue).iterator();
     }
@@ -131,7 +124,6 @@ public class RequestedOrdering {
      * @return a map from {@link Value} to {@link RequestedSortOrder}. It is lazily computed and memoized. Subsequent
      *         calls return instantaneously.
      */
-    @Nonnull
     public Map<Value, RequestedSortOrder> getValueRequestedSortOrderMap() {
         return valueRequestedSortOrderMapSupplier.get();
     }
@@ -197,12 +189,11 @@ public class RequestedOrdering {
      * @return a new requested ordering whose constituent values are expressed in terms of quantifiers prior to the
      *         computation of the {@link Value} passed in.
      */
-    @Nonnull
-    public RequestedOrdering pushDown(@Nonnull final Value value,
-                                      @Nonnull final CorrelationIdentifier lowerBaseAlias,
-                                      @Nonnull final EvaluationContext evaluationContext,
-                                      @Nonnull final AliasMap aliasMap,
-                                      @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+    public RequestedOrdering pushDown(final Value value,
+                                      final CorrelationIdentifier lowerBaseAlias,
+                                      final EvaluationContext evaluationContext,
+                                      final AliasMap aliasMap,
+                                      final Set<CorrelationIdentifier> constantAliases) {
         //
         // Need to push every participating value of this requested ordering through the value.
         //
@@ -237,8 +228,7 @@ public class RequestedOrdering {
         }
     }
 
-    @Nonnull
-    public RequestedOrdering translateCorrelations(@Nonnull TranslationMap translationMap, final boolean shouldSimplify) {
+    public RequestedOrdering translateCorrelations(TranslationMap translationMap, final boolean shouldSimplify) {
         //
         // Need to push every participating value of this requested ordering through the value.
         //
@@ -251,7 +241,6 @@ public class RequestedOrdering {
         return new RequestedOrdering(pushedDownOrderingPartsBuilder.build(), Distinctness.PRESERVE_DISTINCTNESS, isExhaustive());
     }
 
-    @Nonnull
     private Map<Value, RequestedSortOrder> computeValueSortOrderMap() {
         return getOrderingParts()
                 .stream()
@@ -264,15 +253,13 @@ public class RequestedOrdering {
                         }, LinkedHashMap::new));
     }
 
-    @Nonnull
-    public RequestedOrdering withDistinctness(@Nonnull final Distinctness distinctness) {
+    public RequestedOrdering withDistinctness(final Distinctness distinctness) {
         if (this.distinctness == distinctness) {
             return this;
         }
         return new RequestedOrdering(getOrderingParts(), distinctness, isExhaustive());
     }
 
-    @Nonnull
     public RequestedOrdering exhaustive() {
         if (this.isExhaustive()) {
             return this;
@@ -284,16 +271,14 @@ public class RequestedOrdering {
      * Method to create an ordering instance that preserves the order of records.
      * @return a new ordering that preserves the order of records
      */
-    @Nonnull
     public static RequestedOrdering preserve() {
         return new RequestedOrdering(ImmutableList.of(), Distinctness.PRESERVE_DISTINCTNESS, false);
     }
 
-    @Nonnull
-    public static RequestedOrdering ofParts(@Nonnull final List<RequestedOrderingPart> requestedOrderingParts,
-                                            @Nonnull final Distinctness distinctness,
+    public static RequestedOrdering ofParts(final List<RequestedOrderingPart> requestedOrderingParts,
+                                            final Distinctness distinctness,
                                             final boolean isExhaustive,
-                                            @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+                                            final Set<CorrelationIdentifier> constantAliases) {
         final var primitiveRequestedOrderingParts = ImmutableList.<RequestedOrderingPart>builder();
         for (final var requestedOrderingPart : requestedOrderingParts) {
             final var partValue = requestedOrderingPart.getValue();
@@ -311,9 +296,8 @@ public class RequestedOrdering {
         return ofPrimitiveParts(primitiveRequestedOrderingParts.build(), distinctness, isExhaustive);
     }
 
-    @Nonnull
-    public static RequestedOrdering ofPrimitiveParts(@Nonnull final List<RequestedOrderingPart> requestedOrderingParts,
-                                                     @Nonnull final Distinctness distinctness,
+    public static RequestedOrdering ofPrimitiveParts(final List<RequestedOrderingPart> requestedOrderingParts,
+                                                     final Distinctness distinctness,
                                                      final boolean isExhaustive) {
         Debugger.sanityCheck(() -> Verify.verify(
                 requestedOrderingParts.stream()

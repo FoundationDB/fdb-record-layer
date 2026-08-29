@@ -33,7 +33,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.ImmutableIntArray;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -42,17 +41,15 @@ import java.util.Optional;
  * Interface to represent a candidate that replaces with an index scan.
  */
 public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidate {
-    @Nonnull
-    Optional<Value> pushValueThroughFetch(@Nonnull Value value,
-                                          @Nonnull CorrelationIdentifier sourceAlias,
-                                          @Nonnull CorrelationIdentifier targetAlias);
+    Optional<Value> pushValueThroughFetch(Value value,
+                                          CorrelationIdentifier sourceAlias,
+                                          CorrelationIdentifier targetAlias);
 
-    @Nonnull
-    static Optional<Value> pushValueThroughFetch(@Nonnull final Value toBePushedValue,
-                                                 @Nonnull final CorrelationIdentifier baseAlias,
-                                                 @Nonnull final CorrelationIdentifier sourceAlias,
-                                                 @Nonnull final CorrelationIdentifier targetAlias,
-                                                 @Nonnull final Iterable<? extends Value> providedValuesFromIndex) {
+    static Optional<Value> pushValueThroughFetch(final Value toBePushedValue,
+                                                 final CorrelationIdentifier baseAlias,
+                                                 final CorrelationIdentifier sourceAlias,
+                                                 final CorrelationIdentifier targetAlias,
+                                                 final Iterable<? extends Value> providedValuesFromIndex) {
         if (!isOfPushableTypesOrConstant(toBePushedValue, sourceAlias)) {
             return Optional.empty();
         }
@@ -75,8 +72,8 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
         return translatedValueOptional.filter(translatedValue -> !translatedValue.getCorrelatedTo().contains(sourceAlias));
     }
 
-    private static boolean isOfPushableTypesOrConstant(@Nonnull final Value toBePushedValue,
-                                                       @Nonnull final CorrelationIdentifier sourceAlias) {
+    private static boolean isOfPushableTypesOrConstant(final Value toBePushedValue,
+                                                       final CorrelationIdentifier sourceAlias) {
         if (!toBePushedValue.getCorrelatedTo().contains(sourceAlias)) {
             return true;
         }
@@ -95,9 +92,9 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
         }
     }
 
-    static boolean addCoveringField(@Nonnull final IndexKeyValueToPartialRecord.Builder builder,
-                                    @Nonnull final FieldValue fieldValue,
-                                    @Nonnull final Value extractFromIndexEntryValue) {
+    static boolean addCoveringField(final IndexKeyValueToPartialRecord.Builder builder,
+                                    final FieldValue fieldValue,
+                                    final Value extractFromIndexEntryValue) {
         final var parentBuilderForFieldOptional = getParentBuilderForFieldMaybe(builder, fieldValue);
         if (parentBuilderForFieldOptional.isEmpty()) {
             return false;
@@ -117,9 +114,8 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
         return true;
     }
 
-    @Nonnull
-    private static Optional<IndexKeyValueToPartialRecord.Builder> getParentBuilderForFieldMaybe(@Nonnull IndexKeyValueToPartialRecord.Builder builder,
-                                                                                                @Nonnull final FieldValue fieldValue) {
+    private static Optional<IndexKeyValueToPartialRecord.Builder> getParentBuilderForFieldMaybe(IndexKeyValueToPartialRecord.Builder builder,
+                                                                                                final FieldValue fieldValue) {
         // TODO field names are for debugging purposes only, we should probably use field ordinals here instead.
         for (final var maybeFieldName : fieldValue.getFieldPrefix().getOptionalFieldNames()) {
             if (maybeFieldName.isEmpty()) {
@@ -131,12 +127,11 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
         return Optional.of(builder);
     }
 
-    @Nonnull
-    static Optional<ScanWithFetchMatchCandidate.IndexEntryToLogicalRecord> computeIndexEntryToLogicalRecord(@Nonnull final Collection<RecordType> queriedRecordTypes,
-                                                                                                            @Nonnull final CorrelationIdentifier baseAlias,
-                                                                                                            @Nonnull final Type baseType,
-                                                                                                            @Nonnull final List<Value> indexKeyValues,
-                                                                                                            @Nonnull final List<Value> indexValueValues) {
+    static Optional<ScanWithFetchMatchCandidate.IndexEntryToLogicalRecord> computeIndexEntryToLogicalRecord(final Collection<RecordType> queriedRecordTypes,
+                                                                                                            final CorrelationIdentifier baseAlias,
+                                                                                                            final Type baseType,
+                                                                                                            final List<Value> indexKeyValues,
+                                                                                                            final List<Value> indexValueValues) {
         if (queriedRecordTypes.size() > 1) {
             return Optional.empty();
         }
@@ -186,46 +181,37 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
                         logicalKeyValuesBuilder.build(), logicalValueValuesBuilder.build()));
     }
 
-
     /**
      * Helper structure that allows us to precompute the mapping from index entry to the logical (partial record).
      */
     class IndexEntryToLogicalRecord {
-        @Nonnull
         private final RecordType queriedRecordType;
-        @Nonnull
         private final IndexKeyValueToPartialRecord indexKeyValueToPartialRecord;
-        @Nonnull
         private final List<Value> logicalKeyValues;
-        @Nonnull
         private final List<Value> logicalValueValues;
 
-        public IndexEntryToLogicalRecord(@Nonnull final RecordType queriedRecordType,
-                                         @Nonnull final IndexKeyValueToPartialRecord indexKeyValueToPartialRecord,
-                                         @Nonnull final List<Value> logicalKeyValues,
-                                         @Nonnull final List<Value> logicalValueValues) {
+        public IndexEntryToLogicalRecord(final RecordType queriedRecordType,
+                                         final IndexKeyValueToPartialRecord indexKeyValueToPartialRecord,
+                                         final List<Value> logicalKeyValues,
+                                         final List<Value> logicalValueValues) {
             this.queriedRecordType = queriedRecordType;
             this.indexKeyValueToPartialRecord = indexKeyValueToPartialRecord;
             this.logicalKeyValues = logicalKeyValues;
             this.logicalValueValues = logicalValueValues;
         }
 
-        @Nonnull
         public RecordType getQueriedRecordType() {
             return queriedRecordType;
         }
 
-        @Nonnull
         public IndexKeyValueToPartialRecord getIndexKeyValueToPartialRecord() {
             return indexKeyValueToPartialRecord;
         }
 
-        @Nonnull
         public List<Value> getLogicalKeyValues() {
             return logicalKeyValues;
         }
 
-        @Nonnull
         public List<Value> getLogicalValueValues() {
             return logicalValueValues;
         }

@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
@@ -57,10 +56,9 @@ public class ConstrainedBoolean implements Constrained<Boolean> {
     /**
      * The query plan constraint recorded for this boolean.
      */
-    @Nonnull
     private final QueryPlanConstraint queryPlanConstraint;
 
-    private ConstrainedBoolean(final boolean isTrue, @Nonnull final QueryPlanConstraint queryPlanConstraint) {
+    private ConstrainedBoolean(final boolean isTrue, final QueryPlanConstraint queryPlanConstraint) {
         Verify.verify(isTrue || !queryPlanConstraint.isConstrained());
         this.isTrue = isTrue;
         this.queryPlanConstraint = queryPlanConstraint;
@@ -85,13 +83,11 @@ public class ConstrainedBoolean implements Constrained<Boolean> {
         return !isTrue();
     }
 
-    @Nonnull
     @Override
     public Boolean get() {
         return isTrue();
     }
 
-    @Nonnull
     @Override
     public QueryPlanConstraint getConstraint() {
         return queryPlanConstraint;
@@ -104,8 +100,7 @@ public class ConstrainedBoolean implements Constrained<Boolean> {
      *         and that is {@code true} otherwise under the composed constraint from the constraint of {@code this} and
      *         the constraint of {@code other}
      */
-    @Nonnull
-    public ConstrainedBoolean composeWithOther(@Nonnull final ConstrainedBoolean other) {
+    public ConstrainedBoolean composeWithOther(final ConstrainedBoolean other) {
         if (other.isFalse()) {
             return falseValue();
         }
@@ -121,9 +116,8 @@ public class ConstrainedBoolean implements Constrained<Boolean> {
      *         and that is {@code true} otherwise under the composed constraint from the constraint of {@code this} and
      *         the {@code constraint}
      */
-    @Nonnull
     @Override
-    public ConstrainedBoolean composeWithConstraint(@Nonnull final QueryPlanConstraint constraint) {
+    public ConstrainedBoolean composeWithConstraint(final QueryPlanConstraint constraint) {
         if (!this.isTrue()) {
             return falseValue();
         }
@@ -138,8 +132,7 @@ public class ConstrainedBoolean implements Constrained<Boolean> {
      * @return {@link ConstrainedBoolean#falseValue()} if {@link #isFalse()} is true or the {@link Predicate}
      *         evaluates to {@code false}, {@code this} otherwise
      */
-    @Nonnull
-    public ConstrainedBoolean filter(@Nonnull final Predicate<? super QueryPlanConstraint> predicate) {
+    public ConstrainedBoolean filter(final Predicate<? super QueryPlanConstraint> predicate) {
         if (isFalse() || !predicate.test(getConstraint())) {
             return falseValue();
         }
@@ -155,8 +148,7 @@ public class ConstrainedBoolean implements Constrained<Boolean> {
      * @return an {@link Optional} of type {@code U} that is {@link Optional#empty()} if {@code this} is false; it is
      *         {@code Optional.of(mapper.apply(getConstraint))} otherwise.
      */
-    @Nonnull
-    public <U> Optional<U> mapToOptional(@Nonnull final Function<? super QueryPlanConstraint, ? extends U> mapper) {
+    public <U> Optional<U> mapToOptional(final Function<? super QueryPlanConstraint, ? extends U> mapper) {
         if (isFalse()) {
             return Optional.empty();
         } else {
@@ -172,8 +164,7 @@ public class ConstrainedBoolean implements Constrained<Boolean> {
      * @return {@link ConstrainedBoolean#falseValue()} if {@link #isFalse()} is true or the
      *         {@link ConstrainedBoolean} that the {@code composeFunction} returned
      */
-    @Nonnull
-    public ConstrainedBoolean compose(@Nonnull final Function<? super QueryPlanConstraint, ? extends ConstrainedBoolean> composeFunction) {
+    public ConstrainedBoolean compose(final Function<? super QueryPlanConstraint, ? extends ConstrainedBoolean> composeFunction) {
         if (isFalse()) {
             return ConstrainedBoolean.falseValue();
         } else {
@@ -207,7 +198,6 @@ public class ConstrainedBoolean implements Constrained<Boolean> {
      * Factory method to return a {@code false}.
      * @return {@code false}
      */
-    @Nonnull
     public static ConstrainedBoolean falseValue() {
         return FALSE;
     }
@@ -217,7 +207,6 @@ public class ConstrainedBoolean implements Constrained<Boolean> {
      * @return a {@link ConstrainedBoolean} that is unconditionally {@code true}, i.e. that is {@code true} using
      *         a {@link QueryPlanConstraint#noConstraint()}
      */
-    @Nonnull
     public static ConstrainedBoolean alwaysTrue() {
         return ALWAYS_TRUE;
     }
@@ -227,7 +216,6 @@ public class ConstrainedBoolean implements Constrained<Boolean> {
      * @param isTrue {@code true} or {@code false}
      * @return the appropriate unconditional {@link ConstrainedBoolean}
      */
-    @Nonnull
     public static ConstrainedBoolean ofBoolean(final boolean isTrue) {
         return isTrue ? alwaysTrue() : falseValue();
     }
@@ -239,8 +227,7 @@ public class ConstrainedBoolean implements Constrained<Boolean> {
      * @return a {@link ConstrainedBoolean} that is conditionally {@code true} under the constraint
      *         {@code constraint}.
      */
-    @Nonnull
-    public static ConstrainedBoolean trueWithConstraint(@Nonnull final QueryPlanConstraint constraint) {
+    public static ConstrainedBoolean trueWithConstraint(final QueryPlanConstraint constraint) {
         if (!constraint.isConstrained()) {
             return alwaysTrue();
         }

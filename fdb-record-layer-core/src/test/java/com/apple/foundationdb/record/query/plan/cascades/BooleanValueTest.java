@@ -58,7 +58,6 @@ import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 import org.junit.jupiter.params.support.ParameterDeclarations;
 
-import javax.annotation.Nonnull;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
@@ -672,7 +671,6 @@ class BooleanValueTest {
                     Arguments.of(List.of(F, INT_1), new RelOpValue.IsDistinctFromFn(), new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.IS_DISTINCT_FROM, 1))),
                     Arguments.of(List.of(INT_1, F), new RelOpValue.IsDistinctFromFn(), new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.IS_DISTINCT_FROM, 1))),
 
-
                     Arguments.of(List.of(INT_1), new RelOpValue.IsNullFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(INT_1), new RelOpValue.NotNullFn(), ConstantPredicate.TRUE),
 
@@ -699,7 +697,6 @@ class BooleanValueTest {
 
                     Arguments.of(List.of(UUID_NULL), new RelOpValue.IsNullFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(UUID_NULL), new RelOpValue.NotNullFn(), ConstantPredicate.FALSE),
-
 
                     Arguments.of(List.of(F), new RelOpValue.IsNullFn(), new ValuePredicate(F, new Comparisons.NullComparison(Comparisons.Type.IS_NULL))),
                     Arguments.of(List.of(F), new RelOpValue.NotNullFn(), new ValuePredicate(F, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))),
@@ -965,8 +962,7 @@ class BooleanValueTest {
         }
     }
 
-    @Nonnull
-    protected static Value verifySerialization(@Nonnull final Value value) {
+    protected static Value verifySerialization(final Value value) {
         PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.CURRENT_FOR_CONTINUATION);
         final PValue planProto = value.toValueProto(serializationContext);

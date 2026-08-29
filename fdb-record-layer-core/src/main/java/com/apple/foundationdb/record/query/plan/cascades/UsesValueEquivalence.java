@@ -23,8 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Tag interface to provide a common base for all classes implementing a semantic equals using a
@@ -55,10 +54,9 @@ public interface UsesValueEquivalence<T extends UsesValueEquivalence<T>> {
      * @return a boolean monad {@link ConstrainedBoolean} that is either effectively {@code false} or {@code true}
      *         under the assumption that a contained query plan constraint is satisfied
      */
-    @Nonnull
     @SuppressWarnings({"unchecked", "PMD.CompareObjectsWithEquals"})
     default ConstrainedBoolean semanticEquals(@Nullable final Object other,
-                                              @Nonnull final ValueEquivalence valueEquivalence) {
+                                              final ValueEquivalence valueEquivalence) {
         if (this == other) {
             return ConstrainedBoolean.alwaysTrue();
         }
@@ -90,6 +88,5 @@ public interface UsesValueEquivalence<T extends UsesValueEquivalence<T>> {
      * @param valueEquivalence a value equivalence
      * @return a {@link ConstrainedBoolean}
      */
-    @Nonnull
-    ConstrainedBoolean semanticEqualsTyped(@Nonnull T other, @Nonnull ValueEquivalence valueEquivalence);
+    ConstrainedBoolean semanticEqualsTyped(T other, ValueEquivalence valueEquivalence);
 }

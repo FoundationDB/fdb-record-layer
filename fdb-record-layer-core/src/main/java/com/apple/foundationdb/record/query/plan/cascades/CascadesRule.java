@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 
 /**
@@ -35,7 +34,6 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface CascadesRule<T> extends PlannerRule<CascadesRuleCall, T> {
-    @Nonnull
     Set<PlannerConstraint<?>> getConstraintDependencies();
 
     default boolean onlyOnPrunedInputs() {

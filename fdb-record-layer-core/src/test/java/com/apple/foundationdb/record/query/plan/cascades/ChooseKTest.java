@@ -31,7 +31,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -205,7 +204,6 @@ public class ChooseKTest {
                 actualSetBuilder.build());
     }
 
-    @Nonnull
     static Stream<Arguments> checkNChooseK() {
         // Compute all for n < 10, k < n
         Stream<Arguments> smallNK = IntStream.range(0, 10)
@@ -253,7 +251,6 @@ public class ChooseKTest {
         assertThat(combinations, hasSize(expectedSize));
     }
 
-    @Nonnull
     static Stream<Long> checkNChooseKWithSkips() {
         return RandomizedTestUtils.randomSeeds(0x5ca1ab1e, 464976232644684521L, 854522134120263833L);
     }
@@ -301,8 +298,7 @@ public class ChooseKTest {
      * @param <T> the type of each element in the original list
      * @return a list of all combinations of size k
      */
-    @Nonnull
-    private static <T> List<Set<T>> computeChooseK(@Nonnull List<T> elems, int k) {
+    private static <T> List<Set<T>> computeChooseK(List<T> elems, int k) {
         if (k == 0) {
             return List.of(Collections.emptySet());
         }

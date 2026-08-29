@@ -39,7 +39,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -86,7 +85,7 @@ class TypeRepositoryTest {
         }
     }
 
-    private static int countTypes(@Nonnull final Type type) {
+    private static int countTypes(final Type type) {
         if (type.isPrimitive() || type.isUuid()) {
             return 0;
         }
@@ -155,7 +154,6 @@ class TypeRepositoryTest {
         }
     }
 
-    @Nonnull
     private static Type.Vector randomVectorType() {
         final var validPrecisions = new int[] {16, 32, 64};
         final var randomPrecision = validPrecisions[random.nextInt(validPrecisions.length)];

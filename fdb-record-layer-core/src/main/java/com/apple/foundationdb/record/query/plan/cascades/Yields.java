@@ -23,8 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
-import javax.annotation.Nonnull;
-
 /**
  * Interface extending both {@link ExploratoryYields} and {@link FinalYields} and adding yielding capabilities for
  * {@link PartialMatch}es.
@@ -41,9 +39,9 @@ public interface Yields extends ExploratoryYields, FinalYields {
      * @param candidateRef the matching reference on the candidate side
      * @param matchInfo an auxiliary structure to keep additional information about the match
      */
-    void yieldPartialMatch(@Nonnull AliasMap boundAliasMap,
-                           @Nonnull MatchCandidate matchCandidate,
-                           @Nonnull RelationalExpression queryExpression,
-                           @Nonnull Reference candidateRef,
-                           @Nonnull MatchInfo matchInfo);
+    void yieldPartialMatch(AliasMap boundAliasMap,
+                           MatchCandidate matchCandidate,
+                           RelationalExpression queryExpression,
+                           Reference candidateRef,
+                           MatchInfo matchInfo);
 }

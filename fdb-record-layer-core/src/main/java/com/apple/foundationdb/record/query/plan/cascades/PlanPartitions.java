@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -36,18 +35,15 @@ public class PlanPartitions {
         // do not instantiate
     }
 
-    @Nonnull
-    public static List<PlanPartition> rollUpTo(@Nonnull Collection<PlanPartition> planPartitions, @Nonnull final ExpressionProperty<?> rollupAttribute) {
+    public static List<PlanPartition> rollUpTo(Collection<PlanPartition> planPartitions, final ExpressionProperty<?> rollupAttribute) {
         return rollUpTo(planPartitions, ImmutableSet.of(rollupAttribute));
     }
 
-    @Nonnull
-    public static List<PlanPartition> rollUpTo(@Nonnull Collection<PlanPartition> planPartitions, @Nonnull final Set<ExpressionProperty<?>> rollupAttributes) {
+    public static List<PlanPartition> rollUpTo(Collection<PlanPartition> planPartitions, final Set<ExpressionProperty<?>> rollupAttributes) {
         return ExpressionPartitions.rollUpTo(planPartitions, rollupAttributes, PlanPartition::ofPlans);
     }
 
-    @Nonnull
-    public static List<PlanPartition> toPartitions(@Nonnull final PlanPropertiesMap propertiesMap) {
+    public static List<PlanPartition> toPartitions(final PlanPropertiesMap propertiesMap) {
         return ExpressionPartitions.toPartitions(propertiesMap, PlanPartition::ofPlans);
     }
 }

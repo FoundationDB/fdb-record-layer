@@ -34,7 +34,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -71,7 +70,6 @@ public class RewritingRuleSet extends CascadesRuleSet {
                     selectMergeThenPushDown,
                     new FinalizeExpressionsRule());
 
-    @Nonnull
     private static final Set<CascadesRule<? extends RelationalExpression>> ALL_EXPRESSION_RULES =
             ImmutableSet.<CascadesRule<? extends RelationalExpression>>builder()
                     .addAll(PREORDER_RULES)
@@ -79,7 +77,6 @@ public class RewritingRuleSet extends CascadesRuleSet {
                     .addAll(IMPLEMENTATION_RULES)
                     .build();
 
-    @Nonnull
     public static final Set<CascadesRule<? extends RelationalExpression>> OPTIONAL_RULES =
             Streams.<CascadesRule<? extends RelationalExpression>>concat(
                             PREORDER_RULES.stream(),
@@ -89,7 +86,6 @@ public class RewritingRuleSet extends CascadesRuleSet {
                     .filter(rule -> !(rule instanceof FinalizeExpressionsRule))
                     .collect(ImmutableSet.toImmutableSet());
 
-    @Nonnull
     public static final RewritingRuleSet DEFAULT = new RewritingRuleSet();
 
     /**
@@ -97,9 +93,8 @@ public class RewritingRuleSet extends CascadesRuleSet {
      * For a {@link ConditionalCascadesRule}, those are its inner rules, as the wrapping rule is never applied on its
      * own; for any other rule, it is the rule itself.
      */
-    @Nonnull
     private static Stream<? extends CascadesRule<? extends RelationalExpression>> expandConditionalRules(
-            @Nonnull final CascadesRule<? extends RelationalExpression> rule) {
+            final CascadesRule<? extends RelationalExpression> rule) {
         if (rule instanceof ConditionalCascadesRule<?, ?> conditionalRule) {
             return conditionalRule.getRules().stream();
         }
@@ -111,7 +106,6 @@ public class RewritingRuleSet extends CascadesRuleSet {
         super(ALL_EXPRESSION_RULES);
     }
 
-    @Nonnull
     public static RewritingRuleSet getDefault() {
         return DEFAULT;
     }

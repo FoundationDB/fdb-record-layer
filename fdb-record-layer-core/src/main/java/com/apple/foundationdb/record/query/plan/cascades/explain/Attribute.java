@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.explain;
 
-import javax.annotation.Nonnull;
-
 /**
  * Basic interface for all attributes of {@link AbstractPlannerGraph.AbstractNode}
  * as well as {@link AbstractPlannerGraph.AbstractEdge}.
@@ -37,13 +35,12 @@ public interface Attribute {
      * @param <E> edge type
      * @return {@code true} if the attribute is semantic, {@code false} otherwise.
      */
-    <N, E> boolean isVisible(@Nonnull GraphExporter<N, E>.ExporterContext context);
+    <N, E> boolean isVisible(GraphExporter<N, E>.ExporterContext context);
 
     /**
      * Return the underlying object this attribute refers to.
      * @return the object.
      */
-    @Nonnull
     Object getReference();
 
     /**
@@ -52,7 +49,7 @@ public interface Attribute {
      */
     interface GmlAttribute extends Attribute {
         @Override
-        default <N, E> boolean isVisible(@Nonnull final GraphExporter<N, E>.ExporterContext context) {
+        default <N, E> boolean isVisible(final GraphExporter<N, E>.ExporterContext context) {
             return context.getExporter() instanceof GmlExporter;
         }
     }
@@ -63,7 +60,7 @@ public interface Attribute {
      */
     interface DotAttribute extends Attribute {
         @Override
-        default <N, E> boolean isVisible(@Nonnull final GraphExporter<N, E>.ExporterContext context) {
+        default <N, E> boolean isVisible(final GraphExporter<N, E>.ExporterContext context) {
             return context.getExporter() instanceof DotExporter;
         }
     }
@@ -74,7 +71,7 @@ public interface Attribute {
      */
     interface CommonAttribute extends GmlAttribute, DotAttribute {
         @Override
-        default <N, E> boolean isVisible(@Nonnull final GraphExporter<N, E>.ExporterContext context) {
+        default <N, E> boolean isVisible(final GraphExporter<N, E>.ExporterContext context) {
             return true;
         }
     }
@@ -86,7 +83,7 @@ public interface Attribute {
      */
     interface InvisibleAttribute extends GmlAttribute, DotAttribute {
         @Override
-        default <N, E> boolean isVisible(@Nonnull final GraphExporter<N, E>.ExporterContext context) {
+        default <N, E> boolean isVisible(final GraphExporter<N, E>.ExporterContext context) {
             return false;
         }
     }
@@ -96,17 +93,14 @@ public interface Attribute {
      * @param reference the reference
      * @return a new attribute that is only visible to the GML exporter
      */
-    @Nonnull
-    static GmlAttribute gml(@Nonnull final Object reference) {
+    static GmlAttribute gml(final Object reference) {
         return new GmlAttribute() {
             @Override
-            @Nonnull
             public Object getReference() {
                 return reference;
             }
 
             @Override
-            @Nonnull
             public String toString() {
                 return getReference().toString();
             }
@@ -118,17 +112,14 @@ public interface Attribute {
      * @param reference the reference
      * @return a new attribute that is only visible to the DOT exporter
      */
-    @Nonnull
-    static DotAttribute dot(@Nonnull final Object reference) {
+    static DotAttribute dot(final Object reference) {
         return new DotAttribute() {
             @Override
-            @Nonnull
             public Object getReference() {
                 return reference;
             }
 
             @Override
-            @Nonnull
             public String toString() {
                 return getReference().toString();
             }
@@ -140,17 +131,14 @@ public interface Attribute {
      * @param reference the reference
      * @return a new attribute that is visible to all exporters
      */
-    @Nonnull
-    static CommonAttribute common(@Nonnull final Object reference) {
+    static CommonAttribute common(final Object reference) {
         return new CommonAttribute() {
             @Override
-            @Nonnull
             public Object getReference() {
                 return reference;
             }
 
             @Override
-            @Nonnull
             public String toString() {
                 return getReference().toString();
             }
@@ -163,17 +151,14 @@ public interface Attribute {
      * @return a new attribute that is invisible to all exporters. Attributes of this kind can only be used in variable
      *         substitutions.
      */
-    @Nonnull
-    static InvisibleAttribute invisible(@Nonnull final Object reference) {
+    static InvisibleAttribute invisible(final Object reference) {
         return new InvisibleAttribute() {
             @Override
-            @Nonnull
             public Object getReference() {
                 return reference;
             }
 
             @Override
-            @Nonnull
             public String toString() {
                 return getReference().toString();
             }

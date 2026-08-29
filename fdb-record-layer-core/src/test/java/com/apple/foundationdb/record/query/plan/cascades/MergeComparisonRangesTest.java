@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -535,7 +534,7 @@ class MergeComparisonRangesTest {
         assertMergesTo(merged, gt, lte, ne1, ne2, eq);
     }
 
-    private static void assertMergesTo(@Nonnull ComparisonRange.MergeResult mergeResult, Comparisons.Comparison... comparisons) {
+    private static void assertMergesTo(ComparisonRange.MergeResult mergeResult, Comparisons.Comparison... comparisons) {
         final ComparisonRange.MergeResult mergedInOneShot = ComparisonRange.mergeAll(List.of(comparisons));
         assertThat(mergedInOneShot.getComparisonRange())
                 .isEqualTo(mergeResult.getComparisonRange());

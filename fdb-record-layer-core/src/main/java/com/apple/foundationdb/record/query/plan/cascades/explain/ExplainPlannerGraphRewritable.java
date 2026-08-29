@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.explain;
 
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
@@ -42,6 +41,5 @@ public interface ExplainPlannerGraphRewritable {
      *         is no obligation to use the {@code childGraph}s at all, this method can create a new independent
      *         planner graph completely from scratch.
      */
-    @Nonnull
-    PlannerGraph rewriteExplainPlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs);
+    PlannerGraph rewriteExplainPlannerGraph(List<? extends PlannerGraph> childGraphs);
 }

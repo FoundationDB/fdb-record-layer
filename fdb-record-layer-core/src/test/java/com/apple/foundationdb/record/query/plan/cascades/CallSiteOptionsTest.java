@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 
 /**
@@ -324,20 +323,17 @@ class CallSiteOptionsTest {
      * Resolves options the way {@link CatalogedFunction} does when a call is encapsulated, against a function that
      * declares every option used in this test.
      */
-    @Nonnull
     private static CallSiteArguments.Options resolveAgainstAllOptions(
-            @Nonnull final CallSiteArguments.Options options) {
+            final CallSiteArguments.Options options) {
         final var function = new CatalogedFunction("aFunction", ImmutableList.of(), null) {
-            @Nonnull
             @Override
             public Set<CallSiteArguments.Option<?>> getSupportedOptions() {
                 return ImmutableSet.of(INT_OPTION, LONG_OPTION, BOOLEAN_OPTION, DOUBLE_OPTION, STRING_OPTION,
                         ENUM_OPTION, CHAR_OPTION);
             }
 
-            @Nonnull
             @Override
-            public Typed encapsulate(@Nonnull final CallSiteArguments arguments) {
+            public Typed encapsulate(final CallSiteArguments arguments) {
                 return LiteralValue.ofScalar(1);
             }
         };

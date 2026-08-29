@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 /**
@@ -33,14 +32,12 @@ public interface CommonCascadesRuleCall {
      * Returns the current {@link PlannerPhase}.
      * @return the current {@link PlannerPhase}
      */
-    @Nonnull
     PlannerPhase getPlannerPhase();
 
     /**
      * Returns the root {@link Reference} of the expression DAG.
      * @return the root {@link Reference} of the expression DAG
      */
-    @Nonnull
     Reference getRoot();
 
     /**
@@ -48,7 +45,6 @@ public interface CommonCascadesRuleCall {
      * to find referencing expressions of expressions, etc.
      * @return a newly constructed alias resolver
      */
-    @Nonnull
     Quantifiers.AliasResolver newAliasResolver();
 
     /**
@@ -57,7 +53,6 @@ public interface CommonCascadesRuleCall {
      *
      * @return a {@link PlanContext} object with various metadata that could affect planning
      */
-    @Nonnull
     PlanContext getContext();
 
     /**
@@ -67,8 +62,7 @@ public interface CommonCascadesRuleCall {
      * @return {@code Optional.of(...)} the current value for the requested constraint if it exists, otherwise
      *         {@code Optional.empty()}
      */
-    @Nonnull
-    <T> Optional<T> getPlannerConstraintMaybe(@Nonnull PlannerConstraint<T> plannerConstraint);
+    <T> Optional<T> getPlannerConstraintMaybe(PlannerConstraint<T> plannerConstraint);
 
     /**
      * Push a constraint to the {@link Reference} passed in.
@@ -77,9 +71,9 @@ public interface CommonCascadesRuleCall {
      * @param constraintValue the constraint value
      * @param <T> the type parameter of {@code constraintValue}
      */
-    <T> void pushConstraint(@Nonnull Reference reference,
-                            @Nonnull PlannerConstraint<T> plannerConstraint,
-                            @Nonnull T constraintValue);
+    <T> void pushConstraint(Reference reference,
+                            PlannerConstraint<T> plannerConstraint,
+                            T constraintValue);
 
     /**
      * Emit a planner event to the debugger. That event can then be used to set break points or for statistical
@@ -91,5 +85,5 @@ public interface CommonCascadesRuleCall {
      * {@link com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location#END}.
      * @param location the location to be used for the event to be emitted.
      */
-    void emitEvent(@Nonnull Location location);
+    void emitEvent(Location location);
 }

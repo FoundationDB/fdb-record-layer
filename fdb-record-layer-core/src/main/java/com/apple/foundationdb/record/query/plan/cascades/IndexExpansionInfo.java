@@ -28,8 +28,8 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
@@ -41,26 +41,21 @@ import java.util.Set;
  */
 @API(API.Status.INTERNAL)
 public final class IndexExpansionInfo {
-    @Nonnull
     private final RecordMetaData metaData;
-    @Nonnull
     private final Index index;
     private final boolean reverse;
     @Nullable
     private final KeyExpression commonPrimaryKeyForTypes;
-    @Nonnull
     private final Collection<RecordType> indexedRecordTypes;
-    @Nonnull
     private final Set<String> indexedRecordTypeNames;
-    @Nonnull
     private final Type.Record baseType;
 
-    private IndexExpansionInfo(@Nonnull RecordMetaData metaData,
-                               @Nonnull Index index,
+    private IndexExpansionInfo(RecordMetaData metaData,
+                               Index index,
                                boolean reverse,
-                               @Nonnull Collection<RecordType> indexedRecordTypes,
-                               @Nonnull Set<String> indexedRecordTypeNames,
-                               @Nonnull Type.Record baseType,
+                               Collection<RecordType> indexedRecordTypes,
+                               Set<String> indexedRecordTypeNames,
+                               Type.Record baseType,
                                @Nullable KeyExpression commonPrimaryKeyForTypes) {
         this.metaData = metaData;
         this.index = index;
@@ -71,17 +66,14 @@ public final class IndexExpansionInfo {
         this.commonPrimaryKeyForTypes = commonPrimaryKeyForTypes;
     }
 
-    @Nonnull
     public RecordMetaData getMetaData() {
         return metaData;
     }
 
-    @Nonnull
     public Index getIndex() {
         return index;
     }
 
-    @Nonnull
     public String getIndexName() {
         return index.getName();
     }
@@ -90,12 +82,10 @@ public final class IndexExpansionInfo {
         return reverse;
     }
 
-    @Nonnull
     public Collection<RecordType> getIndexedRecordTypes() {
         return indexedRecordTypes;
     }
 
-    @Nonnull
     public Set<String> getIndexedRecordTypeNames() {
         return indexedRecordTypeNames;
     }
@@ -105,12 +95,10 @@ public final class IndexExpansionInfo {
         return commonPrimaryKeyForTypes;
     }
 
-    @Nonnull
     public Set<String> getAvailableRecordTypeNames() {
         return metaData.getRecordTypes().keySet();
     }
 
-    @Nonnull
     public Type.Record getBaseType() {
         return baseType;
     }
@@ -126,17 +114,13 @@ public final class IndexExpansionInfo {
      * @param reverse whether the query requires this scan be in reverse
      * @return an object encapsulating information about the index
      */
-    @Nonnull
-    public static IndexExpansionInfo createInfo(@Nonnull RecordMetaData metaData,
-                                                @Nonnull Index index,
+    public static IndexExpansionInfo createInfo(RecordMetaData metaData,
+                                                Index index,
                                                 boolean reverse) {
-        @Nonnull
         final Collection<RecordType> indexedRecordTypes = Collections.unmodifiableCollection(metaData.recordTypesForIndex(index));
-        @Nonnull
         final Set<String> indexedRecordTypeNames = indexedRecordTypes.stream()
                 .map(RecordType::getName)
                 .collect(ImmutableSet.toImmutableSet());
-        @Nonnull
         final Type.Record baseType = metaData.getPlannerType(indexedRecordTypeNames);
         @Nullable
         final KeyExpression commonPrimaryKeyForTypes = RecordMetaData.commonPrimaryKey(indexedRecordTypes);

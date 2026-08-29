@@ -45,8 +45,8 @@ import com.google.common.collect.Sets;
 import com.google.common.graph.ImmutableNetwork;
 import com.google.common.graph.Network;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.io.StringWriter;
 import java.io.Writer;
 import java.util.Collection;
@@ -90,7 +90,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
         int counter = 0;
 
         @Override
-        public String apply(@Nonnull final T t) {
+        public String apply(final T t) {
             counter++;
             return String.valueOf(counter);
         }
@@ -113,8 +113,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
      * @param relationalExpression the planner expression to be rendered.
      * @return the word "done" (IntelliJ really likes a return of String).
      */
-    @Nonnull
-    public static String show(final boolean renderSingleGroups, @Nonnull final RelationalExpression relationalExpression) {
+    public static String show(final boolean renderSingleGroups, final RelationalExpression relationalExpression) {
         return show(renderSingleGroups ? RENDER_SINGLE_GROUPS : 0, relationalExpression);
     }
 
@@ -124,8 +123,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
      * @param rootReference the planner expression to be rendered.
      * @return the word "done" (IntelliJ really likes a return of String).
      */
-    @Nonnull
-    public static String show(final boolean renderSingleGroups, @Nonnull final Reference rootReference) {
+    public static String show(final boolean renderSingleGroups, final Reference rootReference) {
         return show(renderSingleGroups ? RENDER_SINGLE_GROUPS : 0, rootReference);
     }
 
@@ -135,14 +133,12 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
      * @param relationalExpression the planner expression to be rendered.
      * @return the word "done" (IntelliJ really likes a return of String).
      */
-    @Nonnull
-    public static String show(final int flags, @Nonnull final RelationalExpression relationalExpression) {
+    public static String show(final int flags, final RelationalExpression relationalExpression) {
         final PlannerGraph plannerGraph =
                 Objects.requireNonNull(relationalExpression.acceptVisitor(new PlannerGraphVisitor(flags)));
         final String dotString = exportToDot(plannerGraph);
         return show(dotString);
     }
-
 
     /**
      * Show the planner expression that is passed in as a graph rendered in your default browser.
@@ -150,8 +146,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
      * @param rootReference the planner expression to be rendered.
      * @return the word "done" (IntelliJ really likes a return of String).
      */
-    @Nonnull
-    public static String show(final int flags, @Nonnull final Reference rootReference) {
+    public static String show(final int flags, final Reference rootReference) {
         final PlannerGraph plannerGraph =
                 Objects.requireNonNull(rootReference.acceptVisitor(new PlannerGraphVisitor(flags)));
         final String dotString = exportToDot(plannerGraph);
@@ -166,10 +161,9 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
      * @param matchCandidates a set of candidates for matching which should also be shown
      * @return the word "done" (IntelliJ really likes a return of String).
      */
-    @Nonnull
     public static String show(final boolean renderSingleGroups,
-                              @Nonnull final Reference queryPlanRootReference,
-                              @Nonnull final Set<MatchCandidate> matchCandidates) {
+                              final Reference queryPlanRootReference,
+                              final Set<MatchCandidate> matchCandidates) {
         final PlannerGraph queryPlannerGraph =
                 Objects.requireNonNull(queryPlanRootReference.acceptVisitor(forInternalShow(renderSingleGroups, true)));
 
@@ -215,7 +209,6 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
      * @param dotString graph serialized as dot-compatible string
      * @return the word "done" (IntelliJ really likes a return of String).
      */
-    @Nonnull
     private static String show(final String dotString) {
         return BrowserHelper.browse("/showPlannerExpression.html", ImmutableMap.of("$DOT", dotString));
     }
@@ -226,8 +219,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
      * @param plannerGraph the planner graph we should export to dot
      * @return the graph as string in dot format.
      */
-    @Nonnull
-    public static String exportToDot(@Nonnull final AbstractPlannerGraph<Node, Edge> plannerGraph) {
+    public static String exportToDot(final AbstractPlannerGraph<Node, Edge> plannerGraph) {
         final ImmutableNetwork<Node, Edge> network = plannerGraph.getNetwork();
         return exportToDot(plannerGraph, network.nodes(), clusterProvider -> ImmutableList.of());
     }
@@ -247,10 +239,9 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
      *        </ul>
      * @return the graph as string in dot format.
      */
-    @Nonnull
-    public static String exportToDot(@Nonnull final AbstractPlannerGraph<Node, Edge> plannerGraph,
-                                     @Nonnull final Set<Node> queryPlannerNodes,
-                                     @Nonnull final Function<GraphExporter.ClusterProvider<Node, Edge>, Collection<Cluster<Node, Edge>>> clusteringFunction) {
+    public static String exportToDot(final AbstractPlannerGraph<Node, Edge> plannerGraph,
+                                     final Set<Node> queryPlannerNodes,
+                                     final Function<GraphExporter.ClusterProvider<Node, Edge>, Collection<Cluster<Node, Edge>>> clusteringFunction) {
         final GraphExporter<Node, Edge> exporter = new DotExporter<>(new CountingIdProvider<>(),
                 Node::getAttributes,
                 Edge::getAttributes,
@@ -270,7 +261,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
     }
 
     private static class GroupCluster extends Cluster<Node, Edge> {
-        public GroupCluster(@Nonnull String label, @Nonnull final Set<Node> nodes) {
+        public GroupCluster(String label, final Set<Node> nodes) {
             super(nodes,
                     node -> ImmutableMap.<String, Attribute>builder()
                             .put("style", Attribute.dot("filled"))
@@ -287,9 +278,9 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
      * Class to represent an actual sub cluster of inside the planner graph.
      */
     public static class NamedCluster extends Cluster<Node, Edge> {
-        public NamedCluster(@Nonnull String label,
-                            @Nonnull final Set<Node> nodes,
-                            @Nonnull GraphExporter.ClusterProvider<Node, Edge> nestedClusterProvider) {
+        public NamedCluster(String label,
+                            final Set<Node> nodes,
+                            GraphExporter.ClusterProvider<Node, Edge> nestedClusterProvider) {
             super(nodes,
                     node -> ImmutableMap.<String, Attribute>builder()
                             .put("style", Attribute.dot("filled"))
@@ -335,8 +326,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
      * @param relationalExpression the planner expression to be explained.
      * @return the internal explain of the planner expression handing in as a string in DOT format.
      */
-    @Nonnull
-    public static String internalGraphicalExplain(@Nonnull final RelationalExpression relationalExpression) {
+    public static String internalGraphicalExplain(final RelationalExpression relationalExpression) {
         final PlannerGraph plannerGraph =
                 Objects.requireNonNull(relationalExpression.acceptVisitor(forInternalShow(false)));
         return exportToDot(plannerGraph);
@@ -347,8 +337,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
      * @param relationalExpression the planner expression to be explained.
      * @return the explain of the planner expression handing in as a string in GML format.
      */
-    @Nonnull
-    public static String explain(@Nonnull final RelationalExpression relationalExpression) {
+    public static String explain(final RelationalExpression relationalExpression) {
         return explain(relationalExpression, ImmutableMap.of());
     }
 
@@ -358,9 +347,8 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
      * @param additionalDescriptionMap a map used to generate names and descriptions for operators.
      * @return the explain of the planner expression handing in as a string in GML format.
      */
-    @Nonnull
-    public static String explain(@Nonnull final RelationalExpression relationalExpression,
-                                 @Nonnull final Map<String, Attribute> additionalDescriptionMap) {
+    public static String explain(final RelationalExpression relationalExpression,
+                                 final Map<String, Attribute> additionalDescriptionMap) {
         try {
             final PlannerGraph plannerGraph =
                     Objects.requireNonNull(relationalExpression.acceptVisitor(forExplain()));
@@ -377,9 +365,8 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
      * @param additionalInfoMap a map used to generate names and descriptions for operators.
      * @return the graph as string in gml format.
      */
-    @Nonnull
-    public static String exportToGml(@Nonnull final PlannerGraph plannerGraph,
-                                     @Nonnull final Map<String, Attribute> additionalInfoMap) {
+    public static String exportToGml(final PlannerGraph plannerGraph,
+                                     final Map<String, Attribute> additionalInfoMap) {
         // Synthesize the set of NodeWithInfo nodes that are in the plan.
         final ImmutableSet<String> usedInfoIds =
                 plannerGraph.getNetwork()
@@ -403,8 +390,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
         return writer.toString();
     }
 
-    @Nonnull
-    private static GraphExporter<Node, Edge> createGmlExporter(@Nonnull final Map<String, Attribute> infoMap) {
+    private static GraphExporter<Node, Edge> createGmlExporter(final Map<String, Attribute> infoMap) {
         return new GmlExporter<>(new CountingIdProvider<>(),
                 Node::getAttributes,
                 new CountingIdProvider<>(),
@@ -454,9 +440,8 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
         return (flags & REMOVE_EXPLORATORY_EXPRESSIONS) != 0;
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph evaluateAtExpression(@Nonnull final RelationalExpression expression, @Nonnull final List<PlannerGraph> childGraphs) {
+    public PlannerGraph evaluateAtExpression(final RelationalExpression expression, final List<PlannerGraph> childGraphs) {
         if (isForExplain() && expression instanceof ExplainPlannerGraphRewritable) {
             return ((ExplainPlannerGraphRewritable)expression).rewriteExplainPlannerGraph(childGraphs);
         }
@@ -475,9 +460,8 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
         }
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph evaluateAtRef(@Nonnull final Reference ref, @Nonnull List<PlannerGraph> memberResults) {
+    public PlannerGraph evaluateAtRef(final Reference ref, List<PlannerGraph> memberResults) {
         if (memberResults.isEmpty()) {
             // should not happen -- but we don't want to bail
             return PlannerGraph.builder(new PlannerGraph.ReferenceHeadNode(ref)).build();

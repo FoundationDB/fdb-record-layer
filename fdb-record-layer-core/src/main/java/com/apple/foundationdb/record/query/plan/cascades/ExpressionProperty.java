@@ -26,8 +26,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
 
-import javax.annotation.Nonnull;
-
 /**
  * Base interface to capture properties for expressions.
  * An instance of this usually class serves as a key in maps much like an enum, but provides strong typing.
@@ -66,21 +64,17 @@ public interface ExpressionProperty<P> {
      * @param object an object that actually is of dynamic type {@code P}
      * @return the narrowed object of type {@code P}
      */
-    @Nonnull
     @SuppressWarnings("unchecked")
-    default P narrowAttribute(@Nonnull final Object object) {
+    default P narrowAttribute(final Object object) {
         return (P)object;
     }
 
-    @Nonnull
     RelationalExpressionVisitor<P> createVisitor();
 
-    @Nonnull
-    static <T> RelationalExpressionVisitor<T> toExpressionVisitor(@Nonnull final RecordQueryPlanVisitor<T> planVisitor) {
+    static <T> RelationalExpressionVisitor<T> toExpressionVisitor(final RecordQueryPlanVisitor<T> planVisitor) {
         return new RelationalExpressionVisitorWithDefaults<>() {
-            @Nonnull
             @Override
-            public T visitDefault(@Nonnull final RelationalExpression element) {
+            public T visitDefault(final RelationalExpression element) {
                 if (element instanceof RecordQueryPlan) {
                     return planVisitor.visit((RecordQueryPlan)element);
                 }

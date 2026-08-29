@@ -48,8 +48,8 @@ import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 import org.junit.jupiter.params.support.ParameterDeclarations;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -75,10 +75,9 @@ class LikeOperatorValueTest {
             .build();
 
     static class ValidInputTypesArgumentsProvider implements ArgumentsProvider {
-        @Nonnull
         @Override
-        public Stream<? extends Arguments> provideArguments(@Nonnull final ParameterDeclarations parameterDeclarations,
-                                                            @Nonnull final ExtensionContext context) {
+        public Stream<? extends Arguments> provideArguments(final ParameterDeclarations parameterDeclarations,
+                                                            final ExtensionContext context) {
             return ParameterizedTestUtils.cartesianProduct(
                     Stream.of(STRING_1, STRING_NULL, NULL_VALUE),
                     Stream.of(STRING_1, STRING_NULL, NULL_VALUE),
@@ -88,10 +87,9 @@ class LikeOperatorValueTest {
     }
 
     static class InvalidInputTypesArgumentsProvider implements ArgumentsProvider {
-        @Nonnull
         @Override
-        public Stream<? extends Arguments> provideArguments(@Nonnull final ParameterDeclarations parameterDeclarations,
-                                                            @Nonnull final ExtensionContext context) {
+        public Stream<? extends Arguments> provideArguments(final ParameterDeclarations parameterDeclarations,
+                                                            final ExtensionContext context) {
             return Stream.of(
                     Arguments.of(INT_1, INT_1, STRING_NULL),
                     Arguments.of(LONG_1, LONG_1, STRING_NULL),
@@ -127,10 +125,9 @@ class LikeOperatorValueTest {
      * would behave.
      */
     static class InvalidInputValuesArgumentsProvider implements ArgumentsProvider {
-        @Nonnull
         @Override
-        public Stream<? extends Arguments> provideArguments(@Nonnull final ParameterDeclarations parameterDeclarations,
-                                                            @Nonnull final ExtensionContext context) {
+        public Stream<? extends Arguments> provideArguments(final ParameterDeclarations parameterDeclarations,
+                                                            final ExtensionContext context) {
             return Stream.of(
                     // Invalid escape characters
                     Arguments.of("blah", "blah%", "", SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR),
@@ -182,10 +179,9 @@ class LikeOperatorValueTest {
     }
 
     static class ValidInputArgumentsProvider implements ArgumentsProvider {
-        @Nonnull
         @Override
-        public Stream<? extends Arguments> provideArguments(@Nonnull final ParameterDeclarations parameterDeclarations,
-                                                            @Nonnull final ExtensionContext context) {
+        public Stream<? extends Arguments> provideArguments(final ParameterDeclarations parameterDeclarations,
+                                                            final ExtensionContext context) {
             return Stream.of(
                     Arguments.of(null, null, null, null),
                     Arguments.of("a", null, null, null),
@@ -353,7 +349,7 @@ class LikeOperatorValueTest {
 
     @ParameterizedTest
     @ArgumentsSource(InvalidInputTypesArgumentsProvider.class)
-    void testSemanticException(@Nonnull Value lhs, @Nonnull Value rhs, @Nonnull Value escapeChar) {
+    void testSemanticException(Value lhs, Value rhs, Value escapeChar) {
         BuiltInFunction<?> like = new LikeOperatorValue.LikeFn();
         BuiltInFunction<?> pattern = new PatternForLikeValue.PatternForLikeFn();
         SemanticException err = Assertions.assertThrows(SemanticException.class, () ->
@@ -364,14 +360,14 @@ class LikeOperatorValueTest {
     }
 
     @Nullable
-    private Object evalLikeOperator(@Nonnull LikeOperatorValue value) {
+    private Object evalLikeOperator(LikeOperatorValue value) {
         final TypeRepository typeRepository = TypeRepository.newBuilder().addAllTypes(value.getDynamicTypes()).build();
         return value.eval(null, EvaluationContext.forBindingsAndTypeRepository(bindings, typeRepository));
     }
 
     @ParameterizedTest
     @ArgumentsSource(InvalidInputValuesArgumentsProvider.class)
-    void testInvalidInputValues(@Nullable String lhs, @Nullable String rhs, @Nullable String escapeChar, @Nonnull SemanticException.ErrorCode expectedErrorCode) {
+    void testInvalidInputValues(@Nullable String lhs, @Nullable String rhs, @Nullable String escapeChar, SemanticException.ErrorCode expectedErrorCode) {
         final LikeOperatorValue value = createLikeOperatorValue(lhs, rhs, escapeChar);
         final SemanticException err = Assertions.assertThrows(SemanticException.class, () -> evalLikeOperator(value));
         Assertions.assertEquals(expectedErrorCode, err.getErrorCode());
@@ -398,9 +394,7 @@ class LikeOperatorValueTest {
         Assertions.assertEquals(result, evalLikeOperator(deserialized));
     }
 
-
     @SuppressWarnings({"ConstantConditions"})
-    @Nonnull
     private static LikeOperatorValue createLikeOperatorValue(@Nullable final String lhs, @Nullable final String rhs, @Nullable final String escapeChar) {
         BuiltInFunction<?> like = new LikeOperatorValue.LikeFn();
         BuiltInFunction<?> pattern = new PatternForLikeValue.PatternForLikeFn();

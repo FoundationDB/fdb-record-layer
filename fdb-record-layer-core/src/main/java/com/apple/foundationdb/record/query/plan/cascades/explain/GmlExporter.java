@@ -25,7 +25,6 @@ import com.google.common.escape.Escaper;
 import com.google.common.graph.ImmutableNetwork;
 import com.google.common.html.HtmlEscapers;
 
-import javax.annotation.Nonnull;
 import java.io.PrintWriter;
 import java.util.Collection;
 import java.util.Map;
@@ -62,11 +61,11 @@ public class GmlExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
      *        not be written to the file.
      * @param graphAttributes map of global graph-wide attributes
      */
-    public GmlExporter(@Nonnull final ComponentIdProvider<N> vertexIDProvider,
-                       @Nonnull final ComponentAttributeProvider<N> vertexAttributeProvider,
-                       @Nonnull final ComponentIdProvider<E> edgeIDProvider,
-                       @Nonnull final ComponentAttributeProvider<E> edgeAttributeProvider,
-                       @Nonnull final Map<String, Attribute> graphAttributes) {
+    public GmlExporter(final ComponentIdProvider<N> vertexIDProvider,
+                       final ComponentAttributeProvider<N> vertexAttributeProvider,
+                       final ComponentIdProvider<E> edgeIDProvider,
+                       final ComponentAttributeProvider<E> edgeAttributeProvider,
+                       final Map<String, Attribute> graphAttributes) {
         super(vertexIDProvider,
                 vertexAttributeProvider,
                 edgeIDProvider,
@@ -83,20 +82,20 @@ public class GmlExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
      * @return <code>true</code> if it is valid; <code>false</code> otherwise.
      */
     @Override
-    protected boolean isValidId(@Nonnull final String idCandidate) {
+    protected boolean isValidId(final String idCandidate) {
         return NUMBER.matcher(idCandidate).matches();
     }
 
     @Override
-    protected void renderHeader(@Nonnull final ExporterContext context,
-                                @Nonnull final ImmutableNetwork<N, E> graph) {
+    protected void renderHeader(final ExporterContext context,
+                                final ImmutableNetwork<N, E> graph) {
         context.getPrintWriter().println("graph [");
     }
 
     @Override
     @SuppressWarnings("PMD.CloseResource")
-    protected void renderGraphAttributes(@Nonnull final ExporterContext context,
-                                         @Nonnull final Map<String, Attribute> attributes) {
+    protected void renderGraphAttributes(final ExporterContext context,
+                                         final Map<String, Attribute> attributes) {
         // graph attributes
         final PrintWriter out = context.getPrintWriter();
         for (final Entry<String, Attribute> entry : attributes.entrySet()) {
@@ -111,9 +110,9 @@ public class GmlExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
 
     @Override
     @SuppressWarnings("PMD.CloseResource")
-    protected void renderNode(@Nonnull final ExporterContext context,
-                              @Nonnull final N node,
-                              @Nonnull final Map<String, Attribute> attributes) {
+    protected void renderNode(final ExporterContext context,
+                              final N node,
+                              final Map<String, Attribute> attributes) {
         final PrintWriter out = context.getPrintWriter();
         out.print(INDENT);
         out.println("node [");
@@ -143,11 +142,11 @@ public class GmlExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
 
     @Override
     @SuppressWarnings("PMD.CloseResource")
-    protected void renderEdge(@Nonnull final ExporterContext context,
+    protected void renderEdge(final ExporterContext context,
                               final boolean isDirected,
-                              @Nonnull final N source,
-                              @Nonnull final N target,
-                              @Nonnull final Map<String, Attribute> attributes) {
+                              final N source,
+                              final N target,
+                              final Map<String, Attribute> attributes) {
         final PrintWriter out = context.getPrintWriter();
         out.print(INDENT);
         out.println("edge [");
@@ -173,12 +172,12 @@ public class GmlExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
     }
 
     @Override
-    protected void renderClusters(@Nonnull final ExporterContext context, @Nonnull final Collection<Cluster<N, E>> clusters) {
+    protected void renderClusters(final ExporterContext context, final Collection<Cluster<N, E>> clusters) {
         // no clusters in GML
     }
 
     @Override
-    protected void renderFooter(@Nonnull final ExporterContext context) {
+    protected void renderFooter(final ExporterContext context) {
         context.getPrintWriter().print("]");
     }
 
@@ -189,9 +188,9 @@ public class GmlExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
      * @param attributes attributes
      */
     @SuppressWarnings("PMD.CloseResource")
-    private void renderAttributes(@Nonnull final ExporterContext context,
-                                  @Nonnull final String indentation,
-                                  @Nonnull final Map<String, Attribute> attributes) {
+    private void renderAttributes(final ExporterContext context,
+                                  final String indentation,
+                                  final Map<String, Attribute> attributes) {
         final PrintWriter out = context.getPrintWriter();
 
         for (final Entry<String, Attribute> entry : attributes.entrySet()) {
@@ -213,10 +212,10 @@ public class GmlExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
      * @param attribute attribute; may be any type
      */
     @SuppressWarnings({"unchecked", "PMD.CloseResource"})
-    private void renderAttribute(@Nonnull final ExporterContext context,
-                                 @Nonnull final String indentation,
-                                 @Nonnull final String attrName,
-                                 @Nonnull final Attribute attribute) {
+    private void renderAttribute(final ExporterContext context,
+                                 final String indentation,
+                                 final String attrName,
+                                 final Attribute attribute) {
         if (attribute.isVisible(context)) {
             final PrintWriter out = context.getPrintWriter();
             final Object reference = attribute.getReference();

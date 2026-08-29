@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Suppliers;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -34,37 +33,31 @@ import java.util.function.Supplier;
  * BY} columns together with their sort directions.
  */
 public class WindowOrderingPart {
-    @Nonnull
     private final Value value;
 
-    @Nonnull
     private final OrderingPart.RequestedSortOrder sortOrder;
 
     @SuppressWarnings("this-escape")
     private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
-    public WindowOrderingPart(@Nonnull final Value value, @Nonnull final OrderingPart.RequestedSortOrder sortOrder) {
+    public WindowOrderingPart(final Value value, final OrderingPart.RequestedSortOrder sortOrder) {
         this.value = value;
         this.sortOrder = sortOrder;
     }
 
-    @Nonnull
     public Value getValue() {
         return value;
     }
 
-    @Nonnull
     public Set<CorrelationIdentifier> getCorrelatedTo() {
         return value.getCorrelatedTo();
     }
 
-    @Nonnull
     public OrderingPart.RequestedSortOrder getSortOrder() {
         return sortOrder;
     }
 
-    @Nonnull
-    public OrderingPart.RequestedSortOrder getDirectionalSortOrderOrDefault(@Nonnull final OrderingPart.RequestedSortOrder defaultSortOrder) {
+    public OrderingPart.RequestedSortOrder getDirectionalSortOrderOrDefault(final OrderingPart.RequestedSortOrder defaultSortOrder) {
         if (sortOrder.isDirectional()) {
             return sortOrder;
         }

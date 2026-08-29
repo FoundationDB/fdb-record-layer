@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.debug;
 import com.google.common.base.Throwables;
 import com.google.common.io.CharStreams;
 
-import javax.annotation.Nonnull;
 import java.awt.Desktop;
 import java.io.File;
 import java.io.InputStream;
@@ -54,9 +53,8 @@ public class BrowserHelper {
      * @return a URI pointing to a html file in a temp location which renders the graph
      * @throws Exception -- thrown from methods called in here.
      */
-    @Nonnull
-    private static URI createHtmlLauncher(@Nonnull final String htmlAsResource,
-                                          @Nonnull final Map<String, String> insertMap) throws Exception {
+    private static URI createHtmlLauncher(final String htmlAsResource,
+                                          final Map<String, String> insertMap) throws Exception {
         String launcherHtmlString;
         try (InputStream launcherHtmlInputStream = BrowserHelper.class.getResourceAsStream(htmlAsResource)) {
             launcherHtmlString = CharStreams.toString(new InputStreamReader(Objects.requireNonNull(launcherHtmlInputStream), StandardCharsets.UTF_8));
@@ -84,9 +82,8 @@ public class BrowserHelper {
      *        dynamic
      * @return the word "done" (IntelliJ really likes a return of String).
      */
-    @Nonnull
-    public static String browse(@Nonnull final String htmlAsResource,
-                                @Nonnull final Map<String, String> insertMap) {
+    public static String browse(final String htmlAsResource,
+                                final Map<String, String> insertMap) {
         try {
             final URI uri = BrowserHelper.createHtmlLauncher(htmlAsResource, insertMap);
             Desktop.getDesktop().browse(uri);

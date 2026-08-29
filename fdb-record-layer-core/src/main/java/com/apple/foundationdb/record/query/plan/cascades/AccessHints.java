@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -29,14 +28,12 @@ import java.util.Set;
  * Represents a set of AccessHint a query or a match candidate has.
  */
 public class AccessHints {
-    @Nonnull
     private final Set<AccessHint> accessHintSet = new HashSet<>();
 
     public AccessHints(AccessHint... accessHints) {
         this.accessHintSet.addAll(Arrays.asList(accessHints));
     }
 
-    @Nonnull
     public Set<AccessHint> getAccessHintSet() {
         return accessHintSet;
     }
@@ -45,7 +42,7 @@ public class AccessHints {
         return accessHintSet.size();
     }
 
-    public boolean satisfies(@Nonnull AccessHints other) {
+    public boolean satisfies(AccessHints other) {
         // if no hint is set, it's considered to include all possible hints
         if (size() == 0) {
             return true;

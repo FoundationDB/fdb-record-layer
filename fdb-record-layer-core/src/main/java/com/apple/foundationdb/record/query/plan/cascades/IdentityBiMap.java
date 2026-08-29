@@ -30,8 +30,8 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -91,18 +91,16 @@ public class IdentityBiMap<K, V> implements BiMap<Wrapper<K>, Wrapper<V>> {
     }
 
     @Override
-    public void putAll(@Nonnull final Map<? extends Wrapper<K>, ? extends Wrapper<V>> map) {
+    public void putAll(final Map<? extends Wrapper<K>, ? extends Wrapper<V>> map) {
         getDelegate().putAll(map);
     }
 
     @Override
-    @Nonnull
     public Set<Wrapper<V>> values() {
         return getDelegate().values();
     }
 
     @Override
-    @Nonnull
     public IdentityBiMap<V, K> inverse() {
         return inverseProvider.get();
     }
@@ -154,13 +152,11 @@ public class IdentityBiMap<K, V> implements BiMap<Wrapper<K>, Wrapper<V>> {
     }
 
     @Override
-    @Nonnull
     public Set<Wrapper<K>> keySet() {
         return getDelegate().keySet();
     }
 
     @Override
-    @Nonnull
     public Set<Entry<Wrapper<K>, Wrapper<V>>> entrySet() {
         return getDelegate().entrySet();
     }
@@ -192,16 +188,16 @@ public class IdentityBiMap<K, V> implements BiMap<Wrapper<K>, Wrapper<V>> {
     }
 
     @Override
-    public void forEach(@Nonnull final BiConsumer<? super Wrapper<K>, ? super Wrapper<V>> action) {
+    public void forEach(final BiConsumer<? super Wrapper<K>, ? super Wrapper<V>> action) {
         getDelegate().forEach(action);
     }
 
-    public void forEachUnwrapped(@Nonnull final BiConsumer<? super K, ? super V> action) {
+    public void forEachUnwrapped(final BiConsumer<? super K, ? super V> action) {
         getDelegate().forEach((wrappedKey, wrappedValue) -> action.accept(unwrap(wrappedKey), unwrap(wrappedValue)));
     }
 
     @Override
-    public void replaceAll(@Nonnull final BiFunction<? super Wrapper<K>, ? super Wrapper<V>, ? extends Wrapper<V>> function) {
+    public void replaceAll(final BiFunction<? super Wrapper<K>, ? super Wrapper<V>, ? extends Wrapper<V>> function) {
         getDelegate().replaceAll(function);
     }
 
@@ -229,45 +225,41 @@ public class IdentityBiMap<K, V> implements BiMap<Wrapper<K>, Wrapper<V>> {
 
     @Override
     @Nullable
-    public Wrapper<V> computeIfAbsent(@Nullable final Wrapper<K> key, @Nonnull final Function<? super Wrapper<K>, ? extends Wrapper<V>> mappingFunction) {
+    public Wrapper<V> computeIfAbsent(@Nullable final Wrapper<K> key, final Function<? super Wrapper<K>, ? extends Wrapper<V>> mappingFunction) {
         return getDelegate().computeIfAbsent(key, mappingFunction);
     }
 
     @Override
     @Nullable
-    public Wrapper<V> computeIfPresent(@Nullable final Wrapper<K> key, @Nonnull final BiFunction<? super Wrapper<K>, ? super Wrapper<V>, ? extends Wrapper<V>> remappingFunction) {
+    public Wrapper<V> computeIfPresent(@Nullable final Wrapper<K> key, final BiFunction<? super Wrapper<K>, ? super Wrapper<V>, ? extends Wrapper<V>> remappingFunction) {
         return getDelegate().computeIfPresent(key, remappingFunction);
     }
 
     @Override
     @Nullable
-    public Wrapper<V> compute(@Nullable final Wrapper<K> key, @Nonnull final BiFunction<? super Wrapper<K>, ? super Wrapper<V>, ? extends Wrapper<V>> remappingFunction) {
+    public Wrapper<V> compute(@Nullable final Wrapper<K> key, final BiFunction<? super Wrapper<K>, ? super Wrapper<V>, ? extends Wrapper<V>> remappingFunction) {
         return getDelegate().compute(key, remappingFunction);
     }
 
     @Override
     @Nullable
-    public Wrapper<V> merge(@Nullable final Wrapper<K> key, @Nonnull final Wrapper<V> value, @Nonnull final BiFunction<? super Wrapper<V>, ? super Wrapper<V>, ? extends Wrapper<V>> remappingFunction) {
+    public Wrapper<V> merge(@Nullable final Wrapper<K> key, final Wrapper<V> value, final BiFunction<? super Wrapper<V>, ? super Wrapper<V>, ? extends Wrapper<V>> remappingFunction) {
         return getDelegate().merge(key, value, remappingFunction);
     }
 
-    @Nonnull
     public IdentityBiMap<K, V> toImmutable() {
         // this only copies when needed
         return new IdentityBiMap<>(ImmutableBiMap.copyOf(delegate));
     }
 
-    @Nonnull
     public static <K, V> IdentityBiMap<K, V> create() {
         return create(HashBiMap.create());
     }
 
-    @Nonnull
     public static <K, V> IdentityBiMap<K, V> create(final BiMap<Wrapper<K>, Wrapper<V>> delegate) {
         return new IdentityBiMap<>(delegate);
     }
 
-    @Nonnull
     public static <T> Wrapper<T> wrap(@Nullable final T reference) {
         return identity.wrap(reference);
     }
@@ -277,9 +269,9 @@ public class IdentityBiMap<K, V> implements BiMap<Wrapper<K>, Wrapper<V>> {
         return wrapper == null ? null : wrapper.get();
     }
 
-    public static <T, K, V> Collector<T, ?, IdentityBiMap<K, V>> toImmutableIdentityBiMap(@Nonnull final Function<? super T, ? extends K> keyMapper,
-                                                                                          @Nonnull final Function<? super T, ? extends V> valueMapper,
-                                                                                          @Nonnull final BinaryOperator<V> mergeFunction) {
+    public static <T, K, V> Collector<T, ?, IdentityBiMap<K, V>> toImmutableIdentityBiMap(final Function<? super T, ? extends K> keyMapper,
+                                                                                          final Function<? super T, ? extends V> valueMapper,
+                                                                                          final BinaryOperator<V> mergeFunction) {
         return new Collector<T, IdentityBiMap<K, V>, IdentityBiMap<K, V>>() {
             @Override
             public Supplier<IdentityBiMap<K, V>> supplier() {

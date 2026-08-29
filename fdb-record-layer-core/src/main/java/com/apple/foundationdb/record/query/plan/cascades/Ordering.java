@@ -47,8 +47,8 @@ import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.List;
@@ -115,7 +115,6 @@ import java.util.function.Supplier;
  * Instances of this class are used to communicate properties of plans.
  */
 public class Ordering {
-    @Nonnull
     private static final Ordering EMPTY = new Ordering(ImmutableSetMultimap.of(), PartiallyOrderedSet.empty(),
             false, (b, o) -> { } );
 
@@ -124,16 +123,14 @@ public class Ordering {
      * or an in-union operation.
      */
     public static final MergeOperator<Union> UNION = new MergeOperator<>() {
-        @Nonnull
         @Override
-        public Set<Binding> combineBindings(@Nonnull final Set<Binding> leftBindings, @Nonnull final Set<Binding> rightBindings) {
+        public Set<Binding> combineBindings(final Set<Binding> leftBindings, final Set<Binding> rightBindings) {
             return combineBindingsForUnion(leftBindings, rightBindings);
         }
 
-        @Nonnull
         @Override
-        public Union createOrdering(@Nonnull final SetMultimap<Value, Binding> bindingMap,
-                                    @Nonnull final PartiallyOrderedSet<Value> orderingSet,
+        public Union createOrdering(final SetMultimap<Value, Binding> bindingMap,
+                                    final PartiallyOrderedSet<Value> orderingSet,
                                     final boolean isDistinct) {
             return new Union(bindingMap, orderingSet, isDistinct);
         }
@@ -143,16 +140,14 @@ public class Ordering {
      * Intersection merge operator to be used to obtain the resulting order of a distinct intersection operation.
      */
     public static final MergeOperator<Intersection> INTERSECTION = new MergeOperator<>() {
-        @Nonnull
         @Override
-        public Set<Binding> combineBindings(@Nonnull final Set<Binding> leftBindings, @Nonnull final Set<Binding> rightBindings) {
+        public Set<Binding> combineBindings(final Set<Binding> leftBindings, final Set<Binding> rightBindings) {
             return combineBindingsForIntersection(leftBindings, rightBindings);
         }
 
-        @Nonnull
         @Override
-        public Intersection createOrdering(@Nonnull final SetMultimap<Value, Binding> bindingMap,
-                                           @Nonnull final PartiallyOrderedSet<Value> orderingSet,
+        public Intersection createOrdering(final SetMultimap<Value, Binding> bindingMap,
+                                           final PartiallyOrderedSet<Value> orderingSet,
                                            final boolean isDistinct) {
             //
             // Unlike for union, we need to normalize the ordering set as values that were dependent on other
@@ -173,13 +168,11 @@ public class Ordering {
      * if the predicate is just redundant (where {@code $p} is bound to {@code 5} when the query is executed).
      * {@link SetOperationsOrdering}s.
      */
-    @Nonnull
     private final SetMultimap<Value, Binding> bindingMap;
 
     /**
      * A {@link PartiallyOrderedSet} of {@link Value}s.
      */
-    @Nonnull
     private final PartiallyOrderedSet<Value> orderingSet;
 
     /**
@@ -191,7 +184,6 @@ public class Ordering {
      */
     private final boolean isDistinct;
 
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<SetMultimap<Value, Binding>> fixedBindingMapSupplier = Suppliers.memoize(this::computeFixedBindingMap);
 
@@ -202,10 +194,10 @@ public class Ordering {
      * @param isDistinct an indicator if this ordering is strict
      * @param sanityCheckConsumer a consumer that is executed in an insane environment
      */
-    protected Ordering(@Nonnull final SetMultimap<Value, Binding> bindingMap,
-                       @Nonnull final PartiallyOrderedSet<Value> orderingSet,
+    protected Ordering(final SetMultimap<Value, Binding> bindingMap,
+                       final PartiallyOrderedSet<Value> orderingSet,
                        final boolean isDistinct,
-                       @Nonnull final BiConsumer<SetMultimap<Value, Binding>, PartiallyOrderedSet<Value>> sanityCheckConsumer) {
+                       final BiConsumer<SetMultimap<Value, Binding>, PartiallyOrderedSet<Value>> sanityCheckConsumer) {
         Debugger.sanityCheck(() -> sanityCheckConsumer.accept(bindingMap, orderingSet));
 
         this.orderingSet = orderingSet;
@@ -213,27 +205,22 @@ public class Ordering {
         this.isDistinct = isDistinct;
     }
 
-    @Nonnull
     public SetMultimap<Value, Binding> getBindingMap() {
         return bindingMap;
     }
 
-    @Nonnull
     public Set<Value> getEqualityBoundValues() {
         return getFixedBindingMap().keySet();
     }
 
-    @Nonnull
     public SetMultimap<Value, Binding> getFixedBindingMap() {
         return fixedBindingMapSupplier.get();
     }
 
-    @Nonnull
     private SetMultimap<Value, Binding> computeFixedBindingMap() {
         return ImmutableSetMultimap.copyOf(Multimaps.filterValues(getBindingMap(), Binding::isFixed));
     }
 
-    @Nonnull
     public PartiallyOrderedSet<Value> getOrderingSet() {
         return orderingSet;
     }
@@ -277,8 +264,7 @@ public class Ordering {
      * @param requestedOrdering the {@link RequestedOrdering} of the set operation itself
      * @return a set of {@link RequestedOrdering}s that can be pushed down the legs of the set operation
      */
-    @Nonnull
-    public Set<RequestedOrdering> deriveRequestedOrderings(@Nonnull final RequestedOrdering requestedOrdering,
+    public Set<RequestedOrdering> deriveRequestedOrderings(final RequestedOrdering requestedOrdering,
                                                            final boolean isExhaustive) {
         if (requestedOrdering.isDistinct() && !isDistinct()) {
             return ImmutableSet.of();
@@ -327,7 +313,7 @@ public class Ordering {
      * @param requestedOrdering the set of values which needs to match a prefix of a valid sequence
      * @return the result of satisfiability of set of values in the ordering
      */
-    public boolean satisfies(@Nonnull RequestedOrdering requestedOrdering) {
+    public boolean satisfies(RequestedOrdering requestedOrdering) {
         if (requestedOrdering.isDistinct() && !isDistinct()) {
             return false;
         }
@@ -380,8 +366,7 @@ public class Ordering {
      * @param requestedOrdering the {@link RequestedOrdering} this ordering needs to be compatible with
      * @return boolean result of the compatibility check.
      */
-    @Nonnull
-    public Iterable<List<RequestedOrderingPart>> enumerateCompatibleRequestedOrderings(@Nonnull final RequestedOrdering requestedOrdering) {
+    public Iterable<List<RequestedOrderingPart>> enumerateCompatibleRequestedOrderings(final RequestedOrdering requestedOrdering) {
         if (requestedOrdering.isDistinct() && !isDistinct()) {
             return ImmutableList.of();
         }
@@ -438,7 +423,7 @@ public class Ordering {
      * @param requestedGroupingValues the set of values which needs to match a prefix of a valid sequence
      * @return the result of satisfiability of set of values in the ordering
      */
-    public boolean satisfiesGroupingValues(@Nonnull final Set<Value> requestedGroupingValues) {
+    public boolean satisfiesGroupingValues(final Set<Value> requestedGroupingValues) {
         // no ordering left worth further considerations
         if (requestedGroupingValues.isEmpty()) {
             return true;
@@ -471,9 +456,8 @@ public class Ordering {
         return false;
     }
 
-    @Nonnull
-    public Ordering pullUp(@Nonnull final Value value, @Nonnull EvaluationContext evaluationContext,
-                           @Nonnull final AliasMap aliasMap, @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+    public Ordering pullUp(final Value value, EvaluationContext evaluationContext,
+                           final AliasMap aliasMap, final Set<CorrelationIdentifier> constantAliases) {
         final var pulledUpBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
         for (final var entry : getBindingMap().asMap().entrySet()) {
             final var pulledUpBindings =
@@ -505,9 +489,8 @@ public class Ordering {
         return Ordering.ofOrderingSet(bindingMapBuilder.build(), mappedOrderingSet, isDistinct());
     }
 
-    @Nonnull
-    public Ordering pushDown(@Nonnull final Value value, @Nonnull final EvaluationContext evaluationContext,
-                             @Nonnull final AliasMap aliasMap, @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+    public Ordering pushDown(final Value value, final EvaluationContext evaluationContext,
+                             final AliasMap aliasMap, final Set<CorrelationIdentifier> constantAliases) {
         final var pushedBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
         for (final var entry : getBindingMap().asMap().entrySet()) {
             final var pushedBindings =
@@ -560,9 +543,8 @@ public class Ordering {
         return Ordering.ofOrderingSet(bindingMapBuilder.build(), mappedOrderingSet, isDistinct());
     }
 
-    @Nonnull
-    public static SetMultimap<Value, Binding> sortedBindingsForValues(@Nonnull final Collection<? extends Value> values,
-                                                                      @Nonnull final ProvidedSortOrder sortOrder) {
+    public static SetMultimap<Value, Binding> sortedBindingsForValues(final Collection<? extends Value> values,
+                                                                      final ProvidedSortOrder sortOrder) {
         final var builder = ImmutableSetMultimap.<Value, Binding>builder();
         for (final var value : values) {
             builder.put(value, Binding.sorted(sortOrder));
@@ -570,7 +552,7 @@ public class Ordering {
         return builder.build();
     }
 
-    public boolean isSingularNonFixedValue(@Nonnull final Value value) {
+    public boolean isSingularNonFixedValue(final Value value) {
         Verify.verify(bindingMap.containsKey(value));
         final var bindings = bindingMap.get(value);
         if (isSingularNonFixedBinding(bindings)) {
@@ -580,15 +562,14 @@ public class Ordering {
         return false;
     }
 
-    public boolean isSingularFixedValue(@Nonnull final Value value) {
+    public boolean isSingularFixedValue(final Value value) {
         Verify.verify(bindingMap.containsKey(value));
         final var bindings = bindingMap.get(value);
         return areAllBindingsFixed(bindings) && !hasMultipleFixedBindings(bindings);
     }
 
-    @Nonnull
-    private static Set<Binding> translateBindings(@Nonnull final Collection<Binding> bindings,
-                                                  @Nonnull final Function<List<Value>, Multimap<Value, Value>> translateFunction) {
+    private static Set<Binding> translateBindings(final Collection<Binding> bindings,
+                                                  final Function<List<Value>, Multimap<Value, Value>> translateFunction) {
         final var translatedBindingsBuilder = ImmutableSet.<Binding>builder();
 
         if (areAllBindingsFixed(bindings)) {
@@ -632,9 +613,8 @@ public class Ordering {
      * @param orderingValues a list of ordering {@link Value}s
      * @return a {@link PartiallyOrderedSet} for this ordering
      */
-    @Nonnull
-    private static PartiallyOrderedSet<Value> computeFromOrderingSequence(@Nonnull final SetMultimap<Value, Binding> bindingMap,
-                                                                          @Nonnull final List<? extends Value> orderingValues) {
+    private static PartiallyOrderedSet<Value> computeFromOrderingSequence(final SetMultimap<Value, Binding> bindingMap,
+                                                                          final List<? extends Value> orderingValues) {
         final var filteredOrderingValues =
                 orderingValues.stream()
                         .peek(orderingValue -> Verify.verify(bindingMap.containsKey(orderingValue)))
@@ -679,8 +659,7 @@ public class Ordering {
      * @return a normalized binding map which may just be the copy of the binding map passed in if that binding had
      *         already been normalized
      */
-    @Nonnull
-    public static ImmutableSetMultimap<Value, Binding> normalizeBindingMap(@Nonnull final SetMultimap<Value, Binding> bindingMap) {
+    public static ImmutableSetMultimap<Value, Binding> normalizeBindingMap(final SetMultimap<Value, Binding> bindingMap) {
         final var normalizedBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
         for (final Value value : bindingMap.keySet()) {
             final boolean areAllFixed = areAllBindingsFixed(bindingMap.get(value));
@@ -751,9 +730,8 @@ public class Ordering {
      * @param orderingSet a partially ordered set representing the ordering set of an ordering
      * @return a new (normalized) partially ordered set representing the dependencies between elements in an ordering
      */
-    @Nonnull
-    public static PartiallyOrderedSet<Value> normalizeOrderingSet(@Nonnull final SetMultimap<Value, Binding> bindingMap,
-                                                                  @Nonnull final PartiallyOrderedSet<Value> orderingSet) {
+    public static PartiallyOrderedSet<Value> normalizeOrderingSet(final SetMultimap<Value, Binding> bindingMap,
+                                                                  final PartiallyOrderedSet<Value> orderingSet) {
         final var normalizedDependencyMapBuilder = ImmutableSetMultimap.<Value, Value>builder();
         final var dependencyMap = orderingSet.getDependencyMap().asMap();
         for (final var dependencySetEntry : dependencyMap.entrySet()) {
@@ -782,32 +760,32 @@ public class Ordering {
         return PartiallyOrderedSet.of(orderingSet.getSet(), normalizedDependencyMapBuilder.build());
     }
 
-    public static boolean areAllBindingsFixed(@Nonnull final Collection<Binding> bindings) {
+    public static boolean areAllBindingsFixed(final Collection<Binding> bindings) {
         return bindings.stream().allMatch(Binding::isFixed);
     }
 
-    public static boolean hasMultipleFixedBindings(@Nonnull final Collection<Binding> bindings) {
+    public static boolean hasMultipleFixedBindings(final Collection<Binding> bindings) {
         return bindings.stream().filter(Binding::isFixed).count() > 1;
     }
 
-    public static Binding fixedBinding(@Nonnull final Collection<Binding> bindings) {
+    public static Binding fixedBinding(final Collection<Binding> bindings) {
         Debugger.sanityCheck(() -> Verify.verify(areAllBindingsFixed(bindings) && !hasMultipleFixedBindings(bindings)));
         return Iterables.getOnlyElement(bindings);
     }
 
-    public static boolean isSingularBinding(@Nonnull final Collection<Binding> bindings) {
+    public static boolean isSingularBinding(final Collection<Binding> bindings) {
         Verify.verify(!bindings.isEmpty());
         return bindings.size() == 1;
     }
 
-    public static boolean isSingularDirectionalBinding(@Nonnull final Collection<Binding> bindings) {
+    public static boolean isSingularDirectionalBinding(final Collection<Binding> bindings) {
         if (isSingularBinding(bindings)) {
             return Iterables.getOnlyElement(bindings).getSortOrder().isDirectional();
         }
         return false;
     }
 
-    public static boolean isSingularNonFixedBinding(@Nonnull final Collection<Binding> bindings) {
+    public static boolean isSingularNonFixedBinding(final Collection<Binding> bindings) {
         if (isSingularBinding(bindings)) {
             final var sortOrder = Iterables.getOnlyElement(bindings).getSortOrder();
             return sortOrder.isDirectional() || sortOrder == ProvidedSortOrder.CHOOSE;
@@ -815,7 +793,7 @@ public class Ordering {
         return false;
     }
 
-    public static ProvidedSortOrder sortOrder(@Nonnull final Collection<Binding> bindings) {
+    public static ProvidedSortOrder sortOrder(final Collection<Binding> bindings) {
         Verify.verify(!bindings.isEmpty());
 
         if (isSingularNonFixedBinding(bindings)) {
@@ -829,11 +807,10 @@ public class Ordering {
         throw new RecordCoreException("inconsistent ordering state");
     }
 
-    @Nonnull
     @SuppressWarnings("java:S135")
-    public static <O extends SetOperationsOrdering> O merge(@Nonnull final Iterable<Ordering> orderings,
-                                                            @Nonnull final MergeOperator<O> mergeOperator,
-                                                            @Nonnull final BiPredicate<O, O> isDistinctPredicate) {
+    public static <O extends SetOperationsOrdering> O merge(final Iterable<Ordering> orderings,
+                                                            final MergeOperator<O> mergeOperator,
+                                                            final BiPredicate<O, O> isDistinctPredicate) {
         return Streams.stream(orderings)
                 .map(mergeOperator::createFromOrdering)
                 .reduce((left, right) -> merge(left, right, mergeOperator, isDistinctPredicate.test(left, right)))
@@ -924,11 +901,10 @@ public class Ordering {
      * @param <O> type parameter bound to at least a {@link SetOperationsOrdering}
      * @return an {@link Ordering}
      */
-    @Nonnull
     @SuppressWarnings("java:S135")
-    public static <O extends SetOperationsOrdering> O merge(@Nonnull final Ordering left,
-                                                            @Nonnull final Ordering right,
-                                                            @Nonnull final MergeOperator<O> mergeOperator,
+    public static <O extends SetOperationsOrdering> O merge(final Ordering left,
+                                                            final Ordering right,
+                                                            final MergeOperator<O> mergeOperator,
                                                             final boolean isDistinct) {
         final var leftOrderingSet = left.getOrderingSet();
         final var rightOrderingSet = right.getOrderingSet();
@@ -1022,9 +998,8 @@ public class Ordering {
      * @param rightBindings set of bindings of the right ordering
      * @return newly combined set of bindings
      */
-    @Nonnull
-    private static Set<Binding> combineBindingsForUnion(@Nonnull final Set<Binding> leftBindings,
-                                                        @Nonnull final Set<Binding> rightBindings) {
+    private static Set<Binding> combineBindingsForUnion(final Set<Binding> leftBindings,
+                                                        final Set<Binding> rightBindings) {
         if (leftBindings.isEmpty() || rightBindings.isEmpty()) {
             return ImmutableSet.of();
         }
@@ -1061,9 +1036,8 @@ public class Ordering {
      * @param rightBindings set of bindings of the right ordering
      * @return newly combined set of bindings
      */
-    @Nonnull
-    private static Set<Binding> combineBindingsForIntersection(@Nonnull final Set<Binding> leftBindings,
-                                                               @Nonnull final Set<Binding> rightBindings) {
+    private static Set<Binding> combineBindingsForIntersection(final Set<Binding> leftBindings,
+                                                               final Set<Binding> rightBindings) {
         if (leftBindings.isEmpty() && rightBindings.isEmpty()) {
             return ImmutableSet.of();
         }
@@ -1109,8 +1083,7 @@ public class Ordering {
      * @param orderings a collection of orderings
      * @return a new ordering representing a concatenation of the given left and right ordering
      */
-    @Nonnull
-    public static Ordering concatOrderings(@Nonnull final Collection<Ordering> orderings) {
+    public static Ordering concatOrderings(final Collection<Ordering> orderings) {
 
         return orderings.stream()
                 .reduce(Ordering::concatOrderings)
@@ -1123,9 +1096,8 @@ public class Ordering {
      * @param rightOrdering another {@link Ordering} to be concatenated to {@code leftOrdering}
      * @return a new {@link Ordering}
      */
-    @Nonnull
-    public static Ordering concatOrderings(@Nonnull final Ordering leftOrdering,
-                                           @Nonnull final Ordering rightOrdering) {
+    public static Ordering concatOrderings(final Ordering leftOrdering,
+                                           final Ordering rightOrdering) {
         final var leftBindingMap = leftOrdering.getBindingMap();
         final var rightBindingMap = rightOrdering.getBindingMap();
         final var leftOrderingSet = leftOrdering.getOrderingSet();
@@ -1176,34 +1148,32 @@ public class Ordering {
         return Ordering.ofOrderingSet(combinedBindingMapBuilder.build(), concatenatedOrderingSet, rightOrdering.isDistinct());
     }
 
-    @Nonnull
     public static Ordering empty() {
         return EMPTY;
     }
 
-    @Nonnull
     protected static BiConsumer<SetMultimap<Value, Binding>, PartiallyOrderedSet<Value>> normalizationCheckConsumer() {
         return Ordering::normalizationCheck;
     }
 
-    protected static void normalizationCheck(@Nonnull final SetMultimap<Value, Binding> bindingMap,
-                                             @Nonnull final PartiallyOrderedSet<Value> orderingSet) {
+    protected static void normalizationCheck(final SetMultimap<Value, Binding> bindingMap,
+                                             final PartiallyOrderedSet<Value> orderingSet) {
         final var normalizedBindingMap = normalizeBindingMap(bindingMap);
         Verify.verify(bindingMap.equals(normalizedBindingMap));
         final var normalizedOrderingSet = normalizeOrderingSet(bindingMap, orderingSet);
         Verify.verify(orderingSet.equals(normalizedOrderingSet));
     }
 
-    protected static void singularFixedBindingCheck(@Nonnull final SetMultimap<Value, Binding> bindingMap,
-                                                    @Nonnull final PartiallyOrderedSet<Value> orderingSet) {
+    protected static void singularFixedBindingCheck(final SetMultimap<Value, Binding> bindingMap,
+                                                    final PartiallyOrderedSet<Value> orderingSet) {
         for (final var valueBindingsEntry : bindingMap.asMap().entrySet()) {
             final var bindings = valueBindingsEntry.getValue();
             Verify.verify(!areAllBindingsFixed(bindings) || !hasMultipleFixedBindings(bindings));
         }
     }
 
-    protected static void noChooseBindingCheck(@Nonnull final SetMultimap<Value, Binding> bindingMap,
-                                               @Nonnull final PartiallyOrderedSet<Value> orderingSet) {
+    protected static void noChooseBindingCheck(final SetMultimap<Value, Binding> bindingMap,
+                                               final PartiallyOrderedSet<Value> orderingSet) {
         for (final var valueBindingsEntry : bindingMap.asMap().entrySet()) {
             final var bindings = valueBindingsEntry.getValue();
             if (isSingularBinding(bindings)) {
@@ -1212,17 +1182,15 @@ public class Ordering {
         }
     }
 
-    @Nonnull
-    public static Ordering ofOrderingSet(@Nonnull final SetMultimap<Value, Binding> bindingMap,
-                                         @Nonnull final PartiallyOrderedSet<Value> orderingSet,
+    public static Ordering ofOrderingSet(final SetMultimap<Value, Binding> bindingMap,
+                                         final PartiallyOrderedSet<Value> orderingSet,
                                          final boolean isDistinct) {
         return new Ordering(bindingMap, orderingSet, isDistinct,
                 normalizationCheckConsumer().andThen(Ordering::singularFixedBindingCheck).andThen(Ordering::noChooseBindingCheck));
     }
 
-    @Nonnull
-    public static Ordering ofOrderingSequence(@Nonnull final SetMultimap<Value, Binding> bindingMap,
-                                              @Nonnull final List<? extends Value> orderingAsList,
+    public static Ordering ofOrderingSequence(final SetMultimap<Value, Binding> bindingMap,
+                                              final List<? extends Value> orderingAsList,
                                               final boolean isDistinct) {
         return ofOrderingSet(bindingMap, computeFromOrderingSequence(bindingMap, orderingAsList), isDistinct);
     }
@@ -1235,7 +1203,6 @@ public class Ordering {
      * for {@link Union} the bindings are interpreted as a disjunction.
      */
     public static class Binding {
-        @Nonnull
         private final ProvidedSortOrder sortOrder;
 
         /**
@@ -1245,12 +1212,11 @@ public class Ordering {
         @Nullable
         private final Comparison comparison;
 
-        private Binding(@Nonnull final ProvidedSortOrder sortOrder, @Nullable final Comparison comparison) {
+        private Binding(final ProvidedSortOrder sortOrder, @Nullable final Comparison comparison) {
             this.sortOrder = sortOrder;
             this.comparison = comparison;
         }
 
-        @Nonnull
         public ProvidedSortOrder getSortOrder() {
             return sortOrder;
         }
@@ -1259,7 +1225,6 @@ public class Ordering {
             return sortOrder == ProvidedSortOrder.FIXED;
         }
 
-        @Nonnull
         public Comparison getComparison() {
             Verify.verify(sortOrder == ProvidedSortOrder.FIXED);
             return Objects.requireNonNull(comparison);
@@ -1288,34 +1253,28 @@ public class Ordering {
             return sortOrder.getArrowIndicator() + (comparison == null ? "" : ":" + comparison);
         }
 
-        @Nonnull
         public static Binding ascending() {
             return sorted(ProvidedSortOrder.ASCENDING);
         }
 
-        @Nonnull
         public static Binding descending() {
             return sorted(ProvidedSortOrder.DESCENDING);
         }
 
-        @Nonnull
         public static Binding choose() {
             return new Binding(ProvidedSortOrder.CHOOSE, null);
         }
 
-        @Nonnull
         public static Binding sorted(final boolean isReverse) {
             return sorted(ProvidedSortOrder.fromIsReverse(isReverse));
         }
 
-        @Nonnull
-        public static Binding sorted(@Nonnull final ProvidedSortOrder sortOrder) {
+        public static Binding sorted(final ProvidedSortOrder sortOrder) {
             Verify.verify(sortOrder.isDirectional());
             return new Binding(sortOrder, null);
         }
 
-        @Nonnull
-        public static Binding fixed(@Nonnull final Comparison comparison) {
+        public static Binding fixed(final Comparison comparison) {
             return new Binding(ProvidedSortOrder.FIXED, comparison);
         }
     }
@@ -1328,13 +1287,12 @@ public class Ordering {
      * of type {@link ProvidedSortOrder#CHOOSE}.
      */
     public abstract static class SetOperationsOrdering extends Ordering {
-        public SetOperationsOrdering(@Nonnull final SetMultimap<Value, Binding> bindingMap,
-                                     @Nonnull final PartiallyOrderedSet<Value> orderingSet, final boolean isDistinct) {
+        public SetOperationsOrdering(final SetMultimap<Value, Binding> bindingMap,
+                                     final PartiallyOrderedSet<Value> orderingSet, final boolean isDistinct) {
             super(bindingMap, orderingSet, isDistinct, Ordering::normalizationCheck); // do not do the single binding check
         }
 
-        @Nonnull
-        public Iterable<List<Value>> enumerateSatisfyingComparisonKeyValues(@Nonnull final RequestedOrdering requestedOrdering) {
+        public Iterable<List<Value>> enumerateSatisfyingComparisonKeyValues(final RequestedOrdering requestedOrdering) {
             if (requestedOrdering.isDistinct() && !isDistinct()) {
                 return ImmutableList.of();
             }
@@ -1395,8 +1353,7 @@ public class Ordering {
 
         protected abstract boolean promoteToDirectional();
 
-        @Nonnull
-        public Ordering applyComparisonKey(@Nonnull final List<ProvidedOrderingPart> comparisonKeyOrderingParts) {
+        public Ordering applyComparisonKey(final List<ProvidedOrderingPart> comparisonKeyOrderingParts) {
             final var comparisonKeyOrderingPartMap = OrderingPart.toOrderingPartMap(comparisonKeyOrderingParts);
             final var comparisonKeyValues =
                     comparisonKeyOrderingParts.stream()
@@ -1456,10 +1413,9 @@ public class Ordering {
          *        contain a value
          * @return a list of {@link ProvidedOrderingPart}s
          */
-        @Nonnull
-        public List<ProvidedOrderingPart> directionalOrderingParts(@Nonnull final List<Value> comparisonKeyValues,
-                                                                   @Nonnull final RequestedOrdering requestedOrdering,
-                                                                   @Nonnull final ProvidedSortOrder defaultProvidedSortOrder) {
+        public List<ProvidedOrderingPart> directionalOrderingParts(final List<Value> comparisonKeyValues,
+                                                                   final RequestedOrdering requestedOrdering,
+                                                                   final ProvidedSortOrder defaultProvidedSortOrder) {
             final var valueRequestedSortOrderMapMap =
                     requestedOrdering.getValueRequestedSortOrderMap();
             return directionalOrderingParts(comparisonKeyValues, valueRequestedSortOrderMapMap, defaultProvidedSortOrder);
@@ -1474,10 +1430,9 @@ public class Ordering {
          *        contain a value
          * @return a list of {@link ProvidedOrderingPart}s
          */
-        @Nonnull
-        public List<ProvidedOrderingPart> directionalOrderingParts(@Nonnull final List<Value> comparisonKeyValues,
-                                                                   @Nonnull final Map<Value, RequestedSortOrder> valueRequestedSortOrderMap,
-                                                                   @Nonnull final ProvidedSortOrder defaultProvidedSortOrder) {
+        public List<ProvidedOrderingPart> directionalOrderingParts(final List<Value> comparisonKeyValues,
+                                                                   final Map<Value, RequestedSortOrder> valueRequestedSortOrderMap,
+                                                                   final ProvidedSortOrder defaultProvidedSortOrder) {
             final var bindingMap = getBindingMap();
             final var resultBuilder = ImmutableList.<ProvidedOrderingPart>builder();
             for (final var comparisonKeyValue : comparisonKeyValues) {
@@ -1515,8 +1470,8 @@ public class Ordering {
      * TODO.
      */
     public static class Union extends SetOperationsOrdering {
-        public Union(@Nonnull final SetMultimap<Value, Binding> bindingMap,
-                     @Nonnull final PartiallyOrderedSet<Value> orderingSet, final boolean isDistinct) {
+        public Union(final SetMultimap<Value, Binding> bindingMap,
+                     final PartiallyOrderedSet<Value> orderingSet, final boolean isDistinct) {
             super(bindingMap, orderingSet, isDistinct);
         }
 
@@ -1530,8 +1485,8 @@ public class Ordering {
      * TODO.
      */
     public static class Intersection extends SetOperationsOrdering {
-        public Intersection(@Nonnull final SetMultimap<Value, Binding> bindingMap,
-                            @Nonnull final PartiallyOrderedSet<Value> orderingSet, final boolean isDistinct) {
+        public Intersection(final SetMultimap<Value, Binding> bindingMap,
+                            final PartiallyOrderedSet<Value> orderingSet, final boolean isDistinct) {
             super(bindingMap, orderingSet, isDistinct);
         }
 
@@ -1546,15 +1501,13 @@ public class Ordering {
      * @param <O> the type of the resulting ordering
      */
     public interface MergeOperator<O extends SetOperationsOrdering> {
-        @Nonnull
-        Set<Binding> combineBindings(@Nonnull Set<Binding> leftBindings, @Nonnull Set<Binding> rightBindings);
+        Set<Binding> combineBindings(Set<Binding> leftBindings, Set<Binding> rightBindings);
 
-        @Nonnull
-        O createOrdering(@Nonnull SetMultimap<Value, Binding> bindingMap,
-                         @Nonnull PartiallyOrderedSet<Value> orderingSet,
+        O createOrdering(SetMultimap<Value, Binding> bindingMap,
+                         PartiallyOrderedSet<Value> orderingSet,
                          boolean isDistinct);
 
-        default O createFromOrdering(@Nonnull final Ordering ordering) {
+        default O createFromOrdering(final Ordering ordering) {
             return createOrdering(ordering.getBindingMap(), ordering.getOrderingSet(), ordering.isDistinct());
         }
     }
@@ -1579,7 +1532,6 @@ public class Ordering {
      * Interface that declares that this {@link Value} preserves the order of the input value in some way.
      */
     public interface OrderPreservingValue extends Value {
-        @Nonnull
         OrderPreservingKind getOrderPreservingKind();
     }
 
@@ -1587,13 +1539,11 @@ public class Ordering {
      * Interface that declares that <em>all</em> instances of the implementing class are directly order-preserving.
      */
     public interface DirectOrderPreservingValue extends OrderPreservingValue {
-        @Nonnull
         @Override
         default OrderPreservingKind getOrderPreservingKind() {
             return OrderPreservingKind.DIRECT_ORDER_PRESERVING;
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
         default <T extends DirectOrderPreservingValue> OrderPreservingKind getOrderPreservingKindExclusive() {
             return getOrderPreservingKind();
@@ -1604,13 +1554,11 @@ public class Ordering {
      * Interface that declares that <em>all</em> instances of the implementing class are inverse order-preserving.
      */
     public interface InverseOrderPreservingValue extends OrderPreservingValue {
-        @Nonnull
         @Override
         default OrderPreservingKind getOrderPreservingKind() {
             return OrderPreservingKind.INVERSE_ORDER_PRESERVING;
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
         default <T extends InverseOrderPreservingValue> OrderPreservingKind getOrderPreservingKindExclusive() {
             return getOrderPreservingKind();

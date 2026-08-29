@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 
 /**
@@ -45,9 +44,8 @@ public interface FinalMemoizer {
      *
      * @return a new reference
      */
-    @Nonnull
-    Reference memoizeFinalExpressionsFromOther(@Nonnull Reference reference,
-                                               @Nonnull Collection<? extends RelationalExpression> expressions);
+    Reference memoizeFinalExpressionsFromOther(Reference reference,
+                                               Collection<? extends RelationalExpression> expressions);
 
     /**
      * Memoize the given final {@link RelationalExpression}. A new reference is created and returned to the caller.
@@ -55,8 +53,7 @@ public interface FinalMemoizer {
      * @param expression final expression to memoize
      * @return a new reference
      */
-    @Nonnull
-    Reference memoizeFinalExpression(@Nonnull RelationalExpression expression);
+    Reference memoizeFinalExpression(RelationalExpression expression);
 
     /**
      * Memoize the given final {@link RelationalExpression}s. A new reference is created and returned to the caller.
@@ -64,8 +61,7 @@ public interface FinalMemoizer {
      * @param expressions a collection of final expressions to memoize
      * @return a new reference
      */
-    @Nonnull
-    Reference memoizeFinalExpressions(@Nonnull Collection<RelationalExpression> expressions);
+    Reference memoizeFinalExpressions(Collection<RelationalExpression> expressions);
 
     /**
      * Memoize the given exploratory of final {@link RelationalExpression}. A new reference is created and returned to
@@ -78,8 +74,7 @@ public interface FinalMemoizer {
      * @param expression final expression to memoize
      * @return a new reference or a reused reference (only if the expression is considered to be exploartory)
      */
-    @Nonnull
-    Reference memoizeUnknownExpression(@Nonnull RelationalExpression expression);
+    Reference memoizeUnknownExpression(RelationalExpression expression);
 
     /**
      * Memoize a collection of plans that are also already members of the reference that is also passed in. That
@@ -94,9 +89,8 @@ public interface FinalMemoizer {
      *
      * @return a new reference
      */
-    @Nonnull
-    Reference memoizeMemberPlansFromOther(@Nonnull Reference reference,
-                                          @Nonnull Collection<? extends RecordQueryPlan> plans);
+    Reference memoizeMemberPlansFromOther(Reference reference,
+                                          Collection<? extends RecordQueryPlan> plans);
 
     /**
      * Memoize the given plan. A new reference is created and returned to the caller. Note that this method is only
@@ -104,8 +98,7 @@ public interface FinalMemoizer {
      * @param plan plan to memoize
      * @return a new reference
      */
-    @Nonnull
-    Reference memoizePlan(@Nonnull RecordQueryPlan plan);
+    Reference memoizePlan(RecordQueryPlan plan);
 
     /**
      * Return a new {@link ReferenceBuilder} for final expressions. The expressions passed in are memoized when
@@ -114,8 +107,7 @@ public interface FinalMemoizer {
      * @param expressions a collection of expressions to potentially memoize
      * @return a new {@link ReferenceBuilder}
      */
-    @Nonnull
-    ReferenceBuilder memoizeFinalExpressionsBuilder(@Nonnull Collection<? extends RelationalExpression> expressions);
+    ReferenceBuilder memoizeFinalExpressionsBuilder(Collection<? extends RelationalExpression> expressions);
 
     /**
      * Return a new {@link ReferenceOfPlansBuilder} for plans that are members of another given {@link Reference}. The
@@ -127,9 +119,8 @@ public interface FinalMemoizer {
      * @param plans a collection of plans to potentially memoize
      * @return a new {@link ReferenceOfPlansBuilder}
      */
-    @Nonnull
-    ReferenceOfPlansBuilder memoizeMemberPlansBuilder(@Nonnull Reference reference,
-                                                      @Nonnull Collection<? extends RecordQueryPlan> plans);
+    ReferenceOfPlansBuilder memoizeMemberPlansBuilder(Reference reference,
+                                                      Collection<? extends RecordQueryPlan> plans);
 
     /**
      * Return a new {@link ReferenceOfPlansBuilder} for the given plan. The plan passed in is memoized when the
@@ -139,8 +130,7 @@ public interface FinalMemoizer {
      * @param plan a plan to potentially memoize
      * @return a new {@link ReferenceOfPlansBuilder}
      */
-    @Nonnull
-    default ReferenceOfPlansBuilder memoizePlanBuilder(@Nonnull final RecordQueryPlan plan) {
+    default ReferenceOfPlansBuilder memoizePlanBuilder(final RecordQueryPlan plan) {
         return memoizePlansBuilder(ImmutableList.of(plan));
     }
 
@@ -152,6 +142,5 @@ public interface FinalMemoizer {
      * @param plans a collection of plans to potentially memoize
      * @return a new {@link ReferenceOfPlansBuilder}
      */
-    @Nonnull
-    ReferenceOfPlansBuilder memoizePlansBuilder(@Nonnull Collection<? extends RecordQueryPlan> plans);
+    ReferenceOfPlansBuilder memoizePlansBuilder(Collection<? extends RecordQueryPlan> plans);
 }

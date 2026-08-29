@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -36,7 +36,6 @@ import java.util.Optional;
  * A Utils class that holds logic related to nullable arrays.
  */
 public class NullableArrayTypeUtils {
-    @Nonnull
     private static final String REPEATED_FIELD_NAME = "values";
 
     private NullableArrayTypeUtils() {
@@ -48,7 +47,6 @@ public class NullableArrayTypeUtils {
      *
      * @return fieldName of the repeated field
      */
-    @Nonnull
     public static String getRepeatedFieldName() {
         return REPEATED_FIELD_NAME;
     }
@@ -62,8 +60,7 @@ public class NullableArrayTypeUtils {
      * @param elementType the type of the array elements
      * @return the wrapper record type for an array of {@code elementType}
      */
-    @Nonnull
-    public static Type.Record wrapperTypeFor(@Nonnull final Type elementType) {
+    public static Type.Record wrapperTypeFor(final Type elementType) {
         return Type.Record.fromFields(List.of(
                 Type.Record.Field.of(new Type.Array(elementType), Optional.of(getRepeatedFieldName()))));
     }
@@ -79,7 +76,7 @@ public class NullableArrayTypeUtils {
      *
      * @return <code>true</code> if it describes a wrapped array, otherwise <code>false</code>.
      */
-    public static boolean describesWrappedArray(@Nonnull Descriptors.Descriptor descriptor) {
+    public static boolean describesWrappedArray(Descriptors.Descriptor descriptor) {
         if (descriptor.getFields().size() == 1) {
             Descriptors.FieldDescriptor fieldDescriptor = descriptor.getFields().get(0);
             return fieldDescriptor.isRepeated() && REPEATED_FIELD_NAME.equals(fieldDescriptor.getName());
@@ -95,8 +92,7 @@ public class NullableArrayTypeUtils {
      *
      * @return The fan type of the wrapped {@code "values"} field, or empty if this is not an array wrapper.
      */
-    @Nonnull
-    public static Optional<RecordKeyExpressionProto.Field.FanType> matchArrayWrapper(@Nonnull NestingKeyExpression nestingKeyExpression) {
+    public static Optional<RecordKeyExpressionProto.Field.FanType> matchArrayWrapper(NestingKeyExpression nestingKeyExpression) {
         RecordKeyExpressionProto.KeyExpression child = nestingKeyExpression.getChild().toKeyExpression();
         if (child.hasNesting()) {
             // if child is Nesting, check child.parent
@@ -117,7 +113,7 @@ public class NullableArrayTypeUtils {
      * @return The unwrapped value.
      */
     @Nullable
-    public static Object unwrapIfArray(@Nullable Object value, @Nonnull Type type) {
+    public static Object unwrapIfArray(@Nullable Object value, Type type) {
         if (value == null) {
             return null;
         }
@@ -136,8 +132,7 @@ public class NullableArrayTypeUtils {
      *
      * @return The fan type if this is a wrapped array field, or empty otherwise.
      */
-    @Nonnull
-    private static Optional<RecordKeyExpressionProto.Field.FanType> matchWrappedField(@Nonnull RecordKeyExpressionProto.Field field) {
+    private static Optional<RecordKeyExpressionProto.Field.FanType> matchWrappedField(RecordKeyExpressionProto.Field field) {
         if (REPEATED_FIELD_NAME.equals(field.getFieldName())) {
             return Optional.of(field.getFanType());
         }

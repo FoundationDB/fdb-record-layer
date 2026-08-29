@@ -34,7 +34,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -64,9 +63,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests of the Memo data structure implemented by {@link Reference} and {@link RelationalExpression}.
  */
 public class MemoExpressionTest {
-    @Nonnull
     private static final Map<String, SyntheticPlannerExpression> leafExpressions = new HashMap<>();
-    @Nonnull
     private static final Map<String, SyntheticPlannerExpression> middleExpressions = new HashMap<>();
 
     static {
@@ -100,14 +97,12 @@ public class MemoExpressionTest {
         }
     }
 
-    @Nonnull
-    private static Memoizer createMemoizer(@Nonnull Reference root) {
+    private static Memoizer createMemoizer(Reference root) {
         AbstractCascadesRule<?> rule = new FinalizeExpressionsRule(); // doesn't matter for memoization
         return new CascadesRuleCall(PlannerPhase.REWRITING, new FakePlanContext(), rule, root, Traversal.withRoot(root), new ArrayDeque<>(), PlannerBindings.empty(), EvaluationContext.empty());
     }
 
-    @Nonnull
-    private static Reference ofExploratoryExpressions(@Nonnull RelationalExpression... expressions) {
+    private static Reference ofExploratoryExpressions(RelationalExpression... expressions) {
         return Reference.ofExploratoryExpressions(PlannerStage.CANONICAL, List.of(expressions));
     }
 
@@ -480,37 +475,34 @@ public class MemoExpressionTest {
      * data structure.
      */
     private static class SyntheticPlannerExpression extends AbstractRelationalExpressionWithChildren {
-        @Nonnull
         private final String identity;
-        @Nonnull
         private final List<? extends Quantifier> quantifiers;
         private final Set<CorrelationIdentifier> correlatedTo;
 
-        public SyntheticPlannerExpression(@Nonnull String identity) {
+        public SyntheticPlannerExpression(String identity) {
             this(identity, ImmutableList.of());
         }
 
-        public SyntheticPlannerExpression(@Nonnull String identity, @Nonnull Collection<? extends Quantifier> children) {
+        public SyntheticPlannerExpression(String identity, Collection<? extends Quantifier> children) {
             this(identity, children, ImmutableSet.of());
         }
 
-        public SyntheticPlannerExpression(@Nonnull String identity,
-                                          @Nonnull Collection<? extends Quantifier> children,
-                                          @Nonnull Collection<CorrelationIdentifier> correlatedTo) {
+        public SyntheticPlannerExpression(String identity,
+                                          Collection<? extends Quantifier> children,
+                                          Collection<CorrelationIdentifier> correlatedTo) {
             this.identity = identity;
             this.quantifiers = ImmutableList.copyOf(children);
             this.correlatedTo = ImmutableSet.copyOf(correlatedTo);
         }
 
-        @Nonnull
         @Override
         public List<? extends Quantifier> getQuantifiers() {
             return quantifiers;
         }
 
         @Override
-        public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                             @Nonnull final AliasMap equivalencesMap) {
+        public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                             final AliasMap equivalencesMap) {
             if (this == otherExpression) {
                 return true;
             }
@@ -536,8 +528,7 @@ public class MemoExpressionTest {
             return Objects.hash(identity);
         }
 
-        @Nonnull
-        public static SyntheticPlannerExpression generate(@Nonnull Random random, int maxDepth) {
+        public static SyntheticPlannerExpression generate(Random random, int maxDepth) {
             String name = Integer.toString(random.nextInt());
             if (maxDepth == 0) {
                 return new SyntheticPlannerExpression(name);
@@ -555,21 +546,18 @@ public class MemoExpressionTest {
             return quantifiers.size();
         }
 
-        @Nonnull
         @Override
         public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
             return correlatedTo;
         }
 
-        @Nonnull
         @Override
-        public SyntheticPlannerExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+        public SyntheticPlannerExpression translateCorrelations(final TranslationMap translationMap,
                                                                 final boolean shouldSimplifyValues,
-                                                                @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                                final List<? extends Quantifier> translatedQuantifiers) {
             return new SyntheticPlannerExpression(identity, translatedQuantifiers);
         }
 
-        @Nonnull
         @Override
         public Value getResultValue() {
             return new QueriedValue();
@@ -582,13 +570,11 @@ public class MemoExpressionTest {
                     + ")";
         }
 
-        @Nonnull
-        public static SyntheticPlannerExpression ofRefs(@Nonnull String name, @Nonnull Reference... references) {
+        public static SyntheticPlannerExpression ofRefs(String name, Reference... references) {
             return new SyntheticPlannerExpression(name, Quantifiers.forEachQuantifiers(List.of(references)));
         }
 
-        @Nonnull
-        public static SyntheticPlannerExpression withCorrelated(@Nonnull String name, @Nonnull String... correlatedTo) {
+        public static SyntheticPlannerExpression withCorrelated(String name, String... correlatedTo) {
             return new SyntheticPlannerExpression(name, ImmutableList.of(), Arrays.stream(correlatedTo).map(CorrelationIdentifier::of).collect(ImmutableSet.toImmutableSet()));
         }
     }

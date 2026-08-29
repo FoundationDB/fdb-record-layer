@@ -31,8 +31,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
@@ -125,7 +125,7 @@ public class ConstantObjectValueTest {
 
     @ParameterizedTest
     @MethodSource("argumentsProvider")
-    public void testEval(@Nonnull Type covResultType, boolean expectedSuccess, @Nullable Object bindingObject, @Nullable Object expectedObject) {
+    public void testEval(Type covResultType, boolean expectedSuccess, @Nullable Object bindingObject, @Nullable Object expectedObject) {
         final var alias = Bindings.Internal.CONSTANT.bindingName("blah");
         final var bindingMap = new HashMap<String, Object>();
         bindingMap.put("key", bindingObject);

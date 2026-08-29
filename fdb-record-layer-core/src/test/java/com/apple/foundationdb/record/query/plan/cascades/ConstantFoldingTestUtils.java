@@ -46,8 +46,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.assertj.core.api.Assertions;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -61,13 +61,11 @@ public class ConstantFoldingTestUtils {
 
     private static int counter;
 
-    @Nonnull
     public static final Type.Record lowerType = Type.Record.fromFields(false, List.of(
             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("a_non_null")),
             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("b_nullable"))
     ));
 
-    @Nonnull
     public static final Type.Record upperType = Type.Record.fromFields(false, List.of(
             Type.Record.Field.of(lowerType.withNullability(false), Optional.of("a_non_null")),
             Type.Record.Field.of(lowerType.withNullability(true), Optional.of("b_nullable"))
@@ -76,41 +74,33 @@ public class ConstantFoldingTestUtils {
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     public static final class ValueWrapper {
 
-        @Nonnull
         private final Optional<EvaluationContext> evaluationContext;
 
-        @Nonnull
         private final Value value;
 
-
-        private ValueWrapper(@Nonnull final Value value, @Nonnull final Optional<EvaluationContext> evaluationContext) {
+        private ValueWrapper(final Value value, final Optional<EvaluationContext> evaluationContext) {
             this.evaluationContext = evaluationContext;
             this.value = value;
         }
 
-        @Nonnull
         public Value value() {
             return value;
         }
 
-        @Nonnull
         public Optional<EvaluationContext> getEvaluationContextMaybe() {
             return evaluationContext;
         }
 
-        @Nonnull
         public EvaluationContext getEvaluationContext() {
             Verify.verify(getEvaluationContextMaybe().isPresent());
             return getEvaluationContextMaybe().get();
         }
 
-        @Nonnull
         public EvaluationContext getEvaluationContextOrEmpty() {
             return evaluationContext.orElse(EvaluationContext.EMPTY);
         }
 
-        @Nonnull
-        public ValueWrapper withNewValue(@Nonnull Value value) {
+        public ValueWrapper withNewValue(Value value) {
             return new ValueWrapper(value, evaluationContext);
         }
 
@@ -129,34 +119,28 @@ public class ConstantFoldingTestUtils {
             return value.toString();
         }
 
-        @Nonnull
-        public EvaluationContext mergeEvaluationContext(@Nonnull final ValueWrapper that) {
+        public EvaluationContext mergeEvaluationContext(final ValueWrapper that) {
             return mergeEvaluationContexts(this, that);
         }
 
-        @Nonnull
-        public static ValueWrapper of(@Nonnull final EvaluationContext evaluationContext, @Nonnull final Value value) {
+        public static ValueWrapper of(final EvaluationContext evaluationContext, final Value value) {
             return ValueWrapper.of(Optional.of(evaluationContext), value);
         }
 
-        @Nonnull
-        public static ValueWrapper of(@Nonnull final Optional<EvaluationContext> evaluationContextMaybe, @Nonnull final Value value) {
+        public static ValueWrapper of(final Optional<EvaluationContext> evaluationContextMaybe, final Value value) {
             return new ValueWrapper(value, evaluationContextMaybe);
         }
 
-        @Nonnull
-        public static ValueWrapper of(@Nonnull final Value value) {
+        public static ValueWrapper of(final Value value) {
             return new ValueWrapper(value, Optional.empty());
         }
 
-        @Nonnull
-        public static EvaluationContext mergeEvaluationContexts(@Nonnull final ValueWrapper v1, @Nonnull final ValueWrapper v2) {
+        public static EvaluationContext mergeEvaluationContexts(final ValueWrapper v1, final ValueWrapper v2) {
             return mergeEvaluationContexts(v1.evaluationContext, v2.evaluationContext);
         }
 
-        @Nonnull
-        public static EvaluationContext mergeEvaluationContexts(@Nonnull final Optional<EvaluationContext> v1,
-                                                                @Nonnull final Optional<EvaluationContext>  v2) {
+        public static EvaluationContext mergeEvaluationContexts(final Optional<EvaluationContext> v1,
+                                                                final Optional<EvaluationContext>  v2) {
             if (v1.isEmpty() && v2.isEmpty()) {
                 return EvaluationContext.empty();
             }
@@ -172,8 +156,7 @@ public class ConstantFoldingTestUtils {
             return EvaluationContext.forBindings(thisBindingsChildBuilder.build());
         }
 
-        @Nonnull
-        public static EvaluationContext mergeEvaluationContexts(@Nonnull final ValueWrapper... vs) {
+        public static EvaluationContext mergeEvaluationContexts(final ValueWrapper... vs) {
             return Arrays.stream(vs)
                     .map(ValueWrapper::getEvaluationContextMaybe)
                     .reduce(Optional.empty(),
@@ -184,8 +167,7 @@ public class ConstantFoldingTestUtils {
         }
     }
 
-    @Nonnull
-    public static ValueWrapper newCov(@Nonnull final Type type, @Nullable Object bindingValue) {
+    public static ValueWrapper newCov(final Type type, @Nullable Object bindingValue) {
         final var correlationId = CorrelationIdentifier.uniqueId();
         final var constantId = String.valueOf(counter++);
         final var bindingKey = Bindings.Internal.CONSTANT.bindingName(correlationId.getId());
@@ -194,101 +176,83 @@ public class ConstantFoldingTestUtils {
         return ValueWrapper.of(EvaluationContext.forBinding(bindingKey, bindingValueMap), ConstantObjectValue.of(correlationId, constantId, type));
     }
 
-    @Nonnull
     public static ValueWrapper litNull() {
         return ValueWrapper.of(new NullValue(Type.nullType()));
     }
 
-    @Nonnull
     public static ValueWrapper covNull() {
         return newCov(Type.nullType(), null);
     }
 
-    @Nonnull
     public static ValueWrapper litFalse() {
         return ValueWrapper.of(LiteralValue.ofScalar(false));
     }
 
-    @Nonnull
     public static ValueWrapper covFalse() {
         return newCov(Type.primitiveType(Type.TypeCode.BOOLEAN), false);
     }
 
-    @Nonnull
     public static ValueWrapper litTrue() {
         return ValueWrapper.of(LiteralValue.ofScalar(true));
     }
 
-    @Nonnull
     public static ValueWrapper covTrue() {
         return newCov(Type.primitiveType(Type.TypeCode.BOOLEAN), true);
     }
 
-    @Nonnull
     public static ValueWrapper nonNullBoolean() {
         return qov(Type.primitiveType(Type.TypeCode.BOOLEAN, false));
     }
 
-    @Nonnull
     public static ValueWrapper nullableBoolean() {
         return qov(Type.primitiveType(Type.TypeCode.BOOLEAN, true));
     }
 
-    @Nonnull
-    public static ValueWrapper litString(@Nonnull final String value) {
+    public static ValueWrapper litString(final String value) {
         return ValueWrapper.of(LiteralValue.ofScalar(value));
     }
 
-    @Nonnull
     public static ValueWrapper litInt(int value) {
         return ValueWrapper.of(LiteralValue.ofScalar(value));
     }
 
-    @Nonnull
     public static ValueWrapper notNullIntCov() {
         return newCov(Type.primitiveType(Type.TypeCode.INT, false), 42);
     }
 
-    @Nonnull
     public static ValueWrapper throwingValue() {
         // this is for examining lazy evaluation of constant folding logic.
         // for example: NULL EQUALS <X | X IMMEDIATELY THROWS> should evaluate to NULL.
         return ValueWrapper.of(new ThrowsValue(Type.nullType()));
     }
 
-    @Nonnull
-    public static ValueWrapper coalesce(@Nonnull final ValueWrapper... valueWrappers) {
+    public static ValueWrapper coalesce(final ValueWrapper... valueWrappers) {
         final var evaluationContext = ValueWrapper.mergeEvaluationContexts(valueWrappers);
         final var values = Arrays.stream(valueWrappers).map(ValueWrapper::value).collect(ImmutableList.toImmutableList());
         final var value = (Value)new VariadicFunctionValue.CoalesceFn().encapsulate(CallSiteArguments.ofPositional(values));
         return new ValueWrapper(value, Optional.of(evaluationContext));
     }
 
-    @Nonnull
-    public static ValueWrapper promoteToBoolean(@Nonnull ValueWrapper valueWrapper) {
+    public static ValueWrapper promoteToBoolean(ValueWrapper valueWrapper) {
         final var promoteValue = new PromoteValue(valueWrapper.value(), Type.primitiveType(Type.TypeCode.BOOLEAN), null);
         return ValueWrapper.of(valueWrapper.getEvaluationContextMaybe(), promoteValue);
     }
 
-    @Nonnull
     public static ValueWrapper qov(Type type) {
         final QuantifiedObjectValue qov = QuantifiedObjectValue.of(Quantifier.current(), type);
         return new ValueWrapper(qov, Optional.empty());
     }
 
-    @Nonnull
-    public static ValueWrapper fieldValue(@Nonnull ValueWrapper baseValue, @Nonnull String fieldName) {
+    public static ValueWrapper fieldValue(ValueWrapper baseValue, String fieldName) {
         final FieldValue fieldValue = FieldValue.ofFieldNameAndFuseIfPossible(baseValue.value(), fieldName);
         return baseValue.withNewValue(fieldValue);
     }
 
-    @Nonnull
-    public static RangeConstraints buildSingletonRange(@Nonnull Comparisons.Type comparisonType) {
+    public static RangeConstraints buildSingletonRange(Comparisons.Type comparisonType) {
         return buildSingletonRange(comparisonType, null);
     }
 
-    @Nonnull
-    public static RangeConstraints buildSingletonRange(@Nonnull Comparisons.Type comparisonType, @Nullable final Value comparand) {
+    public static RangeConstraints buildSingletonRange(Comparisons.Type comparisonType, @Nullable final Value comparand) {
         Comparisons.Comparison comparison;
         switch (comparisonType) {
             case IS_NULL: // fallthrough
@@ -301,8 +265,7 @@ public class ConstantFoldingTestUtils {
         return buildMultiRange(Collections.singleton(comparison));
     }
 
-    @Nonnull
-    public static RangeConstraints buildMultiRange(@Nonnull Collection<Comparisons.Comparison> comparisons) {
+    public static RangeConstraints buildMultiRange(Collection<Comparisons.Comparison> comparisons) {
         var constraintsBuilder = RangeConstraints.newBuilder();
         for (Comparisons.Comparison comparison : comparisons) {
             Assertions.assertThat(constraintsBuilder.addComparisonMaybe(comparison))
@@ -313,38 +276,31 @@ public class ConstantFoldingTestUtils {
                 .orElseGet(() -> fail("unable to construct range constraints over: " + comparisons));
     }
 
-    @Nonnull
-    public static QueryPredicate isNotNull(@Nonnull final Value value) {
+    public static QueryPredicate isNotNull(final Value value) {
         return new ValuePredicate(value, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
     }
 
-    @Nonnull
-    public static QueryPredicate isNotNullAsRange(@Nonnull final Value value) {
+    public static QueryPredicate isNotNullAsRange(final Value value) {
         return PredicateWithValueAndRanges.ofRanges(value, ImmutableSet.of(buildSingletonRange(Comparisons.Type.NOT_NULL)));
     }
 
-    @Nonnull
-    public static QueryPredicate isNull(@Nonnull final Value value) {
+    public static QueryPredicate isNull(final Value value) {
         return new ValuePredicate(value, new Comparisons.NullComparison(Comparisons.Type.IS_NULL));
     }
 
-    @Nonnull
-    public static QueryPredicate isNullAsRange(@Nonnull final Value value) {
+    public static QueryPredicate isNullAsRange(final Value value) {
         return PredicateWithValueAndRanges.ofRanges(value, ImmutableSet.of(buildSingletonRange(Comparisons.Type.IS_NULL)));
     }
 
-    @Nonnull
-    public static QueryPredicate areEqual(@Nonnull final Value value1, @Nonnull final Value value2) {
+    public static QueryPredicate areEqual(final Value value1, final Value value2) {
         return new ValuePredicate(value1, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, value2));
     }
 
-    @Nonnull
-    public static QueryPredicate areEqualAsRange(@Nonnull final Value value1, @Nonnull final Value value2) {
+    public static QueryPredicate areEqualAsRange(final Value value1, final Value value2) {
         return PredicateWithValueAndRanges.ofRanges(value1, ImmutableSet.of(buildSingletonRange(Comparisons.Type.EQUALS, value2)));
     }
 
-    @Nonnull
-    public static QueryPredicate areNotNullAndEqualAsRange(@Nonnull final Value value1, @Nonnull final Value value2) {
+    public static QueryPredicate areNotNullAndEqualAsRange(final Value value1, final Value value2) {
         RangeConstraints multiRange = buildMultiRange(ImmutableSet.of(
                 new Comparisons.NullComparison(Comparisons.Type.NOT_NULL),
                 new Comparisons.ValueComparison(Comparisons.Type.EQUALS, value2)
@@ -352,29 +308,24 @@ public class ConstantFoldingTestUtils {
         return PredicateWithValueAndRanges.ofRanges(value1, ImmutableSet.of(multiRange));
     }
 
-    @Nonnull
-    public static QueryPredicate areNotEqual(@Nonnull final Value value1, @Nonnull final Value value2) {
+    public static QueryPredicate areNotEqual(final Value value1, final Value value2) {
         return new ValuePredicate(value1, new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, value2));
     }
 
-    @Nonnull
-    public static QueryPredicate and(@Nonnull final QueryPredicate... preds) {
+    public static QueryPredicate and(final QueryPredicate... preds) {
         return AndPredicate.and(Arrays.stream(preds).collect(ImmutableList.toImmutableList()));
     }
 
-    @Nonnull
-    public static QueryPredicate or(@Nonnull final QueryPredicate... preds) {
+    public static QueryPredicate or(final QueryPredicate... preds) {
         return OrPredicate.or(Arrays.stream(preds).collect(ImmutableList.toImmutableList()));
     }
 
-    @Nonnull
-    public static QueryPredicate simplify(@Nonnull final QueryPredicate predicate) {
+    public static QueryPredicate simplify(final QueryPredicate predicate) {
         return simplify(predicate, EvaluationContext.empty());
     }
 
-    @Nonnull
-    public static QueryPredicate simplify(@Nonnull final QueryPredicate predicate,
-                                          @Nonnull final EvaluationContext evaluationContext) {
+    public static QueryPredicate simplify(final QueryPredicate predicate,
+                                          final EvaluationContext evaluationContext) {
         final var result = Simplification.optimize(predicate,
                 evaluationContext,
                 AliasMap.emptyMap(),

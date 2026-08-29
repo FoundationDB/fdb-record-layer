@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
 import java.util.function.Supplier;
 
 /**
@@ -92,14 +91,12 @@ public enum PlannerStage {
      */
     PLANNED(PlanPropertiesMap::new);
 
-    @Nonnull
     private final Supplier<ExpressionPropertiesMap<? extends RelationalExpression>> propertiesMapCreator;
 
-    PlannerStage(@Nonnull final Supplier<ExpressionPropertiesMap<? extends RelationalExpression>> propertiesMapCreator) {
+    PlannerStage(final Supplier<ExpressionPropertiesMap<? extends RelationalExpression>> propertiesMapCreator) {
         this.propertiesMapCreator = propertiesMapCreator;
     }
 
-    @Nonnull
     public ExpressionPropertiesMap<? extends RelationalExpression> createPropertiesMap() {
         return propertiesMapCreator.get();
     }
@@ -109,7 +106,7 @@ public enum PlannerStage {
      * @param other another stage that is not this stage
      * @return {@code true} iff the {@link PlannerStage} passed in directly precedes this stage.
      */
-    public boolean directlyPrecedes(@Nonnull final PlannerStage other) {
+    public boolean directlyPrecedes(final PlannerStage other) {
         return precedes(other) && ordinal() == other.ordinal() - 1;
     }
 
@@ -118,7 +115,7 @@ public enum PlannerStage {
      * @param other another stage that is not this stage
      * @return {@code true} iff the {@link PlannerStage} passed in precedes this stage.
      */
-    public boolean precedes(@Nonnull final PlannerStage other) {
+    public boolean precedes(final PlannerStage other) {
         Verify.verify(this != other);
         return ordinal() < other.ordinal();
     }
@@ -128,7 +125,7 @@ public enum PlannerStage {
      * @param other another stage that is not this stage
      * @return {@code true} iff the {@link PlannerStage} passed in succeeds this stage.
      */
-    public boolean directlySucceeds(@Nonnull final PlannerStage other) {
+    public boolean directlySucceeds(final PlannerStage other) {
         return succeeds(other) && ordinal() == other.ordinal() + 1;
     }
 
@@ -137,7 +134,7 @@ public enum PlannerStage {
      * @param other another stage that is not this stage
      * @return {@code true} iff the {@link PlannerStage} passed in directly succeeds this stage.
      */
-    public boolean succeeds(@Nonnull final PlannerStage other) {
+    public boolean succeeds(final PlannerStage other) {
         Verify.verify(this != other);
         return ordinal() > other.ordinal();
     }

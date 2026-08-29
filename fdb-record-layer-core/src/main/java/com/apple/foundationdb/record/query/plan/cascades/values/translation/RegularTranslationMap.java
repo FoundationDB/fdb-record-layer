@@ -30,8 +30,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -40,17 +40,14 @@ import java.util.Set;
  * Map used to specify translations using a proper immutable backing map.
  */
 public class RegularTranslationMap implements TranslationMap {
-    @Nonnull
     private static final RegularTranslationMap EMPTY = new RegularTranslationMap(ImmutableMap.of());
 
-    @Nonnull
     private final Map<CorrelationIdentifier, TranslationFunction> aliasToFunctionMap;
 
-    private RegularTranslationMap(@Nonnull final Map<CorrelationIdentifier, TranslationFunction> aliasToFunctionMap) {
+    private RegularTranslationMap(final Map<CorrelationIdentifier, TranslationFunction> aliasToFunctionMap) {
         this.aliasToFunctionMap = ImmutableMap.copyOf(aliasToFunctionMap);
     }
 
-    @Nonnull
     @Override
     public Optional<AliasMap> getAliasMapMaybe() {
         return Optional.empty();
@@ -68,9 +65,8 @@ public class RegularTranslationMap implements TranslationMap {
         return aliasToFunctionMap.containsKey(sourceAlias);
     }
 
-    @Nonnull
     @Override
-    public Optional<CorrelationIdentifier> getTargetMaybe(@Nonnull final CorrelationIdentifier sourceAlias) {
+    public Optional<CorrelationIdentifier> getTargetMaybe(final CorrelationIdentifier sourceAlias) {
         AliasMap aliasMap = getAliasMapMaybe().orElse(null);
         if (aliasMap == null) {
             return Optional.empty();
@@ -78,26 +74,22 @@ public class RegularTranslationMap implements TranslationMap {
         return Optional.ofNullable(aliasMap.getTarget(sourceAlias));
     }
 
-    @Nonnull
     @Override
-    public Value applyTranslationFunction(@Nonnull final CorrelationIdentifier sourceAlias,
-                                          @Nonnull final LeafValue leafValue) {
+    public Value applyTranslationFunction(final CorrelationIdentifier sourceAlias,
+                                          final LeafValue leafValue) {
         final var translationFunction = Preconditions.checkNotNull(aliasToFunctionMap.get(sourceAlias));
         return translationFunction.apply(sourceAlias, leafValue);
     }
 
-    @Nonnull
     public static RegularTranslationMap empty() {
         return EMPTY;
     }
 
-    @Nonnull
     public static RegularTranslationMap.Builder builder() {
         return new RegularTranslationMap.Builder();
     }
 
-    @Nonnull
-    public static RegularTranslationMap rebaseWithAliasMap(@Nonnull final AliasMap aliasMap) {
+    public static RegularTranslationMap rebaseWithAliasMap(final AliasMap aliasMap) {
         final var translationMapBuilder =
                 ImmutableMap.<CorrelationIdentifier, TranslationFunction>builder();
         for (final var entry : aliasMap.entrySet()) {
@@ -107,14 +99,12 @@ public class RegularTranslationMap implements TranslationMap {
         return new AliasMapBasedTranslationMap(translationMapBuilder.build(), aliasMap);
     }
 
-    @Nonnull
-    public static RegularTranslationMap ofAliases(@Nonnull final CorrelationIdentifier source,
-                                                  @Nonnull final CorrelationIdentifier target) {
+    public static RegularTranslationMap ofAliases(final CorrelationIdentifier source,
+                                                  final CorrelationIdentifier target) {
         return rebaseWithAliasMap(AliasMap.ofAliases(source, target));
     }
 
-    @Nonnull
-    public static RegularTranslationMap compose(@Nonnull final Iterable<RegularTranslationMap> translationMaps) {
+    public static RegularTranslationMap compose(final Iterable<RegularTranslationMap> translationMaps) {
         final var builder = builder();
         for (final var translationMap : translationMaps) {
             builder.compose(translationMap);
@@ -123,16 +113,14 @@ public class RegularTranslationMap implements TranslationMap {
     }
 
     private static class AliasMapBasedTranslationMap extends RegularTranslationMap {
-        @Nonnull
         private final AliasMap aliasMap;
 
-        private AliasMapBasedTranslationMap(@Nonnull final Map<CorrelationIdentifier, TranslationFunction> aliasToFunctionMap,
-                                            @Nonnull final AliasMap aliasMap) {
+        private AliasMapBasedTranslationMap(final Map<CorrelationIdentifier, TranslationFunction> aliasToFunctionMap,
+                                            final AliasMap aliasMap) {
             super(aliasToFunctionMap);
             this.aliasMap = aliasMap;
         }
 
-        @Nonnull
         @Override
         public Optional<AliasMap> getAliasMapMaybe() {
             return Optional.of(aliasMap);
@@ -143,22 +131,19 @@ public class RegularTranslationMap implements TranslationMap {
      * Builder class for a translation map.
      */
     public static class Builder {
-        @Nonnull
         private final Map<CorrelationIdentifier, TranslationFunction> aliasToFunctionMap;
-        @Nonnull
         private final AliasMap.Builder aliasMapBuilder = AliasMap.builder();
 
         private Builder() {
             this(Maps.newLinkedHashMap(), AliasMap.emptyMap());
         }
 
-        private Builder(@Nonnull final Map<CorrelationIdentifier, TranslationFunction> aliasToFunctionMap,
-                        @Nonnull final AliasMap aliasMap) {
+        private Builder(final Map<CorrelationIdentifier, TranslationFunction> aliasToFunctionMap,
+                        final AliasMap aliasMap) {
             this.aliasToFunctionMap = Maps.newLinkedHashMap(aliasToFunctionMap);
             this.aliasMapBuilder.putAll(aliasMap);
         }
 
-        @Nonnull
         public RegularTranslationMap build() {
             if (aliasToFunctionMap.isEmpty()) {
                 return AliasMapBasedTranslationMap.empty();
@@ -167,18 +152,15 @@ public class RegularTranslationMap implements TranslationMap {
             return new AliasMapBasedTranslationMap(aliasToFunctionMap, aliasMap);
         }
 
-        @Nonnull
-        public When when(@Nonnull final CorrelationIdentifier sourceAlias) {
+        public When when(final CorrelationIdentifier sourceAlias) {
             return new When(sourceAlias);
         }
 
-        @Nonnull
-        public WhenAny whenAny(@Nonnull final Iterable<CorrelationIdentifier> sourceAliases) {
+        public WhenAny whenAny(final Iterable<CorrelationIdentifier> sourceAliases) {
             return new WhenAny(sourceAliases);
         }
 
-        @Nonnull
-        public Builder compose(@Nonnull final RegularTranslationMap other) {
+        public Builder compose(final RegularTranslationMap other) {
             other.aliasToFunctionMap
                     .forEach((key, value) -> {
                         Verify.verify(!aliasToFunctionMap.containsKey(key));
@@ -192,15 +174,13 @@ public class RegularTranslationMap implements TranslationMap {
          * Class to provide fluent API, e.g. {@code .when(...).then(...)}
          */
         public class When {
-            @Nonnull
             private final CorrelationIdentifier sourceAlias;
 
-            public When(@Nonnull final CorrelationIdentifier sourceAlias) {
+            public When(final CorrelationIdentifier sourceAlias) {
                 this.sourceAlias = sourceAlias;
             }
 
-            @Nonnull
-            public Builder then(@Nonnull final TranslationFunction translationFunction) {
+            public Builder then(final TranslationFunction translationFunction) {
                 aliasToFunctionMap.put(sourceAlias, translationFunction);
                 return Builder.this;
             }
@@ -210,15 +190,13 @@ public class RegularTranslationMap implements TranslationMap {
          * Class to provide fluent API, e.g. {@code .when(...).then(...)}
          */
         public class WhenAny {
-            @Nonnull
             private final Set<CorrelationIdentifier> sourceAliases;
 
-            public WhenAny(@Nonnull final Iterable<CorrelationIdentifier> sourceAliases) {
+            public WhenAny(final Iterable<CorrelationIdentifier> sourceAliases) {
                 this.sourceAliases = ImmutableSet.copyOf(sourceAliases);
             }
 
-            @Nonnull
-            public Builder then(@Nonnull TranslationFunction translationFunction) {
+            public Builder then(TranslationFunction translationFunction) {
                 for (final CorrelationIdentifier sourceAlias : sourceAliases) {
                     aliasToFunctionMap.put(sourceAlias, translationFunction);
                 }

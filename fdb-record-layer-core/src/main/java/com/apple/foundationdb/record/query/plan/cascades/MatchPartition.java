@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PMatchPartition;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Set;
 
@@ -34,21 +33,19 @@ public class MatchPartition {
     /**
      * A set of partial matches.
      */
-    @Nonnull
     private final LinkedIdentitySet<PartialMatch> partialMatches;
 
-    private MatchPartition(@Nonnull Collection<PartialMatch> partialMatches) {
+    private MatchPartition(Collection<PartialMatch> partialMatches) {
         this.partialMatches = new LinkedIdentitySet<>();
         this.partialMatches.addAll(partialMatches);
     }
 
-    @Nonnull
     public Set<PartialMatch> getPartialMatches() {
         return partialMatches;
     }
 
-    public static MatchPartition of(@Nonnull final Reference reference,
-                                    @Nonnull final RelationalExpression relationalExpression) {
+    public static MatchPartition of(final Reference reference,
+                                    final RelationalExpression relationalExpression) {
         return new MatchPartition(reference.getPartialMatchesForExpression(relationalExpression));
     }
 
@@ -57,7 +54,6 @@ public class MatchPartition {
         return partialMatches.toString();
     }
 
-    @Nonnull
     public PMatchPartition toPlannerEventMatchPartitionProto() {
         final var builder = PMatchPartition.newBuilder();
         for (final var partialMatch : getPartialMatches()) {

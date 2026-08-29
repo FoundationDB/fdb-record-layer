@@ -27,12 +27,12 @@ import com.apple.foundationdb.record.planprotos.PTempTable;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.Descriptors;
+import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -52,10 +52,8 @@ import java.util.List;
  */
 public class TempTable implements ProtoSerializable {
 
-    @Nonnull
     private final List<QueryResult> underlyingBuffer;
 
-    @Nonnull
     private final PTempTable.Builder protoBuilder;
 
     @Nullable
@@ -65,7 +63,7 @@ public class TempTable implements ProtoSerializable {
         this(Collections.synchronizedList(new ArrayList<>()), PTempTable.newBuilder());
     }
 
-    private TempTable(@Nonnull final List<QueryResult> buffer, @Nonnull final PTempTable.Builder protoBuilder) {
+    private TempTable(final List<QueryResult> buffer, final PTempTable.Builder protoBuilder) {
         this.underlyingBuffer = buffer;
         this.protoBuilder = protoBuilder;
         this.cachedProto = null;
@@ -75,7 +73,7 @@ public class TempTable implements ProtoSerializable {
      * Add a new {@link QueryResult} element to the underlying buffer.
      * @param element the new element to be added.
      */
-    public void add(@Nonnull QueryResult element) {
+    public void add(QueryResult element) {
         underlyingBuffer.add(element);
         protoBuilder.addBufferItems(element.toProto());
         cachedProto = null;
@@ -99,7 +97,6 @@ public class TempTable implements ProtoSerializable {
      * @return an iterator of the underlying buffer.
      */
 
-    @Nonnull
     public Iterator<QueryResult> getIterator() {
         return underlyingBuffer.iterator();
     }
@@ -108,12 +105,10 @@ public class TempTable implements ProtoSerializable {
      * Returns the underlying buffer, note that this method is not synchronized.
      * @return The underlying buffer.
      */
-    @Nonnull
     public List<QueryResult> getList() {
         return underlyingBuffer;
     }
 
-    @Nonnull
     @Override
     public PTempTable toProto() {
         if (cachedProto == null) {
@@ -130,8 +125,7 @@ public class TempTable implements ProtoSerializable {
      *
      * @return A deserialized {@link TempTable}.
      */
-    @Nonnull
-    public static TempTable from(@Nonnull final byte[] bytes, @Nullable final Descriptors.Descriptor descriptor) {
+    public static TempTable from(final byte[] bytes, @Nullable final Descriptor descriptor) {
         return from(ZeroCopyByteString.wrap(bytes), descriptor);
     }
 
@@ -143,8 +137,7 @@ public class TempTable implements ProtoSerializable {
      *
      * @return A deserialized {@link TempTable}.
      */
-    @Nonnull
-    public static TempTable from(@Nonnull final ByteString byteString, @Nullable final Descriptors.Descriptor descriptor) {
+    public static TempTable from(final ByteString byteString, @Nullable final Descriptor descriptor) {
         final PTempTable tempTableProto;
         try {
             tempTableProto = PTempTable.parseFrom(byteString);
@@ -161,9 +154,8 @@ public class TempTable implements ProtoSerializable {
      * @param descriptor An optional descriptor of the temporary table elements.
      * @return A deserialized {@link TempTable}.
      */
-    @Nonnull
-    public static TempTable from(@Nonnull final PTempTable tempTableProto,
-                                 @Nullable final Descriptors.Descriptor descriptor) {
+    public static TempTable from(final PTempTable tempTableProto,
+                                 @Nullable final Descriptor descriptor) {
         final var underlyingBuffer = new LinkedList<QueryResult>();
         for (final var element : tempTableProto.getBufferItemsList()) {
             underlyingBuffer.add(QueryResult.from(descriptor, element));
@@ -175,7 +167,6 @@ public class TempTable implements ProtoSerializable {
      * Creates a new instance of {@link TempTable} backed by a synchronized list.
      * @return a new instance of {@link TempTable}.
      */
-    @Nonnull
     private static TempTable newInstance() {
         return new TempTable();
     }
@@ -188,12 +179,10 @@ public class TempTable implements ProtoSerializable {
         private Factory() {
         }
 
-        @Nonnull
         public TempTable createTempTable() {
             return TempTable.newInstance();
         }
 
-        @Nonnull
         public static Factory instance() {
             return new Factory();
         }

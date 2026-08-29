@@ -32,7 +32,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 
 /**
@@ -42,11 +41,8 @@ import java.util.Set;
  */
 class CallSiteArgumentsTest {
 
-    @Nonnull
     private static final Value ONE = LiteralValue.ofScalar(1);
-    @Nonnull
     private static final Value TWO = LiteralValue.ofScalar(2);
-    @Nonnull
     private static final CallSiteArguments.Option<Integer> AN_OPTION = CallSiteArguments.Option.ofInteger("anInt");
 
     @Test
@@ -386,18 +382,16 @@ class CallSiteArgumentsTest {
         }
     }
 
-    @Nonnull
-    private static WindowOrderingPart orderingPart(@Nonnull final OrderingPart.RequestedSortOrder sortOrder) {
+    private static WindowOrderingPart orderingPart(final OrderingPart.RequestedSortOrder sortOrder) {
         return new WindowOrderingPart(ONE, sortOrder);
     }
 
-    @Nonnull
     private static CallSiteArguments.WindowSpecification windowSpecification() {
         return new CallSiteArguments.WindowSpecification(ImmutableList.of(ONE),
                 ImmutableList.of(orderingPart(OrderingPart.RequestedSortOrder.DESCENDING)));
     }
 
-    private static void assertOptionAndWindowRetained(@Nonnull final CallSiteArguments arguments) {
+    private static void assertOptionAndWindowRetained(final CallSiteArguments arguments) {
         Assertions.assertEquals(7, arguments.getOption(AN_OPTION).orElseThrow(),
                 "the option should have survived the derivation");
         Assertions.assertEquals(windowSpecification(), arguments.getWindowSpecification(),

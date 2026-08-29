@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp.UnificationPullUp;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Suppliers;
@@ -34,8 +35,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -64,76 +65,62 @@ public class PartialMatch {
     /**
      * Alias map of all bound correlated references.
      */
-    @Nonnull
     private final AliasMap boundAliasMap;
 
     /**
      * Match candidate.
      */
-    @Nonnull
     private final MatchCandidate matchCandidate;
 
     /**
      * Expression reference in query graph.
      */
-    @Nonnull
     private final Reference queryRef;
 
     /**
      * Expression in query graph.
      */
-    @Nonnull
     private final RelationalExpression queryExpression;
 
     /**
      * Expression reference in match candidate graph.
      */
-    @Nonnull
     private final Reference candidateRef;
 
     /**
      * Compensation operator that can be applied to the scan of the materialized version of the match candidate.
      */
-    @Nonnull
     private final MatchInfo matchInfo;
 
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Map<CorrelationIdentifier, ComparisonRange>> boundParameterPrefixMapSupplier = Suppliers.memoize(this::computeBoundParameterPrefixMap);
 
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Set<Placeholder>> boundPlaceholdersSupplier = Suppliers.memoize(this::computeBoundPlaceholders);
 
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Set<CorrelationIdentifier>> boundSargableAliasesSupplier = Suppliers.memoize(this::computeBoundSargableAliases);
 
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Set<Quantifier>> matchedQuantifiersSupplier = Suppliers.memoize(this::computeMatchedQuantifiers);
 
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Set<Quantifier>> unmatchedQuantifiersSupplier = Suppliers.memoize(this::computeUnmatchedQuantifiers);
 
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Set<CorrelationIdentifier>> compensatedAliasesSupplier = Suppliers.memoize(this::computeCompensatedAliases);
 
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<PredicateMap> accumulatedPredicateMapSupplier = Suppliers.memoize(this::computeAccumulatedPredicateMap);
 
-    @Nonnull
     private final Map<QueryPredicate, Optional<PredicateMapping>> memoizedPulledUpPredicateMap;
 
-    public PartialMatch(@Nonnull final AliasMap boundAliasMap,
-                        @Nonnull final MatchCandidate matchCandidate,
-                        @Nonnull final Reference queryRef,
-                        @Nonnull final RelationalExpression queryExpression,
-                        @Nonnull final Reference candidateRef,
-                        @Nonnull final MatchInfo matchInfo) {
+    public PartialMatch(final AliasMap boundAliasMap,
+                        final MatchCandidate matchCandidate,
+                        final Reference queryRef,
+                        final RelationalExpression queryExpression,
+                        final Reference candidateRef,
+                        final MatchInfo matchInfo) {
         this.boundAliasMap = boundAliasMap;
         this.matchCandidate = matchCandidate;
         this.queryRef = queryRef;
@@ -143,37 +130,30 @@ public class PartialMatch {
         this.memoizedPulledUpPredicateMap = new LinkedIdentityMap<>();
     }
 
-    @Nonnull
     public AliasMap getBoundAliasMap() {
         return boundAliasMap;
     }
 
-    @Nonnull
     public MatchCandidate getMatchCandidate() {
         return matchCandidate;
     }
 
-    @Nonnull
     public Reference getQueryRef() {
         return queryRef;
     }
 
-    @Nonnull
     public RelationalExpression getQueryExpression() {
         return queryExpression;
     }
 
-    @Nonnull
     public Reference getCandidateRef() {
         return candidateRef;
     }
 
-    @Nonnull
     public MatchInfo getMatchInfo() {
         return matchInfo;
     }
 
-    @Nonnull
     public MatchInfo.RegularMatchInfo getRegularMatchInfo() {
         return matchInfo.getRegularMatchInfo();
     }
@@ -182,22 +162,18 @@ public class PartialMatch {
         return getBoundParameterPrefixMap().size();
     }
 
-    @Nonnull
     public Map<CorrelationIdentifier, ComparisonRange> getBoundParameterPrefixMap() {
         return boundParameterPrefixMapSupplier.get();
     }
 
-    @Nonnull
     private Map<CorrelationIdentifier, ComparisonRange> computeBoundParameterPrefixMap() {
         return getMatchCandidate().computeBoundParameterPrefixMap(getMatchInfo());
     }
 
-    @Nonnull
     public Set<Quantifier> getMatchedQuantifiers() {
         return matchedQuantifiersSupplier.get();
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private Set<Quantifier> computeMatchedQuantifiers() {
         return queryExpression.getQuantifiers()
@@ -207,12 +183,10 @@ public class PartialMatch {
                 .collect(LinkedIdentitySet.toLinkedIdentitySet());
     }
 
-    @Nonnull
     public Set<Quantifier> getUnmatchedQuantifiers() {
         return unmatchedQuantifiersSupplier.get();
     }
 
-    @Nonnull
     private Set<Quantifier> computeUnmatchedQuantifiers() {
         return queryExpression.getQuantifiers()
                 .stream()
@@ -221,23 +195,19 @@ public class PartialMatch {
                 .collect(LinkedIdentitySet.toLinkedIdentitySet());
     }
 
-    @Nonnull
     public final Set<CorrelationIdentifier> getBoundSargableAliases() {
         return boundSargableAliasesSupplier.get();
     }
 
-    @Nonnull
     private Set<CorrelationIdentifier> computeBoundSargableAliases() {
         return getBoundPlaceholders().stream().map(Placeholder::getParameterAlias)
                 .collect(ImmutableSet.toImmutableSet());
     }
 
-    @Nonnull
     public final Set<Placeholder> getBoundPlaceholders() {
         return boundPlaceholdersSupplier.get();
     }
 
-    @Nonnull
     private Set<Placeholder> computeBoundPlaceholders() {
         final var boundParameterPrefixMap = getBoundParameterPrefixMap();
         final var boundPlaceholders = Sets.<Placeholder>newIdentityHashSet();
@@ -274,12 +244,10 @@ public class PartialMatch {
      * replacement or compensation will take care of the aliases in the returned set.
      * @return a set of compensated aliases
      */
-    @Nonnull
     public final Set<CorrelationIdentifier> getCompensatedAliases() {
         return compensatedAliasesSupplier.get();
     }
 
-    @Nonnull
     private Set<CorrelationIdentifier> computeCompensatedAliases() {
         final var compensatedAliasesBuilder = ImmutableSet.<CorrelationIdentifier>builder();
         final var ownedAliases = Quantifiers.aliasToQuantifierMap(queryExpression.getQuantifiers()).keySet();
@@ -301,7 +269,6 @@ public class PartialMatch {
         return compensatedAliasesBuilder.build();
     }
 
-    @Nonnull
     public PredicateMap getAccumulatedPredicateMap() {
         return accumulatedPredicateMapSupplier.get();
     }
@@ -318,9 +285,8 @@ public class PartialMatch {
         return targetBuilder.build();
     }
 
-    @Nonnull
-    public Map<QueryPredicate, PredicateMapping> pullUpToParent(@Nonnull final CorrelationIdentifier candidateAlias,
-                                                                @Nonnull final Predicate<QueryPredicate> predicateFilter) {
+    public Map<QueryPredicate, PredicateMapping> pullUpToParent(final CorrelationIdentifier candidateAlias,
+                                                                final Predicate<QueryPredicate> predicateFilter) {
         final var interestingPredicates =
                 getAccumulatedPredicateMap().getMap()
                         .keySet()
@@ -331,9 +297,8 @@ public class PartialMatch {
         return pullUpToParent(candidateAlias, interestingPredicates);
     }
 
-    @Nonnull
-    public Map<QueryPredicate, PredicateMapping> pullUpToParent(@Nonnull final CorrelationIdentifier candidateAlias,
-                                                                @Nonnull final Set<QueryPredicate> interestingPredicates) {
+    public Map<QueryPredicate, PredicateMapping> pullUpToParent(final CorrelationIdentifier candidateAlias,
+                                                                final Set<QueryPredicate> interestingPredicates) {
         final var childPredicateMappings =
                 getPulledUpPredicateMappings(interestingPredicates);
 
@@ -351,8 +316,7 @@ public class PartialMatch {
         return resultsMap;
     }
 
-    @Nonnull
-    public Map<QueryPredicate, PredicateMapping> getPulledUpPredicateMappings(@Nonnull final Set<QueryPredicate> interestingPredicates) {
+    public Map<QueryPredicate, PredicateMapping> getPulledUpPredicateMappings(final Set<QueryPredicate> interestingPredicates) {
         final var resultMap = new LinkedIdentityMap<QueryPredicate, PredicateMapping>();
         final var unmemoizedInterestingPredicates = new LinkedIdentitySet<QueryPredicate>();
         for (final var interestingPredicate : interestingPredicates) {
@@ -382,38 +346,33 @@ public class PartialMatch {
         return resultMap;
     }
 
-    @Nonnull
     public Compensation compensateCompleteMatch(@Nullable PullUp unificationPullUp,
-                                                @Nonnull final CorrelationIdentifier candidateTopAlias) {
+                                                final CorrelationIdentifier candidateTopAlias) {
         return queryExpression.compensate(this, getBoundParameterPrefixMap(), unificationPullUp, candidateTopAlias);
     }
 
-    @Nonnull
-    public Compensation compensate(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                   @Nonnull final PullUp pullUp,
-                                   @Nonnull final CorrelationIdentifier candidateAlias) {
+    public Compensation compensate(final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                   final PullUp pullUp,
+                                   final CorrelationIdentifier candidateAlias) {
         return queryExpression.compensate(this, boundParameterPrefixMap, pullUp, candidateAlias);
     }
 
-    @Nonnull
-    public Compensation compensateExistential(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
+    public Compensation compensateExistential(final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
         return queryExpression.compensate(this, boundParameterPrefixMap, null, Quantifier.uniqueId());
     }
 
     @Nullable
-    public PullUp.UnificationPullUp prepareForUnification(@Nonnull final CorrelationIdentifier topAlias,
-                                                          @Nonnull final CorrelationIdentifier topCandidateAlias) {
+    public UnificationPullUp prepareForUnification(final CorrelationIdentifier topAlias,
+                                                          final CorrelationIdentifier topCandidateAlias) {
         return getMatchCandidate().prepareForUnification(this, topAlias, topCandidateAlias);
     }
 
-    @Nonnull
-    public PullUp pullUp(@Nonnull final CorrelationIdentifier candidateAlias) {
+    public PullUp pullUp(final CorrelationIdentifier candidateAlias) {
         return Objects.requireNonNull(nestPullUp(null, candidateAlias).getRight());
     }
 
-    @Nonnull
     public Pair</*root of match*/ PullUp , /*current*/ PullUp> nestPullUp(@Nullable final PullUp pullUp,
-                                                                          @Nonnull final CorrelationIdentifier candidateAlias) {
+                                                                          final CorrelationIdentifier candidateAlias) {
         PullUp rootOfMatchPullUp = null;
         var currentMatchInfo = getMatchInfo();
         var currentCandidateRef = candidateRef;
@@ -453,8 +412,7 @@ public class PartialMatch {
                        .noneMatch(quantifier -> quantifier instanceof Quantifier.ForEach);
     }
 
-    @Nonnull
-    public static Collection<MatchInfo> matchInfosFromMap(@Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+    public static Collection<MatchInfo> matchInfosFromMap(final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
         return partialMatchMap.values()
                 .stream()
                 .map(IdentityBiMap::unwrap)
@@ -468,7 +426,6 @@ public class PartialMatch {
         return getQueryExpression().getClass().getSimpleName() + "[" + getMatchCandidate().getName() + "]";
     }
 
-    @Nonnull
     public PPartialMatch toPlannerEventPartialMatchProto() {
         return PPartialMatch.newBuilder()
                 .setMatchCandidate(toString())

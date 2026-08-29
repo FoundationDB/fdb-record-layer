@@ -20,14 +20,11 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import javax.annotation.Nonnull;
-
 /**
  * Represents reading a table directly without using an index plus fetch.
  */
 public class PrimaryAccessHint implements AccessHint {
     @Override
-    @Nonnull
     public String getAccessHintType() {
         return "PRIMARY";
     }

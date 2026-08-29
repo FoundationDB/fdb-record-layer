@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.google.common.base.Equivalence;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
 import java.util.AbstractSet;
 import java.util.Collection;
 import java.util.Collections;
@@ -42,27 +41,25 @@ import java.util.stream.Collector;
  * @param <T> the type contained in the set
  */
 public class LinkedIdentitySet<T> extends AbstractSet<T> {
-    @Nonnull
     private static final Equivalence<Object> identity = Equivalence.identity();
 
-    @Nonnull
     private final Set<Equivalence.Wrapper<T>> members;
 
     public LinkedIdentitySet() {
         this.members = Sets.newLinkedHashSet();
     }
 
-    public LinkedIdentitySet(@Nonnull final Collection<? extends T> collection) {
+    public LinkedIdentitySet(final Collection<? extends T> collection) {
         this.members = Sets.newLinkedHashSet();
         collection.forEach(element -> this.members.add(identity.wrap(element)));
     }
 
     @Override
-    public boolean add(@Nonnull T expression) {
+    public boolean add(T expression) {
         return members.add(identity.wrap(expression));
     }
 
-    public void addAll(@Nonnull LinkedIdentitySet<T> otherSet) {
+    public void addAll(LinkedIdentitySet<T> otherSet) {
         members.addAll(otherSet.members);
     }
 
@@ -76,7 +73,7 @@ public class LinkedIdentitySet<T> extends AbstractSet<T> {
     }
 
     @Override
-    public boolean remove(@Nonnull Object expression) {
+    public boolean remove(Object expression) {
         return members.remove(identity.wrap(expression));
     }
 
@@ -95,11 +92,9 @@ public class LinkedIdentitySet<T> extends AbstractSet<T> {
         return members.size();
     }
 
-    @Nonnull
     @Override
     public Iterator<T> iterator() {
         return new Iterator<>() {
-            @Nonnull
             private final Iterator<Equivalence.Wrapper<T>> innerIterator = members.iterator();
 
             @Override
@@ -139,13 +134,13 @@ public class LinkedIdentitySet<T> extends AbstractSet<T> {
     }
 
     @SuppressWarnings("unchecked")
-    public static <T> LinkedIdentitySet<T> of(@Nonnull final T... args) {
+    public static <T> LinkedIdentitySet<T> of(final T... args) {
         final var newSet = new LinkedIdentitySet<T>();
         Collections.addAll(newSet, args);
         return newSet;
     }
 
-    public static <T> LinkedIdentitySet<T> copyOf(@Nonnull Iterable<T> iterable) {
+    public static <T> LinkedIdentitySet<T> copyOf(Iterable<T> iterable) {
         if (iterable instanceof LinkedIdentitySet<?>) {
             return (LinkedIdentitySet<T>)iterable;
         }
@@ -162,7 +157,7 @@ public class LinkedIdentitySet<T> extends AbstractSet<T> {
     private static class SetCollector<T> implements Collector<T, LinkedIdentitySet<T>, Set<T>> {
         private final Set<Characteristics> characteristics;
 
-        private SetCollector(@Nonnull final Set<Characteristics> characteristics) {
+        private SetCollector(final Set<Characteristics> characteristics) {
             this.characteristics = characteristics;
         }
 

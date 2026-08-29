@@ -50,8 +50,8 @@ import com.google.common.collect.Streams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Collections;
@@ -143,35 +143,29 @@ public class MaxMatchMap {
      * present in this map, then there is no mapping for any {@code w} in this map, where {@code w} is a sub value
      * of {@code v}.
      */
-    @Nonnull
     private final Map<Value, Value> mapping;
     /**
      * Query side {@link Value} tree.
      */
-    @Nonnull
     private final Value queryValue; // in terms of the candidate quantifiers.
     /**
      * Candidate side {@link Value} tree.
      */
-    @Nonnull
     private final Value candidateValue;
     /**
      * A set of aliases that refers to quantifiers are owned by the expression the candidate {@link Value} lives in.
      * These aliases are not deep correlations, i.e. they are not constant.
      */
-    @Nonnull
     private final Set<CorrelationIdentifier> rangedOverAliases;
     /**
      * A query plan constraint that must be fulfilled for this max match map to be correct. In other words, these
      * constraints are assumptions we base the construction of the map on. If the assumptions cannot be guaranteed to
      * hold, the contents of this max match map cannot be trusted and should be discarded.
      */
-    @Nonnull
     private final QueryPlanConstraint queryPlanConstraint;
     /**
      * A value equivalence used to establish equality.
      */
-    @Nonnull
     private final ValueEquivalence valueEquivalence;
 
     /**
@@ -183,12 +177,12 @@ public class MaxMatchMap {
      * @param queryPlanConstraint a query plan constraint synthesized when the mapping was computed
      * @param valueEquivalence a {@link ValueEquivalence} that was used to match up query and candidate values
      */
-    MaxMatchMap(@Nonnull final Map<Value, Value> mapping,
-                @Nonnull final Value queryValue,
-                @Nonnull final Value candidateValue,
-                @Nonnull final Set<CorrelationIdentifier> rangedOverAliases,
-                @Nonnull final QueryPlanConstraint queryPlanConstraint,
-                @Nonnull final ValueEquivalence valueEquivalence) {
+    MaxMatchMap(final Map<Value, Value> mapping,
+                final Value queryValue,
+                final Value candidateValue,
+                final Set<CorrelationIdentifier> rangedOverAliases,
+                final QueryPlanConstraint queryPlanConstraint,
+                final ValueEquivalence valueEquivalence) {
         this.mapping = ImmutableMap.copyOf(mapping);
         this.queryValue = queryValue;
         this.candidateValue = candidateValue;
@@ -197,32 +191,26 @@ public class MaxMatchMap {
         this.valueEquivalence = valueEquivalence;
     }
 
-    @Nonnull
     public Map<Value, Value> getMap() {
         return mapping;
     }
 
-    @Nonnull
     public Value getQueryValue() {
         return queryValue;
     }
 
-    @Nonnull
     public Value getCandidateValue() {
         return candidateValue;
     }
 
-    @Nonnull
     public Set<CorrelationIdentifier> getRangedOverAliases() {
         return rangedOverAliases;
     }
 
-    @Nonnull
     public QueryPlanConstraint getQueryPlanConstraint() {
         return queryPlanConstraint;
     }
 
-    @Nonnull
     public ValueEquivalence getValueEquivalence() {
         return valueEquivalence;
     }
@@ -233,8 +221,7 @@ public class MaxMatchMap {
      * @param candidateAlias the alias we should use to refer to the {@link #candidateValue}
      * @return an optional containing the translated query value or {@code Optional.empty()}.
      */
-    @Nonnull
-    public Optional<Value> translateQueryValueMaybe(@Nonnull final CorrelationIdentifier candidateAlias) {
+    public Optional<Value> translateQueryValueMaybe(final CorrelationIdentifier candidateAlias) {
         final var candidateValue = getCandidateValue();
         final var pulledUpCandidateValueMap =
                 candidateValue.pullUp(ImmutableSet.copyOf(mapping.values()), // values may contain duplicates
@@ -281,19 +268,17 @@ public class MaxMatchMap {
         return Optional.of(translatedQueryResultValue);
     }
 
-    @Nonnull
-    public Optional<MaxMatchMap> adjustMaybe(@Nonnull final CorrelationIdentifier upperCandidateAlias,
-                                             @Nonnull final Value upperCandidateResultValue,
-                                             @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
+    public Optional<MaxMatchMap> adjustMaybe(final CorrelationIdentifier upperCandidateAlias,
+                                             final Value upperCandidateResultValue,
+                                             final Set<CorrelationIdentifier> rangedOverAliases) {
         final var translatedQueryValueOptional =
                 translateQueryValueMaybe(upperCandidateAlias);
         return translatedQueryValueOptional.map(value -> MaxMatchMap.compute(value, upperCandidateResultValue,
                 rangedOverAliases));
     }
 
-    @Nonnull
-    public Optional<RegularTranslationMap> pullUpMaybe(@Nonnull final CorrelationIdentifier queryAlias,
-                                                       @Nonnull final CorrelationIdentifier candidateAlias) {
+    public Optional<RegularTranslationMap> pullUpMaybe(final CorrelationIdentifier queryAlias,
+                                                       final CorrelationIdentifier candidateAlias) {
         final var translatedQueryValueOptional = translateQueryValueMaybe(candidateAlias);
         return translatedQueryValueOptional
                 .map(translatedQueryValue ->
@@ -319,21 +304,19 @@ public class MaxMatchMap {
      *
      * @return a {@link MaxMatchMap} of all maximum matches.
      */
-    @Nonnull
-    public static MaxMatchMap compute(@Nonnull final Value queryValue,
-                                      @Nonnull final Value candidateValue,
-                                      @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
+    public static MaxMatchMap compute(final Value queryValue,
+                                      final Value candidateValue,
+                                      final Set<CorrelationIdentifier> rangedOverAliases) {
         return compute(queryValue,
                 candidateValue,
                 rangedOverAliases,
                 ValueEquivalence.empty());
     }
 
-    @Nonnull
-    public static MaxMatchMap compute(@Nonnull final Value queryValue,
-                                      @Nonnull final Value candidateValue,
-                                      @Nonnull final Set<CorrelationIdentifier> rangedOverAliases,
-                                      @Nonnull final ValueEquivalence valueEquivalence) {
+    public static MaxMatchMap compute(final Value queryValue,
+                                      final Value candidateValue,
+                                      final Set<CorrelationIdentifier> rangedOverAliases,
+                                      final ValueEquivalence valueEquivalence) {
         return compute(queryValue, candidateValue, rangedOverAliases, valueEquivalence,
                 ignored -> Optional.empty());
     }
@@ -355,12 +338,11 @@ public class MaxMatchMap {
      *         it is possible, however, that it might not contain all necessary mappings to perform a pull-up when it
      *         is used.
      */
-    @Nonnull
-    public static MaxMatchMap compute(@Nonnull final Value queryValue,
-                                      @Nonnull final Value candidateValue,
-                                      @Nonnull final Set<CorrelationIdentifier> rangedOverAliases,
-                                      @Nonnull final ValueEquivalence valueEquivalence,
-                                      @Nonnull final Function<Value, Optional<Value>> unmatchedHandlerFunction) {
+    public static MaxMatchMap compute(final Value queryValue,
+                                      final Value candidateValue,
+                                      final Set<CorrelationIdentifier> rangedOverAliases,
+                                      final ValueEquivalence valueEquivalence,
+                                      final Function<Value, Optional<Value>> unmatchedHandlerFunction) {
         if (logger.isTraceEnabled()) {
             logger.trace("calculate begin queryValue={}, candidateValue={}", queryValue, candidateValue);
         }
@@ -407,11 +389,10 @@ public class MaxMatchMap {
         return bestMaxMatchMap;
     }
 
-    @Nonnull
-    private static Optional<MaxMatchMap> shortCircuitMaybe(final @Nonnull Value queryValue,
-                                                           final @Nonnull Value candidateValue,
-                                                           final @Nonnull Set<CorrelationIdentifier> rangedOverAliases,
-                                                           final @Nonnull ValueEquivalence valueEquivalence) {
+    private static Optional<MaxMatchMap> shortCircuitMaybe(final Value queryValue,
+                                                           final Value candidateValue,
+                                                           final Set<CorrelationIdentifier> rangedOverAliases,
+                                                           final ValueEquivalence valueEquivalence) {
         if (rangedOverAliases.size() != 1) {
             return Optional.empty();
         }
@@ -504,18 +485,17 @@ public class MaxMatchMap {
      * @param expandedValues a set of values we already have expanded and should not attempt to expand again.
      * @return a map from variants ({@link Value}s) to {@link MatchResult}s).
      */
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private static Map<Value, MatchResult> recurseQueryResultValue(@Nonnull final Value currentQueryValue,
-                                                                   @Nonnull final Value candidateValue,
-                                                                   @Nonnull final Set<CorrelationIdentifier> rangedOverAliases,
-                                                                   @Nonnull final ValueEquivalence valueEquivalence,
-                                                                   @Nonnull final Function<Value, Optional<Value>> unmatchedHandlerFunction,
-                                                                   @Nonnull final IdentityHashMap<Value, Map<Value, MatchResult>> knownValueMap,
+    private static Map<Value, MatchResult> recurseQueryResultValue(final Value currentQueryValue,
+                                                                   final Value candidateValue,
+                                                                   final Set<CorrelationIdentifier> rangedOverAliases,
+                                                                   final ValueEquivalence valueEquivalence,
+                                                                   final Function<Value, Optional<Value>> unmatchedHandlerFunction,
+                                                                   final IdentityHashMap<Value, Map<Value, MatchResult>> knownValueMap,
                                                                    final int descendOrdinal,
-                                                                   @Nonnull final Deque<IncrementalValueMatcher> matchers,
+                                                                   final Deque<IncrementalValueMatcher> matchers,
                                                                    final int maxDepthBound,
-                                                                   @Nonnull final Set<Value> expandedValues) {
+                                                                   final Set<Value> expandedValues) {
         if (maxDepthBound == 0) {
             return ImmutableMap.of(currentQueryValue, MatchResult.notMatched());
         }
@@ -726,14 +706,13 @@ public class MaxMatchMap {
      * @return a match result that is either a perfect match of depth {@code 0} or a non-perfect match that contains
      *         the mappings of all children with an adjusted maximum depth
      */
-    @Nonnull
     private static MatchResult computeForCurrent(final int maxDepthBound,
-                                                 @Nonnull final Value resultQueryValue,
-                                                 @Nonnull final Value candidateValue,
-                                                 @Nonnull final Set<CorrelationIdentifier> rangedOverAliases,
-                                                 @Nonnull final ValueEquivalence valueEquivalence,
-                                                 @Nonnull final Function<Value, Optional<Value>> unmatchedHandlerFunction,
-                                                 @Nonnull final List<Map.Entry<Value, MatchResult>> childrenResultEntries) {
+                                                 final Value resultQueryValue,
+                                                 final Value candidateValue,
+                                                 final Set<CorrelationIdentifier> rangedOverAliases,
+                                                 final ValueEquivalence valueEquivalence,
+                                                 final Function<Value, Optional<Value>> unmatchedHandlerFunction,
+                                                 final List<Map.Entry<Value, MatchResult>> childrenResultEntries) {
         Verify.verify(maxDepthBound > 0);
 
         final var matchingPair =
@@ -777,12 +756,11 @@ public class MaxMatchMap {
                 childrenMaxDepth == Integer.MAX_VALUE ? Integer.MAX_VALUE : childrenMaxDepth + 1, childrenConstraint);
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private static Pair<ConstrainedBoolean, Value> findMatchingReachableCandidateValue(@Nonnull final Value currentQueryValue,
-                                                                                       @Nonnull final Value candidateValue,
-                                                                                       @Nonnull final ValueEquivalence valueEquivalence,
-                                                                                          @Nonnull final Function<Value, Optional<Value>> unmatchedHandlerFunction) {
+    private static Pair<ConstrainedBoolean, Value> findMatchingReachableCandidateValue(final Value currentQueryValue,
+                                                                                       final Value candidateValue,
+                                                                                       final ValueEquivalence valueEquivalence,
+                                                                                          final Function<Value, Optional<Value>> unmatchedHandlerFunction) {
         for (final var currentCandidateValue : candidateValue
                 // when traversing the candidate in pre-order, only descend into structures that can be referenced
                 // from the top expression. For example, rcv's components can be referenced however an arithmetic
@@ -813,7 +791,6 @@ public class MaxMatchMap {
      * pruning, the new match just gets added to a map of matches as all matches are returned.
      */
     private static class BestMatches {
-        @Nonnull
         private final Value currentQueryValue;
         private final boolean isPruning;
         private int currentMaxDepth = -1;
@@ -824,7 +801,7 @@ public class MaxMatchMap {
         @Nullable
         private MatchResult matchResult;
 
-        public BestMatches(@Nonnull final Value currentQueryValue, final boolean isPruning) {
+        public BestMatches(final Value currentQueryValue, final boolean isPruning) {
             this.currentQueryValue = currentQueryValue;
             this.isPruning = isPruning;
             if (!isPruning) {
@@ -844,22 +821,18 @@ public class MaxMatchMap {
             return currentMaxDepth;
         }
 
-        @Nonnull
         private Map<Value, MatchResult> getMatchMap() {
             return Objects.requireNonNull(matchMap);
         }
 
-        @Nonnull
         public Value getValue() {
             return Objects.requireNonNull(value);
         }
 
-        @Nonnull
         public MatchResult getMatchResult() {
             return Objects.requireNonNull(matchResult);
         }
 
-        @Nonnull
         public Map<Value, MatchResult> toResultMap() {
             if (isEmpty()) {
                 return ImmutableMap.of(currentQueryValue, MatchResult.notMatched());
@@ -870,8 +843,8 @@ public class MaxMatchMap {
             return getMatchMap();
         }
 
-        public void put(@Nonnull final Value newQueryValue,
-                        @Nonnull final MatchResult newMatchResult) {
+        public void put(final Value newQueryValue,
+                        final MatchResult newMatchResult) {
             if (isPruning()) {
                 if (matchResult == null || newMatchResult.getMaxDepth() < currentMaxDepth) {
                     this.value = newQueryValue;
@@ -923,32 +896,26 @@ public class MaxMatchMap {
     private abstract static class IncrementalValueMatcher {
         private static final ExplainTokensWithPrecedence UNMATCHED =
                 ExplainTokensWithPrecedence.of(new ExplainTokens().addToString("■"));
-        @Nonnull
         private final Value currentQueryValue;
 
-        @Nonnull
         private final Supplier<List<NonnullPair<Value, QueryPlanConstraint>>> matchingCandidateValuesSupplier;
 
-        private IncrementalValueMatcher(@Nonnull final Value currentQueryValue) {
+        private IncrementalValueMatcher(final Value currentQueryValue) {
             this.currentQueryValue = currentQueryValue;
             this.matchingCandidateValuesSupplier = Suppliers.memoize(this::computeMatchingCandidateValues);
         }
 
-        @Nonnull
         public Value getCurrentQueryValue() {
             return currentQueryValue;
         }
 
-        @Nonnull
         public List<NonnullPair<Value, QueryPlanConstraint>> getMatchingCandidateValues() {
             return matchingCandidateValuesSupplier.get();
         }
 
-        @Nonnull
         public abstract List<NonnullPair<Value, QueryPlanConstraint>> computeMatchingCandidateValues();
 
-        @Nonnull
-        public abstract ExplainTokensWithPrecedence explain(@Nonnull Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers);
+        public abstract ExplainTokensWithPrecedence explain(Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers);
 
         public boolean anyMatches() {
             return !getMatchingCandidateValues().isEmpty();
@@ -963,11 +930,9 @@ public class MaxMatchMap {
             return anyMatches() ? explainString : explainString + " → ∅";
         }
 
-        @Nonnull
-        public IncrementalValueMatcher descend(@Nonnull final Value currentQueryValue, final int descendOrdinal) {
+        public IncrementalValueMatcher descend(final Value currentQueryValue, final int descendOrdinal) {
             final var parent = this;
             return new IncrementalValueMatcher(currentQueryValue) {
-                @Nonnull
                 @Override
                 public List<NonnullPair<Value, QueryPlanConstraint>> computeMatchingCandidateValues() {
                     final var matchingCandidateValuesBuilder =
@@ -989,9 +954,8 @@ public class MaxMatchMap {
                     return matchingCandidateValuesBuilder.build();
                 }
 
-                @Nonnull
                 @Override
-                public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+                public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
                     Verify.verify(Iterables.size(explainSuppliers) == Iterables.size(currentQueryValue.getChildren()));
                     final var parentExplainFunctionsBuilder =
                             ImmutableList.<Supplier<ExplainTokensWithPrecedence>>builder();
@@ -1008,11 +972,9 @@ public class MaxMatchMap {
             };
         }
 
-        @Nonnull
-        public static IncrementalValueMatcher initial(@Nonnull final Value queryRootValue,
-                                                      @Nonnull final Value candidateRootValue) {
+        public static IncrementalValueMatcher initial(final Value queryRootValue,
+                                                      final Value candidateRootValue) {
             return new IncrementalValueMatcher(queryRootValue) {
-                @Nonnull
                 @Override
                 public List<NonnullPair<Value, QueryPlanConstraint>> computeMatchingCandidateValues() {
                     return Streams.stream(candidateRootValue.preOrderIterable(candidateValue -> candidateValue instanceof RecordConstructorValue))
@@ -1033,9 +995,8 @@ public class MaxMatchMap {
                             .collect(ImmutableList.toImmutableList());
                 }
 
-                @Nonnull
                 @Override
-                public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+                public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
                     return getCurrentQueryValue().explain(explainSuppliers);
                 }
             };
@@ -1049,21 +1010,18 @@ public class MaxMatchMap {
         private static final MatchResult NOT_MATCHED =
                 new MatchResult(ImmutableMap.of(), Integer.MAX_VALUE, QueryPlanConstraint.noConstraint());
 
-        @Nonnull
         private final Map<Value, Value> valueMap;
         private final int maxDepth;
-        @Nonnull
         private final QueryPlanConstraint queryPlanConstraint;
 
-        private MatchResult(@Nonnull final Map<Value, Value> valueMap,
+        private MatchResult(final Map<Value, Value> valueMap,
                             final int maxDepth,
-                            @Nonnull final QueryPlanConstraint queryPlanConstraint) {
+                            final QueryPlanConstraint queryPlanConstraint) {
             this.valueMap = valueMap;
             this.queryPlanConstraint = queryPlanConstraint;
             this.maxDepth = maxDepth;
         }
 
-        @Nonnull
         public Map<Value, Value> getValueMap() {
             return valueMap;
         }
@@ -1076,14 +1034,13 @@ public class MaxMatchMap {
             return maxDepth < Integer.MAX_VALUE;
         }
 
-        @Nonnull
         public QueryPlanConstraint getQueryPlanConstraint() {
             return queryPlanConstraint;
         }
 
-        public static MatchResult of(@Nonnull final Map<Value, Value> valueMap,
+        public static MatchResult of(final Map<Value, Value> valueMap,
                                      final int maxDepth,
-                                     @Nonnull final QueryPlanConstraint queryPlanConstraint) {
+                                     final QueryPlanConstraint queryPlanConstraint) {
             Verify.verify(maxDepth >= 0);
             return new MatchResult(valueMap, maxDepth, queryPlanConstraint);
         }

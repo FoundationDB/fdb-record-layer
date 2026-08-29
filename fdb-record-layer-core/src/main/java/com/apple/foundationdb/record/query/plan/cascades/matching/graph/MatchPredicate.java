@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
@@ -42,9 +41,9 @@ public interface MatchPredicate<T> {
      * @param aliasMap bindings that already have been established
      * @return {@code true} for a successful match attempt; {@code false} otherwise
      */
-    boolean test(@Nonnull T element,
-                 @Nonnull T otherElement,
-                 @Nonnull AliasMap aliasMap);
+    boolean test(T element,
+                 T otherElement,
+                 AliasMap aliasMap);
 
     /**
      * Method that combines this {@link MatchPredicate} and the {@code other} one passed in to produce a new

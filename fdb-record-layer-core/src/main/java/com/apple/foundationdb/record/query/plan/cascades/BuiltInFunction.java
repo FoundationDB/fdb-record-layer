@@ -26,8 +26,8 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -41,7 +41,6 @@ import java.util.Optional;
  */
 @SuppressWarnings("PMD.AbstractClassWithoutAbstractMethod")
 public abstract class BuiltInFunction<T extends Typed> extends CatalogedFunction {
-    @Nonnull
     final EncapsulationFunction<T> encapsulationFunction;
 
     /**
@@ -50,7 +49,7 @@ public abstract class BuiltInFunction<T extends Typed> extends CatalogedFunction
      * @param parameterTypes The type of the parameter(s).
      * @param encapsulationFunction An encapsulation of the function's runtime computation.
      */
-    protected BuiltInFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes, @Nonnull final EncapsulationFunction<T> encapsulationFunction) {
+    protected BuiltInFunction(final String functionName, final List<Type> parameterTypes, final EncapsulationFunction<T> encapsulationFunction) {
         this(functionName, parameterTypes, null, encapsulationFunction);
     }
 
@@ -61,22 +60,21 @@ public abstract class BuiltInFunction<T extends Typed> extends CatalogedFunction
      * @param variadicSuffixType The type of the function's vararg.
      * @param encapsulationFunction An encapsulation of the function's runtime computation.
      */
-    protected BuiltInFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes, @Nullable final Type variadicSuffixType, @Nonnull final EncapsulationFunction<T> encapsulationFunction) {
+    protected BuiltInFunction(final String functionName, final List<Type> parameterTypes, @Nullable final Type variadicSuffixType, final EncapsulationFunction<T> encapsulationFunction) {
         super(functionName, parameterTypes, variadicSuffixType);
         this.encapsulationFunction = encapsulationFunction;
     }
 
-    protected BuiltInFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
-                              @Nonnull final List<Type> parameterTypes,
-                              @Nonnull final List<Optional<Value>> parameterDefaults,
-                              @Nonnull final EncapsulationFunction<T> encapsulationFunction) {
+    protected BuiltInFunction(final String functionName, final List<String> parameterNames,
+                              final List<Type> parameterTypes,
+                              final List<Optional<Value>> parameterDefaults,
+                              final EncapsulationFunction<T> encapsulationFunction) {
         super(functionName, parameterNames, parameterTypes, parameterDefaults);
         this.encapsulationFunction = encapsulationFunction;
     }
 
-    @Nonnull
     @Override
-    public Typed encapsulate(@Nonnull final CallSiteArguments arguments) {
+    public Typed encapsulate(final CallSiteArguments arguments) {
         if (arguments.isNamed()) {
             //
             // customer should not be able to reach this code path, the relational parser defines built-in functions

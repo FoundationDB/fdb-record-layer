@@ -23,20 +23,17 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 
 /**
  * A mock implementation of a {@link PlanContext} used to test certain planner rules that don't need a full plan context.
  */
 public class FakePlanContext implements PlanContext {
-    @Nonnull
     @Override
     public RecordQueryPlannerConfiguration getPlannerConfiguration() {
         return RecordQueryPlannerConfiguration.builder().build();
     }
 
-    @Nonnull
     @Override
     public Set<MatchCandidate> getMatchCandidates() {
         return ImmutableSet.of();

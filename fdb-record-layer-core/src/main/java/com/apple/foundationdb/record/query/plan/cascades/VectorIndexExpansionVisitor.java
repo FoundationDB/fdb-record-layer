@@ -43,8 +43,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -55,28 +55,24 @@ import java.util.Set;
  * class {@link KeyExpressionExpansionVisitor}, this class merely provides a specific {@link #expand} method.
  */
 public class VectorIndexExpansionVisitor extends KeyExpressionExpansionVisitor implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
-    @Nonnull
     private static final Set<String> SUPPORTED_INDEX_TYPES = Set.of(
             IndexTypes.VECTOR
     );
 
-    @Nonnull
     private final Index index;
-    @Nonnull
     private final List<RecordType> queriedRecordTypes;
 
-    public VectorIndexExpansionVisitor(@Nonnull Index index, @Nonnull Collection<RecordType> queriedRecordTypes) {
+    public VectorIndexExpansionVisitor(Index index, Collection<RecordType> queriedRecordTypes) {
         Preconditions.checkArgument(SUPPORTED_INDEX_TYPES.contains(index.getType()));
         this.index = index;
         this.queriedRecordTypes = ImmutableList.copyOf(queriedRecordTypes);
     }
 
-    @Nonnull
     @Override
-    public MatchCandidate expand(@Nonnull final Set<String> availableRecordTypeNames,
-                                 @Nonnull final Set<String> queriedRecordTypeNames,
-                                 @Nonnull final Type.Record baseType,
-                                 @Nonnull final AccessHint accessHint,
+    public MatchCandidate expand(final Set<String> availableRecordTypeNames,
+                                 final Set<String> queriedRecordTypeNames,
+                                 final Type.Record baseType,
+                                 final AccessHint accessHint,
                                  @Nullable final KeyExpression primaryKey,
                                  final boolean isReverse) {
         Debugger.updateIndex(PredicateWithValueAndRanges.class, old -> 0);
@@ -185,9 +181,8 @@ public class VectorIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
                 primaryKey);
     }
 
-    @Nonnull
-    private Placeholder createDistanceValuePlaceholder(@Nonnull Iterable<? extends Value> partitioningValues,
-                                                       @Nonnull Iterable<? extends Value> argumentValues) {
+    private Placeholder createDistanceValuePlaceholder(Iterable<? extends Value> partitioningValues,
+                                                       Iterable<? extends Value> argumentValues) {
         final var metric = VectorIndexHelper.getMetric(index);
         return switch (metric) {
             case EUCLIDEAN_METRIC ->

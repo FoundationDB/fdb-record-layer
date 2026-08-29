@@ -39,8 +39,8 @@ import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
@@ -53,7 +53,6 @@ import java.util.List;
 @SuppressWarnings("java:S5993")
 public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTranslationVisitor.ScalarVisitorState, Value> {
 
-    @Nonnull
     private final KeyExpression keyExpression;
 
     /**
@@ -63,7 +62,7 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
      */
     private final Deque<ScalarVisitorState> states;
 
-    public ScalarTranslationVisitor(@Nonnull final KeyExpression keyExpression) {
+    public ScalarTranslationVisitor(final KeyExpression keyExpression) {
         this.keyExpression = keyExpression;
         this.states = new ArrayDeque<>();
     }
@@ -104,21 +103,18 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
      * @param keyExpression key expression to visit
      * @return does not return a result but throws an exception of type {@link UnsupportedOperationException}
      */
-    @Nonnull
     @Override
-    public final Value visitExpression(@Nonnull final KeyExpression keyExpression) {
+    public final Value visitExpression(final KeyExpression keyExpression) {
         throw new UnsupportedOperationException("visitor method for this key expression is not implemented");
     }
 
-    @Nonnull
     @Override
-    public Value visitExpression(@Nonnull final EmptyKeyExpression emptyKeyExpression) {
+    public Value visitExpression(final EmptyKeyExpression emptyKeyExpression) {
         return EmptyValue.empty();
     }
 
-    @Nonnull
     @Override
-    public Value visitExpression(@Nonnull FieldKeyExpression fieldKeyExpression) {
+    public Value visitExpression(FieldKeyExpression fieldKeyExpression) {
         // The fan-out type is usually expected to be `None` aka. SCALAR here. It may also be `Concatenate`, for example
         // when a function key expression invokes CARDINALITY() on an ARRAY field.
         final KeyExpression.FanType fanType = fieldKeyExpression.getFanType();
@@ -136,16 +132,14 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
         return FieldValue.ofFieldNames(QuantifiedObjectValue.of(state.baseAlias, state.inputType), fieldNames);
     }
 
-    @Nonnull
     @Override
-    public Value visitExpression(@Nonnull final KeyExpressionWithValue keyExpressionWithValue) {
+    public Value visitExpression(final KeyExpressionWithValue keyExpressionWithValue) {
         final ScalarVisitorState state = getCurrentState();
         return keyExpressionWithValue.toValue(state.getBaseAlias(), state.inputType);
     }
 
-    @Nonnull
     @Override
-    public Value visitExpression(@Nonnull final FunctionKeyExpression functionKeyExpression) {
+    public Value visitExpression(final FunctionKeyExpression functionKeyExpression) {
         final var argumentValuesBuilder = ImmutableList.<Value>builder();
         final var arguments = functionKeyExpression.getArguments();
         for (KeyExpression expression : arguments.normalizeKeyForPositions()) {
@@ -154,15 +148,13 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
         return functionKeyExpression.toValue(argumentValuesBuilder.build());
     }
 
-    @Nonnull
     @Override
-    public Value visitExpression(@Nonnull final KeyWithValueExpression keyWithValueExpression) {
+    public Value visitExpression(final KeyWithValueExpression keyWithValueExpression) {
         throw new RecordCoreException("cannot expand this expression in scalar expansion");
     }
 
-    @Nonnull
     @Override
-    public Value visitExpression(@Nonnull final NestingKeyExpression nestingKeyExpression) {
+    public Value visitExpression(final NestingKeyExpression nestingKeyExpression) {
         final FieldKeyExpression parent = nestingKeyExpression.getParent();
         final KeyExpression.FanType fanType = parent.getFanType();
         if (fanType != KeyExpression.FanType.None) {
@@ -187,9 +179,8 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
         return pop(child.expand(push(state.withFieldNamePrefix(newPrefix))));
     }
 
-    @Nonnull
     @Override
-    public Value visitExpression(@Nonnull final ThenKeyExpression thenKeyExpression) {
+    public Value visitExpression(final ThenKeyExpression thenKeyExpression) {
         if (thenKeyExpression.getColumnSize() > 1) {
             throw new RecordCoreException("cannot expand ThenKeyExpression in scalar expansion");
         }
@@ -200,25 +191,21 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
         return pop(child.expand(push(state)));
     }
 
-    @Nonnull
     @Override
-    public Value visitExpression(@Nonnull final ListKeyExpression listKeyExpression) {
+    public Value visitExpression(final ListKeyExpression listKeyExpression) {
         throw new UnsupportedOperationException("visitor method for this key expression is not implemented");
     }
 
-    @Nonnull
-    public Value toResultValue(@Nonnull final CorrelationIdentifier alias, @Nonnull final Type inputType) {
+    public Value toResultValue(final CorrelationIdentifier alias, final Type inputType) {
         return toResultValue(alias, inputType, ImmutableList.of());
     }
 
-    @Nonnull
-    public Value toResultValue(@Nonnull final CorrelationIdentifier alias, @Nonnull final Type inputType,
-                               @Nonnull final List<String> fieldNamePrefix) {
+    public Value toResultValue(final CorrelationIdentifier alias, final Type inputType,
+                               final List<String> fieldNamePrefix) {
         return pop(keyExpression.expand(push(ScalarVisitorState.of(alias, inputType, fieldNamePrefix))));
     }
 
-    @Nonnull
-    public static List<Value> translateKeyExpression(@Nullable KeyExpression keyExpression, @Nonnull Type flowedType) {
+    public static List<Value> translateKeyExpression(@Nullable KeyExpression keyExpression, Type flowedType) {
         if (keyExpression == null) {
             return ImmutableList.of();
         }
@@ -239,50 +226,45 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
          * Correlated input to operators using the current state. This alias usually refers to the global record type
          * input or an exploded field (an iteration) defining this state.
          */
-        @Nonnull
         private final CorrelationIdentifier baseAlias;
 
         /**
          * Input type as the base of expansion.
          */
-        @Nonnull
         private final Type inputType;
 
         /**
          * List of field names that form a nesting chain of non-repeated fields.
          */
-        @Nonnull
         private final List<String> fieldNamePrefix;
 
-        private ScalarVisitorState(@Nonnull final CorrelationIdentifier baseAlias,
-                                   @Nonnull final Type inputType,
-                                   @Nonnull final List<String> fieldNamePrefix) {
+        private ScalarVisitorState(final CorrelationIdentifier baseAlias,
+                                   final Type inputType,
+                                   final List<String> fieldNamePrefix) {
             this.baseAlias = baseAlias;
             this.inputType = inputType;
             this.fieldNamePrefix = fieldNamePrefix;
         }
 
-        @Nonnull
         public CorrelationIdentifier getBaseAlias() {
             return baseAlias;
         }
 
-        @Nonnull
         public List<String> getFieldNamePrefix() {
             return fieldNamePrefix;
         }
 
-        public ScalarVisitorState withBaseAlias(@Nonnull final CorrelationIdentifier baseAlias) {
+        public ScalarVisitorState withBaseAlias(final CorrelationIdentifier baseAlias) {
             return of(baseAlias, this.inputType, this.fieldNamePrefix);
         }
 
-        public ScalarVisitorState withFieldNamePrefix(@Nonnull final List<String> fieldNamePrefix) {
+        public ScalarVisitorState withFieldNamePrefix(final List<String> fieldNamePrefix) {
             return of(this.baseAlias, this.inputType, fieldNamePrefix);
         }
 
-        public static ScalarVisitorState of(@Nonnull final CorrelationIdentifier baseAlias,
-                                            @Nonnull final Type inputType,
-                                            @Nonnull final List<String> fieldNamePrefix) {
+        public static ScalarVisitorState of(final CorrelationIdentifier baseAlias,
+                                            final Type inputType,
+                                            final List<String> fieldNamePrefix) {
             return new ScalarVisitorState(baseAlias,
                     inputType,
                     fieldNamePrefix);

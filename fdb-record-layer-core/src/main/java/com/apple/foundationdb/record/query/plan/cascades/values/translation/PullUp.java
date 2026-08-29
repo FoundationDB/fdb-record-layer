@@ -36,8 +36,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Optional;
 import java.util.Set;
 
@@ -47,19 +47,15 @@ import java.util.Set;
 public class PullUp {
     @Nullable
     private final PullUp parentPullUp;
-    @Nonnull
     private final CorrelationIdentifier candidateAlias;
-    @Nonnull
     private final Value pullThroughValue;
-    @Nonnull
     private final Set<CorrelationIdentifier> rangedOverAliases;
-    @Nonnull
     private final PullUp rootPullUp;
 
     private PullUp(@Nullable final PullUp parentPullUp,
-                   @Nonnull final CorrelationIdentifier candidateAlias,
-                   @Nonnull final Value pullThroughValue,
-                   @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
+                   final CorrelationIdentifier candidateAlias,
+                   final Value pullThroughValue,
+                   final Set<CorrelationIdentifier> rangedOverAliases) {
         this.parentPullUp = parentPullUp;
         this.candidateAlias = candidateAlias;
         this.pullThroughValue = pullThroughValue;
@@ -72,12 +68,10 @@ public class PullUp {
         return parentPullUp;
     }
 
-    @Nonnull
     public PullUp getRootPullUp() {
         return rootPullUp;
     }
 
-    @Nonnull
     public CorrelationIdentifier getCandidateAlias() {
         return candidateAlias;
     }
@@ -86,38 +80,33 @@ public class PullUp {
         return parentPullUp == null;
     }
 
-    @Nonnull
     public Value getPullThroughValue() {
         return pullThroughValue;
     }
 
-    @Nonnull
     public Set<CorrelationIdentifier> getRangedOverAliases() {
         return rangedOverAliases;
     }
 
-    @Nonnull
     private static PullUp forMatch(@Nullable final PullUp parentPullUp,
-                                   @Nonnull final CorrelationIdentifier candidateAlias,
-                                   @Nonnull final CorrelationIdentifier lowerAlias,
-                                   @Nonnull final Type lowerType,
-                                   @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
+                                   final CorrelationIdentifier candidateAlias,
+                                   final CorrelationIdentifier lowerAlias,
+                                   final Type lowerType,
+                                   final Set<CorrelationIdentifier> rangedOverAliases) {
         return forMatch(parentPullUp, candidateAlias, QuantifiedObjectValue.of(lowerAlias, lowerType),
                 rangedOverAliases);
     }
 
-    @Nonnull
     private static PullUp forMatch(@Nullable final PullUp parentPullUp,
-                                   @Nonnull final CorrelationIdentifier candidateAlias,
-                                   @Nonnull final Value lowerPullThroughValue,
-                                   @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
+                                   final CorrelationIdentifier candidateAlias,
+                                   final Value lowerPullThroughValue,
+                                   final Set<CorrelationIdentifier> rangedOverAliases) {
         return new MatchPullUp(parentPullUp, candidateAlias, lowerPullThroughValue, rangedOverAliases);
     }
 
-    @Nonnull
-    public static UnificationPullUp forUnification(@Nonnull final CorrelationIdentifier candidateAlias,
-                                                   @Nonnull final Value lowerPullThroughValue,
-                                                   @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
+    public static UnificationPullUp forUnification(final CorrelationIdentifier candidateAlias,
+                                                   final Value lowerPullThroughValue,
+                                                   final Set<CorrelationIdentifier> rangedOverAliases) {
         return new UnificationPullUp(null, candidateAlias, lowerPullThroughValue, rangedOverAliases);
     }
 
@@ -134,8 +123,7 @@ public class PullUp {
      * @return an optional contained the pulled up {@link Value} of {@code value} or {@code Optional.empty()} if
      *         {@code value} could not be pulled up.
      */
-    @Nonnull
-    public Optional<Value> pullUpValueMaybe(@Nonnull final Value value) {
+    public Optional<Value> pullUpValueMaybe(final Value value) {
         //
         // The following loop would probably be more self-explanatory if it were written as a recursion but
         // this unrolled version probably performs better as this may prove to be a tight loop.
@@ -159,8 +147,7 @@ public class PullUp {
         }
     }
 
-    @Nonnull
-    public Optional<Value> pullUpCandidateValueMaybe(@Nonnull final Value value) {
+    public Optional<Value> pullUpCandidateValueMaybe(final Value value) {
         //
         // The following loop would probably be more self-explanatory if it were written as a recursion but
         // this unrolled version probably performs better as this may prove to be a tight loop.
@@ -189,35 +176,31 @@ public class PullUp {
         }
     }
 
-    @Nonnull
     public static RelationalExpressionVisitor<PullUp> visitor(@Nullable final PullUp parentPullUp,
-                                                              @Nonnull final CorrelationIdentifier candidateAlias) {
+                                                              final CorrelationIdentifier candidateAlias) {
         return new PullUpVisitor(parentPullUp, candidateAlias);
     }
 
     private static class PullUpVisitor implements RelationalExpressionVisitorWithDefaults<PullUp> {
         @Nullable
         private final PullUp parentPullUp;
-        @Nonnull
         private final CorrelationIdentifier candidateAlias;
 
         public PullUpVisitor(@Nullable final PullUp parentPullUp,
-                             @Nonnull final CorrelationIdentifier candidateAlias) {
+                             final CorrelationIdentifier candidateAlias) {
             this.parentPullUp = parentPullUp;
             this.candidateAlias = candidateAlias;
         }
 
-        @Nonnull
         @Override
-        public PullUp visitLogicalTypeFilterExpression(@Nonnull final LogicalTypeFilterExpression logicalTypeFilterExpression) {
+        public PullUp visitLogicalTypeFilterExpression(final LogicalTypeFilterExpression logicalTypeFilterExpression) {
             return forMatch(parentPullUp, candidateAlias, logicalTypeFilterExpression.getInnerQuantifier().getAlias(),
                     logicalTypeFilterExpression.getInnerQuantifier().getFlowedObjectType(),
                     Quantifiers.aliases(logicalTypeFilterExpression.getQuantifiers()));
         }
 
-        @Nonnull
         @Override
-        public PullUp visitDefault(@Nonnull final RelationalExpression relationalExpression) {
+        public PullUp visitDefault(final RelationalExpression relationalExpression) {
             return forMatch(parentPullUp, candidateAlias, relationalExpression.getResultValue(),
                     Quantifiers.aliases(relationalExpression.getQuantifiers()));
         }
@@ -225,18 +208,18 @@ public class PullUp {
 
     public static class MatchPullUp extends PullUp {
         public MatchPullUp(@Nullable final PullUp parentPullUp,
-                           @Nonnull final CorrelationIdentifier candidateAlias,
-                           @Nonnull final Value pullThroughValue,
-                           @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
+                           final CorrelationIdentifier candidateAlias,
+                           final Value pullThroughValue,
+                           final Set<CorrelationIdentifier> rangedOverAliases) {
             super(parentPullUp, candidateAlias, pullThroughValue, rangedOverAliases);
         }
     }
 
     public static class UnificationPullUp extends PullUp {
         public UnificationPullUp(@Nullable final PullUp parentPullUp,
-                                 @Nonnull final CorrelationIdentifier candidateAlias,
-                                 @Nonnull final Value pullThroughValue,
-                                 @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
+                                 final CorrelationIdentifier candidateAlias,
+                                 final Value pullThroughValue,
+                                 final Set<CorrelationIdentifier> rangedOverAliases) {
             super(parentPullUp, candidateAlias, pullThroughValue, rangedOverAliases);
         }
     }

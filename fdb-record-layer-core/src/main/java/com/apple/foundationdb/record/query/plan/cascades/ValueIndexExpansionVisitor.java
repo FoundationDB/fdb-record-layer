@@ -37,8 +37,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -55,29 +55,25 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
     // We may need to rethink this as it limits the set of indexes that can support a grouping key expression
     // this hard-coded list, which limits the ability of this visitor to work on types not defined
     // in the core sub-project
-    @Nonnull
     private static final Set<String> GROUPED_INDEX_TYPES = Set.of(
             IndexTypes.RANK,
             IndexTypes.PERMUTED_MAX,
             IndexTypes.PERMUTED_MIN
     );
 
-    @Nonnull
     private final Index index;
-    @Nonnull
     private final List<RecordType> queriedRecordTypes;
 
-    public ValueIndexExpansionVisitor(@Nonnull Index index, @Nonnull Collection<RecordType> queriedRecordTypes) {
+    public ValueIndexExpansionVisitor(Index index, Collection<RecordType> queriedRecordTypes) {
         this.index = index;
         this.queriedRecordTypes = ImmutableList.copyOf(queriedRecordTypes);
     }
 
-    @Nonnull
     @Override
-    public MatchCandidate expand(@Nonnull final Set<String> availableRecordTypeNames,
-                                 @Nonnull final Set<String> queriedRecordTypeNames,
-                                 @Nonnull final Type.Record baseType,
-                                 @Nonnull final AccessHint accessHint,
+    public MatchCandidate expand(final Set<String> availableRecordTypeNames,
+                                 final Set<String> queriedRecordTypeNames,
+                                 final Type.Record baseType,
+                                 final AccessHint accessHint,
                                  @Nullable final KeyExpression primaryKey,
                                  final boolean isReverse) {
         Debugger.updateIndex(PredicateWithValueAndRanges.class, old -> 0);
@@ -220,8 +216,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
      *        that are not already part of the index key are appended to the index key.
      * @return a {@link KeyExpression} describing the <em>full</em> index key as stored
      */
-    @Nonnull
-    public static KeyExpression fullKey(@Nonnull Index index, @Nullable final KeyExpression primaryKey) {
+    public static KeyExpression fullKey(Index index, @Nullable final KeyExpression primaryKey) {
         final KeyExpression rootExpression = index.getRootExpression() instanceof KeyWithValueExpression
                                              ? ((KeyWithValueExpression)index.getRootExpression()).getKeyExpression()
                                              : index.getRootExpression();

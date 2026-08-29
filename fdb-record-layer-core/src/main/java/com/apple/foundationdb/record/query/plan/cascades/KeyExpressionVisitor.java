@@ -30,8 +30,6 @@ import com.apple.foundationdb.record.metadata.expressions.ListKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 
-import javax.annotation.Nonnull;
-
 /**
  * An interface to provide a state-based visitor pattern that can traverse a tree of {@link KeyExpression}s.
  * @param <S> the type of the state object which depends on the specific implementation
@@ -53,8 +51,7 @@ public interface KeyExpressionVisitor<S extends KeyExpressionVisitor.State, R> {
      * @param keyExpression key expression to visit
      * @return a new expression of type {@code R}
      */
-    @Nonnull
-    R visitExpression(@Nonnull KeyExpression keyExpression);
+    R visitExpression(KeyExpression keyExpression);
 
     /**
      * Specific method that is called on {@link EmptyKeyExpression}s.
@@ -62,8 +59,7 @@ public interface KeyExpressionVisitor<S extends KeyExpressionVisitor.State, R> {
      * @param emptyKeyExpression {@link EmptyKeyExpression} to visit
      * @return a new expression of type {@code R}
      */
-    @Nonnull
-    R visitExpression(@Nonnull EmptyKeyExpression emptyKeyExpression);
+    R visitExpression(EmptyKeyExpression emptyKeyExpression);
 
     /**
      * Specific method that is called on {@link FieldKeyExpression}s.
@@ -71,8 +67,7 @@ public interface KeyExpressionVisitor<S extends KeyExpressionVisitor.State, R> {
      * @param fieldKeyExpression {@link FieldKeyExpression} to visit
      * @return a new expression of type {@code R}
      */
-    @Nonnull
-    R visitExpression(@Nonnull FieldKeyExpression fieldKeyExpression);
+    R visitExpression(FieldKeyExpression fieldKeyExpression);
 
     /**
      * Specific method that is called on {@link KeyExpressionWithValue}s.
@@ -80,8 +75,7 @@ public interface KeyExpressionVisitor<S extends KeyExpressionVisitor.State, R> {
      * @param keyExpressionWithValue {@link KeyExpressionWithValue} to visit
      * @return a new expression of type {@code R}
      */
-    @Nonnull
-    R visitExpression(@Nonnull KeyExpressionWithValue keyExpressionWithValue);
+    R visitExpression(KeyExpressionWithValue keyExpressionWithValue);
 
     /**
      * Specific method that is called on {@link FunctionKeyExpression}s.
@@ -89,8 +83,7 @@ public interface KeyExpressionVisitor<S extends KeyExpressionVisitor.State, R> {
      * @param functionKeyExpression {@link FunctionKeyExpression} to visit
      * @return a new expression of type {@code R}
      */
-    @Nonnull
-    R visitExpression(@Nonnull FunctionKeyExpression functionKeyExpression);
+    R visitExpression(FunctionKeyExpression functionKeyExpression);
 
     /**
      * Specific method that is called on {@link KeyWithValueExpression}s.
@@ -98,8 +91,7 @@ public interface KeyExpressionVisitor<S extends KeyExpressionVisitor.State, R> {
      * @param keyWithValueExpression {@link KeyWithValueExpression} to visit
      * @return a new expression of type {@code R}
      */
-    @Nonnull
-    R visitExpression(@Nonnull KeyWithValueExpression keyWithValueExpression);
+    R visitExpression(KeyWithValueExpression keyWithValueExpression);
 
     /**
      * Specific method that is called on {@link NestingKeyExpression}s.
@@ -107,8 +99,7 @@ public interface KeyExpressionVisitor<S extends KeyExpressionVisitor.State, R> {
      * @param nestingKeyExpression {@link NestingKeyExpression} to visit
      * @return a new expression of type {@code R}
      */
-    @Nonnull
-    R visitExpression(@Nonnull NestingKeyExpression nestingKeyExpression);
+    R visitExpression(NestingKeyExpression nestingKeyExpression);
 
     /**
      * Specific method that is called on {@link ThenKeyExpression}s.
@@ -116,8 +107,7 @@ public interface KeyExpressionVisitor<S extends KeyExpressionVisitor.State, R> {
      * @param thenKeyExpression {@link ThenKeyExpression} to visit
      * @return a new expression of type {@code R}
      */
-    @Nonnull
-    R visitExpression(@Nonnull ThenKeyExpression thenKeyExpression);
+    R visitExpression(ThenKeyExpression thenKeyExpression);
 
     /**
      * Specific method that is called on {@link ListKeyExpression}s.
@@ -125,8 +115,7 @@ public interface KeyExpressionVisitor<S extends KeyExpressionVisitor.State, R> {
      * @param listKeyExpression {@link ListKeyExpression} to visit
      * @return a new expression of type {@code R}
      */
-    @Nonnull
-    R visitExpression(@Nonnull ListKeyExpression listKeyExpression);
+    R visitExpression(ListKeyExpression listKeyExpression);
 
     /**
      * Tag interface to capture state within this visitor.

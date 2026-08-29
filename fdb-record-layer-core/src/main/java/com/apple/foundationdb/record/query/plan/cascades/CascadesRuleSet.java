@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.simplification.A
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSetMultimap;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -38,42 +37,35 @@ import java.util.stream.Stream;
 @SuppressWarnings("java:S1452")
 public class CascadesRuleSet extends AbstractRuleSet<CascadesRuleCall, RelationalExpression> {
     @VisibleForTesting
-    CascadesRuleSet(@Nonnull Set<CascadesRule<? extends RelationalExpression>> rules) {
+    CascadesRuleSet(Set<CascadesRule<? extends RelationalExpression>> rules) {
         super(rules, ImmutableSetMultimap.of());
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("unchecked")
-    public Stream<? extends CascadesRule<? extends RelationalExpression>> getRules(@Nonnull final RelationalExpression value) {
+    public Stream<? extends CascadesRule<? extends RelationalExpression>> getRules(final RelationalExpression value) {
         return (Stream<? extends CascadesRule<? extends RelationalExpression>>)super.getRules(value);
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("unchecked")
-    public Stream<? extends CascadesRule<? extends RelationalExpression>> getRules(@Nonnull final RelationalExpression value, @Nonnull final Predicate<PlannerRule<CascadesRuleCall, ? extends RelationalExpression>> plannerRulePredicate) {
+    public Stream<? extends CascadesRule<? extends RelationalExpression>> getRules(final RelationalExpression value, final Predicate<PlannerRule<CascadesRuleCall, ? extends RelationalExpression>> plannerRulePredicate) {
         return (Stream<? extends CascadesRule<? extends RelationalExpression>>)super.getRules(value, plannerRulePredicate);
     }
 
-    @Nonnull
     public Stream<AbstractCascadesRule<? extends PartialMatch>> getPartialMatchRules() {
         return getPartialMatchRules(ignored -> true);
     }
 
-    @Nonnull
-    public Stream<AbstractCascadesRule<? extends PartialMatch>> getPartialMatchRules(@Nonnull final Predicate<AbstractCascadesRule<? extends PartialMatch>> rulePredicate) {
+    public Stream<AbstractCascadesRule<? extends PartialMatch>> getPartialMatchRules(final Predicate<AbstractCascadesRule<? extends PartialMatch>> rulePredicate) {
         return Stream.empty();
     }
 
-
-    @Nonnull
     public Stream<AbstractCascadesRule<? extends MatchPartition>> getMatchPartitionRules() {
         return getMatchPartitionRules(ignored -> true);
     }
 
-    @Nonnull
-    public Stream<AbstractCascadesRule<? extends MatchPartition>> getMatchPartitionRules(@Nonnull final Predicate<AbstractCascadesRule<? extends MatchPartition>> rulePredicate) {
+    public Stream<AbstractCascadesRule<? extends MatchPartition>> getMatchPartitionRules(final Predicate<AbstractCascadesRule<? extends MatchPartition>> rulePredicate) {
         return Stream.empty();
     }
 }

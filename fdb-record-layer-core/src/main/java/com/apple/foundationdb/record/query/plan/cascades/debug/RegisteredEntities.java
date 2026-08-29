@@ -33,8 +33,8 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -43,21 +43,18 @@ import java.util.function.IntUnaryOperator;
 
 @SuppressWarnings("PMD.SystemPrintln")
 public class RegisteredEntities {
-    @Nonnull
     private final Map<Class<?>, Integer> classToIndexMap;
-    @Nonnull
     private final Cache<Integer, RelationalExpression> expressionCache;
-    @Nonnull private final Cache<RelationalExpression, Integer> invertedExpressionsCache;
-    @Nonnull private final Cache<Integer, Reference> referenceCache;
-    @Nonnull private final Cache<Reference, Integer> invertedReferenceCache;
-    @Nonnull private final Cache<Integer, Quantifier> quantifierCache;
-    @Nonnull private final Cache<Quantifier, Integer> invertedQuantifierCache;
+    private final Cache<RelationalExpression, Integer> invertedExpressionsCache;
+    private final Cache<Integer, Reference> referenceCache;
+    private final Cache<Reference, Integer> invertedReferenceCache;
+    private final Cache<Integer, Quantifier> quantifierCache;
+    private final Cache<Quantifier, Integer> invertedQuantifierCache;
 
     @Nullable private final List<PlannerEvent> events;
     @Nullable private final List<PPlannerEvent> eventProtos;
     @Nullable private final Iterable<PPlannerEvent> prerecordedEventProtoIterable;
     @Nullable private Iterator<PPlannerEvent> prerecordedEventProtoIterator;
-
 
     private int currentTick;
     private final long startTs;
@@ -111,13 +108,13 @@ public class RegisteredEntities {
                 System.nanoTime());
     }
 
-    private RegisteredEntities(@Nonnull final Map<Class<?>, Integer> classToIndexMap,
-                               @Nonnull final Cache<Integer, RelationalExpression> expressionCache,
-                               @Nonnull final Cache<RelationalExpression, Integer> invertedExpressionsCache,
-                               @Nonnull final Cache<Integer, Reference> referenceCache,
-                               @Nonnull final Cache<Reference, Integer> invertedReferenceCache,
-                               @Nonnull final Cache<Integer, Quantifier> quantifierCache,
-                               @Nonnull final Cache<Quantifier, Integer> invertedQuantifierCache,
+    private RegisteredEntities(final Map<Class<?>, Integer> classToIndexMap,
+                               final Cache<Integer, RelationalExpression> expressionCache,
+                               final Cache<RelationalExpression, Integer> invertedExpressionsCache,
+                               final Cache<Integer, Reference> referenceCache,
+                               final Cache<Reference, Integer> invertedReferenceCache,
+                               final Cache<Integer, Quantifier> quantifierCache,
+                               final Cache<Quantifier, Integer> invertedQuantifierCache,
                                @Nullable final List<PlannerEvent> events,
                                @Nullable final List<PPlannerEvent> eventProtos,
                                @Nullable final Iterable<PPlannerEvent> prerecordedEventProtoIterable,
@@ -139,37 +136,30 @@ public class RegisteredEntities {
         this.startTs = startTs;
     }
 
-    @Nonnull
     private Map<Class<?>, Integer> getClassToIndexMap() {
         return classToIndexMap;
     }
 
-    @Nonnull
     public Cache<Integer, RelationalExpression> getExpressionCache() {
         return expressionCache;
     }
 
-    @Nonnull
     public Cache<RelationalExpression, Integer> getInvertedExpressionsCache() {
         return invertedExpressionsCache;
     }
 
-    @Nonnull
     public Cache<Integer, Reference> getReferenceCache() {
         return referenceCache;
     }
 
-    @Nonnull
     public Cache<Reference, Integer> getInvertedReferenceCache() {
         return invertedReferenceCache;
     }
 
-    @Nonnull
     public Cache<Integer, Quantifier> getQuantifierCache() {
         return quantifierCache;
     }
 
-    @Nonnull
     public Cache<Quantifier, Integer> getInvertedQuantifierCache() {
         return invertedQuantifierCache;
     }
@@ -233,7 +223,7 @@ public class RegisteredEntities {
         }
     }
 
-    public void addCurrentEvent(@Nonnull final PlannerEvent event) {
+    public void addCurrentEvent(final PlannerEvent event) {
         if (events != null) {
             events.add(event);
         }

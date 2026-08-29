@@ -30,7 +30,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -52,7 +51,6 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
     /**
      * Match predicate that rejects or accepts the matching for an individual pair of elements.
      */
-    @Nonnull
     private final MatchPredicate<T> matchPredicate;
 
     /**
@@ -75,16 +73,16 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
      * @param matchPredicate a match predicate that rejects or accepts the matching for an individual pair
      *        of elements
      */
-    private FindingMatcher(@Nonnull final AliasMap boundAliasesMap,
-                           @Nonnull final Set<CorrelationIdentifier> aliases,
-                           @Nonnull final Function<T, CorrelationIdentifier> elementToAliasFn,
-                           @Nonnull final Map<CorrelationIdentifier, T> aliasToElementMap,
-                           @Nonnull final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> dependsOnMap,
-                           @Nonnull final Set<CorrelationIdentifier> otherAliases,
-                           @Nonnull final Function<T, CorrelationIdentifier> otherElementToAliasFn,
-                           @Nonnull final Map<CorrelationIdentifier, ? extends T> otherAliasToElementMap,
-                           @Nonnull final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> otherDependsOnMap,
-                           @Nonnull final MatchPredicate<T> matchPredicate) {
+    private FindingMatcher(final AliasMap boundAliasesMap,
+                           final Set<CorrelationIdentifier> aliases,
+                           final Function<T, CorrelationIdentifier> elementToAliasFn,
+                           final Map<CorrelationIdentifier, T> aliasToElementMap,
+                           final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> dependsOnMap,
+                           final Set<CorrelationIdentifier> otherAliases,
+                           final Function<T, CorrelationIdentifier> otherElementToAliasFn,
+                           final Map<CorrelationIdentifier, ? extends T> otherAliasToElementMap,
+                           final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> otherDependsOnMap,
+                           final MatchPredicate<T> matchPredicate) {
         super(boundAliasesMap, aliases, elementToAliasFn, aliasToElementMap, dependsOnMap, otherAliases, otherElementToAliasFn, otherAliasToElementMap, otherDependsOnMap);
         this.matchPredicate = matchPredicate;
     }
@@ -93,7 +91,6 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
      * Match using the method {@link #enumerate} as {@link EnumerationFunction}.
      * @return an iterable of {@link AliasMap}s.
      */
-    @Nonnull
     @Override
     public Iterable<AliasMap> findCompleteMatches() {
         return match(this::enumerate, true);
@@ -103,7 +100,6 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
      * Match using the method {@link #enumerate} as {@link EnumerationFunction}.
      * @return an iterable of {@link AliasMap}s.
      */
-    @Nonnull
     @Override
     public Iterable<AliasMap> findMatches() {
         return match(this::enumerate, false);
@@ -124,9 +120,8 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
      * @return an {@link Iterator} of match results (of type {@link AliasMap})
      */
     @SuppressWarnings("java:S135")
-    @Nonnull
-    public Iterator<AliasMap> enumerate(@Nonnull final EnumeratingIterator<CorrelationIdentifier> iterator,
-                                        @Nonnull final List<CorrelationIdentifier> otherOrdered) {
+    public Iterator<AliasMap> enumerate(final EnumeratingIterator<CorrelationIdentifier> iterator,
+                                        final List<CorrelationIdentifier> otherOrdered) {
         final Set<CorrelationIdentifier> aliases = getAliases();
         final AliasMap boundAliasesMap = getBoundAliasesMap();
 
@@ -198,13 +193,12 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
      *        of elements
      * @return a newly created predicated matcher of type {@code BoundMatch<R>}
      */
-    @Nonnull
-    public static FindingMatcher<CorrelationIdentifier> onAliases(@Nonnull final AliasMap boundAliasesMap,
-                                                                  @Nonnull final Set<CorrelationIdentifier> aliases,
-                                                                  @Nonnull final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> dependsOnFn,
-                                                                  @Nonnull final Set<CorrelationIdentifier> otherAliases,
-                                                                  @Nonnull final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> otherDependsOnFn,
-                                                                  @Nonnull final MatchPredicate<CorrelationIdentifier> matchPredicate) {
+    public static FindingMatcher<CorrelationIdentifier> onAliases(final AliasMap boundAliasesMap,
+                                                                  final Set<CorrelationIdentifier> aliases,
+                                                                  final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> dependsOnFn,
+                                                                  final Set<CorrelationIdentifier> otherAliases,
+                                                                  final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> otherDependsOnFn,
+                                                                  final MatchPredicate<CorrelationIdentifier> matchPredicate) {
         final Map<CorrelationIdentifier, CorrelationIdentifier> identityMappingMap = CorrelationIdentifier.identityMappingMap(aliases);
         final Map<CorrelationIdentifier, CorrelationIdentifier> otherIdentityMappingMap = CorrelationIdentifier.identityMappingMap(otherAliases);
         return new FindingMatcher<>(
@@ -240,15 +234,14 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
      * @param <T> the element type
      * @return a newly created predicated matcher of type {@code BoundMatch<R>}
      */
-    @Nonnull
-    public static <T> PredicatedMatcher onAliasDependencies(@Nonnull final AliasMap boundAliasesMap,
-                                                            @Nonnull final Collection<? extends T> elements,
-                                                            @Nonnull final Function<T, CorrelationIdentifier> elementToAliasFn,
-                                                            @Nonnull final Function<T, Set<CorrelationIdentifier>> dependsOnFn,
-                                                            @Nonnull final Collection<? extends T> otherElements,
-                                                            @Nonnull final Function<T, CorrelationIdentifier> otherElementToAliasFn,
-                                                            @Nonnull final Function<T, Set<CorrelationIdentifier>> otherDependsOnFn,
-                                                            @Nonnull final MatchPredicate<T> matchPredicate) {
+    public static <T> PredicatedMatcher onAliasDependencies(final AliasMap boundAliasesMap,
+                                                            final Collection<? extends T> elements,
+                                                            final Function<T, CorrelationIdentifier> elementToAliasFn,
+                                                            final Function<T, Set<CorrelationIdentifier>> dependsOnFn,
+                                                            final Collection<? extends T> otherElements,
+                                                            final Function<T, CorrelationIdentifier> otherElementToAliasFn,
+                                                            final Function<T, Set<CorrelationIdentifier>> otherDependsOnFn,
+                                                            final MatchPredicate<T> matchPredicate) {
         final ImmutableSet<CorrelationIdentifier> aliases = DependencyUtils.computeAliases(elements, elementToAliasFn);
         final ImmutableMap<CorrelationIdentifier, T> aliasToElementMap = DependencyUtils.computeAliasToElementMap(elements, elementToAliasFn);
 

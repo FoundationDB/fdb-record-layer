@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 
-import javax.annotation.Nonnull;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -66,20 +65,17 @@ import static com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoole
  * of this class if necessary.
  */
 public abstract class ValueEquivalence {
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Optional<ValueEquivalence>> inverseOptionalSupplier = Suppliers.memoize(this::computeInverseMaybe);
 
     protected ValueEquivalence() {
     }
 
-    @Nonnull
-    public abstract ConstrainedBoolean isDefinedEqual(@Nonnull Value left,
-                                                      @Nonnull Value right);
+    public abstract ConstrainedBoolean isDefinedEqual(Value left,
+                                                      Value right);
 
-    @Nonnull
-    public abstract ConstrainedBoolean isDefinedEqual(@Nonnull CorrelationIdentifier left,
-                                                      @Nonnull CorrelationIdentifier right);
+    public abstract ConstrainedBoolean isDefinedEqual(CorrelationIdentifier left,
+                                                      CorrelationIdentifier right);
 
     /**
      * Method that returns the inverse of this value equivalence. Note that the inverse may not exist due to
@@ -87,17 +83,14 @@ public abstract class ValueEquivalence {
      * it may happen in the future, thus the inverse may or may not be defined.
      * @return the inverse if it exists, {@code Optional.empty()} otherwise.
      */
-    @Nonnull
     public Optional<ValueEquivalence> inverseMaybe() {
         return inverseOptionalSupplier.get();
     }
 
-    @Nonnull
     protected abstract Optional<ValueEquivalence> computeInverseMaybe();
 
-    @Nonnull
-    public <T extends UsesValueEquivalence<T>> ConstrainedBoolean semanticEquals(@Nonnull final Set<T> left,
-                                                                                 @Nonnull final Set<T> right) {
+    public <T extends UsesValueEquivalence<T>> ConstrainedBoolean semanticEquals(final Set<T> left,
+                                                                                 final Set<T> right) {
         if (left.size() != right.size()) {
             return falseValue();
         }
@@ -121,33 +114,28 @@ public abstract class ValueEquivalence {
         return booleanWithConstraint;
     }
 
-    @Nonnull
     public static ValueEquivalence empty() {
         return EMPTY_EQUIVALENCE;
     }
 
     static final ValueEquivalence EMPTY_EQUIVALENCE = new ValueEquivalence() {
-        @Nonnull
         @Override
-        public ConstrainedBoolean isDefinedEqual(@Nonnull final Value left, @Nonnull final Value right) {
+        public ConstrainedBoolean isDefinedEqual(final Value left, final Value right) {
             return falseValue();
         }
 
-        @Nonnull
         @Override
-        public ConstrainedBoolean isDefinedEqual(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
+        public ConstrainedBoolean isDefinedEqual(final CorrelationIdentifier left, final CorrelationIdentifier right) {
             return falseValue();
         }
 
-        @Nonnull
         @Override
         protected Optional<ValueEquivalence> computeInverseMaybe() {
             return Optional.of(this);
         }
     };
 
-    @Nonnull
-    public ValueEquivalence then(@Nonnull final ValueEquivalence thenEquivalence) {
+    public ValueEquivalence then(final ValueEquivalence thenEquivalence) {
         return new ThenEquivalence(this, thenEquivalence);
     }
 
@@ -155,19 +143,16 @@ public abstract class ValueEquivalence {
      * Helper equivalence to compose to equivalences.
      */
     public static final class ThenEquivalence extends ValueEquivalence {
-        @Nonnull
         private final ValueEquivalence first;
-        @Nonnull
         private final ValueEquivalence then;
 
-        public ThenEquivalence(@Nonnull final ValueEquivalence first, @Nonnull final ValueEquivalence then) {
+        public ThenEquivalence(final ValueEquivalence first, final ValueEquivalence then) {
             this.first = first;
             this.then = then;
         }
 
-        @Nonnull
         @Override
-        public ConstrainedBoolean isDefinedEqual(@Nonnull final Value left, @Nonnull final Value right) {
+        public ConstrainedBoolean isDefinedEqual(final Value left, final Value right) {
             final var firstEquivalence = first.isDefinedEqual(left, right);
             if (firstEquivalence.isTrue()) {
                 return firstEquivalence;
@@ -175,9 +160,8 @@ public abstract class ValueEquivalence {
             return then.isDefinedEqual(left, right);
         }
 
-        @Nonnull
         @Override
-        public ConstrainedBoolean isDefinedEqual(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
+        public ConstrainedBoolean isDefinedEqual(final CorrelationIdentifier left, final CorrelationIdentifier right) {
             final var firstEquivalence = first.isDefinedEqual(left, right);
             if (firstEquivalence.isTrue()) {
                 return firstEquivalence;
@@ -185,7 +169,6 @@ public abstract class ValueEquivalence {
             return then.isDefinedEqual(left, right);
         }
 
-        @Nonnull
         @Override
         protected Optional<ValueEquivalence> computeInverseMaybe() {
             return first.inverseMaybe()
@@ -199,7 +182,6 @@ public abstract class ValueEquivalence {
         }
     }
 
-    @Nonnull
     public static ValueMap.Builder valueMapBuilder() {
         return new ValueMap.Builder();
     }
@@ -208,20 +190,17 @@ public abstract class ValueEquivalence {
      * Value equivalence based on a map of values.
      */
     public static final class ValueMap extends ValueEquivalence {
-        @Nonnull
         private final Map<Value, Value> valueEquivalenceMap;
-        @Nonnull
         private final Map<Value, Supplier<QueryPlanConstraint>> valueConstraintSupplierMap;
 
-        private ValueMap(@Nonnull final Map<Value, Value> valueEquivalenceMap,
-                         @Nonnull final Map<Value, Supplier<QueryPlanConstraint>> valueConstraintSupplierMap) {
+        private ValueMap(final Map<Value, Value> valueEquivalenceMap,
+                         final Map<Value, Supplier<QueryPlanConstraint>> valueConstraintSupplierMap) {
             this.valueEquivalenceMap = ImmutableMap.copyOf(valueEquivalenceMap);
             this.valueConstraintSupplierMap = ImmutableMap.copyOf(valueConstraintSupplierMap);
         }
 
-        @Nonnull
         @Override
-        public ConstrainedBoolean isDefinedEqual(@Nonnull final Value left, @Nonnull final Value right) {
+        public ConstrainedBoolean isDefinedEqual(final Value left, final Value right) {
             final var rightFromMap = valueEquivalenceMap.get(left);
             if (rightFromMap == null || !rightFromMap.equals(right)) {
                 return falseValue();
@@ -229,13 +208,11 @@ public abstract class ValueEquivalence {
             return trueWithConstraint(Objects.requireNonNull(Objects.requireNonNull(valueConstraintSupplierMap.get(left)).get()));
         }
 
-        @Nonnull
         @Override
-        public ConstrainedBoolean isDefinedEqual(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
+        public ConstrainedBoolean isDefinedEqual(final CorrelationIdentifier left, final CorrelationIdentifier right) {
             return falseValue();
         }
 
-        @Nonnull
         @Override
         protected Optional<ValueEquivalence> computeInverseMaybe() {
             final var inverseValueEquivalenceMap =
@@ -255,24 +232,21 @@ public abstract class ValueEquivalence {
          * Builder.
          */
         public static class Builder {
-            @Nonnull
             private final Map<Value, Value> valueEquivalenceMap;
-            @Nonnull
             private final Map<Value, Supplier<QueryPlanConstraint>> valueConstraintSupplierMap;
 
             private Builder() {
                 this(new LinkedHashMap<>(), new LinkedHashMap<>());
             }
 
-            private Builder(@Nonnull final Map<Value, Value> valueEquivalenceMap,
-                            @Nonnull final Map<Value, Supplier<QueryPlanConstraint>> valueConstraintSupplierMap) {
+            private Builder(final Map<Value, Value> valueEquivalenceMap,
+                            final Map<Value, Supplier<QueryPlanConstraint>> valueConstraintSupplierMap) {
                 this.valueEquivalenceMap = valueEquivalenceMap;
                 this.valueConstraintSupplierMap = valueConstraintSupplierMap;
             }
 
-            @Nonnull
-            public Builder add(@Nonnull final Value left, @Nonnull final Value right,
-                               @Nonnull final Supplier<QueryPlanConstraint> planConstraintSupplier) {
+            public Builder add(final Value left, final Value right,
+                               final Supplier<QueryPlanConstraint> planConstraintSupplier) {
                 if (valueEquivalenceMap.put(left, right) != null) {
                     throw new RecordCoreException("duplicate mapping");
                 }
@@ -282,15 +256,13 @@ public abstract class ValueEquivalence {
                 return this;
             }
 
-            @Nonnull
             public ValueMap build() {
                 return new ValueMap(valueEquivalenceMap, valueConstraintSupplierMap);
             }
         }
     }
 
-    @Nonnull
-    public static ValueEquivalence fromAliasMap(@Nonnull final AliasMap aliasMap) {
+    public static ValueEquivalence fromAliasMap(final AliasMap aliasMap) {
         return new AliasMapBackedValueEquivalence(aliasMap);
     }
 
@@ -298,16 +270,14 @@ public abstract class ValueEquivalence {
      * Equivalence that is being backed by an {@link AliasMap}.
      */
     public static final class AliasMapBackedValueEquivalence extends ValueEquivalence {
-        @Nonnull
         private final AliasMap aliasMap;
 
-        public AliasMapBackedValueEquivalence(@Nonnull final AliasMap aliasMap) {
+        public AliasMapBackedValueEquivalence(final AliasMap aliasMap) {
             this.aliasMap = aliasMap;
         }
 
-        @Nonnull
         @Override
-        public ConstrainedBoolean isDefinedEqual(@Nonnull final Value left, @Nonnull final Value right) {
+        public ConstrainedBoolean isDefinedEqual(final Value left, final Value right) {
             //
             // If any of the participants is not a quantified value, left is not equal to right.
             //
@@ -329,21 +299,18 @@ public abstract class ValueEquivalence {
             return falseValue();
         }
 
-        @Nonnull
         @Override
-        public ConstrainedBoolean isDefinedEqual(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
+        public ConstrainedBoolean isDefinedEqual(final CorrelationIdentifier left, final CorrelationIdentifier right) {
             return aliasMap.containsMapping(left, right) ? alwaysTrue() : falseValue();
         }
 
-        @Nonnull
         @Override
         protected Optional<ValueEquivalence> computeInverseMaybe() {
             return Optional.of(new AliasMapBackedValueEquivalence(aliasMap.inverse()));
         }
     }
 
-    @Nonnull
-    public static ValueEquivalence constantEquivalenceWithEvaluationContext(@Nonnull final EvaluationContext evaluationContext) {
+    public static ValueEquivalence constantEquivalenceWithEvaluationContext(final EvaluationContext evaluationContext) {
         return new ConstantValueEquivalence(evaluationContext);
     }
 
@@ -352,16 +319,14 @@ public abstract class ValueEquivalence {
      * {@link LiteralValue}s.
      */
     public static class ConstantValueEquivalence extends ValueEquivalence {
-        @Nonnull
         private final EvaluationContext evaluationContext;
 
-        public ConstantValueEquivalence(@Nonnull final EvaluationContext evaluationContext) {
+        public ConstantValueEquivalence(final EvaluationContext evaluationContext) {
             this.evaluationContext = evaluationContext;
         }
 
-        @Nonnull
         @Override
-        public ConstrainedBoolean isDefinedEqual(@Nonnull final Value left, @Nonnull final Value right) {
+        public ConstrainedBoolean isDefinedEqual(final Value left, final Value right) {
             if (left instanceof ConstantObjectValue && right instanceof LiteralValue) {
                 return isDefinedEqual((ConstantObjectValue)left, (LiteralValue<?>)right);
             } else if (right instanceof ConstantObjectValue && left instanceof LiteralValue) {
@@ -371,9 +336,8 @@ public abstract class ValueEquivalence {
             return falseValue();
         }
 
-        @Nonnull
-        public ConstrainedBoolean isDefinedEqual(@Nonnull final ConstantObjectValue constantObjectValue,
-                                                 @Nonnull final LiteralValue<?> literalValue) {
+        public ConstrainedBoolean isDefinedEqual(final ConstantObjectValue constantObjectValue,
+                                                 final LiteralValue<?> literalValue) {
             final var constantObject = constantObjectValue.evalWithoutStore(evaluationContext);
             final var literalObject = literalValue.getLiteralValue();
             if (constantObject == null && literalObject == null) {
@@ -398,13 +362,11 @@ public abstract class ValueEquivalence {
             return falseValue();
         }
 
-        @Nonnull
         @Override
-        public ConstrainedBoolean isDefinedEqual(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
+        public ConstrainedBoolean isDefinedEqual(final CorrelationIdentifier left, final CorrelationIdentifier right) {
             return falseValue();
         }
 
-        @Nonnull
         @Override
         protected Optional<ValueEquivalence> computeInverseMaybe() {
             // this equivalence is symmetrical

@@ -43,7 +43,6 @@ import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.assertj.core.api.AutoCloseableSoftAssertions;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -54,21 +53,16 @@ import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQuery
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.forEach;
 
 public class RuleTestHelper {
-    @Nonnull
     public static final Comparisons.Comparison EQUALS_42 = new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 42L);
-    @Nonnull
     public static final Comparisons.Comparison GREATER_THAN_HELLO = new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, "hello");
-    @Nonnull
     public static final Comparisons.Comparison EQUALS_PARAM = new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, "p");
 
-    @Nonnull
     public static final Type.Record TYPE_S = Type.Record.fromFields(ImmutableList.of(
             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG, true), Optional.of("one")),
             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("two")),
             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.BYTES, true), Optional.of("three"))
     ));
 
-    @Nonnull
     public static final Type.Record TYPE_T = Type.Record.fromFields(ImmutableList.of(
             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG, true), Optional.of("a")),
             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("b")),
@@ -79,7 +73,6 @@ public class RuleTestHelper {
             Type.Record.Field.of(new Type.Array(true, TYPE_S), Optional.of("g"))
     ));
 
-    @Nonnull
     public static final Type.Record TYPE_TAU = Type.Record.fromFields(ImmutableList.of(
             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG, true), Optional.of("alpha")),
             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("beta")),
@@ -90,40 +83,33 @@ public class RuleTestHelper {
             Type.Record.Field.of(new Type.Array(true, TYPE_S), Optional.of("eta"))
     ));
 
-    @Nonnull
     public static Quantifier fuseQun() {
         return forEach(new FullUnorderedScanExpression(ImmutableSet.of("T", "TAU"), Type.Record.fromFields(ImmutableList.of()), new AccessHints()));
     }
 
-    @Nonnull
     public static FullUnorderedScanExpression fuseExpression() {
         return new FullUnorderedScanExpression(ImmutableSet.of("T", "TAU"), Type.Record.fromFields(ImmutableList.of()), new AccessHints());
     }
 
-    @Nonnull
     public static Quantifier baseT() {
         return forEach(LogicalTypeFilterExpression.of(ImmutableSet.of("T"), fuseQun(), TYPE_T));
     }
 
-    @Nonnull
     public static Quantifier baseTau() {
         return forEach(LogicalTypeFilterExpression.of(ImmutableSet.of("TAU"), fuseQun(), TYPE_TAU));
     }
 
-    @Nonnull
     public static GraphExpansion.Builder join(Quantifier... quns) {
         return GraphExpansion.builder().addAllQuantifiers(List.of(quns));
     }
 
-    @Nonnull
     public static Quantifier rangeOneQun() {
         var rangeValue = (RangeValue) new RangeValue.RangeFn().encapsulate(CallSiteArguments.ofPositional(LiteralValue.ofScalar(1L)));
         TableFunctionExpression tvf = new TableFunctionExpression(rangeValue);
         return Quantifier.forEach(Reference.initialOf(tvf));
     }
 
-    @Nonnull
-    public static Quantifier valuesQun(@Nonnull Map<String, Value> valueMap) {
+    public static Quantifier valuesQun(Map<String, Value> valueMap) {
         var graphBuilder = GraphExpansion.builder()
                 .addQuantifier(rangeOneQun());
         for (Map.Entry<String, Value> entry : valueMap.entrySet()) {
@@ -132,23 +118,19 @@ public class RuleTestHelper {
         return Quantifier.forEach(Reference.initialOf(graphBuilder.build().buildSelect()));
     }
 
-    @Nonnull
-    public static Quantifier valuesQun(@Nonnull Value value) {
+    public static Quantifier valuesQun(Value value) {
         return Quantifier.forEach(Reference.initialOf(new SelectExpression(value, ImmutableList.of(rangeOneQun()), ImmutableList.of())));
     }
 
-    @Nonnull
-    public static Quantifier explodeField(@Nonnull final Quantifier t, @Nonnull final String fieldName) {
+    public static Quantifier explodeField(final Quantifier t, final String fieldName) {
         return forEach(new ExplodeExpression(fieldValue(t, fieldName)));
     }
 
-    @Nonnull
     private final AbstractCascadesRule<? extends RelationalExpression> rule;
 
-    @Nonnull
     private final PlannerPhase plannerPhase;
 
-    public RuleTestHelper(@Nonnull AbstractCascadesRule<? extends RelationalExpression> rule, @Nonnull PlannerPhase plannerPhase) {
+    public RuleTestHelper(AbstractCascadesRule<? extends RelationalExpression> rule, PlannerPhase plannerPhase) {
         this.rule = rule;
         this.plannerPhase = plannerPhase;
     }
@@ -162,7 +144,6 @@ public class RuleTestHelper {
         return Memoizer.noMemoization(PlannerStage.PLANNED);
     }
 
-    @Nonnull
     private TestRuleExecution run(RelationalExpression original, EvaluationContext evaluationContext) {
         // copy the graph handed in so the caller can modify it at will afterwards and won't see the effects of
         // rewriting and planning
@@ -202,7 +183,7 @@ public class RuleTestHelper {
         return Reference.ofExploratoryExpression(PlannerStage.INITIAL, expression);
     }
 
-    public void ensureCorrectStage(@Nonnull RelationalExpression expression) {
+    public void ensureCorrectStage(RelationalExpression expression) {
         for (Quantifier qun : expression.getQuantifiers()) {
             Reference ref = qun.getRangesOver();
             if (ref.getPlannerStage() != plannerPhase.getTargetPlannerStage()) {
@@ -214,7 +195,7 @@ public class RuleTestHelper {
         }
     }
 
-    public void preExploreForRule(@Nonnull final RelationalExpression expression,
+    public void preExploreForRule(final RelationalExpression expression,
                                   final boolean isClearExploratoryExpressions) {
         for (Quantifier qun : expression.getQuantifiers()) {
             Reference ref = qun.getRangesOver();
@@ -230,7 +211,7 @@ public class RuleTestHelper {
         }
     }
 
-    public void pruneInputs(@Nonnull final Collection<? extends RelationalExpression> finalExpressions,
+    public void pruneInputs(final Collection<? extends RelationalExpression> finalExpressions,
                             final boolean isClearExploratoryExpressions) {
         for (final var finalExpression : finalExpressions) {
             for (final var quantifier : finalExpression.getQuantifiers()) {
@@ -249,7 +230,6 @@ public class RuleTestHelper {
         }
     }
 
-    @Nonnull
     private static RelationalExpression costModel(final Reference reference, final PlannerPhase plannerPhase) {
         reference.setExplored();
         final var costModel =
@@ -264,13 +244,11 @@ public class RuleTestHelper {
     }
 
     @CanIgnoreReturnValue
-    @Nonnull
     public TestRuleExecution assertYields(RelationalExpression original, RelationalExpression... expected) {
         return assertYields(original, EvaluationContext.EMPTY, expected);
     }
 
     @CanIgnoreReturnValue
-    @Nonnull
     public TestRuleExecution assertYields(RelationalExpression original, EvaluationContext evaluationContext,
                                           RelationalExpression... expected) {
         final ImmutableList.Builder<RelationalExpression> expectedListBuilder = ImmutableList.builder();
@@ -303,13 +281,11 @@ public class RuleTestHelper {
     }
 
     @CanIgnoreReturnValue
-    @Nonnull
     public TestRuleExecution assertYieldsNothing(RelationalExpression original, boolean matched) {
         return assertYieldsNothing(original, EvaluationContext.empty(), matched);
     }
 
     @CanIgnoreReturnValue
-    @Nonnull
     public TestRuleExecution assertYieldsNothing(RelationalExpression original, EvaluationContext evaluationContext, boolean matched) {
         TestRuleExecution execution = run(original, evaluationContext);
         try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {

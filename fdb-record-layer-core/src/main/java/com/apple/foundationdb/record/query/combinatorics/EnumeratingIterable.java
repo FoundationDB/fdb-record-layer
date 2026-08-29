@@ -23,8 +23,8 @@ package com.apple.foundationdb.record.query.combinatorics;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 
 /**
@@ -32,7 +32,6 @@ import java.util.List;
  * @param <T> type
  */
 public interface EnumeratingIterable<T> extends Iterable<List<T>> {
-    @Nonnull
     @Override
     EnumeratingIterator<T> iterator();
 
@@ -40,7 +39,7 @@ public interface EnumeratingIterable<T> extends Iterable<List<T>> {
         return new EmptyIterable<>();
     }
 
-    static <T> EnumeratingIterable<T> singleIterable(@Nonnull final T singleElement) {
+    static <T> EnumeratingIterable<T> singleIterable(final T singleElement) {
         return new SingleIterable<>(singleElement);
     }
 
@@ -73,7 +72,6 @@ public interface EnumeratingIterable<T> extends Iterable<List<T>> {
             }
         }
 
-        @Nonnull
         @Override
         public EnumeratingIterator<T> iterator() {
             return new EmptyIterator();
@@ -91,7 +89,7 @@ public interface EnumeratingIterable<T> extends Iterable<List<T>> {
         @Nullable
         private final T singleElement;
 
-        private SingleIterable(@Nonnull final T singleElement) {
+        private SingleIterable(final T singleElement) {
             this.singleElement = singleElement;
         }
 
@@ -99,7 +97,6 @@ public interface EnumeratingIterable<T> extends Iterable<List<T>> {
             this.singleElement = null;
         }
 
-        @Nonnull
         @Override
         public EnumeratingIterator<T> iterator() {
             return new SingleIterator<>(singleElement);

@@ -26,8 +26,8 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalType
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.base.Supplier;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Set;
 
 /**
@@ -52,11 +52,10 @@ public interface ExpansionVisitor<S extends KeyExpressionVisitor.State> extends 
      *
      * @return a new {@link MatchCandidate} that can be used for matching.
      */
-    @Nonnull
-    MatchCandidate expand(@Nonnull Set<String> availableRecordTypeNames,
-                          @Nonnull Set<String> queriedRecordTypeNames,
-                          @Nonnull Type.Record baseType,
-                          @Nonnull AccessHint accessHint,
+    MatchCandidate expand(Set<String> availableRecordTypeNames,
+                          Set<String> queriedRecordTypeNames,
+                          Type.Record baseType,
+                          AccessHint accessHint,
                           @Nullable KeyExpression primaryKey,
                           boolean isReverse);
 
@@ -75,8 +74,7 @@ public interface ExpansionVisitor<S extends KeyExpressionVisitor.State> extends 
      * @return a new {@link MatchCandidate} that can be used for matching.
      * @throws UnsupportedOperationException if the visitor does not support this expand overload
      */
-    @Nonnull
-    default MatchCandidate expand(@Nonnull Supplier<Quantifier.ForEach> baseQuantifierSupplier,
+    default MatchCandidate expand(Supplier<Quantifier.ForEach> baseQuantifierSupplier,
                           @Nullable KeyExpression primaryKey,
                           boolean isReverse) {
         throw new UnsupportedOperationException("expansion with base quantifier supplier is not supported");
@@ -93,12 +91,11 @@ public interface ExpansionVisitor<S extends KeyExpressionVisitor.State> extends 
      * @param accessHint the access hint indicating the desired scan type (e.g., index scan, primary scan)
      * @return a new {@link Reference} wrapping a type-filtered full unordered scan
      */
-    @Nonnull
-    static Reference createBaseRef(@Nonnull final Set<String> availableRecordTypeNames,
-                                   @Nonnull final Set<String> queriedRecordTypeNames,
-                                   @Nonnull final Type.Record baseType,
+    static Reference createBaseRef(final Set<String> availableRecordTypeNames,
+                                   final Set<String> queriedRecordTypeNames,
+                                   final Type.Record baseType,
                                    @Nullable final CorrelationIdentifier recordTypeKeyAlias,
-                                   @Nonnull AccessHint accessHint) {
+                                   AccessHint accessHint) {
         final var quantifier =
                 Quantifier.forEach(
                         Reference.initialOf(

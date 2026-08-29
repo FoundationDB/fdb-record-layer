@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 import java.util.Set;
 
@@ -33,10 +32,9 @@ import java.util.Set;
 public class RequestedOrderingConstraint implements PlannerConstraint<Set<RequestedOrdering>> {
     public static final PlannerConstraint<Set<RequestedOrdering>> REQUESTED_ORDERING = new RequestedOrderingConstraint();
 
-    @Nonnull
     @Override
-    public Optional<Set<RequestedOrdering>> combine(@Nonnull final Set<RequestedOrdering> currentConstraint,
-                                                    @Nonnull final Set<RequestedOrdering> newConstraint) {
+    public Optional<Set<RequestedOrdering>> combine(final Set<RequestedOrdering> currentConstraint,
+                                                    final Set<RequestedOrdering> newConstraint) {
         final var newRequestedOrderings = Sets.newLinkedHashSet(newConstraint);
         for (final var newRequestedOrdering : newConstraint) {
             final var newOrderingParts = newRequestedOrdering.getOrderingParts();

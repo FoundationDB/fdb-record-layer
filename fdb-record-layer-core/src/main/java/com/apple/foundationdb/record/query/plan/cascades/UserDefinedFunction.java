@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Optional;
 
@@ -42,7 +41,7 @@ public abstract class UserDefinedFunction extends CatalogedFunction {
      * @param functionName The name of the function.
      * @param parameterTypes The types of function parameters.
      */
-    public UserDefinedFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes) {
+    public UserDefinedFunction(final String functionName, final List<Type> parameterTypes) {
         super(functionName, parameterTypes, null);
     }
 
@@ -54,9 +53,9 @@ public abstract class UserDefinedFunction extends CatalogedFunction {
      * @param parameterDefaults The default values of function parameters, with {@link Optional#empty()} indicating
      * the absence of default value.
      */
-    public UserDefinedFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
-                                @Nonnull final List<Type> parameterTypes,
-                                @Nonnull final List<Optional<Value>> parameterDefaults) {
+    public UserDefinedFunction(final String functionName, final List<String> parameterNames,
+                                final List<Type> parameterTypes,
+                                final List<Optional<Value>> parameterDefaults) {
         super(functionName, parameterNames, parameterTypes, parameterDefaults);
     }
 
@@ -64,11 +63,9 @@ public abstract class UserDefinedFunction extends CatalogedFunction {
      * Serializes the {@link UserDefinedFunction} instance as a protobuf message.
      * @return A serialized version of the {@link UserDefinedFunction} as a protobuf message.
      */
-    @Nonnull
     public abstract RecordMetaDataProto.PUserDefinedFunction toProto();
 
-    @Nonnull
-    public static UserDefinedFunction fromProto(@Nonnull final RecordMetaDataProto.PUserDefinedFunction function) {
+    public static UserDefinedFunction fromProto(final RecordMetaDataProto.PUserDefinedFunction function) {
         if (function.hasUserDefinedMacroFunction()) {
             return UserDefinedMacroFunction.fromProto(function.getUserDefinedMacroFunction());
         } else {

@@ -38,8 +38,8 @@ import com.google.protobuf.Descriptors.EnumValueDescriptor;
 import com.google.protobuf.Descriptors.FileDescriptor;
 import com.google.protobuf.DynamicMessage;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -63,25 +63,18 @@ import java.util.stream.Collectors;
  * generated.
  */
 public class TypeRepository {
-    @Nonnull
     public static final TypeRepository EMPTY_SCHEMA = empty();
 
-    @Nonnull
     public static final List<FileDescriptor> DEPENDENCIES = List.of(TupleFieldsProto.getDescriptor(), RecordMetaDataOptionsProto.getDescriptor());
 
-    @Nonnull
     private final FileDescriptorSet fileDescSet;
 
-    @Nonnull
     private final Map<String, Descriptor> msgDescriptorMapFull = new LinkedHashMap<>();
 
-    @Nonnull
     private final Map<String, Descriptor> msgDescriptorMapShort = new LinkedHashMap<>();
 
-    @Nonnull
     private final Map<String, EnumDescriptor> enumDescriptorMapFull = new LinkedHashMap<>();
 
-    @Nonnull
     private final Map<String, EnumDescriptor> enumDescriptorMapShort = new LinkedHashMap<>();
 
     /**
@@ -89,10 +82,8 @@ public class TypeRepository {
      * For non-nullable types, their nullable variants are stored here.
      * Because Type.None and Type.Relation must be non-nullable, they are stored as non-nullable.
      */
-    @Nonnull
     private final Map<Type, String> typeToNameMap;
 
-    @Nonnull
     public static TypeRepository empty() {
         FileDescriptorSet.Builder resultBuilder = FileDescriptorSet.newBuilder();
         try {
@@ -107,14 +98,12 @@ public class TypeRepository {
      *
      * @return the schema builder
      */
-    @Nonnull
     public static Builder newBuilder() {
         return new Builder();
     }
 
     @SuppressWarnings("PMD.AssignmentInOperand")
-    @Nonnull
-    public static TypeRepository parseFrom(@Nonnull final InputStream schemaDescIn) throws DescriptorValidationException, IOException {
+    public static TypeRepository parseFrom(final InputStream schemaDescIn) throws DescriptorValidationException, IOException {
         try (schemaDescIn) {
             int len;
             byte[] buf = new byte[4096];
@@ -126,12 +115,11 @@ public class TypeRepository {
         }
     }
 
-    @Nonnull
-    public static TypeRepository parseFrom(@Nonnull final byte[] schemaDescBuf) throws DescriptorValidationException, IOException {
+    public static TypeRepository parseFrom(final byte[] schemaDescBuf) throws DescriptorValidationException, IOException {
         return new TypeRepository(FileDescriptorSet.parseFrom(schemaDescBuf), Maps.newHashMap());
     }
 
-    public boolean containsType(@Nonnull Type type) {
+    public boolean containsType(Type type) {
         return typeToNameMap.containsKey(canonicalizeNullability(type));
     }
 
@@ -141,8 +129,7 @@ public class TypeRepository {
      * @param msgTypeName the message type name
      * @return the message builder (null if not found)
      */
-    @Nullable
-    public DynamicMessage.Builder newMessageBuilder(@Nonnull final String msgTypeName) {
+    public DynamicMessage.@Nullable Builder newMessageBuilder(final String msgTypeName) {
         Descriptor msgType = getMessageDescriptor(msgTypeName);
         if (msgType == null) {
             return null;
@@ -156,8 +143,7 @@ public class TypeRepository {
      * @param type the type name
      * @return the message builder (null if not found)
      */
-    @Nullable
-    public DynamicMessage.Builder newMessageBuilder(@Nonnull final Type type) {
+    public DynamicMessage.@Nullable Builder newMessageBuilder(final Type type) {
         final String msgTypeName = getProtoTypeName(type);
         return newMessageBuilder(msgTypeName);
     }
@@ -167,8 +153,7 @@ public class TypeRepository {
      * @param type The type to get the name of.
      * @return The protobuf type name of the {@link Type}.
      */
-    @Nonnull
-    public String getProtoTypeName(@Nonnull final Type type) {
+    public String getProtoTypeName(final Type type) {
         final Type canonicalType = canonicalizeNullability(type);
         final String typeName = typeToNameMap.get(canonicalType);
         return Preconditions.checkNotNull(typeName, "Type not found in repository: %s", type);
@@ -181,7 +166,7 @@ public class TypeRepository {
      * @return the message descriptor (null if not found)
      */
     @Nullable
-    public Descriptor getMessageDescriptor(@Nonnull final String msgTypeName) {
+    public Descriptor getMessageDescriptor(final String msgTypeName) {
         Descriptor msgType = msgDescriptorMapShort.get(msgTypeName);
         if (msgType == null) {
             msgType = msgDescriptorMapFull.get(msgTypeName);
@@ -196,7 +181,7 @@ public class TypeRepository {
      * @return the message descriptor (null if not found)
      */
     @Nullable
-    public Descriptor getMessageDescriptor(@Nonnull final Type type) {
+    public Descriptor getMessageDescriptor(final Type type) {
         String msgTypeName = getProtoTypeName(type);
         return getMessageDescriptor(msgTypeName);
     }
@@ -209,7 +194,7 @@ public class TypeRepository {
      * @return the enum value descriptor (null if not found)
      */
     @Nullable
-    public EnumValueDescriptor getEnumValue(@Nonnull final String enumTypeName, String enumName) {
+    public EnumValueDescriptor getEnumValue(final String enumTypeName, String enumName) {
         EnumDescriptor enumType = getEnumDescriptor(enumTypeName);
         if (enumType == null) {
             return null;
@@ -225,7 +210,7 @@ public class TypeRepository {
      * @return the enum value descriptor (null if not found)
      */
     @Nullable
-    public EnumValueDescriptor getEnumValue(@Nonnull final String enumTypeName, int enumNumber) {
+    public EnumValueDescriptor getEnumValue(final String enumTypeName, int enumNumber) {
         EnumDescriptor enumType = getEnumDescriptor(enumTypeName);
         if (enumType == null) {
             return null;
@@ -240,7 +225,7 @@ public class TypeRepository {
      * @return the enum descriptor (null if not found)
      */
     @Nullable
-    public EnumDescriptor getEnumDescriptor(@Nonnull final String enumTypeName) {
+    public EnumDescriptor getEnumDescriptor(final String enumTypeName) {
         EnumDescriptor enumType = enumDescriptorMapShort.get(enumTypeName);
         if (enumType == null) {
             enumType = enumDescriptorMapFull.get(enumTypeName);
@@ -255,7 +240,7 @@ public class TypeRepository {
      * @return the message descriptor (null if not found)
      */
     @Nullable
-    public EnumDescriptor getEnumDescriptor(@Nonnull final Type type) {
+    public EnumDescriptor getEnumDescriptor(final Type type) {
         String msgTypeName = getProtoTypeName(type);
         return getEnumDescriptor(msgTypeName);
     }
@@ -265,7 +250,6 @@ public class TypeRepository {
      *
      * @return the set of message type names
      */
-    @Nonnull
     public Set<String> getMessageTypes() {
         return new TreeSet<>(msgDescriptorMapFull.keySet());
     }
@@ -275,7 +259,6 @@ public class TypeRepository {
      *
      * @return the set of enum type names
      */
-    @Nonnull
     public Set<String> getEnumTypes() {
         return new TreeSet<>(enumDescriptorMapFull.keySet());
     }
@@ -288,8 +271,7 @@ public class TypeRepository {
      * @param type the type to canonicalize
      * @return the canonicalized type with appropriate nullability
      */
-    @Nonnull
-    private static Type canonicalizeNullability(@Nonnull final Type type) {
+    private static Type canonicalizeNullability(final Type type) {
         if (type.getTypeCode() == Type.TypeCode.RELATION || type.isNone()) {
             return type.notNullable();
         } else {
@@ -302,7 +284,6 @@ public class TypeRepository {
      *
      * @return the file descriptor set
      */
-    @Nonnull
     public FileDescriptorSet getFileDescriptorSet() {
         return fileDescSet;
     }
@@ -312,7 +293,6 @@ public class TypeRepository {
      *
      * @return the serialized schema descriptor
      */
-    @Nonnull
     public byte[] toByteArray() {
         return fileDescSet.toByteArray();
     }
@@ -329,8 +309,8 @@ public class TypeRepository {
         return "types: " + msgTypes + "\nenums: " + enumTypes + "\n" + fileDescSet;
     }
 
-    private TypeRepository(@Nonnull final FileDescriptorSet fileDescSet,
-                           @Nonnull final Map<Type, String> typeToNameMap) throws DescriptorValidationException {
+    private TypeRepository(final FileDescriptorSet fileDescSet,
+                           final Map<Type, String> typeToNameMap) throws DescriptorValidationException {
         this.fileDescSet = fileDescSet;
         Map<String, FileDescriptor> fileDescMap = init(fileDescSet);
 
@@ -356,8 +336,7 @@ public class TypeRepository {
     }
 
     @SuppressWarnings("java:S3776")
-    @Nonnull
-    private static Map<String, FileDescriptor> init(@Nonnull final FileDescriptorSet fileDescSet) throws DescriptorValidationException {
+    private static Map<String, FileDescriptor> init(final FileDescriptorSet fileDescSet) throws DescriptorValidationException {
         // check for dupes
         Set<String> allFdProtoNames = collectFileDescriptorNamesAndCheckForDupes(fileDescSet);
 
@@ -396,13 +375,11 @@ public class TypeRepository {
         return resolvedFileDescMap;
     }
 
-    @Nonnull
-    private static String duplicateNameErrorMessage(@Nonnull String name) {
+    private static String duplicateNameErrorMessage(String name) {
         return "duplicate name: " + name;
     }
 
-    @Nonnull
-    private static Set<String> collectFileDescriptorNamesAndCheckForDupes(@Nonnull final FileDescriptorSet fileDescSet) {
+    private static Set<String> collectFileDescriptorNamesAndCheckForDupes(final FileDescriptorSet fileDescSet) {
         Set<String> result = new HashSet<>();
         for (FileDescriptorProto fdProto : fileDescSet.getFileList()) {
             if (result.contains(fdProto.getName())) {
@@ -413,10 +390,10 @@ public class TypeRepository {
         return result;
     }
 
-    private void addMessageType(@Nonnull final Descriptor msgType,
+    private void addMessageType(final Descriptor msgType,
                                 @Nullable final String scope,
-                                @Nonnull final Set<String> msgDupes,
-                                @Nonnull final Set<String> enumDupes) {
+                                final Set<String> msgDupes,
+                                final Set<String> enumDupes) {
         String msgTypeNameFull = msgType.getFullName();
         String msgTypeNameShort = (scope == null ? msgType.getName() : scope + "." + msgType.getName());
 
@@ -438,9 +415,9 @@ public class TypeRepository {
         }
     }
 
-    private void addEnumType(@Nonnull final EnumDescriptor enumType,
+    private void addEnumType(final EnumDescriptor enumType,
                              @Nullable final String scope,
-                             @Nonnull final Set<String> enumDupes) {
+                             final Set<String> enumDupes) {
         String enumTypeNameFull = enumType.getFullName();
         String enumTypeNameShort = (scope == null ? enumType.getName() : scope + "." + enumType.getName());
 
@@ -459,9 +436,9 @@ public class TypeRepository {
      * A builder that builds a {@link TypeRepository} object.
      */
     public static class Builder {
-        private @Nonnull final FileDescriptorProto.Builder fileDescProtoBuilder;
-        private @Nonnull final FileDescriptorSet.Builder fileDescSetBuilder;
-        private @Nonnull final BiMap<Type, String> typeToNameMap;
+        private final FileDescriptorProto.Builder fileDescProtoBuilder;
+        private final FileDescriptorSet.Builder fileDescSetBuilder;
+        private final BiMap<Type, String> typeToNameMap;
 
         private Builder() {
             fileDescProtoBuilder = FileDescriptorProto.newBuilder();
@@ -470,7 +447,6 @@ public class TypeRepository {
             typeToNameMap = HashBiMap.create();
         }
 
-        @Nonnull
         public TypeRepository build() {
             FileDescriptorSet.Builder resultBuilder = FileDescriptorSet.newBuilder();
             resultBuilder.addFile(fileDescProtoBuilder.build());
@@ -482,20 +458,17 @@ public class TypeRepository {
             }
         }
 
-        @Nonnull
-        public Builder setName(@Nonnull final String name) {
+        public Builder setName(final String name) {
             fileDescProtoBuilder.setName(name);
             return this;
         }
 
-        @Nonnull
-        public Builder setPackage(@Nonnull final String name) {
+        public Builder setPackage(final String name) {
             fileDescProtoBuilder.setPackage(name);
             return this;
         }
 
-        @Nonnull
-        public Builder addTypeIfNeeded(@Nonnull final Type type) {
+        public Builder addTypeIfNeeded(final Type type) {
             final Type canonicalType = canonicalizeNullability(type);
             if (!typeToNameMap.containsKey(canonicalType)) {
                 type.defineProtoType(this);
@@ -503,26 +476,22 @@ public class TypeRepository {
             return this;
         }
 
-        @Nonnull
-        public Optional<String> getTypeName(@Nonnull final Type type) {
+        public Optional<String> getTypeName(final Type type) {
             final Type canonicalType = canonicalizeNullability(type);
             return Optional.ofNullable(typeToNameMap.get(canonicalType));
         }
 
-        @Nonnull
-        public Builder addMessageType(@Nonnull final DescriptorProtos.DescriptorProto descriptorProto) {
+        public Builder addMessageType(final DescriptorProtos.DescriptorProto descriptorProto) {
             fileDescProtoBuilder.addMessageType(descriptorProto);
             return this;
         }
 
-        @Nonnull
-        public Builder addEnumType(@Nonnull final DescriptorProtos.EnumDescriptorProto enumDescriptorProto) {
+        public Builder addEnumType(final DescriptorProtos.EnumDescriptorProto enumDescriptorProto) {
             fileDescProtoBuilder.addEnumType(enumDescriptorProto);
             return this;
         }
 
-        @Nonnull
-        public Builder registerTypeToTypeNameMapping(@Nonnull final Type type, @Nonnull final String protoTypeName) {
+        public Builder registerTypeToTypeNameMapping(final Type type, final String protoTypeName) {
             final Type canonicalType = canonicalizeNullability(type);
             final String existingTypeName = typeToNameMap.get(canonicalType);
 
@@ -546,26 +515,22 @@ public class TypeRepository {
             return this;
         }
 
-        @Nonnull
-        public Builder addAllTypes(@Nonnull final Collection<Type> types) {
+        public Builder addAllTypes(final Collection<Type> types) {
             types.forEach(this::addTypeIfNeeded);
             return this;
         }
 
-        @Nonnull
-        public Optional<String> defineAndResolveType(@Nonnull final Type type) {
+        public Optional<String> defineAndResolveType(final Type type) {
             addTypeIfNeeded(type);
             return getTypeName(type);
         }
 
-        @Nonnull
-        public Builder addDependency(@Nonnull final String dependency) {
+        public Builder addDependency(final String dependency) {
             fileDescProtoBuilder.addDependency(dependency);
             return this;
         }
 
-        @Nonnull
-        public Builder addPublicDependency(@Nonnull final String dependency) {
+        public Builder addPublicDependency(final String dependency) {
             for (int i = 0; i < fileDescProtoBuilder.getDependencyCount(); i++) {
                 if (fileDescProtoBuilder.getDependency(i).equals(dependency)) {
                     fileDescProtoBuilder.addPublicDependency(i);
@@ -577,8 +542,7 @@ public class TypeRepository {
             return this;
         }
 
-        @Nonnull
-        public Builder addSchema(@Nonnull final TypeRepository schema) {
+        public Builder addSchema(final TypeRepository schema) {
             fileDescSetBuilder.mergeFrom(schema.fileDescSet);
             return this;
         }

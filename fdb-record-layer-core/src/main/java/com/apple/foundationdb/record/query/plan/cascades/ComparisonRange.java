@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Verify;
@@ -37,8 +37,8 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -75,7 +75,7 @@ import java.util.stream.Collectors;
  *
  * <p>
  * A {@code ComparisonRange} is an immutable object that provides a variety of methods for producing new range from the
- * current one and some {@link Comparisons.Comparison} objects.
+ * current one and some {@link Comparison} objects.
  * </p>
  */
 @API(API.Status.EXPERIMENTAL)
@@ -104,21 +104,21 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
     }
 
     @Nullable
-    private final Comparisons.Comparison equalityComparison;
+    private final Comparison equalityComparison;
     @Nullable
-    private final List<Comparisons.Comparison> inequalityComparisons;
+    private final List<Comparison> inequalityComparisons;
 
     private ComparisonRange() {
         this.equalityComparison = null;
         this.inequalityComparisons = null;
     }
 
-    private ComparisonRange(@Nonnull final Comparisons.Comparison equalityComparison) {
+    private ComparisonRange(final Comparison equalityComparison) {
         this.equalityComparison = equalityComparison;
         this.inequalityComparisons = null;
     }
 
-    private ComparisonRange(@Nonnull final Iterable<Comparisons.Comparison> inequalityComparisons) {
+    private ComparisonRange(final Iterable<Comparison> inequalityComparisons) {
         this.equalityComparison = null;
         this.inequalityComparisons = Lists.newArrayList(inequalityComparisons);
     }
@@ -135,7 +135,6 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
         return equalityComparison == null && inequalityComparisons != null;
     }
 
-    @Nonnull
     public Type getRangeType() {
         if (isEmpty()) {
             return Type.EMPTY;
@@ -146,23 +145,20 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
         }
     }
 
-    @Nonnull
-    public Comparisons.Comparison getEqualityComparison() {
+    public Comparison getEqualityComparison() {
         if (equalityComparison == null) {
             throw new RecordCoreException("tried to get non-existent equality comparison from ComparisonRange");
         }
         return equalityComparison;
     }
 
-    @Nonnull
-    public List<Comparisons.Comparison> getInequalityComparisons() {
+    public List<Comparison> getInequalityComparisons() {
         if (inequalityComparisons == null) {
             throw new RecordCoreException("tried to get non-existent inequality comparisons from ComparisonRange");
         }
         return inequalityComparisons;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
         final var builder = ImmutableSet.<CorrelationIdentifier>builder();
@@ -177,25 +173,23 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    public ComparisonRange rebase(@Nonnull final AliasMap aliasMap) {
+    public ComparisonRange rebase(final AliasMap aliasMap) {
         return translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap), false);
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public ComparisonRange translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public ComparisonRange translateCorrelations(final TranslationMap translationMap,
                                                  final boolean shouldSimplifyValues) {
         final var translatedEqualityComparison =
                 equalityComparison  == null
                 ? null
                 : equalityComparison.translateCorrelations(translationMap, shouldSimplifyValues);
 
-        final List<Comparisons.Comparison> rebasedInequalityComparisons;
+        final List<Comparison> rebasedInequalityComparisons;
         if (inequalityComparisons != null) {
             boolean allRemainedSame = true;
-            final var translatedInequalityComparisonsBuilder = ImmutableList.<Comparisons.Comparison>builder();
+            final var translatedInequalityComparisonsBuilder = ImmutableList.<Comparison>builder();
             for (final var inequalityComparison : inequalityComparisons) {
                 final var translatedInequalityComparison = inequalityComparison.translateCorrelations(translationMap, shouldSimplifyValues);
                 translatedInequalityComparisonsBuilder.add(translatedInequalityComparison);
@@ -225,7 +219,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
+    public boolean semanticEquals(@Nullable final Object other, final AliasMap aliasMap) {
         if (this == other) {
             return true;
         }
@@ -276,7 +270,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
         if (isInequality()) {
             Objects.requireNonNull(inequalityComparisons);
             return inequalityComparisons.stream()
-                    .map(Comparisons.Comparison::semanticHashCode)
+                    .map(Comparison::semanticHashCode)
                     .collect(ImmutableList.toImmutableList())
                     .hashCode();
         }
@@ -285,7 +279,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
 
     @SuppressWarnings({"ConstantConditions", "java:S2447"})
     @SpotBugsSuppressWarnings("NP_BOOLEAN_RETURN_NULL")
-    public <M extends Message> Boolean eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final Object value) {
+    public <M extends Message> Boolean eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context, @Nullable final Object value) {
         if (value == null) {
             return null;
         }
@@ -294,7 +288,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
             return equalityComparison.eval(store, context, value);
         }
         if (isInequality()) {
-            for (final Comparisons.Comparison inequalityComparison : inequalityComparisons) {
+            for (final Comparison inequalityComparison : inequalityComparisons) {
                 final Boolean comparisonResult = inequalityComparison.eval(store, context, value);
                 if (comparisonResult == null) {
                     return null;
@@ -310,11 +304,10 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, equalityComparison, inequalityComparisons);
     }
 
-    @Nonnull
     public ScanComparisons toScanComparisons() {
         if (isEmpty()) {
             return ScanComparisons.EMPTY;
@@ -328,7 +321,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
     }
 
     /**
-     * Merge a collection of {@link Comparisons.Comparison} into a single {@link ComparisonRange} if possible.
+     * Merge a collection of {@link Comparison} into a single {@link ComparisonRange} if possible.
      * Given a set of comparisons, it's not always possible to construct a single {@link ComparisonRange} that
      * covers everything, so this returns a {@link MergeResult} with a comparison range that covers
      * as many of the comparisons as possible, and then any un-mergeable comparisons are returned as residuals.
@@ -337,9 +330,9 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
      * @return a {@link MergeResult} covering all the given comparisons
      */
     @API(API.Status.INTERNAL)
-    public static MergeResult mergeAll(@Nonnull Collection<? extends Comparisons.Comparison> comparisons) {
+    public static MergeResult mergeAll(Collection<? extends Comparison> comparisons) {
         MergeResult mergeResult = MergeResult.empty();
-        for (final Comparisons.Comparison comparison : comparisons) {
+        for (final Comparison comparison : comparisons) {
             mergeResult = mergeResult.merge(comparison);
         }
         return mergeResult;
@@ -354,8 +347,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
      * @return {@link MergeResult} of {@code this}, potentially with {@code comparison} as a residual.
      */
     @API(API.Status.INTERNAL)
-    @Nonnull
-    public MergeResult merge(@Nonnull final Comparisons.Comparison comparison) {
+    public MergeResult merge(final Comparison comparison) {
         final ScanComparisons.ComparisonType comparisonType = ScanComparisons.getComparisonType(comparison);
         if (comparisonType == ScanComparisons.ComparisonType.NONE) {
             return MergeResult.of(this, comparison);
@@ -384,7 +376,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
                         return MergeResult.of(this);
                     } else {
                         return MergeResult.of(
-                                new ComparisonRange(ImmutableList.<Comparisons.Comparison>builder()
+                                new ComparisonRange(ImmutableList.<Comparison>builder()
                                         .addAll(inequalityComparisons)
                                         .add(comparison)
                                         .build()));
@@ -399,16 +391,15 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
     }
 
     @API(API.Status.INTERNAL)
-    @Nonnull
-    public MergeResult merge(@Nonnull ComparisonRange comparisonRange) {
+    public MergeResult merge(ComparisonRange comparisonRange) {
         return switch (comparisonRange.getRangeType()) {
             case EMPTY -> MergeResult.of(this);
             case EQUALITY -> merge(comparisonRange.getEqualityComparison());
             case INEQUALITY -> {
-                final List<Comparisons.Comparison> comparisons = comparisonRange.getInequalityComparisons();
+                final List<Comparison> comparisons = comparisonRange.getInequalityComparisons();
                 ComparisonRange resultRange = this;
-                final ImmutableList.Builder<Comparisons.Comparison> residualPredicatesBuilder = ImmutableList.builder();
-                for (final Comparisons.Comparison comparison : comparisons) {
+                final ImmutableList.Builder<Comparison> residualPredicatesBuilder = ImmutableList.builder();
+                for (final Comparison comparison : comparisons) {
                     MergeResult mergeResult = resultRange.merge(comparison);
                     resultRange = mergeResult.getComparisonRange();
                     residualPredicatesBuilder.addAll(mergeResult.getResidualComparisons());
@@ -425,7 +416,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
             return getEqualityComparison().toString();
         } else if (isInequality()) {
             Objects.requireNonNull(inequalityComparisons);
-            return inequalityComparisons.stream().map(Comparisons.Comparison::toString)
+            return inequalityComparisons.stream().map(Comparison::toString)
                             .collect(Collectors.joining(" && ", "[", "]"));
         } else {
             return "[]";
@@ -444,8 +435,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
         return semanticHashCode();
     }
 
-    @Nonnull
-    public static ComparisonRange from(@Nonnull final Comparisons.Comparison comparison) {
+    public static ComparisonRange from(final Comparison comparison) {
         final var result = tryFrom(comparison);
         if (result == null) {
             throw new RecordCoreException("unexpected comparison type");
@@ -454,7 +444,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
     }
 
     @Nullable
-    public static ComparisonRange tryFrom(@Nonnull final Comparisons.Comparison comparison) {
+    public static ComparisonRange tryFrom(final Comparison comparison) {
         switch (ScanComparisons.getComparisonType(comparison)) {
             case EQUALITY:
                 return new ComparisonRange(comparison);
@@ -466,8 +456,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
         }
     }
 
-    @Nonnull
-    public static ComparisonRange fromInequalities(@Nonnull Iterable<Comparisons.Comparison> comparisons) {
+    public static ComparisonRange fromInequalities(Iterable<Comparison> comparisons) {
         Verify.verify(Streams.stream(comparisons)
                 .allMatch(comparison -> ScanComparisons.getComparisonType(comparison) == ScanComparisons.ComparisonType.INEQUALITY));
         return new ComparisonRange(comparisons);
@@ -476,7 +465,7 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
     /**
      * Class to represent the outcome of merging multiple comparison ranges together. It exists so that if
      * we start with a collection of {@link ComparisonRange}s representing various comparisons, we can consolidate
-     * those into a single range by repeatedly calling {@link #merge(Comparisons.Comparison)}. The result will
+     * those into a single range by repeatedly calling {@link #merge(Comparison)}. The result will
      * then contain:
      *
      * <ul>
@@ -488,20 +477,17 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
      * Multiple comparisons can be combined using {@link ComparisonRange#mergeAll(Collection)}.
      * </p>
      *
-     * @see ComparisonRange#merge(Comparisons.Comparison)
+     * @see ComparisonRange#merge(Comparison)
      * @see ComparisonRange#mergeAll(Collection)
      */
     public static class MergeResult {
-        @Nonnull
         private static final MergeResult EMPTY = new MergeResult(ComparisonRange.EMPTY, ImmutableList.of());
 
-        @Nonnull
         private final ComparisonRange comparisonRange;
-        @Nonnull
-        private final List<Comparisons.Comparison> residualComparisons;
+        private final List<Comparison> residualComparisons;
 
-        private MergeResult(@Nonnull final ComparisonRange comparisonRange,
-                            @Nonnull final List<Comparisons.Comparison> residualComparison) {
+        private MergeResult(final ComparisonRange comparisonRange,
+                            final List<Comparison> residualComparison) {
             this.comparisonRange = comparisonRange;
             this.residualComparisons = ImmutableList.copyOf(residualComparison);
         }
@@ -516,10 +502,9 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
          *
          * @param comparison a new comparison to merge in
          * @return a new {@code MergeResult} spanning both this object's comparisons and the new comparison
-         * @see ComparisonRange#merge(Comparisons.Comparison) for merging a single comparison into a comparison range
+         * @see ComparisonRange#merge(Comparison) for merging a single comparison into a comparison range
          */
-        @Nonnull
-        public MergeResult merge(@Nonnull Comparisons.Comparison comparison) {
+        public MergeResult merge(Comparison comparison) {
             // Construct a new merge result that merges in the comparison to this object's comparison range if possible
             final MergeResult rangeMergeResult = comparisonRange.merge(comparison);
 
@@ -531,11 +516,11 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
                 return rangeMergeResult;
             } else {
                 final ComparisonRange newComparisonRange = rangeMergeResult.getComparisonRange();
-                final List<Comparisons.Comparison> newResidualComparisons;
+                final List<Comparison> newResidualComparisons;
                 if (rangeMergeResult.getResidualComparisons().isEmpty()) {
                     newResidualComparisons = residualComparisons;
                 } else {
-                    newResidualComparisons = ImmutableList.<Comparisons.Comparison>builderWithExpectedSize(residualComparisons.size() + rangeMergeResult.getResidualComparisons().size())
+                    newResidualComparisons = ImmutableList.<Comparison>builderWithExpectedSize(residualComparisons.size() + rangeMergeResult.getResidualComparisons().size())
                             .addAll(residualComparisons)
                             .addAll(rangeMergeResult.getResidualComparisons())
                             .build();
@@ -549,40 +534,34 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
          *
          * @return a single {@link ComparisonRange}
          */
-        @Nonnull
         public ComparisonRange getComparisonRange() {
             return comparisonRange;
         }
 
         /**
-         * A list of {@link Comparisons.Comparison}s that could not be pushed into the {@linkplain #getComparisonRange() comparison range}.
+         * A list of {@link Comparison}s that could not be pushed into the {@linkplain #getComparisonRange() comparison range}.
          *
          * @return a list of residual comparisons
          */
-        @Nonnull
-        public List<Comparisons.Comparison> getResidualComparisons() {
+        public List<Comparison> getResidualComparisons() {
             return residualComparisons;
         }
 
-        @Nonnull
         public static MergeResult empty() {
             return MergeResult.EMPTY;
         }
 
-        @Nonnull
-        public static MergeResult of(@Nonnull final ComparisonRange comparisonRange) {
+        public static MergeResult of(final ComparisonRange comparisonRange) {
             return of(comparisonRange, ImmutableList.of());
         }
 
-        @Nonnull
-        public static MergeResult of(@Nonnull final ComparisonRange comparisonRange,
-                                     @Nonnull final Comparisons.Comparison residualComparison) {
+        public static MergeResult of(final ComparisonRange comparisonRange,
+                                     final Comparison residualComparison) {
             return new MergeResult(comparisonRange, ImmutableList.of(residualComparison));
         }
 
-        @Nonnull
-        public static MergeResult of(@Nonnull final ComparisonRange comparisonRange,
-                                     @Nonnull final List<Comparisons.Comparison> residualComparisons) {
+        public static MergeResult of(final ComparisonRange comparisonRange,
+                                     final List<Comparison> residualComparisons) {
             if (comparisonRange.isEmpty() && residualComparisons.isEmpty()) {
                 return empty();
             }

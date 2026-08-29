@@ -52,7 +52,6 @@ import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -73,20 +72,17 @@ public class Quantifiers {
         // prevent instantiation
     }
 
-    @Nonnull
-    public static Set<CorrelationIdentifier> aliases(@Nonnull final Iterable<? extends Quantifier> quantifiers) {
+    public static Set<CorrelationIdentifier> aliases(final Iterable<? extends Quantifier> quantifiers) {
         return DependencyUtils.computeAliases(quantifiers, Quantifier::getAlias);
     }
 
-    @Nonnull
-    public static List<? extends Reference> rangesOver(@Nonnull final Iterable<? extends Quantifier> quantifiers) {
+    public static List<? extends Reference> rangesOver(final Iterable<? extends Quantifier> quantifiers) {
         return StreamSupport.stream(quantifiers.spliterator(), false)
                 .map(Quantifier::getRangesOver)
                 .collect(ImmutableList.toImmutableList());
     }
 
-    @Nonnull
-    public static Map<CorrelationIdentifier, Quantifier> aliasToQuantifierMap(@Nonnull final Iterable<? extends Quantifier> quantifiers) {
+    public static Map<CorrelationIdentifier, Quantifier> aliasToQuantifierMap(final Iterable<? extends Quantifier> quantifiers) {
         return DependencyUtils.computeAliasToElementMap(quantifiers, Quantifier::getAlias);
     }
 
@@ -95,8 +91,7 @@ public class Quantifiers {
      * @param rangesOverExpressions iterable {@link Reference}s of {@link RelationalExpression}s
      * @return a list of for-each quantifiers where each quantifier ranges over one of the given references
      */
-    @Nonnull
-    public static List<ForEach> forEachQuantifiers(@Nonnull final Iterable<Reference> rangesOverExpressions) {
+    public static List<ForEach> forEachQuantifiers(final Iterable<Reference> rangesOverExpressions) {
         return fromExpressions(rangesOverExpressions, Quantifier::forEach);
     }
 
@@ -105,8 +100,7 @@ public class Quantifiers {
      * @param rangesOverPlans iterable {@link Reference}s of of {@link RelationalExpression}s.
      * @return a list of physical quantifiers where each quantifier ranges over one of the given references
      */
-    @Nonnull
-    public static List<Existential> existentialQuantifiers(@Nonnull final Iterable<Reference> rangesOverPlans) {
+    public static List<Existential> existentialQuantifiers(final Iterable<Reference> rangesOverPlans) {
         return fromExpressions(rangesOverPlans, Quantifier::existential);
     }
 
@@ -115,8 +109,7 @@ public class Quantifiers {
      * @param rangesOverPlans iterable {@link Reference}s of {@link RecordQueryPlan}
      * @return a list of physical quantifiers where each quantifier ranges over a reference contained in the given iterable
      */
-    @Nonnull
-    public static List<Physical> fromPlans(@Nonnull final Iterable<? extends Reference> rangesOverPlans) {
+    public static List<Physical> fromPlans(final Iterable<? extends Reference> rangesOverPlans) {
         return fromExpressions(rangesOverPlans, Quantifier::physical);
     }
 
@@ -129,9 +122,8 @@ public class Quantifiers {
      * @param <Q> the type of the quantifier to be created
      * @return a list of quantifiers where each quantifier ranges over an reference contained in the given iterable
      */
-    @Nonnull
-    public static <Q extends Quantifier> List<Q> fromExpressions(@Nonnull final Iterable<? extends Reference> rangesOverExpressions,
-                                                                 @Nonnull final Function<Reference, Q> creator) {
+    public static <Q extends Quantifier> List<Q> fromExpressions(final Iterable<? extends Reference> rangesOverExpressions,
+                                                                 final Function<Reference, Q> creator) {
         return StreamSupport
                 .stream(rangesOverExpressions.spliterator(), false)
                 .map(creator)
@@ -145,8 +137,7 @@ public class Quantifiers {
      * @param to quantifier
      * @return a new translation map mapping from {@code from.getAlias()} to {@code to.getAlias()}
      */
-    @Nonnull
-    public static AliasMap translate(@Nonnull final Quantifier from, @Nonnull final Quantifier to) {
+    public static AliasMap translate(final Quantifier from, final Quantifier to) {
         return AliasMap.ofAliases(from.getAlias(), to.getAlias());
     }
 
@@ -156,8 +147,7 @@ public class Quantifiers {
      * @param map quantifier to quantifier bi-map
      * @return a new {@link AliasMap} mapping from {@code from.getAlias()} to {@code to.getAlias()}
      */
-    @Nonnull
-    public static AliasMap toAliasMap(@Nonnull final BiMap<Quantifier, Quantifier> map) {
+    public static AliasMap toAliasMap(final BiMap<Quantifier, Quantifier> map) {
         return AliasMap.copyOf(map.entrySet()
                 .stream()
                 .collect(ImmutableBiMap.toImmutableBiMap(entry -> entry.getKey().getAlias(),
@@ -169,8 +159,7 @@ public class Quantifiers {
      * @param quantifiers collection of quantifiers
      * @return a new {@link BiMap} mapping from {@code q.getAlias()} to {@code q} for every {@code q} in {@code quantifiers}
      */
-    @Nonnull
-    public static BiMap<CorrelationIdentifier, Quantifier> toBiMap(@Nonnull final Collection<? extends Quantifier> quantifiers) {
+    public static BiMap<CorrelationIdentifier, Quantifier> toBiMap(final Collection<? extends Quantifier> quantifiers) {
         return quantifiers
                 .stream()
                 .collect(ImmutableBiMap
@@ -178,29 +167,25 @@ public class Quantifiers {
                                 Function.identity()));
     }
 
-    @Nonnull
-    public static <Q extends Quantifier> List<Q> narrow(@Nonnull Class<Q> narrowedClass,
-                                                        @Nonnull final List<? extends Quantifier> quantifiers) {
+    public static <Q extends Quantifier> List<Q> narrow(Class<Q> narrowedClass,
+                                                        final List<? extends Quantifier> quantifiers) {
         return quantifiers.stream()
                 .map(narrowedClass::cast)
                 .collect(Collectors.toList());
     }
 
-    @Nonnull
-    public static <Q extends Quantifier> Set<Q> narrow(@Nonnull Class<Q> narrowedClass,
-                                                       @Nonnull final Set<? extends Quantifier> quantifiers) {
+    public static <Q extends Quantifier> Set<Q> narrow(Class<Q> narrowedClass,
+                                                       final Set<? extends Quantifier> quantifiers) {
         return quantifiers.stream()
                 .map(narrowedClass::cast)
                 .collect(Collectors.toSet());
     }
 
-    @Nonnull
-    public static SetMultimap<CorrelationIdentifier, CorrelationIdentifier> computeDependsOnMap(@Nonnull Iterable<? extends Quantifier> quantifiers) {
+    public static SetMultimap<CorrelationIdentifier, CorrelationIdentifier> computeDependsOnMap(Iterable<? extends Quantifier> quantifiers) {
         return computeDependsOnMap(quantifiers, aliasToQuantifierMap(quantifiers));
     }
 
-    @Nonnull
-    public static SetMultimap<CorrelationIdentifier, CorrelationIdentifier> computeDependsOnMap(@Nonnull Iterable<? extends Quantifier> quantifiers, @Nonnull Map<CorrelationIdentifier, Quantifier> aliasToQuantifierMap) {
+    public static SetMultimap<CorrelationIdentifier, CorrelationIdentifier> computeDependsOnMap(Iterable<? extends Quantifier> quantifiers, Map<CorrelationIdentifier, Quantifier> aliasToQuantifierMap) {
         return DependencyUtils.computeDependsOnMapWithAliases(aliasToQuantifierMap.keySet(), aliasToQuantifierMap, Quantifier::getCorrelatedTo);
     }
 
@@ -222,11 +207,10 @@ public class Quantifiers {
      *         the quantifiers in {@code otherQuantifiers}. Note that the mapping is bijective and can therefore be inverted
      */
     @SuppressWarnings("squid:S135")
-    @Nonnull
-    public static Iterable<AliasMap> findMatches(@Nonnull final AliasMap boundAliasesMap,
-                                                 @Nonnull final Collection<? extends Quantifier> quantifiers,
-                                                 @Nonnull final Collection<? extends Quantifier> otherQuantifiers,
-                                                 @Nonnull final MatchPredicate<Quantifier> matchPredicate) {
+    public static Iterable<AliasMap> findMatches(final AliasMap boundAliasesMap,
+                                                 final Collection<? extends Quantifier> quantifiers,
+                                                 final Collection<? extends Quantifier> otherQuantifiers,
+                                                 final MatchPredicate<Quantifier> matchPredicate) {
         // quantifiers must be equal on kind
         final MatchPredicate<Quantifier> quantifierMatchPredicate =
                 (quantifier, otherQuantifier, eM) -> quantifier.semanticEqualsWithoutChildren(otherQuantifier);
@@ -267,11 +251,10 @@ public class Quantifiers {
      * @param matchPredicate that tests if two quantifiers and their graph they range over can be considered equivalent
      * @return a new predicated matcher
      */
-    @Nonnull
-    private static PredicatedMatcher predicatedMatcher(@Nonnull final AliasMap boundAliasesMap,
-                                                       @Nonnull final Collection<? extends Quantifier> quantifiers,
-                                                       @Nonnull final Collection<? extends Quantifier> otherQuantifiers,
-                                                       @Nonnull final MatchPredicate<Quantifier> matchPredicate) {
+    private static PredicatedMatcher predicatedMatcher(final AliasMap boundAliasesMap,
+                                                       final Collection<? extends Quantifier> quantifiers,
+                                                       final Collection<? extends Quantifier> otherQuantifiers,
+                                                       final MatchPredicate<Quantifier> matchPredicate) {
         return FindingMatcher.onAliasDependencies(
                 boundAliasesMap,
                 quantifiers,
@@ -320,11 +303,10 @@ public class Quantifiers {
      *         all individual matches that were computed between during the matching of individual quantifiers.
      */
     @SuppressWarnings("squid:S135")
-    @Nonnull
-    public static <M> Iterable<BoundMatch<EnumeratingIterable<M>>> match(@Nonnull final AliasMap boundAliasesMap,
-                                                                         @Nonnull final Collection<? extends Quantifier> quantifiers,
-                                                                         @Nonnull final Collection<? extends Quantifier> otherQuantifiers,
-                                                                         @Nonnull final MatchFunction<Quantifier, M> matchFunction) {
+    public static <M> Iterable<BoundMatch<EnumeratingIterable<M>>> match(final AliasMap boundAliasesMap,
+                                                                         final Collection<? extends Quantifier> quantifiers,
+                                                                         final Collection<? extends Quantifier> otherQuantifiers,
+                                                                         final MatchFunction<Quantifier, M> matchFunction) {
         return genericMatcher(
                 boundAliasesMap,
                 quantifiers,
@@ -366,11 +348,10 @@ public class Quantifiers {
      * @param <M> type that the match function {@code matchFunction} produces
      * @return a new generic matcher
      */
-    @Nonnull
-    public static <M> GenericMatcher<BoundMatch<EnumeratingIterable<M>>> genericMatcher(@Nonnull final AliasMap boundAliasesMap,
-                                                                                        @Nonnull final Collection<? extends Quantifier> quantifiers,
-                                                                                        @Nonnull final Collection<? extends Quantifier> otherQuantifiers,
-                                                                                        @Nonnull final MatchFunction<Quantifier, M> matchFunction) {
+    public static <M> GenericMatcher<BoundMatch<EnumeratingIterable<M>>> genericMatcher(final AliasMap boundAliasesMap,
+                                                                                        final Collection<? extends Quantifier> quantifiers,
+                                                                                        final Collection<? extends Quantifier> otherQuantifiers,
+                                                                                        final MatchFunction<Quantifier, M> matchFunction) {
         return ComputingMatcher.onAliasDependencies(
                 boundAliasesMap,
                 quantifiers,
@@ -422,12 +403,11 @@ public class Quantifiers {
      * @return an {@link Iterable} of possible {@link AliasMap}s where each such map contains a set of compatible bindings
      *         over all quantifiers.
      */
-    @Nonnull
-    public static Iterable<AliasMap> enumerateConstraintAliases(@Nonnull final AliasMap aliasMap,
-                                                                @Nonnull final List<? extends Quantifier> quantifiers,
-                                                                @Nonnull final Function<Quantifier, Collection<AliasMap>> constraintsFunction,
-                                                                @Nonnull final Set<CorrelationIdentifier> eligibleAliases,
-                                                                @Nonnull final Set<CorrelationIdentifier> otherEligibleAliases) {
+    public static Iterable<AliasMap> enumerateConstraintAliases(final AliasMap aliasMap,
+                                                                final List<? extends Quantifier> quantifiers,
+                                                                final Function<Quantifier, Collection<AliasMap>> constraintsFunction,
+                                                                final Set<CorrelationIdentifier> eligibleAliases,
+                                                                final Set<CorrelationIdentifier> otherEligibleAliases) {
         // return aliasMap if quantifiers is empty -- this is the default-on-empty case
         if (quantifiers.isEmpty()) {
             return ImmutableList.of(aliasMap);
@@ -475,7 +455,7 @@ public class Quantifiers {
         };
     }
 
-    public static boolean isReversed(@Nonnull List<Physical> quantifiers) {
+    public static boolean isReversed(List<Physical> quantifiers) {
         return quantifiers
                 .stream()
                 .map(Physical::getRangesOver)
@@ -489,8 +469,7 @@ public class Quantifiers {
                 .orElseThrow(() -> new RecordCoreException("unable to determine reversed-ness"));
     }
 
-    @Nonnull
-    public static List<? extends Quantifier> anyTopologicalOrderPermutation(@Nonnull List<? extends Quantifier> quantifiers) {
+    public static List<? extends Quantifier> anyTopologicalOrderPermutation(List<? extends Quantifier> quantifiers) {
         final var aliasToQuantifierMap =
                 quantifiers.stream()
                         .collect(ImmutableMap.toImmutableMap(Quantifier::getAlias, Function.identity()));
@@ -511,11 +490,10 @@ public class Quantifiers {
                 .collect(ImmutableList.toImmutableList());
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public static List<? extends Quantifier> rebaseGraphs(@Nonnull final List<? extends Quantifier> quantifiers,
-                                                          @Nonnull final Memoizer memoizer,
-                                                          @Nonnull final TranslationMap translationMap,
+    public static List<? extends Quantifier> rebaseGraphs(final List<? extends Quantifier> quantifiers,
+                                                          final Memoizer memoizer,
+                                                          final TranslationMap translationMap,
                                                           final boolean shouldSimplifyValues) {
         final List<? extends Reference> oldReferences = rangesOver(quantifiers);
         final List<? extends Reference> newReferences = References.rebaseGraphs(oldReferences, memoizer, translationMap, shouldSimplifyValues);
@@ -530,8 +508,7 @@ public class Quantifiers {
         }).collect(ImmutableList.toImmutableList());
     }
 
-    @Nonnull
-    public static Type getFlowedTypeForSetOperation(@Nonnull final Iterable<? extends Quantifier> quantifiers) {
+    public static Type getFlowedTypeForSetOperation(final Iterable<? extends Quantifier> quantifiers) {
         return Streams.stream(quantifiers)
                 .findFirst()
                 .map(Quantifier::getFlowedObjectType)
@@ -542,15 +519,14 @@ public class Quantifiers {
      * Resolver to resolve aliases to quantifiers.
      */
     public static class AliasResolver {
-        @Nonnull
         private final Traversal traversal;
 
-        public AliasResolver(@Nonnull final Traversal traversal) {
+        public AliasResolver(final Traversal traversal) {
             this.traversal = traversal;
         }
 
-        public Set<Quantifier> resolveCorrelationAlias(@Nonnull RelationalExpression expression,
-                                                       @Nonnull final CorrelationIdentifier alias) {
+        public Set<Quantifier> resolveCorrelationAlias(RelationalExpression expression,
+                                                       final CorrelationIdentifier alias) {
             final Set<Reference> refsContaining = traversal.getRefsContaining(expression);
             final Set<Quantifier> resolvedQuantifiers = Sets.newIdentityHashSet();
 
@@ -561,17 +537,17 @@ public class Quantifiers {
             return resolvedQuantifiers;
         }
 
-        public Set<Quantifier> resolveCorrelationAlias(@Nonnull Reference reference,
-                                                       @Nonnull final CorrelationIdentifier alias) {
+        public Set<Quantifier> resolveCorrelationAlias(Reference reference,
+                                                       final CorrelationIdentifier alias) {
 
             final Set<Quantifier> resolvedQuantifiers = Sets.newIdentityHashSet();
             resolveCorrelationAlias(reference, alias, resolvedQuantifiers);
             return resolvedQuantifiers;
         }
 
-        private void resolveCorrelationAlias(@Nonnull Reference reference,
-                                             @Nonnull final CorrelationIdentifier alias,
-                                             @Nonnull Set<Quantifier> resolvedQuantifiers) {
+        private void resolveCorrelationAlias(Reference reference,
+                                             final CorrelationIdentifier alias,
+                                             Set<Quantifier> resolvedQuantifiers) {
             final Set<Traversal.ReferencePath> referencePaths = traversal.getParentRefPaths(reference);
 
             for (final Traversal.ReferencePath referencePath : referencePaths) {
@@ -588,7 +564,7 @@ public class Quantifiers {
             }
         }
 
-        public static AliasResolver withRoot(@Nonnull final Reference rootRef) {
+        public static AliasResolver withRoot(final Reference rootRef) {
             return new AliasResolver(Traversal.withRoot(rootRef));
         }
     }

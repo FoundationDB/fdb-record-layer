@@ -44,8 +44,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -55,12 +55,10 @@ import java.util.Set;
  * class {@link KeyExpressionExpansionVisitor}, this class merely provides a specific {@link #expand} method.
  */
 public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
-    @Nonnull
     private final Index index;
-    @Nonnull
     private final List<RecordType> recordTypes;
 
-    public WindowedIndexExpansionVisitor(@Nonnull Index index, @Nonnull Collection<RecordType> recordTypes) {
+    public WindowedIndexExpansionVisitor(Index index, Collection<RecordType> recordTypes) {
         Preconditions.checkArgument(IndexTypes.RANK.equals(index.getType()));
         this.index = index;
         this.recordTypes = ImmutableList.copyOf(recordTypes);
@@ -93,9 +91,8 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
      * @param isReverse an indicator whether the result set is expected to be returned in reverse order
      * @return a match candidate for this rank index
      */
-    @Nonnull
     @Override
-    public MatchCandidate expand(@Nonnull final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
+    public MatchCandidate expand(final Supplier<Quantifier.ForEach> baseQuantifierSupplier,
                                  @Nullable final KeyExpression primaryKey,
                                  final boolean isReverse) {
         var rootExpression = index.getRootExpression();
@@ -190,21 +187,19 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
     }
 
     @Override
-    @Nonnull
-    public MatchCandidate expand(@Nonnull final Set<String> availableRecordTypeNames,
-                                 @Nonnull final Set<String> queriedRecordTypeNames,
-                                 @Nonnull final Type.Record baseType,
-                                 @Nonnull final AccessHint accessHint,
+    public MatchCandidate expand(final Set<String> availableRecordTypeNames,
+                                 final Set<String> queriedRecordTypeNames,
+                                 final Type.Record baseType,
+                                 final AccessHint accessHint,
                                  @Nullable final KeyExpression ignored,
                                  final boolean isReverse) {
         throw new UnsupportedOperationException("windowed index expansion only works with a type filter supplier");
     }
 
-    @Nonnull
-    private List<Value> computeIndexKeyValues(@Nonnull CorrelationIdentifier baseAlias,
-                                              @Nonnull CorrelationIdentifier innerBaseAlias,
-                                              @Nonnull final List<Value> groupingAndArgumentValues,
-                                              @Nonnull final List<Value> primaryKeyValues) {
+    private List<Value> computeIndexKeyValues(CorrelationIdentifier baseAlias,
+                                              CorrelationIdentifier innerBaseAlias,
+                                              final List<Value> groupingAndArgumentValues,
+                                              final List<Value> primaryKeyValues) {
         final var rebasedGroupingAndArgumentValues =
                 groupingAndArgumentValues
                         .stream()
@@ -216,12 +211,11 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                 .build();
     }
 
-    @Nonnull
-    private GraphExpansion duplicateSimpleGroupingPlaceholders(@Nonnull final CorrelationIdentifier baseAlias,
-                                                               @Nonnull final CorrelationIdentifier innerBaseAlias,
-                                                               @Nonnull final GroupingKeyExpression groupingKeyExpression,
-                                                               @Nonnull final List<Placeholder> groupingsAndArgumentsPlaceholders,
-                                                               @Nonnull final SelectExpression rankSelectExpression) {
+    private GraphExpansion duplicateSimpleGroupingPlaceholders(final CorrelationIdentifier baseAlias,
+                                                               final CorrelationIdentifier innerBaseAlias,
+                                                               final GroupingKeyExpression groupingKeyExpression,
+                                                               final List<Placeholder> groupingsAndArgumentsPlaceholders,
+                                                               final SelectExpression rankSelectExpression) {
         final var expansions = Lists.<GraphExpansion>newArrayList();
 
         //
@@ -266,11 +260,10 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         return GraphExpansion.ofOthers(expansions);
     }
 
-    @Nonnull
-    private ExpandGroupingsAndArgumentsResults expandGroupingsAndArguments(@Nonnull final Quantifier.ForEach baseQuantifier,
-                                                                           @Nonnull final Quantifier.ForEach innerBaseQuantifier,
-                                                                           @Nonnull final GroupingKeyExpression groupingKeyExpression,
-                                                                           @Nonnull final List<Value> groupingAndArgumentValues) {
+    private ExpandGroupingsAndArgumentsResults expandGroupingsAndArguments(final Quantifier.ForEach baseQuantifier,
+                                                                           final Quantifier.ForEach innerBaseQuantifier,
+                                                                           final GroupingKeyExpression groupingKeyExpression,
+                                                                           final List<Value> groupingAndArgumentValues) {
         final var wholeKeyExpression = groupingKeyExpression.getWholeKey();
 
         final VisitorState initialState =
@@ -320,41 +313,33 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
     }
 
     private static class ExpandGroupingsAndArgumentsResults {
-        @Nonnull
         private final GraphExpansion expansion;
-        @Nonnull
         private final CorrelationIdentifier rankAlias;
-        @Nonnull
         private final List<CorrelationIdentifier> groupingsAndArgumentsAliases;
-        @Nonnull
         private final List<Placeholder> groupingsAndArgumentsPlaceholders;
 
-        public ExpandGroupingsAndArgumentsResults(@Nonnull final GraphExpansion expansion,
-                                                  @Nonnull final CorrelationIdentifier rankAlias,
-                                                  @Nonnull final List<CorrelationIdentifier> groupingsAndArgumentsAliases,
-                                                  @Nonnull final List<Placeholder> groupingsAndArgumentsPlaceholders) {
+        public ExpandGroupingsAndArgumentsResults(final GraphExpansion expansion,
+                                                  final CorrelationIdentifier rankAlias,
+                                                  final List<CorrelationIdentifier> groupingsAndArgumentsAliases,
+                                                  final List<Placeholder> groupingsAndArgumentsPlaceholders) {
             this.expansion = expansion;
             this.rankAlias = rankAlias;
             this.groupingsAndArgumentsAliases = groupingsAndArgumentsAliases;
             this.groupingsAndArgumentsPlaceholders = groupingsAndArgumentsPlaceholders;
         }
 
-        @Nonnull
         public GraphExpansion getExpansion() {
             return expansion;
         }
 
-        @Nonnull
         public CorrelationIdentifier getRankAlias() {
             return rankAlias;
         }
 
-        @Nonnull
         public List<CorrelationIdentifier> getGroupingsAndArgumentsAliases() {
             return groupingsAndArgumentsAliases;
         }
 
-        @Nonnull
         public List<Placeholder> getGroupingsAndArgumentsPlaceholders() {
             return groupingsAndArgumentsPlaceholders;
         }

@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 /**
@@ -42,7 +41,6 @@ public interface PlannerRule<C extends PlannerRuleCall, T> {
      * @return the class of the root of this rule's binding, or <code>Optional.empty()</code> if the rule matches anything
      * @see PlanningRuleSet
      */
-    @Nonnull
     Optional<Class<?>> getRootOperator();
 
     /**
@@ -50,9 +48,8 @@ public interface PlannerRule<C extends PlannerRuleCall, T> {
      *
      * @param call the rule call, providing access to the planner context and the matched bindings
      */
-    void onMatch(@Nonnull C call);
+    void onMatch(C call);
 
-    @Nonnull
     BindingMatcher<T> getMatcher();
 
     /**

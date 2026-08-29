@@ -24,8 +24,8 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PPlannerPhase;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -38,24 +38,21 @@ public enum PlannerPhase {
     PLANNING(PlanningRuleSet.getDefault(), PlannerStage.PLANNED, PlanningCostModel::new),
     REWRITING(RewritingRuleSet.getDefault(), PlannerStage.CANONICAL, RewritingCostModel::new, PLANNING);
 
-    @Nonnull
     private final CascadesRuleSet ruleSet;
-    @Nonnull
     private final PlannerStage targetStage;
-    @Nonnull
     private final Function<RecordQueryPlannerConfiguration, CascadesCostModel> costModelCreator;
     @Nullable
     private final PlannerPhase nextPhase;
 
-    PlannerPhase(@Nonnull final CascadesRuleSet ruleSet,
-                 @Nonnull final PlannerStage targetStage,
-                 @Nonnull final Function<RecordQueryPlannerConfiguration, CascadesCostModel> costModelCreator) {
+    PlannerPhase(final CascadesRuleSet ruleSet,
+                 final PlannerStage targetStage,
+                 final Function<RecordQueryPlannerConfiguration, CascadesCostModel> costModelCreator) {
         this(ruleSet, targetStage, costModelCreator, null);
     }
 
-    PlannerPhase(@Nonnull final CascadesRuleSet ruleSet,
-                 @Nonnull final PlannerStage targetStage,
-                 @Nonnull final Function<RecordQueryPlannerConfiguration, CascadesCostModel> costModelCreator,
+    PlannerPhase(final CascadesRuleSet ruleSet,
+                 final PlannerStage targetStage,
+                 final Function<RecordQueryPlannerConfiguration, CascadesCostModel> costModelCreator,
                  @Nullable final PlannerPhase nextPhase) {
         this.ruleSet = ruleSet;
         this.targetStage = targetStage;
@@ -63,22 +60,18 @@ public enum PlannerPhase {
         this.nextPhase = nextPhase;
     }
 
-    @Nonnull
     public CascadesRuleSet getRuleSet() {
         return ruleSet;
     }
 
-    @Nonnull
     public PlannerStage getTargetPlannerStage() {
         return targetStage;
     }
 
-    @Nonnull
-    public CascadesCostModel createCostModel(@Nonnull final RecordQueryPlannerConfiguration configuration) {
+    public CascadesCostModel createCostModel(final RecordQueryPlannerConfiguration configuration) {
         return costModelCreator.apply(configuration);
     }
 
-    @Nonnull
     public PlannerPhase getNextPhase() {
         return Objects.requireNonNull(nextPhase);
     }
@@ -87,7 +80,6 @@ public enum PlannerPhase {
         return nextPhase != null;
     }
 
-    @Nonnull
     public PPlannerPhase toProto() {
         switch (this) {
             case REWRITING:

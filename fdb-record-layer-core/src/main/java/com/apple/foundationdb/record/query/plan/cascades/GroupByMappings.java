@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -36,14 +35,12 @@ public class GroupByMappings {
      * A {@link BiMap} from original query grouping {@link Value} to translated query grouping {@link Value} which is
      * specific to a {@link MatchCandidate}.
      */
-    @Nonnull
     private final BiMap<Value, Value> matchedGroupingsMap;
 
     /**
      * A {@link BiMap} from original query aggregate {@link Value} to translated query aggregate {@link Value} which is
      * specific to a {@link MatchCandidate}.
      */
-    @Nonnull
     private final BiMap<Value, Value> matchedAggregatesMap;
 
     /**
@@ -51,28 +48,24 @@ public class GroupByMappings {
      * is the same id that is used to handle unmatched aggregate functions in
      * {@link com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap#compute(Value, Value, Set, ValueEquivalence, Function)}.
      */
-    @Nonnull
     private final BiMap<CorrelationIdentifier, Value> unmatchedAggregatesMap;
 
-    private GroupByMappings(@Nonnull final BiMap<Value, Value> matchedGroupingsMap,
-                            @Nonnull final BiMap<Value, Value> matchedAggregatesMap,
-                            @Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregatesMap) {
+    private GroupByMappings(final BiMap<Value, Value> matchedGroupingsMap,
+                            final BiMap<Value, Value> matchedAggregatesMap,
+                            final BiMap<CorrelationIdentifier, Value> unmatchedAggregatesMap) {
         this.matchedGroupingsMap = matchedGroupingsMap;
         this.matchedAggregatesMap = matchedAggregatesMap;
         this.unmatchedAggregatesMap = unmatchedAggregatesMap;
     }
 
-    @Nonnull
     public BiMap<Value, Value> getMatchedGroupingsMap() {
         return matchedGroupingsMap;
     }
 
-    @Nonnull
     public BiMap<Value, Value> getMatchedAggregatesMap() {
         return matchedAggregatesMap;
     }
 
-    @Nonnull
     public BiMap<CorrelationIdentifier, Value> getUnmatchedAggregatesMap() {
         return unmatchedAggregatesMap;
     }
@@ -81,10 +74,9 @@ public class GroupByMappings {
         return of(ImmutableBiMap.of(), ImmutableBiMap.of(), ImmutableBiMap.of());
     }
 
-    @Nonnull
-    public static GroupByMappings of(@Nonnull final BiMap<Value, Value> matchedGroupingsMap,
-                                     @Nonnull final BiMap<Value, Value> matchedAggregateMap,
-                                     @Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregatesMap) {
+    public static GroupByMappings of(final BiMap<Value, Value> matchedGroupingsMap,
+                                     final BiMap<Value, Value> matchedAggregateMap,
+                                     final BiMap<CorrelationIdentifier, Value> unmatchedAggregatesMap) {
         return new GroupByMappings(ImmutableBiMap.copyOf(matchedGroupingsMap),
                 ImmutableBiMap.copyOf(matchedAggregateMap),
                 ImmutableBiMap.copyOf(unmatchedAggregatesMap));

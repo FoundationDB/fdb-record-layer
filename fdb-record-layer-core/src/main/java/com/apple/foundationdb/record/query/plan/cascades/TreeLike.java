@@ -27,8 +27,8 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -54,14 +54,12 @@ public interface TreeLike<T extends TreeLike<T>> {
      * unchecked cast.
      * @return {@code this} of type {@code T}.
      */
-    @Nonnull
     T getThis();
 
     /**
      * Method to retrieve a list of children values.
      * @return a list of children
      */
-    @Nonnull
     Iterable<? extends T> getChildren();
 
     /**
@@ -69,19 +67,17 @@ public interface TreeLike<T extends TreeLike<T>> {
      * @param newChildren new children
      * @return a copy of {@code this} using the new children passed in
      */
-    @Nonnull
     T withChildren(Iterable<? extends T> newChildren);
 
     /**
      * Returns an iterator that traverse the nodes in pre-order.
      * @return an iterator that traverse the nodes in pre-order.
      */
-    @Nonnull
     default PreOrderIterator<T> preOrderIterator() {
         return PreOrderIterator.over(getThis());
     }
 
-    default Iterator<T> preOrderIterator(@Nonnull final Predicate<T> descendInChildren) {
+    default Iterator<T> preOrderIterator(final Predicate<T> descendInChildren) {
         return PreOrderIterator.over(getThis()).descendOnlyIf(descendInChildren);
     }
 
@@ -89,7 +85,6 @@ public interface TreeLike<T extends TreeLike<T>> {
      * Returns a {@link Stream} that traverses the nodes in pre-order.
      * @return a {@link Stream} that traverses the nodes in pre-order.
      */
-    @Nonnull
     default Stream<T> preOrderStream() {
         return Streams.stream(preOrderIterator());
     }
@@ -98,7 +93,6 @@ public interface TreeLike<T extends TreeLike<T>> {
      * Method that returns an {@link Iterable} of nodes as encountered in pre-order traversal of this tree-like.
      * @return an {@link Iterable} of nodes
      */
-    @Nonnull
     default Iterable<? extends T> preOrderIterable() {
         return preOrderIterable(treeLike -> true);
     }
@@ -109,8 +103,7 @@ public interface TreeLike<T extends TreeLike<T>> {
      *        current node
      * @return an {@link Iterable} of nodes
      */
-    @Nonnull
-    default Iterable<? extends T> preOrderIterable(@Nonnull final Predicate<T> descentIntoPredicate) {
+    default Iterable<? extends T> preOrderIterable(final Predicate<T> descentIntoPredicate) {
         return () -> preOrderIterator(descentIntoPredicate);
     }
 
@@ -118,7 +111,6 @@ public interface TreeLike<T extends TreeLike<T>> {
      * Returns a {@link Stream} that traverses the nodes in post-order.
      * @return a {@link Stream} that traverses the nodes in post-order.
      */
-    @Nonnull
     default Stream<T> postOrderStream() {
         return Streams.stream(postOrderIterable());
     }
@@ -127,7 +119,6 @@ public interface TreeLike<T extends TreeLike<T>> {
      * Method that returns an {@link Iterable} of nodes as encountered in post-order traversal of this tree-like.
      * @return an {@link Iterable} of nodes
      */
-    @Nonnull
     default Iterable<T> postOrderIterable() {
         final ImmutableList.Builder<Iterable<? extends T>> iterablesBuilder = ImmutableList.builder();
         for (final T child : getChildren()) {
@@ -154,9 +145,8 @@ public interface TreeLike<T extends TreeLike<T>> {
      * @param <F> the type parameter of the result of the folding function
      * @return the fold of the tree rooted at {@code this}
      */
-    @Nonnull
-    default <M, F> F fold(@Nonnull final NonnullFunction<T, M> mapFunction,
-                          @Nonnull final NonnullBiFunction<M, Iterable<? extends F>, F> foldFunction) {
+    default <M, F> F fold(final NonnullFunction<T, M> mapFunction,
+                          final NonnullBiFunction<M, Iterable<? extends F>, F> foldFunction) {
         final M mappedThis = mapFunction.apply(getThis());
         final ImmutableList.Builder<F> foldedChildrenBuilder = ImmutableList.builder();
 
@@ -185,8 +175,8 @@ public interface TreeLike<T extends TreeLike<T>> {
      * @return the fold of the tree rooted at {@code this} if it exists, {@code null} otherwise.
      */
     @Nullable
-    default <M, F> F foldNullable(@Nonnull final Function<T, M> mapFunction,
-                                  @Nonnull final BiFunction<M, Iterable<? extends F>, F> foldFunction) {
+    default <M, F> F foldNullable(final Function<T, M> mapFunction,
+                                  final BiFunction<M, Iterable<? extends F>, F> foldFunction) {
         final M mappedThis = mapFunction.apply(getThis());
         final List<F> foldedChildren = Lists.newArrayList();
 
@@ -208,8 +198,7 @@ public interface TreeLike<T extends TreeLike<T>> {
      * @return an {@link Optional} of a new tree-like object that is result of the tree-map operation if the fold of the
      *         tree rooted at {@code this} exists, {@code Optional.empty()} otherwise
      */
-    @Nonnull
-    default <V extends TreeLike<V>> Optional<V> mapMaybe(@Nonnull final BiFunction<T, Iterable<? extends V>, V> foldFunction) {
+    default <V extends TreeLike<V>> Optional<V> mapMaybe(final BiFunction<T, Iterable<? extends V>, V> foldFunction) {
         return Optional.ofNullable(foldNullable(Function.identity(), foldFunction));
     }
 
@@ -222,8 +211,7 @@ public interface TreeLike<T extends TreeLike<T>> {
      * @return an {@link Optional} of a tree-like object that is the result of the tree-map operation if the fold of the
      *         tree rooted at {@code this} exists, {@code Optional.empty()} otherwise
      */
-    @Nonnull
-    default Optional<T> replaceLeavesMaybe(@Nonnull final UnaryOperator<T> replaceOperator) {
+    default Optional<T> replaceLeavesMaybe(final UnaryOperator<T> replaceOperator) {
         return replaceLeavesMaybe(replaceOperator, false);
     }
 
@@ -238,8 +226,7 @@ public interface TreeLike<T extends TreeLike<T>> {
      *         tree rooted at {@code this} exists, {@code Optional.empty()} otherwise
      */
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    @Nonnull
-    default Optional<T> replaceLeavesMaybe(@Nonnull final UnaryOperator<T> replaceOperator, boolean visitNewLeaves) {
+    default Optional<T> replaceLeavesMaybe(final UnaryOperator<T> replaceOperator, boolean visitNewLeaves) {
         if (visitNewLeaves) {
             return Optional.ofNullable(replace(node -> {
                 if (Iterables.isEmpty(node.getChildren())) {
@@ -278,7 +265,7 @@ public interface TreeLike<T extends TreeLike<T>> {
      */
     @SuppressWarnings("PMD.CompareObjectsWithEquals") // intentional for performance.
     @Nullable
-    default T replace(@Nonnull final UnaryOperator<T> replacementOperator) {
+    default T replace(final UnaryOperator<T> replacementOperator) {
         final var self = getThis();
         final var maybeReplaced = replacementOperator.apply(self);
         if (maybeReplaced == null) {
@@ -409,8 +396,7 @@ public interface TreeLike<T extends TreeLike<T>> {
          * @param t the function argument
          * @return the function result
          */
-        @Nonnull
-        R apply(@Nonnull T t);
+        R apply(T t);
     }
 
     /**
@@ -429,7 +415,6 @@ public interface TreeLike<T extends TreeLike<T>> {
          * @param u the second function argument
          * @return the function result
          */
-        @Nonnull
-        R apply(@Nonnull T t, @Nonnull U u);
+        R apply(T t, U u);
     }
 }

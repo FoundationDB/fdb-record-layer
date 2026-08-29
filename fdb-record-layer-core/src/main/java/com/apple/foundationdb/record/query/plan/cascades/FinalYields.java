@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 
 /**
@@ -36,7 +35,7 @@ public interface FinalYields {
      * final expressions of the current reference.
      * @param plans a set of {@link RecordQueryPlan}s
      */
-    default void yieldPlans(@Nonnull Set<? extends RecordQueryPlan> plans) {
+    default void yieldPlans(Set<? extends RecordQueryPlan> plans) {
         for (final var plan : plans) {
             yieldPlan(plan);
         }
@@ -48,14 +47,14 @@ public interface FinalYields {
      * final expressions of the current reference.
      * @param plan a {@link RecordQueryPlan}s
      */
-    void yieldPlan(@Nonnull RecordQueryPlan plan);
+    void yieldPlan(RecordQueryPlan plan);
 
     /**
      * Yield a set of final expressions. The yielded expressions will be inserted (if necessary) into the set of
      * final expressions of the current reference.
      * @param expressions a set of {@link RelationalExpression}s
      */
-    default void yieldFinalExpressions(@Nonnull Set<? extends RelationalExpression> expressions) {
+    default void yieldFinalExpressions(Set<? extends RelationalExpression> expressions) {
         for (final var expression : expressions) {
             yieldFinalExpression(expression);
         }
@@ -66,7 +65,7 @@ public interface FinalYields {
      * final expressions of the current reference.
      * @param expression a set of {@link RelationalExpression}s
      */
-    void yieldFinalExpression(@Nonnull RelationalExpression expression);
+    void yieldFinalExpression(RelationalExpression expression);
 
     /**
      * Yield a set of expressions which may consist of a mixture of exploratory and final expressions. This method can
@@ -77,7 +76,7 @@ public interface FinalYields {
      * exploratory expressions or into the set of final expressions of the current reference.
      * @param expressions a set of {@link RelationalExpression}s
      */
-    default void yieldMixedUnknownExpressions(@Nonnull Set<? extends RelationalExpression> expressions) {
+    default void yieldMixedUnknownExpressions(Set<? extends RelationalExpression> expressions) {
         for (final var expression : expressions) {
             yieldUnknownExpression(expression);
         }
@@ -92,5 +91,5 @@ public interface FinalYields {
      * final expressions of the current reference.
      * @param expression a set of {@link RelationalExpression}s
      */
-    void yieldUnknownExpression(@Nonnull RelationalExpression expression);
+    void yieldUnknownExpression(RelationalExpression expression);
 }

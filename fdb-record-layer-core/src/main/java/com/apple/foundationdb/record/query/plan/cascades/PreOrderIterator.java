@@ -25,8 +25,8 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import javax.annotation.concurrent.NotThreadSafe;
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -45,17 +45,15 @@ import java.util.function.Predicate;
  */
 @NotThreadSafe
 public final class PreOrderIterator<T extends TreeLike<T>> extends AbstractIterator<T> {
-    @Nonnull
     private final T root;
 
-    @Nonnull
     private final Deque<Iterator<? extends T>> stack;
 
     boolean skipNextSubtree;
     @Nullable
     private T lastElement;
 
-    private PreOrderIterator(@Nonnull final T root) {
+    private PreOrderIterator(final T root) {
         this.root = root;
         // initialize the stack with the {@link TreeLike}'s depth as capacity to avoid resizing.
         // this is the only list allocation done to put the root in the stack.
@@ -116,8 +114,7 @@ public final class PreOrderIterator<T extends TreeLike<T>> extends AbstractItera
         skipNextSubtree = true;
     }
 
-    @Nonnull
-    public Iterator<T> descendOnlyIf(@Nonnull Predicate<? super T> predicate) {
+    public Iterator<T> descendOnlyIf(Predicate<? super T> predicate) {
         return new AbstractIterator<T>() {
             @Nullable
             @Override
@@ -140,8 +137,7 @@ public final class PreOrderIterator<T extends TreeLike<T>> extends AbstractItera
      * @param <T> The type of {@code treeLike} items.
      * @return an iterator that traverses the items in pre-order.
      */
-    @Nonnull
-    public static <T extends TreeLike<T>> PreOrderIterator<T> over(@Nonnull final T treeLike) {
+    public static <T extends TreeLike<T>> PreOrderIterator<T> over(final T treeLike) {
         return new PreOrderIterator<>(treeLike);
     }
 }

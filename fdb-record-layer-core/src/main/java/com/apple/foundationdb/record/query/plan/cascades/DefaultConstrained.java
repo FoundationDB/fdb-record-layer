@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
@@ -33,16 +32,14 @@ public class DefaultConstrained<T> implements Constrained<T> {
     /**
      * The wrapped object.
      */
-    @Nonnull
     private final T object;
 
     /**
      * The query plan constraint recorded for this {@code object}.
      */
-    @Nonnull
     private final QueryPlanConstraint queryPlanConstraint;
 
-    private DefaultConstrained(@Nonnull final T object, @Nonnull final QueryPlanConstraint queryPlanConstraint) {
+    private DefaultConstrained(final T object, final QueryPlanConstraint queryPlanConstraint) {
         this.object = object;
         this.queryPlanConstraint = queryPlanConstraint;
     }
@@ -51,13 +48,11 @@ public class DefaultConstrained<T> implements Constrained<T> {
      * Method that returns the wrapped object.
      * @return the wrapped object
      */
-    @Nonnull
     @Override
     public T get() {
         return object;
     }
 
-    @Nonnull
     @Override
     public QueryPlanConstraint getConstraint() {
         return queryPlanConstraint;
@@ -71,9 +66,8 @@ public class DefaultConstrained<T> implements Constrained<T> {
      *         and that is {@code true} otherwise under the composed constraint from the constraint of {@code this} and
      *         the {@code constraint}
      */
-    @Nonnull
     @Override
-    public DefaultConstrained<T> composeWithConstraint(@Nonnull final QueryPlanConstraint constraint) {
+    public DefaultConstrained<T> composeWithConstraint(final QueryPlanConstraint constraint) {
         return new DefaultConstrained<>(get(), Objects.requireNonNull(queryPlanConstraint).compose(constraint));
     }
 
@@ -82,8 +76,7 @@ public class DefaultConstrained<T> implements Constrained<T> {
      * @param object object to wrap
      * @return a new unconditional {@link DefaultConstrained}
      */
-    @Nonnull
-    public static <T> Constrained<T> of(@Nonnull final T object) {
+    public static <T> Constrained<T> of(final T object) {
         return new DefaultConstrained<>(object, QueryPlanConstraint.noConstraint());
     }
 
@@ -93,9 +86,8 @@ public class DefaultConstrained<T> implements Constrained<T> {
      * @param queryPlanConstraint the query plan constraint
      * @return a new unconditional {@link Constrained}
      */
-    @Nonnull
-    static <T> Constrained<T> ofConstrainedObject(@Nonnull final T object,
-                                                  @Nonnull final QueryPlanConstraint queryPlanConstraint) {
+    static <T> Constrained<T> ofConstrainedObject(final T object,
+                                                  final QueryPlanConstraint queryPlanConstraint) {
         return new DefaultConstrained<>(object, queryPlanConstraint);
     }
 }

@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
@@ -61,18 +60,16 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class AbstractCascadesRule<T> implements CascadesRule<T> {
-    @Nonnull
     private final BindingMatcher<T> matcher;
 
-    @Nonnull
     private final Set<PlannerConstraint<?>> requirementDependencies;
 
-    public AbstractCascadesRule(@Nonnull BindingMatcher<T> matcher) {
+    public AbstractCascadesRule(BindingMatcher<T> matcher) {
         this.matcher = matcher;
         this.requirementDependencies = ImmutableSet.of();
     }
 
-    public AbstractCascadesRule(@Nonnull BindingMatcher<T> matcher, Collection<PlannerConstraint<?>> requirementDependencies) {
+    public AbstractCascadesRule(BindingMatcher<T> matcher, Collection<PlannerConstraint<?>> requirementDependencies) {
         this.matcher = matcher;
         this.requirementDependencies = ImmutableSet.copyOf(requirementDependencies);
     }
@@ -83,19 +80,16 @@ public abstract class AbstractCascadesRule<T> implements CascadesRule<T> {
      * @return the class of the root of this rule's binding, or <code>Optional.empty()</code> if the rule matches anything
      * @see PlanningRuleSet
      */
-    @Nonnull
     @Override
     public Optional<Class<?>> getRootOperator() {
         return Optional.of(matcher.getRootClass());
     }
 
     @Override
-    @Nonnull
     public Set<PlannerConstraint<?>> getConstraintDependencies() {
         return requirementDependencies;
     }
 
-    @Nonnull
     @Override
     public BindingMatcher<T> getMatcher() {
         return matcher;

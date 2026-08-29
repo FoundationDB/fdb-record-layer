@@ -33,7 +33,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 import java.util.Set;
 
@@ -50,17 +49,15 @@ class ConditionalCascadesRuleTest {
      * is never invoked by these tests; identity is all that matters.
      */
     private static final PlannerConstraint<?> CONSTRAINT_A = new PlannerConstraint<Object>() {
-        @Nonnull
         @Override
-        public Optional<Object> combine(@Nonnull final Object currentConstraint, @Nonnull final Object newConstraint) {
+        public Optional<Object> combine(final Object currentConstraint, final Object newConstraint) {
             return Optional.empty();
         }
     };
 
     private static final PlannerConstraint<?> CONSTRAINT_B = new PlannerConstraint<Object>() {
-        @Nonnull
         @Override
-        public Optional<Object> combine(@Nonnull final Object currentConstraint, @Nonnull final Object newConstraint) {
+        public Optional<Object> combine(final Object currentConstraint, final Object newConstraint) {
             return Optional.empty();
         }
     };
@@ -278,46 +275,38 @@ class ConditionalCascadesRuleTest {
                 .hasMessageContaining("onlyOnPrunedInputs");
     }
 
-    @Nonnull
-    private static ConditionalCascadesRule<RelationalExpression, StubRule> conditionalRuleOf(@Nonnull final StubRule... rules) {
+    private static ConditionalCascadesRule<RelationalExpression, StubRule> conditionalRuleOf(final StubRule... rules) {
         return new ConditionalCascadesRule<>(ImmutableList.copyOf(rules));
     }
 
-    @Nonnull
-    private static StubRule stubRule(@Nonnull final Class<? extends RelationalExpression> rootClass) {
+    private static StubRule stubRule(final Class<? extends RelationalExpression> rootClass) {
         return stubRule(rootClass, Optional.of(rootClass));
     }
 
-    @Nonnull
-    private static StubRule stubRule(@Nonnull final Class<? extends RelationalExpression> rootClass,
-                                     @Nonnull final Optional<Class<?>> rootOperator) {
+    private static StubRule stubRule(final Class<? extends RelationalExpression> rootClass,
+                                     final Optional<Class<?>> rootOperator) {
         return new StubRule(matcherFor(rootClass), rootOperator);
     }
 
-    @Nonnull
-    private static StubRule stubRule(@Nonnull final Class<? extends RelationalExpression> rootClass,
-                                     @Nonnull final Set<PlannerConstraint<?>> constraintDependencies) {
+    private static StubRule stubRule(final Class<? extends RelationalExpression> rootClass,
+                                     final Set<PlannerConstraint<?>> constraintDependencies) {
         return new StubRule(matcherFor(rootClass), Optional.of(rootClass), constraintDependencies);
     }
 
-    @Nonnull
-    private static StubExplorationRule stubExplorationRule(@Nonnull final Class<? extends RelationalExpression> rootClass) {
+    private static StubExplorationRule stubExplorationRule(final Class<? extends RelationalExpression> rootClass) {
         return new StubExplorationRule(matcherFor(rootClass));
     }
 
-    @Nonnull
-    private static StubImplementationRule stubImplementationRule(@Nonnull final Class<? extends RelationalExpression> rootClass) {
+    private static StubImplementationRule stubImplementationRule(final Class<? extends RelationalExpression> rootClass) {
         return new StubImplementationRule(matcherFor(rootClass));
     }
 
-    @Nonnull
-    private static StubOnPrunedInputsRule stubOnPrunedInputRule(@Nonnull final Class<? extends RelationalExpression> rootClass) {
+    private static StubOnPrunedInputsRule stubOnPrunedInputRule(final Class<? extends RelationalExpression> rootClass) {
         return new StubOnPrunedInputsRule(matcherFor(rootClass), rootClass);
     }
 
-    @Nonnull
     @SuppressWarnings("unchecked")
-    private static BindingMatcher<RelationalExpression> matcherFor(@Nonnull final Class<? extends RelationalExpression> rootClass) {
+    private static BindingMatcher<RelationalExpression> matcherFor(final Class<? extends RelationalExpression> rootClass) {
         return (BindingMatcher<RelationalExpression>) (BindingMatcher<?>) RelationalExpressionMatchers.ofType(rootClass);
     }
 
@@ -326,29 +315,27 @@ class ConditionalCascadesRuleTest {
      * so the construction-time invariants of {@link ConditionalCascadesRule} can be exercised in isolation.
      */
     private static class StubRule extends AbstractCascadesRule<RelationalExpression> {
-        @Nonnull
         private final Optional<Class<?>> rootOperator;
 
-        private StubRule(@Nonnull final BindingMatcher<RelationalExpression> matcher,
-                         @Nonnull final Optional<Class<?>> rootOperator) {
+        private StubRule(final BindingMatcher<RelationalExpression> matcher,
+                         final Optional<Class<?>> rootOperator) {
             this(matcher, rootOperator, ImmutableSet.of());
         }
 
-        private StubRule(@Nonnull final BindingMatcher<RelationalExpression> matcher,
-                         @Nonnull final Optional<Class<?>> rootOperator,
-                         @Nonnull final Set<PlannerConstraint<?>> constraintDependencies) {
+        private StubRule(final BindingMatcher<RelationalExpression> matcher,
+                         final Optional<Class<?>> rootOperator,
+                         final Set<PlannerConstraint<?>> constraintDependencies) {
             super(matcher, constraintDependencies);
             this.rootOperator = rootOperator;
         }
 
-        @Nonnull
         @Override
         public Optional<Class<?>> getRootOperator() {
             return rootOperator;
         }
 
         @Override
-        public void onMatch(@Nonnull final CascadesRuleCall call) {
+        public void onMatch(final CascadesRuleCall call) {
             throw new UnsupportedOperationException("stub rule should not be executed");
         }
     }
@@ -359,12 +346,12 @@ class ConditionalCascadesRuleTest {
      */
     private static final class StubExplorationRule extends AbstractCascadesRule<RelationalExpression>
             implements ExplorationCascadesRule<RelationalExpression> {
-        private StubExplorationRule(@Nonnull final BindingMatcher<RelationalExpression> matcher) {
+        private StubExplorationRule(final BindingMatcher<RelationalExpression> matcher) {
             super(matcher);
         }
 
         @Override
-        public void onMatch(@Nonnull final ExplorationCascadesRuleCall call) {
+        public void onMatch(final ExplorationCascadesRuleCall call) {
             throw new UnsupportedOperationException("stub rule should not be executed");
         }
     }
@@ -375,12 +362,12 @@ class ConditionalCascadesRuleTest {
      */
     private static final class StubImplementationRule extends AbstractCascadesRule<RelationalExpression>
             implements ImplementationCascadesRule<RelationalExpression> {
-        private StubImplementationRule(@Nonnull final BindingMatcher<RelationalExpression> matcher) {
+        private StubImplementationRule(final BindingMatcher<RelationalExpression> matcher) {
             super(matcher);
         }
 
         @Override
-        public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+        public void onMatch(final ImplementationCascadesRuleCall call) {
             throw new UnsupportedOperationException("stub rule should not be executed");
         }
     }
@@ -392,8 +379,8 @@ class ConditionalCascadesRuleTest {
      */
     private static final class StubOnPrunedInputsRule extends StubRule
             implements CascadesRule.OnPrunedInputsRule<RelationalExpression> {
-        private StubOnPrunedInputsRule(@Nonnull final BindingMatcher<RelationalExpression> matcher,
-                                       @Nonnull final Class<? extends RelationalExpression> rootOperator) {
+        private StubOnPrunedInputsRule(final BindingMatcher<RelationalExpression> matcher,
+                                       final Class<? extends RelationalExpression> rootOperator) {
             super(matcher, Optional.of(rootOperator));
         }
     }
