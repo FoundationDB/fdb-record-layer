@@ -43,8 +43,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -65,18 +64,18 @@ import java.util.function.Supplier;
 public final class AndPredicate extends AndOrPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("And-Predicate");
 
-    private AndPredicate(@Nonnull final PlanSerializationContext serializationContext,
-                         @Nonnull final PAndPredicate andPredicateProto) {
+    private AndPredicate(final PlanSerializationContext serializationContext,
+                         final PAndPredicate andPredicateProto) {
         super(serializationContext, Objects.requireNonNull(andPredicateProto.getSuper()));
     }
 
-    private AndPredicate(@Nonnull final List<? extends QueryPredicate> children, final boolean isAtomic) {
+    private AndPredicate(final List<? extends QueryPredicate> children, final boolean isAtomic) {
         super(children, isAtomic);
     }
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nullable FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
+    public <M extends Message> Boolean eval(@Nullable FDBRecordStoreBase<M> store, EvaluationContext context) {
         Boolean defaultValue = Boolean.TRUE;
         for (QueryPredicate child : getChildren()) {
             final Boolean val = child.eval(store, context);
@@ -89,9 +88,8 @@ public final class AndPredicate extends AndOrPredicate {
         return defaultValue;
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(Precedence.AND,
                 new ExplainTokens().addSequence(() -> new ExplainTokens().addWhitespace().addKeyword("AND").addLinebreakOrWhitespace(),
                         () -> Streams.stream(explainSuppliers).map(Supplier::get)
@@ -104,7 +102,7 @@ public final class AndPredicate extends AndOrPredicate {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
@@ -117,19 +115,17 @@ public final class AndPredicate extends AndOrPredicate {
         }
     }
 
-    @Nonnull
     @Override
     public AndPredicate withChildren(final Iterable<? extends QueryPredicate> newChildren) {
         return new AndPredicate(ImmutableList.copyOf(newChildren), isAtomic());
     }
 
-    @Nonnull
     @Override
-    public PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
-                                                                     @Nonnull final QueryPredicate originalQueryPredicate,
-                                                                     @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                     @Nonnull final List<PredicateCompensationFunction> childrenCompensationFunctions,
-                                                                     @Nonnull final PullUp pullUp) {
+    public PredicateCompensationFunction computeCompensationFunction(final PartialMatch partialMatch,
+                                                                     final QueryPredicate originalQueryPredicate,
+                                                                     final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                     final List<PredicateCompensationFunction> childrenCompensationFunctions,
+                                                                     final PullUp pullUp) {
         boolean isNeeded = false;
         for (final var childPredicateCompensationFunction : childrenCompensationFunctions) {
             isNeeded |= childPredicateCompensationFunction.isNeeded();
@@ -151,42 +147,36 @@ public final class AndPredicate extends AndOrPredicate {
                                 .collect(LinkedIdentitySet.toLinkedIdentitySet()));
     }
 
-    @Nonnull
     @Override
     public AndPredicate withAtomicity(final boolean isAtomic) {
         return new AndPredicate(ImmutableList.copyOf(getChildren()), isAtomic);
     }
 
-    @Nonnull
     @Override
-    public PAndPredicate toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PAndPredicate toProto(final PlanSerializationContext serializationContext) {
         return PAndPredicate.newBuilder().setSuper(toAndOrPredicateProto(serializationContext)).build();
     }
 
-    @Nonnull
     @Override
-    public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PQueryPredicate toQueryPredicateProto(final PlanSerializationContext serializationContext) {
         return PQueryPredicate.newBuilder().setAndPredicate(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static AndPredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                         @Nonnull final PAndPredicate andPredicateProto) {
+    public static AndPredicate fromProto(final PlanSerializationContext serializationContext,
+                                         final PAndPredicate andPredicateProto) {
         return new AndPredicate(serializationContext, andPredicateProto);
     }
 
-    public static QueryPredicate and(@Nonnull QueryPredicate first, @Nonnull QueryPredicate second,
-                                     @Nonnull QueryPredicate... operands) {
+    public static QueryPredicate and(QueryPredicate first, QueryPredicate second,
+                                     QueryPredicate... operands) {
         return and(toList(first, second, operands), false);
     }
 
-    @Nonnull
-    public static QueryPredicate and(@Nonnull final Collection<? extends QueryPredicate> conjuncts) {
+    public static QueryPredicate and(final Collection<? extends QueryPredicate> conjuncts) {
         return and(conjuncts, false);
     }
 
-    @Nonnull
-    public static QueryPredicate and(@Nonnull final Collection<? extends QueryPredicate> conjuncts, final boolean isAtomic) {
+    public static QueryPredicate and(final Collection<? extends QueryPredicate> conjuncts, final boolean isAtomic) {
         // Keep only conjuncts that aren’t tautologies; except for placeholders (where tautology means "no range
         // constraint"). All placeholders must be retained for the index-matching machinery to work correctly.
         final var filteredConjuncts =
@@ -205,8 +195,7 @@ public final class AndPredicate extends AndOrPredicate {
         return new AndPredicate(filteredConjuncts, isAtomic);
     }
 
-    @Nonnull
-    public static List<? extends QueryPredicate> conjuncts(@Nonnull final QueryPredicate queryPredicate) {
+    public static List<? extends QueryPredicate> conjuncts(final QueryPredicate queryPredicate) {
         if (queryPredicate.isTautology()) {
             return ImmutableList.of();
         }
@@ -223,16 +212,14 @@ public final class AndPredicate extends AndOrPredicate {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PAndPredicate, AndPredicate> {
-        @Nonnull
         @Override
         public Class<PAndPredicate> getProtoMessageClass() {
             return PAndPredicate.class;
         }
 
-        @Nonnull
         @Override
-        public AndPredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                      @Nonnull final PAndPredicate andPredicateProto) {
+        public AndPredicate fromProto(final PlanSerializationContext serializationContext,
+                                      final PAndPredicate andPredicateProto) {
             return AndPredicate.fromProto(serializationContext, andPredicateProto);
         }
     }

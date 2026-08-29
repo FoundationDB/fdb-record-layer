@@ -26,8 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -40,7 +39,7 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class ValueComputationRule<A, R, T extends Value> extends AbstractValueRule<NonnullPair<Value, R>, ValueComputationRuleCall<A, R>, T> {
-    public ValueComputationRule(@Nonnull final BindingMatcher<T> matcher) {
+    public ValueComputationRule(final BindingMatcher<T> matcher) {
         super(matcher);
     }
 
@@ -56,18 +55,16 @@ public abstract class ValueComputationRule<A, R, T extends Value> extends Abstra
      * @param <T> the type parameter the rule matches
      * @return a new computation rule that can be used in an appropriate compatible computation rule set
      */
-    @Nonnull
-    static <A, R, T extends Value> ValueComputationRule<A, R, T> fromSimplificationRule(@Nonnull final ValueSimplificationRule<T> simplificationRule,
-                                                                                        @Nonnull final OnMatchComputationFunction<A, R> onMatchComputationFunction) {
+    static <A, R, T extends Value> ValueComputationRule<A, R, T> fromSimplificationRule(final ValueSimplificationRule<T> simplificationRule,
+                                                                                        final OnMatchComputationFunction<A, R> onMatchComputationFunction) {
         return new ValueComputationRule<>(simplificationRule.getMatcher()) {
-            @Nonnull
             @Override
             public Optional<Class<?>> getRootOperator() {
                 return simplificationRule.getRootOperator();
             }
 
             @Override
-            public void onMatch(@Nonnull final ValueComputationRuleCall<A, R> call) {
+            public void onMatch(final ValueComputationRuleCall<A, R> call) {
                 final var childrenResults =
                         Streams.stream(call.getCurrent()
                                         .getChildren())
@@ -94,6 +91,6 @@ public abstract class ValueComputationRule<A, R, T extends Value> extends Abstra
      */
     @FunctionalInterface
     public interface OnMatchComputationFunction<A, R> {
-        R apply(@Nullable A argument, @Nonnull Value value, @Nonnull List<R> childrenResults);
+        R apply(@Nullable A argument, Value value, List<R> childrenResults);
     }
 }

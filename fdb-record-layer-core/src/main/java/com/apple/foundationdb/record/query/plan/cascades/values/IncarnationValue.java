@@ -39,8 +39,7 @@ import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecede
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -60,44 +59,39 @@ public class IncarnationValue extends AbstractValue implements LeafValue {
     @Override
     @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE",
             justification = "Store parameter is nullable in interface but required for incarnation retrieval")
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         Objects.requireNonNull(store);
         return store.getIncarnation();
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return Type.primitiveType(Type.TypeCode.INT);
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return List.of();
     }
 
-    @Nonnull
     @Override
-    public IncarnationValue withChildren(@Nonnull final Iterable<? extends Value> newChildren) {
+    public IncarnationValue withChildren(final Iterable<? extends Value> newChildren) {
         // No children, so just return this
         return this;
     }
 
-    @Nonnull
     @Override
-    public Value rebaseLeaf(@Nonnull final CorrelationIdentifier targetAlias) {
+    public Value rebaseLeaf(final CorrelationIdentifier targetAlias) {
         return this;
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("get_versionstamp_incarnation"));
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
@@ -124,22 +118,19 @@ public class IncarnationValue extends AbstractValue implements LeafValue {
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public PIncarnationValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PIncarnationValue toProto(final PlanSerializationContext serializationContext) {
         return PIncarnationValue.newBuilder().build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setIncarnationValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    public static IncarnationValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                             @Nonnull final PIncarnationValue incarnationValueProto) {
+    public static IncarnationValue fromProto(final PlanSerializationContext serializationContext,
+                                             final PIncarnationValue incarnationValueProto) {
         return new IncarnationValue();
     }
 
@@ -148,16 +139,14 @@ public class IncarnationValue extends AbstractValue implements LeafValue {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PIncarnationValue, IncarnationValue> {
-        @Nonnull
         @Override
         public Class<PIncarnationValue> getProtoMessageClass() {
             return PIncarnationValue.class;
         }
 
-        @Nonnull
         @Override
-        public IncarnationValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                          @Nonnull final PIncarnationValue incarnationValueProto) {
+        public IncarnationValue fromProto(final PlanSerializationContext serializationContext,
+                                          final PIncarnationValue incarnationValueProto) {
             return IncarnationValue.fromProto(serializationContext, incarnationValueProto);
         }
     }

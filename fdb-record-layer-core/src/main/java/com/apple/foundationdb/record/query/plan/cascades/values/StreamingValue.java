@@ -29,8 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.Cardinalitie
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * a {@link Value} that returns a stream of results upon evaluation.
@@ -46,11 +45,10 @@ public interface StreamingValue extends Value {
      * @param <M> The type of the returned results when fetched from a record store.
      * @return A cursor over the result stream returned upon evaluation.
      */
-    @Nonnull
-    <M extends Message> RecordCursor<QueryResult> evalAsStream(@Nonnull FDBRecordStoreBase<M> store,
-                                                               @Nonnull EvaluationContext context,
+    <M extends Message> RecordCursor<QueryResult> evalAsStream(FDBRecordStoreBase<M> store,
+                                                               EvaluationContext context,
                                                                @Nullable byte[] continuation,
-                                                               @Nonnull ExecuteProperties executeProperties);
+                                                               ExecuteProperties executeProperties);
 
     /**
      * Get the cardinality bounds for this streaming value.
@@ -58,6 +56,5 @@ public interface StreamingValue extends Value {
      * @return a min and max cardinality bound for this value
      */
     @API(API.Status.INTERNAL)
-    @Nonnull
     CardinalitiesProperty.Cardinalities getCardinalities();
 }

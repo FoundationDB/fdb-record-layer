@@ -28,7 +28,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.areEqual;
@@ -64,7 +63,6 @@ public class ConstantFoldingTest {
     /// EQUALS simplification tests
     ///
 
-    @Nonnull
     public static Stream<Arguments> equalTestArguments() {
         return Stream.of(
                 Arguments.arguments(litNull(), litNull(), ConstantPredicate.NULL),
@@ -147,7 +145,6 @@ public class ConstantFoldingTest {
     /// NOT EQUALS simplification tests
     ///
 
-    @Nonnull
     public static Stream<Arguments> notEqualsTestArguments() {
         return Stream.of(
                 Arguments.arguments(litNull(), litNull(), ConstantPredicate.NULL),
@@ -208,7 +205,6 @@ public class ConstantFoldingTest {
     /// IS NULL simplification tests
     ///
 
-    @Nonnull
     public static Stream<Arguments> isNullTests() {
         return Stream.of(
                 Arguments.arguments(litNull(), ConstantPredicate.TRUE),
@@ -226,13 +222,13 @@ public class ConstantFoldingTest {
 
     @ParameterizedTest(name = "{0} is null ≡ {1}")
     @MethodSource("isNullTests")
-    public void valuePredicateIsNull(@Nonnull ValueWrapper value, @Nonnull QueryPredicate queryPredicate) {
+    public void valuePredicateIsNull(ValueWrapper value, QueryPredicate queryPredicate) {
         Assertions.assertThat(simplify(isNull(value.value()), value.getEvaluationContextOrEmpty())).isEqualTo(queryPredicate);
     }
 
     @ParameterizedTest(name = "{0} is null ≡ {1}")
     @MethodSource("isNullTests")
-    public void predicateValueWithRangesIsNull(@Nonnull ValueWrapper value, @Nonnull QueryPredicate queryPredicate) {
+    public void predicateValueWithRangesIsNull(ValueWrapper value, QueryPredicate queryPredicate) {
         Assertions.assertThat(simplify(isNullAsRange(value.value()), value.getEvaluationContextOrEmpty())).isEqualTo(queryPredicate);
     }
 
@@ -240,7 +236,6 @@ public class ConstantFoldingTest {
     /// IS NOT NULL simplification tests
     ///
 
-    @Nonnull
     public static Stream<Arguments> isNotNullTests() {
         return Stream.of(
                 Arguments.arguments(litNull(), ConstantPredicate.FALSE),
@@ -258,13 +253,13 @@ public class ConstantFoldingTest {
 
     @ParameterizedTest(name = "{0} is null ≡ {1}")
     @MethodSource("isNotNullTests")
-    public void valuePredicateIsNotNull(@Nonnull ValueWrapper value, @Nonnull QueryPredicate queryPredicate) {
+    public void valuePredicateIsNotNull(ValueWrapper value, QueryPredicate queryPredicate) {
         Assertions.assertThat(simplify(isNotNull(value.value()), value.getEvaluationContextOrEmpty())).isEqualTo(queryPredicate);
     }
 
     @ParameterizedTest(name = "{0} is null ≡ {1}")
     @MethodSource("isNotNullTests")
-    public void predicateValueWithRangesIsNotNull(@Nonnull ValueWrapper value, @Nonnull QueryPredicate queryPredicate) {
+    public void predicateValueWithRangesIsNotNull(ValueWrapper value, QueryPredicate queryPredicate) {
         Assertions.assertThat(simplify(isNotNullAsRange(value.value()), value.getEvaluationContextOrEmpty())).isEqualTo(queryPredicate);
     }
 
@@ -287,33 +282,32 @@ public class ConstantFoldingTest {
 
     @ParameterizedTest(name = "{0} is null ≡ {0} is null")
     @MethodSource("notSimplifiableAsNullComparisons")
-    public void notSimplifyIsNull(@Nonnull ValueWrapper value) {
+    public void notSimplifyIsNull(ValueWrapper value) {
         QueryPredicate predicate = isNull(value.value());
         Assertions.assertThat(simplify(predicate, value.getEvaluationContextOrEmpty())).isEqualTo(predicate);
     }
 
     @ParameterizedTest(name = "{0} is null ≡ {0} is null")
     @MethodSource("notSimplifiableAsNullComparisons")
-    public void notSimplifyIsNullAsRange(@Nonnull ValueWrapper value) {
+    public void notSimplifyIsNullAsRange(ValueWrapper value) {
         QueryPredicate predicate = isNullAsRange(value.value());
         Assertions.assertThat(simplify(predicate, value.getEvaluationContextOrEmpty())).isEqualTo(predicate);
     }
 
     @ParameterizedTest(name = "{0} is not null ≡ {0} is not null")
     @MethodSource("notSimplifiableAsNullComparisons")
-    public void notSimplifyIsNotNull(@Nonnull ValueWrapper value) {
+    public void notSimplifyIsNotNull(ValueWrapper value) {
         QueryPredicate predicate = isNotNull(value.value());
         Assertions.assertThat(simplify(predicate, value.getEvaluationContextOrEmpty())).isEqualTo(predicate);
     }
 
     @ParameterizedTest(name = "{0} is not null ≡ {0} is not null")
     @MethodSource("notSimplifiableAsNullComparisons")
-    public void notSimplifyIsNotNullAsRange(@Nonnull ValueWrapper value) {
+    public void notSimplifyIsNotNullAsRange(ValueWrapper value) {
         QueryPredicate predicate = isNotNullAsRange(value.value());
         Assertions.assertThat(simplify(predicate, value.getEvaluationContextOrEmpty())).isEqualTo(predicate);
     }
 
-    @Nonnull
     public static Stream<Arguments> notSimplifiableEqualsComparisons() {
         return Stream.of(
                 Arguments.of(nonNullBoolean(), litTrue()),
@@ -325,7 +319,7 @@ public class ConstantFoldingTest {
 
     @ParameterizedTest(name = "{0} EQUALS {1} not simplifiable")
     @MethodSource("notSimplifiableEqualsComparisons")
-    public void notSimplifyEquality(@Nonnull ValueWrapper lhs, @Nonnull ValueWrapper rhs) {
+    public void notSimplifyEquality(ValueWrapper lhs, ValueWrapper rhs) {
         QueryPredicate predicate = areEqual(lhs.value(), rhs.value());
         Assertions.assertThat(simplify(predicate, lhs.mergeEvaluationContext(rhs))).isEqualTo(predicate);
 
@@ -335,7 +329,7 @@ public class ConstantFoldingTest {
 
     @ParameterizedTest(name = "{0} EQUALS {1} not simplifiable")
     @MethodSource("notSimplifiableEqualsComparisons")
-    public void notSimplifyEqualityAsRanges(@Nonnull ValueWrapper lhs, @Nonnull ValueWrapper rhs) {
+    public void notSimplifyEqualityAsRanges(ValueWrapper lhs, ValueWrapper rhs) {
         QueryPredicate predicate = areEqualAsRange(lhs.value(), rhs.value());
         Assertions.assertThat(simplify(predicate, lhs.mergeEvaluationContext(rhs))).isEqualTo(predicate);
 
@@ -345,7 +339,7 @@ public class ConstantFoldingTest {
 
     @ParameterizedTest(name = "{0} EQUALS {1} not simplifiable")
     @MethodSource("notSimplifiableEqualsComparisons")
-    public void notSimplifyEqualityAndNotNullAsRanges(@Nonnull ValueWrapper lhs, @Nonnull ValueWrapper rhs) {
+    public void notSimplifyEqualityAndNotNullAsRanges(ValueWrapper lhs, ValueWrapper rhs) {
         QueryPredicate predicate = areNotNullAndEqualAsRange(lhs.value(), rhs.value());
         Assertions.assertThat(simplify(predicate, lhs.mergeEvaluationContext(rhs))).isEqualTo(predicate);
 
@@ -396,7 +390,7 @@ public class ConstantFoldingTest {
 
     @ParameterizedTest(name = "{0} should simplify to {2}")
     @MethodSource
-    void miscellaneousSimplifications(@Nonnull QueryPredicate original, @Nonnull EvaluationContext evaluationContext, @Nonnull QueryPredicate expected) {
+    void miscellaneousSimplifications(QueryPredicate original, EvaluationContext evaluationContext, QueryPredicate expected) {
         Assertions.assertThat(simplify(original, evaluationContext)).isEqualTo(expected);
     }
 }

@@ -36,7 +36,6 @@ import com.google.auto.service.AutoService;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -48,35 +47,30 @@ import java.util.function.Supplier;
 public class DerivedValue extends AbstractValue implements Value.NonEvaluableValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Derived-Value");
 
-    @Nonnull
     private final List<? extends Value> children;
 
-    @Nonnull
     private final Type resultType;
 
-    public DerivedValue(@Nonnull Iterable<? extends Value> values) {
+    public DerivedValue(Iterable<? extends Value> values) {
         this(values, Type.primitiveType(Type.TypeCode.UNKNOWN));
     }
 
-    public DerivedValue(@Nonnull Iterable<? extends Value> values, @Nonnull Type resultType) {
+    public DerivedValue(Iterable<? extends Value> values, Type resultType) {
         this.children = ImmutableList.copyOf(values);
         this.resultType = resultType;
         Preconditions.checkArgument(!children.isEmpty());
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return children;
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return resultType;
     }
 
-    @Nonnull
     @Override
     public DerivedValue withChildren(final Iterable<? extends Value> newChildren) {
         return new DerivedValue(newChildren);
@@ -88,13 +82,12 @@ public class DerivedValue extends AbstractValue implements Value.NonEvaluableVal
     }
     
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, children);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(new ExplainTokens()
                 .addFunctionCall("derived", Value.explainFunctionArguments(explainSuppliers)));
     }
@@ -111,9 +104,8 @@ public class DerivedValue extends AbstractValue implements Value.NonEvaluableVal
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public PDerivedValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PDerivedValue toProto(final PlanSerializationContext serializationContext) {
         final var builder = PDerivedValue.newBuilder();
         for (final Value child : children) {
             builder.addChildren(child.toValueProto(serializationContext));
@@ -122,15 +114,13 @@ public class DerivedValue extends AbstractValue implements Value.NonEvaluableVal
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setDerivedValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static DerivedValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                         @Nonnull final PDerivedValue derivedValueProto) {
+    public static DerivedValue fromProto(final PlanSerializationContext serializationContext,
+                                         final PDerivedValue derivedValueProto) {
         final ImmutableList.Builder<Value> childrenBuilder = ImmutableList.builder();
         for (int i = 0; i < derivedValueProto.getChildrenCount(); i ++) {
             childrenBuilder.add(Value.fromValueProto(serializationContext, derivedValueProto.getChildren(i)));
@@ -144,16 +134,14 @@ public class DerivedValue extends AbstractValue implements Value.NonEvaluableVal
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PDerivedValue, DerivedValue> {
-        @Nonnull
         @Override
         public Class<PDerivedValue> getProtoMessageClass() {
             return PDerivedValue.class;
         }
 
-        @Nonnull
         @Override
-        public DerivedValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                      @Nonnull final PDerivedValue derivedValueProto) {
+        public DerivedValue fromProto(final PlanSerializationContext serializationContext,
+                                      final PDerivedValue derivedValueProto) {
             return DerivedValue.fromProto(serializationContext, derivedValueProto);
         }
     }

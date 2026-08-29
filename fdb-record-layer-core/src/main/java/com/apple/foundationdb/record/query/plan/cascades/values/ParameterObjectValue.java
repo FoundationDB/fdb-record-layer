@@ -43,8 +43,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -56,46 +55,39 @@ import java.util.function.Supplier;
 public class ParameterObjectValue extends AbstractValue implements LeafValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Parameter-Object-Value");
 
-    @Nonnull
     private final String parameterName;
-    @Nonnull
     private final Type resultType;
 
-    private ParameterObjectValue(@Nonnull final String parameterName, @Nonnull final Type resultType) {
+    private ParameterObjectValue(final String parameterName, final Type resultType) {
         this.parameterName = parameterName;
         this.resultType = resultType;
     }
 
-    @Nonnull
     public String getParameterName() {
         return parameterName;
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return resultType;
     }
 
-    @Nonnull
     @Override
-    public Value rebaseLeaf(@Nonnull final CorrelationIdentifier targetAlias) {
+    public Value rebaseLeaf(final CorrelationIdentifier targetAlias) {
         return this;
     }
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         return context.getBinding(parameterName);
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of();
@@ -107,13 +99,12 @@ public class ParameterObjectValue extends AbstractValue implements LeafValue {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         Verify.verify(Iterables.isEmpty(explainSuppliers));
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword("$").addIdentifier(parameterName));
     }
@@ -130,49 +121,43 @@ public class ParameterObjectValue extends AbstractValue implements LeafValue {
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(final Value other) {
         return LeafValue.super.equalsWithoutChildren(other)
                 .filter(ignored -> getParameterName().equals(((ParameterObjectValue)other).getParameterName()));
     }
 
     @Override
-    public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
+    public boolean isFunctionallyDependentOn(final Value otherValue) {
         return false;
     }
 
-    @Nonnull
     @Override
-    public Value with(@Nonnull final Type type) {
+    public Value with(final Type type) {
         return ParameterObjectValue.of(parameterName, type);
     }
 
-    @Nonnull
     @Override
-    public PParameterObjectValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PParameterObjectValue toProto(final PlanSerializationContext serializationContext) {
         final PParameterObjectValue.Builder builder = PParameterObjectValue.newBuilder();
         builder.setParameterName(parameterName);
         builder.setResultType(resultType.toTypeProto(serializationContext));
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         final var specificValueProto = toProto(serializationContext);
         return PValue.newBuilder().setParameterObjectValue(specificValueProto).build();
     }
 
-    @Nonnull
-    public static ParameterObjectValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                 @Nonnull final PParameterObjectValue parameterObjectValueProto) {
+    public static ParameterObjectValue fromProto(final PlanSerializationContext serializationContext,
+                                                 final PParameterObjectValue parameterObjectValueProto) {
         return new ParameterObjectValue(Objects.requireNonNull(parameterObjectValueProto.getParameterName()),
                 Type.fromTypeProto(serializationContext, Objects.requireNonNull(parameterObjectValueProto.getResultType())));
     }
 
-    @Nonnull
-    public static ParameterObjectValue of(@Nonnull final String parameterName, @Nonnull final Type resultType) {
+    public static ParameterObjectValue of(final String parameterName, final Type resultType) {
         return new ParameterObjectValue(parameterName, resultType);
     }
 
@@ -181,16 +166,14 @@ public class ParameterObjectValue extends AbstractValue implements LeafValue {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PParameterObjectValue, ParameterObjectValue> {
-        @Nonnull
         @Override
         public Class<PParameterObjectValue> getProtoMessageClass() {
             return PParameterObjectValue.class;
         }
 
-        @Nonnull
         @Override
-        public ParameterObjectValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                              @Nonnull final PParameterObjectValue parameterObjectValueProto) {
+        public ParameterObjectValue fromProto(final PlanSerializationContext serializationContext,
+                                              final PParameterObjectValue parameterObjectValueProto) {
             return ParameterObjectValue.fromProto(serializationContext, parameterObjectValueProto);
         }
     }

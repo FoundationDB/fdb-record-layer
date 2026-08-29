@@ -35,7 +35,6 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimaps;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
@@ -46,7 +45,6 @@ import java.util.Objects;
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class MatchValueAgainstQuantifiedObjectValueRule extends ValueComputationRule<Iterable<? extends Value>, ListMultimap<Value, ValueCompensation>, QuantifiedObjectValue> {
-    @Nonnull
     private static final BindingMatcher<QuantifiedObjectValue> rootMatcher =
             ValueMatchers.quantifiedObjectValue();
 
@@ -55,7 +53,7 @@ public class MatchValueAgainstQuantifiedObjectValueRule extends ValueComputation
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, ListMultimap<Value, ValueCompensation>> call) {
+    public void onMatch(final ValueComputationRuleCall<Iterable<? extends Value>, ListMultimap<Value, ValueCompensation>> call) {
         final var bindings = call.getBindings();
         final var quantifiedObjectValue = bindings.get(rootMatcher);
         final var toBePulledUpValues = Objects.requireNonNull(call.getArgument());
@@ -103,9 +101,9 @@ public class MatchValueAgainstQuantifiedObjectValueRule extends ValueComputation
         call.yieldValue(quantifiedObjectValue, newMatchedValuesMap);
     }
 
-    private static void inheritMatchedMapEntry(@Nonnull final ListMultimap<Value, ValueCompensation> matchedValuesMap,
-                                               @Nonnull final ListMultimap<Value, ValueCompensation> newMatchedValuesMap,
-                                               @Nonnull final Value toBePulledUpValue) {
+    private static void inheritMatchedMapEntry(final ListMultimap<Value, ValueCompensation> matchedValuesMap,
+                                               final ListMultimap<Value, ValueCompensation> newMatchedValuesMap,
+                                               final Value toBePulledUpValue) {
         if (matchedValuesMap.containsKey(toBePulledUpValue)) {
             newMatchedValuesMap.putAll(toBePulledUpValue, matchedValuesMap.get(toBePulledUpValue));
         }

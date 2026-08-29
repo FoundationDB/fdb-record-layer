@@ -35,8 +35,7 @@ import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -49,32 +48,28 @@ public class ConditionSelectorValue extends AbstractValue {
 
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Condition-Selector-Value");
 
-    @Nonnull
     private final List<? extends Value> implications;
 
-    public ConditionSelectorValue(@Nonnull final Iterable<? extends Value> implications) {
+    public ConditionSelectorValue(final Iterable<? extends Value> implications) {
         this.implications = ImmutableList.copyOf(implications);
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return implications;
     }
 
-    @Nonnull
     @Override
     public Value withChildren(final Iterable<? extends Value> newChildren) {
         return new ConditionSelectorValue(newChildren);
     }
 
     @Override
-    public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
+    public boolean isFunctionallyDependentOn(final Value otherValue) {
         return implications.stream()
                 .allMatch(implication -> implication.isFunctionallyDependentOn(otherValue));
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return Type.primitiveType(Type.TypeCode.INT);
@@ -82,7 +77,7 @@ public class ConditionSelectorValue extends AbstractValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         for (int i = 0; i < implications.size(); ++i) {
             final var result = (Boolean)implications.get(i).eval(store, context);
             if (Boolean.TRUE.equals(result)) {
@@ -92,15 +87,14 @@ public class ConditionSelectorValue extends AbstractValue {
         return null;
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(new ExplainTokens()
                 .addFunctionCall("ConditionSelector", Value.explainFunctionArguments(explainSuppliers)));
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, implications);
     }
 
@@ -109,9 +103,8 @@ public class ConditionSelectorValue extends AbstractValue {
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH);
     }
 
-    @Nonnull
     @Override
-    public PConditionSelectorValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PConditionSelectorValue toProto(final PlanSerializationContext serializationContext) {
         final var builder = PConditionSelectorValue.newBuilder();
         for (final Value implication : implications) {
             builder.addImplications(implication.toValueProto(serializationContext));
@@ -119,15 +112,13 @@ public class ConditionSelectorValue extends AbstractValue {
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setConditionSelectorValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static ConditionSelectorValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                   @Nonnull final PConditionSelectorValue conditionSelectorValueProto) {
+    public static ConditionSelectorValue fromProto(final PlanSerializationContext serializationContext,
+                                                   final PConditionSelectorValue conditionSelectorValueProto) {
         final ImmutableList.Builder<Value> implicationsBuilder = ImmutableList.builder();
         for (int i = 0; i < conditionSelectorValueProto.getImplicationsCount(); i ++) {
             implicationsBuilder.add(Value.fromValueProto(serializationContext, conditionSelectorValueProto.getImplications(i)));
@@ -140,16 +131,14 @@ public class ConditionSelectorValue extends AbstractValue {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PConditionSelectorValue, ConditionSelectorValue> {
-        @Nonnull
         @Override
         public Class<PConditionSelectorValue> getProtoMessageClass() {
             return PConditionSelectorValue.class;
         }
 
-        @Nonnull
         @Override
-        public ConditionSelectorValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                @Nonnull final PConditionSelectorValue conditionSelectorValueProto) {
+        public ConditionSelectorValue fromProto(final PlanSerializationContext serializationContext,
+                                                final PConditionSelectorValue conditionSelectorValueProto) {
             return ConditionSelectorValue.fromProto(serializationContext, conditionSelectorValueProto);
         }
     }

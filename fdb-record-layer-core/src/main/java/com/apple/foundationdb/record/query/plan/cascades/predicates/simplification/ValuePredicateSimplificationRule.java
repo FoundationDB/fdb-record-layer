@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWit
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DereferenceConstantObjectValueRuleSet;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 import java.util.Set;
 
@@ -43,21 +42,19 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ValuePredicateSimplificationRule extends QueryPredicateSimplificationRule<PredicateWithValue> {
 
-    @Nonnull
     private static final BindingMatcher<PredicateWithValue> rootMatcher = predicateWithValue();
 
     public ValuePredicateSimplificationRule() {
         super(rootMatcher);
     }
 
-    @Nonnull
     @Override
     public Optional<Class<?>> getRootOperator() {
         return Optional.empty();
     }
 
     @Override
-    public void onMatch(@Nonnull final QueryPredicateSimplificationRuleCall call) {
+    public void onMatch(final QueryPredicateSimplificationRuleCall call) {
         final var predicateWithValue = call.getBindings().get(rootMatcher);
         final var simplifiedPredicateMaybe = predicateWithValue.translateValueAndComparisonsMaybe(
                 value -> Optional.of(value.simplify(call.getEvaluationContext(), call.getEquivalenceMap(), call.getConstantAliases(),

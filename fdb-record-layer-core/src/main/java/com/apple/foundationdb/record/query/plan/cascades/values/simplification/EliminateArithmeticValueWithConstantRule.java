@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
@@ -46,10 +45,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class EliminateArithmeticValueWithConstantRule extends ValueSimplificationRule<ArithmeticValue> {
-    @Nonnull
     private static final CollectionMatcher<Value> childrenMatcher = all(anyValue());
 
-    @Nonnull
     private static final BindingMatcher<ArithmeticValue> rootMatcher =
             arithmeticValue(childrenMatcher);
 
@@ -58,7 +55,7 @@ public class EliminateArithmeticValueWithConstantRule extends ValueSimplificatio
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueSimplificationRuleCall call) {
+    public void onMatch(final ValueSimplificationRuleCall call) {
         final var bindings = call.getBindings();
         final var arithmeticValue = bindings.get(rootMatcher);
 

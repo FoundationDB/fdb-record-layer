@@ -51,8 +51,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -69,10 +68,8 @@ import java.util.function.Supplier;
  */
 public class RangeConstraints implements PlanHashable, Correlated<RangeConstraints>, UsesValueEquivalence<RangeConstraints>, PlanSerializable {
 
-    @Nonnull
     private final Supplier<List<Comparisons.Comparison>> comparisonsCalculator;
 
-    @Nonnull
     private final Supplier<Set<CorrelationIdentifier>> correlationsSupplier;
 
     /**
@@ -81,16 +78,13 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
      * {@link ConstantObjectValue} comparand. This check is needed for situations where we want to compile-time
      * evaluate this {@link RangeConstraints}.
      */
-    @Nonnull
     private final Supplier<Boolean> constantValueComparandsChecker;
 
     @Nullable
     private final CompilableRange evaluableRange; // null = entire range (if no deferred ranges are defined).
 
-    @Nonnull
     private final Set<Comparisons.Comparison> deferredRanges;
 
-    @Nonnull
     private static final Range<Boundary> emptyRange = Range.closedOpen(
             Boundary.from(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 0), EvaluationContext.empty()),
             Boundary.from(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 0), EvaluationContext.empty()));
@@ -102,7 +96,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
      * @param deferredRanges a list of ranges that are not compile-time evaluable but can still be used in a scan prefix.
      */
     private RangeConstraints(@Nullable final CompilableRange evaluableRange,
-                             @Nonnull final Set<Comparisons.Comparison> deferredRanges) {
+                             final Set<Comparisons.Comparison> deferredRanges) {
         this.evaluableRange = evaluableRange;
         this.deferredRanges = ImmutableSet.copyOf(deferredRanges);
         this.comparisonsCalculator = Suppliers.memoize(this::computeComparisons);
@@ -115,7 +109,6 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
      *
      * @return a list of {@link Comparisons.Comparison} from this {@link RangeConstraints}.
      */
-    @Nonnull
     private List<Comparisons.Comparison> computeComparisons() {
         final ImmutableList.Builder<Comparisons.Comparison> result = ImmutableList.builder();
         result.addAll(deferredRanges);
@@ -134,7 +127,6 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
      *
      * @return a list of {@link Comparisons.Comparison} from this {@link RangeConstraints}.
      */
-    @Nonnull
     public List<Comparisons.Comparison> getComparisons() {
         return comparisonsCalculator.get();
     }
@@ -144,7 +136,6 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
      *
      * @return a set of deferred ranges.
      */
-    @Nonnull
     public Set<Comparisons.Comparison> getDeferredRanges() {
         return deferredRanges;
     }
@@ -157,13 +148,11 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
      * @return An equivalent {@link ComparisonRange} along with a set of residual comparisons
      *     that require compensation
      */
-    @Nonnull
     public ComparisonRange.MergeResult asMergedComparisonRange() {
         return ComparisonRange.mergeAll(getComparisons());
     }
 
-    @Nonnull
-    public RangeConstraints compileTimeEval(@Nonnull final EvaluationContext context) {
+    public RangeConstraints compileTimeEval(final EvaluationContext context) {
         if (constantValueComparandsChecker.get()) {
             return this;
         }
@@ -185,7 +174,6 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         return constantValueComparandsChecker.get();
     }
 
-    @Nonnull
     private Set<CorrelationIdentifier> computeCorrelations() {
         final ImmutableSet.Builder<CorrelationIdentifier> result = ImmutableSet.builder();
         deferredRanges.forEach(c -> result.addAll(c.getCorrelatedTo()));
@@ -207,7 +195,6 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         return foundConstantValue;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
         return correlationsSupplier.get();
@@ -229,7 +216,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
      * @return if the range is compile-time it returns {@code true} if it is empty or {@code false} if it is not
      * otherwise {@code false}, under a given evaluation context.
      */
-    public boolean isEmpty(@Nonnull final EvaluationContext evaluationContext) {
+    public boolean isEmpty(final EvaluationContext evaluationContext) {
         if (deferredRanges.isEmpty()) {
             final var range = Objects.requireNonNull(evaluableRange).compile(evaluationContext);
             if (range != null && range.isEmpty()) {
@@ -259,7 +246,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
      * @param evaluationContext The evaluation context for compiling {@code this} and {@code other} range constraints.
      * @return {@code true} if the range is known, at compile-time, to enclose {@code other} or {@code false} if not.
      */
-    public boolean encloses(@Nonnull final RangeConstraints other, @Nonnull final EvaluationContext evaluationContext) {
+    public boolean encloses(final RangeConstraints other, final EvaluationContext evaluationContext) {
         if (!isCompileTimeEvaluable()) {
             return false; // candidate range is not compile-time evaluable, it is impossible to determine potential implication -> bailout.
         } else if (evaluableRange == null) { // full range implies everything
@@ -281,11 +268,10 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, evaluableRange);
     }
 
-    @Nonnull
     public ExplainTokensWithPrecedence explain() {
         final var resultExplainTokens = new ExplainTokens();
         resultExplainTokens.addOpeningSquareBracket();
@@ -306,7 +292,6 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
     }
 
     @Override
-    @Nonnull
     public String toString() {
         return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
     }
@@ -328,9 +313,8 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         return Objects.hash(evaluableRange, deferredRanges);
     }
 
-    @Nonnull
     @Override
-    public RangeConstraints rebase(@Nonnull final AliasMap translationMap) {
+    public RangeConstraints rebase(final AliasMap translationMap) {
         if (evaluableRange == null) {
             if (deferredRanges.isEmpty()) {
                 return this;
@@ -345,8 +329,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         }
     }
 
-    @Nonnull
-    public RangeConstraints translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RangeConstraints translateCorrelations(final TranslationMap translationMap,
                                                   final boolean shouldSimplifyValues) {
         //
         // Translating correlations can sometimes change whether a comparison is compilable
@@ -392,8 +375,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         }
     }
 
-    @Nonnull
-    public Optional<RangeConstraints> translateRanges(@Nonnull final Function<Comparisons.Comparison, Optional<Comparisons.Comparison>> comparisonTranslator) {
+    public Optional<RangeConstraints> translateRanges(final Function<Comparisons.Comparison, Optional<Comparisons.Comparison>> comparisonTranslator) {
         var constraintsBuilder = RangeConstraints.newBuilder();
         boolean allAdded = true;
         final AtomicBoolean allSame = new AtomicBoolean(true);
@@ -428,7 +410,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
+    public boolean semanticEquals(@Nullable final Object other, final AliasMap aliasMap) {
         if (other == null) {
             return false;
         }
@@ -444,10 +426,9 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         return semanticEquals(other, ValueEquivalence.fromAliasMap(aliasMap)).isTrue();
     }
 
-    @Nonnull
     @Override
-    public ConstrainedBoolean semanticEqualsTyped(@Nonnull final RangeConstraints other,
-                                                  @Nonnull final ValueEquivalence valueEquivalence) {
+    public ConstrainedBoolean semanticEqualsTyped(final RangeConstraints other,
+                                                  final ValueEquivalence valueEquivalence) {
         if (deferredRanges.size() != other.deferredRanges.size()) {
             return ConstrainedBoolean.falseValue();
         }
@@ -477,9 +458,8 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         return Objects.hash(evaluableRange, deferredRanges);
     }
 
-    @Nonnull
     @Override
-    public PRangeConstraints toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRangeConstraints toProto(final PlanSerializationContext serializationContext) {
         final PRangeConstraints.Builder builder = PRangeConstraints.newBuilder();
         if (evaluableRange != null) {
             builder.setEvaluableRange(evaluableRange.toProto(serializationContext));
@@ -490,9 +470,8 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         return builder.build();
     }
 
-    @Nonnull
-    public static RangeConstraints fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                             @Nonnull final PRangeConstraints rangeConstraintsProto) {
+    public static RangeConstraints fromProto(final PlanSerializationContext serializationContext,
+                                             final PRangeConstraints rangeConstraintsProto) {
         final ImmutableSet.Builder<Comparisons.Comparison> deferredRangesBuilder = ImmutableSet.builder();
         for (int i = 0; i < rangeConstraintsProto.getDeferredRangesCount(); i ++) {
             deferredRangesBuilder.add(
@@ -509,13 +488,11 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
      */
     static class Boundary implements Comparable<Boundary> {
 
-        @Nonnull
         private final Tuple tuple;
 
-        @Nonnull
         private final Comparisons.Comparison comparison;
 
-        private Boundary(@Nonnull final Tuple tuple, @Nonnull final Comparisons.Comparison comparison) {
+        private Boundary(final Tuple tuple, final Comparisons.Comparison comparison) {
             this.tuple = tuple;
             this.comparison = comparison;
         }
@@ -547,14 +524,12 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
             return comparison.getComparand() == null ? "<NULL>" : comparison.getComparand().toString();
         }
 
-        @Nonnull
-        private static Boundary from(@Nonnull final Comparisons.Comparison comparison,
-                                     @Nonnull final EvaluationContext evaluationContext) {
+        private static Boundary from(final Comparisons.Comparison comparison,
+                                     final EvaluationContext evaluationContext) {
             return from(toTuple(comparison, evaluationContext), comparison);
         }
 
-        @Nonnull
-        private static Boundary from(@Nonnull final Tuple tuple, @Nonnull final Comparisons.Comparison comparison) {
+        private static Boundary from(final Tuple tuple, final Comparisons.Comparison comparison) {
             return new Boundary(tuple, comparison);
         }
 
@@ -564,8 +539,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
          * @param comparison The comparison to convert.
          * @return the comparison's comparand.
          */
-        @Nonnull
-        private static Tuple toTuple(@Nonnull final Comparisons.Comparison comparison, @Nonnull final EvaluationContext evaluationContext) {
+        private static Tuple toTuple(final Comparisons.Comparison comparison, final EvaluationContext evaluationContext) {
             final List<Object> items = new ArrayList<>();
             if (comparison instanceof RecordTypeKeyComparison.RecordTypeComparison) {
                 return Tuple.from(((RecordTypeKeyComparison.RecordTypeComparison)comparison).getRecordTypeName());
@@ -586,10 +560,9 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
      */
     public static class CompilableRange implements PlanHashable, PlanSerializable {
 
-        @Nonnull
         private final Set<Comparisons.Comparison> compilableComparisons;
 
-        public CompilableRange(@Nonnull final Set<Comparisons.Comparison> compilableComparisons) {
+        public CompilableRange(final Set<Comparisons.Comparison> compilableComparisons) {
             this.compilableComparisons = compilableComparisons;
         }
 
@@ -606,7 +579,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
          * @return a compiled {@link Range}, if no compilable ranges are found, it returns {@code null}.
          */
         @Nullable
-        public Range<Boundary> compile(@Nonnull final EvaluationContext evaluationContext) {
+        public Range<Boundary> compile(final EvaluationContext evaluationContext) {
             Range<Boundary> range = null;
             for (final var comparison : compilableComparisons) {
                 final var comparisonRange = toRange(comparison, evaluationContext);
@@ -624,11 +597,10 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             return PlanHashable.objectPlanHash(mode, compilableComparisons);
         }
 
-        @Nonnull
         public ExplainTokensWithPrecedence explain() {
             return ExplainTokensWithPrecedence.of(new ExplainTokens()
                     .addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
@@ -637,15 +609,13 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
                                             .getExplainTokens()).iterator()));
         }
 
-        @Nonnull
         @Override
         public String toString() {
             return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
-        @Nonnull
-        private static Range<Boundary> toRange(@Nonnull Comparisons.Comparison comparison,
-                                               @Nonnull final EvaluationContext evaluationContext) {
+        private static Range<Boundary> toRange(Comparisons.Comparison comparison,
+                                               final EvaluationContext evaluationContext) {
             final var boundary = Boundary.from(comparison, evaluationContext);
             switch (comparison.getType()) {
                 case GREATER_THAN: // fallthrough
@@ -665,8 +635,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
             }
         }
 
-        @Nonnull
-        public Optional<CompilableRange> translateRange(@Nonnull final Function<Comparisons.Comparison, Optional<Comparisons.Comparison>> comparisonTranslator) {
+        public Optional<CompilableRange> translateRange(final Function<Comparisons.Comparison, Optional<Comparisons.Comparison>> comparisonTranslator) {
             final var newCompilableComparisonsBuilder = ImmutableSet.<Comparisons.Comparison>builder();
             for (final var compilableComparison : compilableComparisons) {
                 final var newCompilableComparisonOptional = comparisonTranslator.apply(compilableComparison);
@@ -678,9 +647,8 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
             return Optional.of(new CompilableRange(newCompilableComparisonsBuilder.build()));
         }
 
-        @Nonnull
         @Override
-        public PCompilableRange toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PCompilableRange toProto(final PlanSerializationContext serializationContext) {
             final PCompilableRange.Builder builder = PCompilableRange.newBuilder();
             for (final Comparisons.Comparison compilableComparison : compilableComparisons) {
                 builder.addCompilableComparisons(compilableComparison.toComparisonProto(serializationContext));
@@ -688,9 +656,8 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
             return builder.build();
         }
 
-        @Nonnull
-        public static CompilableRange fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                @Nonnull final PCompilableRange compilableRangeProto) {
+        public static CompilableRange fromProto(final PlanSerializationContext serializationContext,
+                                                final PCompilableRange compilableRangeProto) {
             final ImmutableSet.Builder<Comparisons.Comparison> compilableComparisonsBuilder = ImmutableSet.builder();
             for (int i = 0; i < compilableRangeProto.getCompilableComparisonsCount(); i ++) {
                 compilableComparisonsBuilder.add(
@@ -705,17 +672,13 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
      */
     public static class Builder {
 
-        @Nonnull
         private ImmutableSet.Builder<Comparisons.Comparison> compilableComparisons;
 
-        @Nonnull
         private ImmutableSet.Builder<Comparisons.Comparison> nonCompilableComparisons;
 
-        @Nonnull
         private static final Set<Comparisons.Type> allowedComparisonTypes = new LinkedHashSet<>();
 
 
-        @Nonnull
         private static final RangeConstraints emptyRange = new RangeConstraints(
                 new CompilableRange(Set.of(
                         new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 0),
@@ -732,9 +695,8 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
             allowedComparisonTypes.add(Comparisons.Type.NOT_NULL);
         }
 
-        @Nonnull
-        private static Set<Comparisons.Comparison> intersect(@Nonnull final Set<Comparisons.Comparison> left,
-                                                             @Nonnull final Set<Comparisons.Comparison> right) {
+        private static Set<Comparisons.Comparison> intersect(final Set<Comparisons.Comparison> left,
+                                                             final Set<Comparisons.Comparison> right) {
             ImmutableSet.Builder<Comparisons.Comparison> newNonCompileTimeComparisons = ImmutableSet.builder();
             newNonCompileTimeComparisons.addAll(left);
             newNonCompileTimeComparisons.addAll(right);
@@ -746,12 +708,12 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
             this.nonCompilableComparisons = ImmutableSet.builder();
         }
 
-        private boolean isCompileTime(@Nonnull final Comparisons.Comparison comparison) {
+        private boolean isCompileTime(final Comparisons.Comparison comparison) {
             return (comparison instanceof RecordTypeKeyComparison.RecordTypeComparison || IndexComparison.isSupported(comparison))
                     && allowedComparisonTypes.contains(comparison.getType());
         }
 
-        private boolean canBeUsedInScanPrefix(@Nonnull final Comparisons.Comparison comparison) {
+        private boolean canBeUsedInScanPrefix(final Comparisons.Comparison comparison) {
             switch (comparison.getType()) {
                 case EQUALS:
                 case LESS_THAN:
@@ -784,7 +746,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
             }
         }
 
-        public boolean addComparisonMaybe(@Nonnull final Comparisons.Comparison comparison) {
+        public boolean addComparisonMaybe(final Comparisons.Comparison comparison) {
             if (!canBeUsedInScanPrefix(comparison)) {
                 return false;
             }
@@ -796,14 +758,13 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
             return true;
         }
 
-        public void add(@Nonnull final RangeConstraints rangeConstraints) {
+        public void add(final RangeConstraints rangeConstraints) {
             if (rangeConstraints.evaluableRange != null) {
                 this.compilableComparisons = ImmutableSet.<Comparisons.Comparison>builder().addAll(intersect(compilableComparisons.build(), rangeConstraints.evaluableRange.compilableComparisons));
             }
             this.nonCompilableComparisons = ImmutableSet.<Comparisons.Comparison>builder().addAll(intersect(nonCompilableComparisons.build(), rangeConstraints.deferredRanges));
         }
 
-        @Nonnull
         public Optional<RangeConstraints> build() {
             final var compilableComparisonsList = compilableComparisons.build();
             final var nonCompilableComparisonsList = nonCompilableComparisons.build();
@@ -819,7 +780,6 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
      *
      * @return a new instance of {@link Builder}
      */
-    @Nonnull
     public static Builder newBuilder() {
         return new Builder();
     }
@@ -829,7 +789,6 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
      *
      * @return an empty {@link RangeConstraints} instance.
      */
-    @Nonnull
     public static RangeConstraints emptyRange() {
         return Builder.emptyRange;
     }

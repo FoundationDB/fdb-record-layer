@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -41,14 +40,14 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 public class ValueSimplificationRuleCall extends AbstractValueRuleCall<Value, ValueSimplificationRuleCall> {
-    public ValueSimplificationRuleCall(@Nonnull final PlannerRule<ValueSimplificationRuleCall, ? extends Value> rule,
-                                       @Nonnull final Value root,
-                                       @Nonnull final Value current,
-                                       @Nonnull final EvaluationContext evaluationContext,
-                                       @Nonnull final PlannerBindings bindings,
-                                       @Nonnull final AliasMap aliasMap,
-                                       @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                       @Nonnull final Function<Value, QueryPlanConstraint> retrieveQueryPlanConstraintFunction) {
+    public ValueSimplificationRuleCall(final PlannerRule<ValueSimplificationRuleCall, ? extends Value> rule,
+                                       final Value root,
+                                       final Value current,
+                                       final EvaluationContext evaluationContext,
+                                       final PlannerBindings bindings,
+                                       final AliasMap aliasMap,
+                                       final Set<CorrelationIdentifier> constantAliases,
+                                       final Function<Value, QueryPlanConstraint> retrieveQueryPlanConstraintFunction) {
         super(rule, root, current, evaluationContext, bindings, aliasMap, constantAliases,
                 retrieveQueryPlanConstraintFunction);
     }

@@ -40,8 +40,7 @@ import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -51,33 +50,29 @@ import java.util.function.Supplier;
 @API(API.Status.EXPERIMENTAL)
 public class ThrowsValue extends AbstractValue implements LeafValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Throws-Value");
-    @Nonnull
     private final Type resultType;
 
-    public ThrowsValue(@Nonnull final Type resultType) {
+    public ThrowsValue(final Type resultType) {
         this.resultType = resultType;
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return resultType;
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of();
     }
 
     @Override
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         throw new RecordCoreException("evaluation of throws()");
     }
 
-    @Nonnull
     @Override
-    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(final Value other) {
         return super.equalsWithoutChildren(other)
                 .filter(ignored -> resultType.equals(((ThrowsValue)other).resultType));
     }
@@ -88,13 +83,12 @@ public class ThrowsValue extends AbstractValue implements LeafValue {
     }
     
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("throws"));
     }
 
@@ -110,22 +104,19 @@ public class ThrowsValue extends AbstractValue implements LeafValue {
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public PThrowsValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PThrowsValue toProto(final PlanSerializationContext serializationContext) {
         return PThrowsValue.newBuilder()
                 .setResultType(resultType.toTypeProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull PlanSerializationContext serializationContext) {
+    public PValue toValueProto(PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setThrowsValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static ThrowsValue fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PThrowsValue throwsValueProto) {
+    public static ThrowsValue fromProto(final PlanSerializationContext serializationContext, final PThrowsValue throwsValueProto) {
         return new ThrowsValue(Type.fromTypeProto(serializationContext, Objects.requireNonNull(throwsValueProto.getResultType())));
     }
 
@@ -134,16 +125,14 @@ public class ThrowsValue extends AbstractValue implements LeafValue {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PThrowsValue, ThrowsValue> {
-        @Nonnull
         @Override
         public Class<PThrowsValue> getProtoMessageClass() {
             return PThrowsValue.class;
         }
 
-        @Nonnull
         @Override
-        public ThrowsValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                     @Nonnull final PThrowsValue throwsValueProto) {
+        public ThrowsValue fromProto(final PlanSerializationContext serializationContext,
+                                     final PThrowsValue throwsValueProto) {
             return ThrowsValue.fromProto(serializationContext, throwsValueProto);
         }
     }

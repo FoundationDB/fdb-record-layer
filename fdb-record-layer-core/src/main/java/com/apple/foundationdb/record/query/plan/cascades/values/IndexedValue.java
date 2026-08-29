@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -47,31 +46,28 @@ public class IndexedValue extends AbstractValue implements LeafValue, Value.NonE
 
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Indexed-Value");
 
-    @Nonnull
     private final Type resultType;
 
     public IndexedValue() {
         this(Type.primitiveType(Type.TypeCode.UNKNOWN));
     }
 
-    public IndexedValue(@Nonnull final Type resultType) {
+    public IndexedValue(final Type resultType) {
         this.resultType = resultType;
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of();
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return resultType;
     }
 
     @Override
-    public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
+    public boolean isFunctionallyDependentOn(final Value otherValue) {
         return false;
     }
 
@@ -81,14 +77,13 @@ public class IndexedValue extends AbstractValue implements LeafValue, Value.NonE
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH);
     }
 
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("indexed"));
     }
 
@@ -104,21 +99,18 @@ public class IndexedValue extends AbstractValue implements LeafValue, Value.NonE
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public PIndexedValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PIndexedValue toProto(final PlanSerializationContext serializationContext) {
         return PIndexedValue.newBuilder().setResultType(resultType.toTypeProto(serializationContext)).build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setIndexedValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static IndexedValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                         @Nonnull final PIndexedValue indexedValueProto) {
+    public static IndexedValue fromProto(final PlanSerializationContext serializationContext,
+                                         final PIndexedValue indexedValueProto) {
         return new IndexedValue(Type.fromTypeProto(serializationContext,
                 Objects.requireNonNull(indexedValueProto.getResultType())));
     }
@@ -128,16 +120,14 @@ public class IndexedValue extends AbstractValue implements LeafValue, Value.NonE
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PIndexedValue, IndexedValue> {
-        @Nonnull
         @Override
         public Class<PIndexedValue> getProtoMessageClass() {
             return PIndexedValue.class;
         }
 
-        @Nonnull
         @Override
-        public IndexedValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                      @Nonnull final PIndexedValue indexedValueProto) {
+        public IndexedValue fromProto(final PlanSerializationContext serializationContext,
+                                      final PIndexedValue indexedValueProto) {
             return IndexedValue.fromProto(serializationContext, indexedValueProto);
         }
     }

@@ -30,8 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Plan
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -46,19 +45,18 @@ public class ValueComputationRuleCall<ARGUMENT, RESULT> extends AbstractValueRul
     @Nullable
     private final ARGUMENT argument;
 
-    @Nonnull
     private final Function<Value, NonnullPair<Value, RESULT>> retrieveResultFunction;
 
-    public ValueComputationRuleCall(@Nonnull final PlannerRule<ValueComputationRuleCall<ARGUMENT, RESULT>, ? extends Value> rule,
-                                    @Nonnull final Value root,
-                                    @Nonnull final Value current,
-                                    @Nonnull final EvaluationContext evaluationContext,
+    public ValueComputationRuleCall(final PlannerRule<ValueComputationRuleCall<ARGUMENT, RESULT>, ? extends Value> rule,
+                                    final Value root,
+                                    final Value current,
+                                    final EvaluationContext evaluationContext,
                                     @Nullable final ARGUMENT argument,
-                                    @Nonnull final PlannerBindings bindings,
-                                    @Nonnull final AliasMap aliasMap,
-                                    @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                    @Nonnull final Function<Value, QueryPlanConstraint> retrieveQueryPlanConstraintFunction,
-                                    @Nonnull final Function<Value, NonnullPair<Value, RESULT>> retrieveResultFunction) {
+                                    final PlannerBindings bindings,
+                                    final AliasMap aliasMap,
+                                    final Set<CorrelationIdentifier> constantAliases,
+                                    final Function<Value, QueryPlanConstraint> retrieveQueryPlanConstraintFunction,
+                                    final Function<Value, NonnullPair<Value, RESULT>> retrieveResultFunction) {
         super(rule, root, current, evaluationContext, bindings, aliasMap, constantAliases,
                 retrieveQueryPlanConstraintFunction);
         this.argument = argument;
@@ -71,16 +69,15 @@ public class ValueComputationRuleCall<ARGUMENT, RESULT> extends AbstractValueRul
     }
 
     @Nullable
-    public NonnullPair<Value, RESULT> getResult(@Nonnull final Value value) {
+    public NonnullPair<Value, RESULT> getResult(final Value value) {
         return retrieveResultFunction.apply(value);
     }
 
-    public void yieldValue(@Nonnull final Value value, @Nonnull final RESULT result) {
+    public void yieldValue(final Value value, final RESULT result) {
         super.yieldResult(NonnullPair.of(value, result));
     }
 
-    @Nonnull
-    public ValueSimplificationRuleCall toValueSimplificationRuleCall(@Nonnull final AbstractRule<Value, ValueSimplificationRuleCall, Value, ? extends Value> rule) {
+    public ValueSimplificationRuleCall toValueSimplificationRuleCall(final AbstractRule<Value, ValueSimplificationRuleCall, Value, ? extends Value> rule) {
         return new ValueSimplificationRuleCall(rule, getRoot(), getCurrent(), getEvaluationContext(), getBindings(),
                 getEquivalenceMap(), getConstantAliases(), getRetrieveQueryPlanConstraintFunction());
     }

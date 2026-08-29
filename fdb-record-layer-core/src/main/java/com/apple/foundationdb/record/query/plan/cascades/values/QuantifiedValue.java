@@ -31,7 +31,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 
 /**
@@ -40,29 +39,25 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public interface QuantifiedValue extends LeafValue {
 
-    @Nonnull
     CorrelationIdentifier getAlias();
 
-    @Nonnull
     @Override
     default Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return ImmutableSet.of(getAlias());
     }
 
-    @Nonnull
     @Override
-    default ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
+    default ConstrainedBoolean equalsWithoutChildren(final Value other) {
         return LeafValue.super.equalsWithoutChildren(other)
                 .filter(ignored -> getAlias().equals(((QuantifiedValue)other).getAlias()));
     }
 
-    @Nonnull
     @Override
-    default Multimap<Value, Value> pullUp(@Nonnull final Iterable<? extends Value> toBePulledUpValues,
-                                          @Nonnull final EvaluationContext evaluationContext,
-                                          @Nonnull final AliasMap aliasMap,
-                                          @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                          @Nonnull final CorrelationIdentifier upperBaseAlias) {
+    default Multimap<Value, Value> pullUp(final Iterable<? extends Value> toBePulledUpValues,
+                                          final EvaluationContext evaluationContext,
+                                          final AliasMap aliasMap,
+                                          final Set<CorrelationIdentifier> constantAliases,
+                                          final CorrelationIdentifier upperBaseAlias) {
         // If all the values to be pulled up are only correlated to this value's correlation ID (or to constants),
         // then we can do a pull up just by translating correlations
         final var alias = getAlias();

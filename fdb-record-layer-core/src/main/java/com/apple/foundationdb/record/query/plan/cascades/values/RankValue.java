@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
@@ -41,55 +40,49 @@ public class RankValue extends WindowedValue implements Value.IndexOnlyValue {
     private static final String NAME = "RANK";
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash(NAME + "-Value");
 
-    public RankValue(@Nonnull final PlanSerializationContext serializationContext,
-                     @Nonnull final PRankValue rankValueProto) {
+    public RankValue(final PlanSerializationContext serializationContext,
+                     final PRankValue rankValueProto) {
         super(serializationContext, Objects.requireNonNull(rankValueProto.getSuper()));
     }
 
-    public RankValue(@Nonnull Iterable<? extends Value> partitioningValues,
-                     @Nonnull Iterable<? extends Value> argumentValues) {
+    public RankValue(Iterable<? extends Value> partitioningValues,
+                     Iterable<? extends Value> argumentValues) {
         super(partitioningValues, argumentValues);
     }
 
-    @Nonnull
     @Override
     public String getName() {
         return NAME;
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return basePlanHash(mode, BASE_HASH);
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return Type.primitiveType(Type.TypeCode.LONG);
     }
 
-    @Nonnull
     @Override
     public RankValue withChildren(final Iterable<? extends Value> newChildren) {
         final var childrenPair = splitNewChildren(newChildren);
         return new RankValue(childrenPair.getKey(), childrenPair.getValue());
     }
 
-    @Nonnull
     @Override
-    public PRankValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRankValue toProto(final PlanSerializationContext serializationContext) {
         return PRankValue.newBuilder().setSuper(toWindowedValueProto(serializationContext)).build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setRankValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RankValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                      @Nonnull final PRankValue rankValueProto) {
+    public static RankValue fromProto(final PlanSerializationContext serializationContext,
+                                      final PRankValue rankValueProto) {
         return new RankValue(serializationContext, rankValueProto);
     }
 
@@ -98,16 +91,14 @@ public class RankValue extends WindowedValue implements Value.IndexOnlyValue {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRankValue, RankValue> {
-        @Nonnull
         @Override
         public Class<PRankValue> getProtoMessageClass() {
             return PRankValue.class;
         }
 
-        @Nonnull
         @Override
-        public RankValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                   @Nonnull final PRankValue rankValueProto) {
+        public RankValue fromProto(final PlanSerializationContext serializationContext,
+                                   final PRankValue rankValueProto) {
             return RankValue.fromProto(serializationContext, rankValueProto);
         }
     }

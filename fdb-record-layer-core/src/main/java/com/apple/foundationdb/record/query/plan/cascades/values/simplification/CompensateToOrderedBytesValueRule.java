@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ToOrderedBytesVa
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Optional;
 
@@ -41,23 +40,20 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class CompensateToOrderedBytesValueRule extends ValueComputationRule<Value, Map<Value, ValueCompensation>, ToOrderedBytesValue> {
-    @Nonnull
     private static final BindingMatcher<Value> childFieldMatcher = anyValue();
-    @Nonnull
     private static final BindingMatcher<ToOrderedBytesValue> rootMatcher = toOrderedBytesValue(childFieldMatcher);
 
     public CompensateToOrderedBytesValueRule() {
         super(rootMatcher);
     }
 
-    @Nonnull
     @Override
     public Optional<Class<?>> getRootOperator() {
         return Optional.of(ToOrderedBytesValue.class);
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<Value, Map<Value, ValueCompensation>> call) {
+    public void onMatch(final ValueComputationRuleCall<Value, Map<Value, ValueCompensation>> call) {
         final var bindings = call.getBindings();
         final var rootValue = bindings.get(rootMatcher);
         final var childValue = bindings.get(childFieldMatcher);

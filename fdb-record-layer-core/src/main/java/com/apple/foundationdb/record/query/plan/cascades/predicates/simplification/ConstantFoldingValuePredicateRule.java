@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyComparison;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.valuePredicate;
@@ -65,13 +64,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 public class ConstantFoldingValuePredicateRule extends QueryPredicateSimplificationRule<ValuePredicate> {
 
-    @Nonnull
     private static final BindingMatcher<Comparisons.Comparison> comparisonMatcher = anyComparison();
 
-    @Nonnull
     private static final BindingMatcher<Value> comparandMatcher = anyValue();
 
-    @Nonnull
     private static final BindingMatcher<ValuePredicate> rootMatcher = valuePredicate(comparandMatcher, comparisonMatcher);
 
     public ConstantFoldingValuePredicateRule() {
@@ -79,7 +75,7 @@ public class ConstantFoldingValuePredicateRule extends QueryPredicateSimplificat
     }
 
     @Override
-    public void onMatch(@Nonnull final QueryPredicateSimplificationRuleCall call) {
+    public void onMatch(final QueryPredicateSimplificationRuleCall call) {
         final var root = call.getBindings().get(rootMatcher);
         final var comparison = call.getBindings().get(comparisonMatcher);
         final var lhsValue = root.getValue();

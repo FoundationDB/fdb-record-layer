@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithPredicate.typedMatcherWithPredicate;
@@ -50,7 +49,6 @@ public class CollapseNullStrictValueOverNullValueRule extends ValueSimplificatio
     /**
      * {@link Value} subclasses that are considered to be strictly null-propagating by this rule.
      */
-    @Nonnull
     private static final ImmutableSet<Class<? extends Value>> VALUE_CLASSES = ImmutableSet.of(
             ArithmeticValue.class,
             CastValue.class,
@@ -59,7 +57,6 @@ public class CollapseNullStrictValueOverNullValueRule extends ValueSimplificatio
             PromoteValue.class,
             SubscriptValue.class);
 
-    @Nonnull
     private static final BindingMatcher<Value> rootMatcher = typedMatcherWithPredicate(Value.class,
             v -> VALUE_CLASSES.contains(v.getClass()) && hasNullValueChild(v));
 
@@ -67,20 +64,19 @@ public class CollapseNullStrictValueOverNullValueRule extends ValueSimplificatio
         super(rootMatcher);
     }
 
-    @Nonnull
     @Override
     public Optional<Class<?>> getRootOperator() {
         return Optional.empty();
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueSimplificationRuleCall call) {
+    public void onMatch(final ValueSimplificationRuleCall call) {
         final Value value = call.getBindings().get(rootMatcher);
         // Note that the `NullValue` will always have a nullable result type even if the value’s result type is not.
         call.yieldResult(new NullValue(value.getResultType()));
     }
 
-    private static boolean hasNullValueChild(@Nonnull final Value value) {
+    private static boolean hasNullValueChild(final Value value) {
         return Streams.stream(value.getChildren()).anyMatch(NullValue.class::isInstance);
     }
 }

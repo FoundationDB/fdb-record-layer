@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 import com.apple.foundationdb.annotation.API;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 
 /**
  * A scalar value type that has children.
@@ -35,15 +34,12 @@ public interface ValueWithChild extends Value {
      * Method to retrieve the only child value.
      * @return this child {@link Value}
      */
-    @Nonnull
     Value getChild();
 
-    @Nonnull
     @Override
-    default ValueWithChild withChildren(@Nonnull final Iterable<? extends Value> newChildren) {
+    default ValueWithChild withChildren(final Iterable<? extends Value> newChildren) {
         return withNewChild(Iterables.getOnlyElement(newChildren));
     }
 
-    @Nonnull
-    ValueWithChild withNewChild(@Nonnull Value rebasedChild);
+    ValueWithChild withNewChild(Value rebasedChild);
 }

@@ -49,8 +49,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -74,18 +73,18 @@ import java.util.stream.Stream;
 public final class OrPredicate extends AndOrPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Or-Predicate");
 
-    private OrPredicate(@Nonnull final PlanSerializationContext serializationContext,
-                        @Nonnull final POrPredicate orPredicateProto) {
+    private OrPredicate(final PlanSerializationContext serializationContext,
+                        final POrPredicate orPredicateProto) {
         super(serializationContext, Objects.requireNonNull(orPredicateProto.getSuper()));
     }
 
-    private OrPredicate(@Nonnull final List<? extends QueryPredicate> operands, final boolean isAtomic) {
+    private OrPredicate(final List<? extends QueryPredicate> operands, final boolean isAtomic) {
         super(operands, isAtomic);
     }
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nullable FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
+    public <M extends Message> Boolean eval(@Nullable FDBRecordStoreBase<M> store, EvaluationContext context) {
         Boolean defaultValue = Boolean.FALSE;
         for (QueryPredicate child : getChildren()) {
             final Boolean val = child.eval(store, context);
@@ -98,9 +97,8 @@ public final class OrPredicate extends AndOrPredicate {
         return defaultValue;
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(Precedence.OR,
                 new ExplainTokens().addSequence(() -> new ExplainTokens().addWhitespace().addKeyword("OR").addLinebreakOrWhitespace(),
                         () -> Streams.stream(explainSuppliers).map(Supplier::get)
@@ -113,7 +111,7 @@ public final class OrPredicate extends AndOrPredicate {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
@@ -126,15 +124,13 @@ public final class OrPredicate extends AndOrPredicate {
         }
     }
 
-    @Nonnull
     @Override
     public OrPredicate withChildren(final Iterable<? extends QueryPredicate> newChildren) {
         return new OrPredicate(ImmutableList.copyOf(newChildren), isAtomic());
     }
 
-    @Nonnull
     @Override
-    public Optional<PredicateWithValueAndRanges> toValueWithRangesMaybe(final @Nonnull EvaluationContext evaluationContext) {
+    public Optional<PredicateWithValueAndRanges> toValueWithRangesMaybe(final EvaluationContext evaluationContext) {
         // expression hierarchy must be of a single level, all children must be simple .
         if (!getChildren().stream().allMatch(child -> child instanceof PredicateWithValue)) {
             return Optional.empty();
@@ -211,12 +207,11 @@ public final class OrPredicate extends AndOrPredicate {
      *
      * @return optional match mapping.
      */
-    @Nonnull
     @Override
-    public Optional<PredicateMapping> impliesCandidatePredicateMaybe(@Nonnull final ValueEquivalence valueEquivalence,
-                                                                     @Nonnull final QueryPredicate originalQueryPredicate,
-                                                                     @Nonnull final QueryPredicate candidatePredicate,
-                                                                     @Nonnull final EvaluationContext evaluationContext) {
+    public Optional<PredicateMapping> impliesCandidatePredicateMaybe(final ValueEquivalence valueEquivalence,
+                                                                     final QueryPredicate originalQueryPredicate,
+                                                                     final QueryPredicate candidatePredicate,
+                                                                     final EvaluationContext evaluationContext) {
         Optional<PredicateMapping> mappingsOptional = super.impliesCandidatePredicateMaybe(valueEquivalence,
                 originalQueryPredicate, candidatePredicate, evaluationContext);
         if (mappingsOptional.isPresent()) {
@@ -272,13 +267,12 @@ public final class OrPredicate extends AndOrPredicate {
         return mappingsOptional;
     }
 
-    @Nonnull
-    private Optional<PredicateMapping> impliesWithValuesAndRanges(@Nonnull final ValueEquivalence valueEquivalence,
-                                                                  @Nonnull final QueryPredicate originalQueryPredicate,
-                                                                  @Nonnull final QueryPredicate candidatePredicate,
-                                                                  @Nonnull final EvaluationContext evaluationContext,
-                                                                  @Nonnull final PredicateWithValueAndRanges leftValueWithRanges,
-                                                                  @Nonnull final PredicateWithValueAndRanges rightValueWithRanges) {
+    private Optional<PredicateMapping> impliesWithValuesAndRanges(final ValueEquivalence valueEquivalence,
+                                                                  final QueryPredicate originalQueryPredicate,
+                                                                  final QueryPredicate candidatePredicate,
+                                                                  final EvaluationContext evaluationContext,
+                                                                  final PredicateWithValueAndRanges leftValueWithRanges,
+                                                                  final PredicateWithValueAndRanges rightValueWithRanges) {
 
         //
         // TODO This logic should be refactored in a way that it calls the implies-logic in
@@ -348,13 +342,12 @@ public final class OrPredicate extends AndOrPredicate {
         }
     }
 
-    @Nonnull
     @Override
-    public PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
-                                                                     @Nonnull final QueryPredicate originalQueryPredicate,
-                                                                     @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                     @Nonnull final List<PredicateCompensationFunction> childrenCompensationFunctions,
-                                                                     @Nonnull final PullUp pullUp) {
+    public PredicateCompensationFunction computeCompensationFunction(final PartialMatch partialMatch,
+                                                                     final QueryPredicate originalQueryPredicate,
+                                                                     final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                     final List<PredicateCompensationFunction> childrenCompensationFunctions,
+                                                                     final PullUp pullUp) {
         boolean isNeeded = false;
         for (final var childPredicateCompensationFunction : childrenCompensationFunctions) {
             isNeeded |= childPredicateCompensationFunction.isNeeded();
@@ -383,59 +376,50 @@ public final class OrPredicate extends AndOrPredicate {
                 });
     }
 
-    @Nonnull
     @Override
     public OrPredicate withAtomicity(final boolean isAtomic) {
         return new OrPredicate(ImmutableList.copyOf(getChildren()), isAtomic);
     }
 
-    @Nonnull
     @Override
-    public POrPredicate toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public POrPredicate toProto(final PlanSerializationContext serializationContext) {
         return POrPredicate.newBuilder().setSuper(toAndOrPredicateProto(serializationContext)).build();
     }
 
-    @Nonnull
     @Override
-    public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PQueryPredicate toQueryPredicateProto(final PlanSerializationContext serializationContext) {
         return PQueryPredicate.newBuilder().setOrPredicate(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static OrPredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                        @Nonnull final POrPredicate orPredicateProto) {
+    public static OrPredicate fromProto(final PlanSerializationContext serializationContext,
+                                        final POrPredicate orPredicateProto) {
         return new OrPredicate(serializationContext, orPredicateProto);
     }
 
-    @Nonnull
-    public static QueryPredicate or(@Nonnull QueryPredicate first, @Nonnull QueryPredicate second,
-                                    @Nonnull QueryPredicate... operands) {
+    public static QueryPredicate or(QueryPredicate first, QueryPredicate second,
+                                    QueryPredicate... operands) {
         return of(toList(first, second, operands), false);
     }
 
-    @Nonnull
-    public static QueryPredicate or(@Nonnull final Collection<? extends QueryPredicate> children) {
+    public static QueryPredicate or(final Collection<? extends QueryPredicate> children) {
         return of(children, false);
     }
 
-    @Nonnull
-    public static QueryPredicate orOrTrue(@Nonnull final Collection<? extends QueryPredicate> disjuncts) {
+    public static QueryPredicate orOrTrue(final Collection<? extends QueryPredicate> disjuncts) {
         if (disjuncts.isEmpty()) {
             return ConstantPredicate.TRUE;
         }
         return of(disjuncts, false);
     }
 
-    @Nonnull
-    public static QueryPredicate orOrFalse(@Nonnull final Collection<? extends QueryPredicate> disjuncts) {
+    public static QueryPredicate orOrFalse(final Collection<? extends QueryPredicate> disjuncts) {
         if (disjuncts.isEmpty()) {
             return ConstantPredicate.FALSE;
         }
         return of(disjuncts, false);
     }
 
-    @Nonnull
-    public static QueryPredicate of(@Nonnull final Collection<? extends QueryPredicate> disjuncts, final boolean isAtomic) {
+    public static QueryPredicate of(final Collection<? extends QueryPredicate> disjuncts, final boolean isAtomic) {
         Verify.verify(!disjuncts.isEmpty());
         if (disjuncts.size() == 1) {
             return Iterables.getOnlyElement(disjuncts);
@@ -449,16 +433,14 @@ public final class OrPredicate extends AndOrPredicate {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<POrPredicate, OrPredicate> {
-        @Nonnull
         @Override
         public Class<POrPredicate> getProtoMessageClass() {
             return POrPredicate.class;
         }
 
-        @Nonnull
         @Override
-        public OrPredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                     @Nonnull final POrPredicate orPredicateProto) {
+        public OrPredicate fromProto(final PlanSerializationContext serializationContext,
+                                     final POrPredicate orPredicateProto) {
             return OrPredicate.fromProto(serializationContext, orPredicateProto);
         }
     }

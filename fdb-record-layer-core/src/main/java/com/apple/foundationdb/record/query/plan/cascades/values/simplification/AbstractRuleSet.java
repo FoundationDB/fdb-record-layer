@@ -35,7 +35,6 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.SetMultimap;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -53,19 +52,15 @@ import java.util.stream.Stream;
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
 public class AbstractRuleSet<CALL extends PlannerRuleCall, BASE> {
-    @Nonnull
     private final Multimap<Class<?>, PlannerRule<CALL, ? extends BASE>> ruleIndex;
-    @Nonnull
     private final List<PlannerRule<CALL, ? extends BASE>> alwaysRules;
 
-    @Nonnull
     private final SetMultimap<PlannerRule<CALL, ? extends BASE>, PlannerRule<CALL, ? extends BASE>> dependsOn;
 
-    @Nonnull
     private final LoadingCache<Class<? extends BASE>, List<PlannerRule<CALL, ? extends BASE>>> rulesCache;
 
-    protected AbstractRuleSet(@Nonnull final Set<? extends PlannerRule<CALL, ? extends BASE>> rules,
-                              @Nonnull final SetMultimap<? extends PlannerRule<CALL, ? extends BASE>, ? extends PlannerRule<CALL, ? extends BASE>> dependencies) {
+    protected AbstractRuleSet(final Set<? extends PlannerRule<CALL, ? extends BASE>> rules,
+                              final SetMultimap<? extends PlannerRule<CALL, ? extends BASE>, ? extends PlannerRule<CALL, ? extends BASE>> dependencies) {
         this.ruleIndex = MultimapBuilder.hashKeys().arrayListValues().build();
         this.alwaysRules = new ArrayList<>();
         this.dependsOn = MultimapBuilder.hashKeys().hashSetValues().build();
@@ -83,9 +78,8 @@ public class AbstractRuleSet<CALL extends PlannerRuleCall, BASE> {
         this.rulesCache = CacheBuilder.newBuilder()
                 .maximumSize(100)
                 .build(new CacheLoader<>() {
-                    @Nonnull
                     @Override
-                    public List<PlannerRule<CALL, ? extends BASE>> load(@Nonnull final Class<? extends BASE> key) {
+                    public List<PlannerRule<CALL, ? extends BASE>> load(final Class<? extends BASE> key) {
                         final var applicableRules =
                                 ImmutableSet.<PlannerRule<CALL, ? extends BASE>>builderWithExpectedSize(ruleIndex.size() + alwaysRules.size())
                                         .addAll(ruleIndex.get(key))
@@ -104,15 +98,13 @@ public class AbstractRuleSet<CALL extends PlannerRuleCall, BASE> {
                 });
     }
 
-    @Nonnull
-    public Stream<? extends PlannerRule<CALL, ? extends BASE>> getRules(@Nonnull BASE value) {
+    public Stream<? extends PlannerRule<CALL, ? extends BASE>> getRules(BASE value) {
         return getRules(value, r -> true);
     }
 
-    @Nonnull
     @SuppressWarnings({"PMD.PreserveStackTrace", "unchecked"})
-    public Stream<? extends PlannerRule<CALL, ? extends BASE>> getRules(@Nonnull BASE value,
-                                                                        @Nonnull final Predicate<PlannerRule<CALL, ? extends BASE>> rulePredicate) {
+    public Stream<? extends PlannerRule<CALL, ? extends BASE>> getRules(BASE value,
+                                                                        final Predicate<PlannerRule<CALL, ? extends BASE>> rulePredicate) {
         try {
             return rulesCache.get((Class<? extends BASE>)value.getClass()).stream().filter(rulePredicate);
         } catch (final ExecutionException ee) {

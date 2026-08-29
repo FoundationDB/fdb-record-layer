@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.VariadicFunction
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.coalesceFunction;
 
@@ -45,7 +44,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 public class EvaluateConstantCoalesceRule extends ValueSimplificationRule<VariadicFunctionValue> {
 
-    @Nonnull
     private static final BindingMatcher<VariadicFunctionValue> rootMatcher = coalesceFunction();
 
     public EvaluateConstantCoalesceRule() {
@@ -54,7 +52,7 @@ public class EvaluateConstantCoalesceRule extends ValueSimplificationRule<Variad
 
     @Override
     @SuppressWarnings("PMD.AvoidBranchingStatementAsLastInLoop")
-    public void onMatch(@Nonnull final ValueSimplificationRuleCall call) {
+    public void onMatch(final ValueSimplificationRuleCall call) {
         final var variadicFunctionValue = call.getBindings().get(rootMatcher);
 
         final var newChildrenBuilder = ImmutableList.<Value>builder();
@@ -102,7 +100,7 @@ public class EvaluateConstantCoalesceRule extends ValueSimplificationRule<Variad
         }
     }
 
-    private static boolean cannotFold(@Nonnull final Value value) {
+    private static boolean cannotFold(final Value value) {
         return !(value instanceof NullValue)
                 && !(value.getResultType().isNotNullable() && value instanceof LiteralValue<?>);
     }

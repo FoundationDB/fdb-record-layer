@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValue;
@@ -43,11 +42,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 public class ComposeFieldValueOverFieldValueRule extends ValueSimplificationRule<FieldValue> {
-    @Nonnull
     private static final BindingMatcher<Value> innerChildMatcher = anyValue();
-    @Nonnull
     private static final BindingMatcher<FieldValue> innerFieldValueMatcher = fieldValue(innerChildMatcher);
-    @Nonnull
     private static final BindingMatcher<FieldValue> rootMatcher = fieldValue(innerFieldValueMatcher);
 
     public ComposeFieldValueOverFieldValueRule() {
@@ -55,7 +51,7 @@ public class ComposeFieldValueOverFieldValueRule extends ValueSimplificationRule
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueSimplificationRuleCall call) {
+    public void onMatch(final ValueSimplificationRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
         final FieldValue outer = bindings.get(rootMatcher);
         final FieldValue inner = bindings.get(innerFieldValueMatcher);

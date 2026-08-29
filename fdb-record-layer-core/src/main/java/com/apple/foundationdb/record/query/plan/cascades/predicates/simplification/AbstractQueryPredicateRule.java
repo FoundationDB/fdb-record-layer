@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractRule;
 
-import javax.annotation.Nonnull;
 
 /**
  * Tag class to bind the base {@code BASE} to {@link QueryPredicate}.
@@ -38,7 +37,7 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class AbstractQueryPredicateRule<RESULT, CALL extends AbstractQueryPredicateRuleCall<RESULT, CALL>, TYPE extends QueryPredicate> extends AbstractRule<RESULT, CALL, QueryPredicate, TYPE> {
-    public AbstractQueryPredicateRule(@Nonnull BindingMatcher<TYPE> matcher) {
+    public AbstractQueryPredicateRule(BindingMatcher<TYPE> matcher) {
         super(matcher);
     }
 }

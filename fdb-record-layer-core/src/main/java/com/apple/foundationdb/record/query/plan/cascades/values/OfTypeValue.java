@@ -39,8 +39,7 @@ import com.google.common.collect.Iterables;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -50,42 +49,37 @@ import java.util.function.Supplier;
 public class OfTypeValue extends AbstractValue implements Value.RangeMatchableValue, ValueWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Of-Type-Value");
 
-    @Nonnull
     private final Value child;
-    @Nonnull
     private final Type expectedType;
 
-    private OfTypeValue(@Nonnull final Value child, @Nonnull final Type expectedType) {
+    private OfTypeValue(final Value child, final Type expectedType) {
         this.child = child;
         this.expectedType = expectedType;
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, expectedType, child);
     }
 
-    @Nonnull
     @Override
     public Value getChild() {
         return child;
     }
 
-    @Nonnull
     public Type getExpectedType() {
         return expectedType;
     }
 
-    @Nonnull
     @Override
-    public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
+    public ValueWithChild withNewChild(final Value rebasedChild) {
         return new OfTypeValue(rebasedChild, expectedType);
     }
 
     @Nullable
     @Override
     public <M extends Message> Boolean eval(@Nullable final FDBRecordStoreBase<M> store,
-                                            @Nonnull final EvaluationContext context) {
+                                            final EvaluationContext context) {
         final var value = child.eval(store, context);
         if (value == null) {
             return expectedType.isNullable();
@@ -109,7 +103,7 @@ public class OfTypeValue extends AbstractValue implements Value.RangeMatchableVa
 
     @Nullable
     @Override
-    public Boolean evalWithoutStore(@Nonnull final EvaluationContext context) {
+    public Boolean evalWithoutStore(final EvaluationContext context) {
         return eval(null, context);
     }
 
@@ -120,9 +114,8 @@ public class OfTypeValue extends AbstractValue implements Value.RangeMatchableVa
         return semanticEquals(o, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(final Value other) {
         return super.equalsWithoutChildren(other)
                 .filter(ignored -> expectedType.equals(((OfTypeValue)other).getExpectedType()));
     }
@@ -137,39 +130,34 @@ public class OfTypeValue extends AbstractValue implements Value.RangeMatchableVa
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, expectedType);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         final var child = Iterables.getOnlyElement(explainSuppliers).get().getExplainTokens();
         return ExplainTokensWithPrecedence.of(ExplainTokensWithPrecedence.Precedence.ALWAYS_PARENS,
                 child.addWhitespace().addIdentifier("OF").addWhitespace().addKeyword("TYPE")
                         .addWhitespace().addNested(expectedType.describe()));
     }
 
-    @Nonnull
     @Override
-    public POfTypeValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public POfTypeValue toProto(final PlanSerializationContext serializationContext) {
         return POfTypeValue.newBuilder()
                 .setChild(child.toValueProto(serializationContext))
                 .setExpectedType(expectedType.toTypeProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setOfTypeValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static OfTypeValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                        @Nonnull final POfTypeValue ofTypeValueProto) {
+    public static OfTypeValue fromProto(final PlanSerializationContext serializationContext,
+                                        final POfTypeValue ofTypeValueProto) {
         return new OfTypeValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(ofTypeValueProto.getChild())),
                 Type.fromTypeProto(serializationContext, Objects.requireNonNull(ofTypeValueProto.getExpectedType())));
     }
 
-    @Nonnull
-    public static OfTypeValue of(@Nonnull final Value value, @Nonnull final Type type) {
+    public static OfTypeValue of(final Value value, final Type type) {
         return new OfTypeValue(value, type);
     }
 
@@ -181,12 +169,10 @@ public class OfTypeValue extends AbstractValue implements Value.RangeMatchableVa
      * @return new {@link OfTypeValue} that checks whether the underlying child have a type conforming to the type of
      *         the {@link ConstantObjectValue}.
      */
-    @Nonnull
-    public static OfTypeValue from(@Nonnull final ConstantObjectValue value) {
+    public static OfTypeValue from(final ConstantObjectValue value) {
         return new OfTypeValue(ConstantObjectValue.of(value.getAlias(), value.getConstantId(), Type.any()), value.getResultType());
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of(getChild());
@@ -197,16 +183,14 @@ public class OfTypeValue extends AbstractValue implements Value.RangeMatchableVa
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<POfTypeValue, OfTypeValue> {
-        @Nonnull
         @Override
         public Class<POfTypeValue> getProtoMessageClass() {
             return POfTypeValue.class;
         }
 
-        @Nonnull
         @Override
-        public OfTypeValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                     @Nonnull final POfTypeValue ofTypeValueProto) {
+        public OfTypeValue fromProto(final PlanSerializationContext serializationContext,
+                                     final POfTypeValue ofTypeValueProto) {
             return OfTypeValue.fromProto(serializationContext, ofTypeValueProto);
         }
     }

@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractRuleSet;
 import com.google.common.collect.SetMultimap;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 
 /**
@@ -38,8 +37,8 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
 public class AbstractQueryPredicateRuleSet<R, C extends AbstractQueryPredicateRuleCall<R, C>> extends AbstractRuleSet<C, QueryPredicate> {
-    protected AbstractQueryPredicateRuleSet(@Nonnull final Set<? extends AbstractQueryPredicateRule<R, C, ? extends QueryPredicate>> rules,
-                                            @Nonnull final SetMultimap<? extends AbstractQueryPredicateRule<R, C, ? extends QueryPredicate>, ? extends AbstractQueryPredicateRule<R, C, ? extends QueryPredicate>> dependencies) {
+    protected AbstractQueryPredicateRuleSet(final Set<? extends AbstractQueryPredicateRule<R, C, ? extends QueryPredicate>> rules,
+                                            final SetMultimap<? extends AbstractQueryPredicateRule<R, C, ? extends QueryPredicate>, ? extends AbstractQueryPredicateRule<R, C, ? extends QueryPredicate>> dependencies) {
         super(rules, dependencies);
     }
 }

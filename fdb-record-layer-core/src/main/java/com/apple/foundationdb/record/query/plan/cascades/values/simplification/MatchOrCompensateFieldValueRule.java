@@ -33,7 +33,6 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimaps;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
@@ -46,13 +45,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterable<? extends Value>, ListMultimap<Value, ValueCompensation>, FieldValue> {
-    @Nonnull
     private static final CollectionMatcher<Integer> fieldPathOrdinalsMatcher = all(anyObject());
 
-    @Nonnull
     private static final CollectionMatcher<Type> fieldPathTypesMatcher = all(anyObject());
 
-    @Nonnull
     private static final BindingMatcher<FieldValue> rootMatcher =
             ValueMatchers.fieldValueWithFieldPath(anyValue(), fieldPathOrdinalsMatcher, fieldPathTypesMatcher);
 
@@ -61,7 +57,7 @@ public class MatchOrCompensateFieldValueRule extends ValueComputationRule<Iterab
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, ListMultimap<Value, ValueCompensation>> call) {
+    public void onMatch(final ValueComputationRuleCall<Iterable<? extends Value>, ListMultimap<Value, ValueCompensation>> call) {
         final var bindings = call.getBindings();
         final var fieldValue = bindings.get(rootMatcher);
 

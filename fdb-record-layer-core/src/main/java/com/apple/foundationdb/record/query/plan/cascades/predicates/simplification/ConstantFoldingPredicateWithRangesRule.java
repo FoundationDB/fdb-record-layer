@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstra
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyComparison;
@@ -73,13 +72,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ConstantFoldingPredicateWithRangesRule extends QueryPredicateSimplificationRule<PredicateWithValueAndRanges> {
 
-    @Nonnull
     private static final BindingMatcher<RangeConstraints> booleanSingletonRangeMatcher = rangeConstraint(exactly(anyComparison()));
 
-    @Nonnull
     private static final BindingMatcher<Value> comparandMatcher = anyValue();
 
-    @Nonnull
     private static final BindingMatcher<PredicateWithValueAndRanges> rootMatcher = predicateWithValueAndRanges(comparandMatcher, exactly(booleanSingletonRangeMatcher));
 
     public ConstantFoldingPredicateWithRangesRule() {
@@ -87,7 +83,7 @@ public class ConstantFoldingPredicateWithRangesRule extends QueryPredicateSimpli
     }
 
     @Override
-    public void onMatch(@Nonnull final QueryPredicateSimplificationRuleCall call) {
+    public void onMatch(final QueryPredicateSimplificationRuleCall call) {
         final var root = call.getBindings().get(rootMatcher);
         final var booleanSingletonRange = call.getBindings().get(booleanSingletonRangeMatcher);
         final var comparison = (Iterables.getOnlyElement(booleanSingletonRange.getComparisons()));

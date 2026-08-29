@@ -53,8 +53,7 @@ import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -76,7 +75,6 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
     /**
      * Map from (sourceType, targetType) to the physical cast operator.
      */
-    @Nonnull
     private static final Supplier<Map<Type.TypeCode, Map<Type.TypeCode, PhysicalOperator>>> castOperatorMapSupplier =
             Suppliers.memoize(() -> {
                 final Map<Type.TypeCode, ImmutableMap.Builder<Type.TypeCode, PhysicalOperator>> builderMap = new HashMap<>();
@@ -96,18 +94,14 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
                 return finalBuilder.build();
             });
 
-    @Nonnull
     private final Value child;
-    @Nonnull
     private final Type castToType;
-    @Nonnull
     private final PhysicalOperator physicalOperator;
 
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Cast-Value");
 
-    @Nonnull
     @Override
-    public PCastValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PCastValue toProto(final PlanSerializationContext serializationContext) {
         return PCastValue.newBuilder()
                 .setChild(child.toValueProto(serializationContext))
                 .setCastToType(castToType.toTypeProto(serializationContext))
@@ -256,75 +250,63 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
         NULL_TO_VERSION(Type.TypeCode.NULL, Type.TypeCode.VERSION, (descriptor, in) -> null),
         ;
 
-        @Nonnull
         private final Type.TypeCode from;
-        @Nonnull
         private final Type.TypeCode to;
-        @Nonnull
         private final BiFunction<Descriptors.GenericDescriptor, Object, Object> castFunction;
 
-        @Nonnull
         private static final Supplier<BiMap<PhysicalOperator, PCastValue.PPhysicalOperator>> protoEnumBiMapSupplier =
                 Suppliers.memoize(() -> PlanSerialization.protoEnumBiMap(PhysicalOperator.class,
                         PCastValue.PPhysicalOperator.class));
 
-        PhysicalOperator(@Nonnull final Type.TypeCode from,
-                        @Nonnull final Type.TypeCode to,
-                        @Nonnull final BiFunction<Descriptors.GenericDescriptor, Object, Object> castFunction) {
+        PhysicalOperator(final Type.TypeCode from,
+                        final Type.TypeCode to,
+                        final BiFunction<Descriptors.GenericDescriptor, Object, Object> castFunction) {
             this.from = from;
             this.to = to;
             this.castFunction = castFunction;
         }
 
-        @Nonnull
         public Type.TypeCode getFrom() {
             return from;
         }
 
-        @Nonnull
         public Type.TypeCode getTo() {
             return to;
         }
 
-        @Nonnull
         public BiFunction<Descriptors.GenericDescriptor, Object, Object> getCastFunction() {
             return castFunction;
         }
 
-        @Nonnull
-        public PCastValue.PPhysicalOperator toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PCastValue.PPhysicalOperator toProto(final PlanSerializationContext serializationContext) {
             return Objects.requireNonNull(getProtoEnumBiMap().get(this));
         }
 
-        @Nonnull
-        public static PhysicalOperator fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                 @Nonnull final PCastValue.PPhysicalOperator physicalOperatorProto) {
+        public static PhysicalOperator fromProto(final PlanSerializationContext serializationContext,
+                                                 final PCastValue.PPhysicalOperator physicalOperatorProto) {
             return Objects.requireNonNull(getProtoEnumBiMap().inverse().get(physicalOperatorProto));
         }
 
-        @Nonnull
         private static BiMap<PhysicalOperator, PCastValue.PPhysicalOperator> getProtoEnumBiMap() {
             return protoEnumBiMapSupplier.get();
         }
     }
 
-    private CastValue(@Nonnull final Value child,
-                     @Nonnull final Type castToType,
-                     @Nonnull final PhysicalOperator physicalOperator) {
+    private CastValue(final Value child,
+                     final Type castToType,
+                     final PhysicalOperator physicalOperator) {
         this.child = child;
         this.castToType = castToType;
         this.physicalOperator = physicalOperator;
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return castToType;
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         final var childTokens = Iterables.getOnlyElement(explainSuppliers).get();
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("CAST",
                 childTokens.getExplainTokens().addWhitespace().addKeyword("AS").addWhitespace()
@@ -332,32 +314,29 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
     }
 
     @Override
-    public boolean canResultInType(@Nonnull final Type type) {
+    public boolean canResultInType(final Type type) {
         return type.isNullable() && castToType.nullable().equals(type);
     }
 
-    @Nonnull
     @Override
-    public Value with(@Nonnull final Type type) {
+    public Value with(final Type type) {
         return new CastValue(child, type, physicalOperator);
     }
 
-    @Nonnull
     @Override
     public Value getChild() {
         return child;
     }
 
-    @Nonnull
     @Override
-    public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
+    public ValueWithChild withNewChild(final Value rebasedChild) {
         return new CastValue(rebasedChild, castToType, physicalOperator);
     }
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store,
-                                           @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(final FDBRecordStoreBase<M> store,
+                                           final EvaluationContext context) {
         final var childResult = getChild().eval(store, context);
         if (childResult == null) {
             return null;
@@ -390,9 +369,8 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
         return semanticHashCode();
     }
 
-    @Nonnull
     @Override
-    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(final Value other) {
         return super.equalsWithoutChildren(other)
                 .filter(ignored -> {
                     final CastValue that = (CastValue)other;
@@ -408,7 +386,7 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, child, castToType, physicalOperator);
     }
 
@@ -417,13 +395,11 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
         return "CAST(" + child + " AS " + castToType + ")";
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setCastValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of(getChild());
@@ -437,8 +413,7 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
      * @return a value with result type {@code castToType}
      * @throws SemanticException if no cast from the type of {@code inValue} to {@code castToType} is defined
      */
-    @Nonnull
-    public static Value inject(@Nonnull final Value inValue, @Nonnull final Type castToType) {
+    public static Value inject(final Value inValue, final Type castToType) {
         final Type inType = inValue.getResultType();
 
         // If the types are the same, no cast is needed.
@@ -499,7 +474,7 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
      * @param toType the target type
      * @return true if the cast is supported, false otherwise
      */
-    public static boolean isCastSupported(@Nonnull final Type fromType, @Nonnull final Type toType) {
+    public static boolean isCastSupported(final Type fromType, final Type toType) {
         if (fromType.equals(toType)) {
             return true;
         }
@@ -526,9 +501,8 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
         return fromMap != null && fromMap.containsKey(toType.getTypeCode());
     }
 
-    @Nonnull
-    public static CastValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                     @Nonnull final PCastValue castValueProto) {
+    public static CastValue fromProto(final PlanSerializationContext serializationContext,
+                                     final PCastValue castValueProto) {
         final Value child = Value.fromValueProto(serializationContext, castValueProto.getChild());
         final Type castToType = Type.fromTypeProto(serializationContext, castValueProto.getCastToType());
         final PhysicalOperator physicalOperator = PhysicalOperator.fromProto(serializationContext, castValueProto.getOperator());
@@ -540,16 +514,14 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PCastValue, CastValue> {
-        @Nonnull
         @Override
         public Class<PCastValue> getProtoMessageClass() {
             return PCastValue.class;
         }
 
-        @Nonnull
         @Override
-        public CastValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                   @Nonnull final PCastValue castValueProto) {
+        public CastValue fromProto(final PlanSerializationContext serializationContext,
+                                   final PCastValue castValueProto) {
             return CastValue.fromProto(serializationContext, castValueProto);
         }
     }
@@ -661,8 +633,7 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
         }
     }
 
-    @Nonnull
-    private static RealVector parseHalfVector(@Nonnull final List<Object> array, @Nonnull final Type sourceElementType) {
+    private static RealVector parseHalfVector(final List<Object> array, final Type sourceElementType) {
         final var sourceTypeCode = sourceElementType.getTypeCode();
         if (sourceTypeCode == Type.TypeCode.FLOAT) {
             final var halfArray = array.stream().map(obj -> Half.valueOf((Float)obj)).toArray(Half[]::new);
@@ -686,8 +657,7 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
         return null; // not reachable.
     }
 
-    @Nonnull
-    private static RealVector parseFloatVector(@Nonnull final List<Object> array, @Nonnull final Type sourceElementType) {
+    private static RealVector parseFloatVector(final List<Object> array, final Type sourceElementType) {
         final var sourceTypeCode = sourceElementType.getTypeCode();
         if (sourceTypeCode == Type.TypeCode.FLOAT) {
             final var floatArray = toFloatArray(array.stream().map(obj -> ((Number)obj).floatValue()));
@@ -709,8 +679,7 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
         return null; // not reachable.
     }
 
-    @Nonnull
-    private static RealVector parseDoubleVector(@Nonnull final List<Object> array, @Nonnull final Type sourceElementType) {
+    private static RealVector parseDoubleVector(final List<Object> array, final Type sourceElementType) {
         final var sourceTypeCode = sourceElementType.getTypeCode();
         if (sourceTypeCode == Type.TypeCode.DOUBLE) {
             final var doubleArray = array.stream().map(obj -> ((Number)obj).doubleValue()).toArray(Double[]::new);
@@ -729,9 +698,8 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
     }
 
 
-    @Nonnull
-    private static RealVector parseVector(@Nonnull final List<Object> array, @Nonnull final Type.Vector vectorType,
-                                         @Nonnull final Type sourceElementType) {
+    private static RealVector parseVector(final List<Object> array, final Type.Vector vectorType,
+                                         final Type sourceElementType) {
         if (vectorType.getPrecision() == 16) {
             return parseHalfVector(array, sourceElementType);
         }
@@ -744,8 +712,7 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
         throw new RecordCoreException("unexpected vector type " + vectorType);
     }
 
-    @Nonnull
-    private static float[] toFloatArray(@Nonnull final Stream<Float> floatStream) {
+    private static float[] toFloatArray(final Stream<Float> floatStream) {
         List<Float> floatList = floatStream.collect(Collectors.toList());
         float[] floatArray = new float[floatList.size()];
         for (int i = 0; i < floatList.size(); i++) {

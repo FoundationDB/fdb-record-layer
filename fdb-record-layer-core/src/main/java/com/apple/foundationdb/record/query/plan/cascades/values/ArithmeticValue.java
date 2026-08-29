@@ -53,8 +53,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -70,14 +69,10 @@ import java.util.function.Supplier;
 public class ArithmeticValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Arithmetic-Value");
 
-    @Nonnull
     private final PhysicalOperator operator;
-    @Nonnull
     private final Value leftChild;
-    @Nonnull
     private final Value rightChild;
 
-    @Nonnull
     private static final Supplier<Map<BinaryOperatorSignature, PhysicalOperator>> operatorMapSupplier =
             Suppliers.memoize(ArithmeticValue::computeOperatorMap);
 
@@ -87,15 +82,14 @@ public class ArithmeticValue extends AbstractValue {
      * @param leftChild The left child.
      * @param rightChild The right child.
      */
-    public ArithmeticValue(@Nonnull PhysicalOperator operator,
-                           @Nonnull Value leftChild,
-                           @Nonnull Value rightChild) {
+    public ArithmeticValue(PhysicalOperator operator,
+                           Value leftChild,
+                           Value rightChild) {
         this.operator = operator;
         this.leftChild = leftChild;
         this.rightChild = rightChild;
     }
 
-    @Nonnull
     public LogicalOperator getLogicalOperator() {
         return operator.getLogicalOperator();
     }
@@ -103,14 +97,13 @@ public class ArithmeticValue extends AbstractValue {
     @Nullable
     @Override
     @SuppressWarnings("java:S6213")
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         return operator.eval(leftChild.eval(store, context),
                 rightChild.eval(store, context));
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSupplier) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSupplier) {
         final var left = Iterables.get(explainSupplier, 0).get();
         final var right = Iterables.get(explainSupplier, 1).get();
         final var logicalOperator = getLogicalOperator();
@@ -121,19 +114,16 @@ public class ArithmeticValue extends AbstractValue {
                         .addNested(precedence.parenthesizeChild(right)));
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return Type.primitiveType(operator.getResultTypeCode());
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of(leftChild, rightChild);
     }
 
-    @Nonnull
     @Override
     public ArithmeticValue withChildren(final Iterable<? extends Value> newChildren) {
         Verify.verify(Iterables.size(newChildren) == 2);
@@ -148,13 +138,12 @@ public class ArithmeticValue extends AbstractValue {
     }
     
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, operator, leftChild, rightChild);
     }
 
-    @Nonnull
     @Override
-    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(final Value other) {
         return super.equalsWithoutChildren(other).filter(ignored -> {
             ArithmeticValue otherArithmetic = (ArithmeticValue)other;
             return operator.equals(otherArithmetic.operator);
@@ -173,9 +162,8 @@ public class ArithmeticValue extends AbstractValue {
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public PArithmeticValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PArithmeticValue toProto(final PlanSerializationContext serializationContext) {
         return PArithmeticValue.newBuilder()
                 .setOperator(operator.toProto(serializationContext))
                 .setLeftChild(leftChild.toValueProto(serializationContext))
@@ -183,34 +171,29 @@ public class ArithmeticValue extends AbstractValue {
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setArithmeticValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static ArithmeticValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                            @Nonnull final PArithmeticValue arithmeticValueProto) {
+    public static ArithmeticValue fromProto(final PlanSerializationContext serializationContext,
+                                            final PArithmeticValue arithmeticValueProto) {
         return new ArithmeticValue(PhysicalOperator.fromProto(serializationContext, Objects.requireNonNull(arithmeticValueProto.getOperator())),
                 Value.fromValueProto(serializationContext, Objects.requireNonNull(arithmeticValueProto.getLeftChild())),
                 Value.fromValueProto(serializationContext, Objects.requireNonNull(arithmeticValueProto.getRightChild())));
     }
 
-    @Nonnull
     private static Map<BinaryOperatorSignature, PhysicalOperator> getOperatorMap() {
         return operatorMapSupplier.get();
     }
 
-    @Nonnull
-    private static Value encapsulateInternal(@Nonnull BuiltInFunction<Value> builtInFunction,
-                                             @Nonnull final CallSiteArguments callSiteArguments) {
+    private static Value encapsulateInternal(BuiltInFunction<Value> builtInFunction,
+                                             final CallSiteArguments callSiteArguments) {
         final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
         return encapsulate(builtInFunction.getFunctionName(), arguments);
     }
 
-    @Nonnull
-    private static Value encapsulate(@Nonnull final String functionName, @Nonnull final List<? extends Typed> arguments) {
+    private static Value encapsulate(final String functionName, final List<? extends Typed> arguments) {
         Verify.verify(arguments.size() == 2);
         final Typed arg0 = arguments.get(0);
         final Type type0 = arg0.getResultType();
@@ -377,22 +360,18 @@ public class ArithmeticValue extends AbstractValue {
         BITMAP_BIT_POSITION("bitmap_bit_position", Precedence.NEVER_PARENS)
         ;
 
-        @Nonnull
         private final String infixNotation;
-        @Nonnull
         private final Precedence precedence;
 
-        LogicalOperator(@Nonnull final String infixNotation, @Nonnull final Precedence precedence) {
+        LogicalOperator(final String infixNotation, final Precedence precedence) {
             this.infixNotation = infixNotation;
             this.precedence = precedence;
         }
 
-        @Nonnull
         public String getInfixNotation() {
             return infixNotation;
         }
 
-        @Nonnull
         public Precedence getPrecedence() {
             return precedence;
         }
@@ -522,31 +501,25 @@ public class ArithmeticValue extends AbstractValue {
         BITMAP_BIT_POSITION_II(LogicalOperator.BITMAP_BIT_POSITION, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> Math.subtractExact((int)l, Math.multiplyExact(Math.floorDiv((int)l, (int)r), (int)r)))
         ;
 
-        @Nonnull
         private static final Supplier<BiMap<PhysicalOperator, PPhysicalOperator>> protoEnumBiMapSupplier =
                 Suppliers.memoize(() -> PlanSerialization.protoEnumBiMap(PhysicalOperator.class,
                         PPhysicalOperator.class));
 
-        @Nonnull
         private final LogicalOperator logicalOperator;
 
-        @Nonnull
         private final TypeCode leftArgType;
 
-        @Nonnull
         private final TypeCode rightArgType;
 
-        @Nonnull
         private final TypeCode resultType;
 
-        @Nonnull
         private final BinaryOperator<Object> evaluateFunction;
 
-        PhysicalOperator(@Nonnull final LogicalOperator logicalOperator,
-                         @Nonnull final TypeCode leftArgType,
-                         @Nonnull final TypeCode rightArgType,
-                         @Nonnull final TypeCode resultType,
-                         @Nonnull final BinaryOperator<Object> evaluateFunction) {
+        PhysicalOperator(final LogicalOperator logicalOperator,
+                         final TypeCode leftArgType,
+                         final TypeCode rightArgType,
+                         final TypeCode resultType,
+                         final BinaryOperator<Object> evaluateFunction) {
             this.logicalOperator = logicalOperator;
             this.leftArgType = leftArgType;
             this.rightArgType = rightArgType;
@@ -554,22 +527,18 @@ public class ArithmeticValue extends AbstractValue {
             this.evaluateFunction = evaluateFunction;
         }
 
-        @Nonnull
         public LogicalOperator getLogicalOperator() {
             return logicalOperator;
         }
 
-        @Nonnull
         public TypeCode getLeftArgType() {
             return leftArgType;
         }
 
-        @Nonnull
         public TypeCode getRightArgType() {
             return rightArgType;
         }
 
-        @Nonnull
         public TypeCode getResultTypeCode() {
             return resultType;
         }
@@ -582,50 +551,41 @@ public class ArithmeticValue extends AbstractValue {
             return evaluateFunction.apply(arg1, arg2);
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
-        public PPhysicalOperator toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PPhysicalOperator toProto(final PlanSerializationContext serializationContext) {
             return Objects.requireNonNull(getProtoEnumBiMap().get(this));
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
-        public static PhysicalOperator fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                 @Nonnull final PPhysicalOperator physicalOperatorProto) {
+        public static PhysicalOperator fromProto(final PlanSerializationContext serializationContext,
+                                                 final PPhysicalOperator physicalOperatorProto) {
             return Objects.requireNonNull(getProtoEnumBiMap().inverse().get(physicalOperatorProto));
         }
 
-        @Nonnull
         private static BiMap<PhysicalOperator, PPhysicalOperator> getProtoEnumBiMap() {
             return protoEnumBiMapSupplier.get();
         }
     }
 
     static final class BinaryOperatorSignature {
-        @Nonnull
         private final LogicalOperator logicalOperator;
-        @Nonnull
         private final Type.TypeCode leftType;
-        @Nonnull
         private final Type.TypeCode rightType;
 
-        BinaryOperatorSignature(@Nonnull LogicalOperator logicalOperator, @Nonnull Type.TypeCode leftType, @Nonnull Type.TypeCode rightType) {
+        BinaryOperatorSignature(LogicalOperator logicalOperator, Type.TypeCode leftType, Type.TypeCode rightType) {
             this.logicalOperator = logicalOperator;
             this.leftType = leftType;
             this.rightType = rightType;
         }
 
-        @Nonnull
         public LogicalOperator getLogicalOperator() {
             return logicalOperator;
         }
 
-        @Nonnull
         public Type.TypeCode getLeftType() {
             return leftType;
         }
 
-        @Nonnull
         public Type.TypeCode getRightType() {
             return rightType;
         }
@@ -658,16 +618,14 @@ public class ArithmeticValue extends AbstractValue {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PArithmeticValue, ArithmeticValue> {
-        @Nonnull
         @Override
         public Class<PArithmeticValue> getProtoMessageClass() {
             return PArithmeticValue.class;
         }
 
-        @Nonnull
         @Override
-        public ArithmeticValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                         @Nonnull final PArithmeticValue arithmeticValueProto) {
+        public ArithmeticValue fromProto(final PlanSerializationContext serializationContext,
+                                         final PArithmeticValue arithmeticValueProto) {
             return ArithmeticValue.fromProto(serializationContext, arithmeticValueProto);
         }
     }

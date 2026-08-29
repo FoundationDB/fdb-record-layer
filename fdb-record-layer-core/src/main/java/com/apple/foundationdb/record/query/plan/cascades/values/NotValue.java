@@ -47,8 +47,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -68,20 +67,19 @@ public class NotValue extends AbstractValue implements BooleanValue, ValueWithCh
     /**
      * The child expression.
      */
-    @Nonnull
     private final Value child;
 
     /**
      * Constructs a new {@link NotValue} instance.
      * @param child The child expression.
      */
-    public NotValue(@Nonnull final Value child) {
+    public NotValue(final Value child) {
         this.child = child;
     }
 
     @Override
     public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
-                                                     @Nonnull final Set<CorrelationIdentifier> localAliases) {
+                                                     final Set<CorrelationIdentifier> localAliases) {
         Verify.verify(child instanceof BooleanValue);
         final Optional<QueryPredicate> predicateOptional = ((BooleanValue)child).toQueryPredicate(typeRepository, localAliases);
         if (predicateOptional.isPresent()) {
@@ -100,28 +98,25 @@ public class NotValue extends AbstractValue implements BooleanValue, ValueWithCh
         return Optional.empty();
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of(getChild());
     }
 
-    @Nonnull
     @Override
     public Value getChild() {
         return child;
     }
 
-    @Nonnull
     @Override
-    public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
+    public ValueWithChild withNewChild(final Value rebasedChild) {
         return new NotValue(rebasedChild);
     }
 
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
-                                           @Nonnull final EvaluationContext context) {
+                                           final EvaluationContext context) {
         final Object result = child.eval(store, context);
         if (result == null) {
             return null;
@@ -135,13 +130,12 @@ public class NotValue extends AbstractValue implements BooleanValue, ValueWithCh
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, child);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         final var childExplainInfo = Iterables.getOnlyElement(explainSuppliers).get();
         return ExplainTokensWithPrecedence.of(ExplainTokensWithPrecedence.Precedence.NOT,
                 new ExplainTokens().addKeyword("NOT").addWhitespace()
@@ -160,21 +154,18 @@ public class NotValue extends AbstractValue implements BooleanValue, ValueWithCh
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public PNotValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PNotValue toProto(final PlanSerializationContext serializationContext) {
         return PNotValue.newBuilder().setChild(child.toValueProto(serializationContext)).build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setNotValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static NotValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                     @Nonnull final PNotValue notValueProto) {
+    public static NotValue fromProto(final PlanSerializationContext serializationContext,
+                                     final PNotValue notValueProto) {
         return new NotValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(notValueProto.getChild())));
     }
 
@@ -189,7 +180,7 @@ public class NotValue extends AbstractValue implements BooleanValue, ValueWithCh
                     (builtInFunction, arguments) -> encapsulateInternal(arguments.getArgumentsList()));
         }
 
-        private static Value encapsulateInternal(@Nonnull final List<? extends Typed> arguments) {
+        private static Value encapsulateInternal(final List<? extends Typed> arguments) {
             return new NotValue((Value)arguments.get(0));
         }
     }
@@ -199,16 +190,14 @@ public class NotValue extends AbstractValue implements BooleanValue, ValueWithCh
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PNotValue, NotValue> {
-        @Nonnull
         @Override
         public Class<PNotValue> getProtoMessageClass() {
             return PNotValue.class;
         }
 
-        @Nonnull
         @Override
-        public NotValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                  @Nonnull final PNotValue notValueProto) {
+        public NotValue fromProto(final PlanSerializationContext serializationContext,
+                                  final PNotValue notValueProto) {
             return NotValue.fromProto(serializationContext, notValueProto);
         }
     }

@@ -44,8 +44,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -70,34 +69,28 @@ import java.util.function.Supplier;
 @API(API.Status.EXPERIMENTAL)
 public class PickValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Pick-Value");
-    @Nonnull
     private final Value selectorValue;
-    @Nonnull
     private final List<? extends Value> alternativeValues;
-    @Nonnull
     private final Iterable<? extends Value> children;
-    @Nonnull
     private final Type resultType;
 
-    public PickValue(@Nonnull final Value selectorValue, @Nonnull final Iterable<? extends Value> alternativeValues) {
+    public PickValue(final Value selectorValue, final Iterable<? extends Value> alternativeValues) {
         this(selectorValue, alternativeValues, resolveTypesFromAlternatives(alternativeValues));
     }
 
-    private PickValue(@Nonnull final Value selectorValue, @Nonnull final Iterable<? extends Value> alternativeValues,
-                      @Nonnull final Type resultType) {
+    private PickValue(final Value selectorValue, final Iterable<? extends Value> alternativeValues,
+                      final Type resultType) {
         this.selectorValue = selectorValue;
         this.alternativeValues = ImmutableList.copyOf(alternativeValues);
         this.children = Iterables.concat(ImmutableList.of(selectorValue), alternativeValues);
         this.resultType = resultType;
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return children;
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return resultType;
@@ -105,7 +98,7 @@ public class PickValue extends AbstractValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         final var boxedSelectedIndex = (Integer)selectorValue.eval(store, context);
         if (boxedSelectedIndex == null) {
             return null;
@@ -115,7 +108,6 @@ public class PickValue extends AbstractValue {
         return alternativeValues.get(selectedIndex).eval(store, context);
     }
 
-    @Nonnull
     @Override
     public Value withChildren(final Iterable<? extends Value> newChildren) {
         final var newChildrenIterator = newChildren.iterator();
@@ -125,7 +117,7 @@ public class PickValue extends AbstractValue {
     }
 
     @Override
-    public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
+    public boolean isFunctionallyDependentOn(final Value otherValue) {
         return alternativeValues.stream()
                 .allMatch(alternativeValue -> alternativeValue.isFunctionallyDependentOn(otherValue));
     }
@@ -136,13 +128,12 @@ public class PickValue extends AbstractValue {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, getChildren());
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("pick",
                 Value.explainFunctionArguments(explainSuppliers)));
     }
@@ -159,9 +150,8 @@ public class PickValue extends AbstractValue {
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public PPickValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PPickValue toProto(final PlanSerializationContext serializationContext) {
         final var builder = PPickValue.newBuilder();
         builder.setSelectorValue(selectorValue.toValueProto(serializationContext));
         for (final Value alternativeValue : alternativeValues) {
@@ -171,15 +161,13 @@ public class PickValue extends AbstractValue {
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setPickValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static PickValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                      @Nonnull final PPickValue pickValueProto) {
+    public static PickValue fromProto(final PlanSerializationContext serializationContext,
+                                      final PPickValue pickValueProto) {
         final ImmutableList.Builder<Value> alternativeValuesBuilder = ImmutableList.builder();
         for (int i = 0; i < pickValueProto.getAlternativeValuesCount(); i ++) {
             alternativeValuesBuilder.add(Value.fromValueProto(serializationContext, pickValueProto.getAlternativeValues(i)));
@@ -189,8 +177,7 @@ public class PickValue extends AbstractValue {
                 Type.fromTypeProto(serializationContext, Objects.requireNonNull(pickValueProto.getResultType())));
     }
 
-    @Nonnull
-    private static Type resolveTypesFromAlternatives(@Nonnull final Iterable<? extends Value> alternativeValues) {
+    private static Type resolveTypesFromAlternatives(final Iterable<? extends Value> alternativeValues) {
         Type commonType = null;
         for (final var alternativeValue : alternativeValues) {
             final var resultType = alternativeValue.getResultType();
@@ -208,16 +195,14 @@ public class PickValue extends AbstractValue {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PPickValue, PickValue> {
-        @Nonnull
         @Override
         public Class<PPickValue> getProtoMessageClass() {
             return PPickValue.class;
         }
 
-        @Nonnull
         @Override
-        public PickValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                   @Nonnull final PPickValue pickValueProto) {
+        public PickValue fromProto(final PlanSerializationContext serializationContext,
+                                   final PPickValue pickValueProto) {
             return PickValue.fromProto(serializationContext, pickValueProto);
         }
     }
@@ -232,8 +217,8 @@ public class PickValue extends AbstractValue {
         }
 
         @SuppressWarnings("PMD.UnusedFormalParameter")
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> ignored,
-                                         @Nonnull final CallSiteArguments callSiteArguments) {
+        private static Value encapsulate(BuiltInFunction<Value> ignored,
+                                         final CallSiteArguments callSiteArguments) {
             final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             Verify.verify(arguments.size() > 1);
             var selectorValue = (Value)arguments.get(0);

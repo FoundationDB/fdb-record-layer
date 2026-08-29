@@ -41,8 +41,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -60,17 +59,16 @@ public class RecordTypeValue extends AbstractValue {
      * is to introduce a {@link com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField} for the
      * record type key and then phase out this value all together.
      */
-    @Nonnull
     private final Value in;
 
-    public RecordTypeValue(@Nonnull final Value in) {
+    public RecordTypeValue(final Value in) {
         this.in = in;
     }
 
     @SuppressWarnings("unchecked")
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         final var inRecord = in.eval(store, context);
         if (inRecord instanceof FDBQueriedRecord<?>) {
             return ((FDBQueriedRecord<?>)inRecord).getRecordType().getRecordTypeKey();
@@ -86,13 +84,11 @@ public class RecordTypeValue extends AbstractValue {
                 .getRecordType(((M)inRecord).getDescriptorForType().getName()).getRecordTypeKey();
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of(in);
     }
 
-    @Nonnull
     @Override
     public Value withChildren(final Iterable<? extends Value> newChildren) {
         return new RecordTypeValue(Iterables.getOnlyElement(newChildren));
@@ -104,7 +100,7 @@ public class RecordTypeValue extends AbstractValue {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH);
     }
 
@@ -120,37 +116,32 @@ public class RecordTypeValue extends AbstractValue {
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return Type.primitiveType(Type.TypeCode.LONG); // eval returns a Tuple-friendly record type key which is Long.
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("recordType",
                 Value.explainFunctionArguments(explainSuppliers)));
     }
 
-    @Nonnull
     @Override
-    public PRecordTypeValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordTypeValue toProto(final PlanSerializationContext serializationContext) {
         return PRecordTypeValue.newBuilder()
                 .setIn(in.toValueProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setRecordTypeValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    public static RecordTypeValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                            @Nonnull final PRecordTypeValue recordTypeValueProto) {
+    public static RecordTypeValue fromProto(final PlanSerializationContext serializationContext,
+                                            final PRecordTypeValue recordTypeValueProto) {
         if (recordTypeValueProto.hasAlias()) {
             return new RecordTypeValue(
                     QuantifiedRecordValue.of(
@@ -176,16 +167,14 @@ public class RecordTypeValue extends AbstractValue {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordTypeValue, RecordTypeValue> {
-        @Nonnull
         @Override
         public Class<PRecordTypeValue> getProtoMessageClass() {
             return PRecordTypeValue.class;
         }
 
-        @Nonnull
         @Override
-        public RecordTypeValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                         @Nonnull final PRecordTypeValue recordTypeValueProto) {
+        public RecordTypeValue fromProto(final PlanSerializationContext serializationContext,
+                                         final PRecordTypeValue recordTypeValueProto) {
             return RecordTypeValue.fromProto(serializationContext, recordTypeValueProto);
         }
     }

@@ -34,7 +34,6 @@ import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 
 /**
  * Tests for {@link RowNumberValue}.
@@ -342,9 +341,8 @@ class RowNumberValueTest {
                 "row_number should declare both of its options");
     }
 
-    @Nonnull
-    private static CallSiteArguments windowedArgumentsWithRawOption(@Nonnull final String optionName,
-                                                                   @Nonnull final Object rawValue) {
+    private static CallSiteArguments windowedArgumentsWithRawOption(final String optionName,
+                                                                   final Object rawValue) {
         final var windowSpecification = new CallSiteArguments.WindowSpecification(
                 ImmutableList.of(),
                 ImmutableList.of(new WindowOrderingPart(LiteralValue.ofScalar(2), OrderingPart.RequestedSortOrder.ASCENDING)));

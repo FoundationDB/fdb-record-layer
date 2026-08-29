@@ -43,8 +43,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -59,29 +58,23 @@ import java.util.function.Supplier;
 public class FirstOrDefaultStreamingValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("First-Or-Default-Streaming-Value");
 
-    @Nonnull
     private final StreamingValue childValue;
-    @Nonnull
     private final Value onEmptyResultValue;
-    @Nonnull
     private final Supplier<List<Value>> childrenSupplier;
-    @Nonnull
     private final Type resultType;
 
-    public FirstOrDefaultStreamingValue(@Nonnull final StreamingValue childValue, @Nonnull final Value onEmptyResultValue) {
+    public FirstOrDefaultStreamingValue(final StreamingValue childValue, final Value onEmptyResultValue) {
         this.childValue = childValue;
         this.onEmptyResultValue = onEmptyResultValue;
         this.childrenSupplier = () -> ImmutableList.of(childValue, onEmptyResultValue);
         this.resultType = Objects.requireNonNull(childValue.getResultType());
     }
 
-    @Nonnull
     @Override
     public List<? extends Value> computeChildren() {
         return childrenSupplier.get();
     }
 
-    @Nonnull
     @Override
     public Value withChildren(final Iterable<? extends Value> newChildren) {
         final var newChildrenList = ImmutableList.copyOf(newChildren);
@@ -90,20 +83,18 @@ public class FirstOrDefaultStreamingValue extends AbstractValue {
         return new FirstOrDefaultStreamingValue((StreamingValue)newChildrenList.get(0), newChildrenList.get(1));
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return resultType;
     }
 
-    @Nonnull
     public Value getOnEmptyResultValue() {
         return onEmptyResultValue;
     }
 
     @Override
     @SpotBugsSuppressWarnings({"NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", "NP_NONNULL_PARAM_VIOLATION"})
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         final var childResult = childValue.evalAsStream(store, context, null, null).first().join();
         if (childResult.isPresent()) {
             return childResult.get();
@@ -118,13 +109,12 @@ public class FirstOrDefaultStreamingValue extends AbstractValue {
     }
     
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, childValue, onEmptyResultValue);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("firstOrDefault",
                 Value.explainFunctionArguments(explainSuppliers)));
     }
@@ -141,23 +131,20 @@ public class FirstOrDefaultStreamingValue extends AbstractValue {
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public PFirstOrDefaultValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PFirstOrDefaultValue toProto(final PlanSerializationContext serializationContext) {
         return PFirstOrDefaultValue.newBuilder()
                 .setChildValue(childValue.toValueProto(serializationContext))
                 .setOnEmptyResultValue(onEmptyResultValue.toValueProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull PlanSerializationContext serializationContext) {
+    public PValue toValueProto(PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setFirstOrDefaultValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static FirstOrDefaultStreamingValue fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PFirstOrDefaultStreamingValue firstOrDefaultStreamingValueProto) {
+    public static FirstOrDefaultStreamingValue fromProto(final PlanSerializationContext serializationContext, final PFirstOrDefaultStreamingValue firstOrDefaultStreamingValueProto) {
         final var value = Value.fromValueProto(serializationContext, Objects.requireNonNull(firstOrDefaultStreamingValueProto.getChildValue()));
         if (!(value instanceof StreamingValue)) {
             throw new RecordCoreException("invalid value, expecting streaming value").addLogInfo(LogMessageKeys.VALUE, value);
@@ -171,16 +158,14 @@ public class FirstOrDefaultStreamingValue extends AbstractValue {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PFirstOrDefaultStreamingValue, FirstOrDefaultStreamingValue> {
-        @Nonnull
         @Override
         public Class<PFirstOrDefaultStreamingValue> getProtoMessageClass() {
             return PFirstOrDefaultStreamingValue.class;
         }
 
-        @Nonnull
         @Override
-        public FirstOrDefaultStreamingValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                      @Nonnull final PFirstOrDefaultStreamingValue firstOrDefaultValueStreamingProto) {
+        public FirstOrDefaultStreamingValue fromProto(final PlanSerializationContext serializationContext,
+                                                      final PFirstOrDefaultStreamingValue firstOrDefaultValueStreamingProto) {
             return FirstOrDefaultStreamingValue.fromProto(serializationContext, firstOrDefaultValueStreamingProto);
         }
     }

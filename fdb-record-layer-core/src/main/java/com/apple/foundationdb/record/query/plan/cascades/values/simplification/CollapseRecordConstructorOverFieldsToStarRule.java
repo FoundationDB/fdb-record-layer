@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyFieldValue;
@@ -46,7 +45,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class CollapseRecordConstructorOverFieldsToStarRule extends ValueSimplificationRule<RecordConstructorValue> {
     private static final CollectionMatcher<FieldValue> fieldValuesMatcher = all(anyFieldValue());
-    @Nonnull
     private static final BindingMatcher<RecordConstructorValue> rootMatcher =
             recordConstructorValue(fieldValuesMatcher);
 
@@ -55,7 +53,7 @@ public class CollapseRecordConstructorOverFieldsToStarRule extends ValueSimplifi
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueSimplificationRuleCall call) {
+    public void onMatch(final ValueSimplificationRuleCall call) {
         final var bindings = call.getBindings();
         final var recordConstructorValue = bindings.get(rootMatcher);
         final var fieldValues = bindings.get(fieldValuesMatcher);

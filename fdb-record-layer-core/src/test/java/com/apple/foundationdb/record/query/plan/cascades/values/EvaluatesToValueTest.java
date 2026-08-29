@@ -27,8 +27,7 @@ import com.google.common.base.Verify;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.HashMap;
 
@@ -37,9 +36,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingT
 
 public class EvaluatesToValueTest {
 
-    @Nonnull
-    private static EvaluationContext replaceBinding(@Nonnull final EvaluationContext evaluationContext,
-                                                    @Nonnull final String constantId,
+    private static EvaluationContext replaceBinding(final EvaluationContext evaluationContext,
+                                                    final String constantId,
                                                     @Nullable Object newValue) {
         final var list = evaluationContext.getBindings().asMappingList();
         Verify.verify(list.size() == 1);

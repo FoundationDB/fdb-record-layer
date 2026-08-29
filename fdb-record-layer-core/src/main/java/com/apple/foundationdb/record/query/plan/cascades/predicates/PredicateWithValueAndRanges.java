@@ -52,8 +52,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -90,20 +89,17 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
     /**
      * The value associated with the {@code ranges}.
      */
-    @Nonnull
     private final Value value;
 
     /**
      * A set of ranges, implicitly defining a boolean predicate in DNF form defined on the {@code value}.
      */
-    @Nonnull
     private final Set<RangeConstraints> ranges;
 
-    @Nonnull
     private final Supplier<Boolean> rangesCompileTimeChecker;
 
-    protected PredicateWithValueAndRanges(@Nonnull final PlanSerializationContext serializationContext,
-                                          @Nonnull final PPredicateWithValueAndRanges predicateWithValueAndRangesProto) {
+    protected PredicateWithValueAndRanges(final PlanSerializationContext serializationContext,
+                                          final PPredicateWithValueAndRanges predicateWithValueAndRangesProto) {
         super(serializationContext, Objects.requireNonNull(predicateWithValueAndRangesProto.getSuper()));
         this.value = Value.fromValueProto(serializationContext, Objects.requireNonNull(predicateWithValueAndRangesProto.getValue()));
         ImmutableSet.Builder<RangeConstraints> rangeConstraintsBuilder = ImmutableSet.builder();
@@ -120,7 +116,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
      * @param value The value.
      * @param ranges A set of ranges defined on the value (can be empty).
      */
-    protected PredicateWithValueAndRanges(@Nonnull final Value value, @Nonnull final Set<RangeConstraints> ranges) {
+    protected PredicateWithValueAndRanges(final Value value, final Set<RangeConstraints> ranges) {
         super(false);
         this.value = value;
         this.ranges = ImmutableSet.copyOf(ranges);
@@ -128,19 +124,16 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
     }
 
     @Override
-    @Nonnull
     public Value getValue() {
         return value;
     }
 
-    @Nonnull
     @Override
-    public PredicateWithValueAndRanges withValue(@Nonnull final Value value) {
+    public PredicateWithValueAndRanges withValue(final Value value) {
         return new PredicateWithValueAndRanges(value, ranges);
     }
 
-    @Nonnull
-    public PredicateWithValueAndRanges withRanges(@Nonnull final Set<RangeConstraints> ranges) {
+    public PredicateWithValueAndRanges withRanges(final Set<RangeConstraints> ranges) {
         return new PredicateWithValueAndRanges(value, ranges);
     }
 
@@ -149,7 +142,6 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         return getValue().isIndexOnly();
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return Streams.concat(value.getCorrelatedTo().stream(),
@@ -157,7 +149,6 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                 .collect(ImmutableSet.toImmutableSet());
     }
 
-    @Nonnull
     @Override
     public List<Comparisons.Comparison> getComparisons() {
         return ranges.stream()
@@ -179,9 +170,8 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
      * @param valueEquivalence the value equivalence.
      * @return {@code true} if both predicates are equal, otherwise {@code false}.
      */
-    @Nonnull
     @Override
-    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final ValueEquivalence valueEquivalence) {
+    public ConstrainedBoolean equalsWithoutChildren(final QueryPredicate other, final ValueEquivalence valueEquivalence) {
         return PredicateWithValue.super.equalsWithoutChildren(other, valueEquivalence)
                 .compose(ignored -> {
                     final PredicateWithValueAndRanges that = (PredicateWithValueAndRanges)other;
@@ -210,11 +200,10 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         throw new RecordCoreException("this method should not ever be reached");
     }
 
-    @Nonnull
     public Set<RangeConstraints> getRanges() {
         return ranges;
     }
@@ -223,29 +212,25 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         return ranges.size() == 1;
     }
 
-    @Nonnull
     @Override
-    public PredicateWithValueAndRanges translateLeafPredicate(@Nonnull final TranslationMap translationMap, final boolean shouldSimplifyValues) {
+    public PredicateWithValueAndRanges translateLeafPredicate(final TranslationMap translationMap, final boolean shouldSimplifyValues) {
         return new PredicateWithValueAndRanges(value.translateCorrelations(translationMap, shouldSimplifyValues),
                 ranges.stream().map(range -> range.translateCorrelations(translationMap, shouldSimplifyValues))
                         .collect(ImmutableSet.toImmutableSet()));
     }
 
-    @Nonnull
-    public static PredicateWithValueAndRanges sargable(@Nonnull Value value, @Nonnull final RangeConstraints range) {
+    public static PredicateWithValueAndRanges sargable(Value value, final RangeConstraints range) {
         return new PredicateWithValueAndRanges(value, ImmutableSet.of(range));
     }
 
-    @Nonnull
-    public static PredicateWithValueAndRanges ofRanges(@Nonnull final Value value, @Nonnull final Set<RangeConstraints> ranges) {
+    public static PredicateWithValueAndRanges ofRanges(final Value value, final Set<RangeConstraints> ranges) {
         return new PredicateWithValueAndRanges(value, ranges);
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public Optional<PredicateWithValueAndRanges> translateValueAndComparisonsMaybe(@Nonnull final Function<Value, Optional<Value>> valueTranslator,
-                                                                                   @Nonnull final Function<Comparisons.Comparison, Optional<Comparisons.Comparison>> comparisonTranslator) {
+    public Optional<PredicateWithValueAndRanges> translateValueAndComparisonsMaybe(final Function<Value, Optional<Value>> valueTranslator,
+                                                                                   final Function<Comparisons.Comparison, Optional<Comparisons.Comparison>> comparisonTranslator) {
         boolean allSame = true;
         final var newValueOptional = Verify.verifyNotNull(valueTranslator.apply(this.getValue()));
         if (newValueOptional.isEmpty()) {
@@ -273,9 +258,8 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         return Optional.of(withValueAndRanges(newValue, newRangesBuilder.build()));
     }
 
-    @Nonnull
-    public PredicateWithValueAndRanges withValueAndRanges(@Nonnull final Value value,
-                                                          @Nonnull final Set<RangeConstraints> ranges) {
+    public PredicateWithValueAndRanges withValueAndRanges(final Value value,
+                                                          final Set<RangeConstraints> ranges) {
         return new PredicateWithValueAndRanges(value, ranges);
     }
 
@@ -307,12 +291,11 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
      *
      * @return an optional {@link PredicateMapping} representing the result of the implication.
      */
-    @Nonnull
     @Override
-    public Optional<PredicateMapping> impliesCandidatePredicateMaybe(@Nonnull final ValueEquivalence valueEquivalence,
-                                                                     @Nonnull final QueryPredicate originalQueryPredicate,
-                                                                     @Nonnull final QueryPredicate candidatePredicate,
-                                                                     @Nonnull final EvaluationContext evaluationContext) {
+    public Optional<PredicateMapping> impliesCandidatePredicateMaybe(final ValueEquivalence valueEquivalence,
+                                                                     final QueryPredicate originalQueryPredicate,
+                                                                     final QueryPredicate candidatePredicate,
+                                                                     final EvaluationContext evaluationContext) {
         if (candidatePredicate.isContradiction()) {
             return Optional.empty();
         }
@@ -406,11 +389,10 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                         .build());
     }
 
-    @Nonnull
-    private PredicateMapping mapPredicateToPlaceholder(@Nonnull final QueryPredicate originalQueryPredicate,
-                                                       @Nonnull final PredicateWithValueAndRanges compensatedQueryPredicate,
-                                                       @Nonnull final Placeholder candidatePredicate,
-                                                       @Nonnull final QueryPlanConstraint constraint) {
+    private PredicateMapping mapPredicateToPlaceholder(final QueryPredicate originalQueryPredicate,
+                                                       final PredicateWithValueAndRanges compensatedQueryPredicate,
+                                                       final Placeholder candidatePredicate,
+                                                       final QueryPlanConstraint constraint) {
         final var alias = candidatePredicate.getParameterAlias();
         final var predicateMappingBuilder =
                 PredicateMapping.regularMappingBuilder(originalQueryPredicate, this, candidatePredicate)
@@ -444,8 +426,8 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
      * @return a residual predicate or {@code null} if no residual remains
      */
     @Nullable
-    private QueryPredicate extractComparisonRangeAndResidualPredicate(@Nonnull PredicateMapping.Builder predicateMappingBuilder,
-                                                                      @Nonnull PredicateWithValueAndRanges compensatedQueryPredicate) {
+    private QueryPredicate extractComparisonRangeAndResidualPredicate(PredicateMapping.Builder predicateMappingBuilder,
+                                                                      PredicateWithValueAndRanges compensatedQueryPredicate) {
         if (!compensatedQueryPredicate.isSargable()) {
             // This predicate cannot be pushed into the scan. Return the entire original predicate as a "residual"
             return compensatedQueryPredicate;
@@ -479,7 +461,6 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
      * @return a conjunction of equality and non-equality predicates.
      */
     @Override
-    @Nonnull
     public QueryPredicate toResidualPredicate() {
         // todo: check if we have single range and no ranges.
         final ImmutableList.Builder<QueryPredicate> dnfParts = ImmutableList.builder();
@@ -491,15 +472,13 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         return OrPredicate.or(dnfParts.build());
     }
 
-    @Nonnull
     @Override
-    public Optional<PredicateWithValueAndRanges> toValueWithRangesMaybe(final @Nonnull EvaluationContext evaluationContext) {
+    public Optional<PredicateWithValueAndRanges> toValueWithRangesMaybe(final EvaluationContext evaluationContext) {
         return Optional.of(compileTimeEvalRanges(evaluationContext));
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         Verify.verify(Iterables.isEmpty(explainSuppliers));
         final var resultExplainTokens =
                 new ExplainTokens().addNested(getValue().explain().getExplainTokens());
@@ -516,8 +495,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         return ExplainTokensWithPrecedence.of(Precedence.ALWAYS_PARENS, resultExplainTokens);
     }
 
-    @Nonnull
-    private PredicateWithValueAndRanges compileTimeEvalRanges(@Nonnull final EvaluationContext evaluationContext) {
+    private PredicateWithValueAndRanges compileTimeEvalRanges(final EvaluationContext evaluationContext) {
         if (rangesCompileTimeChecker.get()) {
             return this;
         }
@@ -550,8 +528,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
      * @param candidatePredicate The candidate predicate to capture as a {@link QueryPlanConstraint}.
      * @return The resulting {@link QueryPlanConstraint}.
      */
-    @Nonnull
-    private QueryPlanConstraint captureConstraint(@Nonnull final PredicateWithValueAndRanges candidatePredicate) {
+    private QueryPlanConstraint captureConstraint(final PredicateWithValueAndRanges candidatePredicate) {
         final var candidateRanges = candidatePredicate.getRanges().stream().map(constraint -> {
             final var builder = RangeConstraints.newBuilder();
             constraint.getComparisons().stream().map(PredicateWithValueAndRanges::exclusiveToInclusive).forEach(builder::addComparisonMaybe);
@@ -576,8 +553,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         return QueryPlanConstraint.ofPredicate(orPredicate);
     }
 
-    @Nonnull
-    private static Comparisons.Comparison exclusiveToInclusive(@Nonnull final Comparisons.Comparison comparison) {
+    private static Comparisons.Comparison exclusiveToInclusive(final Comparisons.Comparison comparison) {
         switch (comparison.getType()) {
             case LESS_THAN:
                 return comparison.withType(Comparisons.Type.LESS_THAN_OR_EQUALS);
@@ -606,7 +582,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Boolean eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         if (!(value instanceof Value.RangeMatchableValue)) {
             throw new RecordCoreException("attempt to compile-time predicate with non-compile-time value.");
         }
@@ -630,9 +606,8 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         return false;
     }
 
-    @Nonnull
     @Override
-    public PPredicateWithValueAndRanges toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PPredicateWithValueAndRanges toProto(final PlanSerializationContext serializationContext) {
         final PPredicateWithValueAndRanges.Builder builder =
                 PPredicateWithValueAndRanges.newBuilder()
                         .setSuper(toAbstractQueryPredicateProto(serializationContext))
@@ -643,15 +618,13 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PQueryPredicate toQueryPredicateProto(final PlanSerializationContext serializationContext) {
         return PQueryPredicate.newBuilder().setPredicateWithValueAndRanges(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static PredicateWithValueAndRanges fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                        @Nonnull final PPredicateWithValueAndRanges predicateWithValueAndRangesProto) {
+    public static PredicateWithValueAndRanges fromProto(final PlanSerializationContext serializationContext,
+                                                        final PPredicateWithValueAndRanges predicateWithValueAndRangesProto) {
         return new PredicateWithValueAndRanges(serializationContext, predicateWithValueAndRangesProto);
     }
 
@@ -660,16 +633,14 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PPredicateWithValueAndRanges, PredicateWithValueAndRanges> {
-        @Nonnull
         @Override
         public Class<PPredicateWithValueAndRanges> getProtoMessageClass() {
             return PPredicateWithValueAndRanges.class;
         }
 
-        @Nonnull
         @Override
-        public PredicateWithValueAndRanges fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                     @Nonnull final PPredicateWithValueAndRanges predicateWithValueAndRangesProto) {
+        public PredicateWithValueAndRanges fromProto(final PlanSerializationContext serializationContext,
+                                                     final PPredicateWithValueAndRanges predicateWithValueAndRangesProto) {
             return PredicateWithValueAndRanges.fromProto(serializationContext, predicateWithValueAndRangesProto);
         }
     }

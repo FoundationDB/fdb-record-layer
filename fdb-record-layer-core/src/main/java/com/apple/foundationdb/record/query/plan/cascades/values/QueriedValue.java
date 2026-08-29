@@ -36,8 +36,7 @@ import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -49,7 +48,6 @@ import java.util.function.Supplier;
 public class QueriedValue extends AbstractValue implements LeafValue, Value.NonEvaluableValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Queried-Value");
 
-    @Nonnull
     private final Type resultType;
 
     @Nullable
@@ -59,22 +57,20 @@ public class QueriedValue extends AbstractValue implements LeafValue, Value.NonE
         this(Type.primitiveType(Type.TypeCode.UNKNOWN));
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of();
     }
 
-    public QueriedValue(@Nonnull final Type resultType) {
+    public QueriedValue(final Type resultType) {
         this.resultType = resultType;
     }
 
-    public QueriedValue(@Nonnull final Type resultType, @Nullable final Iterable<String> recordTypeNames) {
+    public QueriedValue(final Type resultType, @Nullable final Iterable<String> recordTypeNames) {
         this.resultType = resultType;
         this.recordTypeNames = recordTypeNames == null ? null : ImmutableList.copyOf(recordTypeNames);
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return resultType;
@@ -86,7 +82,7 @@ public class QueriedValue extends AbstractValue implements LeafValue, Value.NonE
     }
 
     @Override
-    public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
+    public boolean isFunctionallyDependentOn(final Value otherValue) {
         return false;
     }
 
@@ -96,13 +92,12 @@ public class QueriedValue extends AbstractValue implements LeafValue, Value.NonE
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         if (recordTypeNames == null) {
             return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("base"));
         }
@@ -122,9 +117,8 @@ public class QueriedValue extends AbstractValue implements LeafValue, Value.NonE
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public PQueriedValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PQueriedValue toProto(final PlanSerializationContext serializationContext) {
         final PQueriedValue.Builder builder =  PQueriedValue.newBuilder()
                 .setResultType(resultType.toTypeProto(serializationContext));
         builder.setHasRecordTypeNames(recordTypeNames != null);
@@ -134,15 +128,13 @@ public class QueriedValue extends AbstractValue implements LeafValue, Value.NonE
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setQueriedValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static QueriedValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                         @Nonnull final PQueriedValue queriedValueProto) {
+    public static QueriedValue fromProto(final PlanSerializationContext serializationContext,
+                                         final PQueriedValue queriedValueProto) {
         Verify.verify(queriedValueProto.hasHasRecordTypeNames());
         final List<String> recordTypeNames;
         if (queriedValueProto.getHasRecordTypeNames()) {
@@ -163,16 +155,14 @@ public class QueriedValue extends AbstractValue implements LeafValue, Value.NonE
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PQueriedValue, QueriedValue> {
-        @Nonnull
         @Override
         public Class<PQueriedValue> getProtoMessageClass() {
             return PQueriedValue.class;
         }
 
-        @Nonnull
         @Override
-        public QueriedValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                      @Nonnull final PQueriedValue queriedValueProto) {
+        public QueriedValue fromProto(final PlanSerializationContext serializationContext,
+                                      final PQueriedValue queriedValueProto) {
             return QueriedValue.fromProto(serializationContext, queriedValueProto);
         }
     }

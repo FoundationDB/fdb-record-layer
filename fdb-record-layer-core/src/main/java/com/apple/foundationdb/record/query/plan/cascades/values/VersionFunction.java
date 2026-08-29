@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
@@ -43,8 +42,7 @@ public class VersionFunction extends BuiltInFunction<Value> {
                 (ignored, arguments) -> encapsulateUnnamed(arguments.getArgumentsList()));
     }
 
-    @Nonnull
-    private static Value encapsulateUnnamed(@Nonnull final List<? extends Typed> arguments) {
+    private static Value encapsulateUnnamed(final List<? extends Typed> arguments) {
         final var childRecordValue = Iterables.getOnlyElement(arguments);
         return FieldValue.ofFieldNameAndFuseIfPossible((Value) childRecordValue, PseudoField.ROW_VERSION.getFieldName());
     }

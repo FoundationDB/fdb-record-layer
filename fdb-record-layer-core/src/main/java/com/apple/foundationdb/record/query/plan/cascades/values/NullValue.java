@@ -40,8 +40,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -52,14 +51,12 @@ import java.util.function.Supplier;
 public class NullValue extends AbstractValue implements LeafValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Null-Value");
 
-    @Nonnull
     private final Type resultType;
 
-    public NullValue(@Nonnull final Type resultType) {
+    public NullValue(final Type resultType) {
         this.resultType = resultType.nullable();
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return resultType;
@@ -67,18 +64,17 @@ public class NullValue extends AbstractValue implements LeafValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         return null;
     }
 
     @Override
-    public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
+    public boolean isFunctionallyDependentOn(final Value otherValue) {
         return false;
     }
 
-    @Nonnull
     @Override
-    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(final Value other) {
         return super.equalsWithoutChildren(other)
                 .filter(ignored -> resultType.equals(other.getResultType()));
     }
@@ -89,7 +85,7 @@ public class NullValue extends AbstractValue implements LeafValue {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
@@ -101,9 +97,8 @@ public class NullValue extends AbstractValue implements LeafValue {
         }
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString("NULL"));
     }
 
@@ -120,40 +115,35 @@ public class NullValue extends AbstractValue implements LeafValue {
     }
 
     @Override
-    public boolean canResultInType(@Nonnull final Type type) {
+    public boolean canResultInType(final Type type) {
         if (!type.isNullable()) {
             return false;
         }
         return resultType.isUnresolved() || resultType.getTypeCode() == Type.TypeCode.ANY;
     }
 
-    @Nonnull
     @Override
-    public Value with(@Nonnull final Type type) {
+    public Value with(final Type type) {
         Verify.verify(type.isNullable());
         return new NullValue(type);
     }
 
-    @Nonnull
     @Override
-    public PNullValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PNullValue toProto(final PlanSerializationContext serializationContext) {
         return PNullValue.newBuilder()
                 .setResultType(resultType.toTypeProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setNullValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static NullValue fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PNullValue nullValueProto) {
+    public static NullValue fromProto(final PlanSerializationContext serializationContext, final PNullValue nullValueProto) {
         return new NullValue(Type.fromTypeProto(serializationContext, Objects.requireNonNull(nullValueProto.getResultType())));
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of();
@@ -164,16 +154,14 @@ public class NullValue extends AbstractValue implements LeafValue {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PNullValue, NullValue> {
-        @Nonnull
         @Override
         public Class<PNullValue> getProtoMessageClass() {
             return PNullValue.class;
         }
 
-        @Nonnull
         @Override
-        public NullValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                   @Nonnull final PNullValue nullValueProto) {
+        public NullValue fromProto(final PlanSerializationContext serializationContext,
+                                   final PNullValue nullValueProto) {
             return NullValue.fromProto(serializationContext, nullValueProto);
         }
     }

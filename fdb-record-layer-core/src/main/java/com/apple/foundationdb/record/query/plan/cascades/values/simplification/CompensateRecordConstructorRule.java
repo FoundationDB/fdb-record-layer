@@ -31,7 +31,6 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimaps;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
@@ -48,7 +47,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class CompensateRecordConstructorRule extends ValueComputationRule<Iterable<? extends Value>, ListMultimap<Value, ValueCompensation>, RecordConstructorValue> {
-    @Nonnull
     private static final BindingMatcher<RecordConstructorValue> rootMatcher =
             recordConstructorValue(all(anyValue()));
 
@@ -57,7 +55,7 @@ public class CompensateRecordConstructorRule extends ValueComputationRule<Iterab
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, ListMultimap<Value, ValueCompensation>> call) {
+    public void onMatch(final ValueComputationRuleCall<Iterable<? extends Value>, ListMultimap<Value, ValueCompensation>> call) {
         final var bindings = call.getBindings();
         final var recordConstructorValue = bindings.get(rootMatcher);
         final var resultingMatchedValuesMap =

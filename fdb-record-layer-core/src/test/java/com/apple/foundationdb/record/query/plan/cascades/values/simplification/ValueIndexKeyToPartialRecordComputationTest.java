@@ -39,7 +39,6 @@ import com.google.common.primitives.ImmutableIntArray;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 /**
@@ -110,7 +109,6 @@ class ValueIndexKeyToPartialRecordComputationTest {
         Assertions.assertEquals(expectedResult, resultOptional.get().getValue());
     }
 
-    @Nonnull
     private static Type.Record someRecordType() {
         final var aaType = Type.Record.fromFields(ImmutableList.of(
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("aaa")),

@@ -41,8 +41,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -56,47 +55,40 @@ import java.util.function.Supplier;
 public class ObjectValue extends AbstractValue implements LeafValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Object-Value");
 
-    @Nonnull
     private final CorrelationIdentifier alias;
-    @Nonnull
     private final Type resultType;
 
-    private ObjectValue(@Nonnull final CorrelationIdentifier alias, @Nonnull final Type resultType) {
+    private ObjectValue(final CorrelationIdentifier alias, final Type resultType) {
         this.alias = alias;
         this.resultType = resultType;
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return resultType;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return ImmutableSet.of(alias);
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of();
     }
 
-    @Nonnull
     @Override
-    public Value rebaseLeaf(@Nonnull final CorrelationIdentifier targetAlias) {
+    public Value rebaseLeaf(final CorrelationIdentifier targetAlias) {
         return ObjectValue.of(targetAlias, resultType);
     }
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         return context.getBinding(Bindings.Internal.CORRELATION, alias);
     }
 
-    @Nonnull
     public CorrelationIdentifier getAlias() {
         return alias;
     }
@@ -107,13 +99,12 @@ public class ObjectValue extends AbstractValue implements LeafValue {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addAliasReference(alias));
     }
 
@@ -130,33 +121,29 @@ public class ObjectValue extends AbstractValue implements LeafValue {
     }
 
     @Override
-    public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
+    public boolean isFunctionallyDependentOn(final Value otherValue) {
         return false;
     }
 
-    @Nonnull
     @Override
-    public PObjectValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PObjectValue toProto(final PlanSerializationContext serializationContext) {
         return PObjectValue.newBuilder()
                 .setAlias(getAlias().getId())
                 .setResultType(resultType.toTypeProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setObjectValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static ObjectValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                        @Nonnull final PObjectValue objectValueProto) {
+    public static ObjectValue fromProto(final PlanSerializationContext serializationContext,
+                                        final PObjectValue objectValueProto) {
         return new ObjectValue(CorrelationIdentifier.of(Objects.requireNonNull(objectValueProto.getAlias())), Type.fromTypeProto(serializationContext, Objects.requireNonNull(objectValueProto.getResultType())));
     }
 
-    @Nonnull
-    public static ObjectValue of(@Nonnull final CorrelationIdentifier alias, @Nonnull final Type resultType) {
+    public static ObjectValue of(final CorrelationIdentifier alias, final Type resultType) {
         return new ObjectValue(alias, resultType);
     }
 
@@ -165,16 +152,14 @@ public class ObjectValue extends AbstractValue implements LeafValue {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PObjectValue, ObjectValue> {
-        @Nonnull
         @Override
         public Class<PObjectValue> getProtoMessageClass() {
             return PObjectValue.class;
         }
 
-        @Nonnull
         @Override
-        public ObjectValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                     @Nonnull final PObjectValue objectValueProto) {
+        public ObjectValue fromProto(final PlanSerializationContext serializationContext,
+                                     final PObjectValue objectValueProto) {
             return ObjectValue.fromProto(serializationContext, objectValueProto);
         }
     }

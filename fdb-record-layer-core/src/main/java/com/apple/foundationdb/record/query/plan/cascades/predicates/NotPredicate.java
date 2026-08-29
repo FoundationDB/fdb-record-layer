@@ -45,8 +45,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -61,23 +60,22 @@ import java.util.function.Supplier;
 public class NotPredicate extends AbstractQueryPredicate implements QueryPredicateWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Not-Predicate");
 
-    @Nonnull
     public final QueryPredicate child;
 
-    private NotPredicate(@Nonnull final PlanSerializationContext serializationContext,
-                         @Nonnull final PNotPredicate notPredicateProto) {
+    private NotPredicate(final PlanSerializationContext serializationContext,
+                         final PNotPredicate notPredicateProto) {
         super(serializationContext, Objects.requireNonNull(notPredicateProto.getSuper()));
         this.child = QueryPredicate.fromQueryPredicateProto(serializationContext, Objects.requireNonNull(notPredicateProto.getChild()));
     }
 
-    private NotPredicate(@Nonnull final QueryPredicate child, final boolean isAtomic) {
+    private NotPredicate(final QueryPredicate child, final boolean isAtomic) {
         super(isAtomic);
         this.child = child;
     }
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nullable FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
+    public <M extends Message> Boolean eval(@Nullable FDBRecordStoreBase<M> store, EvaluationContext context) {
         return invert(child.eval(store, context));
     }
 
@@ -90,15 +88,13 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
         }
     }
 
-    @Nonnull
     @Override
     public QueryPredicate getChild() {
         return child;
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(Precedence.NOT,
                 new ExplainTokens().addKeyword("NOT").addWhitespace()
                         .addNested(Precedence.NOT.parenthesizeChild(Iterables.getOnlyElement(explainSuppliers).get())));
@@ -127,7 +123,7 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return getChild().planHash(mode) + 1;
@@ -138,19 +134,17 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
         }
     }
 
-    @Nonnull
     @Override
-    public NotPredicate withChild(@Nonnull final QueryPredicate newChild) {
+    public NotPredicate withChild(final QueryPredicate newChild) {
         return new NotPredicate(newChild, isAtomic());
     }
 
-    @Nonnull
     @Override
-    public PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
-                                                                     @Nonnull final QueryPredicate originalQueryPredicate,
-                                                                     @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                     @Nonnull final List<PredicateCompensationFunction> childrenCompensationFunctions,
-                                                                     @Nonnull final PullUp pullUp) {
+    public PredicateCompensationFunction computeCompensationFunction(final PartialMatch partialMatch,
+                                                                     final QueryPredicate originalQueryPredicate,
+                                                                     final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                     final List<PredicateCompensationFunction> childrenCompensationFunctions,
+                                                                     final PullUp pullUp) {
         Verify.verify(childrenCompensationFunctions.size() == 1);
         final var predicateCompensationFunction = Iterables.getOnlyElement(childrenCompensationFunctions);
         if (!predicateCompensationFunction.isNeeded()) {
@@ -164,39 +158,33 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
                 });
     }
 
-    @Nonnull
     @Override
     public NotPredicate withAtomicity(final boolean isAtomic) {
         return new NotPredicate(getChild(), isAtomic);
     }
 
-    @Nonnull
     @Override
-    public PNotPredicate toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PNotPredicate toProto(final PlanSerializationContext serializationContext) {
         return PNotPredicate.newBuilder()
                 .setSuper(toAbstractQueryPredicateProto(serializationContext))
                 .setChild(child.toQueryPredicateProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PQueryPredicate toQueryPredicateProto(final PlanSerializationContext serializationContext) {
         return PQueryPredicate.newBuilder().setNotPredicate(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static NotPredicate fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PNotPredicate notPredicateProto) {
+    public static NotPredicate fromProto(final PlanSerializationContext serializationContext, final PNotPredicate notPredicateProto) {
         return new NotPredicate(serializationContext, notPredicateProto);
     }
 
-    @Nonnull
-    public static NotPredicate not(@Nonnull final QueryPredicate predicate) {
+    public static NotPredicate not(final QueryPredicate predicate) {
         return of(predicate, false);
     }
 
-    @Nonnull
-    public static NotPredicate of(@Nonnull final QueryPredicate predicate, final boolean isAtomic) {
+    public static NotPredicate of(final QueryPredicate predicate, final boolean isAtomic) {
         return new NotPredicate(predicate, isAtomic);
     }
 
@@ -205,16 +193,14 @@ public class NotPredicate extends AbstractQueryPredicate implements QueryPredica
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PNotPredicate, NotPredicate> {
-        @Nonnull
         @Override
         public Class<PNotPredicate> getProtoMessageClass() {
             return PNotPredicate.class;
         }
 
-        @Nonnull
         @Override
-        public NotPredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                      @Nonnull final PNotPredicate notPredicateProto) {
+        public NotPredicate fromProto(final PlanSerializationContext serializationContext,
+                                      final PNotPredicate notPredicateProto) {
             return NotPredicate.fromProto(serializationContext, notPredicateProto);
         }
     }

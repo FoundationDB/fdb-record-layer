@@ -49,8 +49,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -69,62 +68,53 @@ public class FromOrderedBytesValue extends AbstractValue implements ValueWithChi
     /**
      * The child expression.
      */
-    @Nonnull
     private final Value child;
 
-    @Nonnull
     private final Direction direction;
 
-    @Nonnull
     private final Type resultType;
 
     /**
      * Constructs a new {@link FromOrderedBytesValue} instance.
      * @param child The child expression.
      */
-    public FromOrderedBytesValue(@Nonnull final Value child,
-                                 @Nonnull final Direction direction,
-                                 @Nonnull final Type resultType) {
+    public FromOrderedBytesValue(final Value child,
+                                 final Direction direction,
+                                 final Type resultType) {
         this.child = child;
         this.direction = direction;
         this.resultType = resultType;
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of(getChild());
     }
 
-    @Nonnull
     @Override
     public Value getChild() {
         return child;
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return resultType;
     }
 
-    @Nonnull
     public Direction getDirection() {
         return direction;
     }
 
-    @Nonnull
     @Override
-    public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
+    public ValueWithChild withNewChild(final Value rebasedChild) {
         return new FromOrderedBytesValue(rebasedChild, direction, resultType);
     }
 
     @Override
-    public Optional<ToOrderedBytesValue> createInverseValueMaybe(@Nonnull final Value newChildValue) {
+    public Optional<ToOrderedBytesValue> createInverseValueMaybe(final Value newChildValue) {
         return Optional.of(new ToOrderedBytesValue(newChildValue, getDirection()));
     }
 
-    @Nonnull
     @Override
     public Ordering.OrderPreservingKind getOrderPreservingKind() {
         switch (getDirection()) {
@@ -142,7 +132,7 @@ public class FromOrderedBytesValue extends AbstractValue implements ValueWithChi
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
-                                           @Nonnull final EvaluationContext context) {
+                                           final EvaluationContext context) {
         final var childResult = (ByteString)Objects.requireNonNull(child.eval(store, context));
         final Object value = TupleOrdering.unpack(childResult.toByteArray(), direction).get(0);
 
@@ -158,13 +148,12 @@ public class FromOrderedBytesValue extends AbstractValue implements ValueWithChi
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, child, direction);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("from_ordered_bytes",
                 Value.explainFunctionArguments(explainSuppliers).addCommaAndWhiteSpace().addToString(getDirection())));
     }
@@ -181,17 +170,15 @@ public class FromOrderedBytesValue extends AbstractValue implements ValueWithChi
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(final Value other) {
         return super.equalsWithoutChildren(other)
                 .filter(ignored -> direction == ((FromOrderedBytesValue)other).getDirection())
                 .filter(ignored -> resultType.equals(other.getResultType()));
     }
 
-    @Nonnull
     @Override
-    public PFromOrderedBytesValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PFromOrderedBytesValue toProto(final PlanSerializationContext serializationContext) {
         return PFromOrderedBytesValue.newBuilder()
                 .setChild(child.toValueProto(serializationContext))
                 .setDirection(OrderedBytesHelpers.toDirectionProto(direction))
@@ -199,15 +186,13 @@ public class FromOrderedBytesValue extends AbstractValue implements ValueWithChi
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setFromOrderedBytesValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static FromOrderedBytesValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                  @Nonnull final PFromOrderedBytesValue fromOrderedBytesValueProto) {
+    public static FromOrderedBytesValue fromProto(final PlanSerializationContext serializationContext,
+                                                  final PFromOrderedBytesValue fromOrderedBytesValueProto) {
         return new FromOrderedBytesValue(
                 Value.fromValueProto(serializationContext, Objects.requireNonNull(fromOrderedBytesValueProto.getChild())),
                 OrderedBytesHelpers.fromDirectionProto(Objects.requireNonNull(fromOrderedBytesValueProto.getDirection())),
@@ -271,16 +256,14 @@ public class FromOrderedBytesValue extends AbstractValue implements ValueWithChi
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PFromOrderedBytesValue, FromOrderedBytesValue> {
-        @Nonnull
         @Override
         public Class<PFromOrderedBytesValue> getProtoMessageClass() {
             return PFromOrderedBytesValue.class;
         }
 
-        @Nonnull
         @Override
-        public FromOrderedBytesValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                               @Nonnull final PFromOrderedBytesValue fromOrderedBytesValueProto) {
+        public FromOrderedBytesValue fromProto(final PlanSerializationContext serializationContext,
+                                               final PFromOrderedBytesValue fromOrderedBytesValueProto) {
             return FromOrderedBytesValue.fromProto(serializationContext, fromOrderedBytesValueProto);
         }
     }

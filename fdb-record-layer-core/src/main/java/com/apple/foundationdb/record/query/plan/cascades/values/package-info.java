@@ -21,4 +21,7 @@
 /**
  * A package for all implementations of the {@link com.apple.foundationdb.record.query.plan.cascades.values.Value}.
  */
+@NullMarked
 package com.apple.foundationdb.record.query.plan.cascades.values;
+
+import org.jspecify.annotations.NullMarked;

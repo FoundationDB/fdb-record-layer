@@ -35,7 +35,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -45,33 +44,29 @@ import java.util.stream.Stream;
  * A Placeholder is basically a {@link PredicateWithValueAndRanges} with an alias that is used solely used for index matching.
  */
 public class Placeholder extends PredicateWithValueAndRanges implements WithAlias {
-    @Nonnull
     private final CorrelationIdentifier parameterAlias;
 
-    private Placeholder(@Nonnull final Value value,
-                        @Nonnull final Set<RangeConstraints> ranges,
-                        @Nonnull final CorrelationIdentifier alias) {
+    private Placeholder(final Value value,
+                        final Set<RangeConstraints> ranges,
+                        final CorrelationIdentifier alias) {
         super(value, ranges);
         this.parameterAlias = alias;
     }
 
-    @Nonnull
     @Override
-    public PredicateWithValueAndRanges withValue(@Nonnull final Value value) {
+    public PredicateWithValueAndRanges withValue(final Value value) {
         return new Placeholder(value, getRanges(), parameterAlias);
     }
 
-    @Nonnull
-    public Placeholder withAlias(@Nonnull final CorrelationIdentifier newParameterAlias) {
+    public Placeholder withAlias(final CorrelationIdentifier newParameterAlias) {
         if (newParameterAlias.equals(parameterAlias)) {
             return this;
         }
         return new Placeholder(getValue(), getRanges(), newParameterAlias);
     }
 
-    @Nonnull
     @Override
-    public PredicateWithValueAndRanges withRanges(@Nonnull final Set<RangeConstraints> ranges) {
+    public PredicateWithValueAndRanges withRanges(final Set<RangeConstraints> ranges) {
         return new Placeholder(getValue(), ranges, parameterAlias);
     }
 
@@ -85,13 +80,11 @@ public class Placeholder extends PredicateWithValueAndRanges implements WithAlia
         return !isConstraining();
     }
 
-    @Nonnull
-    public static Placeholder newInstanceWithoutRanges(@Nonnull Value value, @Nonnull CorrelationIdentifier parameterAlias) {
+    public static Placeholder newInstanceWithoutRanges(Value value, CorrelationIdentifier parameterAlias) {
         return new Placeholder(value, ImmutableSet.of(), parameterAlias);
     }
 
-    @Nonnull
-    public static Placeholder of(@Nonnull final Value value, @Nonnull final Set<RangeConstraints> ranges, @Nonnull CorrelationIdentifier parameterAlias) {
+    public static Placeholder of(final Value value, final Set<RangeConstraints> ranges, CorrelationIdentifier parameterAlias) {
         return new Placeholder(value, ranges, parameterAlias);
     }
 
@@ -99,36 +92,31 @@ public class Placeholder extends PredicateWithValueAndRanges implements WithAlia
         return getRanges().stream().anyMatch(RangeConstraints::isConstraining);
     }
 
-    @Nonnull
     @Override
-    public Placeholder withValueAndRanges(@Nonnull final Value value, @Nonnull final Set<RangeConstraints> ranges) {
+    public Placeholder withValueAndRanges(final Value value, final Set<RangeConstraints> ranges) {
         return new Placeholder(value, ranges, parameterAlias);
     }
 
-    @Nonnull
-    public Placeholder withExtraRanges(@Nonnull final Set<RangeConstraints> ranges) {
+    public Placeholder withExtraRanges(final Set<RangeConstraints> ranges) {
         return new Placeholder(getValue(), Stream.concat(ranges.stream(), getRanges().stream()).collect(ImmutableSet.toImmutableSet()), getParameterAlias());
     }
 
-    @Nonnull
     @Override
-    public Placeholder translateLeafPredicate(@Nonnull final TranslationMap translationMap, final boolean shouldSimplifyValues) {
+    public Placeholder translateLeafPredicate(final TranslationMap translationMap, final boolean shouldSimplifyValues) {
         return new Placeholder(getValue().translateCorrelations(translationMap),
                 getRanges().stream()
                         .map(range -> range.translateCorrelations(translationMap, shouldSimplifyValues))
                         .collect(ImmutableSet.toImmutableSet()), getParameterAlias());
     }
 
-    @Nonnull
     @Override
     public CorrelationIdentifier getParameterAlias() {
         return parameterAlias;
     }
 
-    @Nonnull
     @Override
-    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final QueryPredicate other,
-                                                    @Nonnull final ValueEquivalence valueEquivalence) {
+    public ConstrainedBoolean equalsWithoutChildren(final QueryPredicate other,
+                                                    final ValueEquivalence valueEquivalence) {
         return super.equalsWithoutChildren(other, valueEquivalence)
                 .filter(ignored -> Objects.equals(parameterAlias, ((Placeholder)other).parameterAlias));
     }
@@ -149,23 +137,20 @@ public class Placeholder extends PredicateWithValueAndRanges implements WithAlia
         return semanticHashCode();
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         Verify.verify(Iterables.isEmpty(explainSuppliers));
         return ExplainTokensWithPrecedence.of(super.explain(explainSuppliers).getExplainTokens()
                 .addWhitespace().addToString("->").addWhitespace().addIdentifier(getParameterAlias().toString()));
     }
 
-    @Nonnull
     @Override
-    public PPredicateWithValueAndRanges toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PPredicateWithValueAndRanges toProto(final PlanSerializationContext serializationContext) {
         throw new RecordCoreException("call unsupported");
     }
 
-    @Nonnull
     @Override
-    public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PQueryPredicate toQueryPredicateProto(final PlanSerializationContext serializationContext) {
         throw new RecordCoreException("call unsupported");
     }
 }

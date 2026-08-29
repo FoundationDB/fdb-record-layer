@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractRuleCall;
 
-import javax.annotation.Nonnull;
 
 /**
  * Intermediate class that fixes the base type of the {@link AbstractRuleCall} to be {@link QueryPredicate}.
@@ -33,7 +32,7 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class QueryPredicateSimplificationRule<TYPE extends QueryPredicate> extends AbstractQueryPredicateRule<QueryPredicate, QueryPredicateSimplificationRuleCall, TYPE> {
-    public QueryPredicateSimplificationRule(@Nonnull final BindingMatcher<TYPE> matcher) {
+    public QueryPredicateSimplificationRule(final BindingMatcher<TYPE> matcher) {
         super(matcher);
     }
 }

@@ -21,4 +21,7 @@
 /**
  * A package for all simplification rules defined over {@link com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate}s.
  */
+@NullMarked
 package com.apple.foundationdb.record.query.plan.cascades.predicates.simplification;
+
+import org.jspecify.annotations.NullMarked;

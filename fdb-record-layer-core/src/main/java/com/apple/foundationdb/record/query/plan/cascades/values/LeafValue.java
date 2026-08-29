@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 
 /**
  * A scalar value type that has no children.
@@ -37,15 +36,13 @@ public interface LeafValue extends Value {
      * Method to retrieve a list of children values.
      * @return a list of children
      */
-    @Nonnull
     @Override
     default Iterable<? extends Value> getChildren() {
         return ImmutableList.of();
     }
 
-    @Nonnull
     @Override
-    default LeafValue withChildren(@Nonnull final Iterable<? extends Value> newChildren) {
+    default LeafValue withChildren(final Iterable<? extends Value> newChildren) {
         return this;
     }
 
@@ -64,8 +61,7 @@ public interface LeafValue extends Value {
      * @return a new {@link Value} that is the same one but with the correlated identifiers updated to a new alias, or
      * {@code this} if there are no correlated identifiers
      */
-    @Nonnull
-    default Value rebaseLeaf(@Nonnull CorrelationIdentifier targetAlias) {
+    default Value rebaseLeaf(CorrelationIdentifier targetAlias) {
         throw new RecordCoreException("implementor must override");
     }
 }

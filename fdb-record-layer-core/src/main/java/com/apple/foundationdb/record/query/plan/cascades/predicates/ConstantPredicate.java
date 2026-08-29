@@ -42,8 +42,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.Objects;
 import java.util.Set;
@@ -56,11 +55,8 @@ import java.util.function.Supplier;
 public class ConstantPredicate extends AbstractQueryPredicate implements LeafQueryPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Constant-Predicate");
 
-    @Nonnull
     public static final ConstantPredicate TRUE = new ConstantPredicate(true);
-    @Nonnull
     public static final ConstantPredicate FALSE = new ConstantPredicate(false);
-    @Nonnull
     public static final ConstantPredicate NULL = new ConstantPredicate(null);
 
     @Nullable
@@ -71,7 +67,6 @@ public class ConstantPredicate extends AbstractQueryPredicate implements LeafQue
      *
      * @return {@link #TRUE} for {@code true}, {@link #FALSE} for {@code false}, {@link #NULL} for {@code null}
      */
-    @Nonnull
     public static ConstantPredicate of(@Nullable final Boolean value) {
         if (value == null) {
             return NULL;
@@ -79,8 +74,8 @@ public class ConstantPredicate extends AbstractQueryPredicate implements LeafQue
         return value ? TRUE : FALSE;
     }
 
-    public ConstantPredicate(@Nonnull final PlanSerializationContext serializationContext,
-                             @Nonnull final PConstantPredicate constantPredicateProto) {
+    public ConstantPredicate(final PlanSerializationContext serializationContext,
+                             final PConstantPredicate constantPredicateProto) {
         super(serializationContext, Objects.requireNonNull(constantPredicateProto.getSuper()));
         if (constantPredicateProto.hasValue()) {
             this.value = constantPredicateProto.getValue();
@@ -106,19 +101,17 @@ public class ConstantPredicate extends AbstractQueryPredicate implements LeafQue
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Boolean eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         return value;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return Collections.emptySet();
     }
 
-    @Nonnull
     @Override
-    public QueryPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap, final boolean shouldSimplifyValues) {
+    public QueryPredicate translateLeafPredicate(final TranslationMap translationMap, final boolean shouldSimplifyValues) {
         return this;
     }
 
@@ -129,10 +122,9 @@ public class ConstantPredicate extends AbstractQueryPredicate implements LeafQue
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final QueryPredicate other,
-                                                    @Nonnull final ValueEquivalence valueEquivalence) {
+    public ConstrainedBoolean equalsWithoutChildren(final QueryPredicate other,
+                                                    final ValueEquivalence valueEquivalence) {
         return LeafQueryPredicate.super.equalsWithoutChildren(other, valueEquivalence)
                 .filter(ignored -> {
                     final ConstantPredicate that = (ConstantPredicate)other;
@@ -156,7 +148,7 @@ public class ConstantPredicate extends AbstractQueryPredicate implements LeafQue
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
@@ -166,16 +158,14 @@ public class ConstantPredicate extends AbstractQueryPredicate implements LeafQue
         }
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         Verify.verify(Iterables.isEmpty(explainSuppliers));
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString(value));
     }
 
-    @Nonnull
     @Override
-    public PConstantPredicate toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PConstantPredicate toProto(final PlanSerializationContext serializationContext) {
         final var builder = PConstantPredicate.newBuilder()
                 .setSuper(toAbstractQueryPredicateProto(serializationContext));
         if (value != null) {
@@ -184,15 +174,13 @@ public class ConstantPredicate extends AbstractQueryPredicate implements LeafQue
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PQueryPredicate toQueryPredicateProto(final PlanSerializationContext serializationContext) {
         return PQueryPredicate.newBuilder().setConstantPredicate(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static ConstantPredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                              @Nonnull final PConstantPredicate constantPredicateProto) {
+    public static ConstantPredicate fromProto(final PlanSerializationContext serializationContext,
+                                              final PConstantPredicate constantPredicateProto) {
         return new ConstantPredicate(serializationContext, constantPredicateProto);
     }
 
@@ -201,16 +189,14 @@ public class ConstantPredicate extends AbstractQueryPredicate implements LeafQue
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PConstantPredicate, ConstantPredicate> {
-        @Nonnull
         @Override
         public Class<PConstantPredicate> getProtoMessageClass() {
             return PConstantPredicate.class;
         }
 
-        @Nonnull
         @Override
-        public ConstantPredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                           @Nonnull final PConstantPredicate constantPredicateProto) {
+        public ConstantPredicate fromProto(final PlanSerializationContext serializationContext,
+                                           final PConstantPredicate constantPredicateProto) {
             return ConstantPredicate.fromProto(serializationContext, constantPredicateProto);
         }
     }

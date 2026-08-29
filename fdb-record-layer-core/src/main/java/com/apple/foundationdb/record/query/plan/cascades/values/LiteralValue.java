@@ -44,8 +44,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -57,7 +56,6 @@ import java.util.function.Supplier;
 public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.RangeMatchableValue, PlanSerializable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Literal-Value");
 
-    @Nonnull
     private final Type resultType;
 
     @Nullable
@@ -69,12 +67,11 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
     }
 
     @VisibleForTesting
-    public LiteralValue(@Nonnull Type resultType, @Nullable final T value) {
+    public LiteralValue(Type resultType, @Nullable final T value) {
         this.resultType = resultType;
         this.value = value;
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return resultType;
@@ -82,7 +79,7 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         return value;
     }
 
@@ -92,13 +89,12 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
     }
 
     @Override
-    public boolean canResultInType(@Nonnull final Type type) {
+    public boolean canResultInType(final Type type) {
         return type.isNullable() && resultType.equals(type.nullable());
     }
 
-    @Nonnull
     @Override
-    public LiteralValue<T> with(@Nonnull final Type type) {
+    public LiteralValue<T> with(final Type type) {
         if (getResultType().equals(type)) {
             return this;
         }
@@ -107,13 +103,12 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
     }
 
     @Override
-    public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
+    public boolean isFunctionallyDependentOn(final Value otherValue) {
         return false;
     }
 
-    @Nonnull
     @Override
-    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(final Value other) {
         return LeafValue.super.equalsWithoutChildren(other)
                 .filter(ignored -> {
                     final LiteralValue<?> that = (LiteralValue<?>)other;
@@ -130,7 +125,7 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
@@ -140,9 +135,8 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
         }
     }
 
-    @Nonnull
     @Override
-    public PLiteralValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PLiteralValue toProto(final PlanSerializationContext serializationContext) {
         final var builder = PLiteralValue.newBuilder();
         // TODO there should be no punishment if the type is serialized alongside with the value
         final var resultTypeProto = resultType.isVector() ? resultType.toTypeProto(serializationContext) : null;
@@ -151,9 +145,8 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         final var specificValueProto = toProto(serializationContext);
         return PValue.newBuilder()
                 .setLiteralValue(specificValueProto)
@@ -161,16 +154,14 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
     }
 
     @SuppressWarnings("unchecked")
-    @Nonnull
-    public static <T> LiteralValue<T> fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                @Nonnull final PLiteralValue literalValueProto) {
+    public static <T> LiteralValue<T> fromProto(final PlanSerializationContext serializationContext,
+                                                final PLiteralValue literalValueProto) {
         return new LiteralValue<>(Type.fromTypeProto(serializationContext, literalValueProto.getResultType()),
                 (T)PlanSerialization.protoToValueObject(literalValueProto.getValue()));
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(
                 new ExplainTokens().addToString(formatLiteral(resultType, Comparisons.toPrintable(value))));
     }
@@ -187,8 +178,7 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
-    public static String formatLiteral(@Nonnull final Type type, @Nonnull final String literal) {
+    public static String formatLiteral(final Type type, final String literal) {
         final String comparandString;
         if (type.isPrimitive()) {
             switch (type.getTypeCode()) {
@@ -228,7 +218,7 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
         return result;
     }
 
-    public static <T> LiteralValue<List<T>> ofList(@Nonnull final List<T> listValue) {
+    public static <T> LiteralValue<List<T>> ofList(final List<T> listValue) {
         Type resolvedElementType = null;
         for (final var elementValue : listValue) {
             final var currentType = Type.primitiveType(Type.typeCodeFromPrimitive(elementValue));
@@ -248,7 +238,6 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
         return new LiteralValue<>(new Type.Array(resolvedElementType), listValue);
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of();
@@ -260,16 +249,14 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer<T> implements PlanDeserializer<PLiteralValue, LiteralValue<T>> {
-        @Nonnull
         @Override
         public Class<PLiteralValue> getProtoMessageClass() {
             return PLiteralValue.class;
         }
 
-        @Nonnull
         @Override
-        public LiteralValue<T> fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                         @Nonnull final PLiteralValue literalValueProto) {
+        public LiteralValue<T> fromProto(final PlanSerializationContext serializationContext,
+                                         final PLiteralValue literalValueProto) {
             return LiteralValue.fromProto(serializationContext, literalValueProto);
         }
     }

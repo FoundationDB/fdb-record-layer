@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 
-import javax.annotation.Nonnull;
 
 /**
  * Intermediate class that fixes the type of the {@link com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall}.
@@ -35,7 +34,7 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class QueryPredicateComputationRule<ARGUMENT, RESULT, TYPE extends QueryPredicate> extends AbstractQueryPredicateRule<NonnullPair<QueryPredicate, RESULT>, QueryPredicateComputationRuleCall<ARGUMENT, RESULT>, TYPE> {
-    public QueryPredicateComputationRule(@Nonnull final BindingMatcher<TYPE> matcher) {
+    public QueryPredicateComputationRule(final BindingMatcher<TYPE> matcher) {
         super(matcher);
     }
 }

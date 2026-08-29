@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
@@ -41,22 +40,18 @@ public abstract class UdfFunction extends BuiltInFunction<Value> {
         super("", List.of(), (builtInFunction, arguments) -> null);
     }
 
-    @Nonnull
     @Override
     public abstract List<Type> getParameterTypes();
 
-    @Nonnull
     @Override
     public final String getFunctionName() {
         return this.getClass().getSimpleName();
     }
 
-    @Nonnull
-    protected abstract UdfValue newCallsite(@Nonnull List<Value> arguments);
+    protected abstract UdfValue newCallsite(List<Value> arguments);
 
-    @Nonnull
     @Override
-    public final Typed encapsulate(@Nonnull final CallSiteArguments callSiteArguments) {
+    public final Typed encapsulate(final CallSiteArguments callSiteArguments) {
         final List<Value> arguments = callSiteArguments.getArgumentsList();
         final List<Type> parameterTypes = getParameterTypes();
         if (arguments.size() != parameterTypes.size()) {

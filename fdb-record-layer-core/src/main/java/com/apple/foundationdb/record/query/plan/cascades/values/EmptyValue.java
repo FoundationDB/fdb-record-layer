@@ -38,8 +38,7 @@ import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.function.Supplier;
 
 /**
@@ -55,12 +54,12 @@ public class EmptyValue extends AbstractValue implements LeafValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         return Key.Evaluated.EMPTY;
     }
 
     @Override
-    public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
+    public boolean isFunctionallyDependentOn(final Value otherValue) {
         return true;
     }
 
@@ -70,7 +69,7 @@ public class EmptyValue extends AbstractValue implements LeafValue {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
@@ -80,9 +79,8 @@ public class EmptyValue extends AbstractValue implements LeafValue {
         }
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSupliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSupliers) {
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("empty"));
     }
 
@@ -103,31 +101,26 @@ public class EmptyValue extends AbstractValue implements LeafValue {
      *
      * @return an instance of {@link EmptyValue}
      */
-    @Nonnull
     public static EmptyValue empty() {
         return EMPTY;
     }
 
-    @Nonnull
     @Override
-    public PEmptyValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PEmptyValue toProto(final PlanSerializationContext serializationContext) {
         return PEmptyValue.newBuilder().build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setEmptyValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    public static EmptyValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                       @Nonnull final PEmptyValue emptyValueProto) {
+    public static EmptyValue fromProto(final PlanSerializationContext serializationContext,
+                                       final PEmptyValue emptyValueProto) {
         return new EmptyValue();
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of();
@@ -138,16 +131,14 @@ public class EmptyValue extends AbstractValue implements LeafValue {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PEmptyValue, EmptyValue> {
-        @Nonnull
         @Override
         public Class<PEmptyValue> getProtoMessageClass() {
             return PEmptyValue.class;
         }
 
-        @Nonnull
         @Override
-        public EmptyValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                    @Nonnull final PEmptyValue emptyValueProto) {
+        public EmptyValue fromProto(final PlanSerializationContext serializationContext,
+                                    final PEmptyValue emptyValueProto) {
             return EmptyValue.fromProto(serializationContext, emptyValueProto);
         }
     }

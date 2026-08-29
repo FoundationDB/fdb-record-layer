@@ -54,8 +54,7 @@ import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -81,7 +80,6 @@ import java.util.function.Supplier;
 public class ArrayAggValue extends AbstractValue implements AggregateValue, StreamableAggregateValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Array-Agg-Value");
 
-    @Nonnull
     private final Value child;
 
     /**
@@ -89,14 +87,13 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
      */
     private final boolean ignoreNulls;
 
-    @Nonnull
     private final Supplier<Type.Array> resultTypeSupplier;
 
     /**
      * Constructs a value whose element type is derived from the child’s result type. Under {@code ignoreNulls},
      * the element type will be non-nullable, since {@code NULL} values are then skipped rather than collected.
      */
-    public ArrayAggValue(@Nonnull final Value child, final boolean ignoreNulls) {
+    public ArrayAggValue(final Value child, final boolean ignoreNulls) {
         this.child = child;
         this.ignoreNulls = ignoreNulls;
         // Note: The result type is always nullable, since ARRAY_AGG() must yield a NULL array for empty input.
@@ -119,9 +116,8 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
      * @param elementType the type of the collected elements
      * @return the descriptor of the wrapper message for {@code elementType}
      */
-    @Nonnull
-    private static Descriptors.Descriptor wrapperDescriptorIn(@Nonnull final TypeRepository typeRepository,
-                                                             @Nonnull final Type elementType) {
+    private static Descriptors.Descriptor wrapperDescriptorIn(final TypeRepository typeRepository,
+                                                             final Type elementType) {
         final Type.Record wrapperType = NullableArrayTypeUtils.wrapperTypeFor(elementType);
         return Verify.verifyNotNull(typeRepository.getMessageDescriptor(wrapperType));
     }
@@ -129,7 +125,7 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
-                                           @Nonnull final EvaluationContext context) {
+                                           final EvaluationContext context) {
         throw new IllegalStateException("unable to eval an aggregation function with eval()");
     }
 
@@ -139,15 +135,14 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
      */
     @Nullable
     @Override
-    public <M extends Message> Object evalToPartial(@Nonnull final FDBRecordStoreBase<M> store,
-                                                    @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object evalToPartial(final FDBRecordStoreBase<M> store,
+                                                    final EvaluationContext context) {
         return child.eval(store, context);
     }
 
-    @Nonnull
     @Override
     public Accumulator createAccumulatorWithInitialState(
-            @Nonnull final TypeRepository typeRepository,
+            final TypeRepository typeRepository,
             @Nullable final List<RecordCursorProto.AccumulatorState> initialState) {
         final Type elementType = getElementType();
         final Descriptors.Descriptor wrapperDescriptor = wrapperDescriptorIn(typeRepository, elementType);
@@ -166,7 +161,6 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
      *
      * @return the type of the collected elements
      */
-    @Nonnull
     private Type getElementType() {
         return Verify.verifyNotNull(resultTypeSupplier.get().getElementType());
     }
@@ -180,29 +174,25 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
      *
      * @return the type of the resulting array
      */
-    @Nonnull
     @Override
     public Type getResultType() {
         return resultTypeSupplier.get();
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of(child);
     }
 
-    @Nonnull
     @Override
     public ArrayAggValue withChildren(final Iterable<? extends Value> newChildren) {
         Verify.verify(Iterables.size(newChildren) == 1);
         return new ArrayAggValue(Iterables.get(newChildren, 0), ignoreNulls);
     }
 
-    @Nonnull
     @Override
     public ExplainTokensWithPrecedence explain(
-            @Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+            final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         final ExplainTokens argument =
                 new ExplainTokens().addNested(Iterables.getOnlyElement(explainSuppliers).get().getExplainTokens());
         if (ignoreNulls) {
@@ -219,13 +209,12 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, child, ignoreNulls);
     }
 
-    @Nonnull
     @Override
-    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(final Value other) {
         return super.equalsWithoutChildren(other)
                 .filter(ignored -> ignoreNulls == ((ArrayAggValue)other).ignoreNulls);
     }
@@ -242,24 +231,21 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public PArrayAggValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PArrayAggValue toProto(final PlanSerializationContext serializationContext) {
         return PArrayAggValue.newBuilder()
                 .setChild(child.toValueProto(serializationContext))
                 .setIgnoreNulls(ignoreNulls)
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setArrayAggValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static ArrayAggValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                          @Nonnull final PArrayAggValue arrayAggValueProto) {
+    public static ArrayAggValue fromProto(final PlanSerializationContext serializationContext,
+                                          final PArrayAggValue arrayAggValueProto) {
         final Value child = Value.fromValueProto(serializationContext,
                 Objects.requireNonNull(arrayAggValueProto.getChild()));
         return new ArrayAggValue(child, arrayAggValueProto.getIgnoreNulls());
@@ -281,9 +267,8 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
                     ArrayAggFn::encapsulate);
         }
 
-        @Nonnull
-        private static AggregateValue encapsulate(@Nonnull final BuiltInFunction<AggregateValue> builtInFunction,
-                                                  @Nonnull final CallSiteArguments callSiteArguments) {
+        private static AggregateValue encapsulate(final BuiltInFunction<AggregateValue> builtInFunction,
+                                                  final CallSiteArguments callSiteArguments) {
             final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             Verify.verify(arguments.size() == 2);
             final Typed arg0 = arguments.get(0);
@@ -314,15 +299,10 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
      * conversion.
      */
     static final class ArrayAccumulator implements Accumulator {
-        @Nonnull
         private final TypeRepository typeRepository;
-        @Nonnull
         private final Type elementType;
-        @Nonnull
         private final Descriptors.Descriptor wrapperDescriptor;
-        @Nonnull
         private final Descriptors.FieldDescriptor valuesField;
-        @Nonnull
         private final List<Object> elements;
 
         private final boolean ignoreNulls;
@@ -345,9 +325,9 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
          * @param elementType the type of the collected elements
          * @param ignoreNulls whether {@code NULL} inputs are skipped rather than collected
          */
-        ArrayAccumulator(@Nonnull final Descriptors.Descriptor wrapperDescriptor,
-                         @Nonnull final TypeRepository typeRepository,
-                         @Nonnull final Type elementType,
+        ArrayAccumulator(final Descriptors.Descriptor wrapperDescriptor,
+                         final TypeRepository typeRepository,
+                         final Type elementType,
                          final boolean ignoreNulls) {
             this.typeRepository = typeRepository;
             this.elementType = elementType;
@@ -370,11 +350,11 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
          * @param ignoreNulls whether {@code NULL} inputs are skipped rather than collected
          * @param initialState the partial state to restore
          */
-        ArrayAccumulator(@Nonnull final Descriptors.Descriptor wrapperDescriptor,
-                         @Nonnull final TypeRepository typeRepository,
-                         @Nonnull final Type elementType,
+        ArrayAccumulator(final Descriptors.Descriptor wrapperDescriptor,
+                         final TypeRepository typeRepository,
+                         final Type elementType,
                          final boolean ignoreNulls,
-                         @Nonnull final RecordCursorProto.AccumulatorState initialState) {
+                         final RecordCursorProto.AccumulatorState initialState) {
             this(wrapperDescriptor, typeRepository, elementType, ignoreNulls);
             Verify.verify(initialState.getStateList().size() == 1);
             Verify.verify(initialState.getState(0).hasBytesState());
@@ -431,7 +411,6 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
          *
          * @return the partial state of this accumulator, or an empty list if the group has seen no rows
          */
-        @Nonnull
         @Override
         public List<RecordCursorProto.AccumulatorState> getAccumulatorStates() {
             if (!seenAnyRow) {
@@ -450,16 +429,14 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PArrayAggValue, ArrayAggValue> {
-        @Nonnull
         @Override
         public Class<PArrayAggValue> getProtoMessageClass() {
             return PArrayAggValue.class;
         }
 
-        @Nonnull
         @Override
-        public ArrayAggValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                       @Nonnull final PArrayAggValue arrayAggValueProto) {
+        public ArrayAggValue fromProto(final PlanSerializationContext serializationContext,
+                                       final PArrayAggValue arrayAggValueProto) {
             return ArrayAggValue.fromProto(serializationContext, arrayAggValueProto);
         }
     }
