@@ -30,7 +30,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -41,10 +40,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Basic tests for validating features of the {@link DataType} class.
  */
 class DataTypeSmokeTest {
-    @Nonnull
     private static final String OR_NULL = " ∪ ∅";
 
-    @Nonnull
     private static final DataType.StructType baseStructType = DataType.StructType.from("sample_type",
             List.of(
                     DataType.StructType.Field.from("a", DataType.LongType.nullable(), 1),
@@ -52,7 +49,6 @@ class DataTypeSmokeTest {
             ),
             false);
 
-    @Nonnull
     private static final DataType.StructType structWithNested = DataType.StructType.from("par",
             List.of(
                     DataType.StructType.Field.from("x", baseStructType.withNullable(false), 1),
@@ -60,7 +56,6 @@ class DataTypeSmokeTest {
             ),
             false);
 
-    @Nonnull
     private static final DataType.EnumType suitsEnum = DataType.EnumType.from("suits",
             List.of(
                     DataType.EnumType.EnumValue.of("SPADES", 0),
@@ -69,7 +64,6 @@ class DataTypeSmokeTest {
                     DataType.EnumType.EnumValue.of("DIAMONDS", 3)
             ), false);
 
-    @Nonnull
     static Stream<Arguments> assertStringMatches() {
         return Stream.of(
                 // Primitive types
@@ -116,7 +110,7 @@ class DataTypeSmokeTest {
 
     @ParameterizedTest(name = "assertStringMatches[dataType={0}]")
     @MethodSource
-    void assertStringMatches(@Nonnull DataType dataType, @Nonnull String string) {
+    void assertStringMatches(DataType dataType, String string) {
         assertThat(dataType)
                 .hasToString(string);
     }

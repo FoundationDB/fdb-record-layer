@@ -25,9 +25,9 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.fluentsql.FluentVisitor;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 
 /**
@@ -39,24 +39,22 @@ import java.util.Objects;
 @API(API.Status.EXPERIMENTAL)
 public class NumericLiteral<N extends Number, D extends DataType.NumericType> implements Literal<N, D>, NumericExpressionTrait<D> {
 
-    @Nonnull
     private final D type;
 
     @Nullable
     private final N literal;
 
-    public NumericLiteral(@Nonnull D type, @Nullable N literal) {
+    public NumericLiteral(D type, @Nullable N literal) {
         this.type = type;
         this.literal = literal;
     }
 
     @Nullable
     @Override
-    public <R, C> R accept(@Nonnull FluentVisitor<R, C> visitor, @Nonnull C context) {
+    public <R, C> R accept(FluentVisitor<R, C> visitor, C context) {
         return visitor.visit(this, context);
     }
 
-    @Nonnull
     @Override
     public D getType() {
         return type;

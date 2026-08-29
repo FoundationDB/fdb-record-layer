@@ -29,15 +29,15 @@ import com.apple.foundationdb.relational.api.metadata.DataType;
 
 import com.google.common.base.Suppliers;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.function.Supplier;
 
 public interface Mixins {
 
     interface FieldEqualityTrait<T extends DataType> extends Field<T> {
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        default boolean equalsInternal(Object obj) {
+        default boolean equalsInternal(@Nullable Object obj) {
             if (obj == this) {
                 return true;
             }
@@ -88,26 +88,21 @@ public interface Mixins {
         }
     }
 
-    @Nonnull
-    static BooleanField asBoolean(@Nonnull final Field<?> mixin, boolean isNullable) {
+    static BooleanField asBoolean(final Field<?> mixin, boolean isNullable) {
         return new BooleanField() {
-            @Nonnull
             @SuppressWarnings("PMD.FieldNamingConventions")
             private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
-            @Nonnull
             @Override
             public Iterable<String> getParts() {
                 return mixin.getParts();
             }
 
-            @Nonnull
             @Override
-            public Field<?> subField(@Nonnull String part) {
+            public Field<?> subField(String part) {
                 return mixin.subField(part);
             }
 
-            @Nonnull
             @Override
             public String getName() {
                 return mixin.getName();
@@ -115,7 +110,7 @@ public interface Mixins {
 
             @Nullable
             @Override
-            public <R, C> R accept(@Nonnull FluentVisitor<R, C> visitor, @Nonnull C context) {
+            public <R, C> R accept(FluentVisitor<R, C> visitor, C context) {
                 return mixin.accept(visitor, context);
             }
 
@@ -135,7 +130,7 @@ public interface Mixins {
 
             @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
             @Override
-            public boolean equals(Object other) {
+            public boolean equals(@Nullable Object other) {
                 return equalsInternal(other);
             }
 
@@ -146,26 +141,21 @@ public interface Mixins {
         };
     }
 
-    @Nonnull
-    static IntField asInt(@Nonnull final Field<?> mixin, boolean isNullable) {
+    static IntField asInt(final Field<?> mixin, boolean isNullable) {
         return new IntField() {
-            @Nonnull
             @SuppressWarnings("PMD.FieldNamingConventions")
             private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
-            @Nonnull
             @Override
             public Iterable<String> getParts() {
                 return mixin.getParts();
             }
 
-            @Nonnull
             @Override
-            public Field<?> subField(@Nonnull String part) {
+            public Field<?> subField(String part) {
                 return mixin.subField(part);
             }
 
-            @Nonnull
             @Override
             public String getName() {
                 return mixin.getName();
@@ -173,7 +163,7 @@ public interface Mixins {
 
             @Nullable
             @Override
-            public <R, C> R accept(@Nonnull FluentVisitor<R, C> visitor, @Nonnull C context) {
+            public <R, C> R accept(FluentVisitor<R, C> visitor, C context) {
                 return mixin.accept(visitor, context);
             }
 
@@ -193,7 +183,7 @@ public interface Mixins {
 
             @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
             @Override
-            public boolean equals(Object other) {
+            public boolean equals(@Nullable Object other) {
                 return equalsInternal(other);
             }
 
@@ -204,26 +194,21 @@ public interface Mixins {
         };
     }
 
-    @Nonnull
-    static LongField asLong(@Nonnull final Field<?> mixin, boolean isNullable) {
+    static LongField asLong(final Field<?> mixin, boolean isNullable) {
         return new LongField() {
-            @Nonnull
             @SuppressWarnings("PMD.FieldNamingConventions")
             private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
-            @Nonnull
             @Override
             public Iterable<String> getParts() {
                 return mixin.getParts();
             }
 
-            @Nonnull
             @Override
-            public Field<?> subField(@Nonnull String part) {
+            public Field<?> subField(String part) {
                 return mixin.subField(part);
             }
 
-            @Nonnull
             @Override
             public String getName() {
                 return mixin.getName();
@@ -231,7 +216,7 @@ public interface Mixins {
 
             @Nullable
             @Override
-            public <R, C> R accept(@Nonnull FluentVisitor<R, C> visitor, @Nonnull C context) {
+            public <R, C> R accept(FluentVisitor<R, C> visitor, C context) {
                 return mixin.accept(visitor, context);
             }
 
@@ -251,7 +236,7 @@ public interface Mixins {
 
             @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
             @Override
-            public boolean equals(Object other) {
+            public boolean equals(@Nullable Object other) {
                 return equalsInternal(other);
             }
 
@@ -262,26 +247,21 @@ public interface Mixins {
         };
     }
 
-    @Nonnull
-    static FloatField asFloat(@Nonnull final Field<?> mixin, boolean isNullable) {
+    static FloatField asFloat(final Field<?> mixin, boolean isNullable) {
         return new FloatField() {
-            @Nonnull
             @SuppressWarnings("PMD.FieldNamingConventions")
             private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
-            @Nonnull
             @Override
             public Iterable<String> getParts() {
                 return mixin.getParts();
             }
 
-            @Nonnull
             @Override
-            public Field<?> subField(@Nonnull String part) {
+            public Field<?> subField(String part) {
                 return mixin.subField(part);
             }
 
-            @Nonnull
             @Override
             public String getName() {
                 return mixin.getName();
@@ -289,7 +269,7 @@ public interface Mixins {
 
             @Nullable
             @Override
-            public <R, C> R accept(@Nonnull FluentVisitor<R, C> visitor, @Nonnull C context) {
+            public <R, C> R accept(FluentVisitor<R, C> visitor, C context) {
                 return mixin.accept(visitor, context);
             }
 
@@ -309,7 +289,7 @@ public interface Mixins {
 
             @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
             @Override
-            public boolean equals(Object other) {
+            public boolean equals(@Nullable Object other) {
                 return equalsInternal(other);
             }
 
@@ -320,26 +300,21 @@ public interface Mixins {
         };
     }
 
-    @Nonnull
-    static DoubleField asDouble(@Nonnull final Field<?> mixin, boolean isNullable) {
+    static DoubleField asDouble(final Field<?> mixin, boolean isNullable) {
         return new DoubleField() {
-            @Nonnull
             @SuppressWarnings("PMD.FieldNamingConventions")
             private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
-            @Nonnull
             @Override
             public Iterable<String> getParts() {
                 return mixin.getParts();
             }
 
-            @Nonnull
             @Override
-            public Field<?> subField(@Nonnull String part) {
+            public Field<?> subField(String part) {
                 return mixin.subField(part);
             }
 
-            @Nonnull
             @Override
             public String getName() {
                 return mixin.getName();
@@ -347,7 +322,7 @@ public interface Mixins {
 
             @Nullable
             @Override
-            public <R, C> R accept(@Nonnull FluentVisitor<R, C> visitor, @Nonnull C context) {
+            public <R, C> R accept(FluentVisitor<R, C> visitor, C context) {
                 return mixin.accept(visitor, context);
             }
 
@@ -367,7 +342,7 @@ public interface Mixins {
 
             @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
             @Override
-            public boolean equals(Object other) {
+            public boolean equals(@Nullable Object other) {
                 return equalsInternal(other);
             }
 
@@ -378,26 +353,21 @@ public interface Mixins {
         };
     }
 
-    @Nonnull
-    static StringField asString(@Nonnull final Field<?> mixin, boolean isNullable) {
+    static StringField asString(final Field<?> mixin, boolean isNullable) {
         return new StringField() {
-            @Nonnull
             @SuppressWarnings("PMD.FieldNamingConventions")
             private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
-            @Nonnull
             @Override
             public Iterable<String> getParts() {
                 return mixin.getParts();
             }
 
-            @Nonnull
             @Override
-            public Field<?> subField(@Nonnull String part) {
+            public Field<?> subField(String part) {
                 return mixin.subField(part);
             }
 
-            @Nonnull
             @Override
             public String getName() {
                 return mixin.getName();
@@ -405,7 +375,7 @@ public interface Mixins {
 
             @Nullable
             @Override
-            public <R, C> R accept(@Nonnull FluentVisitor<R, C> visitor, @Nonnull C context) {
+            public <R, C> R accept(FluentVisitor<R, C> visitor, C context) {
                 return mixin.accept(visitor, context);
             }
 
@@ -425,7 +395,7 @@ public interface Mixins {
 
             @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
             @Override
-            public boolean equals(Object other) {
+            public boolean equals(@Nullable Object other) {
                 return equalsInternal(other);
             }
 
@@ -438,7 +408,7 @@ public interface Mixins {
 
     interface ExpressionFragmentEqualityTrait<T extends DataType> extends ExpressionFragment<T> {
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        default boolean equalsInternal(Object obj) {
+        default boolean equalsInternal(@Nullable Object obj) {
             if (obj == this) {
                 return true;
             }
@@ -499,10 +469,8 @@ public interface Mixins {
         }
     }
 
-    @Nonnull
     static BooleanExpressionFragment asBoolean(ExpressionFragment<?> mixin, boolean isNullable) {
         return new BooleanExpressionFragment() {
-            @Nonnull
             @Override
             public String getFragment() {
                 return mixin.getFragment();
@@ -510,7 +478,7 @@ public interface Mixins {
 
             @Nullable
             @Override
-            public <R, C> R accept(@Nonnull FluentVisitor<R, C> visitor, @Nonnull C context) {
+            public <R, C> R accept(FluentVisitor<R, C> visitor, C context) {
                 return mixin.accept(visitor, context);
             }
 
@@ -526,7 +494,7 @@ public interface Mixins {
 
             @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
             @Override
-            public boolean equals(Object obj) {
+            public boolean equals(@Nullable Object obj) {
                 return equalsInternal(obj);
             }
 
@@ -537,10 +505,8 @@ public interface Mixins {
         };
     }
 
-    @Nonnull
     static IntExpressionFragment asInt(ExpressionFragment<?> mixin, boolean isNullable) {
         return new IntExpressionFragment() {
-            @Nonnull
             @Override
             public String getFragment() {
                 return mixin.getFragment();
@@ -548,7 +514,7 @@ public interface Mixins {
 
             @Nullable
             @Override
-            public <R, C> R accept(@Nonnull FluentVisitor<R, C> visitor, @Nonnull C context) {
+            public <R, C> R accept(FluentVisitor<R, C> visitor, C context) {
                 return mixin.accept(visitor, context);
             }
 
@@ -564,7 +530,7 @@ public interface Mixins {
 
             @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
             @Override
-            public boolean equals(Object obj) {
+            public boolean equals(@Nullable Object obj) {
                 return equalsInternal(obj);
             }
 
@@ -575,10 +541,8 @@ public interface Mixins {
         };
     }
 
-    @Nonnull
     static LongExpressionFragment asLong(ExpressionFragment<?> mixin, boolean isNullable) {
         return new LongExpressionFragment() {
-            @Nonnull
             @Override
             public String getFragment() {
                 return mixin.getFragment();
@@ -586,7 +550,7 @@ public interface Mixins {
 
             @Nullable
             @Override
-            public <R, C> R accept(@Nonnull FluentVisitor<R, C> visitor, @Nonnull C context) {
+            public <R, C> R accept(FluentVisitor<R, C> visitor, C context) {
                 return mixin.accept(visitor, context);
             }
 
@@ -602,7 +566,7 @@ public interface Mixins {
 
             @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
             @Override
-            public boolean equals(Object obj) {
+            public boolean equals(@Nullable Object obj) {
                 return equalsInternal(obj);
             }
 
@@ -613,10 +577,8 @@ public interface Mixins {
         };
     }
 
-    @Nonnull
     static FloatExpressionFragment asFloat(ExpressionFragment<?> mixin, boolean isNullable) {
         return new FloatExpressionFragment() {
-            @Nonnull
             @Override
             public String getFragment() {
                 return mixin.getFragment();
@@ -624,7 +586,7 @@ public interface Mixins {
 
             @Nullable
             @Override
-            public <R, C> R accept(@Nonnull FluentVisitor<R, C> visitor, @Nonnull C context) {
+            public <R, C> R accept(FluentVisitor<R, C> visitor, C context) {
                 return mixin.accept(visitor, context);
             }
 
@@ -640,7 +602,7 @@ public interface Mixins {
 
             @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
             @Override
-            public boolean equals(Object obj) {
+            public boolean equals(@Nullable Object obj) {
                 return equalsInternal(obj);
             }
 
@@ -651,10 +613,8 @@ public interface Mixins {
         };
     }
 
-    @Nonnull
     static DoubleExpressionFragment asDouble(ExpressionFragment<?> mixin, boolean isNullable) {
         return new DoubleExpressionFragment() {
-            @Nonnull
             @Override
             public String getFragment() {
                 return mixin.getFragment();
@@ -662,7 +622,7 @@ public interface Mixins {
 
             @Nullable
             @Override
-            public <R, C> R accept(@Nonnull FluentVisitor<R, C> visitor, @Nonnull C context) {
+            public <R, C> R accept(FluentVisitor<R, C> visitor, C context) {
                 return mixin.accept(visitor, context);
             }
 
@@ -678,7 +638,7 @@ public interface Mixins {
 
             @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
             @Override
-            public boolean equals(Object obj) {
+            public boolean equals(@Nullable Object obj) {
                 return equalsInternal(obj);
             }
 
@@ -689,10 +649,8 @@ public interface Mixins {
         };
     }
 
-    @Nonnull
     static StringExpressionFragment asString(ExpressionFragment<?> mixin, boolean isNullable) {
         return new StringExpressionFragment() {
-            @Nonnull
             @Override
             public String getFragment() {
                 return mixin.getFragment();
@@ -700,7 +658,7 @@ public interface Mixins {
 
             @Nullable
             @Override
-            public <R, C> R accept(@Nonnull FluentVisitor<R, C> visitor, @Nonnull C context) {
+            public <R, C> R accept(FluentVisitor<R, C> visitor, C context) {
                 return mixin.accept(visitor, context);
             }
 
@@ -716,7 +674,7 @@ public interface Mixins {
 
             @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
             @Override
-            public boolean equals(Object obj) {
+            public boolean equals(@Nullable Object obj) {
                 return equalsInternal(obj);
             }
 

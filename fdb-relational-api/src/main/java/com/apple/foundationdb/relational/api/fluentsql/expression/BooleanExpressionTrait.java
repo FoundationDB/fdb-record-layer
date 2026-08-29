@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.api.fluentsql.expression;
 
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
-import javax.annotation.Nonnull;
 import javax.annotation.concurrent.Immutable;
 import java.util.List;
 
@@ -32,23 +31,19 @@ import java.util.List;
 @Immutable
 public interface BooleanExpressionTrait extends Expression<DataType.BooleanType> {
 
-    @Nonnull
-    default BooleanExpressionTrait and(@Nonnull final BooleanExpressionTrait right) {
+    default BooleanExpressionTrait and(final BooleanExpressionTrait right) {
         return new BooleanFunction(Operation.AND, List.of(this, right));
     }
 
-    @Nonnull
-    default BooleanExpressionTrait or(@Nonnull final BooleanExpressionTrait right) {
+    default BooleanExpressionTrait or(final BooleanExpressionTrait right) {
         return new BooleanFunction(Operation.OR, List.of(this, right));
     }
 
     // todo (yhatem) remove this (post wave3).
-    @Nonnull
     default NestedBooleanExpression nested() {
         return new NestedBooleanExpression(this);
     }
 
-    @Nonnull
     default BooleanExpressionTrait not() {
         return new BooleanFunction(Operation.NOT, List.of(this));
     }

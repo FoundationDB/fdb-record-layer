@@ -23,7 +23,8 @@ package com.apple.foundationdb.relational.api.options;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
+
 import java.sql.SQLException;
 import java.util.List;
 
@@ -32,14 +33,14 @@ import java.util.List;
  * @param <T> the type parameter of the collection
  */
 public class OrderedCollectionContract<T> extends CollectionContract<T> {
-    public OrderedCollectionContract(@Nonnull TypeContract<T> elementContract) {
+    public OrderedCollectionContract(TypeContract<T> elementContract) {
         super(elementContract);
     }
 
     @Override
-    public void validate(final Options.Name name, final Object value) throws SQLException {
+    public void validate(final Options.Name name, @Nullable final Object value) throws SQLException {
         if (!(value instanceof List<?>)) {
-            throw new SQLException("Option " + name + " should be of a list type instead of " + value.getClass().getName(), ErrorCode.INVALID_PARAMETER.getErrorCode());
+            throw new SQLException("Option " + name + " should be of a list type instead of " + (value == null ? "null" : value.getClass().getName()), ErrorCode.INVALID_PARAMETER.getErrorCode());
         }
         super.validate(name, value);
     }

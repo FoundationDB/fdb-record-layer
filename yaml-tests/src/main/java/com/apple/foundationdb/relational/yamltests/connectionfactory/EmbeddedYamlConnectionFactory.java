@@ -31,6 +31,7 @@ import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.Objects;
 import java.util.Set;
 
 public class EmbeddedYamlConnectionFactory implements YamlConnectionFactory {
@@ -51,7 +52,7 @@ public class EmbeddedYamlConnectionFactory implements YamlConnectionFactory {
         }
         // Non-primary clusters are not registered in DriverManager, so connect via the driver directly
         return new SimpleYamlConnection(
-                entry.server().connect(connectPath, Options.NONE),
+                Objects.requireNonNull(entry.server().connect(connectPath, Options.NONE)),
                 SemanticVersion.current(),
                 "Embedded[cluster=" + clusterIndex + "]",
                 entry.clusterFile());

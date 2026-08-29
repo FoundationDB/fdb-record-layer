@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.api.metadata;
 
-import javax.annotation.Nonnull;
-
 /**
  * A visitor interface for the {@link Metadata}.
  * This visitor allows us to design algorithms that work with metadata artifacts is isolation of metadata API.
@@ -30,25 +28,25 @@ import javax.annotation.Nonnull;
  */
 public interface Visitor {
 
-    default void visit(@Nonnull final Metadata metadata) {
+    default void visit(final Metadata metadata) {
         throw new RuntimeException("unexpected");
     }
 
-    void visit(@Nonnull Table table);
+    void visit(Table table);
 
-    void visit(@Nonnull Column column);
+    void visit(Column column);
 
-    void startVisit(@Nonnull SchemaTemplate schemaTemplate);
+    void startVisit(SchemaTemplate schemaTemplate);
 
-    void visit(@Nonnull SchemaTemplate schemaTemplate);
+    void visit(SchemaTemplate schemaTemplate);
 
-    void finishVisit(@Nonnull SchemaTemplate schemaTemplate);
+    void finishVisit(SchemaTemplate schemaTemplate);
 
-    void visit(@Nonnull Schema schema);
+    void visit(Schema schema);
 
-    void visit(@Nonnull Index index);
+    void visit(Index index);
 
-    void visit(@Nonnull InvokedRoutine invokedRoutine);
+    void visit(InvokedRoutine invokedRoutine);
 
-    void visit(@Nonnull View view);
+    void visit(View view);
 }

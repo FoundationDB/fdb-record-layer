@@ -22,4 +22,7 @@
  * Metadata artefacts in Relational.
  */
 
+@NullMarked
 package com.apple.foundationdb.relational.api.metadata;
+
+import org.jspecify.annotations.NullMarked;

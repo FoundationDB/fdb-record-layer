@@ -34,8 +34,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Collections;
@@ -298,7 +298,6 @@ public final class Options {
     @SuppressWarnings("PMD.AvoidFieldNameMatchingTypeName")
     private static final Map<Name, List<OptionContract>> OPTIONS = makeContracts();
 
-    @Nonnull
     private static final Map<Name, Object> OPTIONS_DEFAULT_VALUES;
 
     private static final Object NULL_STANDIN = new Object();
@@ -336,27 +335,24 @@ public final class Options {
 
     @Nullable
     private final Options parentOptions;
-    @Nonnull
     private final Map<Name, Object> optionsMap;
 
-    @Nonnull
     public static Options none() {
         return NONE;
     }
 
-    @Nonnull
     public static Map<Name, Object> defaultOptions() {
         return OPTIONS_DEFAULT_VALUES;
     }
 
-    private Options(@Nonnull Map<Name, Object> optionsMap, @Nullable Options parentOptions) {
+    private Options(Map<Name, Object> optionsMap, @Nullable Options parentOptions) {
         this.optionsMap = optionsMap;
         this.parentOptions = parentOptions;
     }
 
-    @SuppressWarnings("unchecked")
-    public <T> T getOption(@Nonnull Name name) {
-        T option = getOptionInternal(name);
+    @SuppressWarnings({"unchecked", "NullAway"}) // Whether this can return null depends on whether `name` has a registered default in OPTIONS_DEFAULT_VALUES (a runtime fact, not visible to the type system); genuinely returns null for options such as INDEX_HINT that have neither a set value nor a default.
+    public <T extends @Nullable Object> T getOption(Name name) {
+        @Nullable T option = getOptionInternal(name);
         if (option == null) {
             return (T) OPTIONS_DEFAULT_VALUES.get(name);
         } else {
@@ -364,17 +360,16 @@ public final class Options {
         }
     }
 
-    public Options withOption(@Nonnull Name name, @Nullable Object value) throws SQLException {
+    public Options withOption(Name name, @Nullable Object value) throws SQLException {
         return builder().fromOptions(this).withOption(name, value).build();
     }
 
-    public Options withChild(@Nonnull Options childOptions) throws SQLException {
+    public Options withChild(Options childOptions) throws SQLException {
         return Options.combine(this, childOptions);
     }
 
-    @Nonnull
     @SuppressWarnings({"PMD.CompareObjectsWithEquals"})
-    private static Options combine(@Nonnull Options parentOptions, @Nonnull Options childOptions) throws SQLException {
+    private static Options combine(Options parentOptions, Options childOptions) throws SQLException {
         if (childOptions.parentOptions != null) {
             throw new SQLException("Cannot override parent options", ErrorCode.INTERNAL_ERROR.getErrorCode());
         }
@@ -386,14 +381,12 @@ public final class Options {
         return new Options(childOptions.optionsMap, parentOptions);
     }
 
-    @Nonnull
     public static Builder builder() {
         return new Builder();
     }
 
     public static final class Builder {
 
-        @Nonnull
         private final Map<Name, Object> optionsMap;
 
         @Nullable
@@ -403,14 +396,12 @@ public final class Options {
             optionsMap = Maps.newHashMap();
         }
 
-        @Nonnull
         public Builder withOptionFromString(Name name, String valueAsString) throws SQLException {
             final Object value = parseStringOption(name, valueAsString);
             return withOption(name, value);
         }
 
-        @Nonnull
-        public Builder withOption(@Nonnull Name name, @Nullable Object value) throws SQLException {
+        public Builder withOption(Name name, @Nullable Object value) throws SQLException {
             if (value == NULL_STANDIN) {
                 optionsMap.put(name, NULL_STANDIN);
             } else {
@@ -424,7 +415,6 @@ public final class Options {
             return this;
         }
 
-        @Nonnull
         public Builder fromOptions(Options options) throws SQLException {
             optionsMap.putAll(options.optionsMap);
             if (parentOptions != null) {
@@ -441,15 +431,15 @@ public final class Options {
             this.parentOptions = parentOptions;
         }
 
-        @Nonnull
         public Options build() {
             return new Options(ImmutableMap.copyOf(optionsMap), parentOptions);
         }
     }
 
     @Nullable
-    private static Object parseStringOption(@Nonnull final Name name, String valueAsString) throws SQLException {
-        for (OptionContract contract : Objects.requireNonNull(OPTIONS).get(name)) {
+    private static Object parseStringOption(final Name name, String valueAsString) throws SQLException {
+        // makeContracts() registers a contract list for every Name constant, so this lookup is never null.
+        for (OptionContract contract : Objects.requireNonNull(OPTIONS.get(name))) {
             if (contract instanceof OptionContractWithConversion<?>) {
                 return ((OptionContractWithConversion<?>)contract).fromString(valueAsString);
             }
@@ -457,8 +447,9 @@ public final class Options {
         throw new SQLException("option must have at least one type contract", ErrorCode.INTERNAL_ERROR.getErrorCode());
     }
 
-    private static void validateOption(@Nonnull final Name name, Object value) throws SQLException {
-        for (OptionContract contract : Objects.requireNonNull(OPTIONS).get(name)) {
+    private static void validateOption(final Name name, @Nullable Object value) throws SQLException {
+        // makeContracts() registers a contract list for every Name constant, so this lookup is never null.
+        for (OptionContract contract : Objects.requireNonNull(OPTIONS.get(name))) {
             contract.validate(name, value);
         }
     }
@@ -476,7 +467,6 @@ public final class Options {
         }
     }
 
-    @Nonnull
     public Iterable<? extends Map.Entry<Name, ?>> entries() {
         if (parentOptions != null) {
             return Iterables.concat(parentOptions.entries(), optionsMap.entrySet());
@@ -490,7 +480,7 @@ public final class Options {
     }
 
     @Override
-    public boolean equals(final Object o) {
+    public boolean equals(@Nullable final Object o) {
         if (!(o instanceof Options)) {
             return false;
         }
@@ -521,7 +511,6 @@ public final class Options {
         return builder.build();
     }
 
-    @Nonnull
     @SuppressWarnings("unchecked")
     public static Properties toProperties(final Options options) {
         final Properties result = new Properties();
@@ -545,7 +534,7 @@ public final class Options {
     }
 
     // TODO: This is just to avoid dependencies; use HexFormat when upgraded to JDK 17.
-    private static String bytesToHex(@Nonnull byte[] bytes) {
+    private static String bytesToHex(byte[] bytes) {
         char[] hex = new char[bytes.length * 2];
         for (int i = 0; i < bytes.length; i++ ) {
             int b = bytes[i] & 0xFF;

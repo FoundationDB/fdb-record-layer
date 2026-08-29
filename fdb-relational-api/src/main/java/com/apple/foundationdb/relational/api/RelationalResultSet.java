@@ -23,7 +23,8 @@ package com.apple.foundationdb.relational.api;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
+
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -60,7 +61,6 @@ public interface RelationalResultSet extends java.sql.ResultSet, RelationalStruc
      * @return  A {@code Continuation} that can be used for retrieving the rest of the rows.
      * @throws SQLException if the continuation cannot be retrieved.
      */
-    @Nonnull
     Continuation getContinuation() throws SQLException;
 
     /*Unsupported Operations*/
@@ -226,6 +226,7 @@ public interface RelationalResultSet extends java.sql.ResultSet, RelationalStruc
 
     @ExcludeFromJacocoGeneratedReport
     @Override
+    @Nullable
     default SQLWarning getWarnings() throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }

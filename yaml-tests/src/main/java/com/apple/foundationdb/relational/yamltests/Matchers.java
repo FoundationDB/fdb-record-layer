@@ -664,8 +664,12 @@ public class Matchers {
                             rowNumber, cellRef, expectedArray.size(), i, expected, actual));
                 }
                 if (isMap(expectedArray.get(i))) {
+                    final var actualArrayStruct = actualArrayContent.getStruct(2);
+                    if (actualArrayStruct == null) {
+                        return ResultSetMatchResult.fail(String.format(Locale.ROOT, "cell mismatch at row: %d cellRef: %s%n expected 🟢 to match a struct, got NULL instead.%n🟢 %s", rowNumber, cellRef + "[" + i + "]", expectedArray.get(i)));
+                    }
                     final var matchResult = matchMap(map(expectedArray.get(i)), actualArrayContent.getMetaData().getStructMetaData(2).getColumnCount(),
-                            valueByName(actualArrayContent.getStruct(2)), valueByIndex(actualArrayContent.getStruct(2)), rowNumber, cellRef + "[" + i + "]");
+                            valueByName(actualArrayStruct), valueByIndex(actualArrayStruct), rowNumber, cellRef + "[" + i + "]");
                     if (!matchResult.equals(ResultSetMatchResult.success())) {
                         return matchResult; // propagate failure.
                     }

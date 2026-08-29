@@ -20,7 +20,8 @@
 
 package com.apple.foundationdb.relational.api.options;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.sql.SQLException;
 
 public interface OptionContractWithConversion<T> extends OptionContract {

@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.api;
 
-import javax.annotation.Nonnull;
-
 /**
  * This represents query parsing information.
  *
@@ -43,6 +41,5 @@ public interface ParseTreeInfo {
         OTHER
     }
 
-    @Nonnull
     QueryType getQueryType();
 }

@@ -25,9 +25,9 @@ import com.apple.foundationdb.relational.api.fluentsql.FluentVisitor;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -42,30 +42,25 @@ import java.util.stream.Collectors;
 @API(API.Status.EXPERIMENTAL)
 public class NumericFunction<N extends DataType.NumericType> implements NumericExpressionTrait<N>, FunctionLike<N> {
 
-    @Nonnull
     private final Operation operator;
 
-    @Nonnull
     private final ImmutableList<Expression<?>> args;
 
-    @Nonnull
     private final N type;
 
-    public NumericFunction(@Nonnull final N type,
-                           @Nonnull final Operation operator,
-                           @Nonnull final List<Expression<?>> args) {
+    public NumericFunction(final N type,
+                           final Operation operator,
+                           final List<Expression<?>> args) {
         this.operator = operator;
         this.args = ImmutableList.copyOf(args);
         this.type = type;
     }
 
-    @Nonnull
     @Override
     public Iterable<Expression<?>> getArguments() {
         return args;
     }
 
-    @Nonnull
     @Override
     public Operation getName() {
         return operator;
@@ -73,11 +68,10 @@ public class NumericFunction<N extends DataType.NumericType> implements NumericE
 
     @Nullable
     @Override
-    public <R, C> R accept(@Nonnull FluentVisitor<R, C> visitor, @Nonnull C context) {
+    public <R, C> R accept(FluentVisitor<R, C> visitor, C context) {
         return visitor.visit((FunctionLike<?>) this, context);
     }
 
-    @Nonnull
     @Override
     public N getType() {
         return type;

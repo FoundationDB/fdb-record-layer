@@ -22,6 +22,8 @@ package com.apple.foundationdb.relational.api.exceptions;
 
 import com.apple.foundationdb.annotation.API;
 
+import java.util.Objects;
+
 @API(API.Status.EXPERIMENTAL)
 public class UncheckedRelationalException extends RuntimeException {
     private static final long serialVersionUID = 1L;
@@ -31,6 +33,7 @@ public class UncheckedRelationalException extends RuntimeException {
     }
 
     public RelationalException unwrap() {
-        return (RelationalException) this.getCause();
+        // The cause is always set (and always a RelationalException) by the sole constructor above.
+        return (RelationalException) Objects.requireNonNull(this.getCause());
     }
 }

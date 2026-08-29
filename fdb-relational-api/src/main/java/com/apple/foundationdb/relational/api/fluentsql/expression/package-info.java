@@ -22,4 +22,7 @@
  * Toolbox of expressions used for constructing structured queries.
  */
 
+@NullMarked
 package com.apple.foundationdb.relational.api.fluentsql.expression;
+
+import org.jspecify.annotations.NullMarked;

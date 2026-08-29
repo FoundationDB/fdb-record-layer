@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.api.metadata;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Set;
 
@@ -29,7 +28,6 @@ import java.util.Set;
  */
 public interface Table extends Metadata {
 
-    @Nonnull
     Set<? extends Index> getIndexes();
 
     // TODO (yhatem) implement this.
@@ -41,11 +39,10 @@ public interface Table extends Metadata {
      *
      * @return A list of the table {@link Column}s.
      */
-    @Nonnull
     Collection<? extends Column> getColumns();
 
     @Override
-    default void accept(@Nonnull final Visitor visitor) {
+    default void accept(final Visitor visitor) {
         visitor.visit(this);
 
         for (final var index : getIndexes()) {
@@ -64,6 +61,5 @@ public interface Table extends Metadata {
      * @apiNote Because of our nested {@link DataType} model, {@link Table}s have a compliant {@link DataType} which
      * is a {@link DataType.StructType}.
      */
-    @Nonnull
     DataType.StructType getDatatype();
 }

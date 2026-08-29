@@ -24,6 +24,8 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 
+import org.jspecify.annotations.Nullable;
+
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -38,13 +40,14 @@ public class KeySet {
         }
 
         @Override
-        public KeySet setKeyColumn(String columnName, Object value) throws SQLException {
+        public KeySet setKeyColumn(String columnName, @Nullable Object value) throws SQLException {
             throw new SQLException("The Empty Keyset cannot be modified", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
 
         }
     };
 
     @SuppressWarnings("PMD.AvoidFieldNameMatchingTypeName")
+    @Nullable
     private Map<String, Object> keySet;
 
     public Map<String, Object> toMap() {
@@ -61,7 +64,7 @@ public class KeySet {
      * @return the constructed key set that was inserted in the map
      * @throws SQLException Unsupported operation if the KeySet is immutable
      */
-    public KeySet setKeyColumn(String columnName, Object value) throws SQLException {
+    public KeySet setKeyColumn(String columnName, @Nullable Object value) throws SQLException {
         if (keySet == null) {
             keySet = new HashMap<>();
         }

@@ -25,9 +25,9 @@ import com.apple.foundationdb.relational.api.fluentsql.FluentVisitor;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -41,16 +41,13 @@ import java.util.stream.Collectors;
 @API(API.Status.EXPERIMENTAL)
 public class ComparableFunction<P extends DataType, T extends Expression<P>> implements ComparableExpressionTrait<P, T>, FunctionLike<P> {
 
-    @Nonnull
     private final Operation operator;
 
-    @Nonnull
     private final ImmutableList<Expression<P>> args;
 
-    @Nonnull
     private final P type;
 
-    public ComparableFunction(@Nonnull P type, @Nonnull Operation operator, @Nonnull ImmutableList<ComparableExpressionTrait<P, T>> args) {
+    public ComparableFunction(P type, Operation operator, ImmutableList<ComparableExpressionTrait<P, T>> args) {
         this.type = type;
         this.operator = operator;
         this.args = ImmutableList.copyOf(args);
@@ -58,23 +55,20 @@ public class ComparableFunction<P extends DataType, T extends Expression<P>> imp
 
     @Nullable
     @Override
-    public <R, C> R accept(@Nonnull FluentVisitor<R, C> visitor, @Nonnull C context) {
+    public <R, C> R accept(FluentVisitor<R, C> visitor, C context) {
         return visitor.visit((FunctionLike<?>) this, context);
     }
 
-    @Nonnull
     @Override
     public P getType() {
         return type;
     }
 
-    @Nonnull
     @Override
     public Iterable<Expression<?>> getArguments() {
         return ImmutableList.copyOf(args);
     }
 
-    @Nonnull
     @Override
     public Operation getName() {
         return operator;

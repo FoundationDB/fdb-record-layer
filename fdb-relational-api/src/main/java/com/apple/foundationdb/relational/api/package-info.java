@@ -22,4 +22,7 @@
  * Interfaces differently implemented upstream by relational-core and
  * fdb-relational-jdbc.
  */
+@NullMarked
 package com.apple.foundationdb.relational.api;
+
+import org.jspecify.annotations.NullMarked;

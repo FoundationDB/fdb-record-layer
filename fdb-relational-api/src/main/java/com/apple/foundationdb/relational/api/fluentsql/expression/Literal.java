@@ -22,7 +22,8 @@ package com.apple.foundationdb.relational.api.fluentsql.expression;
 
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import javax.annotation.concurrent.Immutable;
 
 /**

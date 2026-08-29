@@ -22,8 +22,8 @@ package com.apple.foundationdb.relational.api.exceptions;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -36,7 +36,6 @@ import java.util.Map;
 @API(API.Status.EXPERIMENTAL)
 public class ContextualSQLException extends SQLException {
     private static final long serialVersionUID = 2135244094396331484L;
-    @Nonnull
     private final transient Map<String, Object> context;
 
     public ContextualSQLException(String reason, String SQLState, int vendorCode) {
