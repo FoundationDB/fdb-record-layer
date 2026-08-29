@@ -56,4 +56,7 @@
  * All database operations are instrumented by a {@link com.apple.foundationdb.record.provider.common.StoreTimer}, which can be hooked up to whatever logging and monitoring system a client uses.
  * </p>
  */
+@NullMarked
 package com.apple.foundationdb.record;
+
+import org.jspecify.annotations.NullMarked;

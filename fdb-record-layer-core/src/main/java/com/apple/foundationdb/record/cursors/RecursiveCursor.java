@@ -36,8 +36,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -54,11 +53,9 @@ import java.util.function.Function;
 @SuppressWarnings("PMD.CloseResource")
 public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.RecursiveValue<T>> {
 
-    @Nonnull
     private final ChildCursorFunction<T> childCursorFunction;
     @Nullable
     private final Function<T, byte[]> checkValueFunction;
-    @Nonnull
     private final List<RecursiveNode<T>> nodes;
 
     private int currentDepth;
@@ -68,9 +65,9 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
 
     private final boolean isPreorder;
 
-    private RecursiveCursor(@Nonnull ChildCursorFunction<T> childCursorFunction,
+    private RecursiveCursor(ChildCursorFunction<T> childCursorFunction,
                             @Nullable Function<T, byte[]> checkValueFunction,
-                            @Nonnull List<RecursiveNode<T>> nodes,
+                            List<RecursiveNode<T>> nodes,
                             final boolean isPreorder) {
         this.childCursorFunction = childCursorFunction;
         this.checkValueFunction = checkValueFunction;
@@ -87,9 +84,8 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
      * @param <T> the type of elements of the cursors
      * @return a cursor over the recursive tree determined by the cursor functions
      */
-    @Nonnull
-    public static <T> RecursiveCursor<T> create(@Nonnull Function<byte[], ? extends RecordCursor<T>> rootCursorFunction,
-                                                @Nonnull ChildCursorFunction<T> childCursorFunction,
+    public static <T> RecursiveCursor<T> create(Function<byte[], ? extends RecordCursor<T>> rootCursorFunction,
+                                                ChildCursorFunction<T> childCursorFunction,
                                                 @Nullable Function<T, byte[]> checkValueFunction,
                                                 @Nullable byte[] continuation,
                                                 final boolean isPreorder) {
@@ -125,7 +121,6 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
         return new RecursiveCursor<>(childCursorFunction, checkValueFunction, nodes, isPreorder);
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<RecursiveValue<T>>> onNext() {
         if (lastResult != null && !lastResult.hasNext()) {
@@ -166,14 +161,13 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
         return true;
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return nodes.get(0).childCursor.getExecutor();  // Take from the root cursor.
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
             for (RecursiveNode<T> node : nodes) {
                 RecordCursor<T> childCursor = node.childCursor;
@@ -258,9 +252,7 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
 
         boolean emitPending;
 
-        @Nonnull
         RecordCursorContinuation childContinuationBefore;
-        @Nonnull
         RecordCursorContinuation childContinuationAfter;
         @Nullable
         RecordCursor<T> childCursor;
@@ -268,7 +260,7 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
         CompletableFuture<RecordCursorResult<T>> childFuture;
 
         private RecursiveNode(@Nullable T value, @Nullable byte[] checkValue, boolean emitPending,
-                              @Nonnull RecordCursorContinuation childContinuationBefore, @Nullable RecordCursor<T> childCursor) {
+                              RecordCursorContinuation childContinuationBefore, @Nullable RecordCursor<T> childCursor) {
             this.value = value;
             this.checkValue = checkValue;
             this.emitPending = emitPending;
@@ -276,8 +268,8 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
             this.childCursor = childCursor;
         }
 
-        static <T> RecursiveNode<T> forRoot(@Nonnull RecordCursorContinuation childContinuationBefore,
-                                            @Nonnull RecordCursor<T> childCursor) {
+        static <T> RecursiveNode<T> forRoot(RecordCursorContinuation childContinuationBefore,
+                                            RecordCursor<T> childCursor) {
             return new RecursiveNode<>(null, null, false, childContinuationBefore, childCursor);
         }
 
@@ -285,7 +277,7 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
             return new RecursiveNode<>(value, null, true, RecordCursorStartContinuation.START, null);
         }
 
-        public static <T> RecursiveNode<T> forContinuation(@Nonnull RecordCursorContinuation childContinuationBefore,
+        public static <T> RecursiveNode<T> forContinuation(RecordCursorContinuation childContinuationBefore,
                                                            @Nullable byte[] checkValue) {
             return new RecursiveNode<>(null, checkValue, false, childContinuationBefore, null);
         }
@@ -299,7 +291,6 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
      * Called to advance the recursion.
      * @return a future that completes to {@code true} if the loop should continue or {@code false} if a result is available
      */
-    @Nonnull
     CompletableFuture<Boolean> recursionLoop() {
         int depth = currentDepth;
         final RecursiveNode<T> node = nodes.get(depth);
@@ -391,7 +382,6 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
         nodes.add(childNode);
     }
 
-    @Nonnull
     private RecordCursorContinuation buildContinuation(int depth) {
         Verify.verify(depth > 0);
         final List<RecordCursorContinuation> continuations = new ArrayList<>(depth);
@@ -406,7 +396,6 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
     }
 
     private static final class Continuation implements RecordCursorContinuation {
-        @Nonnull
         private final List<RecordCursorContinuation> continuations;
         @Nullable
         private final List<byte[]> checkValues;
@@ -415,7 +404,7 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
         @Nullable
         private byte[] cachedBytes;
 
-        private Continuation(@Nonnull List<RecordCursorContinuation> continuations, @Nullable List<byte[]> checkValues) {
+        private Continuation(List<RecordCursorContinuation> continuations, @Nullable List<byte[]> checkValues) {
             this.continuations = continuations;
             this.checkValues = checkValues;
         }
@@ -430,7 +419,6 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
             return true;
         }
 
-        @Nonnull
         @Override
         public ByteString toByteString() {
             if (cachedByteString == null) {

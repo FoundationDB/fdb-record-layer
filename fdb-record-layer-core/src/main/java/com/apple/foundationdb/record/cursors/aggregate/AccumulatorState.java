@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.cursors.aggregate;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * This interface presents a state af an accumulated value. The AccumulatorState holds on to an intermediate state throughout

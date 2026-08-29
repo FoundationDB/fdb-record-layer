@@ -21,4 +21,7 @@
 /**
  * Cursor implementation classes.
  */
+@NullMarked
 package com.apple.foundationdb.record.cursors.aggregate;
+
+import org.jspecify.annotations.NullMarked;

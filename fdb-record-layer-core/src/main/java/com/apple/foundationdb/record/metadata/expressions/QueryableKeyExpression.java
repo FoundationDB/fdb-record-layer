@@ -28,8 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -42,11 +41,10 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface QueryableKeyExpression extends KeyExpression {
-    @Nonnull
     String getName();
 
     @Nullable
-    default <M extends Message> Object evalForQuery(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+    default <M extends Message> Object evalForQuery(FDBRecordStoreBase<M> store, EvaluationContext context, @Nullable FDBRecord<M> record, @Nullable Message message) {
         List<Key.Evaluated> keys = evaluateMessage(record, message);
         if (keys.size() != 1) {
             throw new RecordCoreException("Should evaluate to single key only");
@@ -61,8 +59,7 @@ public interface QueryableKeyExpression extends KeyExpression {
         return key.getObject(0);
     }
 
-    @Nonnull
-    default <M extends Message> List<Object> evalForOneOfQuery(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+    default <M extends Message> List<Object> evalForOneOfQuery(FDBRecordStoreBase<M> store, EvaluationContext context, @Nullable FDBRecord<M> record, @Nullable Message message) {
         final List<Key.Evaluated> keys = evaluateMessage(record, message);
         final Function<Key.Evaluated, Object> mapper;
         if (evalForQueryAsTuple()) {

@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -41,18 +40,15 @@ import java.util.concurrent.Executor;
  */
 @API(API.Status.UNSTABLE)
 public class AsyncLockCursor<T> implements RecordCursor<T> {
-    @Nonnull
     private final AsyncLock lock;
-    @Nonnull
     private final RecordCursor<T> inner;
     private volatile boolean innerExhausted = false;
 
-    public AsyncLockCursor(@Nonnull final AsyncLock lock, @Nonnull final RecordCursor<T> inner) {
+    public AsyncLockCursor(final AsyncLock lock, final RecordCursor<T> inner) {
         this.inner = inner;
         this.lock = lock;
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         if (lock.isLockReleased()) {
@@ -81,14 +77,13 @@ public class AsyncLockCursor<T> implements RecordCursor<T> {
         return inner.isClosed();
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return inner.getExecutor();
     }
 
     @Override
-    public boolean accept(@Nonnull final RecordCursorVisitor visitor) {
+    public boolean accept(final RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
             inner.accept(visitor);
         }

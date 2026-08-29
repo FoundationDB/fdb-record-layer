@@ -23,8 +23,6 @@ package com.apple.foundationdb.record;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 
-import javax.annotation.Nonnull;
-
 /**
  * Exception thrown when a transaction tries to scan more than the allowed number of key-value pairs.
  * @see RecordCursor.NoNextReason#SCAN_LIMIT_REACHED
@@ -34,7 +32,7 @@ import javax.annotation.Nonnull;
 @API(API.Status.UNSTABLE)
 @SuppressWarnings("serial")
 public class ScanLimitReachedException extends RecordCoreException {
-    public ScanLimitReachedException(@Nonnull String msg) {
+    public ScanLimitReachedException(String msg) {
         super(msg);
     }
 }

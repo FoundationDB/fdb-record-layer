@@ -47,8 +47,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -130,7 +129,6 @@ public class RecordCursorTest {
             closed = false;
         }
 
-        @Nonnull
         @Override
         public CompletableFuture<RecordCursorResult<Integer>> onNext() {
             onNextCalled++;
@@ -154,14 +152,13 @@ public class RecordCursorTest {
             return closed;
         }
 
-        @Nonnull
         @Override
         public Executor getExecutor() {
             return EXECUTOR;
         }
 
         @Override
-        public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+        public boolean accept(RecordCursorVisitor visitor) {
             visitor.visitEnter(this);
             return visitor.visitLeave(this);
         }
@@ -350,12 +347,11 @@ public class RecordCursorTest {
         }
 
         @Override
-        public RecordCursorContinuation wrapContinuation(@Nonnull final RecordCursorContinuation continuation) {
+        public RecordCursorContinuation wrapContinuation(final RecordCursorContinuation continuation) {
             if (continuation.isEnd()) {
                 return RecordCursorEndContinuation.END;
             }
             return new RecordCursorContinuation() {
-                @Nonnull
                 @Override
                 public ByteString toByteString() {
                     return prefix.concat(continuation.toByteString());
@@ -486,8 +482,8 @@ public class RecordCursorTest {
         assertEquals(adjusted, pieces);
     }
 
-    private int iterateGrid(@Nonnull Function<byte[], RecordCursor<Pair<Integer, Integer>>> cursorFunction,
-                            @Nonnull RecordCursor.NoNextReason[] possibleNoNextReasons) {
+    private int iterateGrid(Function<byte[], RecordCursor<Pair<Integer, Integer>>> cursorFunction,
+                            RecordCursor.NoNextReason[] possibleNoNextReasons) {
         int results = 0;
         int leftSoFar = -1;
         int rightSoFar = -1;
@@ -917,17 +913,16 @@ public class RecordCursorTest {
     public static class FakeOutOfBandCursor<T> extends RowLimitedCursor<T> {
         private final NoNextReason noNextReason;
 
-        public FakeOutOfBandCursor(@Nonnull RecordCursor<T> inner, int limit, NoNextReason noNextReason) {
+        public FakeOutOfBandCursor(RecordCursor<T> inner, int limit, NoNextReason noNextReason) {
             super(inner, limit);
             assertTrue(noNextReason.isOutOfBand());
             this.noNextReason = noNextReason;
         }
 
-        public FakeOutOfBandCursor(@Nonnull RecordCursor<T> inner, int limit) {
+        public FakeOutOfBandCursor(RecordCursor<T> inner, int limit) {
             this(inner, limit, NoNextReason.TIME_LIMIT_REACHED);
         }
 
-        @Nonnull
         @Override
         public CompletableFuture<RecordCursorResult<T>> onNext() {
             return super.onNext().thenApply(result -> {
@@ -1200,8 +1195,7 @@ public class RecordCursorTest {
         assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, nextResult.getNoNextReason());
     }
 
-    @Nonnull
-    private static RecordCursor<Integer> getOrElseOfFilteredFakeOutOfBandCursor(@Nonnull List<Integer> list, int limit, int threshold,
+    private static RecordCursor<Integer> getOrElseOfFilteredFakeOutOfBandCursor(List<Integer> list, int limit, int threshold,
                                                                                 @Nullable byte[] continuation) {
         final BiFunction<Executor, byte[], RecordCursor<Integer>> orElse = (x, cont) -> RecordCursor.fromList(Collections.singletonList(0), cont);
         return RecordCursor.orElse(cont -> new FakeOutOfBandCursor<>(RecordCursor.fromList(list, cont), limit)
@@ -1211,7 +1205,6 @@ public class RecordCursorTest {
     static class BrokenCursor implements RecordCursor<String> {
         private boolean closed = false;
 
-        @Nonnull
         @Override
         public CompletableFuture<RecordCursorResult<String>> onNext() {
             return CompletableFuture.supplyAsync(() -> {
@@ -1229,14 +1222,13 @@ public class RecordCursorTest {
             return closed;
         }
 
-        @Nonnull
         @Override
         public Executor getExecutor() {
             return TestExecutors.defaultThreadPool();
         }
 
         @Override
-        public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+        public boolean accept(RecordCursorVisitor visitor) {
             visitor.visitEnter(this);
             return visitor.visitLeave(this);
         }
@@ -1307,13 +1299,11 @@ public class RecordCursorTest {
         };
     }
 
-    @Nonnull
     private static RecordCursor<Integer> mapPipelinedCursorToClose(int iteration, CompletableFuture<Void> signal) {
         return RecordCursor.fromList(EXECUTOR, IntStream.range(0, iteration % 199).boxed().collect(Collectors.toList()))
                 .mapPipelined(val -> signal.thenApplyAsync(ignore -> val + 349, EXECUTOR), iteration % 19 + 2);
     }
 
-    @Nonnull
     private static RecordCursor<String> singletonFlatMapPipelinedCursorToClose(int iteration, CompletableFuture<Void> signal) {
         return RecordCursor.flatMapPipelined(
                 outerContinuation -> RecordCursor.fromList(EXECUTOR, IntStream.range(0, iteration % 199).boxed().collect(Collectors.toList()), outerContinuation),
@@ -1324,7 +1314,6 @@ public class RecordCursorTest {
         );
     }
 
-    @Nonnull
     private static RecordCursor<String> flatMapPipelinedCursorToClose(int iteration, CompletableFuture<Void> signal) {
         return RecordCursor.flatMapPipelined(
                 outerContinuation -> RecordCursor.fromList(EXECUTOR, IntStream.range(0, iteration % 199).boxed().collect(Collectors.toList()), outerContinuation),
@@ -1347,7 +1336,7 @@ public class RecordCursorTest {
 
     @ParameterizedTest
     @MethodSource("pipelinedCursors")
-    void closePipelineWhileCancelling(@Nonnull BiFunction<Integer, CompletableFuture<Void>, RecordCursor<?>> cursorGenerator) {
+    void closePipelineWhileCancelling(BiFunction<Integer, CompletableFuture<Void>, RecordCursor<?>> cursorGenerator) {
         Map<Class<? extends Throwable>, Integer> exceptionCount = new HashMap<>();
         for (int i = 0; i < 20_000; i++) {
             try {
@@ -1382,7 +1371,7 @@ public class RecordCursorTest {
 
     @ParameterizedTest
     @MethodSource("pipelinedCursors")
-    void pipelinedCursorAfterClosing(@Nonnull BiFunction<Integer, CompletableFuture<Void>, RecordCursor<?>> cursorGenerator) {
+    void pipelinedCursorAfterClosing(BiFunction<Integer, CompletableFuture<Void>, RecordCursor<?>> cursorGenerator) {
         for (int i = 0; i < 2000; i++) {
             LOGGER.info(KeyValueLogMessage.of("running map pipeline close test", "iteration", i));
             CompletableFuture<Void> signal = new CompletableFuture<>();

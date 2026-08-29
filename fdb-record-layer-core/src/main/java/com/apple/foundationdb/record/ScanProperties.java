@@ -22,7 +22,6 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
 import java.util.function.Function;
 
 /**
@@ -42,20 +41,18 @@ public class ScanProperties {
             .build(), true);
 
 
-    @Nonnull
     private final ExecuteProperties executeProperties;
 
     // whether to read the entries in reverse order
     private final boolean reverse;
 
-    @Nonnull
     private final CursorStreamingMode cursorStreamingMode;
 
     /**
      * Creates scan properties.
      * @param executeProperties the execution properties (such as isolation level and row limit) associated with this scan
      */
-    public ScanProperties(@Nonnull ExecuteProperties executeProperties) {
+    public ScanProperties(ExecuteProperties executeProperties) {
         this(executeProperties, false);
     }
 
@@ -64,7 +61,7 @@ public class ScanProperties {
      * @param executeProperties the execution properties (such as isolation level and row limit) associated with this scan
      * @param reverse if true, the scan direction will be reversed
      */
-    public ScanProperties(@Nonnull ExecuteProperties executeProperties, boolean reverse) {
+    public ScanProperties(ExecuteProperties executeProperties, boolean reverse) {
         this(executeProperties, reverse, executeProperties.getDefaultCursorStreamingMode());
     }
 
@@ -74,7 +71,7 @@ public class ScanProperties {
      * @param reverse if true, the scan direction will be reversed
      * @param cursorStreamingMode streaming mode to use if opening an FDB cursor
      */
-    public ScanProperties(@Nonnull ExecuteProperties executeProperties, boolean reverse, @Nonnull CursorStreamingMode cursorStreamingMode) {
+    public ScanProperties(ExecuteProperties executeProperties, boolean reverse, CursorStreamingMode cursorStreamingMode) {
         this.executeProperties = executeProperties;
         this.reverse = reverse;
         this.cursorStreamingMode = cursorStreamingMode;
@@ -92,7 +89,6 @@ public class ScanProperties {
      * Get execute properties for this scan properties.
      * @return execute properties for this scan properties.
      */
-    @Nonnull
     public ExecuteProperties getExecuteProperties() {
         return executeProperties;
     }
@@ -102,8 +98,7 @@ public class ScanProperties {
      * @param modifier a function to produce a new execute properties from the current one
      * @return a new scan properties with updated execute properties
      */
-    @Nonnull
-    public ScanProperties with(@Nonnull Function<ExecuteProperties, ExecuteProperties> modifier) {
+    public ScanProperties with(Function<ExecuteProperties, ExecuteProperties> modifier) {
         return new ScanProperties(modifier.apply(executeProperties), reverse, cursorStreamingMode);
     }
 
@@ -112,7 +107,6 @@ public class ScanProperties {
      * @param reverse {@code true} if scan is in reverse order
      * @return a new scan properties with given direction
      */
-    @Nonnull
     public ScanProperties setReverse(boolean reverse) {
         if (reverse == isReverse()) {
             return this;
@@ -124,7 +118,6 @@ public class ScanProperties {
      * Get cursor streaming mode.
      * @return cursor streaming mode
      */
-    @Nonnull
     public CursorStreamingMode getCursorStreamingMode() {
         return cursorStreamingMode;
     }
@@ -134,8 +127,7 @@ public class ScanProperties {
      * @param cursorStreamingMode cursor streaming mode to set
      * @return a new scan properties with given streaming mode
      */
-    @Nonnull
-    public ScanProperties setStreamingMode(@Nonnull CursorStreamingMode cursorStreamingMode) {
+    public ScanProperties setStreamingMode(CursorStreamingMode cursorStreamingMode) {
         if (cursorStreamingMode == getCursorStreamingMode()) {
             return this;
         }

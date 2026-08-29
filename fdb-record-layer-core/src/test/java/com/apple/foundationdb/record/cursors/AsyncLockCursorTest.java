@@ -37,7 +37,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -138,7 +137,7 @@ public class AsyncLockCursorTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> acquireWriteLock(@Nonnull FDBRecordContext context) {
+    private NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> acquireWriteLock(FDBRecordContext context) {
         final AtomicReference<AsyncLock> asyncLockRef = new AtomicReference<>();
         return NonnullPair.of(asyncLockRef,
                 context.acquireWriteLock(identifier).thenApply(lock -> {
@@ -147,7 +146,7 @@ public class AsyncLockCursorTest extends FDBRecordStoreTestBase {
                 }));
     }
 
-    private <T> NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<AsyncLockCursor<T>>> getReadAsyncLockCursor(@Nonnull FDBRecordContext context, Supplier<RecordCursor<T>> innerSupplier) {
+    private <T> NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<AsyncLockCursor<T>>> getReadAsyncLockCursor(FDBRecordContext context, Supplier<RecordCursor<T>> innerSupplier) {
         final AtomicReference<AsyncLock> asyncLockRef = new AtomicReference<>();
         return NonnullPair.of(asyncLockRef, context.acquireReadLock(identifier).thenApply(asyncLock -> {
             asyncLockRef.set(asyncLock);

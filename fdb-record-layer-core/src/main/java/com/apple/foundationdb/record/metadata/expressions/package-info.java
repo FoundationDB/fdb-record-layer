@@ -22,4 +22,7 @@
  * Record keys used in indexes and the primary storage.
  * When used for primary keys, This should only produce a single index entry for each record.
  */
+@NullMarked
 package com.apple.foundationdb.record.metadata.expressions;
+
+import org.jspecify.annotations.NullMarked;

@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -46,43 +45,37 @@ import java.util.concurrent.CompletableFuture;
 @API(API.Status.EXPERIMENTAL)
 public abstract class SyntheticRecordType<C extends SyntheticRecordType.Constituent> extends RecordType {
 
-    @Nonnull
     private final List<C> constituents;
 
     /**
      * A constituent type of the synthetic record type.
      */
     public static class Constituent {
-        @Nonnull
         private final String name;
-        @Nonnull
         private final RecordType recordType;
 
-        protected Constituent(@Nonnull String name, @Nonnull RecordType recordType) {
+        protected Constituent(String name, RecordType recordType) {
             this.name = name;
             this.recordType = recordType;
         }
 
-        @Nonnull
         public String getName() {
             return name;
         }
 
-        @Nonnull
         public RecordType getRecordType() {
             return recordType;
         }
     }
 
-    protected SyntheticRecordType(@Nonnull RecordMetaData metaData, @Nonnull Descriptors.Descriptor descriptor,
-                                  @Nonnull KeyExpression primaryKey, @Nonnull Object recordTypeKey,
-                                  @Nonnull List<Index> indexes, @Nonnull List<Index> multiTypeIndexes,
-                                  @Nonnull List<C> constituents) {
+    protected SyntheticRecordType(RecordMetaData metaData, Descriptors.Descriptor descriptor,
+                                  KeyExpression primaryKey, Object recordTypeKey,
+                                  List<Index> indexes, List<Index> multiTypeIndexes,
+                                  List<C> constituents) {
         super(metaData, descriptor, primaryKey, indexes, multiTypeIndexes, null, recordTypeKey);
         this.constituents = constituents;
     }
 
-    @Nonnull
     public List<C> getConstituents() {
         return constituents;
     }
@@ -93,13 +86,11 @@ public abstract class SyntheticRecordType<C extends SyntheticRecordType.Constitu
     }
 
     @API(API.Status.INTERNAL)
-    @Nonnull
     public CompletableFuture<FDBSyntheticRecord> loadByPrimaryKeyAsync(FDBRecordStore store, Tuple primaryKey) {
         return loadByPrimaryKeyAsync(store, primaryKey, IndexOrphanBehavior.ERROR);
     }
 
     @API(API.Status.INTERNAL)
-    @Nonnull
     public abstract CompletableFuture<FDBSyntheticRecord> loadByPrimaryKeyAsync(FDBRecordStore store, Tuple primaryKey, IndexOrphanBehavior orphanBehavior);
 
     @Override

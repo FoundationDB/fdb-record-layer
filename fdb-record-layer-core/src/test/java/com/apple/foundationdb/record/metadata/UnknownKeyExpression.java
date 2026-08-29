@@ -29,8 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.List;
 
@@ -51,7 +50,6 @@ public class UnknownKeyExpression extends BaseKeyExpression {
     private UnknownKeyExpression() {
     }
 
-    @Nonnull
     @Override
     public <M extends Message> List<Key.Evaluated> evaluateMessage(@Nullable FDBRecord<M> record, @Nullable Message message) {
         return Collections.singletonList(Key.Evaluated.scalar("unknown!!!"));
@@ -63,7 +61,7 @@ public class UnknownKeyExpression extends BaseKeyExpression {
     }
 
     @Override
-    public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor descriptor) {
+    public List<Descriptors.FieldDescriptor> validate(Descriptors.Descriptor descriptor) {
         return Collections.emptyList();
     }
 
@@ -72,26 +70,23 @@ public class UnknownKeyExpression extends BaseKeyExpression {
         return 1;
     }
 
-    @Nonnull
     @Override
-    public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+    public <S extends KeyExpressionVisitor.State, R> R expand(final KeyExpressionVisitor<S, R> visitor) {
         throw new UnsupportedOperationException();
     }
 
-    @Nonnull
     @Override
     public Message toProto() throws SerializationException {
         throw new UnsupportedOperationException("UnknownKeyExpressions cannot be converted to Protobuf");
     }
 
-    @Nonnull
     @Override
     public RecordKeyExpressionProto.KeyExpression toKeyExpression() {
         throw new UnsupportedOperationException("UnknownKeyExpressions cannot be converted to Protobuf");
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return 1066;
     }
 

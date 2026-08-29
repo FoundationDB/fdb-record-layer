@@ -45,7 +45,8 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -74,7 +75,7 @@ public abstract class IndexPredicate {
      *
      * Note that for now, IndexPredicate does not support filtering of certain index entries.
      */
-    public <M extends Message> boolean shouldIndexThisRecord(@Nonnull FDBRecordStore store, @Nonnull final FDBIndexableRecord<M> savedRecord) {
+    public <M extends Message> boolean shouldIndexThisRecord(FDBRecordStore store, final FDBIndexableRecord<M> savedRecord) {
         CorrelationIdentifier objectQuantifier = Quantifier.current();
         QueryPredicate queryPredicate = getQueryPredicate(store.getRecordMetaData(), savedRecord.getRecordType(), objectQuantifier);
 
@@ -101,8 +102,7 @@ public abstract class IndexPredicate {
      * @return a deserialized {@link IndexPredicate}.
      * @throws RecordCoreException if the provided message is not supported.
      */
-    @Nonnull
-    public static IndexPredicate fromProto(@Nonnull final RecordMetaDataProto.Predicate proto) {
+    public static IndexPredicate fromProto(final RecordMetaDataProto.Predicate proto) {
         if (proto.hasAndPredicate()) {
             return new AndPredicate(proto.getAndPredicate());
         } else if (proto.hasOrPredicate()) {
@@ -127,8 +127,7 @@ public abstract class IndexPredicate {
      * @throws RecordCoreException if the provided query predicate is not supported.
      */
     @VisibleForTesting
-    @Nonnull
-    public static IndexPredicate fromQueryPredicate(@Nonnull final QueryPredicate queryPredicate) {
+    public static IndexPredicate fromQueryPredicate(final QueryPredicate queryPredicate) {
         if (queryPredicate instanceof com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate) {
             return new ConstantPredicate((com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate)queryPredicate);
         } else if (queryPredicate instanceof com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate) {
@@ -159,9 +158,9 @@ public abstract class IndexPredicate {
      * @param valuePredicate the value predicate to inspect
      * @return a {@link RowNumberWindowPredicate} if the pattern matches, or {@code null} otherwise
      */
-    @javax.annotation.Nullable
+    @Nullable
     private static RowNumberWindowPredicate tryFromRowNumberPredicate(
-            @Nonnull final com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate valuePredicate) {
+            final com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate valuePredicate) {
         if (!(valuePredicate.getValue() instanceof RowNumberValue)) {
             return null;
         }
@@ -209,7 +208,7 @@ public abstract class IndexPredicate {
      * @param predicate The predicate to check.
      * @return {@code true} if the predicate is supported, otherwise {@code false}.
      */
-    public static boolean isSupported(@Nonnull final QueryPredicate predicate) {
+    public static boolean isSupported(final QueryPredicate predicate) {
         if (predicate instanceof com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate) {
             return true;
         } else if (predicate instanceof com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate) {
@@ -238,13 +237,13 @@ public abstract class IndexPredicate {
      * @param predicate the root predicate to validate
      * @throws RecordCoreException if a {@link RowNumberWindowPredicate} is found under a disjunction
      */
-    public static void validateRowNumberWindowPlacement(@Nonnull final IndexPredicate predicate) {
+    public static void validateRowNumberWindowPlacement(final IndexPredicate predicate) {
         if (!isValidInConjunctivePath(predicate)) {
             throw new RecordCoreException("RowNumberWindowPredicate must not appear under a disjunction (OR)");
         }
     }
 
-    private static boolean isValidInConjunctivePath(@Nonnull final IndexPredicate predicate) {
+    private static boolean isValidInConjunctivePath(final IndexPredicate predicate) {
         if (predicate instanceof RowNumberWindowPredicate) {
             return true;
         }
@@ -266,7 +265,7 @@ public abstract class IndexPredicate {
         return true;
     }
 
-    private static boolean hasNoRowNumberWindow(@Nonnull final IndexPredicate predicate) {
+    private static boolean hasNoRowNumberWindow(final IndexPredicate predicate) {
         if (predicate instanceof RowNumberWindowPredicate) {
             return false;
         }
@@ -292,7 +291,6 @@ public abstract class IndexPredicate {
      *
      * @return an equivalent protobuf message.
      */
-    @Nonnull
     public abstract RecordMetaDataProto.Predicate toProto();
 
     /**
@@ -301,35 +299,31 @@ public abstract class IndexPredicate {
      * @param value The base value needed for parsing a {@link ValuePredicate} into a {@link FieldValue}.
      * @return an equivalent {@link QueryPredicate}.
      */
-    @Nonnull
-    public abstract QueryPredicate toPredicate(@Nonnull Value value);
+    public abstract QueryPredicate toPredicate(Value value);
 
     /**
      * A POJO equivalent for {@link com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate}.
      */
     public static class AndPredicate extends IndexPredicate {
-        @Nonnull
         private final List<IndexPredicate> children;
 
-        public AndPredicate(@Nonnull final Collection<IndexPredicate> children) {
+        public AndPredicate(final Collection<IndexPredicate> children) {
             this.children = ImmutableList.copyOf(children);
         }
 
-        public AndPredicate(@Nonnull final RecordMetaDataProto.AndPredicate proto) {
+        public AndPredicate(final RecordMetaDataProto.AndPredicate proto) {
             this.children = proto.getChildrenList().stream().map(IndexPredicate::fromProto).collect(Collectors.toList());
         }
 
         @VisibleForTesting
-        public AndPredicate(@Nonnull final com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate predicate) {
+        public AndPredicate(final com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate predicate) {
             this.children = predicate.getChildren().stream().map(IndexPredicate::fromQueryPredicate).collect(Collectors.toList());
         }
 
-        @Nonnull
         public List<IndexPredicate> getChildren() {
             return children;
         }
 
-        @Nonnull
         @Override
         public RecordMetaDataProto.Predicate toProto() {
             // TODO memoize
@@ -338,9 +332,8 @@ public abstract class IndexPredicate {
             return RecordMetaDataProto.Predicate.newBuilder().setAndPredicate(andPredicateProto.build()).build();
         }
 
-        @Nonnull
         @Override
-        public QueryPredicate toPredicate(@Nonnull final Value value) {
+        public QueryPredicate toPredicate(final Value value) {
             return com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate.and(children.stream().map(c -> c.toPredicate(value)).collect(Collectors.toList()));
         }
 
@@ -354,28 +347,25 @@ public abstract class IndexPredicate {
      * A POJO equivalent for {@link com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate}.
      */
     public static class OrPredicate extends IndexPredicate {
-        @Nonnull
         private final List<IndexPredicate> children;
 
-        public OrPredicate(@Nonnull final Collection<IndexPredicate> children) {
+        public OrPredicate(final Collection<IndexPredicate> children) {
             this.children = ImmutableList.copyOf(children);
         }
 
-        public OrPredicate(@Nonnull final RecordMetaDataProto.OrPredicate proto) {
+        public OrPredicate(final RecordMetaDataProto.OrPredicate proto) {
             this.children = proto.getChildrenList().stream().map(IndexPredicate::fromProto).collect(Collectors.toList());
         }
 
         @VisibleForTesting
-        public OrPredicate(@Nonnull final com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate predicate) {
+        public OrPredicate(final com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate predicate) {
             this.children = predicate.getChildren().stream().map(IndexPredicate::fromQueryPredicate).collect(Collectors.toList());
         }
 
-        @Nonnull
         public List<IndexPredicate> getChildren() {
             return children;
         }
 
-        @Nonnull
         @Override
         public RecordMetaDataProto.Predicate toProto() {
             final var orPredicateProto = RecordMetaDataProto.OrPredicate.newBuilder();
@@ -383,9 +373,8 @@ public abstract class IndexPredicate {
             return RecordMetaDataProto.Predicate.newBuilder().setOrPredicate(orPredicateProto.build()).build();
         }
 
-        @Nonnull
         @Override
-        public QueryPredicate toPredicate(@Nonnull final Value value) {
+        public QueryPredicate toPredicate(final Value value) {
             return com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate.or(children.stream().map(c -> c.toPredicate(value)).collect(Collectors.toList()));
         }
 
@@ -408,16 +397,15 @@ public abstract class IndexPredicate {
             NULL
         }
 
-        @Nonnull
         private final ConstantValue value;
 
-        public ConstantPredicate(@Nonnull final ConstantValue value) {
+        public ConstantPredicate(final ConstantValue value) {
             this.value = value;
         }
 
         @VisibleForTesting
         @SuppressWarnings({"PMD.CompareObjectsWithEquals"})
-        public ConstantPredicate(@Nonnull final com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate predicate) {
+        public ConstantPredicate(final com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate predicate) {
             if (predicate == com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate.TRUE) {
                 this.value = ConstantValue.TRUE;
             } else if (predicate == com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate.FALSE) {
@@ -429,7 +417,7 @@ public abstract class IndexPredicate {
             }
         }
 
-        public ConstantPredicate(@Nonnull final RecordMetaDataProto.ConstantPredicate proto) {
+        public ConstantPredicate(final RecordMetaDataProto.ConstantPredicate proto) {
             switch (proto.getValue()) {
                 case TRUE:
                     this.value = ConstantValue.TRUE;
@@ -445,12 +433,10 @@ public abstract class IndexPredicate {
             }
         }
 
-        @Nonnull
         public ConstantValue getValue() {
             return value;
         }
 
-        @Nonnull
         @Override
         public RecordMetaDataProto.Predicate toProto() {
             RecordMetaDataProto.ConstantPredicate.ConstantValue protoValue;
@@ -474,9 +460,8 @@ public abstract class IndexPredicate {
                     .build();
         }
 
-        @Nonnull
         @Override
-        public QueryPredicate toPredicate(@Nonnull final Value value) {
+        public QueryPredicate toPredicate(final Value value) {
             switch (this.value) {
                 case TRUE:
                     return com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate.TRUE;
@@ -499,28 +484,25 @@ public abstract class IndexPredicate {
      * A POJO equivalent of {@link com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate}.
      */
     public static class NotPredicate extends IndexPredicate {
-        @Nonnull
         private final IndexPredicate value;
 
-        public NotPredicate(@Nonnull final IndexPredicate value) {
+        public NotPredicate(final IndexPredicate value) {
             this.value = value;
         }
 
-        public NotPredicate(@Nonnull final RecordMetaDataProto.NotPredicate notPredicate) {
+        public NotPredicate(final RecordMetaDataProto.NotPredicate notPredicate) {
             this.value = IndexPredicate.fromProto(notPredicate.getChild());
         }
 
         @VisibleForTesting
-        NotPredicate(@Nonnull final com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate predicate) {
+        NotPredicate(final com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate predicate) {
             value = IndexPredicate.fromQueryPredicate(predicate.child);
         }
 
-        @Nonnull
         public IndexPredicate getValue() {
             return value;
         }
 
-        @Nonnull
         @Override
         public RecordMetaDataProto.Predicate toProto() {
             return RecordMetaDataProto.Predicate.newBuilder()
@@ -530,9 +512,8 @@ public abstract class IndexPredicate {
                     .build();
         }
 
-        @Nonnull
         @Override
-        public QueryPredicate toPredicate(@Nonnull final Value value) {
+        public QueryPredicate toPredicate(final Value value) {
             return com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate.not(this.value.toPredicate(value));
         }
 
@@ -546,43 +527,38 @@ public abstract class IndexPredicate {
      * A POJO equivalent of {@link com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate}.
      */
     public static class ValuePredicate extends IndexPredicate {
-        @Nonnull
         private final List<String> fieldPath;
 
-        @Nonnull
         private final IndexComparison comparison;
 
-        public ValuePredicate(@Nonnull final List<String> fieldPath, @Nonnull final IndexComparison comparison) {
+        public ValuePredicate(final List<String> fieldPath, final IndexComparison comparison) {
             this.fieldPath = ImmutableList.copyOf(fieldPath);
             this.comparison = comparison;
         }
 
         @VisibleForTesting
         @SuppressWarnings("java:S5803")
-        ValuePredicate(@Nonnull final com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate predicate) {
+        ValuePredicate(final com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate predicate) {
             Verify.verify(predicate.getValue() instanceof FieldValue);
             this.fieldPath = ImmutableList.copyOf(((FieldValue)predicate.getValue()).getFieldPathNames());
             this.comparison = IndexComparison.fromComparison(predicate.getComparison());
         }
 
-        public ValuePredicate(@Nonnull final RecordMetaDataProto.ValuePredicate proto) {
+        public ValuePredicate(final RecordMetaDataProto.ValuePredicate proto) {
             Verify.verify(proto.getValueCount() > 0, "attempt to deserialize %s without value", ValuePredicate.class.getSimpleName());
             Verify.verify(proto.hasComparison(), "attempt to deserialize %s without comparison", ValuePredicate.class.getSimpleName());
             this.fieldPath = ImmutableList.copyOf(proto.getValueList());
             this.comparison = IndexComparison.fromProto(proto.getComparison());
         }
 
-        @Nonnull
         public List<String> getFieldPath() {
             return fieldPath;
         }
 
-        @Nonnull
         public IndexComparison getComparison() {
             return comparison;
         }
 
-        @Nonnull
         @Override
         public RecordMetaDataProto.Predicate toProto() {
             return RecordMetaDataProto.Predicate.newBuilder()
@@ -593,9 +569,8 @@ public abstract class IndexPredicate {
                     .build();
         }
 
-        @Nonnull
         @Override
-        public QueryPredicate toPredicate(@Nonnull final Value value) {
+        public QueryPredicate toPredicate(final Value value) {
             return new com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate(FieldValue.ofFieldNames(value, fieldPath), comparison.toComparison());
         }
 
@@ -628,16 +603,13 @@ public abstract class IndexPredicate {
             DESC
         }
 
-        @Nonnull
         private final List<String> orderingField;
         private final int size;
-        @Nonnull
         private final Direction direction;
-        @Nonnull
         private final List<List<String>> partitionFieldPaths;
 
-        public RowNumberWindowPredicate(@Nonnull final List<String> orderingField, @Nonnull final Direction direction,
-                                        int size, @Nonnull final List<List<String>> partitionFieldPaths) {
+        public RowNumberWindowPredicate(final List<String> orderingField, final Direction direction,
+                                        int size, final List<List<String>> partitionFieldPaths) {
             this.orderingField = ImmutableList.copyOf(orderingField);
             this.direction = direction;
             this.size = size;
@@ -646,15 +618,15 @@ public abstract class IndexPredicate {
                     .collect(ImmutableList.toImmutableList());
         }
 
-        public RowNumberWindowPredicate(@Nonnull final List<String> orderingField, @Nonnull final Direction direction, int size) {
+        public RowNumberWindowPredicate(final List<String> orderingField, final Direction direction, int size) {
             this(orderingField, direction, size, ImmutableList.of());
         }
 
-        public RowNumberWindowPredicate(@Nonnull final String fieldName, @Nonnull final Direction direction, int size) {
+        public RowNumberWindowPredicate(final String fieldName, final Direction direction, int size) {
             this(ImmutableList.of(fieldName), direction, size, ImmutableList.of());
         }
 
-        public RowNumberWindowPredicate(@Nonnull final RecordMetaDataProto.RowNumberWindowPredicate proto) {
+        public RowNumberWindowPredicate(final RecordMetaDataProto.RowNumberWindowPredicate proto) {
             this.orderingField = ImmutableList.copyOf(proto.getOrderingFieldList());
             this.size = proto.getSize();
             switch (proto.getDirection()) {
@@ -673,7 +645,6 @@ public abstract class IndexPredicate {
                     .collect(ImmutableList.toImmutableList());
         }
 
-        @Nonnull
         public List<String> getOrderingField() {
             return orderingField;
         }
@@ -683,7 +654,6 @@ public abstract class IndexPredicate {
          * @return the first (and only) element of the ordering field path
          * @throws RecordCoreException if the field path has more than one element
          */
-        @Nonnull
         public String getFieldName() {
             Verify.verify(orderingField.size() == 1, "getFieldName() called on multi-element ordering field: %s", orderingField);
             return orderingField.get(0);
@@ -693,17 +663,14 @@ public abstract class IndexPredicate {
             return size;
         }
 
-        @Nonnull
         public Direction getDirection() {
             return direction;
         }
 
-        @Nonnull
         public List<List<String>> getPartitionFieldPaths() {
             return partitionFieldPaths;
         }
 
-        @Nonnull
         public KeyExpression getOrderingKey() {
             return fieldPathToKeyExpression(orderingField);
         }
@@ -712,7 +679,7 @@ public abstract class IndexPredicate {
          * Builds a {@link KeyExpression} for the partition key from the partition field paths.
          * Returns {@code null} if there are no partition fields.
          */
-        @javax.annotation.Nullable
+        @Nullable
         public KeyExpression getPartitionKey() {
             if (partitionFieldPaths.isEmpty()) {
                 return null;
@@ -739,11 +706,10 @@ public abstract class IndexPredicate {
         }
 
         @Override
-        public <M extends Message> boolean shouldIndexThisRecord(@Nonnull FDBRecordStore store, @Nonnull final FDBIndexableRecord<M> savedRecord) {
+        public <M extends Message> boolean shouldIndexThisRecord(FDBRecordStore store, final FDBIndexableRecord<M> savedRecord) {
             return true;
         }
 
-        @Nonnull
         @Override
         public RecordMetaDataProto.Predicate toProto() {
             final RecordMetaDataProto.RowNumberWindowPredicate.Direction protoDirection =
@@ -765,9 +731,8 @@ public abstract class IndexPredicate {
                     .build();
         }
 
-        @Nonnull
         @Override
-        public QueryPredicate toPredicate(@Nonnull final Value value) {
+        public QueryPredicate toPredicate(final Value value) {
             return com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate.TRUE;
         }
 
@@ -805,8 +770,7 @@ public abstract class IndexPredicate {
             return Objects.hash(orderingField, direction, size, partitionFieldPaths);
         }
 
-        @Nonnull
-        private static KeyExpression fieldPathToKeyExpression(@Nonnull List<String> path) {
+        private static KeyExpression fieldPathToKeyExpression(List<String> path) {
             KeyExpression result = Key.Expressions.field(path.get(path.size() - 1));
             for (int i = path.size() - 2; i >= 0; i--) {
                 result = Key.Expressions.field(path.get(i)).nest(result);

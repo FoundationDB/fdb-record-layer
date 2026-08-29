@@ -22,8 +22,7 @@ package com.apple.foundationdb.record.util.pair;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Map;
 
 /**
@@ -84,7 +83,6 @@ public interface Pair<L, R> extends Map.Entry<L, R> {
      * @param <R> the type of the right element
      * @return a new pair wrapping the two elements
      */
-    @Nonnull
     static <L, R> Pair<L, R> of(@Nullable L left, @Nullable R right) {
         return ImmutablePair.of(left, right);
     }

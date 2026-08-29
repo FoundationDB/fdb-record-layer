@@ -24,8 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.Index;
 import com.google.common.collect.ImmutableMap;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -34,6 +33,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+
+import static com.apple.foundationdb.record.RecordMetaDataProto.DataStoreInfo;
 
 /**
  * The <code>RecordStoreState</code> interface handles information that might differ between otherwise identical
@@ -59,9 +60,7 @@ import java.util.stream.Collectors;
 @API(API.Status.UNSTABLE)
 public class RecordStoreState {
 
-    @Nonnull
-    protected final AtomicReference<RecordMetaDataProto.DataStoreInfo> storeHeader;
-    @Nonnull
+    protected final AtomicReference<DataStoreInfo> storeHeader;
     protected final AtomicReference<Map<String, IndexState>> indexStateMap;
 
     /**
@@ -72,14 +71,14 @@ public class RecordStoreState {
      * @param indexStateMap mapping from index name to index state
      */
     @API(API.Status.INTERNAL)
-    public RecordStoreState(@Nullable RecordMetaDataProto.DataStoreInfo storeHeader, @Nullable Map<String, IndexState> indexStateMap) {
+    public RecordStoreState(@Nullable DataStoreInfo storeHeader, @Nullable Map<String, IndexState> indexStateMap) {
         final Map<String, IndexState> copy;
         if (indexStateMap == null || indexStateMap.isEmpty()) {
             copy = Collections.emptyMap();
         } else {
             copy = ImmutableMap.copyOf(indexStateMap);
         }
-        this.storeHeader = new AtomicReference<>(storeHeader == null ? RecordMetaDataProto.DataStoreInfo.getDefaultInstance() : storeHeader);
+        this.storeHeader = new AtomicReference<>(storeHeader == null ? DataStoreInfo.getDefaultInstance() : storeHeader);
         this.indexStateMap = new AtomicReference<>(copy);
     }
 
@@ -108,7 +107,6 @@ public class RecordStoreState {
      * returned is immutable.
      * @return the underlying mapping of index names to their state
      */
-    @Nonnull
     public Map<String, IndexState> getIndexStates() {
         return Collections.unmodifiableMap(indexStateMap.get());
     }
@@ -119,7 +117,7 @@ public class RecordStoreState {
      * @param index the index to check
      * @return <code>true</code> if the given index is write-only and <code>false</code> otherwise
      */
-    public boolean isWriteOnly(@Nonnull Index index) {
+    public boolean isWriteOnly(Index index) {
         return isWriteOnly(index.getName());
     }
 
@@ -129,7 +127,7 @@ public class RecordStoreState {
      * @param indexName the name of the index to check
      * @return <code>true</code> if the given name is the name of a write-only index and <code>false</code> otherwise
      */
-    public boolean isWriteOnly(@Nonnull String indexName) {
+    public boolean isWriteOnly(String indexName) {
         return getState(indexName).isWriteOnly();
     }
 
@@ -139,7 +137,7 @@ public class RecordStoreState {
      * @param index the index to check
      * @return <code>true</code> if the given index is disabled and <code>false</code> otherwise
      */
-    public boolean isDisabled(@Nonnull Index index) {
+    public boolean isDisabled(Index index) {
         return isDisabled(index.getName());
     }
 
@@ -149,7 +147,7 @@ public class RecordStoreState {
      * @param indexName the name of the index to check
      * @return <code>true</code> if the given index is disabled and <code>false</code> otherwise
      */
-    public boolean isDisabled(@Nonnull String indexName) {
+    public boolean isDisabled(String indexName) {
         return getState(indexName).isDisabled();
     }
 
@@ -159,7 +157,7 @@ public class RecordStoreState {
      * @param index the index to check
      * @return <code>true</code> if the given index is readable and <code>false</code> otherwise
      */
-    public boolean isReadable(@Nonnull Index index) {
+    public boolean isReadable(Index index) {
         return isReadable(index.getName());
     }
 
@@ -169,7 +167,7 @@ public class RecordStoreState {
      * @param indexName the name of the index to check
      * @return <code>true</code> if the given index is readable and <code>false</code> otherwise
      */
-    public boolean isReadable(@Nonnull String indexName) {
+    public boolean isReadable(String indexName) {
         return getState(indexName).isReadable();
     }
 
@@ -181,7 +179,7 @@ public class RecordStoreState {
      * @param indexName the name of the index to check
      * @return <code>true</code> if the given index is readable-unique-pending and <code>false</code> otherwise
      */
-    public boolean isReadableUniquePending(@Nonnull String indexName) {
+    public boolean isReadableUniquePending(String indexName) {
         return getState(indexName).isReadableUniquePending();
     }
 
@@ -192,7 +190,7 @@ public class RecordStoreState {
      * @param indexName the name of the index to check
      * @return <code>true</code> if the given index is scannable and <code>false</code> otherwise
      */
-    public boolean isScannable(@Nonnull String indexName) {
+    public boolean isScannable(String indexName) {
         return getState(indexName).isScannable();
     }
 
@@ -203,8 +201,7 @@ public class RecordStoreState {
      * @param index the index to check
      * @return the state of the given index
      */
-    @Nonnull
-    public IndexState getState(@Nonnull Index index) {
+    public IndexState getState(Index index) {
         return getState(index.getName());
     }
 
@@ -215,8 +212,7 @@ public class RecordStoreState {
      * @param indexName the name of the index to check
      * @return the state of the given index
      */
-    @Nonnull
-    public IndexState getState(@Nonnull String indexName) {
+    public IndexState getState(String indexName) {
         return indexStateMap.get().getOrDefault(indexName, IndexState.READABLE);
     }
 
@@ -239,7 +235,7 @@ public class RecordStoreState {
      * @return whether operations planned with <code>other</code> will be correct
      * if the state is actually described by this <code>RecordStoreState</code>
      */
-    public boolean compatibleWith(@Nonnull RecordStoreState other) {
+    public boolean compatibleWith(RecordStoreState other) {
         return indexStateMap.get().entrySet().stream().allMatch(entry -> {
             boolean readableInOther = other.getState(entry.getKey()).isReadable();
             return entry.getValue().isReadable() == readableInOther;
@@ -275,9 +271,8 @@ public class RecordStoreState {
      * @param state the new state for the given indexes
      * @return a new store state with the given indexes in the given state
      */
-    @Nonnull
-    public RecordStoreState withIndexesInState(@Nonnull final List<String> indexNames,
-                                               @Nonnull IndexState state) {
+    public RecordStoreState withIndexesInState(final List<String> indexNames,
+                                               IndexState state) {
         HashMap<String, IndexState> indexStateMapBuilder = new HashMap<>(getIndexStates());
         if (state.isReadable()) {
             indexNames.forEach(indexStateMapBuilder::remove);
@@ -294,13 +289,11 @@ public class RecordStoreState {
      * stay disabled, but will otherwise be set to WRITE_ONLY.
      * @return a new version of this RecordStoreState, but with additional WRITE_ONLY indexes.
      */
-    @Nonnull
-    public RecordStoreState withWriteOnlyIndexes(@Nonnull final List<String> writeOnlyIndexNames) {
+    public RecordStoreState withWriteOnlyIndexes(final List<String> writeOnlyIndexNames) {
         return new RecordStoreState(storeHeader.get(), writeOnlyMap(writeOnlyIndexNames));
     }
 
-    @Nonnull
-    protected Map<String, IndexState> writeOnlyMap(@Nonnull final List<String> writeOnlyIndexNames) {
+    protected Map<String, IndexState> writeOnlyMap(final List<String> writeOnlyIndexNames) {
         Map<String, IndexState> map = new HashMap<>(getIndexStates());
         writeOnlyIndexNames.forEach(indexName ->
                 map.compute(indexName, (name, state) -> {
@@ -320,8 +313,7 @@ public class RecordStoreState {
      *
      * @return the store header associated with the record store
      */
-    @Nonnull
-    public RecordMetaDataProto.DataStoreInfo getStoreHeader() {
+    public DataStoreInfo getStoreHeader() {
         return storeHeader.get();
     }
 
@@ -330,8 +322,8 @@ public class RecordStoreState {
      * @return true if record update is allowed.
      */
     public boolean isRecordUpdateAllowed() {
-        RecordMetaDataProto.DataStoreInfo localStoreHeader = getStoreHeader();
-        return !(localStoreHeader.hasStoreLockState() && localStoreHeader.getStoreLockState().getLockState().equals(RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FORBID_RECORD_UPDATE));
+        DataStoreInfo localStoreHeader = getStoreHeader();
+        return !(localStoreHeader.hasStoreLockState() && localStoreHeader.getStoreLockState().getLockState().equals(DataStoreInfo.StoreLockState.State.FORBID_RECORD_UPDATE));
     }
 
     /**
@@ -382,7 +374,6 @@ public class RecordStoreState {
      *
      * @return an immutable version of this {@code RecordStoreState}
      */
-    @Nonnull
     public RecordStoreState toImmutable() {
         return this;
     }
@@ -394,7 +385,6 @@ public class RecordStoreState {
      *
      * @return a mutable copy of this {@code RecordStoreState}
      */
-    @Nonnull
     public MutableRecordStoreState toMutable() {
         return new MutableRecordStoreState(this);
     }

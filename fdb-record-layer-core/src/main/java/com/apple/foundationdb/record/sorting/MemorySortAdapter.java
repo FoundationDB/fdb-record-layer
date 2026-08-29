@@ -23,8 +23,7 @@ package com.apple.foundationdb.record.sorting;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Comparator;
 
 /**
@@ -39,7 +38,6 @@ public interface MemorySortAdapter<K, V> extends Comparator<K> {
      * @param value value to be sorted
      * @return the key for {@code value}
      */
-    @Nonnull
     K generateKey(V value);
 
     /**
@@ -49,7 +47,6 @@ public interface MemorySortAdapter<K, V> extends Comparator<K> {
      * @param key the key
      * @return a byte array encoding {@code key}
      */
-    @Nonnull
     byte[] serializeKey(K key);
 
     /**
@@ -64,15 +61,13 @@ public interface MemorySortAdapter<K, V> extends Comparator<K> {
      * @param key the serialized form of a key
      * @return the original key
      */
-    @Nonnull
-    K deserializeKey(@Nonnull byte[] key);
+    K deserializeKey(byte[] key);
 
     /**
      * Convert value into a byte array.
      * @param value the value
      * @return a byte array encoding {@code value}
      */
-    @Nonnull
     byte[] serializeValue(V value);
 
     /**
@@ -80,8 +75,7 @@ public interface MemorySortAdapter<K, V> extends Comparator<K> {
      * @param value the serialized form of a value
      * @return the original value
      */
-    @Nonnull
-    V deserializeValue(@Nonnull byte[] value);
+    V deserializeValue(byte[] value);
 
     /**
      * Get the maximum allowed size of the in-memory map.
@@ -93,10 +87,8 @@ public interface MemorySortAdapter<K, V> extends Comparator<K> {
      * Get action to perform when in-memory map is full.
      * @return size limit mode
      */
-    @Nonnull
     MemorySorter.RecordCountInMemoryLimitMode getRecordCountInMemoryLimitMode();
     
-    @Nonnull
     MemorySortComparator<K> getComparator(@Nullable K minimumKey);
 
     /**
@@ -104,7 +96,7 @@ public interface MemorySortAdapter<K, V> extends Comparator<K> {
      * @param <K> the type of the key to be compared
      */
     interface MemorySortComparator<K> extends Comparator<K> {
-        int compareToMinimumKey(@Nonnull K key);
+        int compareToMinimumKey(K key);
         
         @Nullable
         K nextMinimumKey();
@@ -115,19 +107,18 @@ public interface MemorySortAdapter<K, V> extends Comparator<K> {
      * @param <K> the type of key
      */
     class OrderComparator<K> implements MemorySortComparator<K> {
-        @Nonnull
         final Comparator<K> comparator;
 
         @Nullable
         final K minimumKey;
 
-        public OrderComparator(@Nonnull Comparator<K> comparator, @Nullable final K minimumKey) {
+        public OrderComparator(Comparator<K> comparator, @Nullable final K minimumKey) {
             this.comparator = comparator;
             this.minimumKey = minimumKey;
         }
 
         @Override
-        public int compareToMinimumKey(@Nonnull final K key) {
+        public int compareToMinimumKey(final K key) {
             if (minimumKey == null) {
                 return 1;
             }
@@ -141,7 +132,7 @@ public interface MemorySortAdapter<K, V> extends Comparator<K> {
         }
 
         @Override
-        public int compare(@Nonnull final K o1, @Nonnull final K o2) {
+        public int compare(final K o1, final K o2) {
             return comparator.compare(o1, o2);
         }
     }
@@ -152,7 +143,6 @@ public interface MemorySortAdapter<K, V> extends Comparator<K> {
      * @param <K> the type of key
      */
     class InsertionOrderComparator<K> implements MemorySortComparator<K> {
-        @Nonnull
         final Comparator<K> comparator;
 
         @Nullable
@@ -160,14 +150,14 @@ public interface MemorySortAdapter<K, V> extends Comparator<K> {
 
         boolean hasSeenMinimumKey;
 
-        public InsertionOrderComparator(@Nonnull Comparator<K> comparator, @Nullable final K minimumKey) {
+        public InsertionOrderComparator(Comparator<K> comparator, @Nullable final K minimumKey) {
             this.comparator = comparator;
             this.minimumKey = minimumKey;
             this.hasSeenMinimumKey = false;
         }
 
         @Override
-        public int compareToMinimumKey(@Nonnull final K key) {
+        public int compareToMinimumKey(final K key) {
             if (minimumKey == null) {
                 return 1;
             }
@@ -186,7 +176,7 @@ public interface MemorySortAdapter<K, V> extends Comparator<K> {
         }
 
         @Override
-        public int compare(@Nonnull final K o1, @Nonnull final K o2) {
+        public int compare(final K o1, final K o2) {
             throw new RecordCoreException("insertion order does not rely on a Comparator");
         }
     }

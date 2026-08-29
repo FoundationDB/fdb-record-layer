@@ -24,8 +24,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.google.protobuf.Internal;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -47,7 +46,6 @@ public class ProtoUtils {
     private ProtoUtils() {
     }
 
-    @Nonnull
     public static String toProtoBufCompliantName(final String name) {
         if (INVALID_START_SEQUENCES.stream().anyMatch(name::startsWith)) {
             throw new InvalidNameException("name cannot start with " + INVALID_START_SEQUENCES);
@@ -71,7 +69,6 @@ public class ProtoUtils {
         }
     }
 
-    @Nonnull
     private static String translateSpecialCharacters(final String userIdentifier) {
         return userIdentifier.replace("__", DOUBLE_UNDERSCORE_ESCAPE).replace("$", DOLLAR_ESCAPE).replace(".", DOT_ESCAPE);
     }
@@ -103,15 +100,13 @@ public class ProtoUtils {
      */
     public static class DynamicEnum implements Internal.EnumLite, PlanHashable {
         private final int number;
-        @Nonnull
         private final String name;
 
-        public DynamicEnum(final int number, @Nonnull final String name) {
+        public DynamicEnum(final int number, final String name) {
             this.number = number;
             this.name = name;
         }
 
-        @Nonnull
         public String getName() {
             return name;
         }
@@ -139,7 +134,7 @@ public class ProtoUtils {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode hashMode) {
+        public int planHash(final PlanHashMode hashMode) {
             return name.hashCode();
         }
 
@@ -151,7 +146,7 @@ public class ProtoUtils {
 
     @SuppressWarnings("serial")
     public static class InvalidNameException extends MetaDataException {
-        public InvalidNameException(@Nonnull final String msg, @Nullable final Object... keyValues) {
+        public InvalidNameException(final String msg, @Nullable final Object... keyValues) {
             super(msg, keyValues);
         }
     }

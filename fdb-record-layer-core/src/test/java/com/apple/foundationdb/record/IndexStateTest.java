@@ -36,7 +36,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -248,12 +247,10 @@ class IndexStateTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Nonnull
-    private Index index(@Nonnull final String indexName) {
+    private Index index(final String indexName) {
         return recordStore.getRecordMetaData().getIndex(indexName);
     }
 
-    @Nonnull
     private RecordType simpleRecordType() {
         return recordStore.getRecordMetaData().getRecordType("MySimpleRecord");
     }

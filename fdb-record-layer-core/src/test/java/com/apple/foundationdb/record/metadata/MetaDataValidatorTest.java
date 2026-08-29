@@ -36,8 +36,6 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
-
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.List;
@@ -56,12 +54,12 @@ public class MetaDataValidatorTest {
         validator.validate();
     }
 
-    private <T extends Throwable> void assertInvalid(@Nonnull Class<T> errClass, @Nonnull String errMsg, @Nonnull RecordMetaDataBuilder metaDataBuilder) {
+    private <T extends Throwable> void assertInvalid(Class<T> errClass, String errMsg, RecordMetaDataBuilder metaDataBuilder) {
         T err = assertThrows(errClass, () -> validate(metaDataBuilder));
         assertThat(err.getMessage(), containsString(errMsg));
     }
 
-    private void assertInvalid(@Nonnull String errMsg, @Nonnull RecordMetaDataBuilder metaDataBuilder) {
+    private void assertInvalid(String errMsg, RecordMetaDataBuilder metaDataBuilder) {
         assertInvalid(MetaDataException.class, errMsg, metaDataBuilder);
     }
 

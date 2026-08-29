@@ -23,8 +23,7 @@ package com.apple.foundationdb.record.util.pair;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An implementation of the {@link Pair} that adds comparison support to the {@link Pair}. This
@@ -36,20 +35,17 @@ import javax.annotation.Nullable;
  */
 @API(API.Status.INTERNAL)
 public class ComparablePair<L extends Comparable<? super L>, R extends Comparable<? super R>> implements Pair<L, R>, Comparable<ComparablePair<L, R>> {
-    @Nonnull
     private final NonnullPair<L, R> pair;
 
-    private ComparablePair(@Nonnull NonnullPair<L, R> pair) {
+    private ComparablePair(NonnullPair<L, R> pair) {
         this.pair = pair;
     }
 
-    @Nonnull
     @Override
     public L getLeft() {
         return pair.getLeft();
     }
 
-    @Nonnull
     @Override
     public R getRight() {
         return pair.getRight();
@@ -97,8 +93,7 @@ public class ComparablePair<L extends Comparable<? super L>, R extends Comparabl
      * @param <R> the type of the right element
      * @return new {@code ComparablePair} wrapping the two elements
      */
-    @Nonnull
-    public static <L extends Comparable<? super L>, R extends Comparable<? super R>> ComparablePair<L, R> of(@Nonnull L left, @Nonnull R right) {
+    public static <L extends Comparable<? super L>, R extends Comparable<? super R>> ComparablePair<L, R> of(L left, R right) {
         return new ComparablePair<>(NonnullPair.of(left, right));
     }
 }

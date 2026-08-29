@@ -23,4 +23,7 @@
  * This should contain useful implementations of {@link com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor}
  * that allow for us to walk the expression tree.
  */
+@NullMarked
 package com.apple.foundationdb.record.metadata.expressions.visitors;
+
+import org.jspecify.annotations.NullMarked;

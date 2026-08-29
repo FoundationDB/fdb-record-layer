@@ -33,8 +33,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.List;
 
@@ -51,7 +50,7 @@ import java.util.List;
 public class CardinalityFunctionKeyExpression extends FunctionKeyExpression {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Cardinality-Function");
 
-    protected CardinalityFunctionKeyExpression(@Nonnull String name, @Nonnull KeyExpression arguments) {
+    protected CardinalityFunctionKeyExpression(String name, KeyExpression arguments) {
         super(name, arguments);
     }
 
@@ -75,9 +74,8 @@ public class CardinalityFunctionKeyExpression extends FunctionKeyExpression {
         return 1;
     }
 
-    @Nonnull
     @Override
-    public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+    public Value toValue(final List<? extends Value> argumentValues) {
         return resolveAndEncapsulateFunction(getName(), argumentValues);
     }
 
@@ -96,7 +94,6 @@ public class CardinalityFunctionKeyExpression extends FunctionKeyExpression {
      * the null cases fall back to {@code super.evaluateMessage}, which then routes into {@link #evaluateFunction}
      * with a materialized argument list (or a {@code null} argument, for the null cases).
      */
-    @Nonnull
     @Override
     public <M extends Message> List<Key.Evaluated> evaluateMessage(@Nullable FDBRecord<M> record,
                                                                    @Nullable Message message) {
@@ -124,8 +121,7 @@ public class CardinalityFunctionKeyExpression extends FunctionKeyExpression {
     /**
      * Fast path to count the elements of a nullable-array wrapper message that is known to be present.
      */
-    @Nonnull
-    private static List<Key.Evaluated> evaluateOnWrappedArray(@Nonnull Message wrapperMessage) {
+    private static List<Key.Evaluated> evaluateOnWrappedArray(Message wrapperMessage) {
         final Descriptors.FieldDescriptor valuesDescriptor =
                 wrapperMessage.getDescriptorForType().findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName());
         Verify.verifyNotNull(valuesDescriptor);
@@ -137,11 +133,10 @@ public class CardinalityFunctionKeyExpression extends FunctionKeyExpression {
     /**
      * Evaluates the cardinality for argument shapes that {@link #evaluateMessage} did not recognize.
      */
-    @Nonnull
     @Override
     public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> rec,
                                                                     @Nullable Message message,
-                                                                    @Nonnull Key.Evaluated argvals) {
+                                                                    Key.Evaluated argvals) {
         Verify.verify(argvals.size() == 1);
         final Object arg = argvals.getObject(0);
         if (arg == null) {
@@ -153,7 +148,7 @@ public class CardinalityFunctionKeyExpression extends FunctionKeyExpression {
 
     /// @see FunctionKeyExpression#create
     @Override
-    public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor descriptor) {
+    public List<Descriptors.FieldDescriptor> validate(Descriptors.Descriptor descriptor) {
         // Note: `arguments.getColumnSize()` must be 1, but `create()` already validates that.
         if (arguments.createsDuplicates()) {
             throw new InvalidExpressionException("The CARDINALITY() argument must produce a single value.");
@@ -162,7 +157,7 @@ public class CardinalityFunctionKeyExpression extends FunctionKeyExpression {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return super.basePlanHash(mode, BASE_HASH);
     }
 
@@ -172,7 +167,6 @@ public class CardinalityFunctionKeyExpression extends FunctionKeyExpression {
     @AutoService(FunctionKeyExpression.Factory.class)
     @API(API.Status.EXPERIMENTAL)
     public static class CardinalityFunctionKeyExpressionFactory implements FunctionKeyExpression.Factory {
-        @Nonnull
         @Override
         public List<FunctionKeyExpression.Builder> getBuilders() {
             return ImmutableList.of(

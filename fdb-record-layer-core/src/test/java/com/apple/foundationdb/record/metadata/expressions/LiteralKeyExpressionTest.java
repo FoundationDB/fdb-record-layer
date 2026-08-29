@@ -28,7 +28,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -65,7 +64,7 @@ public class LiteralKeyExpressionTest {
 
     @ParameterizedTest
     @MethodSource("correctValues")
-    public void serializationTest(@Nonnull Object value) throws InvalidProtocolBufferException {
+    public void serializationTest(Object value) throws InvalidProtocolBufferException {
         final LiteralKeyExpression<?> keyExpression = Key.Expressions.value(value);
         final LiteralKeyExpression<?> parsedViaProto = LiteralKeyExpression.fromProto(keyExpression.toProto());
         final LiteralKeyExpression<?> parsedViaBytes = LiteralKeyExpression.fromProto(

@@ -25,8 +25,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A builder for {@link RecordType}.
@@ -41,14 +40,13 @@ import javax.annotation.Nullable;
  */
 @API(API.Status.UNSTABLE)
 public class RecordTypeBuilder extends RecordTypeIndexesBuilder implements RecordTypeOrBuilder {
-    @Nonnull
     private final Descriptors.Descriptor descriptor;
     @Nullable
     private KeyExpression primaryKey;
     @Nullable
     private Integer sinceVersion;
 
-    public RecordTypeBuilder(@Nonnull Descriptors.Descriptor descriptor) {
+    public RecordTypeBuilder(Descriptors.Descriptor descriptor) {
         super(descriptor.getName());
         this.descriptor = descriptor;
     }
@@ -58,7 +56,7 @@ public class RecordTypeBuilder extends RecordTypeIndexesBuilder implements Recor
      * @param descriptor the descriptor of the new record type
      * @param other the record type builder to copy from
      */
-    public RecordTypeBuilder(@Nonnull Descriptors.Descriptor descriptor, @Nonnull RecordTypeBuilder other) {
+    public RecordTypeBuilder(Descriptors.Descriptor descriptor, RecordTypeBuilder other) {
         super(descriptor.getName(), other);
         this.descriptor = descriptor;
         this.primaryKey = other.primaryKey;
@@ -72,7 +70,6 @@ public class RecordTypeBuilder extends RecordTypeIndexesBuilder implements Recor
     }
 
     @Override
-    @Nonnull
     public Descriptors.Descriptor getDescriptor() {
         return descriptor;
     }
@@ -83,7 +80,7 @@ public class RecordTypeBuilder extends RecordTypeIndexesBuilder implements Recor
         return primaryKey;
     }
 
-    public void setPrimaryKey(@Nonnull KeyExpression primaryKey) {
+    public void setPrimaryKey(KeyExpression primaryKey) {
         if (primaryKey.versionColumns() != 0) {
             throw new MetaDataException("Version in primary key not supported");
         }
@@ -100,7 +97,7 @@ public class RecordTypeBuilder extends RecordTypeIndexesBuilder implements Recor
         this.sinceVersion = sinceVersion;
     }
 
-    public RecordType build(@Nonnull RecordMetaData metaData) {
+    public RecordType build(RecordMetaData metaData) {
         if (primaryKey == null) {
             throw new NonbuildableException("Missing primary key");
         }

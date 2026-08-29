@@ -25,7 +25,6 @@ import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
-import javax.annotation.Nonnull;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -52,12 +51,10 @@ public class AsyncLoadingCache<K, V> {
      */
     public static final long UNLIMITED = Long.MAX_VALUE;
 
-    @Nonnull
     private final Cache<K, Optional<V>> cache;
     private final long refreshTimeMillis;
     private final long deadlineTimeMillis;
     private final long maxSize;
-    @Nonnull
     private final ScheduledExecutorService scheduledExecutor;
 
     /**
@@ -68,7 +65,7 @@ public class AsyncLoadingCache<K, V> {
      * @param maxSize the maximum number of elements in the cache
      * @param scheduledExecutor a scheduled executor used to manage asynchronous deadlines
      */
-    public AsyncLoadingCache(long refreshTimeMillis, long deadlineTimeMillis, long maxSize, @Nonnull ScheduledExecutorService scheduledExecutor) {
+    public AsyncLoadingCache(long refreshTimeMillis, long deadlineTimeMillis, long maxSize, ScheduledExecutorService scheduledExecutor) {
         this.refreshTimeMillis = refreshTimeMillis;
         this.deadlineTimeMillis = deadlineTimeMillis;
         this.maxSize = maxSize;
@@ -95,8 +92,7 @@ public class AsyncLoadingCache<K, V> {
      * @return a future containing either the cached value or the result from the supplier
      */
     @SuppressWarnings("squid:S2789") // comparison of null and optional used to differentiate absence of key and presence of null
-    @Nonnull
-    public CompletableFuture<V> orElseGet(@Nonnull K key, @Nonnull Supplier<CompletableFuture<V>> supplier) {
+    public CompletableFuture<V> orElseGet(K key, Supplier<CompletableFuture<V>> supplier) {
         try {
             Optional<V> cachedValue = cache.getIfPresent(key);
             if (cachedValue == null) {

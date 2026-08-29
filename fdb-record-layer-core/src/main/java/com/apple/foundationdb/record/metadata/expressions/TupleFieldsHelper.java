@@ -31,8 +31,7 @@ import com.google.protobuf.Internal;
 import com.google.protobuf.Message;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Set;
 import java.util.UUID;
 
@@ -41,7 +40,6 @@ import java.util.UUID;
  */
 @API(API.Status.INTERNAL)
 public class TupleFieldsHelper {
-    @Nonnull
     private static final Set<Descriptors.Descriptor> DESCRIPTORS = ImmutableSet.of(
             TupleFieldsProto.UUID.getDescriptor(),
             TupleFieldsProto.NullableDouble.getDescriptor(),
@@ -58,7 +56,7 @@ public class TupleFieldsHelper {
      * @param descriptor message descriptor for the field
      * @return {@code true} if the field is decoded into a single item in a {@code Tuple}.
      */
-    public static boolean isTupleField(@Nonnull Descriptors.Descriptor descriptor) {
+    public static boolean isTupleField(Descriptors.Descriptor descriptor) {
         return DESCRIPTORS.contains(descriptor);
     }
 
@@ -68,9 +66,8 @@ public class TupleFieldsHelper {
      * @param descriptor message descriptor for the field
      * @return an object suitable for storing in a {@code Tuple}
      */
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public static Object fromProto(@Nonnull Message value, @Nonnull Descriptors.Descriptor descriptor) {
+    public static Object fromProto(Message value, Descriptors.Descriptor descriptor) {
         if (descriptor == TupleFieldsProto.UUID.getDescriptor()) {
             return fromProto(value instanceof TupleFieldsProto.UUID ? (TupleFieldsProto.UUID)value : TupleFieldsProto.UUID.newBuilder().mergeFrom(value).build());
         } else if (descriptor == TupleFieldsProto.NullableDouble.getDescriptor()) {
@@ -97,8 +94,7 @@ public class TupleFieldsHelper {
      * @param proto the value of a Protobuf {@code UUID} field
      * @return the decoded Java {@code UUID}
      */
-    @Nonnull
-    public static UUID fromProto(@Nonnull TupleFieldsProto.UUID proto) {
+    public static UUID fromProto(TupleFieldsProto.UUID proto) {
         return new UUID(proto.getMostSignificantBits(), proto.getLeastSignificantBits());
     }
 
@@ -107,7 +103,7 @@ public class TupleFieldsHelper {
      * @param proto the value of a Protobuf {@code NullableDouble} field
      * @return the decoded Java {@code double}
      */
-    public static double fromProto(@Nonnull TupleFieldsProto.NullableDouble proto) {
+    public static double fromProto(TupleFieldsProto.NullableDouble proto) {
         return proto.getValue();
     }
 
@@ -116,7 +112,7 @@ public class TupleFieldsHelper {
      * @param proto the value of a Protobuf {@code NullableFloat} field
      * @return the decoded Java {@code float}
      */
-    public static float fromProto(@Nonnull TupleFieldsProto.NullableFloat proto) {
+    public static float fromProto(TupleFieldsProto.NullableFloat proto) {
         return proto.getValue();
     }
 
@@ -125,7 +121,7 @@ public class TupleFieldsHelper {
      * @param proto the value of a Protobuf {@code NullableInt32} field
      * @return the decoded Java {@code int}
      */
-    public static int fromProto(@Nonnull TupleFieldsProto.NullableInt32 proto) {
+    public static int fromProto(TupleFieldsProto.NullableInt32 proto) {
         return proto.getValue();
     }
 
@@ -134,7 +130,7 @@ public class TupleFieldsHelper {
      * @param proto the value of a Protobuf {@code NullableInt64} field
      * @return the decoded Java {@code long}
      */
-    public static long fromProto(@Nonnull TupleFieldsProto.NullableInt64 proto) {
+    public static long fromProto(TupleFieldsProto.NullableInt64 proto) {
         return proto.getValue();
     }
 
@@ -143,7 +139,7 @@ public class TupleFieldsHelper {
      * @param proto the value of a Protobuf {@code NullableBool} field
      * @return the decoded Java {@code boolean}
      */
-    public static boolean fromProto(@Nonnull TupleFieldsProto.NullableBool proto) {
+    public static boolean fromProto(TupleFieldsProto.NullableBool proto) {
         return proto.getValue();
     }
 
@@ -152,8 +148,7 @@ public class TupleFieldsHelper {
      * @param proto the value of a Protobuf {@code NullableString} field
      * @return the decoded Java {@code String}
      */
-    @Nonnull
-    public static String fromProto(@Nonnull TupleFieldsProto.NullableString proto) {
+    public static String fromProto(TupleFieldsProto.NullableString proto) {
         return proto.getValue();
     }
 
@@ -162,8 +157,7 @@ public class TupleFieldsHelper {
      * @param proto the value of a Protobuf {@code NullableBytes} field
      * @return the decoded Java {@code ByteString}
      */
-    @Nonnull
-    public static ByteString fromProto(@Nonnull TupleFieldsProto.NullableBytes proto) {
+    public static ByteString fromProto(TupleFieldsProto.NullableBytes proto) {
         return proto.getValue();
     }
 
@@ -173,9 +167,8 @@ public class TupleFieldsHelper {
      * @param descriptor message descriptor for the field
      * @return an object suitable for storing in the field
      */
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public static Message toProto(@Nonnull Object value, @Nonnull final Descriptors.Descriptor descriptor) {
+    public static Message toProto(Object value, final Descriptors.Descriptor descriptor) {
         if (descriptor == TupleFieldsProto.UUID.getDescriptor()) {
             return toProto((UUID)value);
         } else if (descriptor == TupleFieldsProto.NullableDouble.getDescriptor()) {
@@ -202,8 +195,7 @@ public class TupleFieldsHelper {
      * @param uuid the Java {@code UUID}
      * @return a message to set as the value of a Protobuf {@code UUID} field
      */
-    @Nonnull
-    public static TupleFieldsProto.UUID toProto(@Nonnull UUID uuid) {
+    public static TupleFieldsProto.UUID toProto(UUID uuid) {
         return TupleFieldsProto.UUID.newBuilder()
                 .setMostSignificantBits(uuid.getMostSignificantBits())
                 .setLeastSignificantBits(uuid.getLeastSignificantBits())
@@ -215,7 +207,6 @@ public class TupleFieldsHelper {
      * @param value the Java {@code double}
      * @return a message to set as the value of a Protobuf {@code NullableDouble} field
      */
-    @Nonnull
     public static TupleFieldsProto.NullableDouble toProto(double value) {
         return TupleFieldsProto.NullableDouble.newBuilder().setValue(value) .build();
     }
@@ -225,7 +216,6 @@ public class TupleFieldsHelper {
      * @param value the Java {@code float}
      * @return a message to set as the value of a Protobuf {@code NullableFloat} field
      */
-    @Nonnull
     public static TupleFieldsProto.NullableFloat toProto(float value) {
         return TupleFieldsProto.NullableFloat.newBuilder().setValue(value) .build();
     }
@@ -235,7 +225,6 @@ public class TupleFieldsHelper {
      * @param value the Java {@code int}
      * @return a message to set as the value of a Protobuf {@code NullableInt32} field
      */
-    @Nonnull
     public static TupleFieldsProto.NullableInt32 toProto(int value) {
         return TupleFieldsProto.NullableInt32.newBuilder().setValue(value) .build();
     }
@@ -245,7 +234,6 @@ public class TupleFieldsHelper {
      * @param value the Java {@code long}
      * @return a message to set as the value of a Protobuf {@code NullableInt64} field
      */
-    @Nonnull
     public static TupleFieldsProto.NullableInt64 toProto(long value) {
         return TupleFieldsProto.NullableInt64.newBuilder().setValue(value) .build();
     }
@@ -255,7 +243,6 @@ public class TupleFieldsHelper {
      * @param value the Java {@code boolean}
      * @return a message to set as the value of a Protobuf {@code NullableBool} field
      */
-    @Nonnull
     public static TupleFieldsProto.NullableBool toProto(boolean value) {
         return TupleFieldsProto.NullableBool.newBuilder().setValue(value) .build();
     }
@@ -265,8 +252,7 @@ public class TupleFieldsHelper {
      * @param value the Java {@code String}
      * @return a message to set as the value of a Protobuf {@code NullableString} field
      */
-    @Nonnull
-    public static TupleFieldsProto.NullableString toProto(@Nonnull String value) {
+    public static TupleFieldsProto.NullableString toProto(String value) {
         return TupleFieldsProto.NullableString.newBuilder().setValue(value) .build();
     }
 
@@ -275,14 +261,13 @@ public class TupleFieldsHelper {
      * @param value the Java {@code ByteString}
      * @return a message to set as the value of a Protobuf {@code NullableBytes} field
      */
-    @Nonnull
-    public static TupleFieldsProto.NullableBytes toProto(@Nonnull ByteString value) {
+    public static TupleFieldsProto.NullableBytes toProto(ByteString value) {
         return TupleFieldsProto.NullableBytes.newBuilder().setValue(value) .build();
     }
 
     @Nullable
     public static Object tupleValueToRuntimeValue(@Nullable final Object valueFromTuple,
-                                                  @Nonnull final Type expectedResultType) {
+                                                  final Type expectedResultType) {
         if (valueFromTuple == null) {
             return null;
         }

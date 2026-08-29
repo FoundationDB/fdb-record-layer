@@ -58,7 +58,6 @@ import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
-import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
@@ -86,7 +85,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Tests for {@link RecordMetaDataBuilder}.
  */
 public class RecordMetaDataBuilderTest {
-    private RecordMetaDataBuilder createBuilder(@Nonnull Descriptors.FileDescriptor fileDescriptor,
+    private RecordMetaDataBuilder createBuilder(Descriptors.FileDescriptor fileDescriptor,
                                                 boolean useCounterBasedSubspaceKey) {
         RecordMetaDataBuilder builder = RecordMetaData.newBuilder();
         if (useCounterBasedSubspaceKey) {

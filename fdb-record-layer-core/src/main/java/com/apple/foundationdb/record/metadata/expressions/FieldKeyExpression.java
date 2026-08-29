@@ -38,8 +38,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.List;
 
@@ -106,20 +105,17 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
      * form. However, when constructing physical operators that directly interact with stored protobuf messages,
      * this internal name should be used as-is.
      */
-    @Nonnull
     private final String fieldName;
-    @Nonnull
     private final FanType fanType;
-    @Nonnull
     private final Key.Evaluated.NullStandin nullStandin;
 
-    public FieldKeyExpression(@Nonnull String fieldName, @Nonnull FanType fanType, @Nonnull Key.Evaluated.NullStandin nullStandin) {
+    public FieldKeyExpression(String fieldName, FanType fanType, Key.Evaluated.NullStandin nullStandin) {
         this.fieldName = fieldName;
         this.fanType = fanType;
         this.nullStandin = nullStandin;
     }
 
-    public FieldKeyExpression(@Nonnull RecordKeyExpressionProto.Field field) throws DeserializationException {
+    public FieldKeyExpression(RecordKeyExpressionProto.Field field) throws DeserializationException {
         if (!field.hasFieldName()) {
             throw new DeserializationException("Serialized Field is missing field name");
         }
@@ -132,17 +128,17 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     }
 
     @Override
-    public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor parentDescriptor) {
+    public List<Descriptors.FieldDescriptor> validate(Descriptors.Descriptor parentDescriptor) {
         return validate(parentDescriptor, false);
     }
 
-    public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor parentDescriptor, boolean allowMessageType) {
+    public List<Descriptors.FieldDescriptor> validate(Descriptors.Descriptor parentDescriptor, boolean allowMessageType) {
         final Descriptors.FieldDescriptor fieldDescriptor = parentDescriptor.findFieldByName(fieldName);
         validate(parentDescriptor, fieldDescriptor, allowMessageType);
         return Collections.singletonList(fieldDescriptor);
     }
 
-    public void validate(@Nonnull Descriptors.Descriptor parentDescriptor, Descriptors.FieldDescriptor fieldDescriptor, boolean allowMessageType) {
+    public void validate(Descriptors.Descriptor parentDescriptor, Descriptors.FieldDescriptor fieldDescriptor, boolean allowMessageType) {
         if (fieldDescriptor == null) {
             throw new InvalidExpressionException("Descriptor " + parentDescriptor.getName() + " does not have field: " + fieldName);
         }
@@ -172,7 +168,6 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         }
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("unchecked")
     public <M extends Message> List<Key.Evaluated> evaluateMessage(@Nullable FDBRecord<M> record, @Nullable Message message) {
@@ -252,7 +247,6 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         return 1;
     }
 
-    @Nonnull
     @Override
     public RecordKeyExpressionProto.Field toProto() throws SerializationException {
         return RecordKeyExpressionProto.Field.newBuilder()
@@ -262,20 +256,17 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
                 .build();
     }
 
-    @Nonnull
     @Override
     public RecordKeyExpressionProto.KeyExpression toKeyExpression() {
         return RecordKeyExpressionProto.KeyExpression.newBuilder().setField(toProto()).build();
     }
 
-    @Nonnull
     @Override
-    public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+    public <S extends KeyExpressionVisitor.State, R> R expand(final KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
     }
 
-    @Nonnull
-    public Quantifier.ForEach explodeField(@Nonnull Quantifier.ForEach baseQuantifier, @Nonnull List<String> fieldNamePrefix) {
+    public Quantifier.ForEach explodeField(Quantifier.ForEach baseQuantifier, List<String> fieldNamePrefix) {
         final List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(ProtoUtils.toUserIdentifier(fieldName))
@@ -289,7 +280,6 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         }
     }
 
-    @Nonnull
     public String getFieldName() {
         return fieldName;
     }
@@ -301,8 +291,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
      * @return a new expression that will get the value from the value of the given field
      * for each value of this field.
      */
-    @Nonnull
-    public NestingKeyExpression nest(@Nonnull String fieldName) {
+    public NestingKeyExpression nest(String fieldName) {
         return nest(fieldName, FanType.None);
     }
 
@@ -313,8 +302,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
      * @param fanType how to handle the nested field repeated state
      * @return a new key that will get all of the values from the value of the given field within this field
      */
-    @Nonnull
-    public NestingKeyExpression nest(@Nonnull String fieldName, @Nonnull FanType fanType) {
+    public NestingKeyExpression nest(String fieldName, FanType fanType) {
         return nest(Key.Expressions.field(fieldName, fanType));
     }
 
@@ -325,9 +313,8 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
      * @param rest this supports any number children (at least 2), this is the rest of them
      * @return a new key that will get all of the values from the value of the given field within this field
      */
-    @Nonnull
-    public NestingKeyExpression nest(@Nonnull KeyExpression first, @Nonnull KeyExpression second,
-                                     @Nonnull KeyExpression... rest) {
+    public NestingKeyExpression nest(KeyExpression first, KeyExpression second,
+                                     KeyExpression... rest) {
         return nest(Key.Expressions.concat(first, second, rest));
     }
 
@@ -341,8 +328,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
      * @throws InvalidExpressionException if this field is of concatenate type
      * At least for now.
      */
-    @Nonnull
-    public NestingKeyExpression nest(@Nonnull KeyExpression child) {
+    public NestingKeyExpression nest(KeyExpression child) {
         // TODO make this work. This is sensible, i.e. if you have:
         // Record { repeated person { firstname, lastname } }
         // You would end up with someting like [ Bob Smith Alice Jackson ]
@@ -356,33 +342,27 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
      * Get this field as a group without any grouping keys.
      * @return this field without any grouping keys
      */
-    @Nonnull
     public GroupingKeyExpression ungrouped() {
         return new GroupingKeyExpression(this, 1);
     }
 
-    @Nonnull
-    public GroupingKeyExpression groupBy(@Nonnull KeyExpression groupByFirst, @Nonnull KeyExpression... groupByRest) {
+    public GroupingKeyExpression groupBy(KeyExpression groupByFirst, KeyExpression... groupByRest) {
         return GroupingKeyExpression.of(this, groupByFirst, groupByRest);
     }
 
-    @Nonnull
     public SplitKeyExpression split(int splitSize) {
         return new SplitKeyExpression(this, splitSize);
     }
 
-    @Nonnull
-    public Descriptors.Descriptor getDescriptor(@Nonnull Descriptors.Descriptor parentDescriptor) {
+    public Descriptors.Descriptor getDescriptor(Descriptors.Descriptor parentDescriptor) {
         final Descriptors.FieldDescriptor field = parentDescriptor.findFieldByName(fieldName);
         return field.getMessageType();
     }
 
-    @Nonnull
     public FanType getFanType() {
         return fanType;
     }
 
-    @Nonnull
     public Key.Evaluated.NullStandin getNullStandin() {
         return nullStandin;
     }
@@ -418,7 +398,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 // Note that the NullStandIn is NOT included in the hash code. It will be replaced with

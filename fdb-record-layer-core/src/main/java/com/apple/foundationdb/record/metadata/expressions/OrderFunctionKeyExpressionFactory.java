@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.tuple.TupleOrdering;
 import com.google.auto.service.AutoService;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -40,7 +39,6 @@ import java.util.stream.Collectors;
 public class OrderFunctionKeyExpressionFactory implements FunctionKeyExpression.Factory {
     public static final String FUNCTION_NAME_PREFIX = "order_";
 
-    @Nonnull
     @Override
     public List<FunctionKeyExpression.Builder> getBuilders() {
         return Arrays.stream(TupleOrdering.Direction.values())

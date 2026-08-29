@@ -22,8 +22,6 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-
 /**
  * Track number of records scanned up to some limit, after which record scans should not be allowed.
  *
@@ -35,7 +33,6 @@ public interface RecordScanLimiter {
      * Create a new {@code RecordScanLimiter} with this limiter's original limit, ignoring any calls to {@link #tryRecordScan()}.
      * @return a new limiter with the same original scan limit as this limiter
      */
-    @Nonnull
     RecordScanLimiter reset();
 
     /**

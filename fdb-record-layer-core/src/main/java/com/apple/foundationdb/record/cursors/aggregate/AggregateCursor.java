@@ -36,11 +36,12 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+
+import static com.apple.foundationdb.record.RecordCursorProto.PartialAggregationResult;
 
 /**
  * A cursor that groups incoming records by the given grouping criteria.
@@ -50,10 +51,8 @@ import java.util.concurrent.Executor;
 @API(API.Status.EXPERIMENTAL)
 public class AggregateCursor<M extends Message> implements RecordCursor<QueryResult> {
     // Inner cursor to provide record inflow
-    @Nonnull
     private final RecordCursor<QueryResult> inner;
     // group aggregator to break incoming records into groups
-    @Nonnull
     private final StreamGrouping<M> streamGrouping;
     // Previous record processed by this cursor
     @Nullable
@@ -61,20 +60,18 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     // Previous non-empty record processed by this cursor
     @Nullable
     private RecordCursorResult<QueryResult> previousValidResult;
-    @Nonnull
     private RecordCursorContinuation previousContinuationInGroup;
     @Nullable
-    private RecordCursorProto.PartialAggregationResult partialAggregationResult;
+    private PartialAggregationResult partialAggregationResult;
 
-    public AggregateCursor(@Nonnull RecordCursor<QueryResult> inner,
-                           @Nonnull final StreamGrouping<M> streamGrouping,
-                           @Nonnull RecordCursorContinuation continuation) {
+    public AggregateCursor(RecordCursor<QueryResult> inner,
+                           final StreamGrouping<M> streamGrouping,
+                           RecordCursorContinuation continuation) {
         this.inner = inner;
         this.streamGrouping = streamGrouping;
         this.previousContinuationInGroup = continuation;
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<QueryResult>> onNext() {
         if (previousResult != null && !previousResult.hasNext()) {
@@ -170,14 +167,13 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
         return inner.isClosed();
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return inner.getExecutor();
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
             inner.accept(visitor);
         }
@@ -185,25 +181,22 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     }
 
     public static class AggregateCursorContinuation implements RecordCursorContinuation {
-        @Nonnull
         private final RecordCursorContinuation innerContinuation;
 
         @Nullable
-        private final RecordCursorProto.PartialAggregationResult partialAggregationResult;
+        private final PartialAggregationResult partialAggregationResult;
 
-        @Nullable
-        private RecordCursorProto.AggregateCursorContinuation cachedProto;
+        private RecordCursorProto.@Nullable AggregateCursorContinuation cachedProto;
 
-        public AggregateCursorContinuation(@Nonnull RecordCursorContinuation innerContinuation, @Nullable RecordCursorProto.PartialAggregationResult partialAggregationResult) {
+        public AggregateCursorContinuation(RecordCursorContinuation innerContinuation, @Nullable PartialAggregationResult partialAggregationResult) {
             this.innerContinuation = innerContinuation;
             this.partialAggregationResult = partialAggregationResult;
         }
 
-        public AggregateCursorContinuation(@Nonnull RecordCursorContinuation other) {
+        public AggregateCursorContinuation(RecordCursorContinuation other) {
             this(other, null);
         }
 
-        @Nonnull
         @Override
         public ByteString toByteString() {
             return isEnd() ? ByteString.EMPTY : toProto().toByteString();
@@ -227,11 +220,10 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
         }
 
         @Nullable
-        public RecordCursorProto.PartialAggregationResult getPartialAggregationResult() {
+        public PartialAggregationResult getPartialAggregationResult() {
             return partialAggregationResult;
         }
 
-        @Nonnull
         private RecordCursorProto.AggregateCursorContinuation toProto() {
             if (cachedProto == null) {
                 RecordCursorProto.AggregateCursorContinuation.Builder cachedProtoBuilder = RecordCursorProto.AggregateCursorContinuation.newBuilder().setContinuation(innerContinuation.toByteString());
@@ -243,7 +235,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
             return cachedProto;
         }
 
-        public static AggregateCursorContinuation fromRawBytes(@Nonnull byte[] rawBytes) {
+        public static AggregateCursorContinuation fromRawBytes(byte[] rawBytes) {
             try {
                 RecordCursorProto.AggregateCursorContinuation continuationProto = RecordCursorProto.AggregateCursorContinuation.parseFrom(rawBytes);
                 return new AggregateCursorContinuation(ByteArrayContinuation.fromNullable(continuationProto.getContinuation().toByteArray()), continuationProto.hasPartialAggregationResults() ? continuationProto.getPartialAggregationResults() : null);

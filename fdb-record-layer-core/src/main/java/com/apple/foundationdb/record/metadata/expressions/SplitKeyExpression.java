@@ -31,8 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -55,17 +54,16 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         this.splitSize = splitSize;
     }
 
-    public SplitKeyExpression(@Nonnull RecordKeyExpressionProto.Split split) throws DeserializationException {
+    public SplitKeyExpression(RecordKeyExpressionProto.Split split) throws DeserializationException {
         this(KeyExpression.fromProto(split.getJoined()), split.getSplitSize());
     }
 
-    @Nonnull
     @Override
     public <M extends Message> List<Key.Evaluated> evaluateMessage(@Nullable FDBRecord<M> record, @Nullable Message message) {
         return split(getJoined().evaluateMessage(record, message));
     }
 
-    private List<Key.Evaluated> split(@Nonnull List<Key.Evaluated> unsplit) {
+    private List<Key.Evaluated> split(List<Key.Evaluated> unsplit) {
         if (unsplit.size() % splitSize != 0) {
             throw new RecordCoreException("stored value size is not an even multiple of " + splitSize);
         }
@@ -87,7 +85,7 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     }
 
     @Override
-    public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor descriptor) {
+    public List<Descriptors.FieldDescriptor> validate(Descriptors.Descriptor descriptor) {
         if (getJoined().getColumnSize() != 1) {
             throw new InvalidExpressionException("Must have a single key before splitting");
         }
@@ -107,7 +105,6 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         return joined.needsCopyingToPartialRecord();
     }
 
-    @Nonnull
     @Override
     public RecordKeyExpressionProto.Split toProto() throws SerializationException {
         final RecordKeyExpressionProto.Split.Builder builder = RecordKeyExpressionProto.Split.newBuilder();
@@ -116,13 +113,11 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         return builder.build();
     }
 
-    @Nonnull
     @Override
     public RecordKeyExpressionProto.KeyExpression toKeyExpression() {
         return RecordKeyExpressionProto.KeyExpression.newBuilder().setSplit(toProto()).build();
     }
 
-    @Nonnull
     @Override
     public List<KeyExpression> normalizeKeyForPositions() {
         return Collections.nCopies(splitSize, getJoined());
@@ -133,9 +128,8 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         return false;
     }
 
-    @Nonnull
     @Override
-    public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+    public <S extends KeyExpressionVisitor.State, R> R expand(final KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
     }
 
@@ -149,7 +143,6 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         return getJoined().hasRecordTypeKey();
     }
 
-    @Nonnull
     public KeyExpression getJoined() {
         return joined;
     }
@@ -158,13 +151,11 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
      * Get this entire split as a group without any grouping keys.
      * @return this split without any grouping keys
      */
-    @Nonnull
     public GroupingKeyExpression ungrouped() {
         return new GroupingKeyExpression(this, getColumnSize());
     }
 
-    @Nonnull
-    public GroupingKeyExpression groupBy(@Nonnull KeyExpression groupByFirst, @Nonnull KeyExpression... groupByRest) {
+    public GroupingKeyExpression groupBy(KeyExpression groupByFirst, KeyExpression... groupByRest) {
         return GroupingKeyExpression.of(this, groupByFirst, groupByRest);
     }
 
@@ -197,7 +188,7 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return getJoined().planHash(mode) + splitSize;

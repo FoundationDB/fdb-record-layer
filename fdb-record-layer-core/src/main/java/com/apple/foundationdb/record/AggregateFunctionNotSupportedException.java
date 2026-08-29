@@ -20,15 +20,14 @@
 
 package com.apple.foundationdb.record;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Exception thrown when an aggregate function is not supported.
  */
 @SuppressWarnings("serial")
 public class AggregateFunctionNotSupportedException extends RecordCoreException {
-    public AggregateFunctionNotSupportedException(@Nonnull String msg, @Nullable Object... keyValues) {
+    public AggregateFunctionNotSupportedException(String msg, @Nullable Object... keyValues) {
         super(msg, keyValues);
     }
 }

@@ -33,10 +33,11 @@ import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
+
+import static com.apple.foundationdb.record.RecordCursorProto.PartialAggregationResult;
 
 /**
  * StreamGrouping breaks streams of records into groups, based on grouping criteria.
@@ -66,15 +67,10 @@ import java.util.Objects;
 public class StreamGrouping<M extends Message> {
     @Nullable
     private final Value groupingKeyValue;
-    @Nonnull
     private final AggregateValue aggregateValue;
-    @Nonnull
     private final FDBRecordStoreBase<M> store;
-    @Nonnull
     private final EvaluationContext context;
-    @Nonnull
     private final CorrelationIdentifier alias;
-    @Nonnull
     private Accumulator accumulator;
     // The current group (evaluated). This will be used to decide if the next record is a group break
     @Nullable
@@ -82,11 +78,8 @@ public class StreamGrouping<M extends Message> {
     // The previous completed group result - with both grouping criteria and accumulated values
     @Nullable
     private Object previousCompleteResult;
-    @Nonnull
     private final CorrelationIdentifier groupingKeyAlias;
-    @Nonnull
     private final CorrelationIdentifier aggregateAlias;
-    @Nonnull
     private final Value completeResultValue;
 
     /**
@@ -102,14 +95,14 @@ public class StreamGrouping<M extends Message> {
      * @param alias the quantifier alias for the value evaluation
      */
     public StreamGrouping(@Nullable final Value groupingKeyValue,
-                          @Nonnull final AggregateValue aggregateValue,
-                          @Nonnull final Value completeResultValue,
-                          @Nonnull final CorrelationIdentifier groupingKeyAlias,
-                          @Nonnull final CorrelationIdentifier aggregateAlias,
-                          @Nonnull final FDBRecordStoreBase<M> store,
-                          @Nonnull final EvaluationContext context,
-                          @Nonnull final CorrelationIdentifier alias,
-                          @Nullable final RecordCursorProto.PartialAggregationResult partialAggregationResult) {
+                          final AggregateValue aggregateValue,
+                          final Value completeResultValue,
+                          final CorrelationIdentifier groupingKeyAlias,
+                          final CorrelationIdentifier aggregateAlias,
+                          final FDBRecordStoreBase<M> store,
+                          final EvaluationContext context,
+                          final CorrelationIdentifier alias,
+                          @Nullable final PartialAggregationResult partialAggregationResult) {
         this.groupingKeyValue = groupingKeyValue;
         this.aggregateValue = aggregateValue;
 
@@ -187,18 +180,18 @@ public class StreamGrouping<M extends Message> {
         }
     }
 
-    public RecordCursorProto.PartialAggregationResult finalizeGroup() {
+    public PartialAggregationResult finalizeGroup() {
         return finalizeGroup(null);
     }
 
-    private RecordCursorProto.PartialAggregationResult finalizeGroup(Object nextGroup) {
+    private PartialAggregationResult finalizeGroup(Object nextGroup) {
         final EvaluationContext nestedContext = context.childBuilder()
                 .setBinding(groupingKeyAlias, currentGroup)
                 .setBinding(aggregateAlias, accumulator.finish())
                 .build(context.getTypeRepository());
         previousCompleteResult = completeResultValue.eval(store, nestedContext);
 
-        RecordCursorProto.PartialAggregationResult result = getPartialAggregationResult();
+        PartialAggregationResult result = getPartialAggregationResult();
         currentGroup = nextGroup;
         // "Reset" the accumulator by creating a fresh one.
         accumulator = aggregateValue.createAccumulatorWithInitialState(context.getTypeRepository(), null);
@@ -217,12 +210,12 @@ public class StreamGrouping<M extends Message> {
     }
 
     @Nullable
-    public RecordCursorProto.PartialAggregationResult getPartialAggregationResult() {
+    public PartialAggregationResult getPartialAggregationResult() {
         List<RecordCursorProto.AccumulatorState> accumulatorStates = accumulator.getAccumulatorStates();
         if (accumulatorStates.isEmpty()) {
             return null;
         }
-        final var builder = RecordCursorProto.PartialAggregationResult.newBuilder()
+        final var builder = PartialAggregationResult.newBuilder()
                 .addAllAccumulatorStates(accumulatorStates);
         if (currentGroup != null) {
             builder.setGroupKey(Objects.requireNonNull((Message)currentGroup).toByteString());

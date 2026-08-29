@@ -27,8 +27,7 @@ import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -38,16 +37,13 @@ import java.util.concurrent.Executor;
  */
 @API(API.Status.UNSTABLE)
 public class FutureCursor<T> implements RecordCursor<T> {
-    @Nonnull
     private final Executor executor;
-    @Nonnull
     private final CompletableFuture<T> future;
     private boolean done;
 
     @Nullable
     private RecordCursorResult<T> nextResult;
 
-    @Nonnull
     private static final RecordCursorContinuation notDoneContinuation = ByteArrayContinuation.fromNullable(new byte[] {0});
 
     /**
@@ -59,12 +55,11 @@ public class FutureCursor<T> implements RecordCursor<T> {
      * @param future a future that when completed will provide the single element returned by this cursor
      */
     @API(API.Status.INTERNAL)
-    public FutureCursor(@Nonnull Executor executor, @Nonnull CompletableFuture<T> future) {
+    public FutureCursor(Executor executor, CompletableFuture<T> future) {
         this.executor = executor;
         this.future = future;
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         if (done) {
@@ -88,14 +83,13 @@ public class FutureCursor<T> implements RecordCursor<T> {
         return done;
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return executor;
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         visitor.visitEnter(this);
         return visitor.visitLeave(this);
     }

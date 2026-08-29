@@ -30,8 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 
 /**
@@ -44,7 +43,6 @@ import java.util.List;
 public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpressionWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Key-With-Value-Expression");
 
-    @Nonnull
     private final KeyExpression innerKey;
     private final int splitPoint;
 
@@ -55,16 +53,15 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
     @Nullable
     private KeyExpression valueExpression; // Cached value
 
-    public KeyWithValueExpression(@Nonnull KeyExpression innerKey, int splitPoint) {
+    public KeyWithValueExpression(KeyExpression innerKey, int splitPoint) {
         this.innerKey = innerKey;
         this.splitPoint = splitPoint;
     }
 
-    public KeyWithValueExpression(@Nonnull RecordKeyExpressionProto.KeyWithValue proto) throws DeserializationException {
+    public KeyWithValueExpression(RecordKeyExpressionProto.KeyWithValue proto) throws DeserializationException {
         this(KeyExpression.fromProto(proto.getInnerKey()), proto.getSplitPoint());
     }
 
-    @Nonnull
     @Override
     public <M extends Message> List<Key.Evaluated> evaluateMessage(@Nullable FDBRecord<M> record, @Nullable Message message) {
         return getInnerKey().evaluateMessage(record, message);
@@ -76,7 +73,7 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
     }
 
     @Override
-    public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor descriptor) {
+    public List<Descriptors.FieldDescriptor> validate(Descriptors.Descriptor descriptor) {
         KeyExpression key = getInnerKey();
         if (key.getColumnSize() < splitPoint) {
             throw new InvalidExpressionException("Child expression of covering expression returns too few columns")
@@ -94,13 +91,11 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
         return getSplitPoint();
     }
 
-    @Nonnull
     @Override
     protected KeyExpression getSubKeyImpl(int start, int end) {
         return getInnerKey().getSubKey(start, end);
     }
 
-    @Nonnull
     public KeyExpression getKeyExpression() {
         if (keyExpression == null) {
             keyExpression = getInnerKey().getSubKey(0, splitPoint);
@@ -108,7 +103,6 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
         return keyExpression;
     }
 
-    @Nonnull
     public KeyExpression getValueExpression() {
         if (valueExpression == null) {
             List<KeyExpression> allKeys = normalizeKeyForPositions();
@@ -130,7 +124,6 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
         return getInnerKey().needsCopyingToPartialRecord();
     }
 
-    @Nonnull
     @Override
     public RecordKeyExpressionProto.KeyWithValue toProto() throws SerializationException {
         return RecordKeyExpressionProto.KeyWithValue.newBuilder()
@@ -139,19 +132,16 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
                 .build();
     }
 
-    @Nonnull
     @Override
     public RecordKeyExpressionProto.KeyExpression toKeyExpression() {
         return RecordKeyExpressionProto.KeyExpression.newBuilder().setKeyWithValue(toProto()).build();
     }
 
-    @Nonnull
     @Override
-    public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+    public <S extends KeyExpressionVisitor.State, R> R expand(final KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
     }
 
-    @Nonnull
     @Override
     public List<KeyExpression> normalizeKeyForPositions() {
         if (normalizedKeys == null) {
@@ -179,12 +169,10 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
         return splitPoint;
     }
 
-    @Nonnull
     public KeyExpression getInnerKey() {
         return innerKey;
     }
 
-    @Nonnull
     @Override
     public KeyExpression getChild() {
         return getKeyExpression();
@@ -196,8 +184,7 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
      * @param wholeKey the whole key with both key and value
      * @return the key portion of the given key
      */
-    @Nonnull
-    public Key.Evaluated getKey(@Nonnull Key.Evaluated wholeKey) {
+    public Key.Evaluated getKey(Key.Evaluated wholeKey) {
         return wholeKey.subKey(0, splitPoint);
     }
 
@@ -207,8 +194,7 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
      * @param wholeKey the whole key with both key and value
      * @return the value portion of the given key
      */
-    @Nonnull
-    public Key.Evaluated getValue(@Nonnull Key.Evaluated wholeKey) {
+    public Key.Evaluated getValue(Key.Evaluated wholeKey) {
         return wholeKey.subKey(splitPoint, wholeKey.size());
     }
 
@@ -239,7 +225,7 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return getInnerKey().planHash(mode) + splitPoint;

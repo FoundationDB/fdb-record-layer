@@ -39,8 +39,6 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
 
 
-import javax.annotation.Nonnull;
-
 import java.util.function.Consumer;
 
 import static com.apple.foundationdb.record.metadata.MetaDataEvolutionValidatorTest.assertInvalid;
@@ -57,8 +55,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
  */
 public class MetaDataEvolutionValidatorTestV3 {
 
-    @Nonnull
-    private static FileDescriptor mutateEnum(@Nonnull Consumer<DescriptorProtos.EnumDescriptorProto.Builder> enumMutation) {
+    private static FileDescriptor mutateEnum(Consumer<DescriptorProtos.EnumDescriptorProto.Builder> enumMutation) {
         return mutateFile(TestRecordsEnumProtoV3.getDescriptor(), fileBuilder ->
                 fileBuilder.getMessageTypeBuilderList().forEach(message -> {
                     if (message.getName().equals("MyShapeRecord")) {

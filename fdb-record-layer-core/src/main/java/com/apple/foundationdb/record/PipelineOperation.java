@@ -22,8 +22,6 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-
 /**
  * Kind of asynchronous pipelined operation being performed.
  *
@@ -34,29 +32,17 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.UNSTABLE)
 public class PipelineOperation {
-    @Nonnull
     public static final PipelineOperation INDEX_TO_RECORD = new PipelineOperation("INDEX_TO_RECORD");
-    @Nonnull
     public static final PipelineOperation KEY_TO_RECORD = new PipelineOperation("KEY_TO_RECORD");
-    @Nonnull
     public static final PipelineOperation RECORD_ASYNC_FILTER = new PipelineOperation("RECORD_ASYNC_FILTER");
-    @Nonnull
     public static final PipelineOperation INDEX_ASYNC_FILTER = new PipelineOperation("INDEX_ASYNC_FILTER");
-    @Nonnull
     public static final PipelineOperation RECORD_FUNCTION = new PipelineOperation("RECORD_FUNCTION");
-    @Nonnull
     public static final PipelineOperation RESOLVE_UNIQUENESS = new PipelineOperation("RESOLVE_UNIQUENESS");
-    @Nonnull
     public static final PipelineOperation IN_JOIN = new PipelineOperation("IN_JOIN");
-    @Nonnull
     public static final PipelineOperation TEXT_INDEX_UPDATE = new PipelineOperation("TEXT_INDEX_UPDATE");
-    @Nonnull
     public static final PipelineOperation SYNTHETIC_RECORD_JOIN = new PipelineOperation("SYNTHETIC_RECORD_JOIN");
-    @Nonnull
     public static final PipelineOperation UPDATE = new PipelineOperation("UPDATE");
-    @Nonnull
     public static final PipelineOperation DELETE = new PipelineOperation("DELETE");
-    @Nonnull
     public static final PipelineOperation INSERT = new PipelineOperation("INSERT");
 
     private final String name;

@@ -25,8 +25,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.SubspaceProvider;
 import com.google.protobuf.UnknownFieldSet;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Error thrown when encountering an unknown {@link RecordMetaDataProto.DataStoreInfo.StoreLockState.State} value
@@ -38,8 +37,8 @@ import javax.annotation.Nullable;
 public final class UnknownStoreLockStateException extends RecordCoreStorageException {
     private static final long serialVersionUID = 5487301928475634129L;
 
-    public UnknownStoreLockStateException(@Nonnull String message,
-                                          @Nonnull UnknownFieldSet unknownFields,
+    public UnknownStoreLockStateException(String message,
+                                          UnknownFieldSet unknownFields,
                                           @Nullable LogMessageKeys subspaceLogKey,
                                           @Nullable SubspaceProvider subspaceProvider) {
         super(message);

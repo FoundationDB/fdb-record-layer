@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -40,7 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 public class MapWhileCursorTest {
     static final List<Integer> ints = Arrays.asList(1, 2, 3, 4, 5);
 
-    private void validateNoNextReason(@Nonnull RecordCursor<?> cursor, @Nonnull RecordCursor.NoNextReason expectedNoNextResult) {
+    private void validateNoNextReason(RecordCursor<?> cursor, RecordCursor.NoNextReason expectedNoNextResult) {
         RecordCursorResult<?> noNextResult = cursor.getNext();
         assertEquals(false, noNextResult.hasNext());
         assertEquals(expectedNoNextResult, noNextResult.getNoNextReason());

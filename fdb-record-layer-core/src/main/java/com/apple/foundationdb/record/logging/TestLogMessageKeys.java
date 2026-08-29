@@ -22,8 +22,6 @@ package com.apple.foundationdb.record.logging;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-
 /**
  * Common {@link KeyValueLogMessage} keys logged by the Record Layer core.
  * In general, we try to consolidate all of the keys here, so that it's easy to check for collisions, ensure consistency, etc.
@@ -58,7 +56,7 @@ public enum TestLogMessageKeys {
 
     private final String logKey;
 
-    TestLogMessageKeys(@Nonnull String key) {
+    TestLogMessageKeys(String key) {
         this.logKey = key;
     }
 

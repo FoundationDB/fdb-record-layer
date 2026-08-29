@@ -26,8 +26,6 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordFunction;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 
-import javax.annotation.Nonnull;
-
 /**
  * Record function that should be evaluated for some record against
  * an {@link FDBRecordStoreBase} instance.
@@ -37,7 +35,7 @@ import javax.annotation.Nonnull;
 public class StoreRecordFunction<T> extends RecordFunction<T> {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Store-Record-Function");
 
-    public StoreRecordFunction(@Nonnull String name) {
+    public StoreRecordFunction(String name) {
         super(name);
     }
 
@@ -63,7 +61,7 @@ public class StoreRecordFunction<T> extends RecordFunction<T> {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
+    public int planHash(final PlanHashable.PlanHashMode mode) {
         return super.basePlanHash(mode, BASE_HASH);
     }
 

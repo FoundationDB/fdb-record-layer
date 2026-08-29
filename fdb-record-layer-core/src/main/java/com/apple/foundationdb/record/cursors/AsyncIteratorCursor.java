@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -34,11 +33,10 @@ import java.util.concurrent.Executor;
  */
 @API(API.Status.UNSTABLE)
 public class AsyncIteratorCursor<T> extends IteratorCursorBase<T, AsyncIterator<T>> {
-    public AsyncIteratorCursor(@Nonnull Executor executor, @Nonnull AsyncIterator<T> iterator) {
+    public AsyncIteratorCursor(Executor executor, AsyncIterator<T> iterator) {
         super(executor, iterator);
     }
 
-    @Nonnull
     @Override
     @API(API.Status.EXPERIMENTAL)
     public CompletableFuture<RecordCursorResult<T>> onNext() {

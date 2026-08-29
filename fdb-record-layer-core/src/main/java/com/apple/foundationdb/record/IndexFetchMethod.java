@@ -23,8 +23,6 @@ package com.apple.foundationdb.record;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.planprotos.PIndexFetchMethod;
 
-import javax.annotation.Nonnull;
-
 /**
  * An indicator for the index fetch method to use for a query or an index scan.
  * Possible values are:
@@ -42,9 +40,8 @@ public enum IndexFetchMethod {
     USE_REMOTE_FETCH,
     USE_REMOTE_FETCH_WITH_FALLBACK;
 
-    @Nonnull
     @SuppressWarnings("unused")
-    public PIndexFetchMethod toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PIndexFetchMethod toProto(final PlanSerializationContext serializationContext) {
         switch (this) {
             case SCAN_AND_FETCH:
                 return PIndexFetchMethod.SCAN_AND_FETCH;
@@ -57,10 +54,9 @@ public enum IndexFetchMethod {
         }
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    public static IndexFetchMethod fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                             @Nonnull final PIndexFetchMethod indexFetchMethodProto) {
+    public static IndexFetchMethod fromProto(final PlanSerializationContext serializationContext,
+                                             final PIndexFetchMethod indexFetchMethodProto) {
         switch (indexFetchMethodProto) {
             case SCAN_AND_FETCH:
                 return SCAN_AND_FETCH;

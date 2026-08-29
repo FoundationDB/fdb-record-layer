@@ -22,8 +22,7 @@ package com.apple.foundationdb.record.util.pair;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 
 /**
@@ -100,7 +99,6 @@ public class ImmutablePair<L, R> implements Pair<L, R> {
      * @param <R> the type of the right element
      * @return a new {@code Pair} wrapping the two elements
      */
-    @Nonnull
     public static <L, R> ImmutablePair<L, R> of(@Nullable L left, @Nullable R right) {
         return new ImmutablePair<>(left, right);
     }

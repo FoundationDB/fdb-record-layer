@@ -30,8 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 
 /**
@@ -43,20 +42,19 @@ import java.util.List;
 public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpressionWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Grouping-Key-Expression");
 
-    @Nonnull
     private final KeyExpression wholeKey;
     private final int groupedCount;
 
-    public GroupingKeyExpression(@Nonnull KeyExpression wholeKey, int groupedCount) {
+    public GroupingKeyExpression(KeyExpression wholeKey, int groupedCount) {
         this.wholeKey = wholeKey;
         this.groupedCount = groupedCount;
     }
 
-    public GroupingKeyExpression(@Nonnull RecordKeyExpressionProto.Grouping grouping) throws DeserializationException {
+    public GroupingKeyExpression(RecordKeyExpressionProto.Grouping grouping) throws DeserializationException {
         this(KeyExpression.fromProto(grouping.getWholeKey()), grouping.getGroupedCount());
     }
 
-    public static GroupingKeyExpression of(@Nonnull KeyExpression groupedValue, @Nonnull KeyExpression groupByFirst, @Nonnull KeyExpression... groupByRest) {
+    public static GroupingKeyExpression of(KeyExpression groupedValue, KeyExpression groupByFirst, KeyExpression... groupByRest) {
         KeyExpression wholeKeyFirst = groupByFirst;
         KeyExpression wholeKeySecond;
         KeyExpression[] wholeKeyRest = new KeyExpression[groupByRest.length];
@@ -71,7 +69,6 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
                 groupedValue.getColumnSize());
     }
 
-    @Nonnull
     @Override
     public <M extends Message> List<Key.Evaluated> evaluateMessage(@Nullable FDBRecord<M> record, @Nullable Message message) {
         return getWholeKey().evaluateMessage(record, message);
@@ -83,7 +80,7 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
     }
 
     @Override
-    public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor descriptor) {
+    public List<Descriptors.FieldDescriptor> validate(Descriptors.Descriptor descriptor) {
         return getWholeKey().validate(descriptor);
     }
 
@@ -97,7 +94,6 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
         return getWholeKey().needsCopyingToPartialRecord();
     }
 
-    @Nonnull
     @Override
     public RecordKeyExpressionProto.Grouping toProto() throws SerializationException {
         final RecordKeyExpressionProto.Grouping.Builder builder = RecordKeyExpressionProto.Grouping.newBuilder();
@@ -106,13 +102,11 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
         return builder.build();
     }
 
-    @Nonnull
     @Override
     public RecordKeyExpressionProto.KeyExpression toKeyExpression() {
         return RecordKeyExpressionProto.KeyExpression.newBuilder().setGrouping(toProto()).build();
     }
 
-    @Nonnull
     @Override
     public List<KeyExpression> normalizeKeyForPositions() {
         return getWholeKey().normalizeKeyForPositions();
@@ -123,9 +117,8 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
         return getWholeKey().hasLosslessNormalization();
     }
 
-    @Nonnull
     @Override
-    public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+    public <S extends KeyExpressionVisitor.State, R> R expand(final KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
     }
 
@@ -139,13 +132,11 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
         return getWholeKey().hasRecordTypeKey();
     }
 
-    @Nonnull
     public KeyExpression getWholeKey() {
         return wholeKey;
     }
 
     @Override
-    @Nonnull
     public KeyExpression getChild() {
         return getGroupingSubKey();
     }
@@ -164,12 +155,10 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
         return getColumnSize() - groupedCount;
     }
 
-    @Nonnull
     public KeyExpression getGroupedSubKey() {
         return getWholeKey().getSubKey(getGroupingCount(), getColumnSize());
     }
 
-    @Nonnull
     public KeyExpression getGroupingSubKey() {
         return getWholeKey().getSubKey(0, getGroupingCount());
     }
@@ -203,7 +192,7 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return getWholeKey().planHash(mode) + groupedCount;

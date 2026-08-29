@@ -23,7 +23,6 @@ package com.apple.foundationdb.record;
 import com.google.common.collect.Maps;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
@@ -42,8 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class RecordStoreStateTest {
 
-    @Nonnull
-    private static RecordStoreState stateOf(@Nonnull Object... values) {
+    private static RecordStoreState stateOf(Object... values) {
         if (values.length % 2 != 0) {
             throw new RecordCoreArgumentException("odd number of values given to create record store state");
         }
@@ -56,8 +54,7 @@ public class RecordStoreStateTest {
         return new RecordStoreState(null, indexStateMap);
     }
 
-    @Nonnull
-    private Set<String> indexNamesWithState(@Nonnull RecordStoreState storeState, @Nonnull IndexState indexState) {
+    private Set<String> indexNamesWithState(RecordStoreState storeState, IndexState indexState) {
         return storeState.getIndexStates().entrySet().stream()
                 .filter(entry -> entry.getValue().equals(indexState))
                 .map(Map.Entry::getKey)

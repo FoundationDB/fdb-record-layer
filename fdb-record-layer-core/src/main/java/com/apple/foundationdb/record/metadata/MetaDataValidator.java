@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,18 +36,13 @@ import java.util.Map;
  */
 @API(API.Status.UNSTABLE)
 public class MetaDataValidator implements RecordMetaDataProvider {
-    @Nonnull
     protected final RecordMetaData metaData;
-    @Nonnull
     protected final IndexValidatorRegistry indexRegistry;
-    @Nonnull
     protected final Map<Object, Index> assignedPrefixes;
-    @Nonnull
     protected final Map<Object, FormerIndex> assignedFormerPrefixes;
-    @Nonnull
     protected final Map<Object, RecordType> recordTypeKeys;
 
-    public MetaDataValidator(@Nonnull RecordMetaDataProvider metaData, @Nonnull IndexValidatorRegistry indexRegistry) {
+    public MetaDataValidator(RecordMetaDataProvider metaData, IndexValidatorRegistry indexRegistry) {
         this.metaData = metaData.getRecordMetaData();
         this.indexRegistry = indexRegistry;
         this.assignedPrefixes = new HashMap<>();
@@ -77,7 +71,7 @@ public class MetaDataValidator implements RecordMetaDataProvider {
         }
     }
 
-    protected void validateRecordType(@Nonnull RecordType recordType) {
+    protected void validateRecordType(RecordType recordType) {
         metaData.getUnionFieldForRecordType(recordType);    // Throws if missing.
         validatePrimaryKeyForRecordType(recordType.getPrimaryKey(), recordType);
         RecordType otherRecordType = recordTypeKeys.put(recordType.getRecordTypeKey(), recordType);
@@ -92,7 +86,7 @@ public class MetaDataValidator implements RecordMetaDataProvider {
         }
     }
 
-    protected void validatePrimaryKeyForRecordType(@Nonnull KeyExpression primaryKey, @Nonnull RecordType recordType) {
+    protected void validatePrimaryKeyForRecordType(KeyExpression primaryKey, RecordType recordType) {
         primaryKey.validate(recordType.getDescriptor());
         if (primaryKey.createsDuplicates()) {
             throw new MetaDataException("Primary key for " + recordType.getName() +
@@ -114,7 +108,7 @@ public class MetaDataValidator implements RecordMetaDataProvider {
         }
     }
 
-    protected void validateIndex(@Nonnull Index index) {
+    protected void validateIndex(Index index) {
         indexRegistry.getIndexValidator(index).validate(this);
         final Index otherIndex = assignedPrefixes.put(index.getSubspaceKey(), index);
         if (otherIndex != null) {
@@ -154,7 +148,7 @@ public class MetaDataValidator implements RecordMetaDataProvider {
         }
     }
 
-    protected void validateFormerIndex(@Nonnull FormerIndex formerIndex) {
+    protected void validateFormerIndex(FormerIndex formerIndex) {
         final FormerIndex otherFormerIndex = assignedFormerPrefixes.put(formerIndex.getSubspaceKey(), formerIndex);
         if (otherFormerIndex != null) {
             final String indexNameString = (formerIndex.getFormerName() == null ? "<unknown>" : formerIndex.getFormerName()) +
@@ -179,18 +173,16 @@ public class MetaDataValidator implements RecordMetaDataProvider {
         }
     }
 
-    public void validateIndexForRecordTypes(@Nonnull Index index, @Nonnull IndexValidator indexValidator) {
+    public void validateIndexForRecordTypes(Index index, IndexValidator indexValidator) {
         for (RecordType recordType : metaData.recordTypesForIndex(index)) {
             indexValidator.validateIndexForRecordType(recordType, this);
         }
     }
 
-    @Nonnull
-    public List<Descriptors.FieldDescriptor> validateIndexForRecordType(@Nonnull Index index, @Nonnull RecordType recordType) {
+    public List<Descriptors.FieldDescriptor> validateIndexForRecordType(Index index, RecordType recordType) {
         return index.validate(recordType.getDescriptor());
     }
 
-    @Nonnull
     @Override
     public RecordMetaData getRecordMetaData() {
         return metaData;

@@ -24,8 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.google.common.base.Suppliers;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.AbstractCollection;
 import java.util.Collection;
 import java.util.Iterator;
@@ -42,17 +41,16 @@ import java.util.function.Supplier;
  */
 @API(API.Status.EXPERIMENTAL)
 public class MemoryDam<K, V> extends MemoryScratchpad<K, V, Map<K, V>> {
-    public MemoryDam(@Nonnull final MemorySortAdapter<K, V> adapter, @Nullable final StoreTimer timer) {
+    public MemoryDam(final MemorySortAdapter<K, V> adapter, @Nullable final StoreTimer timer) {
         super(adapter, new LinkedHashMap<>(), timer);
     }
 
     @Override
-    public void removeLast(@Nonnull final K currentKey) {
+    public void removeLast(final K currentKey) {
         // insertion order -- we remove the current one
         getMap().remove(currentKey);
     }
 
-    @Nonnull
     @Override
     public Collection<V> tailValues(@Nullable final K minimumKey) {
         return new AbstractCollection<>() {
@@ -70,7 +68,7 @@ public class MemoryDam<K, V> extends MemoryScratchpad<K, V, Map<K, V>> {
         };
     }
 
-    private static <K, V, M extends Map<K, V>> Set<V> filteredEntries(@Nonnull M map, @Nullable final K minimumKey) {
+    private static <K, V, M extends Map<K, V>> Set<V> filteredEntries(M map, @Nullable final K minimumKey) {
         final LinkedHashSet<V> filteredEntries = new LinkedHashSet<>();
         boolean hasSeenMinimumKey = false;
         for (final Map.Entry<K, V> entry : map.entrySet()) {

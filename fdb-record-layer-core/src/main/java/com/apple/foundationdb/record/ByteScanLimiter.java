@@ -22,8 +22,6 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-
 /**
  * Track the number of bytes scanned up to some limit, after which record scans should not be allowed.
  *
@@ -36,7 +34,6 @@ public interface ByteScanLimiter {
      * {@link #hasBytesRemaining()} and {@link #registerScannedBytes(long)}.
      * @return a new {@code ByteScanLimiter} with this limiter's original limit
      */
-    @Nonnull
     ByteScanLimiter reset();
 
     /**

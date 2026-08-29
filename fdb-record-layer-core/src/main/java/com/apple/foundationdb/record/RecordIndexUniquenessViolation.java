@@ -25,8 +25,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An exception thrown when there is an attempt to store a duplicate value in a unique index.
@@ -39,12 +38,12 @@ import javax.annotation.Nullable;
 @API(API.Status.UNSTABLE)
 @SuppressWarnings({"serial", "squid:S1948", "squid:MaximumInheritanceDepth"})
 public class RecordIndexUniquenessViolation extends RecordCoreException {
-    @Nonnull private Index index;
+    private Index index;
     @Nullable private IndexEntry indexEntry;
     @Nullable private Tuple primaryKey;
     @Nullable private Tuple existingKey;
 
-    public RecordIndexUniquenessViolation(@Nonnull Index index,
+    public RecordIndexUniquenessViolation(Index index,
                                           IndexEntry indexEntry,
                                           Tuple primaryKey,
                                           Tuple existingKey) {
@@ -72,7 +71,6 @@ public class RecordIndexUniquenessViolation extends RecordCoreException {
      * Get the index associated with this uniqueness violation.
      * @return the index associated with this uniqueness violation
      */
-    @Nonnull
     public Index getIndex() {
         return index;
     }

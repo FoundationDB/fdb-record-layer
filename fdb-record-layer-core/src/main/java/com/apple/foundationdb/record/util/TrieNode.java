@@ -26,8 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -50,11 +49,9 @@ public interface TrieNode<D, T, N extends TrieNode<D, T, N>> extends TreeLike<N>
     @Nullable
     Map<D, N> getChildrenMap();
 
-    @Nonnull
     @Override
     Iterable<N> getChildren();
 
-    @Nonnull
     List<T> values();
 
     /**
@@ -69,10 +66,8 @@ public interface TrieNode<D, T, N extends TrieNode<D, T, N>> extends TreeLike<N>
         private final T value;
         @Nullable
         private final Map<D, N> childrenMap;
-        @Nonnull
         @SuppressWarnings("this-escape")
         private final Supplier<Iterable<N>> childrenSupplier = Suppliers.memoize(this::computeChildren);
-        @Nonnull
         @SuppressWarnings("this-escape")
         private final Supplier<Integer> heightSupplier = Suppliers.memoize(TrieNode.super::height);
 
@@ -93,13 +88,11 @@ public interface TrieNode<D, T, N extends TrieNode<D, T, N>> extends TreeLike<N>
             return childrenMap;
         }
 
-        @Nonnull
         @Override
         public Iterable<N> getChildren() {
             return childrenSupplier.get();
         }
 
-        @Nonnull
         private Iterable<N> computeChildren() {
             return childrenMap == null ? ImmutableList.of() : childrenMap.values();
         }
@@ -109,13 +102,11 @@ public interface TrieNode<D, T, N extends TrieNode<D, T, N>> extends TreeLike<N>
             return heightSupplier.get();
         }
 
-        @Nonnull
         @Override
         public N withChildren(final Iterable<? extends N> newChildren) {
             throw new UnsupportedOperationException("trie does not define order among children");
         }
 
-        @Nonnull
         @Override
         public List<T> values() {
             return preOrderStream()
@@ -169,7 +160,6 @@ public interface TrieNode<D, T, N extends TrieNode<D, T, N>> extends TreeLike<N>
             return value;
         }
 
-        @Nonnull
         public N setValue(@Nullable final T value) {
             this.value = value;
             return getThis();
@@ -181,7 +171,6 @@ public interface TrieNode<D, T, N extends TrieNode<D, T, N>> extends TreeLike<N>
             return childrenMap;
         }
 
-        @Nonnull
         public N computeIfAbsent(final D key,
                                  final Function<D, N> mappingFunction) {
             if (this.childrenMap == null) {
@@ -190,7 +179,6 @@ public interface TrieNode<D, T, N extends TrieNode<D, T, N>> extends TreeLike<N>
             return childrenMap.computeIfAbsent(key, mappingFunction);
         }
 
-        @Nonnull
         public N compute(final D key,
                          final BiFunction<D, N, N> mappingBiFunction) {
             if (this.childrenMap == null) {
@@ -199,19 +187,16 @@ public interface TrieNode<D, T, N extends TrieNode<D, T, N>> extends TreeLike<N>
             return childrenMap.compute(key, mappingBiFunction);
         }
 
-        @Nonnull
         @Override
         public Iterable<N> getChildren() {
             return childrenMap == null ? ImmutableList.of() : childrenMap.values();
         }
 
-        @Nonnull
         @Override
         public N withChildren(final Iterable<? extends N> newChildren) {
             throw new UnsupportedOperationException("trie does not define order among children");
         }
 
-        @Nonnull
         @Override
         public List<T> values() {
             return preOrderStream()

@@ -28,4 +28,7 @@
  *     then merge sort those files, then return results by reading the resultant file.</li>
  * </ul>
  */
+@NullMarked
 package com.apple.foundationdb.record.sorting;
+
+import org.jspecify.annotations.NullMarked;

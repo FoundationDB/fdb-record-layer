@@ -26,8 +26,7 @@ import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,26 +57,25 @@ public class Bindings {
             this.value = value;
         }
 
-        public static boolean isInternal(@Nonnull String name) {
+        public static boolean isInternal(String name) {
             return name.startsWith(PREFIX);
         }
 
-        public boolean isOfType(@Nonnull String name) {
+        public boolean isOfType(String name) {
             return name.startsWith(value);
         }
 
-        public String bindingName(@Nonnull String suffix) {
+        public String bindingName(String suffix) {
             return value + suffix;
         }
 
-        public String identifier(@Nonnull String bindingName) {
+        public String identifier(String bindingName) {
             Verify.verify(bindingName.startsWith(value));
             return bindingName.substring(value.length());
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
-        public PBindingKind toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PBindingKind toProto(final PlanSerializationContext serializationContext) {
             switch (this) {
                 case IN:
                     return PBindingKind.IN;
@@ -92,9 +90,8 @@ public class Bindings {
             }
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
-        public static Internal fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PBindingKind bindingKindProto) {
+        public static Internal fromProto(final PlanSerializationContext serializationContext, final PBindingKind bindingKindProto) {
             switch (bindingKindProto) {
                 case IN:
                     return IN;
@@ -110,7 +107,6 @@ public class Bindings {
         }
     }
 
-    @Nonnull
     private final Map<String, Object> values;
     @Nullable
     private final Bindings parent;
@@ -127,7 +123,7 @@ public class Bindings {
     }
     
     @Nullable
-    public Object get(@Nonnull String name) {
+    public Object get(String name) {
         if (values.containsKey(name)) {
             return values.get(name);
         } else if (parent != null) {
@@ -137,7 +133,7 @@ public class Bindings {
         }
     }
 
-    public boolean containsBinding(@Nonnull String name) {
+    public boolean containsBinding(String name) {
         if (values.containsKey(name)) {
             return true;
         } else if (parent != null) {
@@ -155,7 +151,6 @@ public class Bindings {
         return new Builder(this);
     }
 
-    @Nonnull
     public List<Map.Entry<String, Object>> asMappingList() {
         final ImmutableList.Builder<Map.Entry<String, Object>> resultBuilder = ImmutableList.builder();
         values.forEach((key, value) -> resultBuilder.add(Pair.of(key, value)));
@@ -177,7 +172,6 @@ public class Bindings {
      * </code></pre>
      */
     public static class Builder {
-        @Nonnull
         private final Bindings bindings;
         private boolean built;
 
@@ -186,11 +180,11 @@ public class Bindings {
         }
 
         @Nullable
-        public Object get(@Nonnull String name) {
+        public Object get(String name) {
             return bindings.get(name);
         }
 
-        public Builder set(@Nonnull String name, @Nullable Object value) {
+        public Builder set(String name, @Nullable Object value) {
             if (built) {
                 throw new RecordCoreException("Cannot change bindings after building");
             }
@@ -201,7 +195,6 @@ public class Bindings {
             return this;
         }
 
-        @Nonnull
         public Bindings build() {
             built = true;
             return bindings;

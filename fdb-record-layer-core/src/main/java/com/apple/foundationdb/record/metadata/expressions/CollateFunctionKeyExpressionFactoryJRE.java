@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.google.auto.service.AutoService;
 import com.apple.foundationdb.record.provider.common.text.TextCollatorRegistryJRE;
 
-import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
 
@@ -38,7 +37,6 @@ import java.util.List;
 public class CollateFunctionKeyExpressionFactoryJRE implements FunctionKeyExpression.Factory {
     public static final String FUNCTION_NAME = "collate_jre";
 
-    @Nonnull
     @Override
     public List<FunctionKeyExpression.Builder> getBuilders() {
         return Collections.singletonList(
@@ -46,7 +44,7 @@ public class CollateFunctionKeyExpressionFactoryJRE implements FunctionKeyExpres
     }
 
     protected static class CollateFunctionKeyExpressionJRE extends CollateFunctionKeyExpression {
-        protected CollateFunctionKeyExpressionJRE(@Nonnull String name, @Nonnull KeyExpression arguments) {
+        protected CollateFunctionKeyExpressionJRE(String name, KeyExpression arguments) {
             super(TextCollatorRegistryJRE.instance(), name, arguments);
         }
     }

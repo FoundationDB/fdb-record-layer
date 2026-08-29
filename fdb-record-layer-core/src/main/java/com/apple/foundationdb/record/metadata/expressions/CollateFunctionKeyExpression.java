@@ -33,8 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
@@ -74,21 +73,20 @@ import java.util.function.Function;
 public class CollateFunctionKeyExpression extends FunctionKeyExpression implements QueryableKeyExpression {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Collate-Function-Key-Expression");
 
-    @Nonnull
     private final TextCollatorRegistry collatorRegistry;
     @Nullable
     private final TextCollator invariableCollator;
 
-    protected CollateFunctionKeyExpression(@Nonnull TextCollatorRegistry collatorRegistry,
-                                           @Nonnull String name, @Nonnull KeyExpression arguments) {
+    protected CollateFunctionKeyExpression(TextCollatorRegistry collatorRegistry,
+                                           String name, KeyExpression arguments) {
         super(name, arguments);
         this.collatorRegistry = collatorRegistry;
         this.invariableCollator = getInvariableCollator(collatorRegistry, arguments);
     }
 
     @Nullable
-    protected static TextCollator getInvariableCollator(@Nonnull TextCollatorRegistry collatorRegistry,
-                                                        @Nonnull KeyExpression arguments) {
+    protected static TextCollator getInvariableCollator(TextCollatorRegistry collatorRegistry,
+                                                        KeyExpression arguments) {
         // If the locale and strength are missing or literals, we can lookup immediately.
         if (arguments.getColumnSize() < 2) {
             return collatorRegistry.getTextCollator();
@@ -129,7 +127,7 @@ public class CollateFunctionKeyExpression extends FunctionKeyExpression implemen
         return null;
     }
 
-    protected TextCollator getTextCollator(@Nonnull Key.Evaluated arguments) {
+    protected TextCollator getTextCollator(Key.Evaluated arguments) {
         if (invariableCollator != null) {
             return invariableCollator;
         }
@@ -144,7 +142,6 @@ public class CollateFunctionKeyExpression extends FunctionKeyExpression implemen
         return locale == null ? collatorRegistry.getTextCollator(strength) : collatorRegistry.getTextCollator(locale, strength);
     }
 
-    @Nonnull
     public TextCollatorRegistry getCollatorRegistry() {
         return collatorRegistry;
     }
@@ -159,11 +156,10 @@ public class CollateFunctionKeyExpression extends FunctionKeyExpression implemen
         return 3;
     }
 
-    @Nonnull
     @Override
     public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record,
                                                                     @Nullable Message message,
-                                                                    @Nonnull Key.Evaluated arguments) {
+                                                                    Key.Evaluated arguments) {
         final String value = arguments.getString(0);
         if (value == null) {
             return Collections.singletonList(Key.Evaluated.NULL);
@@ -183,15 +179,13 @@ public class CollateFunctionKeyExpression extends FunctionKeyExpression implemen
         return 1;
     }
 
-    @Nonnull
     @Override
-    public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+    public <S extends KeyExpressionVisitor.State, R> R expand(final KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
     }
 
-    @Nonnull
     @Override
-    public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+    public Value toValue(final List<? extends Value> argumentValues) {
         Verify.verify(argumentValues.size() == arguments.getColumnSize());
         return resolveAndEncapsulateFunction(getName(), argumentValues);
     }
@@ -207,7 +201,7 @@ public class CollateFunctionKeyExpression extends FunctionKeyExpression implemen
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
+    public int planHash(final PlanHashable.PlanHashMode mode) {
         return super.basePlanHash(mode, BASE_HASH);
     }
 

@@ -23,8 +23,7 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An encapsulation of the mutable state of query or scan execution. In general, parameters that affect
@@ -41,9 +40,7 @@ public class ExecuteState {
      */
     public static final ExecuteState NO_LIMITS = new ExecuteState(RecordScanLimiterFactory.untracked(), ByteScanLimiterFactory.untracked());
 
-    @Nonnull
     private final RecordScanLimiter recordScanLimiter;
-    @Nonnull
     private final ByteScanLimiter byteScanLimiter;
 
     /**
@@ -70,7 +67,6 @@ public class ExecuteState {
      * a meaningful way, since this might vary depending on that piece of state.
      * @return a new state that represents the same properties but does not share mutable state with this {@code ExecuteState}
      */
-    @Nonnull
     public ExecuteState reset() {
         return new ExecuteState(recordScanLimiter.reset(), byteScanLimiter.reset());
     }
@@ -86,7 +82,6 @@ public class ExecuteState {
      * Particular base cursors may exceed the record scan limit in other ways, which are documented in their Javadocs.
      * @return the record scan limiter
      */
-    @Nonnull
     public RecordScanLimiter getRecordScanLimiter() {
         return recordScanLimiter;
     }
@@ -102,7 +97,6 @@ public class ExecuteState {
      * Particular base cursors may exceed the record scan limit in other ways which are documented in their Javadocs.
      * @return the byte scan limiter
      */
-    @Nonnull
     public ByteScanLimiter getByteScanLimiter() {
         return byteScanLimiter;
     }

@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -35,21 +34,18 @@ import java.util.concurrent.Executor;
  */
 @API(API.Status.UNSTABLE)
 public class EmptyCursor<T> implements RecordCursor<T> {
-    @Nonnull
     private final Executor executor;
     private boolean closed = false;
 
-    public EmptyCursor(@Nonnull Executor executor) {
+    public EmptyCursor(Executor executor) {
         this.executor = executor;
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         return CompletableFuture.completedFuture(RecordCursorResult.exhausted());
     }
 
-    @Nonnull
     @Override
     public RecordCursorResult<T> getNext() {
         return RecordCursorResult.exhausted();
@@ -65,14 +61,13 @@ public class EmptyCursor<T> implements RecordCursor<T> {
         return closed;
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return executor;
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         visitor.visitEnter(this);
         return visitor.visitLeave(this);
     }

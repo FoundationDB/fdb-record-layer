@@ -35,7 +35,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -71,7 +70,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @API(API.Status.EXPERIMENTAL)
 public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinConstituent> {
 
-    @Nonnull
     private final List<Join> joins;
 
     /**
@@ -94,59 +92,49 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
      * An equi-join between constituent types.
      */
     public static class Join {
-        @Nonnull
         private final JoinConstituent left;
-        @Nonnull
         private final KeyExpression leftExpression;
-        @Nonnull
         private final JoinConstituent right;
-        @Nonnull
         private final KeyExpression rightExpression;
 
-        protected Join(@Nonnull JoinConstituent left, @Nonnull KeyExpression leftExpression,
-                       @Nonnull JoinConstituent right, @Nonnull KeyExpression rightExpression) {
+        protected Join(JoinConstituent left, KeyExpression leftExpression,
+                       JoinConstituent right, KeyExpression rightExpression) {
             this.left = left;
             this.leftExpression = leftExpression;
             this.right = right;
             this.rightExpression = rightExpression;
         }
 
-        @Nonnull
         public JoinConstituent getLeft() {
             return left;
         }
 
-        @Nonnull
         public KeyExpression getLeftExpression() {
             return leftExpression;
         }
 
-        @Nonnull
         public JoinConstituent getRight() {
             return right;
         }
 
-        @Nonnull
         public KeyExpression getRightExpression() {
             return rightExpression;
         }
     }
 
     @SuppressWarnings("squid:S00107") // Comes from Builder.
-    protected JoinedRecordType(@Nonnull RecordMetaData metaData, @Nonnull Descriptors.Descriptor descriptor,
-                               @Nonnull KeyExpression primaryKey, @Nonnull Object recordTypeKey,
-                               @Nonnull List<Index> indexes, @Nonnull List<Index> multiTypeIndexes,
-                               @Nonnull List<JoinConstituent> constituents, @Nonnull List<Join> joins) {
+    protected JoinedRecordType(RecordMetaData metaData, Descriptors.Descriptor descriptor,
+                               KeyExpression primaryKey, Object recordTypeKey,
+                               List<Index> indexes, List<Index> multiTypeIndexes,
+                               List<JoinConstituent> constituents, List<Join> joins) {
         super(metaData, descriptor, primaryKey, recordTypeKey, indexes, multiTypeIndexes, constituents);
         this.joins = joins;
     }
 
-    @Nonnull
     public List<Join> getJoins() {
         return joins;
     }
 
-    @Nonnull
     @Override
     @API(API.Status.INTERNAL)
     public CompletableFuture<FDBSyntheticRecord> loadByPrimaryKeyAsync(FDBRecordStore store, Tuple primaryKey, IndexOrphanBehavior orphanBehavior) {
@@ -193,7 +181,6 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
         });
     }
 
-    @Nonnull
     public RecordMetaDataProto.JoinedRecordType toProto() {
         RecordMetaDataProto.JoinedRecordType.Builder typeBuilder = RecordMetaDataProto.JoinedRecordType.newBuilder()
                 .setName(getName())

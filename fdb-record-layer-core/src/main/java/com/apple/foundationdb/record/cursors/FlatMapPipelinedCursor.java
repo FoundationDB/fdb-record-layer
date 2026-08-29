@@ -34,8 +34,7 @@ import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Queue;
@@ -60,13 +59,10 @@ import java.util.function.Function;
 public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
 
     private static final CompletableFuture<Boolean> ALREADY_CANCELLED = MoreAsyncUtil.alreadyCancelled();
-    @Nonnull
     private final RecordCursor<T> outerCursor;
-    @Nonnull
     private final BiFunction<T, byte[], ? extends RecordCursor<V>> innerCursorFunction;
     @Nullable
     private final Function<T, byte[]> checkValueFunction;
-    @Nonnull
     private RecordCursorContinuation outerContinuation;
     @Nullable
     private final byte[] initialCheckValue;
@@ -77,7 +73,6 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
      * The pipeline used to add some parallelism to reads. Note this queue is not thread safe, so access
      * should generally be mediated through one of the {@code synchronized} methods.
      */
-    @Nonnull
     private final Queue<PipelineQueueEntry> pipeline;
     /**
      * The next value to pull from the outer cursor. This value is cleared out by {@link #close()}, so
@@ -93,8 +88,8 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
     private RecordCursorResult<V> lastResult;
 
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
-    public FlatMapPipelinedCursor(@Nonnull RecordCursor<T> outerCursor,
-                                  @Nonnull BiFunction<T, byte[], ? extends RecordCursor<V>> innerCursorFunction,
+    public FlatMapPipelinedCursor(RecordCursor<T> outerCursor,
+                                  BiFunction<T, byte[], ? extends RecordCursor<V>> innerCursorFunction,
                                   @Nullable Function<T, byte[]> checkValueFunction,
                                   @Nullable byte[] outerContinuation,
                                   @Nullable byte[] initialCheckValue,
@@ -117,7 +112,6 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         this.pipeline = new ArrayDeque<>(pipelineSize);
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<V>> onNext() {
         if (lastResult != null && !lastResult.hasNext()) {
@@ -157,14 +151,13 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
             outerCursor.accept(visitor);
         }
         return visitor.visitLeave(this);
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return outerCursor.getExecutor();
@@ -174,7 +167,6 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
      * Take items from inner cursor and put in pipeline until no more or a mapped cursor item is available.
      * @return a future that will complete with {@code false} if an item is available or none will ever be, or with {@code true} if this method should be called to try again
      */
-    @Nonnull
     protected CompletableFuture<Boolean> tryToFillPipeline() {
         if (closed) {
             return ALREADY_CANCELLED;
@@ -301,7 +293,6 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
             this.outerCheckValue = outerCheckValue;
         }
 
-        @Nonnull
         public CompletableFuture<PipelineQueueEntry> getNextInnerPipelineFuture() {
             if (innerFuture == null) {
                 if (innerCursor == null) {
@@ -346,7 +337,6 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
             }
         }
 
-        @Nonnull
         public RecordCursorResult<V> nextResult() {
             // Only called after the future from getNextInnerPipelineFuture() has completed, so this join() is non-blocking.
             final RecordCursorResult<V> innerResult = innerFuture.join();
@@ -369,30 +359,26 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
             return result;
         }
 
-        @Nonnull
         private Continuation<T, V> toContinuation() {
             return new Continuation<>(priorOuterContinuation, outerResult, outerCheckValue, innerFuture.join());
         }
     }
 
     private static class Continuation<T, V> implements RecordCursorContinuation {
-        @Nonnull
         private final RecordCursorContinuation priorOuterContinuation;
-        @Nonnull
         private final RecordCursorResult<T> outerResult;
         @Nullable
         private final byte[] outerCheckValue;
-        @Nonnull
         private final RecordCursorResult<V> innerResult;
         @Nullable
         private ByteString cachedByteString;
         @Nullable
         private byte[] cachedBytes;
 
-        public Continuation(@Nonnull RecordCursorContinuation priorOuterContinuation,
-                            @Nonnull RecordCursorResult<T> outerResult,
+        public Continuation(RecordCursorContinuation priorOuterContinuation,
+                            RecordCursorResult<T> outerResult,
                             @Nullable byte[] outerCheckValue,
-                            @Nonnull RecordCursorResult<V> innerResult) {
+                            RecordCursorResult<V> innerResult) {
             this.priorOuterContinuation = priorOuterContinuation;
             this.outerResult = outerResult;
             this.outerCheckValue = outerCheckValue;
@@ -404,7 +390,6 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
             return outerResult.getContinuation().isEnd() && innerResult.getContinuation().isEnd();
         }
 
-        @Nonnull
         @Override
         public ByteString toByteString() {
             if (isEnd()) {

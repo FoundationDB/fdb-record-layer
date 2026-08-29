@@ -26,8 +26,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Iterator;
 import java.util.concurrent.Executor;
 
@@ -37,9 +36,7 @@ import java.util.concurrent.Executor;
  * @param <C> the type of {@link Iterator}
  */
 abstract class IteratorCursorBase<T, C extends Iterator<T>> implements RecordCursor<T> {
-    @Nonnull
     protected final Executor executor;
-    @Nonnull
     protected final C iterator;
     protected int valuesSeen;
 
@@ -48,7 +45,7 @@ abstract class IteratorCursorBase<T, C extends Iterator<T>> implements RecordCur
     @Nullable
     protected RecordCursorResult<T> nextResult;
 
-    protected IteratorCursorBase(@Nonnull Executor executor, @Nonnull C iterator) {
+    protected IteratorCursorBase(Executor executor, C iterator) {
         this.executor = executor;
         this.iterator = iterator;
         this.valuesSeen = 0;
@@ -76,14 +73,13 @@ abstract class IteratorCursorBase<T, C extends Iterator<T>> implements RecordCur
         return closed;
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return executor;
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         visitor.visitEnter(this);
         return visitor.visitLeave(this);
     }

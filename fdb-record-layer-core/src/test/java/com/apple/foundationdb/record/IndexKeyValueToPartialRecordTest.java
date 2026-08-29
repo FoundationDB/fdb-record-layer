@@ -30,7 +30,6 @@ import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -39,17 +38,14 @@ import java.util.concurrent.TimeUnit;
 
 class IndexKeyValueToPartialRecordTest {
 
-    @Nonnull
     private static final Random random = new Random();
 
     @SuppressWarnings("UnstableApiUsage")
-    @Nonnull
     private static final IndexKeyValueToPartialRecord plan = IndexKeyValueToPartialRecord.newBuilder(TestRecords1Proto.MySimpleRecord.getDescriptor())
             .addField("num_value_2", IndexKeyValueToPartialRecord.TupleSource.VALUE, new AvailableFields.TruePredicate(), ImmutableIntArray.of(0), null)
             .build();
 
-    @Nonnull
-    private static Descriptors.Descriptor evolveMessage(@Nonnull final Descriptors.Descriptor originalDescriptor) {
+    private static Descriptors.Descriptor evolveMessage(final Descriptors.Descriptor originalDescriptor) {
         final var descriptorWithNewFieldProto = DescriptorProtos.DescriptorProto.newBuilder(originalDescriptor.toProto())
                 .addField(DescriptorProtos.FieldDescriptorProto
                         .newBuilder()
@@ -68,13 +64,10 @@ class IndexKeyValueToPartialRecordTest {
         return descriptorWithNewField.findMessageTypeByName(descriptorWithNewFieldProto.getName());
     }
 
-    @Nonnull
     private static final Descriptors.Descriptor originalDescriptor = TestRecords1Proto.MySimpleRecord.getDescriptor();
 
-    @Nonnull
     private static final Descriptors.Descriptor newDescriptor = evolveMessage(originalDescriptor);
 
-    @Nonnull
     private static IndexEntry randomIndexEntry() {
         return new IndexEntry(new Index("foo", "bar"), Tuple.from("num_value_2"), Tuple.from(42L));
     }

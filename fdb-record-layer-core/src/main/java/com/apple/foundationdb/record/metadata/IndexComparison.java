@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.annotations.VisibleForTesting;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
@@ -48,8 +47,7 @@ public abstract class IndexComparison {
      * @return an equivalent {@link IndexComparison} object.
      * @throws RecordCoreException if the provided message is not supported.
      */
-    @Nonnull
-    public static IndexComparison fromProto(@Nonnull final RecordMetaDataProto.Comparison proto) {
+    public static IndexComparison fromProto(final RecordMetaDataProto.Comparison proto) {
         if (proto.hasSimpleComparison()) {
             return new SimpleComparison(proto.getSimpleComparison());
         } else if (proto.hasNullComparison()) {
@@ -66,8 +64,7 @@ public abstract class IndexComparison {
      * @throws RecordCoreException if the provided {@link Comparisons.Comparison} is not supported.
      */
     @VisibleForTesting
-    @Nonnull
-    public static IndexComparison fromComparison(@Nonnull final Comparisons.Comparison comparison) {
+    public static IndexComparison fromComparison(final Comparisons.Comparison comparison) {
         if (comparison instanceof Comparisons.SimpleComparison) {
             return new SimpleComparison((Comparisons.SimpleComparison)comparison);
         } else if (comparison instanceof Comparisons.NullComparison) {
@@ -83,7 +80,7 @@ public abstract class IndexComparison {
      * @param comparison The comparison to check.
      * @return {@code true} if the comparison is supported, otherwise {@code false}.
      */
-    public static boolean isSupported(@Nonnull final Comparisons.Comparison comparison) {
+    public static boolean isSupported(final Comparisons.Comparison comparison) {
         return comparison instanceof Comparisons.SimpleComparison ||
                 comparison instanceof Comparisons.NullComparison ||
                 (comparison instanceof Comparisons.ValueComparison &&
@@ -97,14 +94,12 @@ public abstract class IndexComparison {
      * Converts this {@link IndexComparison} into a corresponding protobuf message.
      * @return an equivalent protobuf message.
      */
-    @Nonnull
     public abstract RecordMetaDataProto.Comparison toProto();
 
     /**
      * Converts this {@link IndexComparison} into an equivalent {@link Comparisons.Comparison}.
      * @return An equivalent {@link Comparisons.Comparison}.
      */
-    @Nonnull
     public abstract Comparisons.Comparison toComparison();
 
     /**
@@ -127,10 +122,8 @@ public abstract class IndexComparison {
             IS_NULL;
         }
 
-        @Nonnull
         private final ComparisonType comparisonType;
 
-        @Nonnull
         private final Object operand;
 
         @VisibleForTesting
@@ -166,12 +159,12 @@ public abstract class IndexComparison {
             this.operand = comparison.getComparand(null, null);
         }
 
-        public SimpleComparison(@Nonnull final ComparisonType comparisonType, @Nonnull final Object operand) {
+        public SimpleComparison(final ComparisonType comparisonType, final Object operand) {
             this.comparisonType = comparisonType;
             this.operand = operand;
         }
 
-        public SimpleComparison(@Nonnull final RecordMetaDataProto.SimpleComparison proto) {
+        public SimpleComparison(final RecordMetaDataProto.SimpleComparison proto) {
             final var comparand = Objects.requireNonNull(LiteralKeyExpression.fromProtoValue(proto.getOperand()));
             ComparisonType comparisonType;
             switch (proto.getType()) {
@@ -206,17 +199,14 @@ public abstract class IndexComparison {
             this.operand = comparand;
         }
 
-        @Nonnull
         public Object getOperand() {
             return operand;
         }
 
-        @Nonnull
         public ComparisonType getComparisonType() {
             return comparisonType;
         }
 
-        @Nonnull
         @Override
         public RecordMetaDataProto.Comparison toProto() {
             RecordMetaDataProto.ComparisonType protoComparison;
@@ -255,7 +245,6 @@ public abstract class IndexComparison {
                     .build();
         }
 
-        @Nonnull
         @Override
         public Comparisons.Comparison toComparison() {
             Comparisons.Type type;
@@ -306,12 +295,12 @@ public abstract class IndexComparison {
             this.isNull = isNull;
         }
 
-        public NullComparison(@Nonnull final RecordMetaDataProto.NullComparison nullComparison) {
+        public NullComparison(final RecordMetaDataProto.NullComparison nullComparison) {
             this.isNull = nullComparison.getIsNull();
         }
 
         @VisibleForTesting
-        public NullComparison(@Nonnull final Comparisons.NullComparison comparison) {
+        public NullComparison(final Comparisons.NullComparison comparison) {
             this.isNull = comparison.getType().equals(Comparisons.Type.IS_NULL);
         }
 
@@ -319,14 +308,12 @@ public abstract class IndexComparison {
             return isNull;
         }
 
-        @Nonnull
         @Override
         public RecordMetaDataProto.Comparison toProto() {
             return RecordMetaDataProto.Comparison.newBuilder()
                     .setNullComparison(RecordMetaDataProto.NullComparison.newBuilder().setIsNull(isNull).build()).build();
         }
 
-        @Nonnull
         @Override
         public Comparisons.Comparison toComparison() {
             return new Comparisons.NullComparison(isNull ? Comparisons.Type.IS_NULL : Comparisons.Type.NOT_NULL);

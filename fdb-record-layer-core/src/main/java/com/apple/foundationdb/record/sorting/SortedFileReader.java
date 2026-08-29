@@ -28,8 +28,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.ExtensionRegistryLite;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import javax.crypto.Cipher;
 import java.io.File;
 import java.io.FileInputStream;
@@ -37,6 +36,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.FileChannel;
 import java.security.GeneralSecurityException;
+import java.security.Key;
 
 /**
  * Read values from files written by {@link FileSorter}. Keys are skipped.
@@ -44,14 +44,12 @@ import java.security.GeneralSecurityException;
  */
 @API(API.Status.EXPERIMENTAL)
 public class SortedFileReader<V> implements AutoCloseable {
-    @Nonnull
     private final FileInputStream fileStream;
-    @Nonnull
     private final FileSortAdapter<?, V> adapter;
 
     private final boolean compressed;
     @Nullable
-    private final java.security.Key encryptionKey;
+    private final Key encryptionKey;
     @Nullable
     private final Cipher cipher;
     @Nullable
@@ -65,12 +63,10 @@ public class SortedFileReader<V> implements AutoCloseable {
     private long sectionFileStart;
     private long sectionFileEnd;
 
-    @Nonnull
     private CodedInputStream headerStream;
-    @Nonnull
     private CodedInputStream entryStream;
 
-    public SortedFileReader(@Nonnull File file, @Nonnull FileSortAdapter<?, V> adapter, @Nullable StoreTimer timer,
+    public SortedFileReader(File file, FileSortAdapter<?, V> adapter, @Nullable StoreTimer timer,
                             int skip, int limit) throws IOException, GeneralSecurityException {
         fileStream = new FileInputStream(file);
         this.adapter = adapter;

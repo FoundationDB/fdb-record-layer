@@ -27,8 +27,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -40,17 +39,11 @@ import java.util.List;
  */
 @API(API.Status.UNSTABLE)
 public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
-    @Nonnull
     private final RecordMetaData metaData;
-    @Nonnull
     private final String name;
-    @Nonnull
     private final Descriptors.Descriptor descriptor;
-    @Nonnull
     private final KeyExpression primaryKey;
-    @Nonnull
     private final List<Index> indexes;
-    @Nonnull
     private final List<Index> multiTypeIndexes;
     @Nullable
     private final Integer sinceVersion;
@@ -61,8 +54,8 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
     @Nullable
     private Tuple recordTypeKeyTuple = null;
 
-    public RecordType(@Nonnull RecordMetaData metaData, @Nonnull Descriptors.Descriptor descriptor, @Nonnull KeyExpression primaryKey,
-                      @Nonnull List<Index> indexes, @Nonnull List<Index> multiTypeIndexes, @Nullable Integer sinceVersion, @Nullable Object recordTypeKey) {
+    public RecordType(RecordMetaData metaData, Descriptors.Descriptor descriptor, KeyExpression primaryKey,
+                      List<Index> indexes, List<Index> multiTypeIndexes, @Nullable Integer sinceVersion, @Nullable Object recordTypeKey) {
         this.metaData = metaData;
         this.descriptor = descriptor;
         this.primaryKey = primaryKey;
@@ -74,19 +67,16 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
     }
 
     @Override
-    @Nonnull
     public String getName() {
         return name;
     }
 
     @Override
-    @Nonnull
     public Descriptors.Descriptor getDescriptor() {
         return descriptor;
     }
 
     @Override
-    @Nonnull
     public List<Index> getIndexes() {
         return indexes;
     }
@@ -97,7 +87,6 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
      * @return a list of all indexes that include this record type along with other types.
      */
     @Override
-    @Nonnull
     public List<Index> getMultiTypeIndexes() {
         return multiTypeIndexes;
     }
@@ -114,7 +103,6 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
      * @see #getMultiTypeIndexes
      * @see RecordMetaData#getUniversalIndexes
      */
-    @Nonnull
     public List<Index> getAllIndexes() {
         List<Index> allIndexes = new ArrayList<>();
         allIndexes.addAll(getIndexes());
@@ -124,7 +112,6 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
     }
 
     @Override
-    @Nonnull
     public KeyExpression getPrimaryKey() {
         return primaryKey;
     }
@@ -166,7 +153,6 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
      *
      * @return stable and unique key for the record type
      */
-    @Nonnull
     @Override
     public Object getRecordTypeKey() {
         if (recordTypeKey == null) {
@@ -198,7 +184,6 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
      *
      * @return a {@link Tuple} containing the {@linkplain #getRecordTypeKey() record type key}
      */
-    @Nonnull
     public Tuple getRecordTypeKeyTuple() {
         if (recordTypeKeyTuple == null) {
             recordTypeKeyTuple = Tuple.from(TupleTypeUtil.toTupleAppropriateValue(getRecordTypeKey()));
@@ -218,7 +203,6 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
      * Get the meta-data of which this record type is a part.
      * @return owning meta-data
      */
-    @Nonnull
     @Override
     public RecordMetaData getRecordMetaData() {
         return metaData;

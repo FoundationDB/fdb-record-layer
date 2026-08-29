@@ -25,8 +25,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -38,9 +37,7 @@ import java.util.function.Function;
  */
 @API(API.Status.UNSTABLE)
 public class MapResultCursor<T, V> implements RecordCursor<V> {
-    @Nonnull
     private final RecordCursor<T> inner;
-    @Nonnull
     private final Function<RecordCursorResult<T>, RecordCursorResult<V>> func;
 
     @Nullable
@@ -57,12 +54,11 @@ public class MapResultCursor<T, V> implements RecordCursor<V> {
      * @see RecordCursor#mapResult(Function)
      */
     @API(API.Status.INTERNAL)
-    public MapResultCursor(@Nonnull RecordCursor<T> inner, @Nonnull Function<RecordCursorResult<T>, RecordCursorResult<V>> func) {
+    public MapResultCursor(RecordCursor<T> inner, Function<RecordCursorResult<T>, RecordCursorResult<V>> func) {
         this.inner = inner;
         this.func = func;
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<V>> onNext() {
         if (nextResult != null && !nextResult.hasNext()) {
@@ -85,14 +81,13 @@ public class MapResultCursor<T, V> implements RecordCursor<V> {
         return inner.isClosed();
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return inner.getExecutor();
     }
 
     @Override
-    public boolean accept(@Nonnull final RecordCursorVisitor visitor) {
+    public boolean accept(final RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
             inner.accept(visitor);
         }

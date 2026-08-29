@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.metadata;
 
 import com.apple.foundationdb.record.RecordMetaDataProto;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
@@ -32,28 +31,23 @@ import java.util.Objects;
  */
 public class View {
 
-    @Nonnull
     private final String name;
 
-    @Nonnull
     private final String definition;
 
-    public View(@Nonnull final String name, @Nonnull final String definition) {
+    public View(final String name, final String definition) {
         this.name = name;
         this.definition = definition;
     }
 
-    @Nonnull
     public String getName() {
         return name;
     }
 
-    @Nonnull
     public String getDefinition() {
         return definition;
     }
 
-    @Nonnull
     public RecordMetaDataProto.PView toProto() {
         return RecordMetaDataProto.PView.newBuilder()
                 .setName(name)
@@ -86,8 +80,7 @@ public class View {
                 '}';
     }
 
-    @Nonnull
-    public static View fromProto(@Nonnull final RecordMetaDataProto.PView sqlView) {
+    public static View fromProto(final RecordMetaDataProto.PView sqlView) {
         return new View(sqlView.getName(), sqlView.getDefinition());
     }
 }

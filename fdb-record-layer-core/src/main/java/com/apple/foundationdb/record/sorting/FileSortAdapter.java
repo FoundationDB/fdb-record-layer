@@ -25,8 +25,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.security.Key;
@@ -44,7 +43,6 @@ public interface FileSortAdapter<K, V> extends MemorySortAdapter<K, V> {
      * @return a file into which to save sorted records
      * @throws IOException if something fails creating the file
      */
-    @Nonnull
     File generateFilename() throws IOException;
 
     /**
@@ -60,7 +58,7 @@ public interface FileSortAdapter<K, V> extends MemorySortAdapter<K, V> {
      * @param stream the destination stream
      * @throws IOException if something fails writing to a file
      */
-    void writeValue(@Nonnull V value, @Nonnull CodedOutputStream stream) throws IOException;
+    void writeValue(V value, CodedOutputStream stream) throws IOException;
 
     /**
      * Read the value from a Protobuf stream.
@@ -68,8 +66,7 @@ public interface FileSortAdapter<K, V> extends MemorySortAdapter<K, V> {
      * @return the next value in the stream
      * @throws IOException if something fails reading from the file
      */
-    @Nonnull
-    V readValue(@Nonnull CodedInputStream stream) throws IOException;
+    V readValue(CodedInputStream stream) throws IOException;
 
     /**
      * Get the mimimum number of records needed to write a file.

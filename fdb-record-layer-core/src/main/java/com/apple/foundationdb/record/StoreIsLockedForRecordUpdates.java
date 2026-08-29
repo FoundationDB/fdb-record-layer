@@ -23,8 +23,6 @@ package com.apple.foundationdb.record;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 
-import javax.annotation.Nonnull;
-
 /**
  * Error being thrown when attempting to update a record while the store is locked for record updates.
  */
@@ -32,7 +30,7 @@ import javax.annotation.Nonnull;
 public class StoreIsLockedForRecordUpdates extends RecordCoreStorageException {
     private static final long serialVersionUID = -640771754012134421L;
 
-    public StoreIsLockedForRecordUpdates(@Nonnull final RecordStoreState recordStoreState) {
+    public StoreIsLockedForRecordUpdates(final RecordStoreState recordStoreState) {
         super("Record Store is locked for record updates",
                 LogMessageKeys.STORE_LOCK_STATE_REASON, recordStoreState.getStoreHeader().getStoreLockState().getReason(),
                 LogMessageKeys.STORE_LOCK_STATE_TIMESTAMP_MILLIS, recordStoreState.getStoreHeader().getStoreLockState().getTimestamp());

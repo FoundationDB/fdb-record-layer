@@ -32,8 +32,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 
@@ -49,12 +48,11 @@ import java.util.Objects;
 public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExpressionWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Dimension-Key-Expression");
 
-    @Nonnull
     private final KeyExpression wholeKey;
     private final int prefixSize;
     private final int dimensionsSize;
 
-    private DimensionsKeyExpression(@Nonnull final KeyExpression wholeKey,
+    private DimensionsKeyExpression(final KeyExpression wholeKey,
                                    final int prefixSize,
                                    final int dimensionsSize) {
         this.wholeKey = wholeKey;
@@ -62,7 +60,7 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
         this.dimensionsSize = dimensionsSize;
     }
 
-    DimensionsKeyExpression(@Nonnull final RecordKeyExpressionProto.Dimensions dimensions) throws DeserializationException {
+    DimensionsKeyExpression(final RecordKeyExpressionProto.Dimensions dimensions) throws DeserializationException {
         this(KeyExpression.fromProto(dimensions.getWholeKey()), dimensions.getPrefixSize(), dimensions.getDimensionsSize());
     }
 
@@ -74,7 +72,6 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
         return dimensionsSize;
     }
 
-    @Nonnull
     @Override
     public <M extends Message> List<Key.Evaluated> evaluateMessage(@Nullable final FDBRecord<M> record, @Nullable final Message message) {
         return getWholeKey().evaluateMessage(record, message);
@@ -86,7 +83,7 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
     }
 
     @Override
-    public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor descriptor) {
+    public List<Descriptors.FieldDescriptor> validate(Descriptors.Descriptor descriptor) {
         if (prefixSize + dimensionsSize > wholeKey.getColumnSize()) {
             throw new InvalidExpressionException("dimensions declared a prefix size and number of dimensions " +
                                                  "that are together larger than the number of columns in the index");
@@ -111,7 +108,6 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
         return getWholeKey().needsCopyingToPartialRecord();
     }
 
-    @Nonnull
     @Override
     public RecordKeyExpressionProto.Dimensions toProto() throws SerializationException {
         final RecordKeyExpressionProto.Dimensions.Builder builder = RecordKeyExpressionProto.Dimensions.newBuilder();
@@ -121,13 +117,11 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
         return builder.build();
     }
 
-    @Nonnull
     @Override
     public RecordKeyExpressionProto.KeyExpression toKeyExpression() {
         return RecordKeyExpressionProto.KeyExpression.newBuilder().setDimensions(toProto()).build();
     }
 
-    @Nonnull
     @Override
     public List<KeyExpression> normalizeKeyForPositions() {
         return getWholeKey().normalizeKeyForPositions();
@@ -138,15 +132,13 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
         return getWholeKey().hasLosslessNormalization();
     }
 
-    @Nonnull
     @Override
     protected KeyExpression getSubKeyImpl(final int start, final int end) {
         return getWholeKey().getSubKey(start, end);
     }
 
-    @Nonnull
     @Override
-    public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+    public <S extends KeyExpressionVisitor.State, R> R expand(final KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
     }
 
@@ -160,13 +152,11 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
         return getWholeKey().hasRecordTypeKey();
     }
 
-    @Nonnull
     public KeyExpression getWholeKey() {
         return wholeKey;
     }
 
     @Override
-    @Nonnull
     public KeyExpression getChild() {
         return getWholeKey();
     }
@@ -179,12 +169,10 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
         return getWholeKey().getSubKey(0, prefixSize);
     }
 
-    @Nonnull
     public KeyExpression getDimensionsSubKey() {
         return getWholeKey().getSubKey(prefixSize, dimensionsSize);
     }
 
-    @Nonnull
     public KeyExpression getPrefixAndDimensionsKeyExpression() {
         return getWholeKey().getSubKey(0, prefixSize + dimensionsSize);
     }
@@ -218,7 +206,7 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
@@ -228,9 +216,8 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
         }
     }
 
-    @Nonnull
     public static DimensionsKeyExpression of(@Nullable final KeyExpression prefix,
-                                             @Nonnull final KeyExpression dimensions) {
+                                             final KeyExpression dimensions) {
         final int prefixCount = prefix == null ? 0 : prefix.getColumnSize();
         final int dimensionsCount = dimensions.getColumnSize();
         Verify.verify(dimensionsCount > 1);
@@ -244,9 +231,8 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
         return new DimensionsKeyExpression(wholeKey, prefixCount, dimensionsCount);
     }
 
-    @Nonnull
     public static DimensionsKeyExpression of(@Nullable final KeyExpression prefix,
-                                             @Nonnull final KeyExpression dimensions,
+                                             final KeyExpression dimensions,
                                              @Nullable final KeyExpression rest) {
         final int prefixCount = prefix == null ? 0 : prefix.getColumnSize();
         final int dimensionsCount = dimensions.getColumnSize();
@@ -262,7 +248,7 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
         return new DimensionsKeyExpression(wholeKey, prefixCount, dimensionsCount);
     }
 
-    public static DimensionsKeyExpression of(@Nonnull KeyExpression wholeKey,
+    public static DimensionsKeyExpression of(KeyExpression wholeKey,
                                              int prefixCount,
                                              int dimensionsCount) {
         Verify.verify(dimensionsCount > 1);
@@ -270,7 +256,6 @@ public class DimensionsKeyExpression extends BaseKeyExpression implements KeyExp
         return new DimensionsKeyExpression(wholeKey, prefixCount, dimensionsCount);
     }
 
-    @Nonnull
     private static List<KeyExpression> liftExpression(@Nullable final KeyExpression expression) {
         if (expression == null) {
             return ImmutableList.of();

@@ -31,8 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -48,14 +47,13 @@ import java.util.stream.Collectors;
 public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressionWithChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Then-Key-Expression");
 
-    @Nonnull
     private final List<KeyExpression> children;
 
-    public ThenKeyExpression(@Nonnull List<KeyExpression> exprs) {
+    public ThenKeyExpression(List<KeyExpression> exprs) {
         this(exprs, 0, exprs.size());
     }
 
-    public ThenKeyExpression(@Nonnull List<KeyExpression> exprs, int startIdx, int endIdx) {
+    public ThenKeyExpression(List<KeyExpression> exprs, int startIdx, int endIdx) {
         children = new ArrayList<>(endIdx - startIdx);
         for (int i = startIdx; i < endIdx; i++) {
             add(children, exprs.get(i));
@@ -65,7 +63,7 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
         }
     }
 
-    public ThenKeyExpression(@Nonnull KeyExpression first, @Nonnull KeyExpression second, @Nonnull KeyExpression... rest) {
+    public ThenKeyExpression(KeyExpression first, KeyExpression second, KeyExpression... rest) {
         children = new ArrayList<>(rest.length + 2);
         add(children, first);
         add(children, second);
@@ -74,7 +72,7 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
         }
     }
 
-    public ThenKeyExpression(@Nonnull RecordKeyExpressionProto.Then then) throws DeserializationException {
+    public ThenKeyExpression(RecordKeyExpressionProto.Then then) throws DeserializationException {
         children = new ArrayList<>(then.getChildCount());
         for (RecordKeyExpressionProto.KeyExpression child : then.getChildList()) {
             final KeyExpression expression = KeyExpression.fromProto(child);
@@ -85,7 +83,6 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
         }
     }
 
-    @Nonnull
     @Override
     public <M extends Message> List<Key.Evaluated> evaluateMessage(@Nullable FDBRecord<M> record, @Nullable Message message) {
         final List<List<Key.Evaluated>> childrenValues = new ArrayList<>(children.size());
@@ -98,7 +95,7 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
         return combine(childrenValues, totalCount);
     }
 
-    private List<Key.Evaluated> combine(@Nonnull List<List<Key.Evaluated>> childrenValues, int totalCount) {
+    private List<Key.Evaluated> combine(List<List<Key.Evaluated>> childrenValues, int totalCount) {
         final List<Key.Evaluated> combined = new ArrayList<>(totalCount);
         for (Key.Evaluated childValue : childrenValues.get(0)) {
             combine(combined, childValue, 1, childrenValues);
@@ -107,8 +104,8 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
         return combined;
     }
 
-    private void combine(@Nonnull List<Key.Evaluated> combined, @Nonnull Key.Evaluated prefix, int valuesIndex,
-                         @Nonnull List<List<Key.Evaluated>> childrenValues) {
+    private void combine(List<Key.Evaluated> combined, Key.Evaluated prefix, int valuesIndex,
+                         List<List<Key.Evaluated>> childrenValues) {
         if (valuesIndex == childrenValues.size()) {
             combined.add(prefix);
         } else {
@@ -133,7 +130,7 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
     }
 
     @Override
-    public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor descriptor) {
+    public List<Descriptors.FieldDescriptor> validate(Descriptors.Descriptor descriptor) {
         return children.stream().flatMap(child -> child.validate(descriptor).stream()).collect(Collectors.toList());
     }
 
@@ -150,17 +147,14 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
      * Get this entire concatenation as a group without any grouping keys.
      * @return this concatenation without any grouping keys
      */
-    @Nonnull
     public GroupingKeyExpression ungrouped() {
         return new GroupingKeyExpression(this, getColumnSize());
     }
 
-    @Nonnull
-    public GroupingKeyExpression groupBy(@Nonnull KeyExpression groupByFirst, @Nonnull KeyExpression... groupByRest) {
+    public GroupingKeyExpression groupBy(KeyExpression groupByFirst, KeyExpression... groupByRest) {
         return GroupingKeyExpression.of(this, groupByFirst, groupByRest);
     }
 
-    @Nonnull
     public GroupingKeyExpression group(int count) {
         if (count < 0 || count > getColumnSize()) {
             throw new RecordCoreException("Grouped count out of range");
@@ -168,7 +162,6 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
         return new GroupingKeyExpression(this, count);
     }
 
-    @Nonnull
     @Override
     public RecordKeyExpressionProto.Then toProto() throws SerializationException {
         final RecordKeyExpressionProto.Then.Builder builder = RecordKeyExpressionProto.Then.newBuilder();
@@ -179,18 +172,15 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
     }
 
     @Override
-    @Nonnull
     public RecordKeyExpressionProto.KeyExpression toKeyExpression() {
         return RecordKeyExpressionProto.KeyExpression.newBuilder().setThen(toProto()).build();
     }
 
-    @Nonnull
     @Override
-    public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+    public <S extends KeyExpressionVisitor.State, R> R expand(final KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
     }
 
-    @Nonnull
     @Override
     public List<KeyExpression> normalizeKeyForPositions() {
         List<KeyExpression> list = new ArrayList<>();
@@ -243,13 +233,11 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
         }
     }
 
-    @Nonnull
     @Override
     public List<KeyExpression> getChildren() {
         return children;
     }
 
-    @Nonnull
     public List<KeyExpression> getChildrenRefs() {
         return children;
     }
@@ -261,7 +249,7 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
     }
 
     // should not be used outside of the Then constructors
-    private static void add(@Nonnull List<KeyExpression> children, @Nonnull KeyExpression child) {
+    private static void add(List<KeyExpression> children, KeyExpression child) {
         if (child instanceof ThenKeyExpression) {
             ThenKeyExpression then = (ThenKeyExpression) child;
             children.addAll(then.getChildrenRefs());
@@ -295,7 +283,7 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return PlanHashable.planHash(mode, getChildren());

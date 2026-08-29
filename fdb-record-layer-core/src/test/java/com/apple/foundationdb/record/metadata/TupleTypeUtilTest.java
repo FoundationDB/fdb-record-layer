@@ -35,8 +35,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -70,7 +69,6 @@ public class TupleTypeUtilTest {
         dbExtension.getDatabase();
     }
 
-    @Nonnull
     private static final List<Object> VALUES = Arrays.asList(
             null,
             Key.Evaluated.NullStandin.NULL,
@@ -107,7 +105,6 @@ public class TupleTypeUtilTest {
             Versionstamp.incomplete(1415)
     );
 
-    @Nonnull
     private byte[] toBytes(@Nullable Object value) {
         Object tupleValue = TupleTypeUtil.toTupleAppropriateValue(value);
         if (tupleValue instanceof Versionstamp && !((Versionstamp)tupleValue).isComplete()) {
@@ -117,7 +114,6 @@ public class TupleTypeUtilTest {
         }
     }
 
-    @Nonnull
     public static Stream<Object> valueEquivalenceSource() {
         return VALUES.stream();
     }

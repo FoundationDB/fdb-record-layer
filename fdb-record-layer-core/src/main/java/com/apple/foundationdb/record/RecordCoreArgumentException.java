@@ -22,8 +22,6 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-
 /**
  * Functional equivalent of <code>IllegalArgumentException</code>.
  */
@@ -31,11 +29,11 @@ import javax.annotation.Nonnull;
 public class RecordCoreArgumentException extends RecordCoreException {
     private static final long serialVersionUID = 1;
 
-    public RecordCoreArgumentException(@Nonnull String msg, @Nonnull Object... keyValue) {
+    public RecordCoreArgumentException(String msg, Object... keyValue) {
         super(msg, keyValue);
     }
 
-    public RecordCoreArgumentException(@Nonnull String msg, @Nonnull Throwable cause) {
+    public RecordCoreArgumentException(String msg, Throwable cause) {
         super(msg, cause);
     }
 }

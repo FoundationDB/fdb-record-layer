@@ -40,8 +40,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -84,7 +83,6 @@ public class IndexAggregateFunctionCall {
     /**
      * Function name used in this function call.
      */
-    @Nonnull
     private final String functionName;
 
     /**
@@ -103,7 +101,6 @@ public class IndexAggregateFunctionCall {
      *
      * See {@link #toIndexAggregateFunction(String)} which uses this field directly.
      */
-    @Nonnull
     private final GroupingKeyExpression groupingKeyExpression;
 
     /**
@@ -111,13 +108,11 @@ public class IndexAggregateFunctionCall {
      * provides iteration in insertion order. That property may be useful for clients that attempt to bind
      * calls to index aggregate functions using the grouping keys as queried (written).
      */
-    @Nonnull
     private final Set<KeyExpression> groupingExpressions;
 
     /**
      * The grouped expression, i.e., the expression that captures what is computed per group.
      */
-    @Nonnull
     private final KeyExpression groupedExpression;
 
     /**
@@ -133,18 +128,18 @@ public class IndexAggregateFunctionCall {
      * @param functionName function name of the call
      * @param groupingKeyExpression the grouping key expression
      */
-    public IndexAggregateFunctionCall(@Nonnull String functionName,
-                                      @Nonnull GroupingKeyExpression groupingKeyExpression) {
+    public IndexAggregateFunctionCall(String functionName,
+                                      GroupingKeyExpression groupingKeyExpression) {
         this(functionName,
                 groupingKeyExpression,
                 groupingKeyExpression.getGroupingSubKey().normalizeKeyForPositions(),
                 groupingKeyExpression.getGroupedSubKey());
     }
 
-    protected IndexAggregateFunctionCall(@Nonnull String functionName,
-                                         @Nonnull GroupingKeyExpression groupingKeyExpression,
-                                         @Nonnull Iterable<KeyExpression> groupingExpressions,
-                                         @Nonnull KeyExpression groupedExpression) {
+    protected IndexAggregateFunctionCall(String functionName,
+                                         GroupingKeyExpression groupingKeyExpression,
+                                         Iterable<KeyExpression> groupingExpressions,
+                                         KeyExpression groupedExpression) {
         this.functionName = functionName;
         this.groupingKeyExpression = groupingKeyExpression;
         // note that Guava's ImmutableSet iterates in insertion order
@@ -156,22 +151,18 @@ public class IndexAggregateFunctionCall {
                                     groupingKeyExpression.hasLosslessNormalization();
     }
 
-    @Nonnull
     public String getFunctionName() {
         return functionName;
     }
 
-    @Nonnull
     public GroupingKeyExpression getGroupingKeyExpression() {
         return groupingKeyExpression;
     }
 
-    @Nonnull
     public Set<KeyExpression> getGroupingExpressions() {
         return groupingExpressions;
     }
 
-    @Nonnull
     public KeyExpression getGroupedExpression() {
         return groupedExpression;
     }
@@ -201,18 +192,15 @@ public class IndexAggregateFunctionCall {
         return Objects.hashCode(getFunctionName(), getGroupingKeyExpression(), getGroupingExpressions(), getGroupedExpression());
     }
 
-    @Nonnull
-    public IndexAggregateFunctionCall withNewGroupingKeyExpression(@Nonnull final GroupingKeyExpression groupingKeyExpression) {
+    public IndexAggregateFunctionCall withNewGroupingKeyExpression(final GroupingKeyExpression groupingKeyExpression) {
         return new IndexAggregateFunctionCall(getFunctionName(), groupingKeyExpression);
     }
 
-    @Nonnull
-    public IndexAggregateFunctionCall withNewExpressions(@Nonnull List<KeyExpression> groupingKeysPermutation, @Nonnull KeyExpression groupedExpression) {
+    public IndexAggregateFunctionCall withNewExpressions(List<KeyExpression> groupingKeysPermutation, KeyExpression groupedExpression) {
         return withNewGroupingKeyExpression(toGroupingKeyExpression(groupingKeysPermutation, groupedExpression));
     }
 
-    @Nonnull
-    public QueryComponent applyCondition(@Nonnull QueryComponent filterCondition) {
+    public QueryComponent applyCondition(QueryComponent filterCondition) {
         return filterCondition;
     }
 
@@ -227,7 +215,7 @@ public class IndexAggregateFunctionCall {
      * @param indexName indexName to use
      * @return a {@link Stream} of {@link IndexAggregateFunction}s
      */
-    public Stream<IndexAggregateFunction> enumerateIndexAggregateFunctionCandidates(@Nonnull String indexName) {
+    public Stream<IndexAggregateFunction> enumerateIndexAggregateFunctionCandidates(String indexName) {
         if (isGroupingPermutable) {
             final EnumeratingIterable<KeyExpression> groupingPermutations =
                     TopologicalSort.permutations(getGroupingExpressions());
@@ -246,8 +234,7 @@ public class IndexAggregateFunctionCall {
      * @param groupingKeysPermutation permutation of key expressions to use that is compatible with the aggregate index
      * @return a new {@link IndexAggregateFunction}
      */
-    @Nonnull
-    protected IndexAggregateFunction toIndexAggregateFunction(@Nonnull String indexName, @Nonnull List<KeyExpression> groupingKeysPermutation) {
+    protected IndexAggregateFunction toIndexAggregateFunction(String indexName, List<KeyExpression> groupingKeysPermutation) {
         return toIndexAggregateFunction(indexName, toGroupingKeyExpression(groupingKeysPermutation));
     }
 
@@ -259,7 +246,6 @@ public class IndexAggregateFunctionCall {
      * @param indexName index to use, index is allowed to be {@code null} as some aggregate functions scan more than one index
      * @return a new {@link IndexAggregateFunction}
      */
-    @Nonnull
     public IndexAggregateFunction toIndexAggregateFunction(@Nullable String indexName) {
         return toIndexAggregateFunction(indexName, groupingKeyExpression);
     }
@@ -273,18 +259,15 @@ public class IndexAggregateFunctionCall {
      * @param groupingKeyExpression the grouping key expression to use
      * @return a new {@link IndexAggregateFunction}
      */
-    @Nonnull
-    protected IndexAggregateFunction toIndexAggregateFunction(@Nullable String indexName, @Nonnull GroupingKeyExpression groupingKeyExpression) {
+    protected IndexAggregateFunction toIndexAggregateFunction(@Nullable String indexName, GroupingKeyExpression groupingKeyExpression) {
         return new IndexAggregateFunction(getFunctionName(), groupingKeyExpression, indexName);
     }
 
-    @Nonnull
-    protected GroupingKeyExpression toGroupingKeyExpression(@Nonnull List<KeyExpression> groupingKeysPermutation) {
+    protected GroupingKeyExpression toGroupingKeyExpression(List<KeyExpression> groupingKeysPermutation) {
         return toGroupingKeyExpression(groupingKeysPermutation, groupedExpression);
     }
 
-    @Nonnull
-    public static GroupingKeyExpression toGroupingKeyExpression(@Nonnull List<KeyExpression> groupingKeysPermutation, @Nonnull KeyExpression groupedExpression) {
+    public static GroupingKeyExpression toGroupingKeyExpression(List<KeyExpression> groupingKeysPermutation, KeyExpression groupedExpression) {
         final KeyExpression keyPart;
 
         if (groupingKeysPermutation.isEmpty()) {
@@ -312,8 +295,7 @@ public class IndexAggregateFunctionCall {
      * (i.e. a {@link com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression}) that is bound
      * through an equality comparison.
      */
-    @Nonnull
-    public static Set<KeyExpression> extractEqualityBoundFields(@Nonnull QueryComponent queryComponent) {
+    public static Set<KeyExpression> extractEqualityBoundFields(QueryComponent queryComponent) {
         return extractFieldPaths(queryComponent,
                 fieldWithComparison -> fieldWithComparison.getComparison().getType() == Comparisons.Type.EQUALS ||
                                        fieldWithComparison.getComparison().getType() == Comparisons.Type.IS_NULL);
@@ -329,8 +311,7 @@ public class IndexAggregateFunctionCall {
      * (i.e. a {@link com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression}) that is bound
      * through some comparison
      */
-    @Nonnull
-    public static Set<KeyExpression> extractFieldPaths(@Nonnull QueryComponent queryComponent, @Nonnull final Predicate<ComponentWithComparison> predicate) {
+    public static Set<KeyExpression> extractFieldPaths(QueryComponent queryComponent, final Predicate<ComponentWithComparison> predicate) {
         if (queryComponent instanceof BaseField) {
             final BaseField baseField = (BaseField)queryComponent;
             if (baseField instanceof NestedField) {

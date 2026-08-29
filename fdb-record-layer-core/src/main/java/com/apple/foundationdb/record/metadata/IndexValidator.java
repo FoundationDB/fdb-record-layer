@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 
 /**
@@ -38,14 +37,13 @@ import java.util.Set;
  */
 @API(API.Status.UNSTABLE)
 public class IndexValidator {
-    @Nonnull
     protected final Index index;
 
-    public IndexValidator(@Nonnull Index index) {
+    public IndexValidator(Index index) {
         this.index = index;
     }
 
-    public void validate(@Nonnull MetaDataValidator metaDataValidator) {
+    public void validate(MetaDataValidator metaDataValidator) {
         metaDataValidator.validateIndexForRecordTypes(index, this);
         if (index.getAddedVersion() > index.getLastModifiedVersion()) {
             throw new MetaDataException("Index " + index.getName() + " has added version " + index.getAddedVersion() +
@@ -53,7 +51,7 @@ public class IndexValidator {
         }
     }
 
-    public void validateIndexForRecordType(@Nonnull RecordType recordType, @Nonnull MetaDataValidator metaDataValidator) {
+    public void validateIndexForRecordType(RecordType recordType, MetaDataValidator metaDataValidator) {
         metaDataValidator.validateIndexForRecordType(index, recordType);
     }
 
@@ -87,7 +85,7 @@ public class IndexValidator {
         }
     }
 
-    protected void validateStoresRecordVersions(@Nonnull RecordMetaDataProvider metaDataProvider) {
+    protected void validateStoresRecordVersions(RecordMetaDataProvider metaDataProvider) {
         if (!metaDataProvider.getRecordMetaData().isStoreRecordVersions()) {
             throw new MetaDataException(
                     "index type requires metadata store record version",
@@ -191,7 +189,7 @@ public class IndexValidator {
      * @param changedOptions the set of changed options to inspect
      */
     @API(API.Status.EXPERIMENTAL)
-    public void validateChangedOptions(@Nonnull Index oldIndex, @Nonnull Set<String> changedOptions) {
+    public void validateChangedOptions(Index oldIndex, Set<String> changedOptions) {
         for (String changedOption : changedOptions) {
             if (changedOption.startsWith(IndexOptions.REPLACED_BY_OPTION_PREFIX)) {
                 // The set of replacement indexes can be safely added or removed on existing indexes as it

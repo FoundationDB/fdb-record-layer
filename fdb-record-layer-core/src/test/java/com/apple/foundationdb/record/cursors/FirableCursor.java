@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -39,18 +38,15 @@ import java.util.concurrent.Executor;
  */
 @API(API.Status.INTERNAL)
 public class FirableCursor<T> implements RecordCursor<T> {
-    @Nonnull
     private final RecordCursor<T> underlying;
-    @Nonnull
     private CompletableFuture<Void> fireSignal;
     private volatile boolean fireWhenReady;
 
-    public FirableCursor(@Nonnull RecordCursor<T> underlying) {
+    public FirableCursor(RecordCursor<T> underlying) {
         this.underlying = underlying;
         this.fireSignal = new CompletableFuture<>();
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         return fireSignal.thenCompose(vignore -> underlying.onNext()).thenApply(result -> {
@@ -98,14 +94,13 @@ public class FirableCursor<T> implements RecordCursor<T> {
         return underlying.isClosed();
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return underlying.getExecutor();
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
             underlying.accept(visitor);
         }

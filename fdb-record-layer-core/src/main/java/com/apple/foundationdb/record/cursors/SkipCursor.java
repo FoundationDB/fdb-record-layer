@@ -26,8 +26,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -37,19 +36,17 @@ import java.util.concurrent.Executor;
  */
 @API(API.Status.UNSTABLE)
 public class SkipCursor<T> implements RecordCursor<T> {
-    @Nonnull
     private final RecordCursor<T> inner;
     private int skipRemaining;
 
     @Nullable
     private RecordCursorResult<T> nextResult;
 
-    public SkipCursor(@Nonnull RecordCursor<T> inner, int skip) {
+    public SkipCursor(RecordCursor<T> inner, int skip) {
         this.inner = inner;
         this.skipRemaining = skip;
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         if (nextResult != null && !nextResult.hasNext()) {
@@ -81,14 +78,13 @@ public class SkipCursor<T> implements RecordCursor<T> {
         return inner.isClosed();
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return inner.getExecutor();
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
             inner.accept(visitor);
         }

@@ -25,8 +25,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -74,7 +73,7 @@ class ProtoUtilsTest {
 
     @ParameterizedTest
     @MethodSource("protobufCompliantNameTestArguments")
-    void protobufCompliantNameTest(@Nonnull String userIdentifier, @Nullable String protobufIdentifier) {
+    void protobufCompliantNameTest(String userIdentifier, @Nullable String protobufIdentifier) {
         if (protobufIdentifier != null) {
             final String actual = ProtoUtils.toProtoBufCompliantName(userIdentifier);
             assertThat(actual)

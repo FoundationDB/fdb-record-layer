@@ -23,8 +23,7 @@ package com.apple.foundationdb.record.util;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 
 /**
@@ -95,7 +94,6 @@ public final class Result<V, E extends Throwable> {
      * @param <E> the result's error type
      * @return a new successful result wrapping the value
      */
-    @Nonnull
     public static <V, E extends Throwable> Result<V, E> success(@Nullable V value) {
         return new Result<>(value, null);
     }
@@ -108,8 +106,7 @@ public final class Result<V, E extends Throwable> {
      * @param <E> the result's error type
      * @return a new unsuccessful result wrapping the error
      */
-    @Nonnull
-    public static <V, E extends Throwable> Result<V, E> failure(@Nonnull E error) {
+    public static <V, E extends Throwable> Result<V, E> failure(E error) {
         return new Result<>(null, Objects.requireNonNull(error));
     }
 
@@ -124,7 +121,6 @@ public final class Result<V, E extends Throwable> {
      * @param <E> the type of error
      * @return a new result wrapping the value and error
      */
-    @Nonnull
     public static <V, E extends Throwable> Result<V, E> of(@Nullable V value, @Nullable E error) {
         if (value != null && error != null) {
             throw new RecordCoreArgumentException("Failure result can not have value");

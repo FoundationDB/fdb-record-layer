@@ -42,4 +42,7 @@
  * various {@link com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer}s for controlling concurrency in
  * read/write data paths.
  */
+@NullMarked
 package com.apple.foundationdb.record.locking;
+
+import org.jspecify.annotations.NullMarked;

@@ -22,8 +22,6 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-
 /**
  * Functional equivalent of {@code InterruptedException}.
  *
@@ -34,11 +32,11 @@ import javax.annotation.Nonnull;
 public class RecordCoreInterruptedException extends RecordCoreException {
     private static final long serialVersionUID = 1;
 
-    public RecordCoreInterruptedException(@Nonnull String msg, @Nonnull Object ... keyValue) {
+    public RecordCoreInterruptedException(String msg, Object ... keyValue) {
         super(msg, keyValue);
     }
 
-    public RecordCoreInterruptedException(@Nonnull String msg, @Nonnull InterruptedException cause) {
+    public RecordCoreInterruptedException(String msg, InterruptedException cause) {
         super(msg, cause);
     }
 }

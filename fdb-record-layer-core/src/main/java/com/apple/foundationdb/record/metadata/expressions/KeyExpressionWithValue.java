@@ -27,8 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
-import javax.annotation.Nonnull;
-
 /**
  * A key expression that can be represented as a single {@link Value} because it meets both of the following criteria:
  * <ul>
@@ -39,17 +37,14 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface KeyExpressionWithValue extends KeyExpression {
-    @Nonnull
-    default Value toValue(@Nonnull final Quantifier baseQuantifier) {
+    default Value toValue(final Quantifier baseQuantifier) {
         return toValue(baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType());
     }
 
-    @Nonnull
-    Value toValue(@Nonnull CorrelationIdentifier baseAlias, @Nonnull Type baseType);
+    Value toValue(CorrelationIdentifier baseAlias, Type baseType);
 
-    @Nonnull
     @Override
-    default <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull KeyExpressionVisitor<S, R> visitor) {
+    default <S extends KeyExpressionVisitor.State, R> R expand(KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
     }
 }

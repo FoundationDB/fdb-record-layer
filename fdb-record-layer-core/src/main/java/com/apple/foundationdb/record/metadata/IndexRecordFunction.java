@@ -27,8 +27,7 @@ import com.apple.foundationdb.record.RecordFunction;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 
 /**
@@ -40,18 +39,16 @@ import java.util.Objects;
 public class IndexRecordFunction<T> extends RecordFunction<T> {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Index-Record-Function");
 
-    @Nonnull
     private final GroupingKeyExpression operand;
     @Nullable
     private final String index;
 
-    public IndexRecordFunction(@Nonnull String name, @Nonnull GroupingKeyExpression operand, @Nullable String index) {
+    public IndexRecordFunction(String name, GroupingKeyExpression operand, @Nullable String index) {
         super(name);
         this.operand = operand;
         this.index = index;
     }
 
-    @Nonnull
     public GroupingKeyExpression getOperand() {
         return operand;
     }
@@ -61,18 +58,16 @@ public class IndexRecordFunction<T> extends RecordFunction<T> {
         return index;
     }
 
-    @Nonnull
-    public IndexRecordFunction<T> cloneWithOperand(@Nonnull GroupingKeyExpression operand) {
+    public IndexRecordFunction<T> cloneWithOperand(GroupingKeyExpression operand) {
         return new IndexRecordFunction<>(getName(), operand, getIndex());
     }
 
-    @Nonnull
-    public IndexRecordFunction<T> cloneWithIndex(@Nonnull String index) {
+    public IndexRecordFunction<T> cloneWithIndex(String index) {
         return new IndexRecordFunction<>(getName(), getOperand(), index);
     }
 
     @Override
-    public void validate(@Nonnull Descriptors.Descriptor descriptor) {
+    public void validate(Descriptors.Descriptor descriptor) {
         operand.validate(descriptor);
     }
 
@@ -114,7 +109,7 @@ public class IndexRecordFunction<T> extends RecordFunction<T> {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
+    public int planHash(final PlanHashable.PlanHashMode mode) {
         return super.basePlanHash(mode, BASE_HASH, operand, index);
     }
 

@@ -23,8 +23,6 @@ package com.apple.foundationdb.record.sorting;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 
-import javax.annotation.Nonnull;
-
 /**
  * {@link StoreTimer} events related to sorting.
  */
@@ -65,7 +63,6 @@ public class SortEvents {
         }
 
         @Override
-        @Nonnull
         public String logKey() {
             return this.logKey;
         }
@@ -101,7 +98,6 @@ public class SortEvents {
         }
 
         @Override
-        @Nonnull
         public String logKey() {
             return this.logKey;
         }
