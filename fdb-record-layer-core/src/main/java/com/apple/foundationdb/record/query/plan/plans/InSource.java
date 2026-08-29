@@ -36,8 +36,8 @@ import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecede
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -54,31 +54,27 @@ public abstract class InSource implements PlanHashable, PlanSerializable, Typed 
     @SuppressWarnings("unchecked")
     private static final Comparator<Object> VALUE_COMPARATOR = Comparator.comparing(Comparable.class::cast);
 
-    @Nonnull
     private final String bindingName;
 
     @SuppressWarnings("unused")
-    protected InSource(@Nonnull final PlanSerializationContext serializationContext,
-                       @Nonnull final PInSource.Super inSourceProto) {
+    protected InSource(final PlanSerializationContext serializationContext,
+                       final PInSource.Super inSourceProto) {
         this(Objects.requireNonNull(inSourceProto.getBindingName()));
     }
 
-    protected InSource(@Nonnull final String bindingName) {
+    protected InSource(final String bindingName) {
         this.bindingName = bindingName;
     }
 
-    @Nonnull
     public String getBindingName() {
         return bindingName;
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return Type.any();
     }
 
-    @Nonnull
     public Set<Type> getDynamicTypes() {
         return ImmutableSet.of();
     }
@@ -87,10 +83,8 @@ public abstract class InSource implements PlanHashable, PlanSerializable, Typed 
 
     public abstract boolean isReverse();
 
-    @Nonnull
     public abstract ExplainTokensWithPrecedence explain();
 
-    @Nonnull
     protected ExplainTokens explainSuffix() {
         final var resultExplainTokens = new ExplainTokens();
         if (isSorted()) {
@@ -102,44 +96,37 @@ public abstract class InSource implements PlanHashable, PlanSerializable, Typed 
         return resultExplainTokens;
     }
 
-    protected abstract int size(@Nonnull EvaluationContext context);
+    protected abstract int size(EvaluationContext context);
 
-    @Nonnull
     public List<Object> getValues() {
         return getValues(null);
     }
 
-    @Nonnull
     protected abstract List<Object> getValues(@Nullable EvaluationContext context);
 
-    @Nonnull
-    public abstract RecordQueryInJoinPlan toInJoinPlan(@Nonnull Quantifier.Physical innerQuantifier);
+    public abstract RecordQueryInJoinPlan toInJoinPlan(Quantifier.Physical innerQuantifier);
 
-    public int baseHash(@Nonnull final PlanHashMode mode, @Nonnull ObjectPlanHash objectPlanHash) {
+    public int baseHash(final PlanHashMode mode, ObjectPlanHash objectPlanHash) {
         // TODO We should really use objectPlanHash here, too, but it seems doing so will change a lot
         //      of plan hashes.
         return objectPlanHash.planHash(mode);
     }
 
-    @Nonnull
-    protected abstract PInSource toInSourceProto(@Nonnull PlanSerializationContext serializationContext);
+    protected abstract PInSource toInSourceProto(PlanSerializationContext serializationContext);
 
-    @Nonnull
-    protected static InSource fromInSourceProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                @Nonnull final PInSource inSourceProto) {
+    protected static InSource fromInSourceProto(final PlanSerializationContext serializationContext,
+                                                final PInSource inSourceProto) {
         return (InSource)PlanSerialization.dispatchFromProtoContainer(serializationContext, inSourceProto);
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    protected PInSource.Super toInSourceSuperProto(@Nonnull final PlanSerializationContext serializationContext) {
+    protected PInSource.Super toInSourceSuperProto(final PlanSerializationContext serializationContext) {
         return PInSource.Super.newBuilder()
                 .setBindingName(bindingName)
                 .build();
     }
 
-    @Nonnull
-    public static List<Object> sortValues(@Nonnull List<Object> values, final boolean isReversed) {
+    public static List<Object> sortValues(List<Object> values, final boolean isReversed) {
         if (values.size() < 2 ) {
             return values;
         }

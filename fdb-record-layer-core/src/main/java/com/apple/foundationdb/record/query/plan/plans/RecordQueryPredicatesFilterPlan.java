@@ -57,8 +57,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -71,13 +71,11 @@ import java.util.concurrent.CompletableFuture;
 public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase implements RelationalExpressionWithPredicates, ExplainPlannerGraphRewritable, InternalPlannerGraphRewritable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Predicate-Filter-Plan");
 
-    @Nonnull
     private final List<QueryPredicate> predicates;
-    @Nonnull
     private final QueryPredicate conjunctedPredicate;
 
-    protected RecordQueryPredicatesFilterPlan(@Nonnull final PlanSerializationContext serializationContext,
-                                              @Nonnull final PRecordQueryPredicatesFilterPlan recordQueryPredicatesFilterPlanProto) {
+    protected RecordQueryPredicatesFilterPlan(final PlanSerializationContext serializationContext,
+                                              final PRecordQueryPredicatesFilterPlan recordQueryPredicatesFilterPlanProto) {
         super(serializationContext, Objects.requireNonNull(recordQueryPredicatesFilterPlanProto.getSuper()));
         final ImmutableList.Builder<QueryPredicate> predicatesBuilder = ImmutableList.builder();
         for (int i = 0; i < recordQueryPredicatesFilterPlanProto.getPredicatesCount(); i ++) {
@@ -87,20 +85,18 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
         this.conjunctedPredicate = AndPredicate.and(this.predicates);
     }
 
-    public RecordQueryPredicatesFilterPlan(@Nonnull Quantifier.Physical inner,
-                                           @Nonnull Iterable<? extends QueryPredicate> predicates) {
+    public RecordQueryPredicatesFilterPlan(Quantifier.Physical inner,
+                                           Iterable<? extends QueryPredicate> predicates) {
         super(inner);
         this.predicates = ImmutableList.copyOf(predicates);
         this.conjunctedPredicate = AndPredicate.and(this.predicates);
     }
 
-    @Nonnull
     @Override
     public List<? extends QueryPredicate> getPredicates() {
         return predicates;
     }
 
-    @Nonnull
     public QueryPredicate getConjunctedPredicate() {
         return conjunctedPredicate;
     }
@@ -112,14 +108,14 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
 
     @Nullable
     @Override
-    protected <M extends Message> Boolean evalFilter(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull QueryResult queryResult) {
+    protected <M extends Message> Boolean evalFilter(FDBRecordStoreBase<M> store, EvaluationContext context, QueryResult queryResult) {
         final var nestedContext = context.withBinding(Bindings.Internal.CORRELATION, getInner().getAlias(), queryResult);
         return conjunctedPredicate.eval(store, nestedContext);
     }
 
     @Nullable
     @Override
-    protected <M extends Message> CompletableFuture<Boolean> evalFilterAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull QueryResult queryResult) {
+    protected <M extends Message> CompletableFuture<Boolean> evalFilterAsync(FDBRecordStoreBase<M> store, EvaluationContext context, QueryResult queryResult) {
         final var nestedContext = context.withBinding(Bindings.Internal.CORRELATION, getInner().getAlias(), queryResult);
 
         return new AsyncBoolean<>(false,
@@ -128,13 +124,11 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
                 store).eval();
     }
 
-    @Nonnull
     @Override
     public AvailableFields getAvailableFields() {
         return AvailableFields.ALL_FIELDS;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return predicates.stream()
@@ -142,11 +136,10 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
                 .collect(ImmutableSet.toImmutableSet());
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPredicatesFilterPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryPredicatesFilterPlan translateCorrelations(final TranslationMap translationMap,
                                                                  final boolean shouldSimplifyValues,
-                                                                 @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                                 final List<? extends Quantifier> translatedQuantifiers) {
         final var translatedPredicates =
                 predicates.stream()
                         .map(queryPredicate -> queryPredicate.translateCorrelations(translationMap,
@@ -157,13 +150,11 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
                 translatedPredicates);
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
+    public RecordQueryPlanWithChild withChild(final Reference childRef) {
         return new RecordQueryPredicatesFilterPlan(Quantifier.physical(childRef, getInner().getAlias()), getPredicates());
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return getInner().getFlowedObjectValue();
@@ -171,8 +162,8 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
 
     @Override
     @SuppressWarnings({"UnstableApiUsage", "PMD.CompareObjectsWithEquals"})
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -193,7 +184,6 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
                 .allMatch(isSame -> isSame);
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return ExplainPlanVisitor.toStringForDebugging(this);
@@ -216,7 +206,7 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return getInnerPlan().planHash(mode) + conjunctedPredicate.planHash(mode);
@@ -228,15 +218,13 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
         }
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewriteExplainPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewriteExplainPlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return rewritePlannerGraph(childGraphs);
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewriteInternalPlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         final var explainFormatter =
                 WithIndentationsExplainFormatter.forDot(7);
 
@@ -254,9 +242,8 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
                 childGraphs);
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.PREDICATE_FILTER_OPERATOR,
@@ -265,9 +252,8 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
                 childGraphs);
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPredicatesFilterPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPredicatesFilterPlan toProto(final PlanSerializationContext serializationContext) {
         final PRecordQueryPredicatesFilterPlan.Builder builder = PRecordQueryPredicatesFilterPlan.newBuilder()
                 .setSuper(toRecordQueryFilterPlanBaseProto(serializationContext));
         for (final QueryPredicate predicate : predicates) {
@@ -276,15 +262,13 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setPredicatesFilterPlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQueryPredicatesFilterPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                            @Nonnull final PRecordQueryPredicatesFilterPlan recordQueryPredicatesFilterPlanProto) {
+    public static RecordQueryPredicatesFilterPlan fromProto(final PlanSerializationContext serializationContext,
+                                                            final PRecordQueryPredicatesFilterPlan recordQueryPredicatesFilterPlanProto) {
         return new RecordQueryPredicatesFilterPlan(serializationContext, recordQueryPredicatesFilterPlanProto);
     }
 
@@ -293,16 +277,14 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryPredicatesFilterPlan, RecordQueryPredicatesFilterPlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryPredicatesFilterPlan> getProtoMessageClass() {
             return PRecordQueryPredicatesFilterPlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryPredicatesFilterPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                         @Nonnull final PRecordQueryPredicatesFilterPlan recordQueryPredicatesFilterPlanProto) {
+        public RecordQueryPredicatesFilterPlan fromProto(final PlanSerializationContext serializationContext,
+                                                         final PRecordQueryPredicatesFilterPlan recordQueryPredicatesFilterPlanProto) {
             return RecordQueryPredicatesFilterPlan.fromProto(serializationContext, recordQueryPredicatesFilterPlanProto);
         }
     }

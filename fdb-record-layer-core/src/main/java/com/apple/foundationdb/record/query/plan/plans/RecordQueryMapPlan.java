@@ -56,8 +56,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -70,24 +70,21 @@ import java.util.Set;
 public class RecordQueryMapPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChild, ExplainPlannerGraphRewritable, InternalPlannerGraphRewritable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Map-Plan");
 
-    @Nonnull
     private final Quantifier.Physical inner;
-    @Nonnull
     private final Value resultValue;
 
-    public RecordQueryMapPlan(@Nonnull final Quantifier.Physical inner,
-                              @Nonnull final Value resultValue) {
+    public RecordQueryMapPlan(final Quantifier.Physical inner,
+                              final Value resultValue) {
         this.inner = inner;
         this.resultValue = resultValue;
     }
 
     @SuppressWarnings("resource")
-    @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
         return getChild().executePlan(store, context, continuation, executeProperties)
                 .map(innerResult -> {
                     final EvaluationContext nestedContext = context.withBinding(Bindings.Internal.CORRELATION, inner.getAlias(), innerResult);
@@ -101,23 +98,20 @@ public class RecordQueryMapPlan extends AbstractRelationalExpressionWithChildren
         return inner.getRangesOverPlan();
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
+    public RecordQueryPlanWithChild withChild(final Reference childRef) {
         return new RecordQueryMapPlan(Quantifier.physical(childRef, inner.getAlias()), resultValue);
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return resultValue.getCorrelatedTo();
     }
 
-    @Nonnull
     @Override
-    public RecordQueryMapPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryMapPlan translateCorrelations(final TranslationMap translationMap,
                                                     final boolean shouldSimplifyValues,
-                                                    @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                    final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 1);
         final Value translatedResultValue =
                 resultValue.translateCorrelations(translationMap, shouldSimplifyValues);
@@ -136,17 +130,15 @@ public class RecordQueryMapPlan extends AbstractRelationalExpressionWithChildren
     }
 
     @Override
-    public RecordQueryMapPlan strictlySorted(@Nonnull FinalMemoizer memoizer) {
+    public RecordQueryMapPlan strictlySorted(FinalMemoizer memoizer) {
         return this;
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return resultValue;
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return ExplainPlanVisitor.toStringForDebugging(this);
@@ -154,8 +146,8 @@ public class RecordQueryMapPlan extends AbstractRelationalExpressionWithChildren
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap aliasMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap aliasMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -192,7 +184,7 @@ public class RecordQueryMapPlan extends AbstractRelationalExpressionWithChildren
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
@@ -202,26 +194,22 @@ public class RecordQueryMapPlan extends AbstractRelationalExpressionWithChildren
         }
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
     }
 
-    @Nonnull
     public Quantifier.Physical getInner() {
         return inner;
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewriteExplainPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewriteExplainPlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return rewritePlannerGraph(childGraphs);
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewriteInternalPlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         final var explainFormatter =
                 WithIndentationsExplainFormatter.forDot(1);
 
@@ -239,9 +227,8 @@ public class RecordQueryMapPlan extends AbstractRelationalExpressionWithChildren
                 childGraphs);
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.VALUE_COMPUTATION_OPERATOR,
@@ -250,24 +237,21 @@ public class RecordQueryMapPlan extends AbstractRelationalExpressionWithChildren
                 childGraphs);
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryMapPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryMapPlan toProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryMapPlan.newBuilder()
                 .setInner(inner.toProto(serializationContext))
                 .setResultValue(resultValue.toValueProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setMapPlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQueryMapPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                               @Nonnull final PRecordQueryMapPlan mapPlanProto) {
+    public static RecordQueryMapPlan fromProto(final PlanSerializationContext serializationContext,
+                                               final PRecordQueryMapPlan mapPlanProto) {
         return new RecordQueryMapPlan(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(mapPlanProto.getInner())),
                 Value.fromValueProto(serializationContext, Objects.requireNonNull(mapPlanProto.getResultValue())));
     }
@@ -277,16 +261,14 @@ public class RecordQueryMapPlan extends AbstractRelationalExpressionWithChildren
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryMapPlan, RecordQueryMapPlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryMapPlan> getProtoMessageClass() {
             return PRecordQueryMapPlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryMapPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                            @Nonnull final PRecordQueryMapPlan recordQueryMapPlanProto) {
+        public RecordQueryMapPlan fromProto(final PlanSerializationContext serializationContext,
+                                            final PRecordQueryMapPlan recordQueryMapPlanProto) {
             return RecordQueryMapPlan.fromProto(serializationContext, recordQueryMapPlanProto);
         }
     }

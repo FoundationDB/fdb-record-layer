@@ -67,8 +67,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -83,34 +83,32 @@ import java.util.stream.Collectors;
 public class RecordQueryScoreForRankPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Score-For-Rank-Plan");
 
-    @Nonnull
     private final Quantifier.Physical inner;
-    @Nonnull
     private final List<ScoreForRank> ranks;
 
     @HeuristicPlanner
-    public RecordQueryScoreForRankPlan(@Nonnull RecordQueryPlan plan, @Nonnull List<ScoreForRank> ranks) {
+    public RecordQueryScoreForRankPlan(RecordQueryPlan plan, List<ScoreForRank> ranks) {
         this(Quantifier.physical(Reference.plannedOf(Debugger.verifyHeuristicPlanner(plan))), ranks);
     }
 
-    private RecordQueryScoreForRankPlan(@Nonnull final Quantifier.Physical inner,
-                                        @Nonnull List<ScoreForRank> ranks) {
+    private RecordQueryScoreForRankPlan(final Quantifier.Physical inner,
+                                        List<ScoreForRank> ranks) {
         this.inner = inner;
         this.ranks = ranks;
     }
 
-    private <M extends Message> CompletableFuture<Tuple> bindScore(@Nonnull FDBRecordStoreBase<M> store,
-                                                                   @Nonnull EvaluationContext context,
+    private <M extends Message> CompletableFuture<Tuple> bindScore(FDBRecordStoreBase<M> store,
+                                                                   EvaluationContext context,
                                                                    ScoreForRank scoreForRank,
-                                                                   @Nonnull IsolationLevel isolationLevel) {
+                                                                   IsolationLevel isolationLevel) {
         final Tuple operand = Tuple.fromList(scoreForRank.comparisons.stream().map(c -> c.getComparand(store, context)).collect(Collectors.toList()));
         return store.evaluateAggregateFunction(context, Collections.emptyList(), scoreForRank.function, TupleRange.allOf(operand), isolationLevel);
     }
     
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private <M extends Message> CompletableFuture<EvaluationContext> bindScores(@Nonnull FDBRecordStoreBase<M> store,
-                                                                                @Nonnull EvaluationContext context,
-                                                                                @Nonnull IsolationLevel isolationLevel) {
+    private <M extends Message> CompletableFuture<EvaluationContext> bindScores(FDBRecordStoreBase<M> store,
+                                                                                EvaluationContext context,
+                                                                                IsolationLevel isolationLevel) {
         final List<CompletableFuture<Tuple>> scores = ranks.stream().map(r -> bindScore(store, context, r, isolationLevel)).collect(Collectors.toList());
         return AsyncUtil.whenAll(scores).thenApply(vignore -> {
             EvaluationContextBuilder builder = context.childBuilder();
@@ -131,41 +129,35 @@ public class RecordQueryScoreForRankPlan extends AbstractRelationalExpressionWit
         });
     }
 
-    @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
         return RecordCursor.mapFuture(store.getExecutor(), bindScores(store, context, executeProperties.getIsolationLevel()), continuation,
                 (innerContext, innerContinuation) -> getChild().executePlan(store, innerContext, innerContinuation, executeProperties));
     }
 
-    @Nonnull
     public List<ScoreForRank> getRanks() {
         return ranks;
     }
 
     @Override
-    @Nonnull
     public RecordQueryPlan getChild() {
         return inner.getRangesOverPlan();
     }
 
-    @Nonnull
     @Override
     @API(API.Status.EXPERIMENTAL)
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return new QueriedValue();
     }
 
-    @Nonnull
     @Override
     public AvailableFields getAvailableFields() {
         return AvailableFields.ALL_FIELDS;
@@ -181,31 +173,28 @@ public class RecordQueryScoreForRankPlan extends AbstractRelationalExpressionWit
         return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
-    public RecordQueryScoreForRankPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryScoreForRankPlan translateCorrelations(final TranslationMap translationMap,
                                                              final boolean shouldSimplifyValues,
-                                                             @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                             final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryScoreForRankPlan((Quantifier.Physical)Iterables.getOnlyElement(translatedQuantifiers),
                 getRanks());
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
+    public RecordQueryPlanWithChild withChild(final Reference childRef) {
         return new RecordQueryScoreForRankPlan(Quantifier.physical(childRef, inner.getAlias()), getRanks());
     }
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -232,7 +221,7 @@ public class RecordQueryScoreForRankPlan extends AbstractRelationalExpressionWit
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return getChild().planHash(mode) + PlanHashable.planHash(mode, ranks);
@@ -254,9 +243,8 @@ public class RecordQueryScoreForRankPlan extends AbstractRelationalExpressionWit
         return 1 + getChild().getComplexity();
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         final PlannerGraph.Node root =
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.NESTED_LOOP_JOIN_OPERATOR);
@@ -279,9 +267,8 @@ public class RecordQueryScoreForRankPlan extends AbstractRelationalExpressionWit
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryScoreForRankPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryScoreForRankPlan toProto(final PlanSerializationContext serializationContext) {
         final PRecordQueryScoreForRankPlan.Builder builder =
                 PRecordQueryScoreForRankPlan.newBuilder()
                         .setInner(inner.toProto(serializationContext));
@@ -292,15 +279,13 @@ public class RecordQueryScoreForRankPlan extends AbstractRelationalExpressionWit
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setScoreForRankPlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQueryScoreForRankPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                        @Nonnull final PRecordQueryScoreForRankPlan recordQueryScoreForRankPlanProto) {
+    public static RecordQueryScoreForRankPlan fromProto(final PlanSerializationContext serializationContext,
+                                                        final PRecordQueryScoreForRankPlan recordQueryScoreForRankPlanProto) {
         final ImmutableList.Builder<ScoreForRank> ranksBuilder = ImmutableList.builder();
         for (int i = 0; i < recordQueryScoreForRankPlanProto.getRanksCount(); i++) {
             ranksBuilder.add(ScoreForRank.fromProto(serializationContext, recordQueryScoreForRankPlanProto.getRanks(i)));
@@ -315,29 +300,23 @@ public class RecordQueryScoreForRankPlan extends AbstractRelationalExpressionWit
     public static class ScoreForRank implements PlanHashable, PlanSerializable {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Score-For-Rank");
 
-        @Nonnull
         private final String bindingName;
-        @Nonnull
         private final BindingFunction bindingFunction;
-        @Nonnull
         private final IndexAggregateFunction function;
-        @Nonnull
         private final List<Comparisons.Comparison> comparisons;
 
-        public ScoreForRank(@Nonnull String bindingName, @Nonnull BindingFunction bindingFunction,
-                            @Nonnull IndexAggregateFunction function, @Nonnull List<Comparisons.Comparison> comparisons) {
+        public ScoreForRank(String bindingName, BindingFunction bindingFunction,
+                            IndexAggregateFunction function, List<Comparisons.Comparison> comparisons) {
             this.bindingName = bindingName;
             this.bindingFunction = bindingFunction;
             this.function = function;
             this.comparisons = comparisons;
         }
 
-        @Nonnull
         public String getBindingName() {
             return bindingName;
         }
 
-        @Nonnull
         public List<Comparisons.Comparison> getComparisons() {
             return comparisons;
         }
@@ -372,7 +351,7 @@ public class RecordQueryScoreForRankPlan extends AbstractRelationalExpressionWit
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             switch (mode.getKind()) {
                 case LEGACY:
                     return bindingName.hashCode() + function.getName().hashCode() + PlanHashable.planHash(mode, comparisons);
@@ -384,9 +363,8 @@ public class RecordQueryScoreForRankPlan extends AbstractRelationalExpressionWit
             }
         }
 
-        @Nonnull
         @Override
-        public PScoreForRank toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PScoreForRank toProto(final PlanSerializationContext serializationContext) {
             final var builder = PScoreForRank.newBuilder()
                     .setBindingName(bindingName)
                     .setBindingFunction(bindingFunction.toProto(serializationContext))
@@ -397,9 +375,8 @@ public class RecordQueryScoreForRankPlan extends AbstractRelationalExpressionWit
             return builder.build();
         }
 
-        @Nonnull
-        public static ScoreForRank fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                             @Nonnull final PScoreForRank scoreForRankProto) {
+        public static ScoreForRank fromProto(final PlanSerializationContext serializationContext,
+                                             final PScoreForRank scoreForRankProto) {
             final ImmutableList.Builder<Comparisons.Comparison> comparisonsBuilder = ImmutableList.builder();
             for (int i = 0; i < scoreForRankProto.getComparisonsCount(); i++) {
                 comparisonsBuilder.add(Comparisons.Comparison.fromComparisonProto(serializationContext, scoreForRankProto.getComparisons(i)));
@@ -416,16 +393,14 @@ public class RecordQueryScoreForRankPlan extends AbstractRelationalExpressionWit
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryScoreForRankPlan, RecordQueryScoreForRankPlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryScoreForRankPlan> getProtoMessageClass() {
             return PRecordQueryScoreForRankPlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryScoreForRankPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                     @Nonnull final PRecordQueryScoreForRankPlan recordQueryScoreForRankPlanProto) {
+        public RecordQueryScoreForRankPlan fromProto(final PlanSerializationContext serializationContext,
+                                                     final PRecordQueryScoreForRankPlan recordQueryScoreForRankPlanProto) {
             return RecordQueryScoreForRankPlan.fromProto(serializationContext, recordQueryScoreForRankPlanProto);
         }
     }

@@ -32,8 +32,8 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 
@@ -42,25 +42,24 @@ import java.util.Objects;
  */
 @API(API.Status.INTERNAL)
 public class SortedInComparandSource extends InComparandSource {
-    @Nonnull
     private static final ObjectPlanHash OBJECT_PLAN_HASH_SORTED_IN_COMPARAND_SOURCE = new ObjectPlanHash("Sorted-In-Comparand");
 
     private final boolean reverse;
 
-    protected SortedInComparandSource(@Nonnull final PlanSerializationContext serializationContext,
-                                      @Nonnull final PSortedInComparandSource sortedInComparandSourceProto) {
+    protected SortedInComparandSource(final PlanSerializationContext serializationContext,
+                                      final PSortedInComparandSource sortedInComparandSourceProto) {
         super(serializationContext, Objects.requireNonNull(sortedInComparandSourceProto.getSuper()));
         Verify.verify(sortedInComparandSourceProto.hasReverse());
         this.reverse = sortedInComparandSourceProto.getReverse();
     }
 
-    public SortedInComparandSource(@Nonnull final String bindingName, @Nonnull Comparisons.Comparison comparison, boolean reverse) {
+    public SortedInComparandSource(final String bindingName, Comparisons.Comparison comparison, boolean reverse) {
         super(bindingName, comparison);
         this.reverse = reverse;
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
+    public int planHash(final PlanHashable.PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, baseHash(mode, OBJECT_PLAN_HASH_SORTED_IN_COMPARAND_SOURCE), getComparison(), reverse);
     }
 
@@ -74,14 +73,12 @@ public class SortedInComparandSource extends InComparandSource {
         return reverse;
     }
 
-    @Nonnull
     @Override
     protected List<Object> getValues(@Nullable final EvaluationContext context) {
         List<Object> unsortedValues = super.getValues(context);
         return Objects.requireNonNull(InSource.sortValues(unsortedValues, reverse));
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return super.toString();
@@ -108,24 +105,21 @@ public class SortedInComparandSource extends InComparandSource {
         return Objects.hash(getComparison(), reverse);
     }
 
-    @Nonnull
     @Override
-    public PSortedInComparandSource toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PSortedInComparandSource toProto(final PlanSerializationContext serializationContext) {
         return PSortedInComparandSource.newBuilder()
                 .setSuper(toInComparandSourceProto(serializationContext))
                 .setReverse(reverse)
                 .build();
     }
 
-    @Nonnull
     @Override
-    protected PInSource toInSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
+    protected PInSource toInSourceProto(final PlanSerializationContext serializationContext) {
         return PInSource.newBuilder().setSortedInComparandSource(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static SortedInComparandSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                    @Nonnull final PSortedInComparandSource sortedInComparandSourceProto) {
+    public static SortedInComparandSource fromProto(final PlanSerializationContext serializationContext,
+                                                    final PSortedInComparandSource sortedInComparandSourceProto) {
         return new SortedInComparandSource(serializationContext, sortedInComparandSourceProto);
     }
 
@@ -134,16 +128,14 @@ public class SortedInComparandSource extends InComparandSource {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PSortedInComparandSource, SortedInComparandSource> {
-        @Nonnull
         @Override
         public Class<PSortedInComparandSource> getProtoMessageClass() {
             return PSortedInComparandSource.class;
         }
 
-        @Nonnull
         @Override
-        public SortedInComparandSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                 @Nonnull final PSortedInComparandSource sortedInComparandSourceProto) {
+        public SortedInComparandSource fromProto(final PlanSerializationContext serializationContext,
+                                                 final PSortedInComparandSource sortedInComparandSourceProto) {
             return SortedInComparandSource.fromProto(serializationContext, sortedInComparandSourceProto);
         }
     }

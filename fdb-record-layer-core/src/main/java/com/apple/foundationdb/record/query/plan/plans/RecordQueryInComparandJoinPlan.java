@@ -46,7 +46,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 
@@ -59,16 +58,16 @@ import java.util.Objects;
 public class RecordQueryInComparandJoinPlan extends RecordQueryInJoinPlan {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-In-Comparand-Join-Plan");
 
-    protected RecordQueryInComparandJoinPlan(@Nonnull final PlanSerializationContext serializationContext,
-                                             @Nonnull final PRecordQueryInComparandJoinPlan recordQueryInComparandJoinPlanProto) {
+    protected RecordQueryInComparandJoinPlan(final PlanSerializationContext serializationContext,
+                                             final PRecordQueryInComparandJoinPlan recordQueryInComparandJoinPlanProto) {
         super(serializationContext, Objects.requireNonNull(recordQueryInComparandJoinPlanProto.getSuper()));
     }
 
     @HeuristicPlanner
-    public RecordQueryInComparandJoinPlan(@Nonnull final RecordQueryPlan plan,
-                                          @Nonnull final String bindingName,
-                                          @Nonnull final Bindings.Internal internal,
-                                          @Nonnull final Comparisons.Comparison comparison,
+    public RecordQueryInComparandJoinPlan(final RecordQueryPlan plan,
+                                          final String bindingName,
+                                          final Bindings.Internal internal,
+                                          final Comparisons.Comparison comparison,
                                           final boolean sortValues,
                                           final boolean sortReverse) {
         this(Quantifier.physical(Reference.plannedOf(Debugger.verifyHeuristicPlanner(plan))),
@@ -79,10 +78,10 @@ public class RecordQueryInComparandJoinPlan extends RecordQueryInJoinPlan {
                 sortReverse);
     }
 
-    public RecordQueryInComparandJoinPlan(@Nonnull final Quantifier.Physical inner,
-                                          @Nonnull final String bindingName,
-                                          @Nonnull final Bindings.Internal internal,
-                                          @Nonnull final Comparisons.Comparison comparison,
+    public RecordQueryInComparandJoinPlan(final Quantifier.Physical inner,
+                                          final String bindingName,
+                                          final Bindings.Internal internal,
+                                          final Comparisons.Comparison comparison,
                                           final boolean sortValues,
                                           final boolean sortReverse) {
         this(inner,
@@ -92,24 +91,22 @@ public class RecordQueryInComparandJoinPlan extends RecordQueryInJoinPlan {
                 internal);
     }
 
-    public RecordQueryInComparandJoinPlan(@Nonnull final Quantifier.Physical inner, @Nonnull final InComparandSource inSource, @Nonnull final Bindings.Internal internal) {
+    public RecordQueryInComparandJoinPlan(final Quantifier.Physical inner, final InComparandSource inSource, final Bindings.Internal internal) {
         super(inner, inSource, internal);
     }
 
-    @Nonnull
     @Override
-    public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RelationalExpression translateCorrelations(final TranslationMap translationMap,
                                                       final boolean shouldSimplifyValues,
-                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                      final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryInComparandJoinPlan(
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 inComparandSource(),
                 internal);
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
+    public RecordQueryPlanWithChild withChild(final Reference childRef) {
         return new RecordQueryInComparandJoinPlan(Quantifier.physical(childRef, inner.getAlias()), inComparandSource(), internal);
     }
 
@@ -123,7 +120,7 @@ public class RecordQueryInComparandJoinPlan extends RecordQueryInJoinPlan {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         if (internal == Bindings.Internal.IN) {
             return super.basePlanHash(mode, BASE_HASH, inComparandSource());
         } else {
@@ -137,9 +134,8 @@ public class RecordQueryInComparandJoinPlan extends RecordQueryInJoinPlan {
         getInnerPlan().logPlanStructure(timer);
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         final PlannerGraph.Node root =
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.NESTED_LOOP_JOIN_OPERATOR);
@@ -158,23 +154,20 @@ public class RecordQueryInComparandJoinPlan extends RecordQueryInJoinPlan {
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryInComparandJoinPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryInComparandJoinPlan toProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryInComparandJoinPlan.newBuilder()
                 .setSuper(toRecordQueryInJoinPlanProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setInComparandJoinPlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQueryInComparandJoinPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                           @Nonnull final PRecordQueryInComparandJoinPlan recordQueryInComparandJoinPlanProto) {
+    public static RecordQueryInComparandJoinPlan fromProto(final PlanSerializationContext serializationContext,
+                                                           final PRecordQueryInComparandJoinPlan recordQueryInComparandJoinPlanProto) {
         return new RecordQueryInComparandJoinPlan(serializationContext, recordQueryInComparandJoinPlanProto);
     }
 
@@ -183,16 +176,14 @@ public class RecordQueryInComparandJoinPlan extends RecordQueryInJoinPlan {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryInComparandJoinPlan, RecordQueryInComparandJoinPlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryInComparandJoinPlan> getProtoMessageClass() {
             return PRecordQueryInComparandJoinPlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryInComparandJoinPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                        @Nonnull final PRecordQueryInComparandJoinPlan recordQueryInComparandJoinPlanProto) {
+        public RecordQueryInComparandJoinPlan fromProto(final PlanSerializationContext serializationContext,
+                                                        final PRecordQueryInComparandJoinPlan recordQueryInComparandJoinPlanProto) {
             return RecordQueryInComparandJoinPlan.fromProto(serializationContext, recordQueryInComparandJoinPlanProto);
         }
     }

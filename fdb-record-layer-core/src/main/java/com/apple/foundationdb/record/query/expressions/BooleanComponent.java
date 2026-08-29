@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -46,7 +45,6 @@ public interface BooleanComponent extends QueryComponent {
      * Starting from this boolean component find all sub components that itself are not considered {@link BooleanComponent}s.
      * @return a stream of non-boolean sub components.
      */
-    @Nonnull
     default Stream<QueryComponent> nonBooleanSubComponents() {
         if (this instanceof ComponentWithChildren) {
             final ComponentWithChildren componentWithChildren = (ComponentWithChildren)this;
@@ -80,8 +78,7 @@ public interface BooleanComponent extends QueryComponent {
      * @return a stream of pairs of {@link ComponentWithComparison} and associated {@link Comparisons.Comparison}s
      */
     @API(API.Status.INTERNAL)
-    @Nonnull
-    static Stream<Pair<String, List<Comparisons.ComparisonWithParameter>>> groupedComparisons(@Nonnull final QueryComponent queryComponent) {
+    static Stream<Pair<String, List<Comparisons.ComparisonWithParameter>>> groupedComparisons(final QueryComponent queryComponent) {
         final Stream<BooleanComponent> booleanComponents = BooleanComponent.topBooleanComponents(queryComponent);
         return booleanComponents
                 .flatMap(booleanComponent -> {
@@ -115,7 +112,6 @@ public interface BooleanComponent extends QueryComponent {
                 });
     }
 
-    @Nonnull
     static Map<String, ImmutableList<Comparisons.ComparisonWithParameter>> groupedComparisonsMap(final Stream<ComponentWithComparison> comparisons) {
         return comparisons
                 .filter(componentWithComparison -> componentWithComparison.getComparison() instanceof Comparisons.ComparisonWithParameter)
@@ -125,21 +121,18 @@ public interface BooleanComponent extends QueryComponent {
                                 ImmutableList.toImmutableList())));
     }
     
-    @Nonnull
-    static Stream<ComponentWithComparison> comparisons(@Nonnull final Stream<QueryComponent> nonBooleanSubComponents) {
+    static Stream<ComponentWithComparison> comparisons(final Stream<QueryComponent> nonBooleanSubComponents) {
         return nonBooleanSubComponents
                 .filter(queryComponent -> queryComponent instanceof ComponentWithComparison)
                 .map(queryComponent -> (ComponentWithComparison)queryComponent);
     }
 
-    @Nonnull
-    static Stream<QueryComponent> nestedComponents(@Nonnull final Stream<QueryComponent> nonBooleanSubComponents) {
+    static Stream<QueryComponent> nestedComponents(final Stream<QueryComponent> nonBooleanSubComponents) {
         return nonBooleanSubComponents
                 .filter(queryComponent -> !(queryComponent instanceof ComponentWithComparison));
     }
 
-    @Nonnull
-    static Stream<BooleanComponent> topBooleanComponents(@Nonnull final QueryComponent queryComponent) {
+    static Stream<BooleanComponent> topBooleanComponents(final QueryComponent queryComponent) {
         if (queryComponent instanceof BooleanComponent) {
             return Stream.of((BooleanComponent)queryComponent);
         }

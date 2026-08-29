@@ -21,4 +21,7 @@
 /**
  * Support classes for query planning.
  */
+@NullMarked
 package com.apple.foundationdb.record.query.plan.planning;
+
+import org.jspecify.annotations.NullMarked;

@@ -26,4 +26,7 @@
  * into an executable {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan}, which can be run against a record store
  * </p>
  */
+@NullMarked
 package com.apple.foundationdb.record.query.plan;
+
+import org.jspecify.annotations.NullMarked;

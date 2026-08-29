@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PCopyIfPredicate;
 import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PCopyIfPredicate.PConditionalUponPathPredicate;
 import com.apple.foundationdb.record.planprotos.PIndexKeyValueToPartialRecord.PCopyIfPredicate.PTruePredicate;
+import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord.Builder;
 import com.apple.foundationdb.record.query.plan.planning.TextScanPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
@@ -50,8 +51,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.primitives.ImmutableIntArray;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
@@ -72,9 +73,7 @@ import java.util.function.Predicate;
  */
 @SuppressWarnings("ALL")
 public class AvailableFields {
-    @Nonnull
     public static final AvailableFields ALL_FIELDS = new AvailableFields(null);
-    @Nonnull
     public static final AvailableFields NO_FIELDS = new AvailableFields(Collections.emptyMap());
 
     @Nullable
@@ -89,7 +88,7 @@ public class AvailableFields {
         return fields == null;
     }
 
-    public boolean containsAll(@Nonnull Collection<KeyExpression> requiredFields) {
+    public boolean containsAll(Collection<KeyExpression> requiredFields) {
         if (fields == null) {
             return true;
         }
@@ -97,7 +96,7 @@ public class AvailableFields {
     }
 
     @Nullable
-    public IndexKeyValueToPartialRecord.Builder buildIndexKeyValueToPartialRecord(@Nonnull RecordType recordType) {
+    public Builder buildIndexKeyValueToPartialRecord(RecordType recordType) {
         if (fields == null) {
             return null;
         }
@@ -116,15 +115,14 @@ public class AvailableFields {
     }
 
     @SuppressWarnings("UnstableApiUsage")
-    @Nonnull
     /**
      * Get the fields that are available from just the index scan part of an index plan.
      */
-    public static AvailableFields fromIndex(@Nonnull final RecordType recordType,
-                                            @Nonnull final Index index,
-                                            @Nonnull final PlannableIndexTypes indexTypes,
+    public static AvailableFields fromIndex(final RecordType recordType,
+                                            final Index index,
+                                            final PlannableIndexTypes indexTypes,
                                             @Nullable final KeyExpression commonPrimaryKey,
-                                            @Nonnull final RecordQueryPlanWithIndex indexPlan) {
+                                            final RecordQueryPlanWithIndex indexPlan) {
         final KeyExpression rootExpression = index.getRootExpression();
 
         final List<KeyExpression> keyFields = new ArrayList<>();
@@ -186,8 +184,7 @@ public class AvailableFields {
         return new AvailableFields(fields);
     }
 
-    @Nonnull
-    public static ImmutableMap<String, ImmutableIntArray> getConstituentToPathMap(final @Nonnull RecordType recordType, final int startPrimaryKey) {
+    public static ImmutableMap<String, ImmutableIntArray> getConstituentToPathMap(final RecordType recordType, final int startPrimaryKey) {
         if (!recordType.isSynthetic()) {
             return ImmutableMap.of();
         }
@@ -209,15 +206,15 @@ public class AvailableFields {
         return constituentNameToPathMapBuilder.build();
     }
 
-    private static void partitionFields(@Nonnull final RecordType recordType,
-                                        @Nonnull final Index index,
-                                        @Nonnull final PlannableIndexTypes indexTypes,
-                                        @Nonnull final RecordQueryPlanWithIndex indexPlan,
-                                        @Nonnull final KeyExpression rootExpression,
-                                        @Nonnull final List<KeyExpression> keyFields,
-                                        @Nonnull final List<KeyExpression> valueFields,
-                                        @Nonnull final List<KeyExpression> nonStoredFields,
-                                        @Nonnull final List<KeyExpression> otherFields) {
+    private static void partitionFields(final RecordType recordType,
+                                        final Index index,
+                                        final PlannableIndexTypes indexTypes,
+                                        final RecordQueryPlanWithIndex indexPlan,
+                                        final KeyExpression rootExpression,
+                                        final List<KeyExpression> keyFields,
+                                        final List<KeyExpression> valueFields,
+                                        final List<KeyExpression> nonStoredFields,
+                                        final List<KeyExpression> otherFields) {
         if (indexTypes.getTextTypes().contains(index.getType())) {
             // Full text index entries have all of their fields except the tokenized one.
             keyFields.addAll(TextScanPlanner.getOtherFields(rootExpression));
@@ -245,13 +242,13 @@ public class AvailableFields {
         }
     }
 
-    public static Map<KeyExpression, FieldData> getPrimaryKeyFieldMap(@Nonnull final RecordType recordType,
-                                                                      @Nonnull final Index index,
-                                                                      @Nonnull final KeyExpression commonPrimaryKey,
-                                                                      @Nonnull final int primaryKeyStartOrdinal,
-                                                                      @Nonnull final List<KeyExpression> nonStoredFields,
-                                                                      @Nonnull final ImmutableMap<String, ImmutableIntArray> constituentNameToPathMap,
-                                                                      @Nonnull final IndexKeyValueToPartialRecord.Builder builder) {
+    public static Map<KeyExpression, FieldData> getPrimaryKeyFieldMap(final RecordType recordType,
+                                                                      final Index index,
+                                                                      final KeyExpression commonPrimaryKey,
+                                                                      final int primaryKeyStartOrdinal,
+                                                                      final List<KeyExpression> nonStoredFields,
+                                                                      final ImmutableMap<String, ImmutableIntArray> constituentNameToPathMap,
+                                                                      final IndexKeyValueToPartialRecord.Builder builder) {
         final ListMultimap<KeyExpression, FieldData> primaryKeyPartsToTuplePathMap;
         if (commonPrimaryKey != null) {
             final BitSet coveredPrimaryKeyPositions = index.getCoveredPrimaryKeyPositions();
@@ -276,11 +273,10 @@ public class AvailableFields {
         return resultFieldMapBuilder.build();
     }
 
-    @Nonnull
-    private static FieldData constrainFieldData(@Nonnull final RecordType recordType,
-                                                @Nonnull final ImmutableMap<String, ImmutableIntArray> constituentNameToPathMap,
-                                                @Nonnull final KeyExpression keyField,
-                                                @Nonnull final ImmutableIntArray path) {
+    private static FieldData constrainFieldData(final RecordType recordType,
+                                                final ImmutableMap<String, ImmutableIntArray> constituentNameToPathMap,
+                                                final KeyExpression keyField,
+                                                final ImmutableIntArray path) {
         final String constituentName;
         if (recordType.isSynthetic()) {
             if (keyField instanceof FieldKeyExpression) {
@@ -302,9 +298,9 @@ public class AvailableFields {
         }
     }
 
-    public static boolean addCoveringField(@Nonnull KeyExpression requiredExpr,
-                                           @Nonnull FieldData fieldData,
-                                           @Nonnull IndexKeyValueToPartialRecord.Builder builder) {
+    public static boolean addCoveringField(KeyExpression requiredExpr,
+                                           FieldData fieldData,
+                                           IndexKeyValueToPartialRecord.Builder builder) {
         if (fieldData.source == IndexKeyValueToPartialRecord.TupleSource.OTHER) {
             return true;
         }
@@ -334,8 +330,7 @@ public class AvailableFields {
         }
     }
 
-    @Nonnull
-    public static AvailableFields intersection(@Nonnull List<AvailableFields> toIntersect) {
+    public static AvailableFields intersection(List<AvailableFields> toIntersect) {
         if (toIntersect.isEmpty()) {
             throw new RecordCoreException("tried to find intersection of an empty list of available fields");
         }
@@ -364,18 +359,15 @@ public class AvailableFields {
      */
     @API(API.Status.INTERNAL)
     public static class FieldData {
-        @Nonnull
         private final IndexKeyValueToPartialRecord.TupleSource source;
-        @Nonnull
         private final ImmutableIntArray ordinalPath;
-        @Nonnull
         private final CopyIfPredicate copyIfPredicate;
         @Nullable
         private final String invertibleFunction;
 
-        private FieldData(@Nonnull final IndexKeyValueToPartialRecord.TupleSource source,
-                          @Nonnull final ImmutableIntArray ordinalPath,
-                          @Nonnull final CopyIfPredicate copyIfPredicate,
+        private FieldData(final IndexKeyValueToPartialRecord.TupleSource source,
+                          final ImmutableIntArray ordinalPath,
+                          final CopyIfPredicate copyIfPredicate,
                           @Nullable final String invertibleFunction) {
             this.source = source;
             this.ordinalPath = ordinalPath;
@@ -383,7 +375,6 @@ public class AvailableFields {
             this.invertibleFunction = invertibleFunction;
         }
 
-        @Nonnull
         public IndexKeyValueToPartialRecord.TupleSource getSource() {
             return source;
         }
@@ -401,21 +392,18 @@ public class AvailableFields {
             return invertibleFunction;
         }
 
-        @Nonnull
         public FieldData withInvertibleFunction(@Nullable final String invertibleFunction) {
             return new FieldData(source, ordinalPath, copyIfPredicate, invertibleFunction);
         }
 
-        @Nonnull
-        public static FieldData ofUnconditional(@Nonnull final IndexKeyValueToPartialRecord.TupleSource source,
-                                                @Nonnull final ImmutableIntArray ordinalPath) {
+        public static FieldData ofUnconditional(final IndexKeyValueToPartialRecord.TupleSource source,
+                                                final ImmutableIntArray ordinalPath) {
             return new FieldData(source, ordinalPath, new TruePredicate(), null);
         }
 
-        @Nonnull
-        public static FieldData ofConditional(@Nonnull final IndexKeyValueToPartialRecord.TupleSource source,
-                                              @Nonnull final ImmutableIntArray ordinalPath,
-                                              @Nonnull final ImmutableIntArray conditionalPath) {
+        public static FieldData ofConditional(final IndexKeyValueToPartialRecord.TupleSource source,
+                                              final ImmutableIntArray ordinalPath,
+                                              final ImmutableIntArray conditionalPath) {
             return new FieldData(source, ordinalPath, new ConditionalUponPathPredicate(conditionalPath), null);
         }
     }
@@ -427,12 +415,10 @@ public class AvailableFields {
      */
     @API(API.Status.INTERNAL)
     public interface CopyIfPredicate extends Predicate<Tuple>, PlanHashable, PlanSerializable {
-        @Nonnull
-        PCopyIfPredicate toCopyIfPredicateProto(@Nonnull PlanSerializationContext serializationContext);
+        PCopyIfPredicate toCopyIfPredicateProto(PlanSerializationContext serializationContext);
 
-        @Nonnull
-        static CopyIfPredicate fromCopyIfPredicateProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                        @Nonnull final PCopyIfPredicate copyIfPredicateProto) {
+        static CopyIfPredicate fromCopyIfPredicateProto(final PlanSerializationContext serializationContext,
+                                                        final PCopyIfPredicate copyIfPredicateProto) {
             return (CopyIfPredicate)PlanSerialization.dispatchFromProtoContainer(serializationContext, copyIfPredicateProto);
         }
     }
@@ -444,19 +430,17 @@ public class AvailableFields {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("True-Predicate");
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode hashMode) {
+        public int planHash(final PlanHashMode hashMode) {
             return PlanHashable.objectPlanHash(hashMode, BASE_HASH);
         }
 
-        @Nonnull
         @Override
-        public PTruePredicate toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PTruePredicate toProto(final PlanSerializationContext serializationContext) {
             return PTruePredicate.newBuilder().build();
         }
 
-        @Nonnull
         @Override
-        public PCopyIfPredicate toCopyIfPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PCopyIfPredicate toCopyIfPredicateProto(final PlanSerializationContext serializationContext) {
             return PCopyIfPredicate.newBuilder().setTruePredicate(toProto(serializationContext)).build();
         }
 
@@ -465,9 +449,8 @@ public class AvailableFields {
             return true;
         }
 
-        @Nonnull
-        public static TruePredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                              @Nonnull final PTruePredicate truePredicateProto) {
+        public static TruePredicate fromProto(final PlanSerializationContext serializationContext,
+                                              final PTruePredicate truePredicateProto) {
             return new TruePredicate();
         }
 
@@ -476,16 +459,14 @@ public class AvailableFields {
          */
         @AutoService(PlanDeserializer.class)
         public static class Deserializer implements PlanDeserializer<PTruePredicate, TruePredicate> {
-            @Nonnull
             @Override
             public Class<PTruePredicate> getProtoMessageClass() {
                 return PTruePredicate.class;
             }
 
-            @Nonnull
             @Override
-            public TruePredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                           @Nonnull final PTruePredicate truePredicateProto) {
+            public TruePredicate fromProto(final PlanSerializationContext serializationContext,
+                                           final PTruePredicate truePredicateProto) {
                 return TruePredicate.fromProto(serializationContext, truePredicateProto);
             }
         }
@@ -497,29 +478,26 @@ public class AvailableFields {
     public static class ConditionalUponPathPredicate implements CopyIfPredicate {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Conditional-Upon-Predicate");
 
-        @Nonnull
         private final ImmutableIntArray conditionalPath;
 
-        public ConditionalUponPathPredicate(@Nonnull final ImmutableIntArray conditionalPath) {
+        public ConditionalUponPathPredicate(final ImmutableIntArray conditionalPath) {
             this.conditionalPath = conditionalPath;
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode hashMode) {
+        public int planHash(final PlanHashMode hashMode) {
             return PlanHashable.objectsPlanHash(hashMode, BASE_HASH, conditionalPath);
         }
 
-        @Nonnull
         @Override
-        public PConditionalUponPathPredicate toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PConditionalUponPathPredicate toProto(final PlanSerializationContext serializationContext) {
             final PConditionalUponPathPredicate.Builder builder = PConditionalUponPathPredicate.newBuilder();
             conditionalPath.forEach(i -> builder.addOrdinalPath(i));
             return builder.build();
         }
 
-        @Nonnull
         @Override
-        public PCopyIfPredicate toCopyIfPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PCopyIfPredicate toCopyIfPredicateProto(final PlanSerializationContext serializationContext) {
             return PCopyIfPredicate.newBuilder().setConditionalUponPathPredicate(toProto(serializationContext)).build();
         }
 
@@ -528,9 +506,8 @@ public class AvailableFields {
             return IndexKeyValueToPartialRecord.existsSubTupleForOrdinalPath(tuple, conditionalPath);
         }
 
-        @Nonnull
-        public static ConditionalUponPathPredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                             @Nonnull final PConditionalUponPathPredicate conditionalUponPredicateProto) {
+        public static ConditionalUponPathPredicate fromProto(final PlanSerializationContext serializationContext,
+                                                             final PConditionalUponPathPredicate conditionalUponPredicateProto) {
             final ImmutableIntArray.Builder ordinalPathBuilder = ImmutableIntArray.builder();
             for (int i = 0; i < conditionalUponPredicateProto.getOrdinalPathCount(); i ++) {
                 ordinalPathBuilder.add(i);
@@ -543,16 +520,14 @@ public class AvailableFields {
          */
         @AutoService(PlanDeserializer.class)
         public static class Deserializer implements PlanDeserializer<PConditionalUponPathPredicate, ConditionalUponPathPredicate> {
-            @Nonnull
             @Override
             public Class<PConditionalUponPathPredicate> getProtoMessageClass() {
                 return PConditionalUponPathPredicate.class;
             }
 
-            @Nonnull
             @Override
-            public ConditionalUponPathPredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                          @Nonnull final PConditionalUponPathPredicate conditionalUponPathPredicateProto) {
+            public ConditionalUponPathPredicate fromProto(final PlanSerializationContext serializationContext,
+                                                          final PConditionalUponPathPredicate conditionalUponPathPredicateProto) {
                 return ConditionalUponPathPredicate.fromProto(serializationContext, conditionalUponPathPredicateProto);
             }
         }

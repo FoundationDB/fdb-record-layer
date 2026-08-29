@@ -22,23 +22,20 @@ package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
 
 /**
  * An abstract base class for all {@link QueryComponent}s that represent a query of a nested record type.
  */
 @API(API.Status.INTERNAL)
 public abstract class BaseNestedField extends BaseField implements ComponentWithSingleChild {
-    @Nonnull
     protected final QueryComponent childComponent;
 
-    public BaseNestedField(String fieldName, @Nonnull QueryComponent childComponent) {
+    public BaseNestedField(String fieldName, QueryComponent childComponent) {
         super(fieldName);
         this.childComponent = childComponent;
     }
 
     @Override
-    @Nonnull
     public QueryComponent getChild() {
         return childComponent;
     }

@@ -63,8 +63,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -81,21 +81,15 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
                                                                                                           RecordQueryPlanWithComparisons {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Aggregate-Index-Plan");
 
-    @Nonnull
     private final RecordQueryIndexPlan indexPlan;
-    @Nonnull
     private final String recordTypeName;
-    @Nonnull
     private final IndexKeyValueToPartialRecord toRecord;
     // TODO the following value should not be part of this plan
     //      https://github.com/FoundationDB/fdb-record-layer/issues/3367
-    @Nonnull
     private final Value resultValue;
     // TODO the following value should not be part of this plan
     //      https://github.com/FoundationDB/fdb-record-layer/issues/3367
-    @Nonnull
     private final Value groupByResultValue;
-    @Nonnull
     private final QueryPlanConstraint constraint;
 
     /**
@@ -108,12 +102,12 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
      * @param groupByResultValue The result value.
      * @param constraint The index filter.
      */
-    public RecordQueryAggregateIndexPlan(@Nonnull final RecordQueryIndexPlan indexPlan,
-                                         @Nonnull final String recordTypeName,
-                                         @Nonnull final IndexKeyValueToPartialRecord indexEntryToPartialRecordConverter,
-                                         @Nonnull final Value resultValue,
-                                         @Nonnull final Value groupByResultValue,
-                                         @Nonnull final QueryPlanConstraint constraint) {
+    public RecordQueryAggregateIndexPlan(final RecordQueryIndexPlan indexPlan,
+                                         final String recordTypeName,
+                                         final IndexKeyValueToPartialRecord indexEntryToPartialRecordConverter,
+                                         final Value resultValue,
+                                         final Value groupByResultValue,
+                                         final QueryPlanConstraint constraint) {
         this.indexPlan = indexPlan;
         this.recordTypeName = recordTypeName;
         this.toRecord = indexEntryToPartialRecordConverter;
@@ -122,13 +116,12 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
         this.constraint = constraint;
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings({"unchecked", "resource"})
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
         final TypeRepository typeRepository = context.getTypeRepository();
         final Descriptors.Descriptor recordDescriptor = Objects.requireNonNull(typeRepository.getMessageDescriptor(resultValue.getResultType()));
 
@@ -143,7 +136,6 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
                 .map(queriedRecord -> QueryResult.fromQueriedRecord(resultValue.getResultType(), context, queriedRecord));
     }
 
-    @Nonnull
     public RecordQueryIndexPlan getIndexPlan() {
         return indexPlan;
     }
@@ -157,12 +149,10 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
         }
     }
 
-    @Nonnull
     public String getIndexName() {
         return indexPlan.getIndexName();
     }
 
-    @Nonnull
     public IndexScanType getScanType() {
         return indexPlan.getScanType();
     }
@@ -183,18 +173,17 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
     }
 
     @Override
-    public boolean hasIndexScan(@Nonnull String indexName) {
+    public boolean hasIndexScan(String indexName) {
         return indexPlan.hasIndexScan(indexName);
     }
 
-    @Nonnull
     @Override
     public Set<String> getUsedIndexes() {
         return indexPlan.getUsedIndexes();
     }
 
     @Override
-    public int maxCardinality(@Nonnull RecordMetaData metaData) {
+    public int maxCardinality(RecordMetaData metaData) {
         return indexPlan.maxCardinality(metaData);
     }
 
@@ -204,24 +193,21 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
     }
 
     @Override
-    public RecordQueryAggregateIndexPlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
+    public RecordQueryAggregateIndexPlan strictlySorted(final FinalMemoizer memoizer) {
         return new RecordQueryAggregateIndexPlan(indexPlan.strictlySorted(memoizer), recordTypeName, toRecord,
                 resultValue, groupByResultValue, constraint);
     }
 
-    @Nonnull
     @Override
     public Optional<? extends MatchCandidate> getMatchCandidateMaybe() {
         return indexPlan.getMatchCandidateMaybe();
     }
 
-    @Nonnull
     @Override
     public AvailableFields getAvailableFields() {
         return AvailableFields.NO_FIELDS;
     }
 
-    @Nonnull
     public IndexKeyValueToPartialRecord getToRecord() {
         return toRecord;
     }
@@ -231,20 +217,17 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
         return false;
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         // TODO this is bad since the derivations property or others might pick this up without understanding it
         return resultValue;
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         final var result = ImmutableSet.<CorrelationIdentifier>builder();
@@ -252,12 +235,11 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
         return result.build();
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public RecordQueryAggregateIndexPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryAggregateIndexPlan translateCorrelations(final TranslationMap translationMap,
                                                                final boolean shouldSimplifyValues,
-                                                               @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                               final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.isEmpty());
         if (translationMap.definesOnlyIdentities()) {
             // no new quantifiers and no translations
@@ -280,9 +262,8 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
         return indexPlan.canBeMinimized();
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPlan minimize(@Nonnull final List<Quantifier.Physical> newQuantifiers) {
+    public RecordQueryPlan minimize(final List<Quantifier.Physical> newQuantifiers) {
         Verify.verify(newQuantifiers.isEmpty());
         return new RecordQueryAggregateIndexPlan(indexPlan.minimize(newQuantifiers), recordTypeName, toRecord,
                 resultValue, groupByResultValue, constraint);
@@ -290,8 +271,8 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -331,7 +312,7 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
@@ -341,22 +322,19 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
         }
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return indexPlan.createIndexPlannerGraph(this,
                 NodeInfo.INDEX_SCAN_OPERATOR,
                 ImmutableList.of(),
                 ImmutableMap.of());
     }
 
-    @Nonnull
     @Override
     public QueryPlanConstraint getConstraint() {
         return constraint;
     }
 
-    @Nonnull
     @Override
     public ScanComparisons getScanComparisons() {
         return indexPlan.getScanComparisons();
@@ -367,15 +345,13 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
         return indexPlan.hasComparisonRanges();
     }
 
-    @Nonnull
     @Override
     public ComparisonRanges getComparisonRanges() {
         return indexPlan.getComparisonRanges();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryAggregateIndexPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryAggregateIndexPlan toProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryAggregateIndexPlan.newBuilder()
                 .setIndexPlan(indexPlan.toRecordQueryIndexPlanProto(serializationContext))
                 .setRecordTypeName(recordTypeName)
@@ -386,15 +362,13 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setAggregateIndexPlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQueryAggregateIndexPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                          @Nonnull final PRecordQueryAggregateIndexPlan recordQueryAggregateIndexPlanProto) {
+    public static RecordQueryAggregateIndexPlan fromProto(final PlanSerializationContext serializationContext,
+                                                          final PRecordQueryAggregateIndexPlan recordQueryAggregateIndexPlanProto) {
         return new RecordQueryAggregateIndexPlan(RecordQueryIndexPlan.fromProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getIndexPlan())),
                 Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getRecordTypeName()),
                 IndexKeyValueToPartialRecord.fromProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getToRecord())),
@@ -410,16 +384,14 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryAggregateIndexPlan, RecordQueryAggregateIndexPlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryAggregateIndexPlan> getProtoMessageClass() {
             return PRecordQueryAggregateIndexPlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryAggregateIndexPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                       @Nonnull final PRecordQueryAggregateIndexPlan recordQueryAggregateIndexPlanProto) {
+        public RecordQueryAggregateIndexPlan fromProto(final PlanSerializationContext serializationContext,
+                                                       final PRecordQueryAggregateIndexPlan recordQueryAggregateIndexPlanProto) {
             return RecordQueryAggregateIndexPlan.fromProto(serializationContext, recordQueryAggregateIndexPlanProto);
         }
     }

@@ -55,8 +55,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -72,39 +72,33 @@ import java.util.Set;
 public class RecordQueryTextIndexPlan extends AbstractRelationalExpressionWithoutChildren implements RecordQueryPlanWithIndex, RecordQueryPlanWithNoChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Text-Index-Plan");
 
-    @Nonnull
     private final String indexName;
-    @Nonnull
     private final TextScan textScan;
     private final boolean reverse;
 
-    public RecordQueryTextIndexPlan(@Nonnull String indexName, @Nonnull TextScan textScan,
+    public RecordQueryTextIndexPlan(String indexName, TextScan textScan,
                                     boolean reverse) {
         this.indexName = indexName;
         this.textScan = textScan;
         this.reverse = reverse;
     }
 
-    @Nonnull
     @Override
-    public <M extends Message> RecordCursor<IndexEntry> executeEntries(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                                                       @Nullable byte[] continuation, @Nonnull ExecuteProperties executeProperties) {
+    public <M extends Message> RecordCursor<IndexEntry> executeEntries(FDBRecordStoreBase<M> store, EvaluationContext context,
+                                                                       @Nullable byte[] continuation, ExecuteProperties executeProperties) {
         return textScan.scan(store, context, continuation, executeProperties.asScanProperties(reverse));
     }
 
-    @Nonnull
     @Override
     public String getIndexName() {
         return indexName;
     }
 
-    @Nonnull
     @Override
     public IndexScanType getScanType() {
         return IndexScanType.BY_TEXT_TOKEN;
     }
 
-    @Nonnull
     public TextScan getTextScan() {
         return textScan;
     }
@@ -125,11 +119,10 @@ public class RecordQueryTextIndexPlan extends AbstractRelationalExpressionWithou
     }
 
     @Override
-    public boolean hasIndexScan(@Nonnull String indexName) {
+    public boolean hasIndexScan(String indexName) {
         return this.indexName.equals(indexName);
     }
 
-    @Nonnull
     @Override
     public Set<String> getUsedIndexes() {
         return Collections.singleton(indexName);
@@ -150,40 +143,34 @@ public class RecordQueryTextIndexPlan extends AbstractRelationalExpressionWithou
         return 1;
     }
 
-    @Nonnull
     @Override
     public AvailableFields getAvailableFields() {
         return AvailableFields.ALL_FIELDS;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
-    public RecordQueryTextIndexPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryTextIndexPlan translateCorrelations(final TranslationMap translationMap,
                                                           final boolean shouldSimplifyValues,
-                                                          @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                          final List<? extends Quantifier> translatedQuantifiers) {
         // TODO make return this dependent on whether the index scan is correlated according to the translation map
         return this;
     }
 
-    @Nonnull
     @Override
     public Optional<? extends MatchCandidate> getMatchCandidateMaybe() {
         return Optional.empty();
     }
 
-    @Nonnull
     @Override
     public RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords getFetchIndexRecords() {
         return RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY;
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return new QueriedValue();
@@ -191,8 +178,8 @@ public class RecordQueryTextIndexPlan extends AbstractRelationalExpressionWithou
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -222,7 +209,7 @@ public class RecordQueryTextIndexPlan extends AbstractRelationalExpressionWithou
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return indexName.hashCode() + textScan.planHash(mode) + (reverse ? 1 : 0);
@@ -233,7 +220,6 @@ public class RecordQueryTextIndexPlan extends AbstractRelationalExpressionWithou
         }
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return ExplainPlanVisitor.toStringForDebugging(this);
@@ -244,9 +230,8 @@ public class RecordQueryTextIndexPlan extends AbstractRelationalExpressionWithou
      * @return the rewritten planner graph that models the index as a separate node that is connected to the
      *         actual index scan plan node.
      */
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         Verify.verify(childGraphs.isEmpty());
         return createIndexPlannerGraph(this,
                 NodeInfo.TEXT_INDEX_SCAN_OPERATOR,
@@ -254,12 +239,11 @@ public class RecordQueryTextIndexPlan extends AbstractRelationalExpressionWithou
                 ImmutableMap.of());
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph createIndexPlannerGraph(@Nonnull final RecordQueryPlan identity,
-                                                @Nonnull final NodeInfo nodeInfo,
-                                                @Nonnull final List<String> additionalDetails,
-                                                @Nonnull final Map<String, Attribute> additionalAttributeMap) {
+    public PlannerGraph createIndexPlannerGraph(final RecordQueryPlan identity,
+                                                final NodeInfo nodeInfo,
+                                                final List<String> additionalDetails,
+                                                final Map<String, Attribute> additionalAttributeMap) {
         final ImmutableList.Builder<String> detailsBuilder = ImmutableList.builder();
         final ImmutableMap.Builder<String, Attribute> attributeMapBuilder = ImmutableMap.builder();
 
@@ -294,15 +278,13 @@ public class RecordQueryTextIndexPlan extends AbstractRelationalExpressionWithou
                 .build();
     }
 
-    @Nonnull
     @Override
-    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public Message toProto(final PlanSerializationContext serializationContext) {
         throw new RecordCoreException("serialization of this plan is not supported");
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         throw new RecordCoreException("serialization of this plan is not supported");
     }
 }

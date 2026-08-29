@@ -40,8 +40,8 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -54,17 +54,14 @@ import java.util.function.Supplier;
  */
 @API(API.Status.INTERNAL)
 public class InValuesSource extends InSource {
-    @Nonnull
     private static final ObjectPlanHash OBJECT_PLAN_HASH_IN_VALUES_SOURCE = new ObjectPlanHash("In-Values");
 
-    @Nonnull
     private final List<Object> values;
 
-    @Nonnull
     private final Supplier<List<Object>> valuesWithRealEqualsSupplier;
 
-    protected InValuesSource(@Nonnull final PlanSerializationContext serializationContext,
-                             @Nonnull final PInValuesSource inValuesSourceProto) {
+    protected InValuesSource(final PlanSerializationContext serializationContext,
+                             final PInValuesSource inValuesSourceProto) {
         super(serializationContext, Objects.requireNonNull(inValuesSourceProto.getSuper()));
         this.values = Lists.newArrayListWithExpectedSize(inValuesSourceProto.getValuesCount());
         for (int i = 0; i < inValuesSourceProto.getValuesCount(); i ++) {
@@ -74,27 +71,24 @@ public class InValuesSource extends InSource {
                                                                                Comparisons::toClassWithRealEquals));
     }
 
-    public InValuesSource(@Nonnull String bindingName, @Nonnull final List<Object> values) {
+    public InValuesSource(String bindingName, final List<Object> values) {
         super(bindingName);
         this.values = values;
         valuesWithRealEqualsSupplier = Suppliers.memoize(() -> Lists.transform(this.values,
                                                                                Comparisons::toClassWithRealEquals));
     }
 
-    @Nonnull
     @Override
     public List<Object> getValues() {
         return values;
     }
 
 
-    @Nonnull
     @Override
     protected List<Object> getValues(@Nullable final EvaluationContext context) {
         return values;
     }
 
-    @Nonnull
     public List<Object> getValuesWithRealEquals() {
         return valuesWithRealEqualsSupplier.get();
     }
@@ -109,7 +103,6 @@ public class InValuesSource extends InSource {
         return false;
     }
 
-    @Nonnull
     @Override
     public ExplainTokensWithPrecedence explain() {
         return ExplainTokensWithPrecedence.of(
@@ -120,22 +113,20 @@ public class InValuesSource extends InSource {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, baseHash(mode, OBJECT_PLAN_HASH_IN_VALUES_SOURCE), values);
     }
 
     @Override
-    protected int size(@Nonnull final EvaluationContext context) {
+    protected int size(final EvaluationContext context) {
         return values.size();
     }
 
-    @Nonnull
     @Override
-    public RecordQueryInJoinPlan toInJoinPlan(@Nonnull final Quantifier.Physical innerQuantifier) {
+    public RecordQueryInJoinPlan toInJoinPlan(final Quantifier.Physical innerQuantifier) {
         return new RecordQueryInValuesJoinPlan(innerQuantifier, this, Bindings.Internal.CORRELATION);
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return getBindingName() + " IN " + values;
@@ -162,14 +153,12 @@ public class InValuesSource extends InSource {
         return getValuesWithRealEquals().hashCode();
     }
 
-    @Nonnull
     @Override
-    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public Message toProto(final PlanSerializationContext serializationContext) {
         return toInValuesSourceProto(serializationContext);
     }
 
-    @Nonnull
-    protected PInValuesSource toInValuesSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
+    protected PInValuesSource toInValuesSourceProto(final PlanSerializationContext serializationContext) {
         final PInValuesSource.Builder builder =
                 PInValuesSource.newBuilder()
                         .setSuper(toInSourceSuperProto(serializationContext));
@@ -179,15 +168,13 @@ public class InValuesSource extends InSource {
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    protected PInSource toInSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
+    protected PInSource toInSourceProto(final PlanSerializationContext serializationContext) {
         return PInSource.newBuilder().setInValuesSource(toInValuesSourceProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static InValuesSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                           @Nonnull final PInValuesSource inValuesSource) {
+    public static InValuesSource fromProto(final PlanSerializationContext serializationContext,
+                                           final PInValuesSource inValuesSource) {
         return new InValuesSource(serializationContext, inValuesSource);
     }
 
@@ -196,16 +183,14 @@ public class InValuesSource extends InSource {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PInValuesSource, InValuesSource> {
-        @Nonnull
         @Override
         public Class<PInValuesSource> getProtoMessageClass() {
             return PInValuesSource.class;
         }
 
-        @Nonnull
         @Override
-        public InValuesSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                        @Nonnull final PInValuesSource inValuesSourceProto) {
+        public InValuesSource fromProto(final PlanSerializationContext serializationContext,
+                                        final PInValuesSource inValuesSourceProto) {
             return InValuesSource.fromProto(serializationContext, inValuesSourceProto);
         }
     }

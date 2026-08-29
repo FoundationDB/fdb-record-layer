@@ -52,8 +52,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -69,13 +69,12 @@ import java.util.stream.Collectors;
 public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Comparator-Plan");
 
-    @Nonnull
     private final KeyExpression comparisonKey;
     private final int referencePlanIndex;
     private final boolean abortOnComparisonFailure;
 
-    private RecordQueryComparatorPlan(@Nonnull final List<Quantifier.Physical> quantifiers,
-                                      @Nonnull final KeyExpression comparisonKey,
+    private RecordQueryComparatorPlan(final List<Quantifier.Physical> quantifiers,
+                                      final KeyExpression comparisonKey,
                                       final int referencePlanIndex,
                                       final boolean abortOnComparisonFailure) {
         super(quantifiers);
@@ -93,9 +92,8 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
      *
      * @return a new plan that will compare all results from child plans
      */
-    @Nonnull
-    public static RecordQueryComparatorPlan from(@Nonnull List<? extends RecordQueryPlan> children,
-                                                 @Nonnull KeyExpression comparisonKey,
+    public static RecordQueryComparatorPlan from(List<? extends RecordQueryPlan> children,
+                                                 KeyExpression comparisonKey,
                                                  final int referencePlanIndex) {
         return from(children, comparisonKey, referencePlanIndex, false);
     }
@@ -113,10 +111,9 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
      * @return a new plan that will compare all results from child plans
      */
     @HeuristicPlanner
-    @Nonnull
     @VisibleForTesting
-    public static RecordQueryComparatorPlan from(@Nonnull List<? extends RecordQueryPlan> children,
-                                                 @Nonnull KeyExpression comparisonKey,
+    public static RecordQueryComparatorPlan from(List<? extends RecordQueryPlan> children,
+                                                 KeyExpression comparisonKey,
                                                  final int referencePlanIndex,
                                                  final boolean abortOnComparisonFailure) {
         Debugger.verifyHeuristicPlanner();
@@ -143,13 +140,12 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
      * @param <M> the type of records in the store
      * @return {@link RecordCursor} that iterates through the results of the execution
      */
-    @Nonnull
     @Override
     @SuppressWarnings({"squid:S2095", "resource"})
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
         // The child plans all keep their skip and limit - this way we can ensure that they all handle their skip and
         // limit correctly. The parent plan adds no skip and limit of its own - the reference plan is handling that.
         final ExecuteProperties parentExecuteProperties = executeProperties.clearSkipAndLimit();
@@ -169,32 +165,28 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
     /*
      * Return a function that creates a cursor for the given child plan using the provided continuation
      */
-    @Nonnull
     private <M extends Message> Function<byte[], RecordCursor<QueryResult>> childCursorFunction(
-            final @Nonnull FDBRecordStoreBase<M> store,
-            final @Nonnull EvaluationContext context,
+            final FDBRecordStoreBase<M> store,
+            final EvaluationContext context,
             final ExecuteProperties childExecuteProperties,
             final RecordQueryPlan childPlan) {
         return ((byte[] childContinuation) -> childPlan
                 .executePlan(store, context, childContinuation, childExecuteProperties));
     }
 
-    @Nonnull
     public KeyExpression getComparisonKey() {
         return comparisonKey;
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
-    @Nonnull
     @Override
-    public RecordQueryComparatorPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryComparatorPlan translateCorrelations(final TranslationMap translationMap,
                                                            final boolean shouldSimplifyValues,
-                                                           @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                           final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryComparatorPlan(
                 Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers),
                 getComparisonKey(), referencePlanIndex, abortOnComparisonFailure);
@@ -202,8 +194,8 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -233,7 +225,7 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, getChildren(), getComparisonKey(), referencePlanIndex, isReverse());
     }
 
@@ -246,15 +238,14 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
     }
 
     @Override
-    public RecordQueryComparatorPlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
+    public RecordQueryComparatorPlan strictlySorted(final FinalMemoizer memoizer) {
         return new RecordQueryComparatorPlan(Quantifiers.fromPlans(getChildStream()
                     .map(p -> memoizer.memoizePlan(p.strictlySorted(memoizer))).collect(Collectors.toList())),
                 comparisonKey, referencePlanIndex, abortOnComparisonFailure);
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.COMPARATOR_OPERATOR,
@@ -263,15 +254,13 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
                 childGraphs);
     }
 
-    @Nonnull
     @Override
-    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public Message toProto(final PlanSerializationContext serializationContext) {
         throw new RecordCoreException("serialization of this plan is not supported");
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         throw new RecordCoreException("serialization of this plan is not supported");
     }
 }

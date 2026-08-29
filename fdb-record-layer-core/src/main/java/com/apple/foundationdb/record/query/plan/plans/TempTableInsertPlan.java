@@ -53,12 +53,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -73,36 +74,33 @@ public class TempTableInsertPlan extends AbstractRelationalExpressionWithChildre
 
     public static final Logger LOGGER = LoggerFactory.getLogger(TempTableInsertPlan.class);
 
-    @Nonnull
     private final Quantifier.Physical inner;
 
-    @Nonnull
     private final Value tempTableReferenceValue;
 
     private final boolean isOwningTempTable;
 
-    protected TempTableInsertPlan(@Nonnull final PlanSerializationContext serializationContext,
-                                  @Nonnull final PTempTableInsertPlan tempTableInsertPlanProto) {
+    protected TempTableInsertPlan(final PlanSerializationContext serializationContext,
+                                  final PTempTableInsertPlan tempTableInsertPlanProto) {
         this.inner = Quantifier.Physical.fromProto(serializationContext, tempTableInsertPlanProto.getInner());
         this.tempTableReferenceValue = Value.fromValueProto(serializationContext, tempTableInsertPlanProto.getTempTableReferenceValue());
         this.isOwningTempTable = tempTableInsertPlanProto.getIsOwningTempTable();
     }
 
-    private TempTableInsertPlan(@Nonnull final Quantifier.Physical inner,
-                                @Nonnull final Value tempTableReferenceValue,
+    private TempTableInsertPlan(final Quantifier.Physical inner,
+                                final Value tempTableReferenceValue,
                                 boolean isOwningTempTable) {
         this.inner = inner;
         this.tempTableReferenceValue = tempTableReferenceValue;
         this.isOwningTempTable = isOwningTempTable;
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("resource")
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
         if (isOwningTempTable) {
             final var typeDescriptor = getInnerTypeDescriptor(context);
             return TempTableInsertCursor.from(continuation,
@@ -127,7 +125,7 @@ public class TempTableInsertPlan extends AbstractRelationalExpressionWithChildre
     }
 
     @Nullable
-    private Descriptors.Descriptor getInnerTypeDescriptor(@Nonnull final EvaluationContext context) {
+    private Descriptor getInnerTypeDescriptor(final EvaluationContext context) {
         final Descriptors.Descriptor typeDescriptor;
         if (tempTableReferenceValue.getResultType().isRelation() && ((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType().isRecord()) {
             final var type = (Type.Record)((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType();
@@ -138,11 +136,10 @@ public class TempTableInsertPlan extends AbstractRelationalExpressionWithChildre
         return typeDescriptor;
     }
 
-    @Nonnull
     @Override
-    public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RelationalExpression translateCorrelations(final TranslationMap translationMap,
                                                       final boolean shouldSimplifyValues,
-                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                      final List<? extends Quantifier> translatedQuantifiers) {
         final var translatedTableReferenceValue =
                 getTempTableReferenceValue().translateCorrelations(translationMap);
         return new TempTableInsertPlan(
@@ -155,21 +152,18 @@ public class TempTableInsertPlan extends AbstractRelationalExpressionWithChildre
         return inner.getRangesOverPlan();
     }
 
-    @Nonnull
     @Override
-    public TempTableInsertPlan withChild(@Nonnull final Reference childRef) {
+    public TempTableInsertPlan withChild(final Reference childRef) {
         return new TempTableInsertPlan(Quantifier.physical(childRef, inner.getAlias()),
                 getTempTableReferenceValue(),
                 isOwningTempTable);
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return new QueriedValue(Objects.requireNonNull(((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType()));
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
@@ -177,7 +171,7 @@ public class TempTableInsertPlan extends AbstractRelationalExpressionWithChildre
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap equivalences) {
+    public boolean equalsWithoutChildren(final RelationalExpression otherExpression, final AliasMap equivalences) {
         if (this == otherExpression) {
             return true;
         }
@@ -194,11 +188,10 @@ public class TempTableInsertPlan extends AbstractRelationalExpressionWithChildre
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, getChild(), getTempTableReferenceValue(), isOwningTempTable);
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return ExplainPlanVisitor.toStringForDebugging(this);
@@ -212,9 +205,8 @@ public class TempTableInsertPlan extends AbstractRelationalExpressionWithChildre
      * @return the rewritten planner graph that models the filter as a node that uses the expression attribute
      * to depict the record types this operator filters.
      */
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
 
         final var graphForTarget =
                 PlannerGraph.fromNodeAndChildGraphs(
@@ -229,9 +221,8 @@ public class TempTableInsertPlan extends AbstractRelationalExpressionWithChildre
                 Iterables.getOnlyElement(childGraphs), graphForTarget);
     }
 
-    @Nonnull
     @Override
-    public PTempTableInsertPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PTempTableInsertPlan toProto(final PlanSerializationContext serializationContext) {
         return PTempTableInsertPlan.newBuilder()
                 .setInner(inner.toProto(serializationContext))
                 .setTempTableReferenceValue(getTempTableReferenceValue().toValueProto(serializationContext))
@@ -239,15 +230,13 @@ public class TempTableInsertPlan extends AbstractRelationalExpressionWithChildre
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setTempTableInsertPlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static TempTableInsertPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                @Nonnull final PTempTableInsertPlan tempTableInsertPlanProto) {
+    public static TempTableInsertPlan fromProto(final PlanSerializationContext serializationContext,
+                                                final PTempTableInsertPlan tempTableInsertPlanProto) {
         return new TempTableInsertPlan(serializationContext, tempTableInsertPlanProto);
     }
 
@@ -260,19 +249,16 @@ public class TempTableInsertPlan extends AbstractRelationalExpressionWithChildre
      *
      * @return a newly created {@link TempTableInsertPlan}
      */
-    @Nonnull
-    public static TempTableInsertPlan insertPlan(@Nonnull final Quantifier.Physical inner,
-                                                 @Nonnull final Value tempTableReferenceValue,
+    public static TempTableInsertPlan insertPlan(final Quantifier.Physical inner,
+                                                 final Value tempTableReferenceValue,
                                                  boolean isOwningTempTable) {
         return new TempTableInsertPlan(inner, tempTableReferenceValue, isOwningTempTable);
     }
 
-    @Nonnull
     public Value getTempTableReferenceValue() {
         return tempTableReferenceValue;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return tempTableReferenceValue.getCorrelatedToWithoutChildren();
@@ -299,16 +285,14 @@ public class TempTableInsertPlan extends AbstractRelationalExpressionWithChildre
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PTempTableInsertPlan, TempTableInsertPlan> {
-        @Nonnull
         @Override
         public Class<PTempTableInsertPlan> getProtoMessageClass() {
             return PTempTableInsertPlan.class;
         }
 
-        @Nonnull
         @Override
-        public TempTableInsertPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                             @Nonnull final PTempTableInsertPlan tempTableInsertPlanProto) {
+        public TempTableInsertPlan fromProto(final PlanSerializationContext serializationContext,
+                                             final PTempTableInsertPlan tempTableInsertPlanProto) {
             return TempTableInsertPlan.fromProto(serializationContext, tempTableInsertPlanProto);
         }
     }

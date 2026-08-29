@@ -34,7 +34,6 @@ import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -45,13 +44,13 @@ import java.util.Set;
 @HeuristicPlanner
 public class RecordQueryUnionOnKeyExpressionPlan extends RecordQueryUnionPlan {
 
-    protected RecordQueryUnionOnKeyExpressionPlan(@Nonnull final PlanSerializationContext serializationContext,
-                                                  @Nonnull final PRecordQueryUnionOnKeyExpressionPlan recordQueryUnionOnKeyExpressionPlanProto) {
+    protected RecordQueryUnionOnKeyExpressionPlan(final PlanSerializationContext serializationContext,
+                                                  final PRecordQueryUnionOnKeyExpressionPlan recordQueryUnionOnKeyExpressionPlanProto) {
         super(serializationContext, Objects.requireNonNull(recordQueryUnionOnKeyExpressionPlanProto.getSuper()));
     }
 
-    public RecordQueryUnionOnKeyExpressionPlan(@Nonnull final List<Quantifier.Physical> quantifiers,
-                                               @Nonnull final KeyExpression comparisonKey,
+    public RecordQueryUnionOnKeyExpressionPlan(final List<Quantifier.Physical> quantifiers,
+                                               final KeyExpression comparisonKey,
                                                final boolean reverse,
                                                final boolean showComparisonKey) {
         super(quantifiers,
@@ -60,37 +59,32 @@ public class RecordQueryUnionOnKeyExpressionPlan extends RecordQueryUnionPlan {
                 showComparisonKey);
     }
 
-    @Nonnull
     @Override
     public ComparisonKeyFunction.OnKeyExpression getComparisonKeyFunction() {
         return (ComparisonKeyFunction.OnKeyExpression)super.getComparisonKeyFunction();
     }
 
-    @Nonnull
     @Override
     public Set<KeyExpression> getRequiredFields() {
         return ImmutableSet.copyOf(getComparisonKeyExpression().normalizeKeyForPositions());
     }
 
-    @Nonnull
     public KeyExpression getComparisonKeyExpression() {
         return getComparisonKeyFunction().getComparisonKey();
     }
 
-    @Nonnull
     @Override
-    public RecordQueryUnionOnKeyExpressionPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryUnionOnKeyExpressionPlan translateCorrelations(final TranslationMap translationMap,
                                                                      final boolean shouldSimplifyValues,
-                                                                     @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                                     final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryUnionOnKeyExpressionPlan(Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers),
                 getComparisonKeyExpression(),
                 isReverse(),
                 showComparisonKey);
     }
 
-    @Nonnull
     @Override
-    public RecordQueryUnionOnKeyExpressionPlan withChildrenReferences(@Nonnull final List<? extends Reference> newChildren) {
+    public RecordQueryUnionOnKeyExpressionPlan withChildrenReferences(final List<? extends Reference> newChildren) {
         return new RecordQueryUnionOnKeyExpressionPlan(
                 newChildren.stream()
                         .map(Quantifier::physical)
@@ -100,23 +94,20 @@ public class RecordQueryUnionOnKeyExpressionPlan extends RecordQueryUnionPlan {
                 showComparisonKey);
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryUnionOnKeyExpressionPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryUnionOnKeyExpressionPlan toProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryUnionOnKeyExpressionPlan.newBuilder()
                 .setSuper(toRecordQueryUnionPlanProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setUnionOnKeyExpressionPlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQueryUnionOnKeyExpressionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                                @Nonnull final PRecordQueryUnionOnKeyExpressionPlan recordQueryUnionOnKeyExpressionPlanProto) {
+    public static RecordQueryUnionOnKeyExpressionPlan fromProto(final PlanSerializationContext serializationContext,
+                                                                final PRecordQueryUnionOnKeyExpressionPlan recordQueryUnionOnKeyExpressionPlanProto) {
         return new RecordQueryUnionOnKeyExpressionPlan(serializationContext, recordQueryUnionOnKeyExpressionPlanProto);
     }
 
@@ -125,16 +116,14 @@ public class RecordQueryUnionOnKeyExpressionPlan extends RecordQueryUnionPlan {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryUnionOnKeyExpressionPlan, RecordQueryUnionOnKeyExpressionPlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryUnionOnKeyExpressionPlan> getProtoMessageClass() {
             return PRecordQueryUnionOnKeyExpressionPlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryUnionOnKeyExpressionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                             @Nonnull final PRecordQueryUnionOnKeyExpressionPlan recordQueryUnionOnKeyExpressionPlanProto) {
+        public RecordQueryUnionOnKeyExpressionPlan fromProto(final PlanSerializationContext serializationContext,
+                                                             final PRecordQueryUnionOnKeyExpressionPlan recordQueryUnionOnKeyExpressionPlanProto) {
             return RecordQueryUnionOnKeyExpressionPlan.fromProto(serializationContext, recordQueryUnionOnKeyExpressionPlanProto);
         }
     }

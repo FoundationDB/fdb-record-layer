@@ -41,8 +41,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -64,16 +64,14 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.INTERNAL)
 public class PlanOrderingKey {
-    @Nonnull
     private final List<KeyExpression> keys;
     private final int prefixSize;
     private final int primaryKeyStart;
     private final int primaryKeyTail;
     // Keep a set of positions that are duplicates of previous key components
-    @Nonnull
     private final Set<Integer> duplicatePositions;
 
-    public PlanOrderingKey(@Nonnull List<KeyExpression> keys, int prefixSize,
+    public PlanOrderingKey(List<KeyExpression> keys, int prefixSize,
                            int primaryKeyStart, int primaryKeyTail) {
         this.keys = keys;
         this.prefixSize = prefixSize;
@@ -99,7 +97,6 @@ public class PlanOrderingKey {
         this.duplicatePositions = duplicatesBuilder.build();
     }
 
-    @Nonnull
     public List<KeyExpression> getKeys() {
         return keys;
     }
@@ -130,7 +127,7 @@ public class PlanOrderingKey {
     }
 
     @Nullable
-    public static PlanOrderingKey forPlan(@Nonnull RecordMetaData metaData, @Nonnull RecordQueryPlan queryPlan,
+    public static PlanOrderingKey forPlan(RecordMetaData metaData, RecordQueryPlan queryPlan,
                                           @Nullable KeyExpression primaryKey) {
         if (primaryKey == null) {
             return null;
@@ -218,8 +215,7 @@ public class PlanOrderingKey {
         }
     }
 
-    @Nonnull
-    public static PlanOrderingKey forComparisonKey(@Nonnull KeyExpression comparisonKey, @Nonnull KeyExpression primaryKey) {
+    public static PlanOrderingKey forComparisonKey(KeyExpression comparisonKey, KeyExpression primaryKey) {
         final List<KeyExpression> keys = comparisonKey.normalizeKeyForPositions();
         final List<KeyExpression> pkeys = primaryKey.normalizeKeyForPositions();
         int firstPrimaryKeyPosition = -1;
@@ -247,7 +243,7 @@ public class PlanOrderingKey {
      */
     @Nullable
     @SuppressWarnings("PMD.UnusedAssignment") // confused by break?
-    public static KeyExpression mergedComparisonKey(@Nonnull List<RecordQueryPlanner.ScoredPlan> plans,
+    public static KeyExpression mergedComparisonKey(List<RecordQueryPlanner.ScoredPlan> plans,
                                                     @Nullable KeyExpression candidateKey,
                                                     boolean candidateOnly) {
         if (candidateOnly) {
@@ -281,7 +277,7 @@ public class PlanOrderingKey {
     }
 
     @Nullable
-    private static KeyExpression orderingCompatiblePlanKey(@Nonnull PlanOrderingKey planOrderingKey,
+    private static KeyExpression orderingCompatiblePlanKey(PlanOrderingKey planOrderingKey,
                                                            @Nullable KeyExpression candidateKey) {
         List<KeyExpression> components = new ArrayList<>(planOrderingKey.getSuffixSize());
         int nextNonPrefix = planOrderingKey.prefixSize;
@@ -331,8 +327,8 @@ public class PlanOrderingKey {
      * A subkeys of the candidate key can appear in the equals part of the ordering in any order.
      * The remainder must match the ordering key after the equality.
      */
-    private static boolean isOrderingCompatible(@Nonnull PlanOrderingKey planOrderingKey,
-                                                @Nonnull KeyExpression candidateKey) {
+    private static boolean isOrderingCompatible(PlanOrderingKey planOrderingKey,
+                                                KeyExpression candidateKey) {
         int nextNonPrefix = planOrderingKey.prefixSize;
         for (KeyExpression component : candidateKey.normalizeKeyForPositions()) {
             int pos = planOrderingKey.keys.indexOf(component);
@@ -354,7 +350,7 @@ public class PlanOrderingKey {
         return true;
     }
 
-    private static int advanceNextNonPrefix(@Nonnull PlanOrderingKey planOrderingKey, int nonPrefix) {
+    private static int advanceNextNonPrefix(PlanOrderingKey planOrderingKey, int nonPrefix) {
         int next = nonPrefix + 1;
         while (next < planOrderingKey.keys.size()) {
             if (!planOrderingKey.duplicatePositions.contains(next)) {
@@ -373,8 +369,7 @@ public class PlanOrderingKey {
      * @param primaryKey the primary key to preserve within the ordering key
      * @return a key that contains the primary key and is compatible with the ordering of at least one plan
      */
-    @Nonnull
-    public static KeyExpression candidateContainingPrimaryKey(@Nonnull Collection<RecordQueryPlanner.ScoredPlan> plans, @Nonnull KeyExpression primaryKey) {
+    public static KeyExpression candidateContainingPrimaryKey(Collection<RecordQueryPlanner.ScoredPlan> plans, KeyExpression primaryKey) {
         KeyExpression candidateKey = primaryKey;
         for (RecordQueryPlanner.ScoredPlan scoredPlan : plans) {
             PlanOrderingKey planOrderingKey = scoredPlan.planOrderingKey;
@@ -390,8 +385,7 @@ public class PlanOrderingKey {
         return candidateKey;
     }
 
-    @Nonnull
-    private static KeyExpression combine(@Nonnull List<KeyExpression> keys) {
+    private static KeyExpression combine(List<KeyExpression> keys) {
         if (keys.isEmpty()) {
             return EmptyKeyExpression.EMPTY;
         } else if (keys.stream().anyMatch(key -> key.getColumnSize() > 1)) {

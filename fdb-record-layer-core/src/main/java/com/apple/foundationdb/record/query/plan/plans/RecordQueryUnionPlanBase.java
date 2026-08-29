@@ -44,8 +44,8 @@ import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
@@ -65,14 +65,12 @@ public abstract class RecordQueryUnionPlanBase extends AbstractRelationalExpress
      * reordered is identical. This is accurate in the current implementation (except that the continuation might no longer
      * be valid); if this ever changes, equals() and hashCode() must be updated.
      */
-    @Nonnull
     private final List<Quantifier.Physical> quantifiers;
     private final boolean reverse;
-    @Nonnull
     private final Value resultValue;
 
-    protected RecordQueryUnionPlanBase(@Nonnull final PlanSerializationContext serializationContext,
-                                       @Nonnull final PRecordQueryUnionPlanBase recordQueryUnionPlanBaseProto) {
+    protected RecordQueryUnionPlanBase(final PlanSerializationContext serializationContext,
+                                       final PRecordQueryUnionPlanBase recordQueryUnionPlanBaseProto) {
         Verify.verify(recordQueryUnionPlanBaseProto.getQuantifiersCount() > 0);
         Verify.verify(recordQueryUnionPlanBaseProto.hasReverse());
         ImmutableList.Builder<Quantifier.Physical> quantifiersBuilder = ImmutableList.builder();
@@ -84,7 +82,7 @@ public abstract class RecordQueryUnionPlanBase extends AbstractRelationalExpress
         this.resultValue = RecordQuerySetPlan.mergeValues(quantifiers);
     }
 
-    protected RecordQueryUnionPlanBase(@Nonnull final List<Quantifier.Physical> quantifiers,
+    protected RecordQueryUnionPlanBase(final List<Quantifier.Physical> quantifiers,
                                        final boolean reverse) {
         Verify.verify(!quantifiers.isEmpty());
         this.quantifiers = ImmutableList.copyOf(quantifiers);
@@ -92,19 +90,17 @@ public abstract class RecordQueryUnionPlanBase extends AbstractRelationalExpress
         this.resultValue = RecordQuerySetPlan.mergeValues(quantifiers);
     }
 
-    @Nonnull
-    abstract <M extends Message> RecordCursor<QueryResult> createUnionCursor(@Nonnull FDBRecordStoreBase<M> store,
-                                                                             @Nonnull EvaluationContext context,
-                                                                             @Nonnull List<Function<byte[], RecordCursor<QueryResult>>> childCursorFunctions,
+    abstract <M extends Message> RecordCursor<QueryResult> createUnionCursor(FDBRecordStoreBase<M> store,
+                                                                             EvaluationContext context,
+                                                                             List<Function<byte[], RecordCursor<QueryResult>>> childCursorFunctions,
                                                                              @Nullable byte[] continuation);
 
     @SuppressWarnings("resource")
-    @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
         final ExecuteProperties childExecuteProperties;
         // Can pass the limit down to all sides, since that is the most we'll take total.
         if (executeProperties.getSkip() > 0) {
@@ -125,24 +121,20 @@ public abstract class RecordQueryUnionPlanBase extends AbstractRelationalExpress
         return reverse;
     }
 
-    @Nonnull
     private Stream<RecordQueryPlan> getChildStream() {
         return quantifiers.stream().map(Quantifier.Physical::getRangesOverPlan);
     }
 
     @Override
-    @Nonnull
     public List<RecordQueryPlan> getChildren() {
         return getChildStream().collect(Collectors.toList());
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return quantifiers;
     }
 
-    @Nonnull
     @Override
     public AvailableFields getAvailableFields() {
         return AvailableFields.intersection(quantifiers.stream()
@@ -150,7 +142,6 @@ public abstract class RecordQueryUnionPlanBase extends AbstractRelationalExpress
                 .collect(Collectors.toList()));
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return resultValue;
@@ -158,8 +149,8 @@ public abstract class RecordQueryUnionPlanBase extends AbstractRelationalExpress
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(final RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -195,7 +186,7 @@ public abstract class RecordQueryUnionPlanBase extends AbstractRelationalExpress
      * @param hashables the rest of the subclass' hashable parameters (if any)
      * @return the plan hash value calculated
      */
-    protected int basePlanHash(@Nonnull final PlanHashMode mode, ObjectPlanHash baseHash, Object... hashables) {
+    protected int basePlanHash(final PlanHashMode mode, ObjectPlanHash baseHash, Object... hashables) {
         switch (mode.getKind()) {
             case LEGACY:
                 return PlanHashable.planHash(mode, getQueryPlanChildren()) + (reverse ? 1 : 0);
@@ -207,16 +198,13 @@ public abstract class RecordQueryUnionPlanBase extends AbstractRelationalExpress
     }
 
     @API(API.Status.INTERNAL)
-    @Nonnull
     public abstract String getDelimiter();
 
-    @Nonnull
     @Override
     public String toString() {
         return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
-    @Nonnull
     abstract StoreTimer.Count getPlanCount();
 
     @Override
@@ -247,12 +235,11 @@ public abstract class RecordQueryUnionPlanBase extends AbstractRelationalExpress
     }
 
     @Override
-    public RecordQuerySetPlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
+    public RecordQuerySetPlan strictlySorted(final FinalMemoizer memoizer) {
         return withChildrenReferences(getChildren().stream().map(p -> memoizer.memoizePlan(p.strictlySorted(memoizer))).collect(Collectors.toList()));
     }
 
-    @Nonnull
-    protected PRecordQueryUnionPlanBase toRecordQueryUnionPlanBaseProto(@Nonnull final PlanSerializationContext serializationContext) {
+    protected PRecordQueryUnionPlanBase toRecordQueryUnionPlanBaseProto(final PlanSerializationContext serializationContext) {
         final PRecordQueryUnionPlanBase.Builder builder = PRecordQueryUnionPlanBase.newBuilder();
         for (final Quantifier.Physical quantifier : quantifiers) {
             builder.addQuantifiers(quantifier.toProto(serializationContext));

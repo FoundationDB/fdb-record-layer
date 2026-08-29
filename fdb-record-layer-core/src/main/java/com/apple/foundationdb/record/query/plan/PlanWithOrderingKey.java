@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A plan that knows its own {#link PlanOrderingKey}.

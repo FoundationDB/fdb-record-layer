@@ -20,30 +20,27 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 // Package private class used to create FieldWithComparison components on text queries
 class FieldText extends Text {
-    @Nonnull
     private final String fieldName;
 
-    FieldText(@Nonnull String fieldName) {
+    FieldText(String fieldName) {
         this(fieldName, null);
     }
 
-    FieldText(@Nonnull String fieldName, @Nullable String tokenizerName) {
+    FieldText(String fieldName, @Nullable String tokenizerName) {
         this(fieldName, tokenizerName, null);
     }
 
-    FieldText(@Nonnull String fieldName, @Nullable String tokenizerName, @Nullable String defaultTokenizerName) {
+    FieldText(String fieldName, @Nullable String tokenizerName, @Nullable String defaultTokenizerName) {
         super(tokenizerName, defaultTokenizerName);
         this.fieldName = fieldName;
     }
 
-    @Nonnull
     @Override
-    ComponentWithComparison getComponent(@Nonnull Comparisons.Comparison comparison) {
+    ComponentWithComparison getComponent(Comparisons.Comparison comparison) {
         return new FieldWithComparison(fieldName, comparison);
     }
 }

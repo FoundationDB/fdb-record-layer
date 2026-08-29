@@ -46,8 +46,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -74,11 +74,11 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 public class QueryExpressionTest {
 
-    private Boolean evaluate(@Nonnull QueryComponent component, @Nullable Message record) {
+    private Boolean evaluate(QueryComponent component, @Nullable Message record) {
         return evaluate(component, Bindings.EMPTY_BINDINGS, record);
     }
 
-    private Boolean evaluate(@Nonnull QueryComponent component, @Nonnull Bindings bindings, @Nullable Message record) {
+    private Boolean evaluate(QueryComponent component, Bindings bindings, @Nullable Message record) {
         return component.eval(null, EvaluationContext.forBindings(bindings), new UnstoredRecord<>(record));
     }
 
@@ -88,16 +88,16 @@ public class QueryExpressionTest {
 
     private abstract static class TestMessageComponent implements ComponentWithNoChildren {
         @Override
-        public void validate(@Nonnull Descriptors.Descriptor descriptor) {
+        public void validate(Descriptors.Descriptor descriptor) {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             return 0;
         }
 
         @Override
-        public @Nonnull GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier, @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier, @Nonnull final List<String> fieldNamePrefix) {
+        public GraphExpansion expand(final Quantifier.ForEach baseQuantifier, final Supplier<Quantifier.ForEach> outerQuantifierSupplier, final List<String> fieldNamePrefix) {
             throw new UnsupportedOperationException();
         }
     }
@@ -105,7 +105,7 @@ public class QueryExpressionTest {
     private static final QueryComponent TRUE = new TestMessageComponent() {
         @Nullable
         @Override
-        public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+        public <M extends Message> Boolean evalMessage(FDBRecordStoreBase<M> store, EvaluationContext context,
                                                        @Nullable FDBRecord<M> rec, @Nullable Message message) {
             return true;
         }
@@ -113,7 +113,7 @@ public class QueryExpressionTest {
     private static final QueryComponent FALSE = new TestMessageComponent() {
         @Nullable
         @Override
-        public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+        public <M extends Message> Boolean evalMessage(FDBRecordStoreBase<M> store, EvaluationContext context,
                                                        @Nullable FDBRecord<M> rec, @Nullable Message message) {
             return false;
         }
@@ -121,7 +121,7 @@ public class QueryExpressionTest {
     private static final QueryComponent NULL = new TestMessageComponent() {
         @Nullable
         @Override
-        public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+        public <M extends Message> Boolean evalMessage(FDBRecordStoreBase<M> store, EvaluationContext context,
                                                        @Nullable FDBRecord<M> rec, @Nullable Message message) {
             return null;
         }
@@ -354,7 +354,7 @@ public class QueryExpressionTest {
                             return;
                         } catch (IllegalArgumentException e) {
                             // When run inside IntelliJ
-                            if (e.getMessage().contains("@Nonnull") && val2 == null) {
+                            if (e.getMessage().contains("") && val2 == null) {
                                 return;
                             } else {
                                 throw e;
@@ -423,7 +423,6 @@ public class QueryExpressionTest {
         }
     }
 
-    @Nonnull
     private TestScalarFieldAccess.Builder createRecord(String field, Object val1) {
         final TestScalarFieldAccess.Builder rec = TestScalarFieldAccess.newBuilder();
         if (val1 != null) {

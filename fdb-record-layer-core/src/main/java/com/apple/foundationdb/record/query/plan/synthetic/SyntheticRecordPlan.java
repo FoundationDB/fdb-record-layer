@@ -27,8 +27,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A plan for generating synthetic records without an explicit starting point.
@@ -49,18 +48,16 @@ public interface SyntheticRecordPlan extends PlanHashable  {
      * @param executeProperties limits on execution
      * @return a cursor of synthetic records
      */
-    @Nonnull
-    RecordCursor<FDBSyntheticRecord> execute(@Nonnull FDBRecordStore store,
+    RecordCursor<FDBSyntheticRecord> execute(FDBRecordStore store,
                                              @Nullable byte[] continuation,
-                                             @Nonnull ExecuteProperties executeProperties);
+                                             ExecuteProperties executeProperties);
 
     /**
      * Execute this plan.
      * @param store record store against which to execute
      * @return a cursor of synthetic records
      */
-    @Nonnull
-    default RecordCursor<FDBSyntheticRecord> execute(@Nonnull FDBRecordStore store) {
+    default RecordCursor<FDBSyntheticRecord> execute(FDBRecordStore store) {
         return execute(store, null, ExecuteProperties.SERIAL_EXECUTE);
     }
 

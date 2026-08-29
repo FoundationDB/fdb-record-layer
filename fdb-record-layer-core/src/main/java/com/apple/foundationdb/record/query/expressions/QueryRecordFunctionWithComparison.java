@@ -45,8 +45,8 @@ import com.google.common.collect.Lists;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -60,23 +60,19 @@ import java.util.function.Supplier;
 public class QueryRecordFunctionWithComparison implements ComponentWithComparison {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Query-Record-Function-With-Comparison");
 
-    @Nonnull
     private final RecordFunction<?> function;
-    @Nonnull
     private final Comparisons.Comparison comparison;
 
-    public QueryRecordFunctionWithComparison(@Nonnull RecordFunction<?> function, @Nonnull Comparisons.Comparison comparison) {
+    public QueryRecordFunctionWithComparison(RecordFunction<?> function, Comparisons.Comparison comparison) {
         this.function = function;
         this.comparison = comparison;
     }
 
-    @Nonnull
     public RecordFunction<?> getFunction() {
         return function;
     }
 
     @Override
-    @Nonnull
     public Comparisons.Comparison getComparison() {
         return comparison;
     }
@@ -93,7 +89,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
 
     @Override
     @Nullable
-    public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+    public <M extends Message> Boolean evalMessage(FDBRecordStoreBase<M> store, EvaluationContext context,
                                                    @Nullable FDBRecord<M> rec, @Nullable Message message) {
         return store.getContext().join(evalMessageAsync(store, context, rec, message));
     }
@@ -103,9 +99,8 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
         return true;
     }
 
-    @Nonnull
     @Override
-    public <M extends Message> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+    public <M extends Message> CompletableFuture<Boolean> evalMessageAsync(FDBRecordStoreBase<M> store, EvaluationContext context,
                                                                            @Nullable FDBRecord<M> rec, @Nullable Message message) {
         if (rec == null) {
             return CompletableFuture.completedFuture(getComparison().eval(store, context, null));
@@ -114,15 +109,14 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
     }
 
     @Override
-    public void validate(@Nonnull Descriptors.Descriptor descriptor) {
+    public void validate(Descriptors.Descriptor descriptor) {
         function.validate(descriptor);
     }
 
-    @Nonnull
     @Override
-    public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
-                                 @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
-                                 @Nonnull final List<String> fieldNamePrefix) {
+    public GraphExpansion expand(final Quantifier.ForEach baseQuantifier,
+                                 final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
+                                 final List<String> fieldNamePrefix) {
         // TODO for now we only do this for rank but we can do this for more than that
         if (function instanceof IndexRecordFunction && FunctionNames.RANK.equals(function.getName())) {
             final var groupingKeyExpression = ((IndexRecordFunction<?>)function).getOperand();
@@ -196,7 +190,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return function.planHash(mode) + getComparison().planHash(mode);

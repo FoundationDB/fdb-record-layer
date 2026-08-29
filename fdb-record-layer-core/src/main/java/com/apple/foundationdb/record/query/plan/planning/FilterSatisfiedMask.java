@@ -32,8 +32,8 @@ import com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent;
 import com.apple.foundationdb.record.query.expressions.OrComponent;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -49,15 +49,13 @@ import java.util.Objects;
 @API(API.Status.INTERNAL)
 public class FilterSatisfiedMask {
 
-    @Nonnull
     private final QueryComponent filter;
-    @Nonnull
     private final List<FilterSatisfiedMask> children;
     private boolean satisfied;
     @Nullable
     private KeyExpression expression;
 
-    private FilterSatisfiedMask(@Nonnull QueryComponent filter, @Nonnull List<FilterSatisfiedMask> children, boolean satisfied) {
+    private FilterSatisfiedMask(QueryComponent filter, List<FilterSatisfiedMask> children, boolean satisfied) {
         this.filter = filter;
         this.children = children;
         this.satisfied = satisfied;
@@ -125,7 +123,6 @@ public class FilterSatisfiedMask {
      *
      * @return the filter this mask is masking
      */
-    @Nonnull
     public QueryComponent getFilter() {
         return filter;
     }
@@ -139,7 +136,6 @@ public class FilterSatisfiedMask {
      *
      * @return the list of children of this filter
      */
-    @Nonnull
     public List<FilterSatisfiedMask> getChildren() {
         return children;
     }
@@ -155,9 +151,8 @@ public class FilterSatisfiedMask {
      * @return the child of this mask that is associated with the given filter
      * @throws FilterNotFoundException if the given filter is not associated with any of the mask's children
      */
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public FilterSatisfiedMask getChild(@Nonnull QueryComponent childFilter) {
+    public FilterSatisfiedMask getChild(QueryComponent childFilter) {
         for (FilterSatisfiedMask child : children) {
             // Use pointer equality because (1) efficiency and (2) this should
             // only be called by someone who already has a reference to
@@ -189,7 +184,6 @@ public class FilterSatisfiedMask {
      *
      * @return a list of filters that are not satisfied according to this mask
      */
-    @Nonnull
     public List<QueryComponent> getUnsatisfiedFilters() {
         if (isSatisfied()) {
             return Collections.emptyList();
@@ -237,7 +231,7 @@ public class FilterSatisfiedMask {
 
     @Nullable
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private QueryComponent getUnsatisfiedFilter(@Nonnull NestedField filter) {
+    private QueryComponent getUnsatisfiedFilter(NestedField filter) {
         if (children.isEmpty()) {
             throw new RecordCoreException("nested filter has no child masks", LogMessageKeys.PARENT_FILTER, filter);
         }
@@ -254,7 +248,7 @@ public class FilterSatisfiedMask {
     }
 
     @Nullable
-    private QueryComponent getUnsatisfiedFilter(@Nonnull OneOfThemWithComponent filter) {
+    private QueryComponent getUnsatisfiedFilter(OneOfThemWithComponent filter) {
         if (children.isEmpty()) {
             throw new RecordCoreException("nested filter has no child masks", LogMessageKeys.PARENT_FILTER, filter);
         }
@@ -273,7 +267,7 @@ public class FilterSatisfiedMask {
     }
 
     @Nullable
-    private QueryComponent getUnsatisfiedFilter(@Nonnull AndComponent filter) {
+    private QueryComponent getUnsatisfiedFilter(AndComponent filter) {
         final List<QueryComponent> unsatisfiedChildren = new ArrayList<>(children.size());
         for (FilterSatisfiedMask child : children) {
             QueryComponent newChildFilter = child.getUnsatisfiedFilter();
@@ -298,7 +292,7 @@ public class FilterSatisfiedMask {
     }
 
     @Nullable
-    private QueryComponent getUnsatisfiedFilter(@Nonnull OrComponent filter) {
+    private QueryComponent getUnsatisfiedFilter(OrComponent filter) {
         boolean allSatisfied = children.stream().map(FilterSatisfiedMask::getUnsatisfiedFilter).allMatch(Objects::isNull);
         if (allSatisfied) {
             setSatisfied(true);
@@ -352,7 +346,7 @@ public class FilterSatisfiedMask {
      * @throws FilterMismatchException if <code>other</code> is not a mask of the same filter as this mask
      */
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public void mergeWith(@Nonnull FilterSatisfiedMask other) {
+    public void mergeWith(FilterSatisfiedMask other) {
         if (other.getFilter() != getFilter()) {
             throw new FilterMismatchException(other.getFilter());
         }
@@ -395,8 +389,7 @@ public class FilterSatisfiedMask {
      * @param filter the filter to create the mask for
      * @return a mask initially claiming this filter and its sub-components are all unsatisfied
      */
-    @Nonnull
-    public static FilterSatisfiedMask of(@Nonnull QueryComponent filter) {
+    public static FilterSatisfiedMask of(QueryComponent filter) {
         // Traverse down the query component tree to produce this mask
         List<FilterSatisfiedMask> children;
         if (filter instanceof ComponentWithSingleChild) {
@@ -420,7 +413,7 @@ public class FilterSatisfiedMask {
     public class FilterNotFoundException extends RecordCoreException {
         static final long serialVersionUID = 1L;
 
-        private FilterNotFoundException(@Nonnull QueryComponent childFilter) {
+        private FilterNotFoundException(QueryComponent childFilter) {
             super("child filter not found", LogMessageKeys.PARENT_FILTER, filter, LogMessageKeys.CHILD_FILTER, childFilter);
         }
     }
@@ -432,7 +425,7 @@ public class FilterSatisfiedMask {
     public class FilterMismatchException extends RecordCoreException {
         static final long serialVersionUID = 1L;
 
-        private FilterMismatchException(@Nonnull QueryComponent otherFilter) {
+        private FilterMismatchException(QueryComponent otherFilter) {
             super("filter from other mask does not match mask filter", LogMessageKeys.FILTER, filter, LogMessageKeys.OTHER_FILTER, otherFilter);
         }
     }

@@ -43,8 +43,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Map;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -69,7 +69,7 @@ public abstract class AbstractSyntheticRecordPlannerTest {
         return fdb.openContext(null, timer);
     }
 
-    protected QueryPlanner setupPlanner(@Nonnull FDBRecordStore recordStore, @Nullable PlannableIndexTypes indexTypes) {
+    protected QueryPlanner setupPlanner(FDBRecordStore recordStore, @Nullable PlannableIndexTypes indexTypes) {
         if (indexTypes == null) {
             indexTypes = PlannableIndexTypes.DEFAULT;
         }

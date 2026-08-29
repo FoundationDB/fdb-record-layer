@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -51,7 +50,7 @@ public class OrComponent extends AndOrComponent {
         super(operands);
     }
 
-    public static OrComponent from(@Nonnull List<QueryComponent> operands) {
+    public static OrComponent from(List<QueryComponent> operands) {
         return new OrComponent(operands);
     }
 
@@ -70,11 +69,10 @@ public class OrComponent extends AndOrComponent {
         return OrComponent.from(newChildren);
     }
 
-    @Nonnull
     @Override
-    public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
-                                 @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
-                                 @Nonnull final List<String> fieldNamePrefix) {
+    public GraphExpansion expand(final Quantifier.ForEach baseQuantifier,
+                                 final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
+                                 final List<String> fieldNamePrefix) {
         final GraphExpansion childrenGraphExpansion =
                 GraphExpansion.ofOthers(getChildren().stream()
                         .map(child -> child.expand(baseQuantifier, outerQuantifierSupplier, fieldNamePrefix))
@@ -102,7 +100,7 @@ public class OrComponent extends AndOrComponent {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return PlanHashable.planHash(mode, getChildren());

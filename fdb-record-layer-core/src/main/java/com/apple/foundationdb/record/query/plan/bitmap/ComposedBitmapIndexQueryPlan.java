@@ -52,8 +52,8 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -69,34 +69,29 @@ import java.util.stream.Collectors;
 public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWithoutChildren implements RecordQueryPlanWithNoChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Composed-Bitmap-Index-Query-Plan");
 
-    @Nonnull
     // NOTE: These aren't children in the sense of RecordQueryPlanWithChildren
     // for the same reason as RecordQueryCoveringIndexPlan isn't RecordQueryPlanWithChild.
     private final List<RecordQueryCoveringIndexPlan> indexPlans;
-    @Nonnull
     private final ComposerBase composer;
 
-    ComposedBitmapIndexQueryPlan(@Nonnull List<RecordQueryCoveringIndexPlan> indexPlans, @Nonnull ComposerBase composer) {
+    ComposedBitmapIndexQueryPlan(List<RecordQueryCoveringIndexPlan> indexPlans, ComposerBase composer) {
         this.indexPlans = indexPlans;
         this.composer = composer;
     }
 
-    @Nonnull
     public List<RecordQueryCoveringIndexPlan> getIndexPlans() {
         return indexPlans;
     }
 
-    @Nonnull
     public ComposerBase getComposer() {
         return composer;
     }
 
-    @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
         final ExecuteProperties scanExecuteProperties = executeProperties.getSkip() > 0 ? executeProperties.clearSkipAndAdjustLimit() : executeProperties;
         final List<Function<byte[], RecordCursor<IndexEntry>>> cursorFunctions = indexPlans.stream()
                 .map(RecordQueryCoveringIndexPlan::getIndexPlan)
@@ -125,11 +120,10 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
     }
 
     @Override
-    public boolean hasIndexScan(@Nonnull String indexName) {
+    public boolean hasIndexScan(String indexName) {
         return indexPlans.stream().anyMatch(p -> p.hasIndexScan(indexName));
     }
 
-    @Nonnull
     @Override
     public Set<String> getUsedIndexes() {
         return indexPlans.stream().map(RecordQueryPlan::getUsedIndexes).flatMap(Set::stream).collect(Collectors.toSet());
@@ -140,7 +134,6 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
         return false;
     }
 
-    @Nonnull
     @Override
     public AvailableFields getAvailableFields() {
         return AvailableFields.ALL_FIELDS;
@@ -164,7 +157,7 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return PlanHashable.planHash(mode, indexPlans) + composer.planHash(mode);
@@ -175,25 +168,22 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
         }
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this, NodeInfo.COMPOSED_BITMAP_OPERATOR),
                 childGraphs);
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return indexPlans.stream().map(RecordQueryPlan::getCorrelatedTo).flatMap(Set::stream).collect(Collectors.toSet());
     }
 
-    @Nonnull
     @Override
-    public ComposedBitmapIndexQueryPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public ComposedBitmapIndexQueryPlan translateCorrelations(final TranslationMap translationMap,
                                                               final boolean shouldSimplifyValues,
-                                                              @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                              final List<? extends Quantifier> translatedQuantifiers) {
         if (translationMap.definesOnlyIdentities()) {
             return this;
         }
@@ -213,9 +203,8 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
         return indexPlans.stream().anyMatch(RecordQueryCoveringIndexPlan::canBeMinimized);
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPlan minimize(@Nonnull final List<Quantifier.Physical> newQuantifiers) {
+    public RecordQueryPlan minimize(final List<Quantifier.Physical> newQuantifiers) {
         Verify.verify(newQuantifiers.isEmpty());
 
         final var minimizedIndexPlansBuilder = ImmutableList.<RecordQueryCoveringIndexPlan>builder();
@@ -230,7 +219,6 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
         return new ComposedBitmapIndexQueryPlan(minimizedIndexPlansBuilder.build(), composer);
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return new QueriedValue();
@@ -238,7 +226,7 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
     
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression other, @Nonnull AliasMap equivalences) {
+    public boolean equalsWithoutChildren(RelationalExpression other, AliasMap equivalences) {
         if (this == other) {
             return true;
         }
@@ -282,15 +270,13 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
         return composer.toString(indexPlans);
     }
 
-    @Nonnull
     @Override
-    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public Message toProto(final PlanSerializationContext serializationContext) {
         throw new RecordCoreException("serialization of this plan is not supported");
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         throw new RecordCoreException("serialization of this plan is not supported");
     }
 
@@ -298,7 +284,6 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
      * Plan extension of {@link ComposedBitmapIndexCursor.Composer}.
      */
     public abstract static class ComposerBase implements ComposedBitmapIndexCursor.Composer, PlanHashable {
-        @Nonnull
         abstract String toString(@Nullable List<?> sources);
 
         @Override
@@ -316,7 +301,6 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
             this.position = position;
         }
 
-        @Nonnull
         @Override
         String toString(@Nullable List<?> sources) {
             if (sources == null) {
@@ -328,12 +312,12 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
 
         @Nullable
         @Override
-        public byte[] compose(@Nonnull List<byte[]> bitmaps, int size) {
+        public byte[] compose(List<byte[]> bitmaps, int size) {
             return bitmaps.get(position);
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             switch (mode.getKind()) {
                 case LEGACY:
                     return position;
@@ -365,17 +349,14 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
     abstract static class OperatorComposer extends ComposerBase {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Operator-Composer");
 
-        @Nonnull
         private final List<ComposerBase> children;
 
-        OperatorComposer(@Nonnull List<ComposerBase> children) {
+        OperatorComposer(List<ComposerBase> children) {
             this.children = children;
         }
 
-        @Nonnull
         abstract String operator();
 
-        @Nonnull
         @Override
         String toString(@Nullable List<?> sources) {
             return children.stream().map(child -> child.toString(sources)).collect(Collectors.joining(" " + operator() + " "));
@@ -383,7 +364,7 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
 
         @Nullable
         @Override
-        public byte[] compose(@Nonnull List<byte[]> bitmaps, int size) {
+        public byte[] compose(List<byte[]> bitmaps, int size) {
             final List<byte[]> operands = new ArrayList<>(children.size());
             for (ComposerBase child : children) {
                 operands.add(child.compose(bitmaps, size));
@@ -392,10 +373,10 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
         }
 
         @Nullable
-        abstract byte[] operate(@Nonnull List<byte[]> operands, @Nonnull byte[] result);
+        abstract byte[] operate(List<byte[]> operands, byte[] result);
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             switch (mode.getKind()) {
                 case LEGACY:
                     return PlanHashable.planHash(mode, children) + operator().hashCode();
@@ -430,11 +411,10 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
     // inside the loop, which seems to less the chances for the whole being compiled well.
 
     static class AndComposer extends OperatorComposer {
-        public AndComposer(@Nonnull List<ComposerBase> children) {
+        public AndComposer(List<ComposerBase> children) {
             super(children);
         }
 
-        @Nonnull
         @Override
         String operator() {
             return "BITAND";
@@ -442,7 +422,7 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
 
         @Nullable
         @Override
-        byte[] operate(@Nonnull List<byte[]> operands, @Nonnull byte[] result) {
+        byte[] operate(List<byte[]> operands, byte[] result) {
             boolean first = true;
             boolean empty = true;
             for (final byte[] operand : operands) {
@@ -468,11 +448,10 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
     }
 
     static class OrComposer extends OperatorComposer {
-        public OrComposer(@Nonnull List<ComposerBase> children) {
+        public OrComposer(List<ComposerBase> children) {
             super(children);
         }
 
-        @Nonnull
         @Override
         String operator() {
             return "BITOR";
@@ -480,7 +459,7 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
 
         @Nullable
         @Override
-        byte[] operate(@Nonnull List<byte[]> operands, @Nonnull byte[] result) {
+        byte[] operate(List<byte[]> operands, byte[] result) {
             boolean first = true;
             boolean empty = true;
             for (final byte[] operand : operands) {
@@ -506,11 +485,10 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
     }
 
     static class XorComposer extends OperatorComposer {
-        public XorComposer(@Nonnull List<ComposerBase> children) {
+        public XorComposer(List<ComposerBase> children) {
             super(children);
         }
 
-        @Nonnull
         @Override
         String operator() {
             return "BITXOR";
@@ -518,7 +496,7 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
 
         @Nullable
         @Override
-        byte[] operate(@Nonnull List<byte[]> operands, @Nonnull byte[] result) {
+        byte[] operate(List<byte[]> operands, byte[] result) {
             boolean first = true;
             boolean empty = true;
             for (final byte[] operand : operands) {
@@ -546,14 +524,12 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
     static class NotComposer extends ComposerBase {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Not-Composer");
 
-        @Nonnull
         private final ComposerBase child;
 
-        NotComposer(@Nonnull ComposerBase child) {
+        NotComposer(ComposerBase child) {
             this.child = child;
         }
 
-        @Nonnull
         @Override
         String toString(@Nullable List<?> sources) {
             return "BITNOT " + child.toString(sources);
@@ -561,7 +537,7 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
 
         @Nullable
         @Override
-        public byte[] compose(@Nonnull List<byte[]> bitmaps, int size) {
+        public byte[] compose(List<byte[]> bitmaps, int size) {
             final byte[] operand = child.compose(bitmaps, size);
             final byte[] result = new byte[size];
             if (operand == null) {
@@ -575,7 +551,7 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             switch (mode.getKind()) {
                 case LEGACY:
                     return child.planHash(mode);

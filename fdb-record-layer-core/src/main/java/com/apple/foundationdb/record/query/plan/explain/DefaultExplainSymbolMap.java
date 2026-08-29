@@ -23,26 +23,25 @@ package com.apple.foundationdb.record.query.plan.explain;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Symbol table that uses the alias' string representation as symbol.
  */
 public class DefaultExplainSymbolMap implements ExplainSymbolMap {
     @Override
-    public void registerAlias(@Nonnull final CorrelationIdentifier alias) {
+    public void registerAlias(final CorrelationIdentifier alias) {
         // empty
     }
 
     @Override
-    public void registerAliasWithExplicitSymbol(@Nonnull final CorrelationIdentifier alias, @Nonnull final String symbol) {
+    public void registerAliasWithExplicitSymbol(final CorrelationIdentifier alias, final String symbol) {
         // empty
     }
 
     @Nullable
     @Override
-    public String getSymbolForAlias(@Nonnull final CorrelationIdentifier alias) {
+    public String getSymbolForAlias(final CorrelationIdentifier alias) {
         return Quantifier.current().equals(alias) ? "_" : alias.getId();
     }
 }

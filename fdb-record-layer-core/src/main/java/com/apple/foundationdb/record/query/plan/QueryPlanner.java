@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 
-import javax.annotation.Nonnull;
 
 /**
  * A common interface for classes that can plan a {@link RecordQuery} into a {@link RecordQueryPlan}. The common
@@ -68,8 +67,7 @@ public interface QueryPlanner {
      * @return a plan that will return the results of the provided query when executed
      * @throws com.apple.foundationdb.record.RecordCoreException if the planner cannot plan the query
      */
-    @Nonnull
-    RecordQueryPlan plan(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph);
+    RecordQueryPlan plan(RecordQuery query, ParameterRelationshipGraph parameterRelationshipGraph);
 
     /**
      * Create a plan to get the results of the provided query.
@@ -78,8 +76,7 @@ public interface QueryPlanner {
      * @return a plan that will return the results of the provided query when executed
      * @throws com.apple.foundationdb.record.RecordCoreException if the planner cannot plan the query
      */
-    @Nonnull
-    default RecordQueryPlan plan(@Nonnull RecordQuery query) {
+    default RecordQueryPlan plan(RecordQuery query) {
         return plan(query, ParameterRelationshipGraph.empty());
     }
 
@@ -95,11 +92,9 @@ public interface QueryPlanner {
      * @return a {@link QueryPlanResult} that contains the plan for the query with additional information
      * @throws com.apple.foundationdb.record.RecordCoreException if the planner cannot plan the query
      */
-    @Nonnull
-    QueryPlanResult planQuery(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph);
+    QueryPlanResult planQuery(RecordQuery query, ParameterRelationshipGraph parameterRelationshipGraph);
 
-    @Nonnull
-    default QueryPlanResult planQuery(@Nonnull RecordQuery query) {
+    default QueryPlanResult planQuery(RecordQuery query) {
         return planQuery(query, ParameterRelationshipGraph.empty());
     }
 
@@ -107,14 +102,12 @@ public interface QueryPlanner {
      * Get the {@link RecordMetaData} for this planner.
      * @return the meta-data
      */
-    @Nonnull
     RecordMetaData getRecordMetaData();
 
     /**
      * Get the {@link RecordStoreState} for this planner.
      * @return the record store state
      */
-    @Nonnull
     RecordStoreState getRecordStoreState();
 
     /**
@@ -126,9 +119,8 @@ public interface QueryPlanner {
      * If the meta-data has more than one record type but the record store does not, this can be overridden.
      * @param indexScanPreference whether to prefer index scan over record scan
      */
-    void setIndexScanPreference(@Nonnull IndexScanPreference indexScanPreference);
+    void setIndexScanPreference(IndexScanPreference indexScanPreference);
 
-    @Nonnull
     RecordQueryPlannerConfiguration getConfiguration();
 
     /**
@@ -137,5 +129,5 @@ public interface QueryPlanner {
      * {@link #setIndexScanPreference(IndexScanPreference)} then it will be ignored.
      * @param configuration a configuration object for this planner
      */
-    void setConfiguration(@Nonnull RecordQueryPlannerConfiguration configuration);
+    void setConfiguration(RecordQueryPlannerConfiguration configuration);
 }

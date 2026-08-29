@@ -22,8 +22,8 @@ package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 
 /**
@@ -34,15 +34,14 @@ import java.util.List;
  */
 @API(API.Status.UNSTABLE)
 public class OneOfThem {
-    @Nonnull
     private final String fieldName;
     private final Field.OneOfThemEmptyMode emptyMode;
 
-    public OneOfThem(@Nonnull String fieldName) {
+    public OneOfThem(String fieldName) {
         this(fieldName, Field.OneOfThemEmptyMode.EMPTY_UNKNOWN);
     }
 
-    public OneOfThem(@Nonnull String fieldName, Field.OneOfThemEmptyMode emptyMode) {
+    public OneOfThem(String fieldName, Field.OneOfThemEmptyMode emptyMode) {
         this.fieldName = fieldName;
         this.emptyMode = emptyMode;
     }
@@ -53,8 +52,7 @@ public class OneOfThem {
      * @param child a component asserting about the content of the submessage in this field
      * @return a new component ready for evaluation
      */
-    @Nonnull
-    public QueryComponent matches(@Nonnull QueryComponent child) {
+    public QueryComponent matches(QueryComponent child) {
         return new OneOfThemWithComponent(fieldName, emptyMode, child);
     }
 
@@ -64,8 +62,7 @@ public class OneOfThem {
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent equalsValue(@Nonnull Object comparand) {
+    public QueryComponent equalsValue(Object comparand) {
         return new OneOfThemWithComparison(fieldName, emptyMode,
                 new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, comparand));
     }
@@ -76,8 +73,7 @@ public class OneOfThem {
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent notEquals(@Nonnull Object comparand) {
+    public QueryComponent notEquals(Object comparand) {
         return new OneOfThemWithComparison(fieldName, emptyMode,
                 new Comparisons.SimpleComparison(Comparisons.Type.NOT_EQUALS, comparand));
     }
@@ -88,8 +84,7 @@ public class OneOfThem {
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent greaterThan(@Nonnull Object comparand) {
+    public QueryComponent greaterThan(Object comparand) {
         return new OneOfThemWithComparison(fieldName, emptyMode,
                 new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, comparand));
     }
@@ -100,8 +95,7 @@ public class OneOfThem {
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent greaterThanOrEquals(@Nonnull Object comparand) {
+    public QueryComponent greaterThanOrEquals(Object comparand) {
         return new OneOfThemWithComparison(fieldName, emptyMode,
                 new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, comparand));
     }
@@ -112,8 +106,7 @@ public class OneOfThem {
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent lessThan(@Nonnull Object comparand) {
+    public QueryComponent lessThan(Object comparand) {
         return new OneOfThemWithComparison(fieldName, emptyMode,
                 new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, comparand));
     }
@@ -124,8 +117,7 @@ public class OneOfThem {
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent lessThanOrEquals(@Nonnull Object comparand) {
+    public QueryComponent lessThanOrEquals(Object comparand) {
         return new OneOfThemWithComparison(fieldName, emptyMode,
                 new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, comparand));
     }
@@ -135,8 +127,7 @@ public class OneOfThem {
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent startsWith(@Nonnull String comparand) {
+    public QueryComponent startsWith(String comparand) {
         return new OneOfThemWithComparison(fieldName, emptyMode,
                 new Comparisons.SimpleComparison(Comparisons.Type.STARTS_WITH, comparand));
     }
@@ -146,8 +137,7 @@ public class OneOfThem {
      * @param comparand a list of elements
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent in(@Nonnull List<?> comparand) {
+    public QueryComponent in(List<?> comparand) {
         return new OneOfThemWithComparison(fieldName, emptyMode,
                 new Comparisons.ListComparison(Comparisons.Type.IN, comparand));
     }
@@ -157,8 +147,7 @@ public class OneOfThem {
      * @param param a param that will be bound to a list in the execution context
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent in(@Nonnull String param) {
+    public QueryComponent in(String param) {
         return new OneOfThemWithComparison(fieldName, emptyMode,
                 new Comparisons.ParameterComparison(Comparisons.Type.IN, param));
     }
@@ -173,7 +162,6 @@ public class OneOfThem {
      *
      * @return an intermediate object to use to select the appropriate predicate
      */
-    @Nonnull
     public Text text() {
         return new OneOfThemText(fieldName, emptyMode);
     }
@@ -188,7 +176,6 @@ public class OneOfThem {
      * @param tokenizerName the name of the tokenizer to use to tokenize the record and (if necessary) the query string
      * @return an intermediate object to use to select the appropriate predicate
      */
-    @Nonnull
     public Text text(@Nullable String tokenizerName) {
         return new OneOfThemText(fieldName, emptyMode, tokenizerName);
     }
@@ -208,7 +195,6 @@ public class OneOfThem {
      *                             and no index can be found to satisfy the query
      * @return an intermediate object to use to select the appropriate predicate
      */
-    @Nonnull
     public Text text(@Nullable String tokenizerName, @Nullable String defaultTokenizerName) {
         return new OneOfThemText(fieldName,  emptyMode, tokenizerName, defaultTokenizerName);
     }

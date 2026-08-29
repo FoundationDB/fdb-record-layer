@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.explain;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens.ToStringToken;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
-import javax.annotation.Nonnull;
 import java.util.function.Supplier;
 
 /**
@@ -36,7 +35,7 @@ public class WithIndentationsExplainFormatter extends DefaultExplainFormatter {
     private int indentationLevel;
     private int width;
 
-    protected WithIndentationsExplainFormatter(@Nonnull final Supplier<ExplainSymbolMap> symbolMapSupplier,
+    protected WithIndentationsExplainFormatter(final Supplier<ExplainSymbolMap> symbolMapSupplier,
                                                final int initialIndentation,
                                                final int maxWidth,
                                                final int tabSize) {
@@ -48,57 +47,49 @@ public class WithIndentationsExplainFormatter extends DefaultExplainFormatter {
         this.width = initialIndentation;
     }
 
-    @Nonnull
     @Override
-    public CharSequence visitWhitespace(@Nonnull final ExplainTokens.WhitespaceToken whiteSpaceToken, @Nonnull final CharSequence stringedToken) {
+    public CharSequence visitWhitespace(final ExplainTokens.WhitespaceToken whiteSpaceToken, final CharSequence stringedToken) {
         return increaseWidth(stringedToken);
     }
 
-    @Nonnull
     @Override
-    public CharSequence visitOptionalWhitespace(@Nonnull final ExplainTokens.OptionalWhitespaceToken optionalWhiteSpaceToken, @Nonnull final CharSequence stringedToken) {
+    public CharSequence visitOptionalWhitespace(final ExplainTokens.OptionalWhitespaceToken optionalWhiteSpaceToken, final CharSequence stringedToken) {
         return increaseWidth(stringedToken);
     }
 
-    @Nonnull
     @Override
-    public CharSequence visitLineBreakOrSpace(@Nonnull final ExplainTokens.LineBreakOrSpaceToken lineBreakOrSpaceToken,
-                                              @Nonnull final CharSequence stringedToken) {
+    public CharSequence visitLineBreakOrSpace(final ExplainTokens.LineBreakOrSpaceToken lineBreakOrSpaceToken,
+                                              final CharSequence stringedToken) {
         return wrapOrSpace(stringedToken);
     }
 
-    @Nonnull
     @Override
-    public CharSequence visitIdentifier(@Nonnull final ExplainTokens.IdentifierToken identifierToken,
-                                        @Nonnull final CharSequence stringedToken) {
+    public CharSequence visitIdentifier(final ExplainTokens.IdentifierToken identifierToken,
+                                        final CharSequence stringedToken) {
         return increaseWidth(stringedToken);
     }
 
-    @Nonnull
     @Override
-    public CharSequence visitKeyword(@Nonnull final ExplainTokens.KeywordToken keywordToken,
-                                     @Nonnull final CharSequence stringedToken) {
+    public CharSequence visitKeyword(final ExplainTokens.KeywordToken keywordToken,
+                                     final CharSequence stringedToken) {
         return increaseWidth(stringedToken);
     }
 
-    @Nonnull
     @Override
-    public CharSequence visitAliasDefinition(@Nonnull final ExplainTokens.AliasDefinitionToken aliasDefinitionToken,
-                                             @Nonnull final CharSequence stringedToken) {
+    public CharSequence visitAliasDefinition(final ExplainTokens.AliasDefinitionToken aliasDefinitionToken,
+                                             final CharSequence stringedToken) {
         return increaseWidth(stringedToken);
     }
 
-    @Nonnull
     @Override
-    public CharSequence visitAliasReference(@Nonnull final ExplainTokens.AliasReferenceToken aliasReferenceToken,
-                                            @Nonnull final CharSequence stringedToken) {
+    public CharSequence visitAliasReference(final ExplainTokens.AliasReferenceToken aliasReferenceToken,
+                                            final CharSequence stringedToken) {
         return increaseWidth(stringedToken);
     }
 
-    @Nonnull
     @Override
-    public CharSequence visitBracketLike(@Nonnull final ExplainTokens.BracketLikeToken bracketLikeToken,
-                                         @Nonnull final CharSequence stringedToken) {
+    public CharSequence visitBracketLike(final ExplainTokens.BracketLikeToken bracketLikeToken,
+                                         final CharSequence stringedToken) {
         if (bracketLikeToken.isOpen()) {
             indentationLevel ++;
         } else {
@@ -107,42 +98,36 @@ public class WithIndentationsExplainFormatter extends DefaultExplainFormatter {
         return increaseWidth(stringedToken);
     }
 
-    @Nonnull
     @Override
-    public CharSequence visitToString(@Nonnull final ToStringToken toStringToken,
-                                      @Nonnull final CharSequence stringedToken) {
+    public CharSequence visitToString(final ToStringToken toStringToken,
+                                      final CharSequence stringedToken) {
         return increaseWidth(stringedToken);
     }
 
-    @Nonnull
     @Override
-    public CharSequence visitError(@Nonnull final ExplainTokens.Token token, @Nonnull final CharSequence stringedToken) {
+    public CharSequence visitError(final ExplainTokens.Token token, final CharSequence stringedToken) {
         return increaseWidth(new StringBuilder().append("?").append(stringedToken).append("?"));
     }
 
-    @Nonnull
-    private CharSequence wrapOrSpace(@Nonnull final CharSequence stringedToken) {
+    private CharSequence wrapOrSpace(final CharSequence stringedToken) {
         return shouldWrap(stringedToken) ? wrap(stringedToken) : increaseWidth(" " + stringedToken);
     }
 
-    private boolean shouldWrap(@Nonnull final CharSequence stringedToken) {
+    private boolean shouldWrap(final CharSequence stringedToken) {
         return (width + stringedToken.length() > maxWidth);
     }
 
     @CanIgnoreReturnValue
-    @Nonnull
-    private CharSequence wrap(@Nonnull final CharSequence stringedToken) {
+    private CharSequence wrap(final CharSequence stringedToken) {
         this.width = initialIndentation + stringedToken.length();
         return "\n" + " ".repeat(initialIndentation + indentationLevel * tabSize) + stringedToken;
     }
 
-    @Nonnull
-    private CharSequence increaseWidth(@Nonnull final CharSequence stringedToken) {
+    private CharSequence increaseWidth(final CharSequence stringedToken) {
         this.width += stringedToken.length();
         return stringedToken;
     }
 
-    @Nonnull
     public static WithIndentationsExplainFormatter forDot(final int initialIndentation) {
         final WithIndentationsExplainFormatter formatter = new WithIndentationsExplainFormatter(DefaultExplainSymbolMap::new, initialIndentation,
                 50, 4);

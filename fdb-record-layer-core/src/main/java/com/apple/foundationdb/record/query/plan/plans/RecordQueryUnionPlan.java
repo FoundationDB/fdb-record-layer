@@ -52,8 +52,8 @@ import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -72,12 +72,11 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
 
     private static final StoreTimer.Count PLAN_COUNT = FDBStoreTimer.Counts.PLAN_UNION;
 
-    @Nonnull
     private final ComparisonKeyFunction comparisonKeyFunction;
     protected final boolean showComparisonKey;
 
-    protected RecordQueryUnionPlan(@Nonnull final PlanSerializationContext serializationContext,
-                                   @Nonnull final PRecordQueryUnionPlan recordQueryUnionPlanProto) {
+    protected RecordQueryUnionPlan(final PlanSerializationContext serializationContext,
+                                   final PRecordQueryUnionPlan recordQueryUnionPlanProto) {
         super(serializationContext, Objects.requireNonNull(recordQueryUnionPlanProto.getSuper()));
         Verify.verify(recordQueryUnionPlanProto.hasShowComparisonKey());
         this.comparisonKeyFunction = ComparisonKeyFunction.fromComparisonKeyFunctionProto(serializationContext,
@@ -85,8 +84,8 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
         this.showComparisonKey = recordQueryUnionPlanProto.getShowComparisonKey();
     }
 
-    protected RecordQueryUnionPlan(@Nonnull final List<Quantifier.Physical> quantifiers,
-                                   @Nonnull final ComparisonKeyFunction comparisonKeyFunction,
+    protected RecordQueryUnionPlan(final List<Quantifier.Physical> quantifiers,
+                                   final ComparisonKeyFunction comparisonKeyFunction,
                                    final boolean reverse,
                                    final boolean showComparisonKey) {
         super(quantifiers, reverse);
@@ -94,11 +93,10 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
         this.showComparisonKey = showComparisonKey;
     }
 
-    @Nonnull
     @Override
-    <M extends Message> RecordCursor<QueryResult> createUnionCursor(@Nonnull FDBRecordStoreBase<M> store,
-                                                                    @Nonnull EvaluationContext context,
-                                                                    @Nonnull List<Function<byte[], RecordCursor<QueryResult>>> childCursorFunctions,
+    <M extends Message> RecordCursor<QueryResult> createUnionCursor(FDBRecordStoreBase<M> store,
+                                                                    EvaluationContext context,
+                                                                    List<Function<byte[], RecordCursor<QueryResult>>> childCursorFunctions,
                                                                     @Nullable byte[] continuation) {
         return UnionCursor.create(comparisonKeyFunction.apply(store, context),
                 isReverse(),
@@ -107,12 +105,10 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
                 store.getTimer());
     }
 
-    @Nonnull
     public ComparisonKeyFunction getComparisonKeyFunction() {
         return comparisonKeyFunction;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
@@ -120,8 +116,8 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -138,7 +134,7 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return super.basePlanHash(mode, BASE_HASH) + comparisonKeyFunction.planHash(mode);
@@ -149,20 +145,17 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
         }
     }
 
-    @Nonnull
     @Override
     public String getDelimiter() {
         return " " + UNION + (showComparisonKey ? comparisonKeyFunction.toString() : "") + " ";
     }
 
-    @Nonnull
     @Override
     StoreTimer.Count getPlanCount() {
         return PLAN_COUNT;
     }
 
-    @Nonnull
-    protected PRecordQueryUnionPlan toRecordQueryUnionPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    protected PRecordQueryUnionPlan toRecordQueryUnionPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryUnionPlan.newBuilder()
                 .setSuper(toRecordQueryUnionPlanBaseProto(serializationContext))
                 .setComparisonKeyFunction(comparisonKeyFunction.toComparisonKeyFunctionProto(serializationContext))
@@ -170,9 +163,8 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
                 .build();
     }
 
-    @Nonnull
-    public static RecordQueryUnionOnKeyExpressionPlan fromQuantifiers(@Nonnull List<Quantifier.Physical> quantifiers,
-                                                                      @Nonnull final KeyExpression comparisonKey,
+    public static RecordQueryUnionOnKeyExpressionPlan fromQuantifiers(List<Quantifier.Physical> quantifiers,
+                                                                      final KeyExpression comparisonKey,
                                                                       boolean showComparisonKey) {
         return new RecordQueryUnionOnKeyExpressionPlan(quantifiers,
                 comparisonKey,
@@ -180,9 +172,8 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
                 showComparisonKey);
     }
 
-    @Nonnull
-    public static RecordQueryUnionOnValuesPlan fromQuantifiers(@Nonnull List<Quantifier.Physical> quantifiers,
-                                                               @Nonnull final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
+    public static RecordQueryUnionOnValuesPlan fromQuantifiers(List<Quantifier.Physical> quantifiers,
+                                                               final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
                                                                final boolean isReverse,
                                                                boolean showComparisonKey) {
         return RecordQueryUnionOnValuesPlan.union(quantifiers,
@@ -205,9 +196,8 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
      * @return a new plan that will return the union of all results from both child plans
      */
     @HeuristicPlanner
-    @Nonnull
-    public static RecordQueryUnionOnKeyExpressionPlan from(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right,
-                                                           @Nonnull KeyExpression comparisonKey, boolean showComparisonKey) {
+    public static RecordQueryUnionOnKeyExpressionPlan from(RecordQueryPlan left, RecordQueryPlan right,
+                                                           KeyExpression comparisonKey, boolean showComparisonKey) {
         Debugger.verifyHeuristicPlanner();
         if (left.isReverse() != right.isReverse()) {
             throw new RecordCoreArgumentException("left plan and right plan for union do not have same value for reverse field");
@@ -232,9 +222,8 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
      * @return a new plan that will return the union of all results from all child plans
      */
     @HeuristicPlanner
-    @Nonnull
-    public static RecordQueryUnionOnKeyExpressionPlan from(@Nonnull List<? extends RecordQueryPlan> children,
-                                                           @Nonnull KeyExpression comparisonKey,
+    public static RecordQueryUnionOnKeyExpressionPlan from(List<? extends RecordQueryPlan> children,
+                                                           KeyExpression comparisonKey,
                                                            boolean showComparisonKey) {
         Debugger.verifyHeuristicPlanner();
         if (children.size() < 2) {
@@ -254,9 +243,8 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
                 showComparisonKey);
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.UNION_OPERATOR,

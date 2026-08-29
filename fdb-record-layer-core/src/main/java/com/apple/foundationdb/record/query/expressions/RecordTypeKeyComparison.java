@@ -46,8 +46,8 @@ import com.google.auto.service.AutoService;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -64,18 +64,17 @@ import java.util.function.Supplier;
 public class RecordTypeKeyComparison implements ComponentWithComparison {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Type-Key-Comparison");
 
-    @Nonnull
     private final RecordTypeComparison comparison;
 
-    public RecordTypeKeyComparison(@Nonnull String recordTypeName) {
+    public RecordTypeKeyComparison(String recordTypeName) {
         this.comparison = new RecordTypeComparison(recordTypeName);
     }
 
-    public static boolean hasRecordTypeKeyComparison(@Nonnull ScanComparisons scanComparisons) {
+    public static boolean hasRecordTypeKeyComparison(ScanComparisons scanComparisons) {
         return scanComparisons.getEqualitySize() > 0 && scanComparisons.getEqualityComparisons().get(0) instanceof RecordTypeComparison;
     }
 
-    public static Set<String> recordTypeKeyComparisonTypes(@Nonnull ScanComparisons scanComparisons) {
+    public static Set<String> recordTypeKeyComparisonTypes(ScanComparisons scanComparisons) {
         return Collections.singleton(((RecordTypeComparison)scanComparisons.getEqualityComparisons().get(0)).recordTypeName);
     }
 
@@ -86,27 +85,25 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
 
     @Override
     @Nullable
-    public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+    public <M extends Message> Boolean evalMessage(FDBRecordStoreBase<M> store, EvaluationContext context,
                                                    @Nullable FDBRecord<M> rec, @Nullable Message message) {
         return getComparison().eval(store, context, message);
     }
 
     @Override
-    public void validate(@Nonnull Descriptors.Descriptor descriptor) {
+    public void validate(Descriptors.Descriptor descriptor) {
         // Usable against any record type.
     }
 
     @Override
-    @Nonnull
     public Comparisons.Comparison getComparison() {
         return comparison;
     }
 
-    @Nonnull
     @Override
-    public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
-                                 @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
-                                 @Nonnull final List<String> fieldNamePrefix) {
+    public GraphExpansion expand(final Quantifier.ForEach baseQuantifier,
+                                 final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
+                                 final List<String> fieldNamePrefix) {
         // Note: this is broken. The comparison requires access to the store's meta-data in order
         // to look up the record type key in order to produce an appropriate comparison.
         // This shouldn't be too much of a problem, as this component shouldn't appear in
@@ -141,7 +138,7 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return getComparison().planHash(mode);
@@ -170,16 +167,15 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
     public static class RecordTypeComparison implements Comparisons.Comparison {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Type-Comparison");
 
-        @Nonnull
         private final String recordTypeName;
 
-        RecordTypeComparison(@Nonnull String recordTypeName) {
+        RecordTypeComparison(String recordTypeName) {
             this.recordTypeName = recordTypeName;
         }
 
         @Nullable
         @Override
-        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
+        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, EvaluationContext context, @Nullable Object value) {
             if (value == null) {
                 return null;
             }
@@ -187,37 +183,32 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
         }
 
         @Override
-        public void validate(@Nonnull Descriptors.FieldDescriptor descriptor, boolean fannedOut) {
+        public void validate(Descriptors.FieldDescriptor descriptor, boolean fannedOut) {
             // Do not actually apply to any particular field.
         }
 
-        @Nonnull
         @Override
-        public Optional<Comparisons.Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+        public Optional<Comparisons.Comparison> replaceValuesMaybe(final Function<Value, Optional<Value>> replacementFunction) {
             return Optional.of(this);
         }
 
-        @Nonnull
         @Override
-        public Comparisons.Comparison translateCorrelations(@Nonnull final TranslationMap translationMap,
+        public Comparisons.Comparison translateCorrelations(final TranslationMap translationMap,
                                                             final boolean shouldSimplifyValues) {
             return this;
         }
 
-        @Nonnull
         public String getRecordTypeName() {
             return recordTypeName;
         }
 
-        @Nonnull
         @Override
         public Comparisons.Type getType() {
             return Comparisons.Type.EQUALS;
         }
 
-        @Nonnull
         @Override
-        public Comparisons.Comparison withType(@Nonnull final Comparisons.Type newType) {
+        public Comparisons.Comparison withType(final Comparisons.Type newType) {
             if (newType == Comparisons.Type.EQUALS) {
                 return this;
             }
@@ -233,14 +224,13 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
             return store.getRecordMetaData().getIndexableRecordType(recordTypeName).getRecordTypeKey();
         }
 
-        @Nonnull
         @Override
         public String typelessString() {
             return recordTypeName;
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             switch (mode.getKind()) {
                 case LEGACY:
                     return PlanHashable.objectPlanHash(mode, recordTypeName);
@@ -256,7 +246,6 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
             return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
-        @Nonnull
         @Override
         public ExplainTokensWithPrecedence explain() {
             return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword("IS")
@@ -280,22 +269,19 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
             return Objects.hash(recordTypeName);
         }
 
-        @Nonnull
         @Override
-        public PRecordTypeComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PRecordTypeComparison toProto(final PlanSerializationContext serializationContext) {
             return PRecordTypeComparison.newBuilder().setRecordTypeName(recordTypeName).build();
         }
 
-        @Nonnull
         @Override
-        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PComparison toComparisonProto(final PlanSerializationContext serializationContext) {
             return PComparison.newBuilder().setRecordTypeComparison(toProto(serializationContext)).build();
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
-        public static RecordTypeComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                     @Nonnull final PRecordTypeComparison recordTypeComparisonProto) {
+        public static RecordTypeComparison fromProto(final PlanSerializationContext serializationContext,
+                                                     final PRecordTypeComparison recordTypeComparisonProto) {
             return new RecordTypeComparison(Objects.requireNonNull(recordTypeComparisonProto.getRecordTypeName()));
         }
 
@@ -304,16 +290,14 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
          */
         @AutoService(PlanDeserializer.class)
         public static class Deserializer implements PlanDeserializer<PRecordTypeComparison, RecordTypeComparison> {
-            @Nonnull
             @Override
             public Class<PRecordTypeComparison> getProtoMessageClass() {
                 return PRecordTypeComparison.class;
             }
 
-            @Nonnull
             @Override
-            public RecordTypeComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                  @Nonnull final PRecordTypeComparison recordTypeComparisonProto) {
+            public RecordTypeComparison fromProto(final PlanSerializationContext serializationContext,
+                                                  final PRecordTypeComparison recordTypeComparisonProto) {
                 return RecordTypeComparison.fromProto(serializationContext, recordTypeComparisonProto);
             }
         }

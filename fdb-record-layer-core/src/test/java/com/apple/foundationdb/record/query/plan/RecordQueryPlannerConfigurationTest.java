@@ -29,7 +29,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -126,7 +125,7 @@ class RecordQueryPlannerConfigurationTest {
 
     @ParameterizedTest
     @EnumSource(PlannerConfigurationFlag.class)
-    void validateBooleanFlagsCanBeSet(@Nonnull PlannerConfigurationFlag flag) {
+    void validateBooleanFlagsCanBeSet(PlannerConfigurationFlag flag) {
         assertEquals(flag.getDefaultValue(), flag.get(RecordQueryPlannerConfiguration.defaultPlannerConfiguration()));
 
         // Set value to false
@@ -162,7 +161,7 @@ class RecordQueryPlannerConfigurationTest {
      */
     @ParameterizedTest
     @MethodSource
-    void validateBooleanFlagsAreSetIndependently(@Nonnull PlannerConfigurationFlag flag1, @Nonnull PlannerConfigurationFlag flag2) {
+    void validateBooleanFlagsAreSetIndependently(PlannerConfigurationFlag flag1, PlannerConfigurationFlag flag2) {
         for (final boolean flagValue1 : new boolean[]{false, true}) {
             for (final boolean flagValue2 : new boolean[]{false, true}) {
                 RecordQueryPlannerConfiguration.Builder builder = RecordQueryPlannerConfiguration.builder();
@@ -187,7 +186,7 @@ class RecordQueryPlannerConfigurationTest {
 
     @ParameterizedTest
     @EnumSource(VectorIndexEnginePreference.class)
-    void vectorIndexEnginePreferenceCanBeSet(@Nonnull VectorIndexEnginePreference preference) {
+    void vectorIndexEnginePreferenceCanBeSet(VectorIndexEnginePreference preference) {
         final RecordQueryPlannerConfiguration built = RecordQueryPlannerConfiguration.builder()
                 .setVectorIndexEnginePreference(preference)
                 .build();

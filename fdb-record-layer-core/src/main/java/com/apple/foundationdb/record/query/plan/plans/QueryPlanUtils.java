@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
 import java.util.function.Function;
 
 /**
@@ -51,10 +50,10 @@ public class QueryPlanUtils {
      * @return a function map index entries to queried records
      */
     @SuppressWarnings("unchecked")
-    public static <M extends Message> Function<IndexEntry, FDBQueriedRecord<M>> getCoveringIndexEntryToPartialRecordFunction(final @Nonnull FDBRecordStoreBase<M> store,
-                                                                                                                             final @Nonnull String recordTypeName,
-                                                                                                                             final @Nonnull String indexName,
-                                                                                                                             final @Nonnull IndexKeyValueToPartialRecord toRecord,
+    public static <M extends Message> Function<IndexEntry, FDBQueriedRecord<M>> getCoveringIndexEntryToPartialRecordFunction(final FDBRecordStoreBase<M> store,
+                                                                                                                             final String recordTypeName,
+                                                                                                                             final String indexName,
+                                                                                                                             final IndexKeyValueToPartialRecord toRecord,
                                                                                                                              final boolean hasPrimaryKey) {
         final RecordMetaData metaData = store.getRecordMetaData();
         final RecordType recordType = metaData.getQueryableRecordType(recordTypeName);

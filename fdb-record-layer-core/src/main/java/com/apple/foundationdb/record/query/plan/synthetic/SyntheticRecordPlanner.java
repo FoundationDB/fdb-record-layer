@@ -37,8 +37,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -61,11 +61,8 @@ import java.util.Set;
 @API(API.Status.INTERNAL)
 public class SyntheticRecordPlanner {
 
-    @Nonnull
     private final FDBRecordStore recordStore;
-    @Nonnull
     private final RecordMetaData recordMetaData;
-    @Nonnull
     private final RecordQueryPlanner queryPlanner;
     @Nullable
     private final FDBStoreTimer timer;
@@ -75,7 +72,7 @@ public class SyntheticRecordPlanner {
      * @param store the record store to plan against
      * @param planner query planner to use when constructing plans to resolve join partners
      */
-    public SyntheticRecordPlanner(@Nonnull FDBRecordStore store, @Nonnull RecordQueryPlanner planner) {
+    public SyntheticRecordPlanner(FDBRecordStore store, RecordQueryPlanner planner) {
         this.recordStore = store;
         this.recordMetaData = store.getRecordMetaData();
         this.queryPlanner = planner;
@@ -86,7 +83,7 @@ public class SyntheticRecordPlanner {
      * Initialize a new planner.
      * @param store a record store
      */
-    public SyntheticRecordPlanner(@Nonnull FDBRecordStore store) {
+    public SyntheticRecordPlanner(FDBRecordStore store) {
         this(store, new RecordQueryPlanner(store.getRecordMetaData(), store.getRecordStoreState()));
     }
 
@@ -97,8 +94,7 @@ public class SyntheticRecordPlanner {
      * @param syntheticRecordType the synthetic record type
      * @return a plan that can be applied to a record store to generate synthetic records
      */
-    @Nonnull
-    public SyntheticRecordPlan scanForType(@Nonnull SyntheticRecordType<?> syntheticRecordType) {
+    public SyntheticRecordPlan scanForType(SyntheticRecordType<?> syntheticRecordType) {
         final SyntheticRecordFromStoredRecordPlan fromRecord = forType(syntheticRecordType);
         // Query to get all records of the needed type(s).
         RecordQueryPlan query = queryPlanner.plan(RecordQuery.newBuilder().setRecordTypes(fromRecord.getStoredRecordTypes()).build());
@@ -112,9 +108,8 @@ public class SyntheticRecordPlanner {
      * @param syntheticRecordType the synthetic record type
      * @return a plan that can be applied to a record store to generate synthetic records
      */
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public SyntheticRecordFromStoredRecordPlan forType(@Nonnull SyntheticRecordType<?> syntheticRecordType) {
+    public SyntheticRecordFromStoredRecordPlan forType(SyntheticRecordType<?> syntheticRecordType) {
         if (syntheticRecordType.getRecordMetaData() != recordMetaData) {
             throw mismatchedMetaData();
         }
@@ -134,9 +129,8 @@ public class SyntheticRecordPlanner {
      * @param joinedRecordType the joined record type
      * @return a plan that can be applied to a record store to generate joined records
      */
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public SyntheticRecordFromStoredRecordPlan forType(@Nonnull JoinedRecordType joinedRecordType) {
+    public SyntheticRecordFromStoredRecordPlan forType(JoinedRecordType joinedRecordType) {
         if (joinedRecordType.getRecordMetaData() != recordMetaData) {
             throw mismatchedMetaData();
         }
@@ -153,9 +147,8 @@ public class SyntheticRecordPlanner {
         }
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public SyntheticRecordFromStoredRecordPlan forType(@Nonnull UnnestedRecordType unnestedRecordType) {
+    public SyntheticRecordFromStoredRecordPlan forType(UnnestedRecordType unnestedRecordType) {
         if (unnestedRecordType.getRecordMetaData() != recordMetaData) {
             throw mismatchedMetaData();
         }
@@ -176,7 +169,7 @@ public class SyntheticRecordPlanner {
      */
     @Nullable
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public SyntheticRecordFromStoredRecordPlan fromStoredType(@Nonnull RecordType storedRecordType, boolean onlyIfIndexed) {
+    public SyntheticRecordFromStoredRecordPlan fromStoredType(RecordType storedRecordType, boolean onlyIfIndexed) {
         if (storedRecordType.getRecordMetaData() != recordMetaData) {
             throw mismatchedMetaData();
         }
@@ -224,7 +217,7 @@ public class SyntheticRecordPlanner {
         return allIndexesDisabled(syntheticRecordType.getIndexes()) && allIndexesDisabled(syntheticRecordType.getMultiTypeIndexes());
     }
 
-    private boolean allIndexesDisabled(@Nonnull Collection<Index> indexes) {
+    private boolean allIndexesDisabled(Collection<Index> indexes) {
         if (indexes.isEmpty()) {
             return true;
         }
@@ -242,7 +235,7 @@ public class SyntheticRecordPlanner {
      * @param recordTypes a subset of the index's record types or {@code null} for all
      * @return a set of stored record types that are sufficient to generate the synthesized records for the index
      */
-    public static Set<RecordType> storedRecordTypesForIndex(@Nonnull RecordMetaData recordMetaData, @Nonnull Index index, @Nullable Collection<RecordType> recordTypes) {
+    public static Set<RecordType> storedRecordTypesForIndex(RecordMetaData recordMetaData, Index index, @Nullable Collection<RecordType> recordTypes) {
         if (recordTypes == null) {
             recordTypes = recordMetaData.recordTypesForIndex(index);
         }
@@ -279,7 +272,7 @@ public class SyntheticRecordPlanner {
      * @param recordTypes a subset of the index's record types or {@code null} for all
      * @return a set of stored record types that are sufficient to generate the synthesized records for the index
      */
-    public Set<RecordType> storedRecordTypesForIndex(@Nonnull Index index, @Nullable Collection<RecordType> recordTypes) {
+    public Set<RecordType> storedRecordTypesForIndex(Index index, @Nullable Collection<RecordType> recordTypes) {
         return storedRecordTypesForIndex(recordMetaData, index, recordTypes);
     }
 
@@ -293,8 +286,7 @@ public class SyntheticRecordPlanner {
      * @param index an index on synthetic record types
      * @return a plan that can be applied to scanned records to generate synthetic records
      */
-    @Nonnull
-    public SyntheticRecordFromStoredRecordPlan forIndex(@Nonnull Index index) {
+    public SyntheticRecordFromStoredRecordPlan forIndex(Index index) {
         final Collection<RecordType> recordTypes = recordMetaData.recordTypesForIndex(index);
         if (recordTypes.size() == 1) {
             final RecordType recordType = recordTypes.iterator().next();
@@ -329,10 +321,9 @@ public class SyntheticRecordPlanner {
      * @param joinConstituent the constituent type
      * @return a plan that can be applied to a record of the given type to generate synthetic records
      */
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public SyntheticRecordFromStoredRecordPlan forJoinConstituent(@Nonnull JoinedRecordType joinedRecordType,
-                                                                  @Nonnull JoinedRecordType.JoinConstituent joinConstituent) {
+    public SyntheticRecordFromStoredRecordPlan forJoinConstituent(JoinedRecordType joinedRecordType,
+                                                                  JoinedRecordType.JoinConstituent joinConstituent) {
         if (joinedRecordType.getRecordMetaData() != recordMetaData) {
             throw mismatchedMetaData();
         }
@@ -352,10 +343,9 @@ public class SyntheticRecordPlanner {
      * @return a plan that generates synthetic records from un-nesting stored records
      * @see UnnestedRecordType
      */
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals") // want pointer equality for record meta-data object
-    public SyntheticRecordFromStoredRecordPlan forUnnestedConstituent(@Nonnull UnnestedRecordType unnestedRecordType,
-                                                                      @Nonnull UnnestedRecordType.NestedConstituent constituent) {
+    public SyntheticRecordFromStoredRecordPlan forUnnestedConstituent(UnnestedRecordType unnestedRecordType,
+                                                                      UnnestedRecordType.NestedConstituent constituent) {
         if (unnestedRecordType.getRecordMetaData() != recordMetaData) {
             throw mismatchedMetaData();
         }
@@ -365,13 +355,12 @@ public class SyntheticRecordPlanner {
         return new UnnestedRecordPlanner(unnestedRecordType).plan(constituent);
     }
 
-    private void addToByType(@Nonnull Multimap<String, SyntheticRecordFromStoredRecordPlan> byType,
-                             @Nonnull JoinedRecordType joinedRecordType, @Nonnull JoinedRecordType.JoinConstituent joinConstituent) {
+    private void addToByType(Multimap<String, SyntheticRecordFromStoredRecordPlan> byType,
+                             JoinedRecordType joinedRecordType, JoinedRecordType.JoinConstituent joinConstituent) {
         byType.put(joinConstituent.getRecordType().getName(), forJoinConstituent(joinedRecordType, joinConstituent));
     }
 
-    @Nonnull
-    private SyntheticRecordByTypePlan createByType(@Nonnull Multimap<String, SyntheticRecordFromStoredRecordPlan> byType) {
+    private SyntheticRecordByTypePlan createByType(Multimap<String, SyntheticRecordFromStoredRecordPlan> byType) {
         Map<String, SyntheticRecordFromStoredRecordPlan> map = new HashMap<>();
         for (Map.Entry<String, Collection<SyntheticRecordFromStoredRecordPlan>> entry : byType.asMap().entrySet()) {
             map.put(entry.getKey(), entry.getValue().size() == 1 ?
@@ -385,7 +374,7 @@ public class SyntheticRecordPlanner {
         return new RecordCoreArgumentException("Record type does not belong to same meta-data");
     }
 
-    static RecordCoreException unknownSyntheticType(@Nonnull RecordType syntheticRecordType) {
+    static RecordCoreException unknownSyntheticType(RecordType syntheticRecordType) {
         return new RecordCoreException("Do not know how to generate synthetic records for " + syntheticRecordType);
     }
 

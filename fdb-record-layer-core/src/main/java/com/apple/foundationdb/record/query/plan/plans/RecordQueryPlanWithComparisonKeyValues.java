@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
@@ -31,9 +30,7 @@ import java.util.List;
  */
 public interface RecordQueryPlanWithComparisonKeyValues extends RecordQueryPlan {
 
-    @Nonnull
     List<ProvidedOrderingPart> getComparisonKeyOrderingParts();
 
-    @Nonnull
     List<? extends Value> getComparisonKeyValues();
 }

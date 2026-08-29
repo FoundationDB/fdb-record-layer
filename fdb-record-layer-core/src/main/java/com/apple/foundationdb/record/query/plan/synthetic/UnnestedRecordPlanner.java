@@ -25,17 +25,15 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 
-import javax.annotation.Nonnull;
 
 /**
  * Sub-planner used by the {@link SyntheticRecordPlanner} for constructing {@link UnnestedRecordType}s.
  */
 @API(API.Status.INTERNAL)
 class UnnestedRecordPlanner {
-    @Nonnull
     private final UnnestedRecordType recordType;
 
-    UnnestedRecordPlanner(@Nonnull UnnestedRecordType recordType) {
+    UnnestedRecordPlanner(UnnestedRecordType recordType) {
         this.recordType = recordType;
     }
 

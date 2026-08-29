@@ -23,8 +23,8 @@ package com.apple.foundationdb.record.query.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.common.text.DefaultTextTokenizer;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.List;
 
@@ -63,7 +63,6 @@ import java.util.List;
 public abstract class Text {
     @Nullable
     private final String tokenizerName;
-    @Nonnull
     private final String defaultTokenizerName;
 
     Text(@Nullable String tokenizerName, @Nullable String defaultTokenizerName) {
@@ -81,8 +80,7 @@ public abstract class Text {
      * @param token the token to search for
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent contains(@Nonnull String token) {
+    public QueryComponent contains(String token) {
         return getComponent(Comparisons.Type.TEXT_CONTAINS_ALL, Collections.singletonList(token));
     }
 
@@ -96,8 +94,7 @@ public abstract class Text {
      * @param prefix the prefix to search for
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent containsPrefix(@Nonnull String prefix) {
+    public QueryComponent containsPrefix(String prefix) {
         return getComponent(Comparisons.Type.TEXT_CONTAINS_PREFIX, Collections.singletonList(prefix));
     }
 
@@ -116,8 +113,7 @@ public abstract class Text {
      * @param tokens the tokens to search for
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent containsAll(@Nonnull String tokens) {
+    public QueryComponent containsAll(String tokens) {
         return getComponent(Comparisons.Type.TEXT_CONTAINS_ALL, tokens);
     }
 
@@ -131,8 +127,7 @@ public abstract class Text {
      * @param tokens the tokens to search for
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent containsAll(@Nonnull List<String> tokens) {
+    public QueryComponent containsAll(List<String> tokens) {
         return getComponent(Comparisons.Type.TEXT_CONTAINS_ALL, tokens);
     }
 
@@ -155,8 +150,7 @@ public abstract class Text {
      * @param maxDistance the maximum distance (expressed in number of tokens) to allow between found
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent containsAll(@Nonnull String tokens, int maxDistance) {
+    public QueryComponent containsAll(String tokens, int maxDistance) {
         final Comparisons.Comparison comparison = new Comparisons.TextWithMaxDistanceComparison(tokens, maxDistance, tokenizerName, defaultTokenizerName);
         return getComponent(comparison);
     }
@@ -172,8 +166,7 @@ public abstract class Text {
      * @param maxDistance the maximum distance (expressed in number of tokens) to allow between found
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent containsAll(@Nonnull List<String> tokens, int maxDistance) {
+    public QueryComponent containsAll(List<String> tokens, int maxDistance) {
         final Comparisons.Comparison comparison = new Comparisons.TextWithMaxDistanceComparison(tokens, maxDistance, tokenizerName, defaultTokenizerName);
         return getComponent(comparison);
     }
@@ -192,8 +185,7 @@ public abstract class Text {
      * @return a new component for doing the actual evaluation
      * @see #containsAllPrefixes(String, boolean)
      */
-    @Nonnull
-    public QueryComponent containsAllPrefixes(@Nonnull String tokenPrefixes) {
+    public QueryComponent containsAllPrefixes(String tokenPrefixes) {
         return containsAllPrefixes(tokenPrefixes, true);
     }
 
@@ -210,8 +202,7 @@ public abstract class Text {
      * @param strict <code>true</code> if this should not return false positives
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent containsAllPrefixes(@Nonnull String tokenPrefixes, boolean strict) {
+    public QueryComponent containsAllPrefixes(String tokenPrefixes, boolean strict) {
         final Comparisons.Comparison comparison = new Comparisons.TextContainsAllPrefixesComparison(tokenPrefixes, strict, tokenizerName, defaultTokenizerName);
         return getComponent(comparison);
     }
@@ -234,8 +225,7 @@ public abstract class Text {
      * @see Comparisons.TextContainsAllPrefixesComparison
      * @see #containsAllPrefixes(String, boolean)
      */
-    @Nonnull
-    public QueryComponent containsAllPrefixes(@Nonnull String tokenPrefixes, boolean strict, long expectedRecords, double falsePositivePercentage) {
+    public QueryComponent containsAllPrefixes(String tokenPrefixes, boolean strict, long expectedRecords, double falsePositivePercentage) {
         final Comparisons.Comparison comparison = new Comparisons.TextContainsAllPrefixesComparison(tokenPrefixes, strict, expectedRecords, falsePositivePercentage , tokenizerName, defaultTokenizerName);
         return getComponent(comparison);
     }
@@ -251,8 +241,7 @@ public abstract class Text {
      * @return a new component for doing the actual evaluation
      * @see #containsAllPrefixes(String)
      */
-    @Nonnull
-    public QueryComponent containsAllPrefixes(@Nonnull List<String> tokenPrefixes) {
+    public QueryComponent containsAllPrefixes(List<String> tokenPrefixes) {
         return containsAllPrefixes(tokenPrefixes, true);
     }
 
@@ -268,8 +257,7 @@ public abstract class Text {
      * @return a new component for doing the actual evaluation
      * @see #containsAllPrefixes(String, boolean)
      */
-    @Nonnull
-    public QueryComponent containsAllPrefixes(@Nonnull List<String> tokenPrefixes, boolean strict) {
+    public QueryComponent containsAllPrefixes(List<String> tokenPrefixes, boolean strict) {
         final Comparisons.Comparison comparison = new Comparisons.TextContainsAllPrefixesComparison(tokenPrefixes, strict, tokenizerName, defaultTokenizerName);
         return getComponent(comparison);
     }
@@ -288,8 +276,7 @@ public abstract class Text {
      * @return a new component for doing the actual evaluation
      * @see #containsAllPrefixes(String, boolean, long, double)
      */
-    @Nonnull
-    public QueryComponent containsAllPrefixes(@Nonnull List<String> tokenPrefixes, boolean strict, long expectedRecords, double falsePositivePercentage) {
+    public QueryComponent containsAllPrefixes(List<String> tokenPrefixes, boolean strict, long expectedRecords, double falsePositivePercentage) {
         final Comparisons.Comparison comparison = new Comparisons.TextContainsAllPrefixesComparison(tokenPrefixes, strict, expectedRecords, falsePositivePercentage , tokenizerName, defaultTokenizerName);
         return getComponent(comparison);
     }
@@ -309,8 +296,7 @@ public abstract class Text {
      * @param phrase the phrase to search for
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent containsPhrase(@Nonnull String phrase) {
+    public QueryComponent containsPhrase(String phrase) {
         return getComponent(Comparisons.Type.TEXT_CONTAINS_PHRASE, phrase);
     }
 
@@ -327,8 +313,7 @@ public abstract class Text {
      * @param phraseTokens the tokens to search for in the order they appear in the phrase
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent containsPhrase(@Nonnull List<String> phraseTokens) {
+    public QueryComponent containsPhrase(List<String> phraseTokens) {
         return getComponent(Comparisons.Type.TEXT_CONTAINS_PHRASE, phraseTokens);
     }
 
@@ -344,8 +329,7 @@ public abstract class Text {
      * @param tokens the tokens to search for
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent containsAny(@Nonnull String tokens) {
+    public QueryComponent containsAny(String tokens) {
         return getComponent(Comparisons.Type.TEXT_CONTAINS_ANY, tokens);
     }
 
@@ -359,8 +343,7 @@ public abstract class Text {
      * @param tokens the tokens to search for
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent containsAny(@Nonnull List<String> tokens) {
+    public QueryComponent containsAny(List<String> tokens) {
         return getComponent(Comparisons.Type.TEXT_CONTAINS_ANY, tokens);
     }
 
@@ -372,8 +355,7 @@ public abstract class Text {
      * @param tokenPrefixes the token prefixes to search for
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent containsAnyPrefix(@Nonnull String tokenPrefixes) {
+    public QueryComponent containsAnyPrefix(String tokenPrefixes) {
         return getComponent(Comparisons.Type.TEXT_CONTAINS_ANY_PREFIX, tokenPrefixes);
     }
 
@@ -387,19 +369,16 @@ public abstract class Text {
      * @return a new component for doing the actual evaluation
      * @see #containsAnyPrefix(String)
      */
-    @Nonnull
-    public QueryComponent containsAnyPrefix(@Nonnull List<String> tokenPrefixes) {
+    public QueryComponent containsAnyPrefix(List<String> tokenPrefixes) {
         return getComponent(Comparisons.Type.TEXT_CONTAINS_ANY_PREFIX, tokenPrefixes);
     }
 
-    @Nonnull
-    private ComponentWithComparison getComponent(@Nonnull Comparisons.Type type, @Nonnull String tokens) {
+    private ComponentWithComparison getComponent(Comparisons.Type type, String tokens) {
         final Comparisons.Comparison comparison = new Comparisons.TextComparison(type, tokens, tokenizerName, defaultTokenizerName);
         return getComponent(comparison);
     }
 
-    @Nonnull
-    private ComponentWithComparison getComponent(@Nonnull Comparisons.Type type, @Nonnull List<String> tokens) {
+    private ComponentWithComparison getComponent(Comparisons.Type type, List<String> tokens) {
         final Comparisons.Comparison comparison = new Comparisons.TextComparison(type, tokens, tokenizerName, defaultTokenizerName);
         return getComponent(comparison);
     }
@@ -411,6 +390,5 @@ public abstract class Text {
      * @param comparison text comparison to use when creating the component
      * @return a component that uses <code>comparison</code> as its comparison
      */
-    @Nonnull
-    abstract ComponentWithComparison getComponent(@Nonnull Comparisons.Comparison comparison);
+    abstract ComponentWithComparison getComponent(Comparisons.Comparison comparison);
 }

@@ -48,8 +48,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -65,45 +65,40 @@ import java.util.function.Function;
 public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Unordered-Union-Plan");
 
-    protected RecordQueryUnorderedUnionPlan(@Nonnull final PlanSerializationContext serializationContext,
-                                            @Nonnull final PRecordQueryUnorderedUnionPlan recordQueryUnorderedUnionPlanProto) {
+    protected RecordQueryUnorderedUnionPlan(final PlanSerializationContext serializationContext,
+                                            final PRecordQueryUnorderedUnionPlan recordQueryUnorderedUnionPlanProto) {
         super(serializationContext, Objects.requireNonNull(recordQueryUnorderedUnionPlanProto.getSuper()));
     }
 
-    private RecordQueryUnorderedUnionPlan(@Nonnull final List<Quantifier.Physical> quantifiers,
+    private RecordQueryUnorderedUnionPlan(final List<Quantifier.Physical> quantifiers,
                                           final boolean reverse) {
         super(quantifiers, reverse);
     }
 
-    @Nonnull
     @Override
-    <M extends Message> RecordCursor<QueryResult> createUnionCursor(@Nonnull FDBRecordStoreBase<M> store,
-                                                                    @Nonnull EvaluationContext context,
-                                                                    @Nonnull List<Function<byte[], RecordCursor<QueryResult>>> childCursorFunctions,
+    <M extends Message> RecordCursor<QueryResult> createUnionCursor(FDBRecordStoreBase<M> store,
+                                                                    EvaluationContext context,
+                                                                    List<Function<byte[], RecordCursor<QueryResult>>> childCursorFunctions,
                                                                     @Nullable byte[] continuation) {
         return UnorderedUnionCursor.create(childCursorFunctions, continuation, store.getTimer());
     }
 
-    @Nonnull
     @Override
     public String getDelimiter() {
         return " " + UNION + " ";
     }
 
-    @Nonnull
     @Override
     StoreTimer.Count getPlanCount() {
         return FDBStoreTimer.Counts.PLAN_UNORDERED_UNION;
     }
 
-    @Nonnull
-    public static RecordQueryUnorderedUnionPlan fromQuantifiers(@Nonnull List<Quantifier.Physical> quantifiers) {
+    public static RecordQueryUnorderedUnionPlan fromQuantifiers(List<Quantifier.Physical> quantifiers) {
         return new RecordQueryUnorderedUnionPlan(quantifiers, Quantifiers.isReversed(quantifiers));
     }
 
     @HeuristicPlanner
-    @Nonnull
-    public static RecordQueryUnorderedUnionPlan from(@Nonnull List<? extends RecordQueryPlan> children) {
+    public static RecordQueryUnorderedUnionPlan from(List<? extends RecordQueryPlan> children) {
         Debugger.verifyHeuristicPlanner();
         final boolean reverse = children.get(0).isReverse();
         ImmutableList.Builder<Reference> builder = ImmutableList.builder();
@@ -114,32 +109,28 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
     }
 
     @HeuristicPlanner
-    @Nonnull
-    public static RecordQueryUnorderedUnionPlan from(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right) {
+    public static RecordQueryUnorderedUnionPlan from(RecordQueryPlan left, RecordQueryPlan right) {
         Debugger.verifyHeuristicPlanner();
         return new RecordQueryUnorderedUnionPlan(
                 Quantifiers.fromPlans(ImmutableList.of(Reference.plannedOf(left), Reference.plannedOf(right))),
                 left.isReverse());
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
-    public RecordQueryUnorderedUnionPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryUnorderedUnionPlan translateCorrelations(final TranslationMap translationMap,
                                                                final boolean shouldSimplifyValues,
-                                                               @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                               final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryUnorderedUnionPlan(
                 Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers), isReverse());
     }
 
-    @Nonnull
     @Override
-    public RecordQueryUnorderedUnionPlan withChildrenReferences(@Nonnull final List<? extends Reference> newChildren) {
+    public RecordQueryUnorderedUnionPlan withChildrenReferences(final List<? extends Reference> newChildren) {
         return new RecordQueryUnorderedUnionPlan(
                 newChildren.stream()
                         .map(Quantifier::physical)
@@ -147,42 +138,37 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
                 isReverse());
     }
 
-    @Nonnull
     @Override
     public Set<KeyExpression> getRequiredFields() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this, NodeInfo.UNORDERED_UNION_OPERATOR),
                 childGraphs);
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
+    public int planHash(final PlanHashable.PlanHashMode mode) {
         return super.basePlanHash(mode, BASE_HASH);
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryUnorderedUnionPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryUnorderedUnionPlan toProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryUnorderedUnionPlan.newBuilder()
                 .setSuper(toRecordQueryUnionPlanBaseProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setUnorderedUnionPlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQueryUnorderedUnionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                          @Nonnull final PRecordQueryUnorderedUnionPlan recordQueryUnorderedUnionPlanProto) {
+    public static RecordQueryUnorderedUnionPlan fromProto(final PlanSerializationContext serializationContext,
+                                                          final PRecordQueryUnorderedUnionPlan recordQueryUnorderedUnionPlanProto) {
         return new RecordQueryUnorderedUnionPlan(serializationContext, recordQueryUnorderedUnionPlanProto);
     }
 
@@ -191,16 +177,14 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryUnorderedUnionPlan, RecordQueryUnorderedUnionPlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryUnorderedUnionPlan> getProtoMessageClass() {
             return PRecordQueryUnorderedUnionPlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryUnorderedUnionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                       @Nonnull final PRecordQueryUnorderedUnionPlan recordQueryUnorderedUnionPlanProto) {
+        public RecordQueryUnorderedUnionPlan fromProto(final PlanSerializationContext serializationContext,
+                                                       final PRecordQueryUnorderedUnionPlan recordQueryUnorderedUnionPlanProto) {
             return RecordQueryUnorderedUnionPlan.fromProto(serializationContext, recordQueryUnorderedUnionPlanProto);
         }
     }

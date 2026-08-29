@@ -56,8 +56,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -89,21 +89,16 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
         POSTORDER
     }
 
-    @Nonnull
     private final Quantifier.Physical rootQuantifier;
-    @Nonnull
     private final Quantifier.Physical childQuantifier;
-    @Nonnull
     private final CorrelationIdentifier priorValueCorrelation;
-    @Nonnull
     private final Value resultValue;
-    @Nonnull
     private final DfsTraversalStrategy dfsTraversalStrategy;
 
-    public RecordQueryRecursiveDfsJoinPlan(@Nonnull final Quantifier.Physical rootQuantifier,
-                                           @Nonnull final Quantifier.Physical childQuantifier,
-                                           @Nonnull final CorrelationIdentifier priorValueCorrelation,
-                                           @Nonnull final DfsTraversalStrategy dfsTraversalStrategy) {
+    public RecordQueryRecursiveDfsJoinPlan(final Quantifier.Physical rootQuantifier,
+                                           final Quantifier.Physical childQuantifier,
+                                           final CorrelationIdentifier priorValueCorrelation,
+                                           final DfsTraversalStrategy dfsTraversalStrategy) {
         this.rootQuantifier = rootQuantifier;
         this.childQuantifier = childQuantifier;
         this.priorValueCorrelation = priorValueCorrelation;
@@ -111,22 +106,19 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
         this.resultValue = RecordQuerySetPlan.mergeValues(ImmutableList.of(rootQuantifier, childQuantifier));
     }
 
-    @Nonnull
     public Quantifier.Physical getRootQuantifier() {
         return rootQuantifier;
     }
 
-    @Nonnull
     public Quantifier.Physical getChildQuantifier() {
         return childQuantifier;
     }
 
-    @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
 
         final var nestedExecuteProperties = executeProperties.clearSkipAndLimit();
         return RecursiveCursor.create(
@@ -157,19 +149,16 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
         return true;
     }
 
-    @Nonnull
     @Override
     public List<RecordQueryPlan> getChildren() {
         return ImmutableList.of(rootQuantifier.getRangesOverPlan(), childQuantifier.getRangesOverPlan());
     }
 
-    @Nonnull
     @Override
     public AvailableFields getAvailableFields() {
         return AvailableFields.NO_FIELDS;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedTo() {
         final ImmutableSet.Builder<CorrelationIdentifier> builder = ImmutableSet.builder();
@@ -181,7 +170,6 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
         return builder.build();
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return resultValue.getCorrelatedTo();
@@ -197,18 +185,15 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
         return true;
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return resultValue;
     }
 
-    @Nonnull
     public DfsTraversalStrategy getDfsTraversalStrategy() {
         return dfsTraversalStrategy;
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return ExplainPlanVisitor.toStringForDebugging(this);
@@ -216,8 +201,8 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap aliasMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap aliasMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -235,7 +220,7 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean structuralEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
+    public boolean structuralEquals(@Nullable final Object other, final AliasMap equivalenceMap) {
         if (this == other) {
             return true;
         }
@@ -292,10 +277,9 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
         return Objects.hash(getResultValue()); // priorValueCorrelation _is_ a child correlation due to the recursive nature of this plan.
     }
 
-    @Nonnull
     @Override
-    public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean shouldSimplifyValues,
-                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+    public RelationalExpression translateCorrelations(final TranslationMap translationMap, final boolean shouldSimplifyValues,
+                                                      final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 2);
         Verify.verify(!translationMap.containsSourceAlias(priorValueCorrelation));
         return new RecordQueryRecursiveDfsJoinPlan(
@@ -316,7 +300,7 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
@@ -326,15 +310,13 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
         }
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(rootQuantifier, childQuantifier);
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.NESTED_LOOP_JOIN_OPERATOR,
@@ -344,9 +326,8 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
                 getQuantifiers());
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryRecursiveDfsJoinPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryRecursiveDfsJoinPlan toProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryRecursiveDfsJoinPlan.newBuilder()
                 .setRootQuantifier(rootQuantifier.toProto(serializationContext))
                 .setChildQuantifier(childQuantifier.toProto(serializationContext))
@@ -355,8 +336,7 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
                 .build();
     }
 
-    @Nonnull
-    private static PRecordQueryRecursiveDfsJoinPlan.PDfsTraversalStrategy toProto(@Nonnull final DfsTraversalStrategy dfsTraversalStrategy) {
+    private static PRecordQueryRecursiveDfsJoinPlan.PDfsTraversalStrategy toProto(final DfsTraversalStrategy dfsTraversalStrategy) {
         switch (dfsTraversalStrategy) {
             case PREORDER:
                 return PRecordQueryRecursiveDfsJoinPlan.PDfsTraversalStrategy.PRE_ORDER;
@@ -367,8 +347,7 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
         }
     }
 
-    @Nonnull
-    private static DfsTraversalStrategy fromProto(@Nonnull final PRecordQueryRecursiveDfsJoinPlan.PDfsTraversalStrategy dfsTraversalStrategyProto) {
+    private static DfsTraversalStrategy fromProto(final PRecordQueryRecursiveDfsJoinPlan.PDfsTraversalStrategy dfsTraversalStrategyProto) {
         switch (dfsTraversalStrategyProto) {
             case PRE_ORDER:
                 return DfsTraversalStrategy.PREORDER;
@@ -379,15 +358,13 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
         }
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setRecursiveDfsJoinPlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQueryRecursiveDfsJoinPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                            @Nonnull final PRecordQueryRecursiveDfsJoinPlan recordQueryRecursivePlanProto) {
+    public static RecordQueryRecursiveDfsJoinPlan fromProto(final PlanSerializationContext serializationContext,
+                                                            final PRecordQueryRecursiveDfsJoinPlan recordQueryRecursivePlanProto) {
         return new RecordQueryRecursiveDfsJoinPlan(
                 Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryRecursivePlanProto.getRootQuantifier())),
                 Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryRecursivePlanProto.getChildQuantifier())),
@@ -396,7 +373,6 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
         );
     }
 
-    @Nonnull
     public CorrelationIdentifier getPriorValueCorrelation() {
         return priorValueCorrelation;
     }
@@ -406,16 +382,14 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryRecursiveDfsJoinPlan, RecordQueryRecursiveDfsJoinPlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryRecursiveDfsJoinPlan> getProtoMessageClass() {
             return PRecordQueryRecursiveDfsJoinPlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryRecursiveDfsJoinPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                         @Nonnull final PRecordQueryRecursiveDfsJoinPlan recordQueryRecursivePlanProto) {
+        public RecordQueryRecursiveDfsJoinPlan fromProto(final PlanSerializationContext serializationContext,
+                                                         final PRecordQueryRecursiveDfsJoinPlan recordQueryRecursivePlanProto) {
             return RecordQueryRecursiveDfsJoinPlan.fromProto(serializationContext, recordQueryRecursivePlanProto);
         }
     }

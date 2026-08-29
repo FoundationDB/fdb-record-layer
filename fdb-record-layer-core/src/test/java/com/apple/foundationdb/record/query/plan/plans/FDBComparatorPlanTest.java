@@ -37,7 +37,6 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -343,7 +342,6 @@ public abstract class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase 
         this.abortOnComparisonFailure = abortOnComparisonFailure;
     }
 
-    @Nonnull
     private List<RecordQueryPlan> plan(final RecordQuery... queries) {
         return Arrays.stream(queries).map(planner::plan).collect(Collectors.toList());
     }

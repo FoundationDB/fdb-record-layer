@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.explain;
 
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
-import javax.annotation.Nonnull;
 
 /**
  * Holder class for the result of a call to {@link Value#explain()} and derivatives.
@@ -60,19 +59,16 @@ public class ExplainTokensWithPrecedence {
             return precedenceOrdinal;
         }
 
-        @Nonnull
-        public ExplainTokens parenthesizeChild(@Nonnull final ExplainTokensWithPrecedence childExplainInfo) {
+        public ExplainTokens parenthesizeChild(final ExplainTokensWithPrecedence childExplainInfo) {
             return parenthesizeChild(childExplainInfo, false);
         }
 
-        @Nonnull
-        public ExplainTokens parenthesizeChild(@Nonnull final ExplainTokensWithPrecedence childExplainInfo, final boolean isStrict) {
+        public ExplainTokens parenthesizeChild(final ExplainTokensWithPrecedence childExplainInfo, final boolean isStrict) {
             return parenthesizeChild(childExplainInfo.getPrecedence(), childExplainInfo.getExplainTokens(), isStrict);
         }
 
-        @Nonnull
-        public ExplainTokens parenthesizeChild(@Nonnull final Precedence childPrecedence,
-                                               @Nonnull final ExplainTokens childExplainTokens, final boolean isStrict) {
+        public ExplainTokens parenthesizeChild(final Precedence childPrecedence,
+                                               final ExplainTokens childExplainTokens, final boolean isStrict) {
             if (childPrecedence == ALWAYS_PARENS ||
                     (isStrict && childPrecedence.getPrecedenceOrdinal() == getPrecedenceOrdinal()) ||
                     childPrecedence.getPrecedenceOrdinal() > getPrecedenceOrdinal()) {
@@ -83,34 +79,28 @@ public class ExplainTokensWithPrecedence {
         }
     }
 
-    @Nonnull
     private final Precedence precedence;
 
-    @Nonnull
     private final ExplainTokens explainTokens;
 
-    private ExplainTokensWithPrecedence(@Nonnull final Precedence precedence, @Nonnull final ExplainTokens explainTokens) {
+    private ExplainTokensWithPrecedence(final Precedence precedence, final ExplainTokens explainTokens) {
         this.precedence = precedence;
         this.explainTokens = explainTokens;
     }
 
-    @Nonnull
     public Precedence getPrecedence() {
         return precedence;
     }
 
-    @Nonnull
     public ExplainTokens getExplainTokens() {
         return explainTokens;
     }
 
-    @Nonnull
-    public static ExplainTokensWithPrecedence of(@Nonnull final ExplainTokens explainTokens) {
+    public static ExplainTokensWithPrecedence of(final ExplainTokens explainTokens) {
         return of(Precedence.NEVER_PARENS, explainTokens);
     }
 
-    @Nonnull
-    public static ExplainTokensWithPrecedence of(@Nonnull final Precedence precedence, @Nonnull final ExplainTokens explainTokens) {
+    public static ExplainTokensWithPrecedence of(final Precedence precedence, final ExplainTokens explainTokens) {
         return new ExplainTokensWithPrecedence(precedence, explainTokens);
     }
 }

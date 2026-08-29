@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 @API(API.Status.INTERNAL)
@@ -32,21 +31,20 @@ class SimpleComponentWithChildren {
     /**
      * Children for this component, at least 2 of them.
      */
-    @Nonnull
     private final List<QueryComponent> children;
 
     /**
      * Creates a new component with children, must have at least 2 children. The planner assumes this.
      * @param children the operands
      */
-    protected SimpleComponentWithChildren(@Nonnull List<QueryComponent> children) {
+    protected SimpleComponentWithChildren(List<QueryComponent> children) {
         if (children.size() < 2) {
             throw new RecordCoreException(getClass().getSimpleName() + " must have at least two children");
         }
         this.children = children;
     }
 
-    public void validate(@Nonnull Descriptors.Descriptor descriptor) {
+    public void validate(Descriptors.Descriptor descriptor) {
         for (QueryComponent child : getChildren()) {
             child.validate(descriptor);
         }
@@ -56,7 +54,6 @@ class SimpleComponentWithChildren {
      * Children for this component, at least 2 of them.
      * @return the children of this component
      */
-    @Nonnull
     public List<QueryComponent> getChildren() {
         return children;
     }

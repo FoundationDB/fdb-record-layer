@@ -34,8 +34,8 @@ import com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindo
 import com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowRecordFunction;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -52,8 +52,7 @@ public class Query {
      * @param name the name of the field
      * @return a new Field ready for matching
      */
-    @Nonnull
-    public static Field field(@Nonnull String name) {
+    public static Field field(String name) {
         return new Field(name);
     }
 
@@ -64,9 +63,8 @@ public class Query {
      * @param operands any other assertions
      * @return a new component that will return the record if all the children match
      */
-    @Nonnull
-    public static QueryComponent and(@Nonnull QueryComponent first, @Nonnull QueryComponent second,
-                                     @Nonnull QueryComponent... operands) {
+    public static QueryComponent and(QueryComponent first, QueryComponent second,
+                                     QueryComponent... operands) {
         return AndComponent.from(toList(first, second, operands));
     }
 
@@ -75,8 +73,7 @@ public class Query {
      * @param operands assertions
      * @return a new component that will return the record if all the children match
      */
-    @Nonnull
-    public static QueryComponent and(@Nonnull List<? extends QueryComponent> operands) {
+    public static QueryComponent and(List<? extends QueryComponent> operands) {
         return AndComponent.from(operands);
     }
 
@@ -88,8 +85,7 @@ public class Query {
      * @param operands any other assertions
      * @return a new component that will return the record if any of the children match
      */
-    @Nonnull
-    public static QueryComponent or(@Nonnull QueryComponent first, @Nonnull QueryComponent second, @Nonnull QueryComponent... operands) {
+    public static QueryComponent or(QueryComponent first, QueryComponent second, QueryComponent... operands) {
         return OrComponent.from(toList(first, second, operands));
     }
 
@@ -98,8 +94,7 @@ public class Query {
      * @param operands assertions
      * @return a new component that will return the record if any of the children match
      */
-    @Nonnull
-    public static QueryComponent or(@Nonnull List<QueryComponent> operands) {
+    public static QueryComponent or(List<QueryComponent> operands) {
         return OrComponent.from(operands);
     }
 
@@ -108,8 +103,7 @@ public class Query {
      * @param operand assertion to be negated
      * @return a new component that will return the record if the child does not match
      */
-    @Nonnull
-    public static QueryComponent not(@Nonnull QueryComponent operand) {
+    public static QueryComponent not(QueryComponent operand) {
         return new NotComponent(operand);
     }
 
@@ -118,8 +112,7 @@ public class Query {
      * @param operand the argument to rank
      * @return a record function that evaluates the rank of the operand
      */
-    @Nonnull
-    public static QueryRecordFunction<Long> rank(@Nonnull GroupingKeyExpression operand) {
+    public static QueryRecordFunction<Long> rank(GroupingKeyExpression operand) {
         return new QueryRecordFunction<>(new IndexRecordFunction<>(FunctionNames.RANK, operand, null));
     }
 
@@ -128,8 +121,7 @@ public class Query {
      * @param fieldName the argument to rank
      * @return a record function that evaluates the rank of the operand
      */
-    @Nonnull
-    public static QueryRecordFunction<Long> rank(@Nonnull String fieldName) {
+    public static QueryRecordFunction<Long> rank(String fieldName) {
         return rank(Key.Expressions.field(fieldName).ungrouped());
     }
 
@@ -139,8 +131,7 @@ public class Query {
      * @param operand the argument to rank
      * @return a record function that evaluates to the rank of the operand
      */
-    @Nonnull
-    public static QueryRecordFunction<Long> timeWindowRank(@Nonnull TimeWindowForFunction timeWindow, @Nonnull GroupingKeyExpression operand) {
+    public static QueryRecordFunction<Long> timeWindowRank(TimeWindowForFunction timeWindow, GroupingKeyExpression operand) {
         return new QueryRecordFunction<>(new TimeWindowRecordFunction<>(FunctionNames.TIME_WINDOW_RANK, operand, null, timeWindow));
     }
 
@@ -153,8 +144,7 @@ public class Query {
      * @param operand the argument to rank
      * @return a record function that evaluates to the rank of the operand
      */
-    @Nonnull
-    public static QueryRecordFunction<Long> timeWindowRank(int type, long timestamp, @Nullable String typeParameter, @Nullable String timestampParameter, @Nonnull GroupingKeyExpression operand) {
+    public static QueryRecordFunction<Long> timeWindowRank(int type, long timestamp, @Nullable String typeParameter, @Nullable String timestampParameter, GroupingKeyExpression operand) {
         return timeWindowRank(new TimeWindowForFunction(type, timestamp, typeParameter, timestampParameter), operand);
     }
 
@@ -165,8 +155,7 @@ public class Query {
      * @param operand the argument to rank
      * @return a record function that evaluates to the rank of the operand
      */
-    @Nonnull
-    public static QueryRecordFunction<Long> timeWindowRank(int type, long timestamp, @Nonnull GroupingKeyExpression operand) {
+    public static QueryRecordFunction<Long> timeWindowRank(int type, long timestamp, GroupingKeyExpression operand) {
         return timeWindowRank(type, timestamp, null, null, operand);
     }
 
@@ -177,8 +166,7 @@ public class Query {
      * @param operand the argument to rank
      * @return a record function that evaluates to the rank of the operand
      */
-    @Nonnull
-    public static QueryRecordFunction<Long> timeWindowRank(@Nonnull String typeParameter, @Nonnull String timestampParameter, @Nonnull GroupingKeyExpression operand) {
+    public static QueryRecordFunction<Long> timeWindowRank(String typeParameter, String timestampParameter, GroupingKeyExpression operand) {
         return timeWindowRank(0, 0, typeParameter, timestampParameter, operand);
     }
 
@@ -191,8 +179,7 @@ public class Query {
      * @param operand the argument to rank
      * @return a record function that evaluates to a {@code Tuple} of the rank and the corresponding entry
      */
-    @Nonnull
-    public static QueryRecordFunction<Tuple> timeWindowRankAndEntry(@Nonnull TimeWindowForFunction timeWindow, @Nonnull GroupingKeyExpression operand) {
+    public static QueryRecordFunction<Tuple> timeWindowRankAndEntry(TimeWindowForFunction timeWindow, GroupingKeyExpression operand) {
         return new QueryRecordFunction<>(new TimeWindowRecordFunction<>(FunctionNames.TIME_WINDOW_RANK_AND_ENTRY, operand, null, timeWindow));
     }
 
@@ -208,8 +195,7 @@ public class Query {
      * @param operand the argument to rank
      * @return a record function that evaluates to the rank of the operand
      */
-    @Nonnull
-    public static QueryRecordFunction<Tuple> timeWindowRankAndEntry(int type, long timestamp, @Nullable String typeParameter, @Nullable String timestampParameter, @Nonnull GroupingKeyExpression operand) {
+    public static QueryRecordFunction<Tuple> timeWindowRankAndEntry(int type, long timestamp, @Nullable String typeParameter, @Nullable String timestampParameter, GroupingKeyExpression operand) {
         return timeWindowRankAndEntry(new TimeWindowForFunction(type, timestamp, typeParameter, timestampParameter), operand);
     }
 
@@ -223,8 +209,7 @@ public class Query {
      * @param operand the argument to rank
      * @return a record function that evaluates to the rank of the operand
      */
-    @Nonnull
-    public static QueryRecordFunction<Tuple> timeWindowRankAndEntry(int type, long timestamp, @Nonnull GroupingKeyExpression operand) {
+    public static QueryRecordFunction<Tuple> timeWindowRankAndEntry(int type, long timestamp, GroupingKeyExpression operand) {
         return timeWindowRankAndEntry(type, timestamp, null, null, operand);
     }
 
@@ -238,8 +223,7 @@ public class Query {
      * @param operand the argument to rank
      * @return a record function that evaluates to the rank of the operand
      */
-    @Nonnull
-    public static QueryRecordFunction<Tuple> timeWindowRankAndEntry(@Nonnull String typeParameter, @Nonnull String timestampParameter, @Nonnull GroupingKeyExpression operand) {
+    public static QueryRecordFunction<Tuple> timeWindowRankAndEntry(String typeParameter, String timestampParameter, GroupingKeyExpression operand) {
         return timeWindowRankAndEntry(0, 0, typeParameter, timestampParameter, operand);
     }
 
@@ -247,7 +231,6 @@ public class Query {
      * A record function that can be used to determine the version of a record.
      * @return a record function that evaluates the version of the record
      */
-    @Nonnull
     public static QueryRecordFunction<FDBRecordVersion> version() {
         return new QueryRecordFunction<>(new StoreRecordFunction<>(FunctionNames.VERSION));
     }
@@ -257,9 +240,8 @@ public class Query {
      * @param keyExpression the key expression to compare with values
      * @return a {@code QueryKeyExpression} for matching
      */
-    @Nonnull
     @API(API.Status.EXPERIMENTAL)
-    public static QueryKeyExpression keyExpression(@Nonnull KeyExpression keyExpression) {
+    public static QueryKeyExpression keyExpression(KeyExpression keyExpression) {
         if (!(keyExpression instanceof QueryableKeyExpression)) {
             throw new MetaDataException("query key expression must be queryable");
         }
@@ -276,8 +258,8 @@ public class Query {
         }
     }
 
-    private static List<QueryComponent> toList(@Nonnull QueryComponent first, @Nonnull QueryComponent second,
-                                               @Nonnull QueryComponent... operands) {
+    private static List<QueryComponent> toList(QueryComponent first, QueryComponent second,
+                                               QueryComponent... operands) {
         List<QueryComponent> children = new ArrayList<>(operands.length + 2);
         children.add(first);
         children.add(second);
@@ -285,7 +267,7 @@ public class Query {
         return children;
     }
 
-    public static boolean isSingleFieldComparison(@Nonnull QueryComponent component) {
+    public static boolean isSingleFieldComparison(QueryComponent component) {
         return component instanceof FieldWithComparison ||
                (component instanceof NestedField &&
                 ((NestedField)component).getChild() instanceof FieldWithComparison);

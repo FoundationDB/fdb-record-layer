@@ -33,8 +33,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -48,14 +48,14 @@ public class EmptyComparison extends BaseRepeatedField implements ComponentWithN
 
     private final boolean isEmpty;
 
-    public EmptyComparison(@Nonnull String fieldName, boolean isEmpty) {
+    public EmptyComparison(String fieldName, boolean isEmpty) {
         super(fieldName, Field.OneOfThemEmptyMode.EMPTY_NO_MATCHES);
         this.isEmpty = isEmpty;
     }
 
     @Override
     @Nullable
-    public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+    public <M extends Message> Boolean evalMessage(FDBRecordStoreBase<M> store, EvaluationContext context,
                                                    @Nullable FDBRecord<M> rec, @Nullable Message message) {
         if (message == null) {
             return null;
@@ -69,7 +69,7 @@ public class EmptyComparison extends BaseRepeatedField implements ComponentWithN
     }
 
     @Override
-    public void validate(@Nonnull Descriptors.Descriptor descriptor) {
+    public void validate(Descriptors.Descriptor descriptor) {
         validateRepeatedField(descriptor);
     }
 
@@ -82,11 +82,10 @@ public class EmptyComparison extends BaseRepeatedField implements ComponentWithN
         return isEmpty;
     }
 
-    @Nonnull
     @Override
-    public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
-                                 @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
-                                 @Nonnull final List<String> fieldNamePrefix) {
+    public GraphExpansion expand(final Quantifier.ForEach baseQuantifier,
+                                 final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
+                                 final List<String> fieldNamePrefix) {
         List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
@@ -112,7 +111,7 @@ public class EmptyComparison extends BaseRepeatedField implements ComponentWithN
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return isEmpty ? 1 : 0;

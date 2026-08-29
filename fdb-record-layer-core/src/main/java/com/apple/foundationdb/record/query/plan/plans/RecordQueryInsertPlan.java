@@ -38,7 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
+import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers.CoercionTrieNode;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -52,8 +52,8 @@ import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -69,16 +69,16 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
 
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryInsertPlan.class);
 
-    protected RecordQueryInsertPlan(@Nonnull final PlanSerializationContext serializationContext,
-                                    @Nonnull final PRecordQueryInsertPlan recordQueryInsertPlanProto) {
+    protected RecordQueryInsertPlan(final PlanSerializationContext serializationContext,
+                                    final PRecordQueryInsertPlan recordQueryInsertPlanProto) {
         super(serializationContext, Objects.requireNonNull(recordQueryInsertPlanProto.getSuper()));
     }
 
-    private RecordQueryInsertPlan(@Nonnull final Quantifier.Physical inner,
-                                  @Nonnull final String recordType,
-                                  @Nonnull final Type.Record targetType,
-                                  @Nullable final MessageHelpers.CoercionTrieNode coercionsTrie,
-                                  @Nonnull final Value computationValue) {
+    private RecordQueryInsertPlan(final Quantifier.Physical inner,
+                                  final String recordType,
+                                  final Type.Record targetType,
+                                  @Nullable final CoercionTrieNode coercionsTrie,
+                                  final Value computationValue) {
         super(inner, recordType, targetType, null, coercionsTrie, computationValue, currentModifiedRecordAlias());
     }
 
@@ -88,7 +88,7 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
     }
 
     @Override
-    public @Nonnull <M extends Message> CompletableFuture<QueryResult> saveRecordAsync(@Nonnull final FDBRecordStoreBase<M> store, final @Nonnull EvaluationContext context, @Nonnull final M message, final boolean isDryRun) {
+    public <M extends Message> CompletableFuture<QueryResult> saveRecordAsync(final FDBRecordStoreBase<M> store, final EvaluationContext context, final M message, final boolean isDryRun) {
         final CompletableFuture<FDBStoredRecord<M>> result;
         if (isDryRun) {
             result = store.dryRunSaveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_EXISTS);
@@ -98,11 +98,10 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
         return result.thenApply(fdbStoredRecord -> QueryResult.fromQueriedRecord(getTargetType(), context, FDBQueriedRecord.stored(fdbStoredRecord)));
     }
 
-    @Nonnull
     @Override
-    public RecordQueryInsertPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryInsertPlan translateCorrelations(final TranslationMap translationMap,
                                                        final boolean shouldSimplifyValues,
-                                                       @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                       final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 1);
         final var translatedComputationValue = getComputationValue().translateCorrelations(translationMap);
         return new RecordQueryInsertPlan(
@@ -113,9 +112,8 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
                 translatedComputationValue);
     }
 
-    @Nonnull
     @Override
-    public RecordQueryInsertPlan withChild(@Nonnull final Reference childRef) {
+    public RecordQueryInsertPlan withChild(final Reference childRef) {
         return new RecordQueryInsertPlan(Quantifier.physical(childRef, getInner().getAlias()),
                 getTargetRecordType(),
                 getTargetType(),
@@ -129,11 +127,10 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, super.planHash(mode));
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return ExplainPlanVisitor.toStringForDebugging(this);
@@ -147,9 +144,8 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
      * @return the rewritten planner graph that models the filter as a node that uses the expression attribute
      * to depict the record types this operator filters.
      */
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(List<? extends PlannerGraph> childGraphs) {
         final var graphForTarget =
                 PlannerGraph.fromNodeAndChildGraphs(
                         new PlannerGraph.DataNodeWithInfo(NodeInfo.BASE_DATA,
@@ -165,21 +161,18 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
                 Iterables.getOnlyElement(childGraphs), graphForTarget);
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryInsertPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryInsertPlan toProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryInsertPlan.newBuilder().setSuper(toRecordQueryAbstractModificationPlanProto(serializationContext)).build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setInsertPlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQueryInsertPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                  @Nonnull final PRecordQueryInsertPlan recordQueryInsertPlanProto) {
+    public static RecordQueryInsertPlan fromProto(final PlanSerializationContext serializationContext,
+                                                  final PRecordQueryInsertPlan recordQueryInsertPlanProto) {
         return new RecordQueryInsertPlan(serializationContext, recordQueryInsertPlanProto);
     }
 
@@ -194,11 +187,10 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
      *
      * @return a newly created {@link RecordQueryInsertPlan}
      */
-    @Nonnull
-    public static RecordQueryInsertPlan insertPlan(@Nonnull final Quantifier.Physical inner,
-                                                   @Nonnull final String recordType,
-                                                   @Nonnull final Type.Record targetType,
-                                                   @Nonnull final Value computationValue) {
+    public static RecordQueryInsertPlan insertPlan(final Quantifier.Physical inner,
+                                                   final String recordType,
+                                                   final Type.Record targetType,
+                                                   final Value computationValue) {
         return new RecordQueryInsertPlan(inner,
                 recordType,
                 targetType,
@@ -211,16 +203,14 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryInsertPlan, RecordQueryInsertPlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryInsertPlan> getProtoMessageClass() {
             return PRecordQueryInsertPlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryInsertPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                               @Nonnull final PRecordQueryInsertPlan recordQueryInsertPlanProto) {
+        public RecordQueryInsertPlan fromProto(final PlanSerializationContext serializationContext,
+                                               final PRecordQueryInsertPlan recordQueryInsertPlanProto) {
             return RecordQueryInsertPlan.fromProto(serializationContext, recordQueryInsertPlanProto);
         }
     }

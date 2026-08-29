@@ -39,14 +39,15 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.base.Verify;
 import com.google.common.collect.Lists;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -56,13 +57,12 @@ import java.util.Set;
  * in a covering scan.
  */
 public class FilterVisitor extends RecordQueryPlannerSubstitutionVisitor {
-    public FilterVisitor(@Nonnull final RecordMetaData recordMetadata, @Nonnull final PlannableIndexTypes indexTypes, @Nullable final KeyExpression commonPrimaryKey) {
+    public FilterVisitor(final RecordMetaData recordMetadata, final PlannableIndexTypes indexTypes, @Nullable final KeyExpression commonPrimaryKey) {
         super(recordMetadata, indexTypes, commonPrimaryKey);
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPlan postVisit(@Nonnull RecordQueryPlan recordQueryPlan) {
+    public RecordQueryPlan postVisit(RecordQueryPlan recordQueryPlan) {
         if (recordQueryPlan instanceof RecordQueryFilterPlan) {
             final RecordQueryFilterPlan filterPlan = (RecordQueryFilterPlan)recordQueryPlan;
 
@@ -88,7 +88,7 @@ public class FilterVisitor extends RecordQueryPlannerSubstitutionVisitor {
                 return recordQueryPlan;
             }
 
-            @Nullable RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords fetchIndexRecords = resolveFetchIndexRecordsFromPlan(filterPlan.getChild());
+            @Nullable FetchIndexRecords fetchIndexRecords = resolveFetchIndexRecordsFromPlan(filterPlan.getChild());
             if (fetchIndexRecords == null) {
                 return recordQueryPlan;
             }
@@ -111,10 +111,10 @@ public class FilterVisitor extends RecordQueryPlannerSubstitutionVisitor {
         return recordQueryPlan;
     }
 
-    public static void partitionFilters(@Nonnull final List<QueryComponent> filters,
-                                        @Nonnull final AvailableFields availableFields,
-                                        @Nonnull final List<QueryComponent> indexFilters,
-                                        @Nonnull final List<QueryComponent> residualFilters,
+    public static void partitionFilters(final List<QueryComponent> filters,
+                                        final AvailableFields availableFields,
+                                        final List<QueryComponent> indexFilters,
+                                        final List<QueryComponent> residualFilters,
                                         @Nullable final Set<KeyExpression> allReferencedFields) {
         for (final QueryComponent filter : filters) {
             final Set<KeyExpression> referencedFields = new HashSet<>();
@@ -136,7 +136,7 @@ public class FilterVisitor extends RecordQueryPlannerSubstitutionVisitor {
     // index entries. Reconstituting that as a singleton in a partial record might work for the simplest case, but
     // could not for multiple such filter conditions.
     // QueryKeyExpressionWithOneOfComparison is okay if a scalar field produces a repeated result.
-    public static boolean findFilterReferencedFields(@Nonnull QueryComponent filter, @Nonnull Set<KeyExpression> filterFields) {
+    public static boolean findFilterReferencedFields(QueryComponent filter, Set<KeyExpression> filterFields) {
         if (filter instanceof FieldWithComparison) {
             filterFields.add(Key.Expressions.field(((FieldWithComparison)filter).getFieldName()));
             return true;
@@ -179,7 +179,7 @@ public class FilterVisitor extends RecordQueryPlannerSubstitutionVisitor {
         return false;
     }
 
-    private static boolean findFilterReferencedFields(@Nonnull KeyExpression expression, @Nonnull Set<KeyExpression> filterFields) {
+    private static boolean findFilterReferencedFields(KeyExpression expression, Set<KeyExpression> filterFields) {
         if (expression instanceof ThenKeyExpression) {
             for (KeyExpression child : ((ThenKeyExpression)expression).getChildren()) {
                 if (!findFilterReferencedFields(child, filterFields)) {

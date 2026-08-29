@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 /**
@@ -47,10 +46,9 @@ public interface TranslateValueFunction {
      * @return an optional containing the translated value if this method is successful in translating the {@code value}
      *         passed in, {@code Optional.empty()} if the value passed in could not be translated.
      */
-    @Nonnull
-    Optional<Value> translateValue(@Nonnull Value value,
-                                   @Nonnull CorrelationIdentifier sourceAlias,
-                                   @Nonnull CorrelationIdentifier targetAlias);
+    Optional<Value> translateValue(Value value,
+                                   CorrelationIdentifier sourceAlias,
+                                   CorrelationIdentifier targetAlias);
 
     /**
      * Shorthand for a function that never translates any value successfully.

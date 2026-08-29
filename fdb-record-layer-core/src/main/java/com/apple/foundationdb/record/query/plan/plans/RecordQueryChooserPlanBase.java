@@ -33,7 +33,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -48,13 +47,11 @@ import java.util.stream.Stream;
  * Selecting one plan over the other will not have an impact on the client receiving the results.
  */
 public abstract class RecordQueryChooserPlanBase extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChildren {
-    @Nonnull
     protected final List<Quantifier.Physical> quantifiers;
     private final boolean reverse;
-    @Nonnull
     private final Value resultValue;
 
-    protected RecordQueryChooserPlanBase(@Nonnull final List<Quantifier.Physical> quantifiers) {
+    protected RecordQueryChooserPlanBase(final List<Quantifier.Physical> quantifiers) {
         Verify.verify(!quantifiers.isEmpty());
         this.quantifiers = List.copyOf(quantifiers);
         boolean firstReverse = quantifiers.get(0).getRangesOverPlan().isReverse();
@@ -71,42 +68,35 @@ public abstract class RecordQueryChooserPlanBase extends AbstractRelationalExpre
         return reverse;
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return quantifiers;
     }
 
-    @Nonnull
     @Override
     public List<RecordQueryPlan> getChildren() {
         return quantifiers.stream().map(Quantifier.Physical::getRangesOverPlan).collect(Collectors.toList());
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return resultValue;
     }
 
-    @Nonnull
     protected final Stream<RecordQueryPlan> getChildStream() {
         return quantifiers.stream().map(Quantifier.Physical::getRangesOverPlan);
     }
 
-    @Nonnull
     protected RecordQueryPlan getChild(final int planIndex) {
         Verify.verify(quantifiers.size() > planIndex);
         return quantifiers.get(planIndex).getRangesOverPlan();
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
     public AvailableFields getAvailableFields() {
         return AvailableFields.intersection(getChildStream()
@@ -125,7 +115,7 @@ public abstract class RecordQueryChooserPlanBase extends AbstractRelationalExpre
     }
 
     @Override
-    public int maxCardinality(@Nonnull RecordMetaData metaData) {
+    public int maxCardinality(RecordMetaData metaData) {
         return getChildStream().map(p -> p.maxCardinality(metaData)).min(Integer::compare).orElse(UNKNOWN_MAX_CARDINALITY);
     }
 
@@ -143,7 +133,7 @@ public abstract class RecordQueryChooserPlanBase extends AbstractRelationalExpre
      *
      * @return a {@link PickValue} representing the values from all the sub plans
      */
-    private static Value calculateChildrenValues(@Nonnull final List<? extends Quantifier> quantifiers) {
+    private static Value calculateChildrenValues(final List<? extends Quantifier> quantifiers) {
         return new PickValue(LiteralValue.ofScalar(0), quantifiers.stream()
                 .map(Quantifier::getFlowedObjectValue)
                 .collect(ImmutableList.toImmutableList()));

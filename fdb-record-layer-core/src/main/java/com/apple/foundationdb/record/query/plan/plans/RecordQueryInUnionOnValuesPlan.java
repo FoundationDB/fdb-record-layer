@@ -42,8 +42,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -61,19 +61,19 @@ public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan imple
     @Nullable
     private final List<ProvidedOrderingPart> comparisonKeyOrderingParts;
 
-    protected RecordQueryInUnionOnValuesPlan(@Nonnull final PlanSerializationContext serializationContext,
-                                             @Nonnull final PRecordQueryInUnionOnValuesPlan recordQueryInUnionOnValuesPlanProto) {
+    protected RecordQueryInUnionOnValuesPlan(final PlanSerializationContext serializationContext,
+                                             final PRecordQueryInUnionOnValuesPlan recordQueryInUnionOnValuesPlanProto) {
         super(serializationContext, recordQueryInUnionOnValuesPlanProto.getSuper());
         this.comparisonKeyOrderingParts = null;
     }
 
-    public RecordQueryInUnionOnValuesPlan(@Nonnull final Quantifier.Physical inner,
-                                          @Nonnull final List<? extends InSource> inSources,
+    public RecordQueryInUnionOnValuesPlan(final Quantifier.Physical inner,
+                                          final List<? extends InSource> inSources,
                                           @Nullable final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
-                                          @Nonnull final List<? extends Value> comparisonKeyValues,
+                                          final List<? extends Value> comparisonKeyValues,
                                           final boolean isReverse,
                                           final int maxNumberOfValuesAllowed,
-                                          @Nonnull final Bindings.Internal internal) {
+                                          final Bindings.Internal internal) {
         super(inner,
                 inSources,
                 new ComparisonKeyFunction.OnValues(Quantifier.current(), comparisonKeyValues),
@@ -86,15 +86,13 @@ public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan imple
                 : ImmutableList.copyOf(comparisonKeyOrderingParts);
     }
 
-    @Nonnull
     @Override
     public ComparisonKeyFunction.OnValues getComparisonKeyFunction() {
         return (ComparisonKeyFunction.OnValues)super.getComparisonKeyFunction();
     }
 
-    @Nonnull
     @Override
-    public List<? extends Value> getRequiredValues(@Nonnull final CorrelationIdentifier newBaseAlias, @Nonnull final Type inputType) {
+    public List<? extends Value> getRequiredValues(final CorrelationIdentifier newBaseAlias, final Type inputType) {
         final var ruleSet = DefaultValueSimplificationRuleSet.instance();
         return getComparisonKeyValues().stream()
                 .map(comparisonKeyValue -> comparisonKeyValue.rebase(AliasMap.ofAliases(Quantifier.current(), newBaseAlias))
@@ -102,50 +100,43 @@ public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan imple
                 .collect(ImmutableList.toImmutableList());
     }
 
-    @Nonnull
     @Override
     public Set<KeyExpression> getRequiredFields() {
         throw new RecordCoreException("this plan does not support this getRequiredFields()");
     }
 
-    @Nonnull
     @Override
     public List<ProvidedOrderingPart> getComparisonKeyOrderingParts() {
         return Objects.requireNonNull(comparisonKeyOrderingParts);
     }
 
-    @Nonnull
     @Override
     public List<? extends Value> getComparisonKeyValues() {
         return getComparisonKeyFunction().getComparisonKeyValues();
     }
 
-    @Nonnull
     @Override
     public Set<Type> getDynamicTypes() {
         return getComparisonKeyValues().stream().flatMap(comparisonKeyValue -> comparisonKeyValue.getDynamicTypes().stream()).collect(ImmutableSet.toImmutableSet());
     }
 
-    @Nonnull
     @Override
-    public RecordQueryInUnionOnValuesPlan withChildrenReferences(@Nonnull final List<? extends Reference> newChildren) {
+    public RecordQueryInUnionOnValuesPlan withChildrenReferences(final List<? extends Reference> newChildren) {
         return withChild(Iterables.getOnlyElement(newChildren));
     }
 
-    @Nonnull
     @Override
-    public RecordQueryInUnionOnValuesPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryInUnionOnValuesPlan translateCorrelations(final TranslationMap translationMap,
                                                                 final boolean shouldSimplifyValues,
-                                                                @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                                final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryInUnionOnValuesPlan(
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class), getInSources(),
                 comparisonKeyOrderingParts, getComparisonKeyValues(), reverse, maxNumberOfValuesAllowed,
                 internal);
     }
 
-    @Nonnull
     @Override
-    public RecordQueryInUnionOnValuesPlan withChild(@Nonnull final Reference childRef) {
+    public RecordQueryInUnionOnValuesPlan withChild(final Reference childRef) {
         return new RecordQueryInUnionOnValuesPlan(Quantifier.physical(childRef, inner.getAlias()),
                 getInSources(),
                 comparisonKeyOrderingParts,
@@ -155,33 +146,29 @@ public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan imple
                 internal);
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryInUnionOnValuesPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryInUnionOnValuesPlan toProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryInUnionOnValuesPlan.newBuilder()
                 .setSuper(toRecordQueryInUnionPlanProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setInUnionOnValuesPlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQueryInUnionOnValuesPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                           @Nonnull final PRecordQueryInUnionOnValuesPlan recordQueryInUnionOnValuesPlanProto) {
+    public static RecordQueryInUnionOnValuesPlan fromProto(final PlanSerializationContext serializationContext,
+                                                           final PRecordQueryInUnionOnValuesPlan recordQueryInUnionOnValuesPlanProto) {
         return new RecordQueryInUnionOnValuesPlan(serializationContext, recordQueryInUnionOnValuesPlanProto);
     }
 
-    @Nonnull
-    public static RecordQueryInUnionOnValuesPlan inUnion(@Nonnull final Quantifier.Physical inner,
-                                                         @Nonnull final List<? extends InSource> inSources,
-                                                         @Nonnull final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
+    public static RecordQueryInUnionOnValuesPlan inUnion(final Quantifier.Physical inner,
+                                                         final List<? extends InSource> inSources,
+                                                         final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
                                                          final boolean isReverse,
                                                          final int maxNumberOfValuesAllowed,
-                                                         @Nonnull final Bindings.Internal internal) {
+                                                         final Bindings.Internal internal) {
         return new RecordQueryInUnionOnValuesPlan(inner,
                 inSources,
                 comparisonKeyOrderingParts,
@@ -196,16 +183,14 @@ public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan imple
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryInUnionOnValuesPlan, RecordQueryInUnionOnValuesPlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryInUnionOnValuesPlan> getProtoMessageClass() {
             return PRecordQueryInUnionOnValuesPlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryInUnionOnValuesPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                        @Nonnull final PRecordQueryInUnionOnValuesPlan recordQueryInUnionOnValuesPlanProto) {
+        public RecordQueryInUnionOnValuesPlan fromProto(final PlanSerializationContext serializationContext,
+                                                        final PRecordQueryInUnionOnValuesPlan recordQueryInUnionOnValuesPlanProto) {
             return RecordQueryInUnionOnValuesPlan.fromProto(serializationContext, recordQueryInUnionOnValuesPlanProto);
         }
     }

@@ -35,4 +35,7 @@
  *     Query.field("field2").greaterThan(100)))
  * </code></pre>
  */
+@NullMarked
 package com.apple.foundationdb.record.query.expressions;
+
+import org.jspecify.annotations.NullMarked;

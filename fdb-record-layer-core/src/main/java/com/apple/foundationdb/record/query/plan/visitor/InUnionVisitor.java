@@ -26,29 +26,28 @@ import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A substitution visitor that pushes a {@link RecordQueryInJoinPlan} below a {@link RecordQueryFetchFromPartialRecordPlan}.
  */
 public class InUnionVisitor extends RecordQueryPlannerSubstitutionVisitor {
-    public InUnionVisitor(@Nonnull final RecordMetaData recordMetadata, @Nonnull final PlannableIndexTypes indexTypes, @Nullable final KeyExpression commonPrimaryKey) {
+    public InUnionVisitor(final RecordMetaData recordMetadata, final PlannableIndexTypes indexTypes, @Nullable final KeyExpression commonPrimaryKey) {
         super(recordMetadata, indexTypes, commonPrimaryKey);
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPlan postVisit(@Nonnull RecordQueryPlan recordQueryPlan) {
+    public RecordQueryPlan postVisit(RecordQueryPlan recordQueryPlan) {
         if (recordQueryPlan instanceof RecordQueryInUnionOnKeyExpressionPlan) {
             final RecordQueryInUnionOnKeyExpressionPlan inUnionPlan = (RecordQueryInUnionOnKeyExpressionPlan)recordQueryPlan;
 
-            @Nullable RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords fetchIndexRecords = resolveFetchIndexRecordsFromPlan(inUnionPlan.getChild());
+            @Nullable FetchIndexRecords fetchIndexRecords = resolveFetchIndexRecordsFromPlan(inUnionPlan.getChild());
             if (fetchIndexRecords == null) {
                 return recordQueryPlan;
             }

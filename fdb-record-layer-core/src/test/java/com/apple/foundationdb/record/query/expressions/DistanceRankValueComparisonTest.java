@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -156,7 +155,6 @@ class DistanceRankValueComparisonTest extends ComparisonsTestBase {
                 .isInstanceOf(IllegalStateException.class);
     }
 
-    @Nonnull
     private static DistanceRankValueComparison correlatedComparison() {
         return new DistanceRankValueComparison(Comparisons.Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL,
                 QuantifiedObjectValue.of(q1(), Type.Vector.of(false, 64, 128)),
@@ -164,14 +162,12 @@ class DistanceRankValueComparisonTest extends ComparisonsTestBase {
                 null, null);
     }
 
-    @Nonnull
     private static DistanceRankValueComparison randomComparison() {
         return new DistanceRankValueComparison(Comparisons.Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL,
                 getRandomVectorValue(), new LiteralValue<>(10),
                 null, null);
     }
 
-    @Nonnull
     private static LiteralValue<DoubleRealVector> getRandomVectorValue() {
         final int numDimensions = 128;
         final double[] components = new double[128];

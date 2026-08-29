@@ -38,8 +38,8 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.primitives.ImmutableIntArray;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayDeque;
 import java.util.BitSet;
 import java.util.Deque;
@@ -57,15 +57,12 @@ import java.util.Deque;
  */
 @SuppressWarnings("UnstableApiUsage")
 public class ExpressionToTuplePathVisitor implements KeyExpressionVisitor<ExpressionToTuplePathVisitor.State, ExpressionToTuplePathVisitor.Result> {
-    @Nonnull
     private final KeyExpression keyExpression;
 
-    @Nonnull
     private final TupleSource tupleSource;
 
     private final int startOrdinal;
 
-    @Nonnull
     private final BitSet skipSet;
 
     /**
@@ -75,10 +72,10 @@ public class ExpressionToTuplePathVisitor implements KeyExpressionVisitor<Expres
      */
     private final Deque<State> states;
 
-    public ExpressionToTuplePathVisitor(@Nonnull final KeyExpression keyExpression,
-                                        @Nonnull final TupleSource tupleSource,
+    public ExpressionToTuplePathVisitor(final KeyExpression keyExpression,
+                                        final TupleSource tupleSource,
                                         final int startOrdinal,
-                                        @Nonnull final BitSet skipSet) {
+                                        final BitSet skipSet) {
         this.keyExpression = keyExpression;
         this.tupleSource = tupleSource;
         this.startOrdinal = startOrdinal;
@@ -120,21 +117,18 @@ public class ExpressionToTuplePathVisitor implements KeyExpressionVisitor<Expres
      * @param keyExpression key expression to visit
      * @return does not return a result but throws an exception of type {@link UnsupportedOperationException}
      */
-    @Nonnull
     @Override
-    public final Result visitExpression(@Nonnull final KeyExpression keyExpression) {
+    public final Result visitExpression(final KeyExpression keyExpression) {
         return visitDefault(keyExpression);
     }
 
-    @Nonnull
     @Override
-    public Result visitExpression(@Nonnull final EmptyKeyExpression emptyKeyExpression) {
+    public Result visitExpression(final EmptyKeyExpression emptyKeyExpression) {
         return visitDefault(emptyKeyExpression);
     }
 
-    @Nonnull
     @Override
-    public Result visitExpression(@Nonnull FieldKeyExpression fieldKeyExpression) {
+    public Result visitExpression(FieldKeyExpression fieldKeyExpression) {
         final KeyExpression.FanType fanType = fieldKeyExpression.getFanType();
         if (fanType != KeyExpression.FanType.None) {
             throw new RecordCoreException("cannot handle this expression");
@@ -143,27 +137,23 @@ public class ExpressionToTuplePathVisitor implements KeyExpressionVisitor<Expres
         return visitDefault(fieldKeyExpression);
     }
 
-    @Nonnull
     @Override
-    public Result visitExpression(@Nonnull final KeyExpressionWithValue keyExpressionWithValue) {
+    public Result visitExpression(final KeyExpressionWithValue keyExpressionWithValue) {
         return visitDefault(keyExpressionWithValue);
     }
 
-    @Nonnull
     @Override
-    public Result visitExpression(@Nonnull final FunctionKeyExpression functionKeyExpression) {
+    public Result visitExpression(final FunctionKeyExpression functionKeyExpression) {
         return visitDefault(functionKeyExpression);
     }
 
-    @Nonnull
     @Override
-    public Result visitExpression(@Nonnull final KeyWithValueExpression keyWithValueExpression) {
+    public Result visitExpression(final KeyWithValueExpression keyWithValueExpression) {
         throw new RecordCoreException("cannot handle this expression");
     }
 
-    @Nonnull
     @Override
-    public Result visitExpression(@Nonnull final NestingKeyExpression nestingKeyExpression) {
+    public Result visitExpression(final NestingKeyExpression nestingKeyExpression) {
         final FieldKeyExpression parent = nestingKeyExpression.getParent();
         final KeyExpression.FanType fanType = parent.getFanType();
         if (fanType != KeyExpression.FanType.None) {
@@ -180,9 +170,8 @@ public class ExpressionToTuplePathVisitor implements KeyExpressionVisitor<Expres
         return new Result(resultBuilder.build(), childNumSkippedMappings);
     }
 
-    @Nonnull
     @Override
-    public Result visitExpression(@Nonnull final ThenKeyExpression thenKeyExpression) {
+    public Result visitExpression(final ThenKeyExpression thenKeyExpression) {
         final var state = getCurrentState();
         final var children = thenKeyExpression.getChildren();
         final var resultBuilder = ImmutableListMultimap.<KeyExpression, FieldData>builder();
@@ -200,9 +189,8 @@ public class ExpressionToTuplePathVisitor implements KeyExpressionVisitor<Expres
         return new Result(resultBuilder.build(), numSkippedMappings);
     }
 
-    @Nonnull
     @Override
-    public Result visitExpression(@Nonnull final ListKeyExpression listKeyExpression) {
+    public Result visitExpression(final ListKeyExpression listKeyExpression) {
         final var state = getCurrentState();
         final var children = listKeyExpression.getChildren();
         final var resultMapBuilder = ImmutableListMultimap.<KeyExpression, FieldData>builder();
@@ -222,8 +210,7 @@ public class ExpressionToTuplePathVisitor implements KeyExpressionVisitor<Expres
         return new Result(resultMapBuilder.build(), 0);
     }
 
-    @Nonnull
-    public final Result visitDefault(@Nonnull final KeyExpression keyExpression) {
+    public final Result visitDefault(final KeyExpression keyExpression) {
         final var currentState = getCurrentState();
         final var path = currentState.getOrdinalWithParent().toPath();
 
@@ -241,7 +228,6 @@ public class ExpressionToTuplePathVisitor implements KeyExpressionVisitor<Expres
         return new Result(ImmutableListMultimap.of(keyExpression, FieldData.ofUnconditional(tupleSource, path)), 0);
     }
 
-    @Nonnull
     public ListMultimap<KeyExpression, FieldData> compute() {
         return pop(keyExpression.expand(push(State.ofStartingOrdinal(startOrdinal)))).getExpressionToFieldDataMap();
     }
@@ -268,14 +254,13 @@ public class ExpressionToTuplePathVisitor implements KeyExpressionVisitor<Expres
             return ordinal;
         }
 
-        @Nonnull
         public ImmutableIntArray toPath() {
             final var builder = ImmutableIntArray.builder();
             buildPath(builder);
             return builder.build();
         }
 
-        private void buildPath(@Nonnull final ImmutableIntArray.Builder builder) {
+        private void buildPath(final ImmutableIntArray.Builder builder) {
             if (parent != null) {
                 parent.buildPath(builder);
             }
@@ -287,17 +272,15 @@ public class ExpressionToTuplePathVisitor implements KeyExpressionVisitor<Expres
      * State class.
      */
     public static class State implements KeyExpressionVisitor.State {
-        @Nonnull
         private final OrdinalWithParent ordinalWithParent;
 
         private final int numSkippedMappings;
 
-        private State(@Nonnull final OrdinalWithParent ordinalWithParent, final int numSkippedMappings) {
+        private State(final OrdinalWithParent ordinalWithParent, final int numSkippedMappings) {
             this.ordinalWithParent = ordinalWithParent;
             this.numSkippedMappings = numSkippedMappings;
         }
 
-        @Nonnull
         public OrdinalWithParent getOrdinalWithParent() {
             return ordinalWithParent;
         }
@@ -306,22 +289,18 @@ public class ExpressionToTuplePathVisitor implements KeyExpressionVisitor<Expres
             return numSkippedMappings;
         }
 
-        @Nonnull
         public State withOrdinal(final int ordinal, final int numSkippedMappings) {
             return of(new OrdinalWithParent(ordinalWithParent.getParent(), ordinal), numSkippedMappings);
         }
 
-        @Nonnull
         public State withNestedOrdinal(final int ordinal) {
             return of(new OrdinalWithParent(new OrdinalWithParent(ordinalWithParent.getParent(), ordinal), 0), 0);
         }
 
-        @Nonnull
-        public static State of(@Nonnull final OrdinalWithParent ordinalWithParent, final int numSkippedMappings) {
+        public static State of(final OrdinalWithParent ordinalWithParent, final int numSkippedMappings) {
             return new State(ordinalWithParent, numSkippedMappings);
         }
 
-        @Nonnull
         public static State ofStartingOrdinal(final int startingOrdinal) {
             return new State(new OrdinalWithParent(null, startingOrdinal), 0);
         }
@@ -331,17 +310,15 @@ public class ExpressionToTuplePathVisitor implements KeyExpressionVisitor<Expres
      * Result class.
      */
     public static class Result {
-        @Nonnull
         private final ListMultimap<KeyExpression, FieldData> expressionToTuplePathMap;
 
         private final int numSkippedMappings;
 
-        public Result(@Nonnull final ListMultimap<KeyExpression, FieldData> expressionToTuplePathMap, final int numSkippedMappings) {
+        public Result(final ListMultimap<KeyExpression, FieldData> expressionToTuplePathMap, final int numSkippedMappings) {
             this.expressionToTuplePathMap = expressionToTuplePathMap;
             this.numSkippedMappings = numSkippedMappings;
         }
 
-        @Nonnull
         public ListMultimap<KeyExpression, FieldData> getExpressionToFieldDataMap() {
             return expressionToTuplePathMap;
         }

@@ -54,8 +54,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -67,35 +67,31 @@ import java.util.Set;
 public class TempTableScanPlan extends AbstractRelationalExpressionWithoutChildren implements RecordQueryPlanWithNoChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Temp-Table-Scan-Plan");
 
-    @Nonnull
     private final Value tempTableReferenceValue;
 
-    public TempTableScanPlan(@Nonnull final Value tempTableReferenceValue) {
+    public TempTableScanPlan(final Value tempTableReferenceValue) {
         this.tempTableReferenceValue = tempTableReferenceValue;
     }
 
-    @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
         final var tempTable = Objects.requireNonNull((TempTable)this.tempTableReferenceValue.eval(store, context));
         return new ListCursor<>(tempTable.getList(), continuation);
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RelationalExpression translateCorrelations(final TranslationMap translationMap,
                                                       final boolean shouldSimplifyValues,
-                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                      final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.isEmpty());
         if (translationMap.definesOnlyIdentities()) {
             return this;
@@ -114,7 +110,7 @@ public class TempTableScanPlan extends AbstractRelationalExpressionWithoutChildr
     }
 
     @Override
-    public TempTableScanPlan strictlySorted(@Nonnull FinalMemoizer memoizer) {
+    public TempTableScanPlan strictlySorted(FinalMemoizer memoizer) {
         return this;
     }
 
@@ -129,11 +125,10 @@ public class TempTableScanPlan extends AbstractRelationalExpressionWithoutChildr
     }
 
     @Override
-    public boolean hasIndexScan(@Nonnull String indexName) {
+    public boolean hasIndexScan(String indexName) {
         return false;
     }
 
-    @Nonnull
     @Override
     public Set<String> getUsedIndexes() {
         return ImmutableSet.of();
@@ -144,25 +139,21 @@ public class TempTableScanPlan extends AbstractRelationalExpressionWithoutChildr
         return false;
     }
 
-    @Nonnull
     @Override
     public AvailableFields getAvailableFields() {
         return AvailableFields.NO_FIELDS;
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return new QueriedValue(Objects.requireNonNull(((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType()));
     }
 
-    @Nonnull
     public Value getTempTableReferenceValue() {
         return new QueriedValue(Objects.requireNonNull(
                 ((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType()));
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return ExplainPlanVisitor.toStringForDebugging(this);
@@ -170,8 +161,8 @@ public class TempTableScanPlan extends AbstractRelationalExpressionWithoutChildr
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(final RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -209,7 +200,7 @@ public class TempTableScanPlan extends AbstractRelationalExpressionWithoutChildr
     }
 
     @Override
-    public int planHash(@Nonnull PlanHashMode mode) {
+    public int planHash(PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
@@ -219,9 +210,8 @@ public class TempTableScanPlan extends AbstractRelationalExpressionWithoutChildr
         }
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.TEMP_TABLE_SCAN_OPERATOR,
@@ -229,23 +219,20 @@ public class TempTableScanPlan extends AbstractRelationalExpressionWithoutChildr
                 childGraphs);
     }
 
-    @Nonnull
     @Override
-    public PTempTableScanPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PTempTableScanPlan toProto(final PlanSerializationContext serializationContext) {
         return PTempTableScanPlan.newBuilder()
                 .setTempTableReferenceValue(tempTableReferenceValue.toValueProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setTempTableScanPlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static TempTableScanPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                              @Nonnull final PTempTableScanPlan tempTableScanPlanProto) {
+    public static TempTableScanPlan fromProto(final PlanSerializationContext serializationContext,
+                                              final PTempTableScanPlan tempTableScanPlanProto) {
         return new TempTableScanPlan(Value.fromValueProto(serializationContext, tempTableScanPlanProto.getTempTableReferenceValue()));
     }
 
@@ -254,16 +241,14 @@ public class TempTableScanPlan extends AbstractRelationalExpressionWithoutChildr
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PTempTableScanPlan, TempTableScanPlan> {
-        @Nonnull
         @Override
         public Class<PTempTableScanPlan> getProtoMessageClass() {
             return PTempTableScanPlan.class;
         }
 
-        @Nonnull
         @Override
-        public TempTableScanPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                           @Nonnull final PTempTableScanPlan tempTableScanPlanProto) {
+        public TempTableScanPlan fromProto(final PlanSerializationContext serializationContext,
+                                           final PTempTableScanPlan tempTableScanPlanProto) {
             return TempTableScanPlan.fromProto(serializationContext, tempTableScanPlanProto);
         }
     }

@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 /**
@@ -32,7 +31,6 @@ import java.util.Optional;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface RecordQueryPlanWithMatchCandidate extends RecordQueryPlan {
-    @Nonnull
     Optional<? extends MatchCandidate> getMatchCandidateMaybe();
 
     default MatchCandidate getMatchCandidate() {

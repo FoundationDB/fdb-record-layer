@@ -24,8 +24,8 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -40,19 +40,16 @@ import static com.apple.foundationdb.async.AsyncUtil.READY_FALSE;
  */
 public class AsyncBoolean<M extends Message, Q> {
     private final boolean isOr;
-    @Nonnull
     private final Iterator<Q> operands;
-    @Nonnull
     private final Function<Q, CompletableFuture<Boolean>> evaluateFunction;
-    @Nonnull
     private final FDBRecordStoreBase<M> store;
     @Nullable
     private Boolean retVal;
 
     public AsyncBoolean(boolean isOr,
-                        @Nonnull List<Q> operands,
-                        @Nonnull Function<Q, CompletableFuture<Boolean>> evaluateFunction,
-                        @Nonnull FDBRecordStoreBase<M> store) {
+                        List<Q> operands,
+                        Function<Q, CompletableFuture<Boolean>> evaluateFunction,
+                        FDBRecordStoreBase<M> store) {
         this.isOr = isOr;
         this.operands = operands.iterator();
         this.evaluateFunction = evaluateFunction;

@@ -20,32 +20,29 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 // Package private class used to create OneOfThemWithComparison components on text queries
 class OneOfThemText extends Text {
-    @Nonnull
     private final String fieldName;
     private final Field.OneOfThemEmptyMode emptyMode;
 
-    OneOfThemText(@Nonnull String fieldName, Field.OneOfThemEmptyMode emptyMode) {
+    OneOfThemText(String fieldName, Field.OneOfThemEmptyMode emptyMode) {
         this(fieldName, emptyMode, null);
     }
 
-    OneOfThemText(@Nonnull String fieldName, Field.OneOfThemEmptyMode emptyMode, @Nullable String tokenizerName) {
+    OneOfThemText(String fieldName, Field.OneOfThemEmptyMode emptyMode, @Nullable String tokenizerName) {
         this(fieldName, emptyMode, tokenizerName, null);
     }
 
-    OneOfThemText(@Nonnull String fieldName, Field.OneOfThemEmptyMode emptyMode, @Nullable String tokenizerName, @Nullable String defaultTokenizerName) {
+    OneOfThemText(String fieldName, Field.OneOfThemEmptyMode emptyMode, @Nullable String tokenizerName, @Nullable String defaultTokenizerName) {
         super(tokenizerName, defaultTokenizerName);
         this.fieldName = fieldName;
         this.emptyMode = emptyMode;
     }
 
-    @Nonnull
     @Override
-    ComponentWithComparison getComponent(@Nonnull Comparisons.Comparison comparison) {
+    ComponentWithComparison getComponent(Comparisons.Comparison comparison) {
         return new OneOfThemWithComparison(fieldName, emptyMode, comparison);
     }
 }

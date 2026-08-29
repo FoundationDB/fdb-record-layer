@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
@@ -52,6 +51,6 @@ public interface PlanWithStoredFields {
      * @param nonStoredFields the fields that <em>are not</em> stored, that is, available in the index entry, even though they are part of the index definition
      * @param otherFields fields that come from the index entry in a special way
      */
-    void getStoredFields(@Nonnull List<KeyExpression> keyFields, @Nonnull List<KeyExpression> nonStoredFields,
-                         @Nonnull List<KeyExpression> otherFields);
+    void getStoredFields(List<KeyExpression> keyFields, List<KeyExpression> nonStoredFields,
+                         List<KeyExpression> otherFields);
 }

@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.sorting.MemorySortAdapter;
 import com.google.common.base.Verify;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
@@ -43,16 +42,14 @@ import java.util.Objects;
 public class RecordQuerySortKey implements PlanHashable, PlanSerializable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Sort-Key");
 
-    @Nonnull
     private final KeyExpression key;
     private final boolean reverse;
 
-    public RecordQuerySortKey(@Nonnull final KeyExpression key, final boolean reverse) {
+    public RecordQuerySortKey(final KeyExpression key, final boolean reverse) {
         this.key = key;
         this.reverse = reverse;
     }
 
-    @Nonnull
     public KeyExpression getKey() {
         return key;
     }
@@ -71,8 +68,7 @@ public class RecordQuerySortKey implements PlanHashable, PlanSerializable {
      * @param maxRecordsToRead the maximum number of records to read
      * @return a new sort adapter
      */
-    @Nonnull
-    public <M extends Message> RecordQuerySortAdapter<M> getAdapter(@Nonnull FDBRecordStoreBase<M> recordStore, int maxRecordsToRead) {
+    public <M extends Message> RecordQuerySortAdapter<M> getAdapter(FDBRecordStoreBase<M> recordStore, int maxRecordsToRead) {
         final int memoryLimit = Math.min(maxRecordsToRead, RecordQuerySortAdapter.DEFAULT_MAX_RECORD_COUNT_IN_MEMORY);
         final boolean memoryOnly = memoryLimit == maxRecordsToRead;
         return new RecordQuerySortAdapter<>(memoryLimit, memoryOnly, MemorySortAdapter.OrderComparator::new, this,
@@ -85,14 +81,13 @@ public class RecordQuerySortKey implements PlanHashable, PlanSerializable {
      * @param recordStore the record store against which the plan is running
      * @return a new sort adapter specifically made for a damming operation ({@link RecordQueryDamPlan})
      */
-    @Nonnull
-    public <M extends Message> RecordQuerySortAdapter<M> getAdapterForDam(@Nonnull FDBRecordStoreBase<M> recordStore) {
+    public <M extends Message> RecordQuerySortAdapter<M> getAdapterForDam(FDBRecordStoreBase<M> recordStore) {
         return new RecordQuerySortAdapter<>(RecordQuerySortAdapter.DEFAULT_MAX_RECORD_COUNT_IN_MEMORY, true,
                 MemorySortAdapter.InsertionOrderComparator::new, this, recordStore);
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, key, reverse);
     }
 
@@ -125,16 +120,14 @@ public class RecordQuerySortKey implements PlanHashable, PlanSerializable {
         return result;
     }
 
-    @Nonnull
     @Override
-    public PRecordQuerySortKey toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQuerySortKey toProto(final PlanSerializationContext serializationContext) {
         return PRecordQuerySortKey.newBuilder().setKey(key.toKeyExpression()).setReverse(reverse).build();
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    public static RecordQuerySortKey fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                               @Nonnull final PRecordQuerySortKey recordQuerySortKeyProto) {
+    public static RecordQuerySortKey fromProto(final PlanSerializationContext serializationContext,
+                                               final PRecordQuerySortKey recordQuerySortKeyProto) {
         Verify.verify(recordQuerySortKeyProto.hasReverse());
         return new RecordQuerySortKey(KeyExpression.fromProto(Objects.requireNonNull(recordQuerySortKeyProto.getKey())),
                 recordQuerySortKeyProto.getReverse());

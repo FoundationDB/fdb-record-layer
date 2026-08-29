@@ -96,8 +96,8 @@ import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -143,60 +143,51 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryIndexPlan.class);
     protected static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Index-Plan");
 
-    @Nonnull
     protected final String indexName;
     @Nullable
     private final KeyExpression commonPrimaryKey;
-    @Nonnull
     protected final IndexScanParameters scanParameters;
-    @Nonnull
     private IndexFetchMethod indexFetchMethod;
-    @Nonnull
     private final FetchIndexRecords fetchIndexRecords;
     protected final boolean reverse;
     protected final boolean strictlySorted;
-    @Nonnull
     private final Optional<? extends MatchCandidate> matchCandidateOptional;
-    @Nonnull
     private final Type resultType;
-    @Nonnull
     private final QueryPlanConstraint constraint;
 
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<ComparisonRanges> comparisonRangesSupplier = Suppliers.memoize(this::computeComparisonRanges);
-    @Nonnull
     private final KeyValueCursorBase.SerializationMode serializationMode;
 
-    public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull final IndexScanParameters scanParameters, final boolean reverse) {
+    public RecordQueryIndexPlan(final String indexName, final IndexScanParameters scanParameters, final boolean reverse) {
         this(indexName, null, scanParameters, IndexFetchMethod.SCAN_AND_FETCH, FetchIndexRecords.PRIMARY_KEY, reverse, false);
     }
 
-    public RecordQueryIndexPlan(@Nonnull final String indexName,
+    public RecordQueryIndexPlan(final String indexName,
                                 @Nullable final KeyExpression commonPrimaryKey,
-                                @Nonnull final IndexScanParameters scanParameters,
-                                @Nonnull final IndexFetchMethod useIndexPrefetch,
-                                @Nonnull final FetchIndexRecords fetchIndexRecords,
+                                final IndexScanParameters scanParameters,
+                                final IndexFetchMethod useIndexPrefetch,
+                                final FetchIndexRecords fetchIndexRecords,
                                 final boolean reverse,
                                 final boolean strictlySorted) {
         this(indexName, commonPrimaryKey, scanParameters, useIndexPrefetch, fetchIndexRecords, reverse, strictlySorted, Optional.empty(), new Type.Any(), QueryPlanConstraint.noConstraint());
     }
 
-    public RecordQueryIndexPlan(@Nonnull final String indexName,
+    public RecordQueryIndexPlan(final String indexName,
                                 @Nullable final KeyExpression commonPrimaryKey,
-                                @Nonnull final IndexScanParameters scanParameters,
-                                @Nonnull final IndexFetchMethod indexFetchMethod,
-                                @Nonnull final FetchIndexRecords fetchIndexRecords,
+                                final IndexScanParameters scanParameters,
+                                final IndexFetchMethod indexFetchMethod,
+                                final FetchIndexRecords fetchIndexRecords,
                                 final boolean reverse,
                                 final boolean strictlySorted,
-                                @Nonnull final MatchCandidate matchCandidate,
-                                @Nonnull final Type.Record resultType,
-                                @Nonnull final QueryPlanConstraint constraint) {
+                                final MatchCandidate matchCandidate,
+                                final Type.Record resultType,
+                                final QueryPlanConstraint constraint) {
         this(indexName, commonPrimaryKey, scanParameters, indexFetchMethod, fetchIndexRecords, reverse, strictlySorted, Optional.of(matchCandidate), resultType, constraint);
     }
 
-    protected RecordQueryIndexPlan(@Nonnull final PlanSerializationContext serializationContext,
-                                   @Nonnull final PRecordQueryIndexPlan recordQueryIndexPlanProto) {
+    protected RecordQueryIndexPlan(final PlanSerializationContext serializationContext,
+                                   final PRecordQueryIndexPlan recordQueryIndexPlanProto) {
         this(Objects.requireNonNull(recordQueryIndexPlanProto.getIndexName()),
                 recordQueryIndexPlanProto.hasCommonPrimaryKey() ? KeyExpression.fromProto(recordQueryIndexPlanProto.getCommonPrimaryKey()) : null,
                 IndexScanParameters.fromIndexScanParametersProto(serializationContext, Objects.requireNonNull(recordQueryIndexPlanProto.getScanParameters())),
@@ -210,32 +201,32 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
     }
 
     @VisibleForTesting
-    public RecordQueryIndexPlan(@Nonnull final String indexName,
+    public RecordQueryIndexPlan(final String indexName,
                                 @Nullable final KeyExpression commonPrimaryKey,
-                                @Nonnull final IndexScanParameters scanParameters,
-                                @Nonnull final IndexFetchMethod indexFetchMethod,
-                                @Nonnull final FetchIndexRecords fetchIndexRecords,
+                                final IndexScanParameters scanParameters,
+                                final IndexFetchMethod indexFetchMethod,
+                                final FetchIndexRecords fetchIndexRecords,
                                 final boolean reverse,
                                 final boolean strictlySorted,
-                                @Nonnull final Optional<? extends MatchCandidate> matchCandidateOptional,
-                                @Nonnull final Type resultType,
-                                @Nonnull final QueryPlanConstraint constraint) {
+                                final Optional<? extends MatchCandidate> matchCandidateOptional,
+                                final Type resultType,
+                                final QueryPlanConstraint constraint) {
         this(indexName, commonPrimaryKey, scanParameters, indexFetchMethod, fetchIndexRecords, reverse, strictlySorted, matchCandidateOptional, resultType, constraint, KeyValueCursorBase.SerializationMode.TO_NEW);
     }
 
     @VisibleForTesting
     @SuppressWarnings("this-escape")
-    public RecordQueryIndexPlan(@Nonnull final String indexName,
+    public RecordQueryIndexPlan(final String indexName,
                                 @Nullable final KeyExpression commonPrimaryKey,
-                                @Nonnull final IndexScanParameters scanParameters,
-                                @Nonnull final IndexFetchMethod indexFetchMethod,
-                                @Nonnull final FetchIndexRecords fetchIndexRecords,
+                                final IndexScanParameters scanParameters,
+                                final IndexFetchMethod indexFetchMethod,
+                                final FetchIndexRecords fetchIndexRecords,
                                 final boolean reverse,
                                 final boolean strictlySorted,
-                                @Nonnull final Optional<? extends MatchCandidate> matchCandidateOptional,
-                                @Nonnull final Type resultType,
-                                @Nonnull final QueryPlanConstraint constraint,
-                                @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) {
+                                final Optional<? extends MatchCandidate> matchCandidateOptional,
+                                final Type resultType,
+                                final QueryPlanConstraint constraint,
+                                final KeyValueCursorBase.SerializationMode serializationMode) {
         this.indexName = indexName;
         this.commonPrimaryKey = commonPrimaryKey;
         this.scanParameters = scanParameters;
@@ -255,10 +246,9 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         this.serializationMode = serializationMode;
     }
 
-    @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context,
-                                                                     @Nullable final byte[] continuation, @Nonnull final ExecuteProperties executeProperties) {
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store, final EvaluationContext context,
+                                                                     @Nullable final byte[] continuation, final ExecuteProperties executeProperties) {
         IndexFetchMethod fetchMethod = indexFetchMethod;
         // Check here to allow for the store API_VERSION to change
         if ((indexFetchMethod != IndexFetchMethod.SCAN_AND_FETCH) &&
@@ -306,9 +296,8 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         }
     }
 
-    @Nonnull
-    private <M extends Message> RecordCursor<QueryResult> executeUsingRemoteFetch(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context,
-                                                                                  @Nullable final byte [] continuation, @Nonnull final ExecuteProperties executeProperties) {
+    private <M extends Message> RecordCursor<QueryResult> executeUsingRemoteFetch(final FDBRecordStoreBase<M> store, final EvaluationContext context,
+                                                                                  @Nullable final byte [] continuation, final ExecuteProperties executeProperties) {
         final RecordMetaData metaData = store.getRecordMetaData();
         final Index index = metaData.getIndex(indexName);
         final IndexScanBounds scanBounds = scanParameters.bind(store, index, context);
@@ -317,10 +306,9 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
                 .map(queriedRecord -> QueryResult.fromQueriedRecord(resultType, context, queriedRecord));
     }
 
-    @Nonnull
     @Override
-    public <M extends Message> RecordCursor<IndexEntry> executeEntries(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                                                       @Nullable byte[] continuation, @Nonnull ExecuteProperties executeProperties) {
+    public <M extends Message> RecordCursor<IndexEntry> executeEntries(FDBRecordStoreBase<M> store, EvaluationContext context,
+                                                                       @Nullable byte[] continuation, ExecuteProperties executeProperties) {
         final RecordMetaData metaData = store.getRecordMetaData();
         final Index index = metaData.getIndex(indexName);
         final IndexScanBounds scanBounds = scanParameters.bind(store, index, context);
@@ -346,9 +334,9 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
     }
 
     @SuppressWarnings("resource")
-    private <M extends Message> RecordCursor<IndexEntry> executeEntriesWithOverScan(@Nonnull TupleRange tupleScanRange, @Nonnull TupleRange widenedScanRange,
-                                                                                    @Nonnull FDBRecordStoreBase<M> store, @Nonnull Index index,
-                                                                                    @Nullable byte[] continuation, @Nonnull ExecuteProperties executeProperties) {
+    private <M extends Message> RecordCursor<IndexEntry> executeEntriesWithOverScan(TupleRange tupleScanRange, TupleRange widenedScanRange,
+                                                                                    FDBRecordStoreBase<M> store, Index index,
+                                                                                    @Nullable byte[] continuation, ExecuteProperties executeProperties) {
         final byte[] prefixBytes = getRangePrefixBytes(tupleScanRange);
         final IndexScanContinuationConvertor continuationConvertor = new IndexScanContinuationConvertor(prefixBytes, serializationMode);
 
@@ -389,13 +377,11 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         });
     }
     
-    @Nonnull
     @Override
     public String getIndexName() {
         return indexName;
     }
 
-    @Nonnull
     public IndexScanParameters getScanParameters() {
         return scanParameters;
     }
@@ -405,18 +391,15 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         return commonPrimaryKey;
     }
 
-    @Nonnull
     @Override
     public IndexScanType getScanType() {
         return scanParameters.getScanType();
     }
 
-    @Nonnull
     public IndexFetchMethod getIndexFetchMethod() {
         return indexFetchMethod;
     }
 
-    @Nonnull
     @Override
     public FetchIndexRecords getFetchIndexRecords() {
         return fetchIndexRecords;
@@ -438,18 +421,17 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
     }
 
     @Override
-    public boolean hasIndexScan(@Nonnull String indexName) {
+    public boolean hasIndexScan(String indexName) {
         return this.indexName.equals(indexName);
     }
 
-    @Nonnull
     @Override
     public Set<String> getUsedIndexes() {
         return Collections.singleton(indexName);
     }
 
     @Override
-    public int maxCardinality(@Nonnull RecordMetaData metaData) {
+    public int maxCardinality(RecordMetaData metaData) {
         final Index index = metaData.getIndex(indexName);
         if (index.isUnique() && scanParameters.isUnique(index)) {
             return 1;
@@ -463,14 +445,13 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         return strictlySorted;
     }
 
-    @Nonnull
     @Override
     public Optional<? extends MatchCandidate> getMatchCandidateMaybe() {
         return matchCandidateOptional;
     }
 
     @Override
-    public RecordQueryIndexPlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
+    public RecordQueryIndexPlan strictlySorted(final FinalMemoizer memoizer) {
         return new RecordQueryIndexPlan(indexName, getCommonPrimaryKey(), scanParameters, getIndexFetchMethod(), fetchIndexRecords, reverse, true, matchCandidateOptional, resultType, constraint);
     }
 
@@ -479,17 +460,15 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         return false;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return scanParameters.getCorrelatedTo();
     }
 
-    @Nonnull
     @Override
-    public RecordQueryIndexPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryIndexPlan translateCorrelations(final TranslationMap translationMap,
                                                       final boolean shouldSimplifyValues,
-                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                      final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.isEmpty());
         if (translationMap.definesOnlyIdentities()) {
             return this;
@@ -502,28 +481,24 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         return matchCandidateOptional.isPresent();
     }
 
-    @Nonnull
     @Override
-    public RecordQueryIndexPlan minimize(@Nonnull final List<Quantifier.Physical> newQuantifiers) {
+    public RecordQueryIndexPlan minimize(final List<Quantifier.Physical> newQuantifiers) {
         Verify.verify(newQuantifiers.isEmpty());
         return new RecordQueryIndexPlan(indexName, commonPrimaryKey, scanParameters, indexFetchMethod,
                 fetchIndexRecords, reverse, strictlySorted, Optional.empty(), resultType,
                 constraint);
     }
 
-    @Nonnull
-    protected RecordQueryIndexPlan withIndexScanParameters(@Nonnull final IndexScanParameters newIndexScanParameters) {
+    protected RecordQueryIndexPlan withIndexScanParameters(final IndexScanParameters newIndexScanParameters) {
         return new RecordQueryIndexPlan(indexName, commonPrimaryKey, newIndexScanParameters, indexFetchMethod,
                 fetchIndexRecords, reverse, strictlySorted, matchCandidateOptional, resultType, constraint);
     }
 
-    @Nonnull
     @Override
     public AvailableFields getAvailableFields() {
         return AvailableFields.ALL_FIELDS;
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return new QueriedValue(resultType);
@@ -531,8 +506,8 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -566,7 +541,7 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return indexName.hashCode() + scanParameters.planHash(mode) + (reverse ? 1 : 0);
@@ -585,7 +560,6 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         }
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return ExplainPlanVisitor.toStringForDebugging(this);
@@ -601,20 +575,17 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         return scanParameters.hasScanComparisons();
     }
 
-    @Nonnull
     @Override
     public ScanComparisons getScanComparisons() {
         Verify.verify(hasScanComparisons());
         return scanParameters.getScanComparisons();
     }
 
-    @Nonnull
     @Override
     public ComparisonRanges getComparisonRanges() {
         return comparisonRangesSupplier.get();
     }
 
-    @Nonnull
     private ComparisonRanges computeComparisonRanges() {
         if (scanParameters instanceof MultidimensionalIndexScanComparisons) {
             final MultidimensionalIndexScanComparisons mdIndexScanComparisons =
@@ -659,12 +630,11 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
      * @return the rewritten planner graph that models the index as a separate node that is connected to the
      *         actual index scan plan node.
      */
-    @Nonnull
     @Override
-    public PlannerGraph createIndexPlannerGraph(@Nonnull RecordQueryPlan identity,
-                                                @Nonnull final NodeInfo nodeInfo,
-                                                @Nonnull final List<String> additionalDetails,
-                                                @Nonnull final Map<String, Attribute> additionalAttributeMap) {
+    public PlannerGraph createIndexPlannerGraph(RecordQueryPlan identity,
+                                                final NodeInfo nodeInfo,
+                                                final List<String> additionalDetails,
+                                                final Map<String, Attribute> additionalAttributeMap) {
         final ImmutableList.Builder<String> detailsBuilder = ImmutableList.builder();
         final ImmutableMap.Builder<String, Attribute> attributeMapBuilder = ImmutableMap.builder();
 
@@ -727,19 +697,17 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         }
     }
 
-    @Nonnull
     @Override
     public QueryPlanConstraint getConstraint() {
         return constraint;
     }
 
-    @Nonnull
     @Override
-    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public Message toProto(final PlanSerializationContext serializationContext) {
         return toRecordQueryIndexPlanProto(serializationContext);
     }
 
-    public PRecordQueryIndexPlan toRecordQueryIndexPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryIndexPlan toRecordQueryIndexPlanProto(final PlanSerializationContext serializationContext) {
         final var builder = PRecordQueryIndexPlan.newBuilder()
                 .setIndexName(indexName);
         if (commonPrimaryKey != null) {
@@ -755,15 +723,13 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setRecordQueryIndexPlan(toRecordQueryIndexPlanProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQueryIndexPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                 @Nonnull final PRecordQueryIndexPlan recordQueryIndexPlanProto) {
+    public static RecordQueryIndexPlan fromProto(final PlanSerializationContext serializationContext,
+                                                 final PRecordQueryIndexPlan recordQueryIndexPlanProto) {
         return new RecordQueryIndexPlan(serializationContext, recordQueryIndexPlanProto);
     }
 
@@ -772,12 +738,10 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
      * scan.
      */
     private static class IndexScanContinuationConvertor implements RecordCursor.ContinuationConvertor {
-        @Nonnull
         private final byte[] prefixBytes;
-        @Nonnull
         private final KeyValueCursorBase.SerializationMode serializationMode;
 
-        public IndexScanContinuationConvertor(@Nonnull byte[] prefixBytes, @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) {
+        public IndexScanContinuationConvertor(byte[] prefixBytes, final KeyValueCursorBase.SerializationMode serializationMode) {
             this.prefixBytes = prefixBytes;
             this.serializationMode = serializationMode;
         }
@@ -794,7 +758,7 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         }
 
         @Override
-        public RecordCursorContinuation wrapContinuation(@Nonnull final RecordCursorContinuation continuation) {
+        public RecordCursorContinuation wrapContinuation(final RecordCursorContinuation continuation) {
             if (continuation.isEnd()) {
                 return continuation;
             }
@@ -817,10 +781,9 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
             @SuppressWarnings("squid:S3077") // array immutable once initialized, so AtomicByteArray not necessary
             @Nullable
             private volatile byte[] bytes;
-            @Nonnull
             private final KeyValueCursorBase.SerializationMode serializationMode;
 
-            private PrefixRemovingContinuation(RecordCursorContinuation baseContinuation, int prefixLength, @Nonnull KeyValueCursorBase.SerializationMode serializationMode) {
+            private PrefixRemovingContinuation(RecordCursorContinuation baseContinuation, int prefixLength, KeyValueCursorBase.SerializationMode serializationMode) {
                 this.baseContinuation = baseContinuation;
                 this.prefixLength = prefixLength;
                 this.serializationMode = serializationMode;
@@ -839,7 +802,6 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
                 return bytes;
             }
 
-            @Nonnull
             @Override
             public ByteString toByteString() {
                 byte[] bytes1 = toBytes();
@@ -854,7 +816,7 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
     }
 
     @Nullable
-    private TupleRange widenRange(@Nonnull TupleRange originalRange) {
+    private TupleRange widenRange(TupleRange originalRange) {
         if (originalRange.getLowEndpoint() == EndpointType.PREFIX_STRING || originalRange.getHighEndpoint() == EndpointType.PREFIX_STRING) {
             return null;
         }
@@ -887,16 +849,14 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryIndexPlan, RecordQueryIndexPlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryIndexPlan> getProtoMessageClass() {
             return PRecordQueryIndexPlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryIndexPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                              @Nonnull final PRecordQueryIndexPlan recordQueryIndexPlanProto) {
+        public RecordQueryIndexPlan fromProto(final PlanSerializationContext serializationContext,
+                                              final PRecordQueryIndexPlan recordQueryIndexPlanProto) {
             return RecordQueryIndexPlan.fromProto(serializationContext, recordQueryIndexPlanProto);
         }
     }

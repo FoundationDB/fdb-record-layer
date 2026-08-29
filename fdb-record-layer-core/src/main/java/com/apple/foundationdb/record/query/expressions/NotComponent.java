@@ -32,8 +32,8 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -48,10 +48,9 @@ import java.util.function.Supplier;
 public class NotComponent implements ComponentWithSingleChild, BooleanComponent {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Not-Component");
 
-    @Nonnull
     private final QueryComponent child;
 
-    public NotComponent(@Nonnull QueryComponent child) {
+    public NotComponent(QueryComponent child) {
         this.child = child;
     }
 
@@ -66,14 +65,13 @@ public class NotComponent implements ComponentWithSingleChild, BooleanComponent 
 
     @Override
     @Nullable
-    public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+    public <M extends Message> Boolean evalMessage(FDBRecordStoreBase<M> store, EvaluationContext context,
                                                    @Nullable FDBRecord<M> rec, @Nullable Message message) {
         return invert(getChild().evalMessage(store, context, rec, message));
     }
 
     @Override
-    @Nonnull
-    public <M extends Message> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+    public <M extends Message> CompletableFuture<Boolean> evalMessageAsync(FDBRecordStoreBase<M> store, EvaluationContext context,
                                                                            @Nullable FDBRecord<M> rec, @Nullable Message message) {
         return getChild().evalMessageAsync(store, context, rec, message).thenApply(this::invert);
     }
@@ -84,7 +82,7 @@ public class NotComponent implements ComponentWithSingleChild, BooleanComponent 
     }
 
     @Override
-    public void validate(@Nonnull Descriptors.Descriptor descriptor) {
+    public void validate(Descriptors.Descriptor descriptor) {
         getChild().validate(descriptor);
     }
 
@@ -97,7 +95,6 @@ public class NotComponent implements ComponentWithSingleChild, BooleanComponent 
      * Child for this component.
      */
     @Override
-    @Nonnull
     public QueryComponent getChild() {
         return child;
     }
@@ -129,7 +126,7 @@ public class NotComponent implements ComponentWithSingleChild, BooleanComponent 
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return getChild().planHash(mode) + 1;
@@ -140,11 +137,10 @@ public class NotComponent implements ComponentWithSingleChild, BooleanComponent 
         }
     }
 
-    @Nonnull
     @Override
-    public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
-                                 @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
-                                 @Nonnull final List<String> fieldNamePrefix) {
+    public GraphExpansion expand(final Quantifier.ForEach baseQuantifier,
+                                 final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
+                                 final List<String> fieldNamePrefix) {
         final GraphExpansion childGraphExpansion = child.expand(baseQuantifier, outerQuantifierSupplier, fieldNamePrefix);
         return childGraphExpansion.withPredicate(NotPredicate.not(childGraphExpansion.asAndPredicate()));
     }

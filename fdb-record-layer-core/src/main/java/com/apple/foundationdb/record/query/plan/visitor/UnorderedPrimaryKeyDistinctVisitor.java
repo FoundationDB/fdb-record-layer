@@ -25,12 +25,13 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 
 
@@ -56,17 +57,16 @@ import java.util.Collections;
  *
  */
 public class UnorderedPrimaryKeyDistinctVisitor extends RecordQueryPlannerSubstitutionVisitor {
-    public UnorderedPrimaryKeyDistinctVisitor(@Nonnull final RecordMetaData recordMetadata, @Nonnull final PlannableIndexTypes indexTypes, @Nullable final KeyExpression commonPrimaryKey) {
+    public UnorderedPrimaryKeyDistinctVisitor(final RecordMetaData recordMetadata, final PlannableIndexTypes indexTypes, @Nullable final KeyExpression commonPrimaryKey) {
         super(recordMetadata, indexTypes, commonPrimaryKey);
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPlan postVisit(@Nonnull final RecordQueryPlan recordQueryPlan) {
+    public RecordQueryPlan postVisit(final RecordQueryPlan recordQueryPlan) {
         if (recordQueryPlan instanceof RecordQueryUnorderedPrimaryKeyDistinctPlan) {
             RecordQueryUnorderedPrimaryKeyDistinctPlan distinctPlan = (RecordQueryUnorderedPrimaryKeyDistinctPlan) recordQueryPlan;
 
-            @Nullable RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords fetchIndexRecords = resolveFetchIndexRecordsFromPlan(distinctPlan.getChild());
+            @Nullable FetchIndexRecords fetchIndexRecords = resolveFetchIndexRecordsFromPlan(distinctPlan.getChild());
             if (fetchIndexRecords == null) {
                 return recordQueryPlan;
             }

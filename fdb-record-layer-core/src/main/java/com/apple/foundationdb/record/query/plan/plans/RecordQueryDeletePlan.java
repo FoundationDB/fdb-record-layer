@@ -57,8 +57,8 @@ import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -78,24 +78,21 @@ public class RecordQueryDeletePlan extends AbstractRelationalExpressionWithChild
 
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryDeletePlan.class);
 
-    @Nonnull
     private final Quantifier.Physical inner;
 
-    @Nonnull
     private final Supplier<Value> resultValueSupplier;
 
-    protected RecordQueryDeletePlan(@Nonnull final Quantifier.Physical inner) {
+    protected RecordQueryDeletePlan(final Quantifier.Physical inner) {
         this.inner = inner;
         this.resultValueSupplier = Suppliers.memoize(inner::getFlowedObjectValue);
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CloseResource")
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
         if (executeProperties.isDryRun()) {
             return RecordCursor.flatMapPipelined(
                     outerContinuation -> getInnerPlan().executePlan(store, context, outerContinuation, executeProperties.clearSkipAndLimit()),
@@ -120,36 +117,31 @@ public class RecordQueryDeletePlan extends AbstractRelationalExpressionWithChild
         return getInnerPlan().isReverse();
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(this.inner);
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return resultValueSupplier.get();
     }
 
-    @Nonnull
     @Override
-    public RecordQueryDeletePlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryDeletePlan translateCorrelations(final TranslationMap translationMap,
                                                        final boolean shouldSimplifyValues,
-                                                       @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                       final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryDeletePlan(
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class));
     }
 
-    @Nonnull
     @Override
-    public RecordQueryDeletePlan withChild(@Nonnull final Reference childRef) {
+    public RecordQueryDeletePlan withChild(final Reference childRef) {
         return new RecordQueryDeletePlan(Quantifier.physical(childRef, inner.getAlias()));
     }
 
@@ -161,7 +153,7 @@ public class RecordQueryDeletePlan extends AbstractRelationalExpressionWithChild
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression other, @Nonnull final AliasMap equivalences) {
+    public boolean equalsWithoutChildren(final RelationalExpression other, final AliasMap equivalences) {
         if (this == other) {
             return true;
         }
@@ -183,7 +175,7 @@ public class RecordQueryDeletePlan extends AbstractRelationalExpressionWithChild
 
     @Override
     @SuppressWarnings("SwitchStatementWithTooFewBranches")
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case FOR_CONTINUATION:
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, getInnerPlan());
@@ -192,19 +184,16 @@ public class RecordQueryDeletePlan extends AbstractRelationalExpressionWithChild
         }
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
-    @Nonnull
     public RecordQueryPlan getInnerPlan() {
         return inner.getRangesOverPlan();
     }
 
     @Override
-    @Nonnull
     public RecordQueryPlan getChild() {
         return getInnerPlan();
     }
@@ -226,9 +215,8 @@ public class RecordQueryDeletePlan extends AbstractRelationalExpressionWithChild
      * @return the rewritten planner graph that models the filter as a node that uses the expression attribute
      *         to depict the record types this operator filters.
      */
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(List<? extends PlannerGraph> childGraphs) {
         final var graphForTarget =
                 PlannerGraph.fromNodeAndChildGraphs(
                         new PlannerGraph.DataNodeWithInfo(NodeInfo.BASE_DATA,
@@ -244,21 +232,18 @@ public class RecordQueryDeletePlan extends AbstractRelationalExpressionWithChild
                 Iterables.getOnlyElement(childGraphs), graphForTarget);
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryDeletePlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryDeletePlan toProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryDeletePlan.newBuilder().setInner(inner.toProto(serializationContext)).build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setDeletePlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQueryDeletePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                  @Nonnull final PRecordQueryDeletePlan recordQueryDeletePlanProto) {
+    public static RecordQueryDeletePlan fromProto(final PlanSerializationContext serializationContext,
+                                                  final PRecordQueryDeletePlan recordQueryDeletePlanProto) {
         return new RecordQueryDeletePlan(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryDeletePlanProto.getInner())));
     }
 
@@ -267,8 +252,7 @@ public class RecordQueryDeletePlan extends AbstractRelationalExpressionWithChild
      * @param inner an input value to transform
      * @return a newly created {@link RecordQueryInsertPlan}
      */
-    @Nonnull
-    public static RecordQueryDeletePlan deletePlan(@Nonnull final Quantifier.Physical inner) {
+    public static RecordQueryDeletePlan deletePlan(final Quantifier.Physical inner) {
         return new RecordQueryDeletePlan(inner);
     }
 
@@ -277,16 +261,14 @@ public class RecordQueryDeletePlan extends AbstractRelationalExpressionWithChild
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryDeletePlan, RecordQueryDeletePlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryDeletePlan> getProtoMessageClass() {
             return PRecordQueryDeletePlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryDeletePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                               @Nonnull final PRecordQueryDeletePlan recordQueryDeletePlanProto) {
+        public RecordQueryDeletePlan fromProto(final PlanSerializationContext serializationContext,
+                                               final PRecordQueryDeletePlan recordQueryDeletePlanProto) {
             return RecordQueryDeletePlan.fromProto(serializationContext, recordQueryDeletePlanProto);
         }
     }

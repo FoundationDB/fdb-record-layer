@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.ComparisonRanges;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 
 /**
@@ -66,14 +65,12 @@ public interface RecordQueryPlanWithComparisons extends RecordQueryPlan {
                 .build();
     }
 
-    @Nonnull
     ScanComparisons getScanComparisons();
 
     default boolean hasScanComparisons() {
         return true;
     }
 
-    @Nonnull
     ComparisonRanges getComparisonRanges();
 
     default boolean hasComparisonRanges() {

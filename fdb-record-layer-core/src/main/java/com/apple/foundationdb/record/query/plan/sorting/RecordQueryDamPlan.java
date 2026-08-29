@@ -58,8 +58,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -75,7 +75,6 @@ import java.util.function.Function;
 public class RecordQueryDamPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Dam-Plan");
 
-    @Nonnull
     private final Quantifier.Physical inner;
 
     /**
@@ -85,26 +84,24 @@ public class RecordQueryDamPlan extends AbstractRelationalExpressionWithChildren
      * in insertion order. The actual key comparison defined by {@link RecordQuerySortAdapter} is only used to establish
      * equality.
      */
-    @Nonnull
     private final RecordQuerySortKey key;
 
     @HeuristicPlanner
-    public RecordQueryDamPlan(@Nonnull RecordQueryPlan plan, @Nonnull RecordQuerySortKey key) {
+    public RecordQueryDamPlan(RecordQueryPlan plan, RecordQuerySortKey key) {
         this(Quantifier.physical(Reference.plannedOf(Debugger.verifyHeuristicPlanner(plan))), key);
     }
 
-    private RecordQueryDamPlan(@Nonnull Quantifier.Physical inner, @Nonnull RecordQuerySortKey key) {
+    private RecordQueryDamPlan(Quantifier.Physical inner, RecordQuerySortKey key) {
         this.inner = inner;
         this.key = key;
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings({"PMD.CloseResource", "resource"})
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull FDBRecordStoreBase<M> store,
-                                                                     @Nonnull EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(FDBRecordStoreBase<M> store,
+                                                                     EvaluationContext context,
                                                                      @Nullable byte[] continuation,
-                                                                     @Nonnull ExecuteProperties executeProperties) {
+                                                                     ExecuteProperties executeProperties) {
         //
         // We need to feed through everything from the inner plan, even just to get the top few.
         // If the in-memory-dam is in-memory-limited, we may actually go over the input multiple times which is not
@@ -125,12 +122,10 @@ public class RecordQueryDamPlan extends AbstractRelationalExpressionWithChildren
     }
 
     @Override
-    @Nonnull
     public RecordQueryPlan getChild() {
         return inner.getRangesOverPlan();
     }
 
-    @Nonnull
     public RecordQuerySortKey getKey() {
         return key;
     }
@@ -140,20 +135,17 @@ public class RecordQueryDamPlan extends AbstractRelationalExpressionWithChildren
         return key.isReverse();
     }
 
-    @Nonnull
     @Override
     @API(API.Status.EXPERIMENTAL)
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return new QueriedValue();
     }
 
-    @Nonnull
     @Override
     public AvailableFields getAvailableFields() {
         return AvailableFields.ALL_FIELDS;
@@ -164,30 +156,27 @@ public class RecordQueryDamPlan extends AbstractRelationalExpressionWithChildren
         return "Dam(" + getChild() + ")";
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
-    public RecordQueryDamPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryDamPlan translateCorrelations(final TranslationMap translationMap,
                                                     final boolean shouldSimplifyValues,
-                                                    @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                    final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryDamPlan((Quantifier.Physical)Iterables.getOnlyElement(translatedQuantifiers), key);
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPlanWithChild withChild(@Nonnull Reference childRef) {
+    public RecordQueryPlanWithChild withChild(Reference childRef) {
         return new RecordQueryDamPlan(Quantifier.physical(childRef, inner.getAlias()), key);
     }
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -215,7 +204,7 @@ public class RecordQueryDamPlan extends AbstractRelationalExpressionWithChildren
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, getChild(), getKey());
     }
 
@@ -231,32 +220,28 @@ public class RecordQueryDamPlan extends AbstractRelationalExpressionWithChildren
         return getChild().getComplexity();
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this, NodeInfo.DAM_OPERATOR),
                 childGraphs);
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryDamPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryDamPlan toProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryDamPlan.newBuilder()
                 .setInner(inner.toProto(serializationContext))
                 .setKey(key.toProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setDamPlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQueryDamPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                               @Nonnull final PRecordQueryDamPlan recordQueryDamPlan) {
+    public static RecordQueryDamPlan fromProto(final PlanSerializationContext serializationContext,
+                                               final PRecordQueryDamPlan recordQueryDamPlan) {
         return new RecordQueryDamPlan(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryDamPlan.getInner())),
                 RecordQuerySortKey.fromProto(serializationContext, Objects.requireNonNull(recordQueryDamPlan.getKey())));
     }
@@ -266,16 +251,14 @@ public class RecordQueryDamPlan extends AbstractRelationalExpressionWithChildren
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryDamPlan, RecordQueryDamPlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryDamPlan> getProtoMessageClass() {
             return PRecordQueryDamPlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryDamPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                            @Nonnull final PRecordQueryDamPlan recordQueryDamPlanProto) {
+        public RecordQueryDamPlan fromProto(final PlanSerializationContext serializationContext,
+                                            final PRecordQueryDamPlan recordQueryDamPlanProto) {
             return RecordQueryDamPlan.fromProto(serializationContext, recordQueryDamPlanProto);
         }
     }

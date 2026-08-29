@@ -48,4 +48,7 @@
  * <li>A {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan} merges two or more compatibly-ordered streams of records into one, keeping only those that appear in all streams.</li>
  * </ul>
  */
+@NullMarked
 package com.apple.foundationdb.record.query.plan.plans;
+
+import org.jspecify.annotations.NullMarked;

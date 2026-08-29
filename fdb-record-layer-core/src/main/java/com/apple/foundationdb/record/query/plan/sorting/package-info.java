@@ -21,4 +21,7 @@
 /**
  * Classes relating to plan execution with in-memory / file sorting.
  */
+@NullMarked
 package com.apple.foundationdb.record.query.plan.sorting;
+
+import org.jspecify.annotations.NullMarked;

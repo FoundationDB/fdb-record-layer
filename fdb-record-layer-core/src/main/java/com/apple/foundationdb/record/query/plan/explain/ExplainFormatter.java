@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.explain.ExplainTokens.ToStringTo
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens.Token;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens.WhitespaceToken;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 /**
@@ -42,98 +41,85 @@ import java.util.Optional;
  */
 public interface ExplainFormatter {
 
-    void registerAlias(@Nonnull CorrelationIdentifier alias);
+    void registerAlias(CorrelationIdentifier alias);
 
-    void registerAliasExplicitly(@Nonnull CorrelationIdentifier alias, @Nonnull String symbol);
+    void registerAliasExplicitly(CorrelationIdentifier alias, String symbol);
 
-    @Nonnull
-    Optional<String> getSymbolForAliasMaybe(@Nonnull CorrelationIdentifier alias);
+    Optional<String> getSymbolForAliasMaybe(CorrelationIdentifier alias);
 
     void pushScope();
 
     void popScope();
 
-    @Nonnull
     @SuppressWarnings("unused")
-    default CharSequence visitNested(@Nonnull final NestedToken nestedToken,
-                                     @Nonnull final CharSequence stringedToken) {
+    default CharSequence visitNested(final NestedToken nestedToken,
+                                     final CharSequence stringedToken) {
         return stringedToken;
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    default CharSequence visitWhitespace(@Nonnull final WhitespaceToken whiteSpaceToken,
-                                         @Nonnull final CharSequence stringedToken) {
+    default CharSequence visitWhitespace(final WhitespaceToken whiteSpaceToken,
+                                         final CharSequence stringedToken) {
         return stringedToken;
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    default CharSequence visitOptionalWhitespace(@Nonnull final OptionalWhitespaceToken optionalWhiteSpaceToken,
-                                                 @Nonnull final CharSequence stringedToken) {
+    default CharSequence visitOptionalWhitespace(final OptionalWhitespaceToken optionalWhiteSpaceToken,
+                                                 final CharSequence stringedToken) {
         return stringedToken;
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    default CharSequence visitLineBreakOrSpace(@Nonnull final LineBreakOrSpaceToken lineBreakOrSpaceToken,
-                                               @Nonnull final CharSequence stringedToken) {
+    default CharSequence visitLineBreakOrSpace(final LineBreakOrSpaceToken lineBreakOrSpaceToken,
+                                               final CharSequence stringedToken) {
         return stringedToken;
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    default CharSequence visitIdentifier(@Nonnull final IdentifierToken identifierToken,
-                                         @Nonnull final CharSequence stringedToken) {
+    default CharSequence visitIdentifier(final IdentifierToken identifierToken,
+                                         final CharSequence stringedToken) {
         return stringedToken;
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    default CharSequence visitKeyword(@Nonnull final KeywordToken keywordToken,
-                                      @Nonnull final CharSequence stringedToken) {
+    default CharSequence visitKeyword(final KeywordToken keywordToken,
+                                      final CharSequence stringedToken) {
         return stringedToken;
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    default CharSequence visitCommaLike(@Nonnull final CommaLikeToken commaLikeToken,
-                                        @Nonnull final CharSequence stringedToken) {
+    default CharSequence visitCommaLike(final CommaLikeToken commaLikeToken,
+                                        final CharSequence stringedToken) {
         return stringedToken;
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    default CharSequence visitAliasDefinition(@Nonnull final AliasDefinitionToken aliasDefinitionToken,
-                                              @Nonnull final CharSequence stringedToken) {
+    default CharSequence visitAliasDefinition(final AliasDefinitionToken aliasDefinitionToken,
+                                              final CharSequence stringedToken) {
         return stringedToken;
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    default CharSequence visitAliasReference(@Nonnull final AliasReferenceToken aliasReferenceToken,
-                                             @Nonnull final CharSequence stringedToken) {
+    default CharSequence visitAliasReference(final AliasReferenceToken aliasReferenceToken,
+                                             final CharSequence stringedToken) {
         return stringedToken;
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    default CharSequence visitBracketLike(@Nonnull final BracketLikeToken bracketLikeToken,
-                                          @Nonnull final CharSequence stringedToken) {
+    default CharSequence visitBracketLike(final BracketLikeToken bracketLikeToken,
+                                          final CharSequence stringedToken) {
         return stringedToken;
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    default CharSequence visitToString(@Nonnull final ToStringToken toStringToken,
-                                       @Nonnull final CharSequence stringedToken) {
+    default CharSequence visitToString(final ToStringToken toStringToken,
+                                       final CharSequence stringedToken) {
         return stringedToken;
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    default CharSequence visitError(@Nonnull final Token token,
-                                    @Nonnull final CharSequence stringedToken) {
+    default CharSequence visitError(final Token token,
+                                    final CharSequence stringedToken) {
         return stringedToken;
     }
 }
