@@ -50,8 +50,7 @@ import com.google.common.collect.Maps;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -66,6 +65,9 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.TreeMap;
 
+import static com.google.protobuf.Descriptors.Descriptor;
+import static com.google.protobuf.Descriptors.FileDescriptor;
+
 /**
  * A builder for {@link RecordMetaData}.
  *
@@ -75,7 +77,7 @@ import java.util.TreeMap;
  * <b>From compiled .proto</b><br>
  * Simple single field indexes and single field primary keys can be specified in the Protobuf source file using option extensions.
  * Additional indexes or more complicated primary keys need to be specified with code using this builder.
- * The {@link #setRecords(Descriptors.FileDescriptor, boolean)} method loads the meta-data information from the Protobuf source file. Indexes and other
+ * The {@link #setRecords(FileDescriptor, boolean)} method loads the meta-data information from the Protobuf source file. Indexes and other
  * properties such as version are not accessible before calling {@code setRecords}.
  * </p>
  *
@@ -87,7 +89,7 @@ import java.util.TreeMap;
  * The Protobuf message may contain all of the dependencies required for resolving the record types and indexes. If some
  * of the dependencies are missing (e.g., when a list of excluded dependencies is passed to {@link RecordMetaData#toProto}), before calling
  * {@code setRecords}, callers must first add the missing dependencies using
- * {@link #addDependency(Descriptors.FileDescriptor)} or {@link #addDependencies(Descriptors.FileDescriptor[])}.
+ * {@link #addDependency(FileDescriptor)} or {@link #addDependencies(FileDescriptor[])}.
  * The {@code addDependency} or {@code addDependencies}
  * methods can also be used to override the embedded dependencies.
  * @see RecordMetaData#toProto
@@ -97,46 +99,34 @@ import java.util.TreeMap;
 @API(API.Status.UNSTABLE)
 public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
-    private static final Descriptors.FileDescriptor[] emptyDependencyList = new Descriptors.FileDescriptor[0];
+    private static final FileDescriptor[] emptyDependencyList = new FileDescriptor[0];
     public static final String DEFAULT_UNION_NAME = "RecordTypeUnion";
 
     @Nullable
-    private Descriptors.FileDescriptor recordsDescriptor;
+    private FileDescriptor recordsDescriptor;
     @Nullable
-    private Descriptors.Descriptor unionDescriptor;
+    private Descriptor unionDescriptor;
     @Nullable
-    private Descriptors.FileDescriptor localFileDescriptor;
-    @Nonnull
-    private final Map<Descriptors.Descriptor, Descriptors.FieldDescriptor> unionFields;
-    @Nonnull
+    private FileDescriptor localFileDescriptor;
+    private final Map<Descriptor, Descriptors.FieldDescriptor> unionFields;
     private final Map<String, RecordTypeBuilder> recordTypes;
-    @Nonnull
     private final Map<String, SyntheticRecordTypeBuilder<?>> syntheticRecordTypes;
-    @Nonnull
     private final Map<String, UserDefinedFunction> userDefinedFunctionMap;
-    @Nonnull
     private final Map<String, View> viewMap;
-    @Nonnull
     private final Map<String, RecordMetaData.StoredQuery> storedQueries;
-    @Nonnull
     private final Map<String, Index> indexes;
-    @Nonnull
     private final Map<String, Index> universalIndexes;
     private boolean splitLongRecords;
     private boolean storeRecordVersions;
     private int version;
-    @Nonnull
     private final List<FormerIndex> formerIndexes;
-    @Nonnull
     private IndexMaintainerRegistry indexMaintainerRegistry;
-    @Nonnull
     private MetaDataEvolutionValidator evolutionValidator;
     @Nullable
     private KeyExpression recordCountKey;
     @Nullable
     private RecordMetaData recordMetaData;
-    @Nonnull
-    private final Map<String, Descriptors.FileDescriptor> explicitDependencies;
+    private final Map<String, FileDescriptor> explicitDependencies;
     private long subspaceKeyCounter = 0;
     private boolean usesSubspaceKeyCounter = false;
 
@@ -174,7 +164,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     }
 
     @SuppressWarnings("deprecation")
-    private void loadProtoExceptRecords(@Nonnull RecordMetaDataProto.MetaData metaDataProto) {
+    private void loadProtoExceptRecords(RecordMetaDataProto.MetaData metaDataProto) {
         for (RecordMetaDataProto.JoinedRecordType joinedProto : metaDataProto.getJoinedRecordTypesList()) {
             JoinedRecordTypeBuilder typeBuilder = new JoinedRecordTypeBuilder(joinedProto, this);
             syntheticRecordTypes.put(typeBuilder.getName(), typeBuilder);
@@ -269,8 +259,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         }
     }
 
-    private void loadFromProto(@Nonnull RecordMetaDataProto.MetaData metaDataProto,
-                               @Nonnull Descriptors.FileDescriptor[] dependencies,
+    private void loadFromProto(RecordMetaDataProto.MetaData metaDataProto,
+                               FileDescriptor[] dependencies,
                                boolean processExtensionOptions) {
         recordsDescriptor = buildFileDescriptor(metaDataProto.getRecords(), dependencies);
         loadSubspaceKeySettingsFromProto(metaDataProto);
@@ -280,7 +270,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
         // If a local file descriptor has been set, update records types (etc.) to use the local descriptor.
         if (localFileDescriptor != null) {
-            Descriptors.Descriptor localUnionDescriptor = fetchLocalUnionDescriptor();
+            Descriptor localUnionDescriptor = fetchLocalUnionDescriptor();
             evolutionValidator.validateUnion(unionDescriptor, localUnionDescriptor);
             updateUnionFieldsAndRecordTypesFromLocal(localUnionDescriptor);
             unionDescriptor = localUnionDescriptor;
@@ -301,7 +291,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         subspaceKeyCounter = Long.max(subspaceKeyCounter, metaDataProto.getSubspaceKeyCounter()); // User might have set the counter already.
     }
 
-    private void loadFromFileDescriptor(@Nonnull Descriptors.FileDescriptor fileDescriptor,
+    private void loadFromFileDescriptor(FileDescriptor fileDescriptor,
                                         boolean processExtensionOptions) {
         recordsDescriptor = fileDescriptor;
         initRecordTypesAndUnion(processExtensionOptions);
@@ -318,10 +308,9 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         fillUnionFields(processExtensionOptions);
     }
 
-    @Nonnull
-    private static Descriptors.Descriptor fetchUnionDescriptor(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
-        @Nullable Descriptors.Descriptor union = null;
-        for (Descriptors.Descriptor descriptor : fileDescriptor.getMessageTypes()) {
+    private static Descriptor fetchUnionDescriptor(FileDescriptor fileDescriptor) {
+        @Nullable Descriptor union = null;
+        for (Descriptor descriptor : fileDescriptor.getMessageTypes()) {
             RecordMetaDataOptionsProto.RecordTypeOptions recordTypeOptions = descriptor.getOptions()
                     .getExtension(RecordMetaDataOptionsProto.record);
             if (recordTypeOptions != null && recordTypeOptions.hasUsage()) {
@@ -357,9 +346,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         return union;
     }
 
-    @Nonnull
-    private static Map<String, Descriptors.FileDescriptor> initGeneratedDependencies(@Nonnull Map<String, DescriptorProtos.FileDescriptorProto> protoDependencies) {
-        Map<String, Descriptors.FileDescriptor> generatedDependencies = new TreeMap<>();
+    private static Map<String, FileDescriptor> initGeneratedDependencies(Map<String, DescriptorProtos.FileDescriptorProto> protoDependencies) {
+        Map<String, FileDescriptor> generatedDependencies = new TreeMap<>();
         if (!protoDependencies.containsKey(TupleFieldsProto.getDescriptor().getName())) {
             generatedDependencies.put(TupleFieldsProto.getDescriptor().getName(), TupleFieldsProto.getDescriptor());
         }
@@ -377,8 +365,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @param metaDataProto the proto of the {@link RecordMetaData}
      * @return this builder
      */
-    @Nonnull
-    public RecordMetaDataBuilder setRecords(@Nonnull RecordMetaDataProto.MetaData metaDataProto) {
+    public RecordMetaDataBuilder setRecords(RecordMetaDataProto.MetaData metaDataProto) {
         return setRecords(metaDataProto, false);
     }
 
@@ -388,26 +375,25 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @param processExtensionOptions whether to add primary keys and indexes based on extensions in the protobuf
      * @return this builder
      */
-    @Nonnull
-    public RecordMetaDataBuilder setRecords(@Nonnull RecordMetaDataProto.MetaData metaDataProto,
+    public RecordMetaDataBuilder setRecords(RecordMetaDataProto.MetaData metaDataProto,
                                             boolean processExtensionOptions) {
         if (recordsDescriptor != null) {
             throw new MetaDataException("Records already set.");
         }
         // Build the recordDescriptor by de-serializing the metaData proto
-        final Descriptors.FileDescriptor[] dependencies = getDependencies(metaDataProto, this.explicitDependencies);
+        final FileDescriptor[] dependencies = getDependencies(metaDataProto, this.explicitDependencies);
         loadFromProto(metaDataProto, dependencies, processExtensionOptions);
         return this;
     }
 
     @API(API.Status.INTERNAL)
-    public static Descriptors.FileDescriptor[] getDependencies(@Nonnull final RecordMetaDataProto.MetaData metaDataProto,
-                                                                @Nonnull final Map<String, Descriptors.FileDescriptor> explicitDependencies) {
+    public static FileDescriptor[] getDependencies(final RecordMetaDataProto.MetaData metaDataProto,
+                                                                final Map<String, FileDescriptor> explicitDependencies) {
         Map<String, DescriptorProtos.FileDescriptorProto> protoDependencies = new TreeMap<>();
         for (DescriptorProtos.FileDescriptorProto dependency : metaDataProto.getDependenciesList()) {
             protoDependencies.put(dependency.getName(), dependency);
         }
-        Map<String, Descriptors.FileDescriptor> generatedDependencies = initGeneratedDependencies(protoDependencies);
+        Map<String, FileDescriptor> generatedDependencies = initGeneratedDependencies(protoDependencies);
         return getDependencies(metaDataProto.getRecords(), generatedDependencies, protoDependencies, explicitDependencies);
     }
 
@@ -416,8 +402,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @param fileDescriptor the file descriptor of the record meta-data
      * @return this builder
      */
-    @Nonnull
-    public RecordMetaDataBuilder setRecords(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
+    public RecordMetaDataBuilder setRecords(FileDescriptor fileDescriptor) {
         return setRecords(fileDescriptor, true);
     }
 
@@ -427,8 +412,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @param processExtensionOptions whether to add primary keys and indexes based on extensions in the protobuf
      * @return this builder
      */
-    @Nonnull
-    public RecordMetaDataBuilder setRecords(@Nonnull Descriptors.FileDescriptor fileDescriptor,
+    public RecordMetaDataBuilder setRecords(FileDescriptor fileDescriptor,
                                             boolean processExtensionOptions) {
         if (recordsDescriptor != null) {
             throw new MetaDataException("Records already set.");
@@ -453,12 +437,12 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * </p>
      *
      * <p>
-     * See {@link #updateRecords(Descriptors.FileDescriptor, boolean)} for more information.
+     * See {@link #updateRecords(FileDescriptor, boolean)} for more information.
      * </p>
      *
      * @param recordsDescriptor the new record descriptor
      */
-    public void updateRecords(@Nonnull Descriptors.FileDescriptor recordsDescriptor) {
+    public void updateRecords(FileDescriptor recordsDescriptor) {
         updateRecords(recordsDescriptor, true);
     }
 
@@ -483,7 +467,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @param newRecordsDescriptor the new record descriptor
      * @param processExtensionOptions whether to add primary keys and indexes using the extensions in the protobuf (only for the new record types)
      */
-    public void updateRecords(@Nonnull Descriptors.FileDescriptor newRecordsDescriptor, boolean processExtensionOptions) {
+    public void updateRecords(FileDescriptor newRecordsDescriptor, boolean processExtensionOptions) {
         if (recordsDescriptor == null) {
             throw new MetaDataException("Records descriptor is not set yet");
         }
@@ -493,7 +477,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         if (unionDescriptor == null) {
             throw new RecordCoreException("cannot update record types as no previous union descriptor has been set");
         }
-        Descriptors.Descriptor newUnionDescriptor = fetchUnionDescriptor(newRecordsDescriptor);
+        Descriptor newUnionDescriptor = fetchUnionDescriptor(newRecordsDescriptor);
         validateRecords(newRecordsDescriptor, newUnionDescriptor);
         evolutionValidator.validateUnion(unionDescriptor, newUnionDescriptor);
         version++; // Bump the meta-data version
@@ -534,8 +518,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @param localFileDescriptor a file descriptor that contains updated record types
      * @return this builder
      */
-    @Nonnull
-    public RecordMetaDataBuilder setLocalFileDescriptor(@Nonnull Descriptors.FileDescriptor localFileDescriptor) {
+    public RecordMetaDataBuilder setLocalFileDescriptor(FileDescriptor localFileDescriptor) {
         if (recordsDescriptor != null) {
             throw new MetaDataException("Records already set.");
         }
@@ -543,8 +526,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         return this;
     }
 
-    @Nonnull
-    private Descriptors.Descriptor buildSyntheticUnion(@Nonnull Descriptors.FileDescriptor parentFileDescriptor) {
+    private Descriptor buildSyntheticUnion(FileDescriptor parentFileDescriptor) {
         if (unionDescriptor == null) {
             throw new RecordCoreException("cannot build a synthetic union descriptor as no prior existing union descriptor has been set");
         }
@@ -552,16 +534,15 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         builder.setName("_synthetic_" + parentFileDescriptor.getName());
         builder.addMessageType(MetaDataProtoEditor.createSyntheticUnion(parentFileDescriptor, unionDescriptor));
         builder.addDependency(parentFileDescriptor.getName());
-        return fetchUnionDescriptor(buildFileDescriptor(builder.build(), new Descriptors.FileDescriptor[]{parentFileDescriptor}));
+        return fetchUnionDescriptor(buildFileDescriptor(builder.build(), new FileDescriptor[]{parentFileDescriptor}));
     }
 
-    @Nonnull
-    private Descriptors.Descriptor fetchLocalUnionDescriptor() {
+    private Descriptor fetchLocalUnionDescriptor() {
         if (localFileDescriptor == null) {
             // Should not be reached as caller should guard this call on checking for the local file descriptor
             throw new RecordCoreException("cannot fetch local union descriptor as no local file is set");
         }
-        Descriptors.Descriptor localUnionDescriptor;
+        Descriptor localUnionDescriptor;
         if (MetaDataProtoEditor.hasUnion(localFileDescriptor)) {
             localUnionDescriptor = fetchUnionDescriptor(localFileDescriptor);
         } else {
@@ -577,8 +558,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @param fileDescriptor the file descriptor of the dependency
      * @return this builder
      */
-    @Nonnull
-    public RecordMetaDataBuilder addDependency(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
+    public RecordMetaDataBuilder addDependency(FileDescriptor fileDescriptor) {
         if (recordsDescriptor != null) {
             throw new MetaDataException("Records already set. Adding dependencies not allowed.");
         }
@@ -591,26 +571,25 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @param fileDescriptors a list of dependencies
      * @return this builder
      */
-    @Nonnull
-    public RecordMetaDataBuilder addDependencies(@Nonnull Descriptors.FileDescriptor[] fileDescriptors) {
+    public RecordMetaDataBuilder addDependencies(FileDescriptor[] fileDescriptors) {
         if (recordsDescriptor != null) {
             throw new MetaDataException("Records already set. Adding dependencies not allowed.");
         }
-        for (Descriptors.FileDescriptor fileDescriptor : fileDescriptors) {
+        for (FileDescriptor fileDescriptor : fileDescriptors) {
             explicitDependencies.put(fileDescriptor.getName(), fileDescriptor);
         }
         return this;
     }
 
-    private static Descriptors.FileDescriptor[] getDependencies(@Nonnull DescriptorProtos.FileDescriptorProto proto,
-                                                                @Nonnull Map<String, Descriptors.FileDescriptor> generatedDependencies,
-                                                                @Nonnull Map<String, DescriptorProtos.FileDescriptorProto> protoDependencies,
-                                                                @Nonnull Map<String, Descriptors.FileDescriptor> explicitDependencies) {
+    private static FileDescriptor[] getDependencies(DescriptorProtos.FileDescriptorProto proto,
+                                                                Map<String, FileDescriptor> generatedDependencies,
+                                                                Map<String, DescriptorProtos.FileDescriptorProto> protoDependencies,
+                                                                Map<String, FileDescriptor> explicitDependencies) {
         if (proto.getDependencyCount() == 0) {
             return emptyDependencyList;
         }
 
-        Descriptors.FileDescriptor[] dependencies = new Descriptors.FileDescriptor[proto.getDependencyCount()];
+        FileDescriptor[] dependencies = new FileDescriptor[proto.getDependencyCount()];
         for (int index = 0; index < proto.getDependencyCount(); index++) {
             String key = proto.getDependency(index);
             if (explicitDependencies.containsKey(key)) {
@@ -632,16 +611,16 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         return dependencies;
     }
 
-    private static void validateRecords(@Nonnull Descriptors.FileDescriptor fileDescriptor, @Nonnull Descriptors.Descriptor unionDescriptor) {
+    private static void validateRecords(FileDescriptor fileDescriptor, Descriptor unionDescriptor) {
         validateDataTypes(fileDescriptor);
         validateUnion(fileDescriptor, unionDescriptor);
     }
 
-    private static void validateDataTypes(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
-        Queue<Descriptors.Descriptor> toValidate = new ArrayDeque<>(fileDescriptor.getMessageTypes());
-        Set<Descriptors.Descriptor> seen = new HashSet<>();
+    private static void validateDataTypes(FileDescriptor fileDescriptor) {
+        Queue<Descriptor> toValidate = new ArrayDeque<>(fileDescriptor.getMessageTypes());
+        Set<Descriptor> seen = new HashSet<>();
         while (!toValidate.isEmpty()) {
-            Descriptors.Descriptor descriptor = toValidate.remove();
+            Descriptor descriptor = toValidate.remove();
             if (seen.add(descriptor)) {
                 for (Descriptors.FieldDescriptor field : descriptor.getFields()) {
                     switch (field.getType()) {
@@ -684,7 +663,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         }
     }
 
-    private static void validateUnion(@Nonnull Descriptors.FileDescriptor fileDescriptor, @Nonnull Descriptors.Descriptor unionDescriptor) {
+    private static void validateUnion(FileDescriptor fileDescriptor, Descriptor unionDescriptor) {
         for (Descriptors.FieldDescriptor unionField : unionDescriptor.getFields()) {
             // Only message types allowed.
             if (unionField.getType() != Descriptors.FieldDescriptor.Type.MESSAGE) {
@@ -696,7 +675,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                 throw new MetaDataException("Union field " + unionField.getName() +
                                             " should not be repeated");
             }
-            Descriptors.Descriptor descriptor = unionField.getMessageType();
+            Descriptor descriptor = unionField.getMessageType();
             // RecordTypeUnion is reserved for union descriptor and cannot appear as a union fields
             if (DEFAULT_UNION_NAME.equals(descriptor.getName())) {
                 throw new MetaDataException("Union message type " + descriptor.getName()
@@ -716,7 +695,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         }
 
         // All RECORD message types defined in this proto must be present in the union.
-        for (Descriptors.Descriptor descriptor : fileDescriptor.getMessageTypes()) {
+        for (Descriptor descriptor : fileDescriptor.getMessageTypes()) {
             RecordMetaDataOptionsProto.RecordTypeOptions recordTypeOptions = descriptor.getOptions()
                     .getExtension(RecordMetaDataOptionsProto.record);
             if (recordTypeOptions != null && recordTypeOptions.hasUsage()) {
@@ -746,18 +725,18 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         }
     }
 
-    private static boolean unionHasMessageType(@Nonnull Descriptors.Descriptor unionDescriptor, @Nonnull Descriptors.Descriptor descriptor) {
+    private static boolean unionHasMessageType(Descriptor unionDescriptor, Descriptor descriptor) {
         return unionDescriptor.getFields().stream().anyMatch(field -> descriptor == field.getMessageType());
     }
 
 
-    private void updateUnionFieldsAndRecordTypes(@Nonnull Descriptors.Descriptor union, boolean processExtensionOptions) {
+    private void updateUnionFieldsAndRecordTypes(Descriptor union, boolean processExtensionOptions) {
         final Map<String, RecordTypeBuilder> oldRecordTypes = ImmutableMap.copyOf(recordTypes);
         recordTypes.clear();
         unionFields.clear();
         for (Descriptors.FieldDescriptor unionField : union.getFields()) {
-            Descriptors.Descriptor newDescriptor = unionField.getMessageType();
-            Descriptors.Descriptor oldDescriptor = findOldDescriptor(unionField, union);
+            Descriptor newDescriptor = unionField.getMessageType();
+            Descriptor oldDescriptor = findOldDescriptor(unionField, union);
             if (unionFields.containsKey(newDescriptor)) {
                 if (!recordTypes.containsKey(newDescriptor.getName())) {
                     // Union field was seen before but the record type is unknown? This must not happen.
@@ -784,14 +763,14 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         }
     }
 
-    private void updateUnionFieldsAndRecordTypesFromLocal(@Nonnull Descriptors.Descriptor union) {
+    private void updateUnionFieldsAndRecordTypesFromLocal(Descriptor union) {
         final Map<String, RecordTypeBuilder> oldRecordTypes = ImmutableMap.copyOf(recordTypes);
-        final Map<Descriptors.Descriptor, Descriptors.FieldDescriptor> oldUnionFields = ImmutableMap.copyOf(unionFields);
+        final Map<Descriptor, Descriptors.FieldDescriptor> oldUnionFields = ImmutableMap.copyOf(unionFields);
         recordTypes.clear();
         unionFields.clear();
         for (Descriptors.FieldDescriptor unionField : union.getFields()) {
-            Descriptors.Descriptor newDescriptor = unionField.getMessageType();
-            Descriptors.Descriptor oldDescriptor = findOldDescriptor(unionField, union);
+            Descriptor newDescriptor = unionField.getMessageType();
+            Descriptor oldDescriptor = findOldDescriptor(unionField, union);
             if (oldDescriptor == null) {
                 // If updating from a local union descriptor, do not process any new types.
                 continue;
@@ -815,7 +794,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     }
 
     @Nullable
-    private static Descriptors.Descriptor getCorrespondingFieldType(@Nonnull Descriptors.Descriptor descriptor, @Nonnull Descriptors.FieldDescriptor field) {
+    private static Descriptor getCorrespondingFieldType(Descriptor descriptor, Descriptors.FieldDescriptor field) {
         Descriptors.FieldDescriptor correspondingField = descriptor.findFieldByNumber(field.getNumber());
         if (correspondingField != null) {
             return correspondingField.getMessageType();
@@ -825,20 +804,20 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     @Nullable
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private Descriptors.Descriptor findOldDescriptor(@Nonnull Descriptors.FieldDescriptor newUnionField, @Nonnull Descriptors.Descriptor newUnion) {
+    private Descriptor findOldDescriptor(Descriptors.FieldDescriptor newUnionField, Descriptor newUnion) {
         if (unionDescriptor == null) {
             throw new RecordCoreException("cannot get field from union as it has not been set");
         }
         // If there is a corresponding field in the old union, use that field.
-        Descriptors.Descriptor correspondingFieldType = getCorrespondingFieldType(unionDescriptor, newUnionField);
+        Descriptor correspondingFieldType = getCorrespondingFieldType(unionDescriptor, newUnionField);
         if (correspondingFieldType != null) {
             return correspondingFieldType;
         }
         // Look for a field in the new union of the same type as this one and look for a matching field in the old union
-        final Descriptors.Descriptor newDescriptor = newUnionField.getMessageType();
+        final Descriptor newDescriptor = newUnionField.getMessageType();
         for (Descriptors.FieldDescriptor otherNewUnionField : newUnion.getFields()) {
             if (otherNewUnionField.getMessageType() == newDescriptor) {
-                final Descriptors.Descriptor otherCorrespondingFieldType = getCorrespondingFieldType(unionDescriptor, otherNewUnionField);
+                final Descriptor otherCorrespondingFieldType = getCorrespondingFieldType(unionDescriptor, otherNewUnionField);
                 if (otherCorrespondingFieldType != null) {
                     return otherCorrespondingFieldType;
                 }
@@ -847,9 +826,9 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         return null;
     }
 
-    private void updateRecordType(@Nonnull Map<String, RecordTypeBuilder> oldRecordTypes,
-                                  @Nonnull Descriptors.Descriptor oldDescriptor,
-                                  @Nonnull Descriptors.Descriptor newDescriptor) {
+    private void updateRecordType(Map<String, RecordTypeBuilder> oldRecordTypes,
+                                  Descriptor oldDescriptor,
+                                  Descriptor newDescriptor) {
         // Create a new record type based off the old one
         RecordTypeBuilder oldRecordType = oldRecordTypes.get(oldDescriptor.getName());
         RecordTypeBuilder newRecordType = new RecordTypeBuilder(newDescriptor, oldRecordType);
@@ -864,7 +843,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             throw new RecordCoreException("cannot set union fields twice");
         }
         for (Descriptors.FieldDescriptor unionField : unionDescriptor.getFields()) {
-            Descriptors.Descriptor descriptor = unionField.getMessageType();
+            Descriptor descriptor = unionField.getMessageType();
             if (!unionFields.containsKey(descriptor)) {
                 processRecordType(unionField, processExtensionOptions);
                 unionFields.put(descriptor, unionField);
@@ -875,7 +854,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         }
     }
 
-    private void remapUnionField(@Nonnull Descriptors.Descriptor descriptor, @Nonnull Descriptors.FieldDescriptor unionField) {
+    private void remapUnionField(Descriptor descriptor, Descriptors.FieldDescriptor unionField) {
         unionFields.compute(descriptor, (d, f) -> {
             // Prefer the field that has the name in the right format or, if neither do, the one with the larger field number.
             final String canonicalName = "_" + d.getName();
@@ -887,9 +866,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         });
     }
 
-    @Nonnull
-    private RecordTypeBuilder processRecordType(@Nonnull Descriptors.FieldDescriptor unionField, boolean processExtensionOptions) {
-        Descriptors.Descriptor descriptor = unionField.getMessageType();
+    private RecordTypeBuilder processRecordType(Descriptors.FieldDescriptor unionField, boolean processExtensionOptions) {
+        Descriptor descriptor = unionField.getMessageType();
         RecordTypeBuilder recordType = new RecordTypeBuilder(descriptor);
         if (recordTypes.putIfAbsent(recordType.getName(), recordType) != null) {
             throw new MetaDataException("There is already a record type named " + recordType.getName());
@@ -921,7 +899,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     @SuppressWarnings("deprecation")
     private void protoFieldOptions(RecordTypeBuilder recordType, Descriptors.FieldDescriptor fieldDescriptor, RecordMetaDataOptionsProto.FieldOptions fieldOptions) {
-        Descriptors.Descriptor descriptor = recordType.getDescriptor();
+        Descriptor descriptor = recordType.getDescriptor();
         if (fieldOptions.hasIndex() || fieldOptions.hasIndexed()) {
             String type;
             Map<String, String> options;
@@ -959,22 +937,20 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     }
 
     @API(API.Status.INTERNAL)
-    public static Descriptors.FileDescriptor buildFileDescriptor(@Nonnull DescriptorProtos.FileDescriptorProto fileDescriptorProto,
-                                                                 @Nonnull Descriptors.FileDescriptor[] dependencies) {
+    public static FileDescriptor buildFileDescriptor(DescriptorProtos.FileDescriptorProto fileDescriptorProto,
+                                                                 FileDescriptor[] dependencies) {
         try {
-            return Descriptors.FileDescriptor.buildFrom(fileDescriptorProto, dependencies);
+            return FileDescriptor.buildFrom(fileDescriptorProto, dependencies);
         } catch (Descriptors.DescriptorValidationException ex) {
             throw new MetaDataException("Error converting from protobuf", ex);
         }
     }
 
-    @Nonnull
-    public Descriptors.Descriptor getUnionDescriptor() {
+    public Descriptor getUnionDescriptor() {
         return unionDescriptor;
     }
 
-    @Nonnull
-    public Descriptors.FieldDescriptor getUnionFieldForRecordType(@Nonnull RecordType recordType) {
+    public Descriptors.FieldDescriptor getUnionFieldForRecordType(RecordType recordType) {
         final Descriptors.FieldDescriptor unionField = unionFields.get(recordType.getDescriptor());
         if (unionField == null) {
             throw new MetaDataException("Record type " + recordType.getName() + " is not in the union");
@@ -982,8 +958,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         return unionField;
     }
 
-    @Nonnull
-    public RecordTypeBuilder getRecordType(@Nonnull String name) {
+    public RecordTypeBuilder getRecordType(String name) {
         RecordTypeBuilder recordType = recordTypes.get(name);
         if (recordType == null) {
             throwUnknownRecordType(name, false);
@@ -991,15 +966,14 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         return recordType;
     }
 
-    private void throwUnknownRecordType(final @Nonnull String name, boolean isSynthetic) {
+    private void throwUnknownRecordType(final String name, boolean isSynthetic) {
         throw new MetaDataException("Unknown " + (isSynthetic ? "Synthetic " : "") + "record type " + name);
     }
 
 
-    @Nonnull
     @API(API.Status.EXPERIMENTAL)
     @SuppressWarnings("squid:S1452")
-    public SyntheticRecordTypeBuilder<?> getSyntheticRecordType(@Nonnull String name) {
+    public SyntheticRecordTypeBuilder<?> getSyntheticRecordType(String name) {
         SyntheticRecordTypeBuilder<?> recordType = syntheticRecordTypes.get(name);
         if (recordType == null) {
             throwUnknownRecordType(name, true);
@@ -1014,7 +988,6 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * This isn't strictly speaking necessary, but simplifies debugging.
      * @return a new unique record type key
      */
-    @Nonnull
     private Long getNextRecordTypeKey() {
         long minKey = 0;
         for (SyntheticRecordTypeBuilder<?> syntheticRecordType : syntheticRecordTypes.values()) {
@@ -1033,9 +1006,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @param name the name of the new record type
      * @return a new uninitialized joined record type
      */
-    @Nonnull
     @API(API.Status.EXPERIMENTAL)
-    public JoinedRecordTypeBuilder addJoinedRecordType(@Nonnull String name) {
+    public JoinedRecordTypeBuilder addJoinedRecordType(String name) {
         if (recordTypes.containsKey(name)) {
             throw new MetaDataException("There is already a record type named " + name);
         }
@@ -1052,9 +1024,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @param name the name of the new record type
      * @return a new uninitialized unnested record type
      */
-    @Nonnull
     @API(API.Status.EXPERIMENTAL)
-    public UnnestedRecordTypeBuilder addUnnestedRecordType(@Nonnull String name) {
+    public UnnestedRecordTypeBuilder addUnnestedRecordType(String name) {
         if (recordTypes.containsKey(name)) {
             throw new MetaDataException("There is already a record type named " + name);
         }
@@ -1071,7 +1042,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @param name the name of the record type
      * @return the possibly synthetic record type
      */
-    public RecordTypeIndexesBuilder getIndexableRecordType(@Nonnull String name) {
+    public RecordTypeIndexesBuilder getIndexableRecordType(String name) {
         RecordTypeIndexesBuilder recordType = recordTypes.get(name);
         if (recordType == null) {
             recordType = syntheticRecordTypes.get(name);
@@ -1082,8 +1053,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         return recordType;
     }
 
-    @Nonnull
-    public Index getIndex(@Nonnull String indexName) {
+    public Index getIndex(String indexName) {
         Index index = indexes.get(indexName);
         if (null == index) {
             throw new MetaDataException("Index " + indexName + " not defined");
@@ -1093,7 +1063,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     // Common code shared by all the methods that add indexes. It runs some validation
     // and bumps the version if necessary.
-    private void addIndexCommon(@Nonnull Index index) {
+    private void addIndexCommon(Index index) {
         if (recordsDescriptor == null) {
             throw new MetaDataException("No records added yet");
         }
@@ -1120,7 +1090,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @param recordType if null this index will exist for all record types
      * @param index the index to be added
      */
-    public void addIndex(@Nullable RecordTypeIndexesBuilder recordType, @Nonnull Index index) {
+    public void addIndex(@Nullable RecordTypeIndexesBuilder recordType, Index index) {
         addIndexCommon(index);
         if (recordType != null) {
             recordType.getIndexes().add(index);
@@ -1134,7 +1104,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @param recordType name of the record type
      * @param index the index to be added
      */
-    public void addIndex(@Nonnull String recordType, @Nonnull Index index) {
+    public void addIndex(String recordType, Index index) {
         addIndex(getIndexableRecordType(recordType), index);
     }
 
@@ -1144,7 +1114,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @param indexName the name of the new index
      * @param indexExpression the root expression of the new index
      */
-    public void addIndex(@Nonnull String recordType, @Nonnull String indexName, @Nonnull KeyExpression indexExpression) {
+    public void addIndex(String recordType, String indexName, KeyExpression indexExpression) {
         addIndex(recordType, new Index(indexName, indexExpression));
     }
 
@@ -1154,7 +1124,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @param indexName the name of the new index
      * @param fieldName the record field to be indexed
      */
-    public void addIndex(@Nonnull String recordType, @Nonnull String indexName, @Nonnull String fieldName) {
+    public void addIndex(String recordType, String indexName, String fieldName) {
         addIndex(recordType, new Index(indexName, fieldName));
     }
 
@@ -1163,7 +1133,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @param recordType name of the record type
      * @param fieldName the record field to be indexed
      */
-    public void addIndex(@Nonnull String recordType, @Nonnull String fieldName) {
+    public void addIndex(String recordType, String fieldName) {
         addIndex(recordType, recordType + "$" + fieldName, fieldName);
     }
 
@@ -1174,7 +1144,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @param recordTypes a list of record types that the index will include
      * @param index the index to be added
      */
-    public void addMultiTypeIndex(@Nullable List<? extends RecordTypeIndexesBuilder> recordTypes, @Nonnull Index index) {
+    public void addMultiTypeIndex(@Nullable List<? extends RecordTypeIndexesBuilder> recordTypes, Index index) {
         addIndexCommon(index);
         if (recordTypes == null || recordTypes.isEmpty()) {
             universalIndexes.put(index.getName(), index);
@@ -1191,12 +1161,12 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * Adds a new index on all record types.
      * @param index the index to be added
      */
-    public void addUniversalIndex(@Nonnull Index index) {
+    public void addUniversalIndex(Index index) {
         addIndexCommon(index);
         universalIndexes.put(index.getName(), index);
     }
 
-    public void removeIndex(@Nonnull String name) {
+    public void removeIndex(String name) {
         Index index = indexes.remove(name);
         if (index == null) {
             throw new MetaDataException("No index named " + name + " defined");
@@ -1209,28 +1179,27 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         formerIndexes.add(new FormerIndex(index.getSubspaceKey(), index.getAddedVersion(), ++version, name));
     }
 
-    public void addFormerIndex(@Nonnull FormerIndex formerIndex) {
+    public void addFormerIndex(FormerIndex formerIndex) {
         formerIndexes.add(formerIndex);
     }
 
-    public void addUserDefinedFunction(@Nonnull UserDefinedFunction userDefinedFunction) {
+    public void addUserDefinedFunction(UserDefinedFunction userDefinedFunction) {
         userDefinedFunctionMap.put(userDefinedFunction.getFunctionName(), userDefinedFunction);
     }
 
-    public void addUserDefinedFunctions(@Nonnull Iterable<? extends UserDefinedFunction> functions) {
+    public void addUserDefinedFunctions(Iterable<? extends UserDefinedFunction> functions) {
         functions.forEach(this::addUserDefinedFunction);
     }
 
-    public void addView(@Nonnull View view) {
+    public void addView(View view) {
         viewMap.put(view.getName(), view);
     }
 
-    @Nonnull
     public Map<String, RecordMetaData.StoredQuery> getStoredQueries() {
         return storedQueries;
     }
 
-    public void addStoredQuery(@Nonnull String name, @Nonnull String storedQuery, @Nonnull List<String> tempFunctions) {
+    public void addStoredQuery(String name, String storedQuery, List<String> tempFunctions) {
         storedQueries.put(name, new RecordMetaData.StoredQuery(storedQuery, tempFunctions));
     }
 
@@ -1309,7 +1278,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      *
      * <p>
      * If enabled, index subspace keys will be set using a counter instead of defaulting to the indexes' names. This
-     * must be called prior to setting the records descriptor (for example {@link #setRecords(Descriptors.FileDescriptor)}).
+     * must be called prior to setting the records descriptor (for example {@link #setRecords(FileDescriptor)}).
      * </p>
      *
      * <p>
@@ -1322,7 +1291,6 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      *
      * @return this builder
      */
-    @Nonnull
     public RecordMetaDataBuilder enableCounterBasedSubspaceKeys() {
         if (recordsDescriptor != null) {
             throw new MetaDataException("Records descriptor has already been set.");
@@ -1362,7 +1330,6 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @return this builder
      * @see #enableCounterBasedSubspaceKeys()
      */
-    @Nonnull
     public RecordMetaDataBuilder setSubspaceKeyCounter(long subspaceKeyCounter) {
         if (!usesSubspaceKeyCounter()) {
             throw new MetaDataException("Counter-based subspace keys not enabled");
@@ -1380,7 +1347,6 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * If there is only one record type, get it.
      * @return the only type defined for this store.
      */
-    @Nonnull
     public RecordTypeBuilder getOnlyRecordType() {
         if (recordTypes.size() != 1) {
             throw new MetaDataException("Must have exactly one record type defined.");
@@ -1392,7 +1358,6 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * Get the index registry used for validation.
      * @return the index maintainer registry
      */
-    @Nonnull
     public IndexMaintainerRegistry getIndexMaintainerRegistry() {
         return indexMaintainerRegistry;
     }
@@ -1405,7 +1370,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @param indexMaintainerRegistry the index maintainer registry
      * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.BaseBuilder#setIndexMaintainerRegistry
      */
-    public void setIndexMaintainerRegistry(@Nonnull IndexMaintainerRegistry indexMaintainerRegistry) {
+    public void setIndexMaintainerRegistry(IndexMaintainerRegistry indexMaintainerRegistry) {
         this.indexMaintainerRegistry = indexMaintainerRegistry;
     }
 
@@ -1417,10 +1382,9 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * if they want to tweak certain validator options.
      *
      * @return the validator used to check the local file descriptor against the one in the meta-data proto
-     * @see #setLocalFileDescriptor(Descriptors.FileDescriptor)
+     * @see #setLocalFileDescriptor(FileDescriptor)
      * @see MetaDataEvolutionValidator
      */
-    @Nonnull
     public MetaDataEvolutionValidator getEvolutionValidator() {
         return evolutionValidator;
     }
@@ -1433,11 +1397,10 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      *
      * @param evolutionValidator the validator used to check the local file descriptor against the one in the meta-data proto
      * @return this builder
-     * @see #setLocalFileDescriptor(Descriptors.FileDescriptor)
+     * @see #setLocalFileDescriptor(FileDescriptor)
      * @see MetaDataEvolutionValidator
      */
-    @Nonnull
-    public RecordMetaDataBuilder setEvolutionValidator(@Nonnull MetaDataEvolutionValidator evolutionValidator) {
+    public RecordMetaDataBuilder setEvolutionValidator(MetaDataEvolutionValidator evolutionValidator) {
         if (recordsDescriptor != null) {
             throw new MetaDataException("Records already set.");
         }
@@ -1445,7 +1408,6 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         return this;
     }
 
-    @Nonnull
     @Override
     public RecordMetaData getRecordMetaData() {
         if (recordMetaData == null || recordMetaData.getVersion() != version) {
@@ -1458,7 +1420,6 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * Build and validate meta-data.
      * @return new validated meta-data
      */
-    @Nonnull
     public RecordMetaData build() {
         return build(true);
     }
@@ -1468,7 +1429,6 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @param validate {@code true} to validate the new meta-data
      * @return new meta-data
      */
-    @Nonnull
     public RecordMetaData build(boolean validate) {
         Map<String, RecordType> builtRecordTypes = Maps.newHashMapWithExpectedSize(recordTypes.size());
         Map<String, SyntheticRecordType<?>> builtSyntheticRecordTypes = Maps.newHashMapWithExpectedSize(syntheticRecordTypes.size());
@@ -1493,14 +1453,14 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         if (!syntheticRecordTypes.isEmpty()) {
             DescriptorProtos.FileDescriptorProto.Builder fileBuilder = DescriptorProtos.FileDescriptorProto.newBuilder();
             fileBuilder.setName("_synthetic");
-            Set<Descriptors.FileDescriptor> typeDescriptorSources = new LinkedHashSet<>(); // for stable iteration order
+            Set<FileDescriptor> typeDescriptorSources = new LinkedHashSet<>(); // for stable iteration order
             syntheticRecordTypes.values().forEach(recordTypeBuilder -> recordTypeBuilder.buildDescriptor(fileBuilder, typeDescriptorSources));
             typeDescriptorSources.forEach(source -> fileBuilder.addDependency(source.getName()));
-            final Descriptors.FileDescriptor fileDescriptor;
+            final FileDescriptor fileDescriptor;
             try {
-                final Descriptors.FileDescriptor[] dependencies = new Descriptors.FileDescriptor[typeDescriptorSources.size()];
+                final FileDescriptor[] dependencies = new FileDescriptor[typeDescriptorSources.size()];
                 typeDescriptorSources.toArray(dependencies);
-                fileDescriptor = Descriptors.FileDescriptor.buildFrom(fileBuilder.build(), dependencies);
+                fileDescriptor = FileDescriptor.buildFrom(fileBuilder.build(), dependencies);
             } catch (Descriptors.DescriptorValidationException ex) {
                 throw new MetaDataException("Could not build synthesized file descriptor", ex);
             }
@@ -1519,7 +1479,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     // Note that there is no harm in this returning null for very complex overlaps; that just results in some duplication.
     @Nullable
-    public static int[] buildPrimaryKeyComponentPositions(@Nonnull KeyExpression indexKey, @Nonnull KeyExpression primaryKey) {
+    public static int[] buildPrimaryKeyComponentPositions(KeyExpression indexKey, KeyExpression primaryKey) {
         List<KeyExpression> indexKeys = indexKey.normalizeKeyForPositions();
         List<KeyExpression> primaryKeys = primaryKey.normalizeKeyForPositions();
         int[] positions = new int[primaryKeys.size()];

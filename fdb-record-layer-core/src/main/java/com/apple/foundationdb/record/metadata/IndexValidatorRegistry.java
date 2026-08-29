@@ -22,14 +22,11 @@ package com.apple.foundationdb.record.metadata;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-
 /**
  * A registry of {@link IndexValidator}s.
  * @see com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory
  */
 @API(API.Status.UNSTABLE)
 public interface IndexValidatorRegistry {
-    @Nonnull
-    IndexValidator getIndexValidator(@Nonnull Index index);
+    IndexValidator getIndexValidator(Index index);
 }

@@ -34,7 +34,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -52,13 +51,10 @@ import java.util.stream.Stream;
  */
 public class LockRegistryTest {
 
-    @Nonnull
     private final ExecutorService executorService = Executors.newFixedThreadPool(8);
 
-    @Nonnull
     final LockRegistry registry = new LockRegistry(null);
 
-    @Nonnull
     final LockIdentifier identifier = new LockIdentifier(new Subspace(Tuple.from(1, 2, 3)));
 
     static Stream<Arguments> argumentsForTests() {
@@ -271,7 +267,7 @@ public class LockRegistryTest {
                 }));
     }
 
-    private CompletableFuture<Void> runWithLock(@Nonnull Runnable runCheck, @Nonnull NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> lockAndWait) {
+    private CompletableFuture<Void> runWithLock(Runnable runCheck, NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> lockAndWait) {
         return lockAndWait.getRight().thenRunAsync(runCheck, executorService).whenComplete((ignore, throwable) -> {
             lockAndWait.getLeft().get().release();
             if (throwable != null) {
@@ -280,7 +276,7 @@ public class LockRegistryTest {
         });
     }
 
-    public static <T> void checkAllCompletedNormally(@Nonnull List<CompletableFuture<T>> futures) {
+    public static <T> void checkAllCompletedNormally(List<CompletableFuture<T>> futures) {
         try {
             AsyncUtil.whenAll(futures).orTimeout(1, TimeUnit.SECONDS).get();
         } catch (Exception e) {
@@ -292,7 +288,7 @@ public class LockRegistryTest {
         }
     }
 
-    public static <T> void checkWaiting(@Nonnull List<CompletableFuture<T>> futures) throws InterruptedException {
+    public static <T> void checkWaiting(List<CompletableFuture<T>> futures) throws InterruptedException {
         Thread.sleep(1000);
         for (CompletableFuture<T> f: futures) {
             Assertions.assertFalse(f.isDone());

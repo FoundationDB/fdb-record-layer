@@ -38,8 +38,7 @@ import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -95,12 +94,10 @@ import java.util.function.BiFunction;
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class FunctionKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithChild {
-    @Nonnull
     protected final String name;
-    @Nonnull
     protected final KeyExpression arguments;
 
-    protected FunctionKeyExpression(@Nonnull String name, @Nonnull KeyExpression arguments) {
+    protected FunctionKeyExpression(String name, KeyExpression arguments) {
         this.name = name;
         this.arguments = arguments;
     }
@@ -114,7 +111,7 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
      * @throws InvalidExpressionException if the function name provided does not have an available
      *   implementation, or the arguments provided are not suitable for the function
      */
-    public static FunctionKeyExpression create(@Nonnull String name, @Nonnull KeyExpression arguments) {
+    public static FunctionKeyExpression create(String name, KeyExpression arguments) {
         Optional<Builder> funcBuilder = Registry.instance().getBuilder(name);
         if (funcBuilder.isEmpty()) {
             throw new InvalidExpressionException("Function not defined")
@@ -132,18 +129,15 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
         return function;
     }
 
-    @Nonnull
     public final String getName() {
         return name;
     }
 
-    @Nonnull
     @Override
     public KeyExpression getChild() {
         return getArguments();
     }
 
-    @Nonnull
     public final KeyExpression getArguments() {
         return arguments;
     }
@@ -160,12 +154,10 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
      */
     public abstract int getMaxArguments();
 
-    @Nonnull
-    public GroupingKeyExpression groupBy(@Nonnull KeyExpression groupByFirst, @Nonnull KeyExpression... groupByRest) {
+    public GroupingKeyExpression groupBy(KeyExpression groupByFirst, KeyExpression... groupByRest) {
         return GroupingKeyExpression.of(this, groupByFirst, groupByRest);
     }
 
-    @Nonnull
     @Override
     public <M extends Message> List<Key.Evaluated> evaluateMessage(@Nullable FDBRecord<M> record, @Nullable Message message) {
         final List<Key.Evaluated> evaluatedArguments = getArguments().evaluateMessage(record, message);
@@ -198,10 +190,9 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
      * @param arguments the set of arguments to be applied by the function against the <code>record</code>
      * @return the list of keys for the given record
      */
-    @Nonnull
     public abstract <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record,
                                                                              @Nullable Message message,
-                                                                             @Nonnull Key.Evaluated arguments);
+                                                                             Key.Evaluated arguments);
 
     private void validateArgumentCount(Key.Evaluated arguments) {
         final int argumentCount = arguments.size();
@@ -215,7 +206,7 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
     }
 
     @Override
-    public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor descriptor) {
+    public List<Descriptors.FieldDescriptor> validate(Descriptors.Descriptor descriptor) {
         return getArguments().validate(descriptor);
     }
 
@@ -231,7 +222,6 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
      * @throws InvalidExpressionException If the function name provided does not have an available
      *   implementation, or the arguments provided are not suitable for the function.
      */
-    @Nonnull
     public static FunctionKeyExpression fromProto(RecordKeyExpressionProto.Function function) throws DeserializationException {
         try {
             return create(function.getName(), KeyExpression.fromProto(function.getArguments()));
@@ -240,7 +230,6 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
         }
     }
 
-    @Nonnull
     @Override
     public final RecordKeyExpressionProto.Function toProto() throws SerializationException {
         RecordKeyExpressionProto.Function.Builder builder = RecordKeyExpressionProto.Function.newBuilder()
@@ -249,15 +238,13 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
         return builder.build();
     }
 
-    @Nonnull
     @Override
     public final RecordKeyExpressionProto.KeyExpression toKeyExpression() {
         return RecordKeyExpressionProto.KeyExpression.newBuilder().setFunction(toProto()).build();
     }
 
-    @Nonnull
     @Override
-    public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+    public <S extends KeyExpressionVisitor.State, R> R expand(final KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
     }
 
@@ -269,12 +256,10 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
      * @param argumentValues the argument values
      * @return a new {@link Value}
      */
-    @Nonnull
-    public abstract Value toValue(@Nonnull List<? extends Value> argumentValues);
+    public abstract Value toValue(List<? extends Value> argumentValues);
 
-    @Nonnull
-    protected Value resolveAndEncapsulateFunction(@Nonnull final String functionName,
-                                                  @Nonnull final List<? extends Value> argumentValues) {
+    protected Value resolveAndEncapsulateFunction(final String functionName,
+                                                  final List<? extends Value> argumentValues) {
         final BuiltInFunction<?> builtInFunction =
                 BuiltInFunctionCatalog.resolve(functionName, argumentValues.size())
                         .orElseThrow(() -> new RecordCoreArgumentException("unknown function",
@@ -314,7 +299,7 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
      * @param hashables the rest of the subclass' hashable parameters (if any)
      * @return the plan hash value calculated
      */
-    protected int basePlanHash(@Nonnull final PlanHashMode mode, ObjectPlanHash baseHash, Object... hashables) {
+    protected int basePlanHash(final PlanHashMode mode, ObjectPlanHash baseHash, Object... hashables) {
         switch (mode.getKind()) {
             case LEGACY:
                 return getName().hashCode() + getArguments().planHash(mode);
@@ -335,20 +320,17 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
      * to the function.
      */
     public abstract static class Builder {
-        @Nonnull
         protected final String functionName;
 
-        public Builder(@Nonnull String functionName) {
+        public Builder(String functionName) {
             this.functionName = functionName;
         }
 
-        @Nonnull
         public String getName() {
             return functionName;
         }
 
-        @Nonnull
-        public abstract FunctionKeyExpression build(@Nonnull KeyExpression arguments);
+        public abstract FunctionKeyExpression build(KeyExpression arguments);
     }
 
     /**
@@ -358,15 +340,14 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
     public static class BiFunctionBuilder extends Builder {
         private final BiFunction<String, KeyExpression, FunctionKeyExpression> generator;
 
-        public BiFunctionBuilder(@Nonnull String functionName,
-                               @Nonnull BiFunction<String, KeyExpression, FunctionKeyExpression> generator) {
+        public BiFunctionBuilder(String functionName,
+                               BiFunction<String, KeyExpression, FunctionKeyExpression> generator) {
             super(functionName);
             this.generator = generator;
         }
 
-        @Nonnull
         @Override
-        public FunctionKeyExpression build(@Nonnull KeyExpression expression) {
+        public FunctionKeyExpression build(KeyExpression expression) {
             return generator.apply(super.getName(), expression);
         }
     }
@@ -376,7 +357,6 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
      * and are polled once to request a list of builders for functions that the factory is capable of producing.
      */
     public interface Factory {
-        @Nonnull
         List<FunctionKeyExpression.Builder> getBuilders();
     }
 
@@ -395,7 +375,6 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
             functions = null;
         }
 
-        @Nonnull
         public static Registry instance() {
             return INSTANCE;
         }
@@ -405,7 +384,6 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
             return Optional.ofNullable(registry.get(name));
         }
 
-        @Nonnull
         private Map<String, Builder> initOrGetRegistry() {
             // The reference to the registry is copied into a local variable to avoid referencing the
             // volatile multiple times
@@ -427,7 +405,6 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
             }
         }
 
-        @Nonnull
         private static Map<String, Builder> initRegistry() {
             try {
                 Map<String, Builder> functions = new HashMap<>();

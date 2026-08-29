@@ -23,7 +23,6 @@ package com.apple.foundationdb.record;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.planprotos.PIndexScanType;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
@@ -36,19 +35,12 @@ import java.util.Objects;
  */
 @API(API.Status.UNSTABLE)
 public class IndexScanType implements PlanHashable, PlanSerializable {
-    @Nonnull
     public static final IndexScanType BY_VALUE = new IndexScanType("BY_VALUE");
-    @Nonnull
     public static final IndexScanType BY_VALUE_OVER_SCAN = new IndexScanType("BY_VALUE_OVER_SCAN");
-    @Nonnull
     public static final IndexScanType BY_RANK = new IndexScanType("BY_RANK");
-    @Nonnull
     public static final IndexScanType BY_GROUP = new IndexScanType("BY_GROUP");
-    @Nonnull
     public static final IndexScanType BY_TIME_WINDOW = new IndexScanType("BY_TIME_WINDOW");
-    @Nonnull
     public static final IndexScanType BY_TEXT_TOKEN = new IndexScanType("BY_TEXT_TOKEN");
-    @Nonnull
     public static final IndexScanType BY_DISTANCE = new IndexScanType("BY_DISTANCE");
 
     private final String name;
@@ -80,20 +72,18 @@ public class IndexScanType implements PlanHashable, PlanSerializable {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return hashCode();
     }
 
-    @Nonnull
     @Override
-    public PIndexScanType toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PIndexScanType toProto(final PlanSerializationContext serializationContext) {
         return PIndexScanType.newBuilder().setName(name).build();
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    public static IndexScanType fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                          @Nonnull final PIndexScanType indexScanTypeProto) {
+    public static IndexScanType fromProto(final PlanSerializationContext serializationContext,
+                                          final PIndexScanType indexScanTypeProto) {
         return new IndexScanType(Objects.requireNonNull(indexScanTypeProto.getName()));
     }
 }

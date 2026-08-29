@@ -27,8 +27,7 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
@@ -45,11 +44,8 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 public class MemorySortCursor<K, V> implements RecordCursor<V> {
-    @Nonnull
     private final RecordCursor<V> inputCursor;
-    @Nonnull
     private final MemoryScratchpad<K, V, ? extends Map<K, V>> scratchpad;
-    @Nonnull
     private final MemorySortAdapter<K, V> adapter;
     @Nullable
     private final StoreTimer timer;
@@ -59,9 +55,9 @@ public class MemorySortCursor<K, V> implements RecordCursor<V> {
     private RecordCursorContinuation inputContinuation;
     private Iterator<Map.Entry<K, V>> iterator;
     
-    private MemorySortCursor(@Nonnull final MemorySortAdapter<K, V> adapter,
-                             @Nonnull MemoryScratchpad<K, V, ? extends Map<K, V>> scratchpad,
-                             @Nonnull RecordCursor<V> inputCursor, @Nullable StoreTimer timer, @Nullable K minimumKey) {
+    private MemorySortCursor(final MemorySortAdapter<K, V> adapter,
+                             MemoryScratchpad<K, V, ? extends Map<K, V>> scratchpad,
+                             RecordCursor<V> inputCursor, @Nullable StoreTimer timer, @Nullable K minimumKey) {
         this.inputCursor = inputCursor;
         this.scratchpad = scratchpad;
         this.adapter = adapter;
@@ -69,7 +65,6 @@ public class MemorySortCursor<K, V> implements RecordCursor<V> {
         this.minimumKey = minimumKey;
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<V>> onNext() {
         if (iterator != null) {
@@ -92,7 +87,6 @@ public class MemorySortCursor<K, V> implements RecordCursor<V> {
         });
     }
 
-    @Nonnull
     private RecordCursorResult<V> nextFromIterator() {
         final long startTime = System.nanoTime();
         if (iterator.hasNext()) {
@@ -123,14 +117,13 @@ public class MemorySortCursor<K, V> implements RecordCursor<V> {
         return inputCursor.isClosed();
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return inputCursor.getExecutor();
     }
 
     @Override
-    public boolean accept(@Nonnull final RecordCursorVisitor visitor) {
+    public boolean accept(final RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
             inputCursor.accept(visitor);
         }
@@ -138,10 +131,10 @@ public class MemorySortCursor<K, V> implements RecordCursor<V> {
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    public static <K, V, M extends Map<K, V>> MemorySortCursor<K, V> create(@Nonnull MemorySortAdapter<K, V> adapter,
-                                                                            @Nonnull Function<byte[], RecordCursor<V>> inputCursorFunction,
+    public static <K, V, M extends Map<K, V>> MemorySortCursor<K, V> create(MemorySortAdapter<K, V> adapter,
+                                                                            Function<byte[], RecordCursor<V>> inputCursorFunction,
                                                                             @Nullable StoreTimer timer,
-                                                                            @Nonnull BiFunction<MemorySortAdapter<K, V>, StoreTimer, MemoryScratchpad<K, V, M>> scratchPadCreator,
+                                                                            BiFunction<MemorySortAdapter<K, V>, StoreTimer, MemoryScratchpad<K, V, M>> scratchPadCreator,
                                                                             @Nullable byte[] continuation) {
         final MemorySortCursorContinuation<K, V> parsedContinuation = MemorySortCursorContinuation.from(continuation, adapter);
         final RecordCursor<V> inputCursor = inputCursorFunction.apply(parsedContinuation.getChild().toBytes());
@@ -154,16 +147,16 @@ public class MemorySortCursor<K, V> implements RecordCursor<V> {
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    public static <K, V> MemorySortCursor<K, V> createSort(@Nonnull MemorySortAdapter<K, V> adapter,
-                                                           @Nonnull Function<byte[], RecordCursor<V>> inputCursorFunction,
+    public static <K, V> MemorySortCursor<K, V> createSort(MemorySortAdapter<K, V> adapter,
+                                                           Function<byte[], RecordCursor<V>> inputCursorFunction,
                                                            @Nullable StoreTimer timer,
                                                            @Nullable byte[] continuation) {
         return create(adapter, inputCursorFunction, timer, MemorySorter::new, continuation);
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    public static <K, V> MemorySortCursor<K, V> createDam(@Nonnull MemorySortAdapter<K, V> adapter,
-                                                          @Nonnull Function<byte[], RecordCursor<V>> inputCursorFunction,
+    public static <K, V> MemorySortCursor<K, V> createDam(MemorySortAdapter<K, V> adapter,
+                                                          Function<byte[], RecordCursor<V>> inputCursorFunction,
                                                           @Nullable StoreTimer timer,
                                                           @Nullable byte[] continuation) {
         return create(adapter, inputCursorFunction, timer, MemoryDam::new, continuation);

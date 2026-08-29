@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.logging;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
 import java.util.Locale;
 
 /**
@@ -364,7 +363,7 @@ public enum LogMessageKeys {
         this.logKey = name().toLowerCase(Locale.ROOT);
     }
 
-    LogMessageKeys(@Nonnull String key) {
+    LogMessageKeys(String key) {
         this.logKey = key;
     }
 

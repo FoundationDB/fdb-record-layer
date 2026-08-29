@@ -23,13 +23,10 @@ package com.apple.foundationdb.record;
 import com.apple.foundationdb.annotation.API;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-
 /**
  * A interface indicating whether a given type can be serialized into a ProtoBuf {@link Message}.
  */
 @API(API.Status.UNSTABLE)
 public interface ProtoSerializable {
-    @Nonnull
     Message toProto();
 }

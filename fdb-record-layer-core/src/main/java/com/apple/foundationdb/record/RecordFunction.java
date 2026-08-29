@@ -23,8 +23,6 @@ package com.apple.foundationdb.record;
 import com.apple.foundationdb.annotation.API;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
-
 /**
  * A function to be applied to a record as part of query execution.
  * @param <T> the result type of the function
@@ -32,20 +30,18 @@ import javax.annotation.Nonnull;
 @API(API.Status.UNSTABLE)
 public abstract class RecordFunction<T> implements PlanHashable {
 
-    @Nonnull
     private final String name;
 
-    protected RecordFunction(@Nonnull String name) {
+    protected RecordFunction(String name) {
         this.name = name;
     }
 
-    @Nonnull
     public String getName() {
         return name;
     }
 
     @SuppressWarnings("PMD.EmptyMethodInAbstractClassShouldBeAbstract")
-    public void validate(@Nonnull Descriptors.Descriptor descriptor) {
+    public void validate(Descriptors.Descriptor descriptor) {
     }
 
     @Override
@@ -77,7 +73,7 @@ public abstract class RecordFunction<T> implements PlanHashable {
      * @param hashables the rest of the subclass' hashable parameters (if any)
      * @return the plan hash value calculated
      */
-    protected int basePlanHash(@Nonnull final PlanHashMode mode, ObjectPlanHash baseHash, Object... hashables) {
+    protected int basePlanHash(final PlanHashMode mode, ObjectPlanHash baseHash, Object... hashables) {
         switch (mode.getKind()) {
             case LEGACY:
                 return name.hashCode();

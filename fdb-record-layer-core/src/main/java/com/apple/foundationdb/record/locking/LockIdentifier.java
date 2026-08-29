@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.subspace.Subspace;
 import com.google.common.base.Suppliers;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -33,12 +32,10 @@ import java.util.function.Supplier;
  */
 @API(API.Status.INTERNAL)
 public class LockIdentifier {
-    @Nonnull
     private final Subspace lockingSubspace;
-    @Nonnull
     private final Supplier<Integer> memoizedHashCode = Suppliers.memoize(this::calculateHashCode);
 
-    public LockIdentifier(@Nonnull final Subspace lockingSubspace) {
+    public LockIdentifier(final Subspace lockingSubspace) {
         this.lockingSubspace = lockingSubspace;
     }
 

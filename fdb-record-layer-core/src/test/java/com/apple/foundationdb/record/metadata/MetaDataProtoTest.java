@@ -60,7 +60,6 @@ import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 import org.junit.jupiter.params.support.ParameterDeclarations;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -90,7 +89,7 @@ public class MetaDataProtoTest {
             RecordMetaDataOptionsProto.getDescriptor()
     };
 
-    public static void verifyEquals(@Nonnull Index index1, @Nonnull Index index2) {
+    public static void verifyEquals(Index index1, Index index2) {
         try {
             assertEquals(index1.getName(), index2.getName());
             assertEquals(index1.getRootExpression(), index2.getRootExpression());
@@ -106,7 +105,7 @@ public class MetaDataProtoTest {
         }
     }
 
-    public static void verifyEquals(@Nonnull RecordMetaData metaData1, @Nonnull RecordMetaData metaData2) {
+    public static void verifyEquals(RecordMetaData metaData1, RecordMetaData metaData2) {
         // Same record types.
         assertEquals(metaData1.getRecordTypes().keySet(), metaData2.getRecordTypes().keySet());
         assertEquals(getFields(metaData1.getUnionDescriptor()), getFields(metaData2.getUnionDescriptor()));
@@ -157,19 +156,19 @@ public class MetaDataProtoTest {
         assertEquals(metaData1.getRecordCountKey(), metaData2.getRecordCountKey());
     }
 
-    private static Set<String> getIndexNames(@Nonnull RecordType rt) {
+    private static Set<String> getIndexNames(RecordType rt) {
         return rt.getIndexes().stream().map(Index::getName).collect(Collectors.toSet());
     }
 
-    private static Set<String> getMultiTypeIndexNames(@Nonnull RecordType rt) {
+    private static Set<String> getMultiTypeIndexNames(RecordType rt) {
         return rt.getMultiTypeIndexes().stream().map(Index::getName).collect(Collectors.toSet());
     }
 
-    private static List<String> getFields(@Nonnull Descriptors.Descriptor descriptor) {
+    private static List<String> getFields(Descriptors.Descriptor descriptor) {
         return descriptor.getFields().stream().map(Descriptors.FieldDescriptor::getName).collect(Collectors.toList());
     }
 
-    private static Set<String> getMessageNames(@Nonnull RecordMetaData metaData) {
+    private static Set<String> getMessageNames(RecordMetaData metaData) {
         return metaData.getRecordsDescriptor().getMessageTypes().stream().map(Descriptors.Descriptor::getName).collect(Collectors.toSet());
     }
 
@@ -391,7 +390,7 @@ public class MetaDataProtoTest {
 
     @ParameterizedTest(name = "[{0}] with parameter1 = {1} and parameter2 = {2}")
     @ArgumentsSource(ArgumentProvider.class)
-    void serdeIndexPredicateWorksCorrectly(@Nonnull final String description, @Nonnull final Object expectedParameter1, @Nonnull final Object expectedParameter2) {
+    void serdeIndexPredicateWorksCorrectly(final String description, final Object expectedParameter1, final Object expectedParameter2) {
         final var recordType = Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor());
         final var numValue2 = FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), recordType), "num_value_2");
         final var range = OrPredicate.or(List.of(

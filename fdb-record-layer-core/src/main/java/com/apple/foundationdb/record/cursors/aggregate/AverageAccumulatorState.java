@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.cursors.aggregate;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Accumulator state for AVERAGE operations. Average is unique as the return value from the aggregation ({@link

@@ -26,8 +26,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 
 /**
@@ -47,8 +46,8 @@ public interface AggregateAccumulator {
      * @param message the message containing the result that needs to be accumulated into the aggregation
      * @param <M> the type of records used in the evaluation
      */
-    <M extends Message> void accumulate(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                        @Nullable FDBRecord<M> record, @Nonnull M message);
+    <M extends Message> void accumulate(FDBRecordStoreBase<M> store, EvaluationContext context,
+                                        @Nullable FDBRecord<M> record, M message);
 
     /**
      * Calculate and return the result from the accumulated state.

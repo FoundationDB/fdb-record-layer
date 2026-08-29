@@ -31,8 +31,7 @@ import com.apple.foundationdb.util.LoggableException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -60,11 +59,8 @@ import java.util.function.Function;
 public class FallbackCursor<T> implements RecordCursor<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(FallbackCursor.class);
 
-    @Nonnull
     private final Function<RecordCursorResult<T>, RecordCursor<T>> fallbackCursorSupplier;
-    @Nonnull
     private final Executor executor;
-    @Nonnull
     private RecordCursor<T> inner;
     @Nullable
     private CompletableFuture<RecordCursorResult<T>> nextResultFuture;
@@ -87,13 +83,12 @@ public class FallbackCursor<T> implements RecordCursor<T> {
      * returned cursor is expected to resume from the record following the last successful one (or fail if it does not
      * support continuing).
      */
-    public FallbackCursor(@Nonnull RecordCursor<T> inner, @Nonnull Function<RecordCursorResult<T>, RecordCursor<T>> fallbackCursorSupplier) {
+    public FallbackCursor(RecordCursor<T> inner, Function<RecordCursorResult<T>, RecordCursor<T>> fallbackCursorSupplier) {
         this.inner = inner;
         this.fallbackCursorSupplier = fallbackCursorSupplier;
         this.executor = inner.getExecutor();
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         try {
@@ -139,7 +134,6 @@ public class FallbackCursor<T> implements RecordCursor<T> {
         return inner.isClosed();
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return this.executor;
@@ -150,7 +144,7 @@ public class FallbackCursor<T> implements RecordCursor<T> {
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
             getInner().accept(visitor);
         }
@@ -181,7 +175,7 @@ public class FallbackCursor<T> implements RecordCursor<T> {
     public static class FallbackExecutionFailedException extends RecordCoreException {
         public static final long serialVersionUID = 1;
 
-        public FallbackExecutionFailedException(@Nonnull final String msg, @Nullable final Throwable cause) {
+        public FallbackExecutionFailedException(final String msg, @Nullable final Throwable cause) {
             super(msg, cause);
         }
     }

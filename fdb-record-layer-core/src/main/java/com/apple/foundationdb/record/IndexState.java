@@ -22,8 +22,6 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-
 /**
  * Different states an index might be in within a given store.
  * These states might differ between record stores that have
@@ -74,7 +72,7 @@ public enum IndexState {
 
     private final long id;
     private final String logName;
-    @Nonnull private final Object code;
+    private final Object code;
 
     IndexState(long id, String logName) {
         this.id = id;
@@ -89,7 +87,6 @@ public enum IndexState {
      * code.
      * @return the code to serialize to serialize this state
      */
-    @Nonnull
     public Object code() {
         return code;
     }
@@ -166,7 +163,7 @@ public enum IndexState {
         return this.equals(DISABLED);
     }
 
-    public static IndexState fromCode(@Nonnull Object code) {
+    public static IndexState fromCode(Object code) {
         for (IndexState state : IndexState.values()) {
             if (state.code().equals(code)) {
                 return state;

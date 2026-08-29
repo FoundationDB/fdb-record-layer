@@ -23,8 +23,7 @@ package com.apple.foundationdb.record.metadata;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Exception thrown when there is a problem with something in the {@link com.apple.foundationdb.record.RecordMetaDataProto.MetaData}.
@@ -32,7 +31,7 @@ import javax.annotation.Nullable;
 @SuppressWarnings("serial")
 @API(API.Status.UNSTABLE)
 public class MetaDataException extends RecordCoreException {
-    public MetaDataException(@Nonnull String msg, @Nullable Object ... keyValues) {
+    public MetaDataException(String msg, @Nullable Object ... keyValues) {
         super(msg, keyValues);
     }
 
@@ -40,7 +39,7 @@ public class MetaDataException extends RecordCoreException {
         super(cause);
     }
 
-    public MetaDataException(@Nonnull String msg, @Nullable Throwable cause) {
+    public MetaDataException(String msg, @Nullable Throwable cause) {
         super(msg, cause);
     }
 }

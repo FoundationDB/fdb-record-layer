@@ -32,8 +32,7 @@ import com.apple.foundationdb.record.planprotos.PIndexAggregateFunction;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 
 /**
@@ -45,25 +44,21 @@ import java.util.Objects;
 public class IndexAggregateFunction implements PlanHashable, PlanSerializable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Index-Aggregate-Function");
 
-    @Nonnull
     private final String name;
-    @Nonnull
     private final KeyExpression operand;
     @Nullable
     private final String index;
 
-    public IndexAggregateFunction(@Nonnull String name, @Nonnull KeyExpression operand, @Nullable String index) {
+    public IndexAggregateFunction(String name, KeyExpression operand, @Nullable String index) {
         this.name = name;
         this.operand = operand;
         this.index = index;
     }
 
-    @Nonnull
     public String getName() {
         return name;
     }
 
-    @Nonnull
     public KeyExpression getOperand() {
         return operand;
     }
@@ -73,22 +68,19 @@ public class IndexAggregateFunction implements PlanHashable, PlanSerializable {
         return index;
     }
 
-    @Nonnull
-    public IndexAggregateFunction cloneWithOperand(@Nonnull KeyExpression operand) {
+    public IndexAggregateFunction cloneWithOperand(KeyExpression operand) {
         return new IndexAggregateFunction(getName(), operand, getIndex());
     }
 
-    @Nonnull
-    public IndexAggregateFunction cloneWithIndex(@Nonnull String index) {
+    public IndexAggregateFunction cloneWithIndex(String index) {
         return new IndexAggregateFunction(getName(), getOperand(), index);
     }
 
-    public void validate(@Nonnull Descriptors.Descriptor descriptor) {
+    public void validate(Descriptors.Descriptor descriptor) {
         operand.validate(descriptor);
     }
 
-    @Nonnull
-    public TupleRange adjustRange(@Nonnull EvaluationContext context, @Nonnull TupleRange tupleRange) {
+    public TupleRange adjustRange(EvaluationContext context, TupleRange tupleRange) {
         return tupleRange;
     }
 
@@ -129,7 +121,7 @@ public class IndexAggregateFunction implements PlanHashable, PlanSerializable {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return name.hashCode() + operand.planHash(mode) + Objects.hashCode(index);
@@ -140,9 +132,8 @@ public class IndexAggregateFunction implements PlanHashable, PlanSerializable {
         }
     }
 
-    @Nonnull
     @Override
-    public PIndexAggregateFunction toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PIndexAggregateFunction toProto(final PlanSerializationContext serializationContext) {
         final PIndexAggregateFunction.Builder builder = PIndexAggregateFunction.newBuilder()
                 .setName(name)
                 .setOperand(operand.toKeyExpression());
@@ -152,10 +143,9 @@ public class IndexAggregateFunction implements PlanHashable, PlanSerializable {
         return builder.build();
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    public static IndexAggregateFunction fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                   @Nonnull final PIndexAggregateFunction indexAggregateFunctionProto) {
+    public static IndexAggregateFunction fromProto(final PlanSerializationContext serializationContext,
+                                                   final PIndexAggregateFunction indexAggregateFunctionProto) {
         return new IndexAggregateFunction(Objects.requireNonNull(indexAggregateFunctionProto.getName()),
                 KeyExpression.fromProto(Objects.requireNonNull(indexAggregateFunctionProto.getOperand())),
                 PlanSerialization.getFieldOrNull(indexAggregateFunctionProto,

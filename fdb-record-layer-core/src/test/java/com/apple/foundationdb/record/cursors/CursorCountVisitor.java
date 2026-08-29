@@ -23,8 +23,6 @@ package com.apple.foundationdb.record.cursors;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
-import javax.annotation.Nonnull;
-
 /**
  * A visitor that counts the total number of cursors in a cursor hierarchy.
  *
@@ -58,7 +56,7 @@ class CursorCountVisitor implements RecordCursorVisitor {
      * @param cursor the root cursor to count cursors for
      * @return the total number of cursors in the hierarchy
      */
-    public static int getCursorsCount(@Nonnull final RecordCursor<?> cursor) {
+    public static int getCursorsCount(final RecordCursor<?> cursor) {
         final var visitor = new CursorCountVisitor();
         cursor.accept(visitor);
         return visitor.cursorCount;

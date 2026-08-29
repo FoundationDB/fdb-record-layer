@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.google.common.annotations.VisibleForTesting;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 
@@ -100,7 +99,7 @@ public class CompletionExceptionLogHelper {
      * @param ex an exception from {@link java.util.concurrent.CompletableFuture#join} or the like
      * @return a throwable suitable for use as the cause of a wrapped exception
      */
-    public static Throwable asCause(@Nonnull CompletionException ex) {
+    public static Throwable asCause(CompletionException ex) {
         return asCauseThrowable(ex);
     }
 
@@ -112,11 +111,11 @@ public class CompletionExceptionLogHelper {
      * @param ex an exception from {@link java.util.concurrent.CompletableFuture#get} or the like
      * @return a throwable suitable for use as the cause of a wrapped exception
      */
-    public static Throwable asCause(@Nonnull ExecutionException ex) {
+    public static Throwable asCause(ExecutionException ex) {
         return asCauseThrowable(ex);
     }
 
-    private static Throwable asCauseThrowable(@Nonnull Throwable ex) {
+    private static Throwable asCauseThrowable(Throwable ex) {
         final Throwable cause = ex.getCause();
         if (cause == null) {
             return ex;

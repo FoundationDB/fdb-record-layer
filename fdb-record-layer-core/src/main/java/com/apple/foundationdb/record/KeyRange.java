@@ -23,21 +23,16 @@ package com.apple.foundationdb.record;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A range within a subspace specified by two byte value endpoints.
  */
 @API(API.Status.UNSTABLE)
 public class KeyRange {
-    @Nonnull
     private final byte[] lowKey;
-    @Nonnull
     private final EndpointType lowEndpoint;
-    @Nonnull
     private final byte[] highKey;
-    @Nonnull
     private final EndpointType highEndpoint;
 
     /**
@@ -50,8 +45,8 @@ public class KeyRange {
      *    care must be taken not to modify its contents. If null, assume infinity.
      * @param highEndpoint how the high endpoint is to be treated
      */
-    public KeyRange(@Nullable byte[] lowKey, @Nonnull EndpointType lowEndpoint,
-                    @Nullable byte[] highKey, @Nonnull EndpointType highEndpoint) {
+    public KeyRange(@Nullable byte[] lowKey, EndpointType lowEndpoint,
+                    @Nullable byte[] highKey, EndpointType highEndpoint) {
         this.lowKey = lowKey == null ? new byte[0] : lowKey;
         this.lowEndpoint = lowKey == null ? EndpointType.TREE_START : lowEndpoint;
         this.highKey = highKey == null ? new byte[0] : highKey;
@@ -77,7 +72,6 @@ public class KeyRange {
      * @return the low key of the range to be scanned
      */
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
-    @Nonnull
     public byte[] getLowKey() {
         return lowKey;
     }
@@ -88,7 +82,6 @@ public class KeyRange {
      * @return how the lower boundary key of the range is to be interpreted by the scan
      * @see EndpointType
      */
-    @Nonnull
     public EndpointType getLowEndpoint() {
         return lowEndpoint;
     }
@@ -102,7 +95,6 @@ public class KeyRange {
      * @return the high key of the range to be scanned
      */
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
-    @Nonnull
     public byte[] getHighKey() {
         return highKey;
     }
@@ -113,7 +105,6 @@ public class KeyRange {
      * @return how the upper boundary key of the range is to be interpreted by the scan
      * @see EndpointType
      */
-    @Nonnull
     public EndpointType getHighEndpoint() {
         return highEndpoint;
     }

@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
@@ -36,7 +35,7 @@ import java.util.List;
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class InvertibleFunctionKeyExpression extends FunctionKeyExpression {
-    protected InvertibleFunctionKeyExpression(@Nonnull final String name, @Nonnull final KeyExpression arguments) {
+    protected InvertibleFunctionKeyExpression(final String name, final KeyExpression arguments) {
         super(name, arguments);
     }
 
@@ -46,12 +45,12 @@ public abstract class InvertibleFunctionKeyExpression extends FunctionKeyExpress
      * @param result the output from function execution
      * @return all function inputs that could result in the given output
      */
-    public List<Key.Evaluated> evaluateInverse(@Nonnull Key.Evaluated result) {
+    public List<Key.Evaluated> evaluateInverse(Key.Evaluated result) {
         validateResultColumns(result);
         return evaluateInverseInternal(result);
     }
 
-    protected abstract List<Key.Evaluated> evaluateInverseInternal(@Nonnull Key.Evaluated result);
+    protected abstract List<Key.Evaluated> evaluateInverseInternal(Key.Evaluated result);
 
     /**
      * Whether the function key expression is injective. A function is injective if and only if
@@ -66,7 +65,7 @@ public abstract class InvertibleFunctionKeyExpression extends FunctionKeyExpress
      */
     public abstract boolean isInjective();
 
-    private void validateResultColumns(@Nonnull Key.Evaluated result) {
+    private void validateResultColumns(Key.Evaluated result) {
         if (result.size() != getColumnSize()) {
             throw new RecordCoreArgumentException("result has unexpected number of columns")
                     .addLogInfo(LogMessageKeys.EXPECTED, getColumnSize())

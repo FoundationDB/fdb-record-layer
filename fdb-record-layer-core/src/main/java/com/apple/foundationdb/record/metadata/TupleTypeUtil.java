@@ -25,8 +25,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Internal;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,9 +38,7 @@ import java.util.List;
  * which does not (and probably should not) take Protobuf as a dependency.
  */
 class TupleTypeUtil {
-    @Nonnull
     private static final BigInteger BIG_INT_MAX_LONG = BigInteger.valueOf(Long.MAX_VALUE);
-    @Nonnull
     private static final BigInteger BIG_INT_MIN_LONG = BigInteger.valueOf(Long.MIN_VALUE);
 
     /**
@@ -60,8 +57,7 @@ class TupleTypeUtil {
      * @param values the list of values to normalized
      * @return a new list containing the normalized elements of {@code values}
      */
-    @Nonnull
-    static List<Object> toTupleEquivalentList(@Nonnull List<?> values) {
+    static List<Object> toTupleEquivalentList(List<?> values) {
         List<Object> tupleEquivalentList = new ArrayList<>(values.size());
         for (Object o : values) {
             tupleEquivalentList.add(toTupleEquivalentValue(o));
@@ -129,8 +125,7 @@ class TupleTypeUtil {
      * @param values a list of values
      * @return a new list with {@link Tuple}-encodable versions of the elements of {@code values}
      */
-    @Nonnull
-    static List<Object> toTupleAppropriateList(@Nonnull List<?> values) {
+    static List<Object> toTupleAppropriateList(List<?> values) {
         List<Object> tupleAppropriateList = new ArrayList<>(values.size());
         for (Object o : values) {
             tupleAppropriateList.add(toTupleAppropriateValue(o));

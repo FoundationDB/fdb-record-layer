@@ -22,8 +22,7 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * This exception extends {@link RecordCoreException} and is specifically used to indicate
@@ -32,7 +31,7 @@ import javax.annotation.Nullable;
 @API(API.Status.UNSTABLE)
 @SuppressWarnings("serial")
 public class RecordCoreTimeoutException extends RecordCoreException {
-    public RecordCoreTimeoutException(@Nonnull String msg, @Nullable Object ... keyValues) {
+    public RecordCoreTimeoutException(String msg, @Nullable Object ... keyValues) {
         super(msg, keyValues);
     }
 
@@ -40,11 +39,11 @@ public class RecordCoreTimeoutException extends RecordCoreException {
         super(cause);
     }
 
-    public RecordCoreTimeoutException(@Nonnull String msg, @Nullable Throwable cause) {
+    public RecordCoreTimeoutException(String msg, @Nullable Throwable cause) {
         super(msg, cause);
     }
 
-    public RecordCoreTimeoutException(@Nonnull String msg) {
+    public RecordCoreTimeoutException(String msg) {
         super(msg);
     }
 

@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
@@ -30,17 +29,16 @@ import java.util.Objects;
  * base hash for each object that can be added to the rest of the plan.
  */
 public class ObjectPlanHash implements PlanHashable {
-    @Nonnull
     private final Object id;
     private final int hashCode;
 
-    public ObjectPlanHash(@Nonnull final Object id) {
+    public ObjectPlanHash(final Object id) {
         this.id = id;
         this.hashCode = id.hashCode();
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
+    public int planHash(final PlanHashable.PlanHashMode mode) {
         return hashCode;
     }
 

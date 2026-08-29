@@ -27,8 +27,7 @@ import com.apple.foundationdb.record.metadata.Key.Evaluated.NullStandin;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 
 /**
@@ -40,11 +39,8 @@ import java.util.Objects;
 public class IndexEntry {
     private static final NullStandin[] NO_NULLS = new NullStandin[0];
 
-    @Nonnull
     private final Index index;
-    @Nonnull
     private final Tuple key;
-    @Nonnull
     private final Tuple value;
 
     /**
@@ -61,7 +57,7 @@ public class IndexEntry {
     private NullStandin[] nullStandins;
 
     @API(API.Status.INTERNAL)
-    public IndexEntry(@Nonnull Index index, @Nonnull Key.Evaluated key, @Nonnull Key.Evaluated value) {
+    public IndexEntry(Index index, Key.Evaluated key, Key.Evaluated value) {
         this(index, key.toTuple(), value.toTuple());
         int idx = 0;
         for (Object keyValue : key.values()) {
@@ -79,17 +75,17 @@ public class IndexEntry {
     }
 
     @API(API.Status.INTERNAL)
-    public IndexEntry(@Nonnull Index index, @Nonnull Key.Evaluated key) {
+    public IndexEntry(Index index, Key.Evaluated key) {
         this(index, key, Key.Evaluated.EMPTY);
     }
 
     @API(API.Status.INTERNAL)
-    public IndexEntry(@Nonnull Index index, @Nonnull Tuple key, @Nonnull Tuple value) {
+    public IndexEntry(Index index, Tuple key, Tuple value) {
         this(index, key, value, null);
     }
 
     @API(API.Status.INTERNAL)
-    public IndexEntry(@Nonnull Index index, @Nonnull Tuple key, @Nonnull Tuple value, @Nullable Tuple primaryKey) {
+    public IndexEntry(Index index, Tuple key, Tuple value, @Nullable Tuple primaryKey) {
         this.index = index;
         this.key = key;
         this.value = value;
@@ -102,7 +98,6 @@ public class IndexEntry {
      *
      * @return the index associated with this entry
      */
-    @Nonnull
     public Index getIndex() {
         return index;
     }
@@ -115,7 +110,6 @@ public class IndexEntry {
      * @return the key portion of the index entry
      * @see #getPrimaryKey()
      */
-    @Nonnull
     public Tuple getKey() {
         return key;
     }
@@ -128,7 +122,6 @@ public class IndexEntry {
      *
      * @return the value portion of the index entry
      */
-    @Nonnull
     public Tuple getValue() {
         return value;
     }
@@ -145,7 +138,6 @@ public class IndexEntry {
      *
      * @return the primary key of the record that produced this index entry
      */
-    @Nonnull
     public Tuple getPrimaryKey() {
         if (primaryKey == null) {
             primaryKey = index.getEntryPrimaryKey(key);
@@ -168,7 +160,7 @@ public class IndexEntry {
      * @param index the index this entry should be a member of
      */
     @API(API.Status.INTERNAL)
-    public void validateInIndex(@Nonnull Index index) {
+    public void validateInIndex(Index index) {
         if (!index.equals(getIndex())) {
             throw new RecordCoreArgumentException("index entry's index " + getIndex().getName() + " differs from specified index " + index.getName());
         }
@@ -197,7 +189,6 @@ public class IndexEntry {
      * @param idx the index of a null element
      * @return the type of null stored at {@code idx}
      */
-    @Nonnull
     public NullStandin getKeyNullType(int idx) {
         checkIfNullTypeAvailable();
         if (nullStandins.length == 0 || nullStandins[idx] == null) {
@@ -212,7 +203,6 @@ public class IndexEntry {
      * @param endIdx the ending offset (exclusive) of the key to use for the new value
      * @return a new index entry with the subset key between {@code startIdx} and {@code endIdx}
      */
-    @Nonnull
     public IndexEntry subKey(int startIdx, int endIdx) {
         if (startIdx == 0 && endIdx == key.size()) {
             return this;

@@ -25,8 +25,7 @@ import com.apple.foundationdb.annotation.API;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.nio.ByteBuffer;
 
 /**
@@ -34,16 +33,14 @@ import java.nio.ByteBuffer;
  */
 @API(API.Status.EXPERIMENTAL)
 public class ByteArrayContinuation implements RecordCursorContinuation {
-    @Nonnull
     private final byte[] bytes;
     @Nullable
     private ByteString byteString;
 
-    private ByteArrayContinuation(@Nonnull final byte[] bytes) {
+    private ByteArrayContinuation(final byte[] bytes) {
         this.bytes = bytes;
     }
 
-    @Nonnull
     @Override
     @SpotBugsSuppressWarnings("EI")
     public byte[] toBytes() {
@@ -51,7 +48,6 @@ public class ByteArrayContinuation implements RecordCursorContinuation {
     }
 
     @Override
-    @Nonnull
     public ByteString toByteString() {
         if (byteString == null) {
             byteString = ZeroCopyByteString.wrap(bytes);
@@ -71,7 +67,6 @@ public class ByteArrayContinuation implements RecordCursorContinuation {
      * @param bytes a nullable byte array representing a serialized continuation
      * @return a {@code RecordCursorContinuation} as described above
      */
-    @Nonnull
     public static RecordCursorContinuation fromNullable(@Nullable final byte[] bytes) {
         if (bytes == null) {
             return RecordCursorEndContinuation.END;
@@ -85,7 +80,6 @@ public class ByteArrayContinuation implements RecordCursorContinuation {
      * @param a an integer
      * @return a {@code ByteArrayContinuation} wrapping a byte array of the given integer
      */
-    @Nonnull
     public static RecordCursorContinuation fromInt(int a) {
         return new ByteArrayContinuation(ByteBuffer.allocate(Integer.BYTES).putInt(a).array());
     }

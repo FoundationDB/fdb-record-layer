@@ -36,8 +36,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -56,20 +55,14 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.keyWithValu
  */
 @API(API.Status.UNSTABLE)
 public class Index {
-    @Nonnull
     public static final KeyExpression EMPTY_VALUE = EmptyKeyExpression.EMPTY;
 
-    @Nonnull
     private final String name;
-    @Nonnull
     private final String type;
-    @Nonnull
     private final Map<String, String> options;
-    @Nonnull
     private final KeyExpression rootExpression;
     @Nullable
     private int[] primaryKeyComponentPositions;
-    @Nonnull
     private Object subspaceKey;
     private boolean useExplicitSubspaceKey = false;
     private int addedVersion;
@@ -77,7 +70,7 @@ public class Index {
     @Nullable
     private final IndexPredicate predicate;
 
-    public static Object decodeSubspaceKey(@Nonnull ByteString bytes) {
+    public static Object decodeSubspaceKey(ByteString bytes) {
         Tuple tuple = Tuple.fromBytes(bytes.toByteArray());
         if (tuple.size() != 1) {
             throw new RecordCoreException("subspace key must encode a single item tuple");
@@ -85,8 +78,7 @@ public class Index {
         return tuple.get(0);
     }
 
-    @Nonnull
-    private static Object normalizeSubspaceKey(@Nonnull String name, @Nonnull Object subspaceKey) {
+    private static Object normalizeSubspaceKey(String name, Object subspaceKey) {
         Object normalizedKey = TupleTypeUtil.toTupleEquivalentValue(subspaceKey);
         if (normalizedKey == null) {
             throw new RecordCoreArgumentException("Index subspace key cannot be null",
@@ -104,10 +96,10 @@ public class Index {
      * @param options additional options, which may be type-specific
      * @see IndexTypes
      */
-    public Index(@Nonnull String name,
-                 @Nonnull KeyExpression rootExpression,
-                 @Nonnull String type,
-                 @Nonnull Map<String, String> options) {
+    public Index(String name,
+                 KeyExpression rootExpression,
+                 String type,
+                 Map<String, String> options) {
         this(name, rootExpression, type, options, null);
     }
 
@@ -120,10 +112,10 @@ public class Index {
      * @param predicate index predicate, for sparse indexes, can be null.
      * @see IndexTypes
      */
-    public Index(@Nonnull String name,
-                 @Nonnull KeyExpression rootExpression,
-                 @Nonnull String type,
-                 @Nonnull Map<String, String> options,
+    public Index(String name,
+                 KeyExpression rootExpression,
+                 String type,
+                 Map<String, String> options,
                  @Nullable IndexPredicate predicate) {
         this.name = name;
         this.rootExpression = rootExpression;
@@ -134,31 +126,31 @@ public class Index {
         this.predicate = predicate;
     }
 
-    public Index(@Nonnull String name,
-                 @Nonnull KeyExpression rootExpression,
-                 @Nonnull KeyExpression valueExpression,
-                 @Nonnull String type,
-                 @Nonnull Map<String, String> options) {
+    public Index(String name,
+                 KeyExpression rootExpression,
+                 KeyExpression valueExpression,
+                 String type,
+                 Map<String, String> options) {
         this(name, toKeyWithValueExpression(rootExpression, valueExpression), type, options);
     }
 
-    public Index(@Nonnull String name,
-                 @Nonnull KeyExpression rootExpression,
-                 @Nonnull String type) {
+    public Index(String name,
+                 KeyExpression rootExpression,
+                 String type) {
         this(name, rootExpression, type, IndexOptions.EMPTY_OPTIONS);
     }
 
 
-    public Index(@Nonnull String name,
-                 @Nonnull KeyExpression rootExpression) {
+    public Index(String name,
+                 KeyExpression rootExpression) {
         this(name, rootExpression, IndexTypes.VALUE);
     }
 
-    public Index(@Nonnull String name, @Nonnull String first) {
+    public Index(String name, String first) {
         this(name, Key.Expressions.field(first));
     }
 
-    public Index(@Nonnull String name, @Nonnull String first, @Nonnull String second, @Nonnull String... rest) {
+    public Index(String name, String first, String second, String... rest) {
         this(name, Key.Expressions.concatenateFields(first, second, rest));
     }
 
@@ -167,7 +159,7 @@ public class Index {
      * instance.
      * @param orig original index to copy
      */
-    public Index(@Nonnull Index orig) {
+    public Index(Index orig) {
         this(orig, orig.predicate);
     }
 
@@ -177,7 +169,7 @@ public class Index {
      * @param orig original index to copy
      * @param predicate the index predicate
      */
-    public Index(@Nonnull Index orig, @Nullable final IndexPredicate predicate) {
+    public Index(Index orig, @Nullable final IndexPredicate predicate) {
         this(orig.name, orig.rootExpression, orig.type, ImmutableMap.copyOf(orig.options), predicate);
         if (orig.primaryKeyComponentPositions != null) {
             this.primaryKeyComponentPositions = Arrays.copyOf(orig.primaryKeyComponentPositions, orig.primaryKeyComponentPositions.length);
@@ -191,7 +183,7 @@ public class Index {
     }
 
     @SuppressWarnings({"deprecation", "squid:CallToDeprecatedMethod", "java:S3776"}) // Old (deprecated) index type needs grouping compatibility
-    public Index(@Nonnull RecordMetaDataProto.Index proto) throws KeyExpression.DeserializationException {
+    public Index(RecordMetaDataProto.Index proto) throws KeyExpression.DeserializationException {
         name = proto.getName();
         // Compatibility with old serialized metadata.
         // TODO: Can be removed when / if all metadata has been regenerated.
@@ -241,9 +233,8 @@ public class Index {
         }
     }
 
-    @Nonnull
-    private static KeyExpression toKeyWithValueExpression(@Nonnull KeyExpression rootExpression,
-                                                          @Nonnull KeyExpression valueExpression) {
+    private static KeyExpression toKeyWithValueExpression(KeyExpression rootExpression,
+                                                          KeyExpression valueExpression) {
         if (valueExpression.getColumnSize() == 0) {
             return rootExpression;
         }
@@ -289,7 +280,6 @@ public class Index {
         }
     }
 
-    @Nonnull
     public String getName() {
         return name;
     }
@@ -300,22 +290,20 @@ public class Index {
      * @return the type of the index.
      * @see IndexTypes
      */
-    @Nonnull
     public String getType() {
         return type;
     }
 
-    @Nonnull
     public Map<String, String> getOptions() {
         return options;
     }
 
     @Nullable
-    public String getOption(@Nonnull String key) {
+    public String getOption(String key) {
         return options.get(key);
     }
 
-    public boolean getBooleanOption(@Nonnull String key, boolean defaultValue) {
+    public boolean getBooleanOption(String key, boolean defaultValue) {
         final String option = getOption(key);
         if (option == null) {
             return defaultValue;
@@ -324,7 +312,6 @@ public class Index {
         }
     }
 
-    @Nonnull
     public KeyExpression getRootExpression() {
         return rootExpression;
     }
@@ -352,7 +339,6 @@ public class Index {
      * @return either the empty list or a list of indexes that when built should cause this index to be removed
      * @see IndexOptions#REPLACED_BY_OPTION_PREFIX
      */
-    @Nonnull
     public List<String> getReplacedByIndexNames() {
         ImmutableList.Builder<String> replacedByIndexNames = ImmutableList.builder();
         for (Map.Entry<String, String> option : getOptions().entrySet()) {
@@ -373,7 +359,6 @@ public class Index {
      * @return the key used to determine this index's subspace prefix
      * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore#indexSubspace(Index)
      */
-    @Nonnull
     public Object getSubspaceKey() {
         return subspaceKey;
     }
@@ -386,7 +371,6 @@ public class Index {
      *
      * @return a {@link Tuple}-encodable version of index subspace key
      */
-    @Nonnull
     public Object getSubspaceTupleKey() {
         return TupleTypeUtil.toTupleAppropriateValue(subspaceKey);
     }
@@ -410,7 +394,7 @@ public class Index {
      * @param subspaceKey the key used to determine this index's subspace prefix
      * @see #getSubspaceKey()
      */
-    public void setSubspaceKey(@Nonnull Object subspaceKey) {
+    public void setSubspaceKey(Object subspaceKey) {
         useExplicitSubspaceKey = true;
         this.subspaceKey = normalizeSubspaceKey(name, subspaceKey);
     }
@@ -557,8 +541,7 @@ public class Index {
      * @param entry the index entry
      * @return the primary key extracted from the entry
      */
-    @Nonnull
-    public Tuple getEntryPrimaryKey(@Nonnull Tuple entry) {
+    public Tuple getEntryPrimaryKey(Tuple entry) {
         List<Object> entryKeys = entry.getItems();
         List<Object> primaryKeys;
         if (primaryKeyComponentPositions == null) {
@@ -578,7 +561,6 @@ public class Index {
      * @param primaryKeyLength the number of elements in the primary key for the record
      * @return a list of the primary key positions for an entry of this index
      */
-    @Nonnull
     public List<Integer> getEntryPrimaryKeyPositions(int primaryKeyLength) {
         List<Integer> primaryKeys = new ArrayList<>(primaryKeyLength);
         int columnSize = getColumnSize();
@@ -648,11 +630,10 @@ public class Index {
         this.lastModifiedVersion = lastModifiedVersion;
     }
 
-    public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor recordType) {
+    public List<Descriptors.FieldDescriptor> validate(Descriptors.Descriptor recordType) {
         return rootExpression.validate(recordType);
     }
 
-    @Nonnull
     public RecordMetaDataProto.Index toProto() throws KeyExpression.SerializationException {
         final RecordMetaDataProto.Index.Builder builder = RecordMetaDataProto.Index.newBuilder();
         builder.setName(name);

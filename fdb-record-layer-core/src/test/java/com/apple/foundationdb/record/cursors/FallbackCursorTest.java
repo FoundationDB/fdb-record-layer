@@ -29,7 +29,6 @@ import com.apple.foundationdb.test.TestExecutors;
 import com.apple.foundationdb.util.LoggableException;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -135,9 +134,7 @@ public class FallbackCursorTest {
      * A cursor that returns a number of Integer values and then fails.
      */
     private static class FailingCursor implements RecordCursor<Integer> {
-        @Nonnull
         private final Executor executor;
-        @Nonnull
         private final List<Integer> list;
         private int nextPosition = 0; // position of the next value to return
         private boolean closed = false;
@@ -147,7 +144,6 @@ public class FallbackCursorTest {
             list = listOfLength(numOfElementsBeforeFailure);
         }
 
-        @Nonnull
         @Override
         public CompletableFuture<RecordCursorResult<Integer>> onNext() {
             try {
@@ -157,7 +153,6 @@ public class FallbackCursorTest {
             }
         }
 
-        @Nonnull
         @Override
         public RecordCursorResult<Integer> getNext() {
             RecordCursorResult<Integer> nextResult;
@@ -181,18 +176,16 @@ public class FallbackCursorTest {
         }
 
         @Override
-        public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+        public boolean accept(RecordCursorVisitor visitor) {
             visitor.visitEnter(this);
             return visitor.visitLeave(this);
         }
 
         @Override
-        @Nonnull
         public Executor getExecutor() {
             return executor;
         }
 
-        @Nonnull
         private static List<Integer> listOfLength(final int length) {
             return IntStream.range(0, length).boxed().collect(Collectors.toList());
         }

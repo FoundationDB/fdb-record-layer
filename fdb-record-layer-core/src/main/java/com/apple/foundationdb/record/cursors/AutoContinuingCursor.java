@@ -33,8 +33,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
@@ -74,9 +73,7 @@ import java.util.function.BiFunction;
 public class AutoContinuingCursor<T> implements RecordCursor<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(AutoContinuingCursor.class);
 
-    @Nonnull
     private final FDBDatabaseRunner runner;
-    @Nonnull
     private final BiFunction<FDBRecordContext, byte[], RecordCursor<T>> nextCursorGenerator;
 
     @Nullable
@@ -94,8 +91,8 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
      * @param runner the runner from which it can open new contexts
      * @param nextCursorGenerator the method which can generate the underlying cursor given a record context and a continuation
      */
-    public AutoContinuingCursor(@Nonnull FDBDatabaseRunner runner,
-                                @Nonnull BiFunction<FDBRecordContext, byte[], RecordCursor<T>> nextCursorGenerator) {
+    public AutoContinuingCursor(FDBDatabaseRunner runner,
+                                BiFunction<FDBRecordContext, byte[], RecordCursor<T>> nextCursorGenerator) {
         this(runner, nextCursorGenerator, 0);
     }
 
@@ -107,15 +104,14 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
      *   {@link com.apple.foundationdb.FDBError#TRANSACTION_TOO_OLD}, will be caught and a the cursor automatically
      *   continued
      */
-    public AutoContinuingCursor(@Nonnull FDBDatabaseRunner runner,
-                                @Nonnull BiFunction<FDBRecordContext, byte[], RecordCursor<T>> nextCursorGenerator,
+    public AutoContinuingCursor(FDBDatabaseRunner runner,
+                                BiFunction<FDBRecordContext, byte[], RecordCursor<T>> nextCursorGenerator,
                                 int maxRetriesOnRetriableException) {
         this.runner = runner;
         this.nextCursorGenerator = nextCursorGenerator;
         this.maxRetriesOnRetriableException = maxRetriesOnRetriableException;
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         return AsyncUtil.whileTrue(() ->
@@ -145,7 +141,6 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
         });
     }
 
-    @Nonnull
     @Override
     public RecordCursorResult<T> getNext() {
         return runner.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, onNext());
@@ -174,14 +169,13 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
         return currentContext == null || currentContext.isClosed();
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return runner.getExecutor();
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this) && currentCursor != null) {
             currentCursor.accept(visitor);
         }

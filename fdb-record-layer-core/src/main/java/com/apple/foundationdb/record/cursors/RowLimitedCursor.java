@@ -25,8 +25,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -36,7 +35,6 @@ import java.util.concurrent.Executor;
  */
 @API(API.Status.UNSTABLE)
 public class RowLimitedCursor<T> implements RecordCursor<T> {
-    @Nonnull
     private final RecordCursor<T> inner;
 
     private final int limit;
@@ -45,13 +43,12 @@ public class RowLimitedCursor<T> implements RecordCursor<T> {
     @Nullable
     protected RecordCursorResult<T> nextResult;
 
-    public RowLimitedCursor(@Nonnull RecordCursor<T> inner, int limit) {
+    public RowLimitedCursor(RecordCursor<T> inner, int limit) {
         this.inner = inner;
         this.limit = limit;
         this.soFar = 0;
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         if (nextResult != null && !nextResult.hasNext()) {
@@ -86,14 +83,13 @@ public class RowLimitedCursor<T> implements RecordCursor<T> {
         return inner.isClosed();
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return inner.getExecutor();
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
             inner.accept(visitor);
         }

@@ -27,8 +27,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Objects;
 
@@ -41,14 +40,13 @@ import static com.apple.foundationdb.record.metadata.Index.decodeSubspaceKey;
  */
 @API(API.Status.UNSTABLE)
 public class FormerIndex {
-    @Nonnull
     private final Object subspaceKey;
     private final int addedVersion;
     private final int removedVersion;
     @Nullable
     private final String formerName;
 
-    public FormerIndex(@Nonnull Object subspaceKey, int addedVersion, int removedVersion, @Nullable String formerName) {
+    public FormerIndex(Object subspaceKey, int addedVersion, int removedVersion, @Nullable String formerName) {
         Object normalizedKey = TupleTypeUtil.toTupleEquivalentValue(subspaceKey);
         if (normalizedKey == null) {
             throw new RecordCoreArgumentException("FormerIndex initialized with null subspace key",
@@ -61,7 +59,7 @@ public class FormerIndex {
         this.formerName = formerName;
     }
 
-    public FormerIndex(@Nonnull RecordMetaDataProto.FormerIndex proto) {
+    public FormerIndex(RecordMetaDataProto.FormerIndex proto) {
         this(decodeSubspaceKey(proto.getSubspaceKey()),
                 proto.getAddedVersion(), proto.getRemovedVersion(),
                 proto.hasFormerName() ? proto.getFormerName() : null);
@@ -73,7 +71,6 @@ public class FormerIndex {
      * This subspace will be cleared for record stores old enough to have seen the index.
      * @return the index subspace key
      */
-    @Nonnull
     public Object getSubspaceKey() {
         return subspaceKey;
     }
@@ -86,7 +83,6 @@ public class FormerIndex {
      *
      * @return a {@link Tuple}-encodable version of index subspace key
      */
-    @Nonnull
     public Object getSubspaceTupleKey() {
         return TupleTypeUtil.toTupleAppropriateValue(subspaceKey);
     }
@@ -116,7 +112,6 @@ public class FormerIndex {
         return formerName;
     }
 
-    @Nonnull
     public RecordMetaDataProto.FormerIndex toProto() {
         RecordMetaDataProto.FormerIndex.Builder builder = RecordMetaDataProto.FormerIndex.newBuilder();
         builder.setSubspaceKey(ZeroCopyByteString.wrap(Tuple.from(subspaceKey).pack()));

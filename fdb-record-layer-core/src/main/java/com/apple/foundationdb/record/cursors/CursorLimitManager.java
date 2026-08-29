@@ -33,8 +33,7 @@ import com.apple.foundationdb.record.provider.foundationdb.cursors.IntersectionC
 import com.apple.foundationdb.record.provider.foundationdb.cursors.UnionCursor;
 import com.google.common.annotations.VisibleForTesting;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Optional;
 
 /**
@@ -81,11 +80,11 @@ public class CursorLimitManager {
         this.timeScanLimiter = timeScanLimiter;
     }
 
-    public CursorLimitManager(@Nonnull ScanProperties scanProperties) {
+    public CursorLimitManager(ScanProperties scanProperties) {
         this(null, scanProperties);
     }
 
-    public CursorLimitManager(@Nullable FDBRecordContext context, @Nonnull ScanProperties scanProperties) {
+    public CursorLimitManager(@Nullable FDBRecordContext context, ScanProperties scanProperties) {
         this.recordScanLimiter = scanProperties.getExecuteProperties().getState().getRecordScanLimiter();
         this.byteScanLimiter = scanProperties.getExecuteProperties().getState().getByteScanLimiter();
         this.failOnScanLimitReached = scanProperties.getExecuteProperties().isFailOnScanLimitReached();

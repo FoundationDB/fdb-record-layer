@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.metadata.expressions;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
@@ -30,6 +29,5 @@ import java.util.List;
  */
 @API(API.Status.UNSTABLE)
 public interface KeyExpressionWithChildren extends KeyExpression {
-    @Nonnull
     List<KeyExpression> getChildren();
 }

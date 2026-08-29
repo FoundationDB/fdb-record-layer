@@ -39,8 +39,7 @@ import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -57,10 +56,8 @@ public class Key {
      */
     public static class Expressions {
         /** The name of the key field in Protobuf {@code map} messages. */
-        @Nonnull
         public static final String MAP_KEY_FIELD = "key";
         /** The name of the value field in Protobuf {@code map} messages. */
-        @Nonnull
         public static final String MAP_VALUE_FIELD = "value";
 
         private Expressions() {
@@ -75,8 +72,7 @@ public class Key {
          * @return a new Field expression, which can further be nested if the associated field is of the Message type.
          * @see #field(String, KeyExpression.FanType, com.apple.foundationdb.record.metadata.Key.Evaluated.NullStandin)
          */
-        @Nonnull
-        public static FieldKeyExpression field(@Nonnull String name) {
+        public static FieldKeyExpression field(String name) {
             return field(name, KeyExpression.FanType.None);
         }
 
@@ -92,8 +88,7 @@ public class Key {
          * @return a new Field expression which can further be nested if the associated field is of the Message type.
          * @see #field(String, KeyExpression.FanType, com.apple.foundationdb.record.metadata.Key.Evaluated.NullStandin)
          */
-        @Nonnull
-        public static FieldKeyExpression field(@Nonnull String name, @Nonnull KeyExpression.FanType fanType) {
+        public static FieldKeyExpression field(String name, KeyExpression.FanType fanType) {
             return field(name, fanType, Evaluated.NullStandin.NULL);
         }
 
@@ -122,8 +117,7 @@ public class Key {
          * determining whether it will contribute to unique indexes
          * @return a new Field expression which can further be nested if the associated field is of the Message type.
          */
-        @Nonnull
-        public static FieldKeyExpression field(@Nonnull String name, @Nonnull KeyExpression.FanType fanType, @Nonnull Evaluated.NullStandin nullStandin) {
+        public static FieldKeyExpression field(String name, KeyExpression.FanType fanType, Evaluated.NullStandin nullStandin) {
             return new FieldKeyExpression(name, fanType, nullStandin);
         }
 
@@ -138,9 +132,8 @@ public class Key {
          * @param rest this supports any number children (at least 2), this is the rest of them
          * @return a new expression which evaluates each child and returns the cross product
          */
-        @Nonnull
-        public static ThenKeyExpression concat(@Nonnull KeyExpression first, @Nonnull KeyExpression second,
-                                               @Nonnull KeyExpression... rest) {
+        public static ThenKeyExpression concat(KeyExpression first, KeyExpression second,
+                                               KeyExpression... rest) {
             return new ThenKeyExpression(first, second, rest);
         }
 
@@ -153,8 +146,7 @@ public class Key {
          * @param children child expressions
          * @return a new expression which evaluates each child and returns the cross product
          */
-        @Nonnull
-        public static ThenKeyExpression concat(@Nonnull List<KeyExpression> children) {
+        public static ThenKeyExpression concat(List<KeyExpression> children) {
             return new ThenKeyExpression(children);
         }
 
@@ -165,9 +157,8 @@ public class Key {
          * @param fields this supports any number fields (at least 2), this is the rest of them
          * @return a new expression which evaluates each field returns them all in a single key
          */
-        @Nonnull
-        public static ThenKeyExpression concatenateFields(@Nonnull String first, @Nonnull String second,
-                                                          @Nonnull String... fields) {
+        public static ThenKeyExpression concatenateFields(String first, String second,
+                                                          String... fields) {
             KeyExpression[] rest = new KeyExpression[fields.length];
             for (int i = 0; i < fields.length; i++) {
                 rest[i] = field(fields[i]);
@@ -180,8 +171,7 @@ public class Key {
          * @param fields names of the fields
          * @return a new expression which evaluates each field and returns them all in a single key
          */
-        @Nonnull
-        public static ThenKeyExpression concatenateFields(@Nonnull List<String> fields) {
+        public static ThenKeyExpression concatenateFields(List<String> fields) {
             List<KeyExpression> exprs = new ArrayList<>(fields.size());
             for (String field : fields) {
                 exprs.add(field(field));
@@ -194,8 +184,7 @@ public class Key {
          * @param children child expressions
          * @return a new expression which evaluates each child and returns the cross product as a list
          */
-        @Nonnull
-        public static ListKeyExpression list(@Nonnull KeyExpression... children) {
+        public static ListKeyExpression list(KeyExpression... children) {
             return new ListKeyExpression(Arrays.asList(children));
         }
 
@@ -204,8 +193,7 @@ public class Key {
          * @param children child expressions
          * @return a new expression which evaluates each child and returns the cross product as a list
          */
-        @Nonnull
-        public static ListKeyExpression list(@Nonnull List<KeyExpression> children) {
+        public static ListKeyExpression list(List<KeyExpression> children) {
             return new ListKeyExpression(children);
         }
 
@@ -217,8 +205,7 @@ public class Key {
          * @param name name of the map field
          * @return a new expression which evaluates to the key and value pairs of the given {@code map} field.
          */
-        @Nonnull
-        public static NestingKeyExpression mapKeyValues(@Nonnull String name) {
+        public static NestingKeyExpression mapKeyValues(String name) {
             return field(name, KeyExpression.FanType.FanOut).nest(concatenateFields(MAP_KEY_FIELD, MAP_VALUE_FIELD));
         }
 
@@ -230,8 +217,7 @@ public class Key {
          * @param name name of the map field
          * @return a new expression which evaluates to the values of the given {@code map} field.
          */
-        @Nonnull
-        public static NestingKeyExpression mapKeys(@Nonnull String name) {
+        public static NestingKeyExpression mapKeys(String name) {
             return field(name, KeyExpression.FanType.FanOut).nest(field(MAP_KEY_FIELD));
         }
 
@@ -243,8 +229,7 @@ public class Key {
          * @param name name of the map field
          * @return a new expression which evaluates to the values of the given {@code map} field.
          */
-        @Nonnull
-        public static NestingKeyExpression mapValues(@Nonnull String name) {
+        public static NestingKeyExpression mapValues(String name) {
             return field(name, KeyExpression.FanType.FanOut).nest(field(MAP_VALUE_FIELD));
         }
 
@@ -259,8 +244,7 @@ public class Key {
          * @param name name of the map field
          * @return a new expression which evaluates to the value and key pairs of the given {@code map} field.
          */
-        @Nonnull
-        public static NestingKeyExpression mapValueKeys(@Nonnull String name) {
+        public static NestingKeyExpression mapValueKeys(String name) {
             return field(name, KeyExpression.FanType.FanOut).nest(concatenateFields(MAP_VALUE_FIELD, MAP_KEY_FIELD));
         }
 
@@ -270,8 +254,7 @@ public class Key {
          * @param arguments the arguments to the function
          * @return a new key expression that evaluates by calling the named function
          */
-        @Nonnull
-        public static FunctionKeyExpression function(@Nonnull String name, @Nonnull KeyExpression arguments) {
+        public static FunctionKeyExpression function(String name, KeyExpression arguments) {
             return FunctionKeyExpression.create(name, arguments);
         }
 
@@ -280,8 +263,7 @@ public class Key {
          * @param name the name of the function
          * @return a new key expression that evaluates by calling the named function
          */
-        @Nonnull
-        public static FunctionKeyExpression function(@Nonnull String name) {
+        public static FunctionKeyExpression function(String name) {
             return FunctionKeyExpression.create(name, EmptyKeyExpression.EMPTY);
         }
 
@@ -292,7 +274,6 @@ public class Key {
          * @param <T> the type of the value
          * @return a new key expression that evaluates to the given value
          */
-        @Nonnull
         public static <T> LiteralKeyExpression<T> value(@Nullable T value) {
             return new LiteralKeyExpression<T>(value);
         }
@@ -307,8 +288,7 @@ public class Key {
          * keys before this position are part of the key and keys after this position are part of the value
          * @return an expression splitting the key and value
          */
-        @Nonnull
-        public static KeyWithValueExpression keyWithValue(@Nonnull KeyExpression child, int splitPoint) {
+        public static KeyWithValueExpression keyWithValue(KeyExpression child, int splitPoint) {
             return new KeyWithValueExpression(child, splitPoint);
         }
 
@@ -317,7 +297,6 @@ public class Key {
          * @return the empty key expression
          * @see EmptyKeyExpression
          */
-        @Nonnull
         public static EmptyKeyExpression empty() {
             return EmptyKeyExpression.EMPTY;
         }
@@ -327,7 +306,6 @@ public class Key {
          * @return the version key expression
          * @see VersionKeyExpression
          */
-        @Nonnull
         public static VersionKeyExpression version() {
             return VersionKeyExpression.VERSION;
         }
@@ -338,7 +316,6 @@ public class Key {
          * @return the record type key expression
          * @see RecordTypeKeyExpression
          */
-        @Nonnull
         public static RecordTypeKeyExpression recordType() {
             return RecordTypeKeyExpression.RECORD_TYPE_KEY;
         }
@@ -348,8 +325,7 @@ public class Key {
          * @param fieldDescriptor a field in a record type.
          * @return a new {@code Field} to get the value of the given field descriptor.
          */
-        @Nonnull
-        public static FieldKeyExpression fromDescriptor(@Nonnull Descriptors.FieldDescriptor fieldDescriptor) {
+        public static FieldKeyExpression fromDescriptor(Descriptors.FieldDescriptor fieldDescriptor) {
             final FieldKeyExpression field = fieldDescriptor.isRepeated() ?
                                              Expressions.field(fieldDescriptor.getName(), KeyExpression.FanType.FanOut) :
                                              Expressions.field(fieldDescriptor.getName());
@@ -362,7 +338,7 @@ public class Key {
          * @param key key expression to check
          * @return {@code true} if the given key expression has a record type key prefix
          */
-        public static boolean hasRecordTypePrefix(@Nonnull KeyExpression key) {
+        public static boolean hasRecordTypePrefix(KeyExpression key) {
             if (key instanceof RecordTypeKeyExpression) {
                 return true;
             } else if (key instanceof GroupingKeyExpression) {
@@ -430,7 +406,6 @@ public class Key {
          */
         public static final Evaluated NULL = new Evaluated(Collections.singletonList(NullStandin.NULL));
 
-        @Nonnull
         private List<Object> values;
 
         @Nullable
@@ -444,7 +419,6 @@ public class Key {
          * @param object the lone value in the key
          * @return a new key for the one value
          */
-        @Nonnull
         public static Evaluated scalar(@Nullable Object object) {
             return new Evaluated(Collections.singletonList(object));
         }
@@ -454,8 +428,7 @@ public class Key {
          * @param valuesToAdd the list of scalars
          * @return one key for each value in valuesToAdd
          */
-        @Nonnull
-        public static List<Evaluated> fan(@Nonnull List<Object> valuesToAdd) {
+        public static List<Evaluated> fan(List<Object> valuesToAdd) {
             List<Evaluated> newValues = new ArrayList<>(valuesToAdd.size());
             for (Object object : valuesToAdd) {
                 newValues.add(Evaluated.scalar(object));
@@ -469,8 +442,7 @@ public class Key {
          * @param values the values to combine together into a key
          * @return a new key with the given values
          */
-        @Nonnull
-        public static Evaluated concatenate(@Nonnull List<Object> values) {
+        public static Evaluated concatenate(List<Object> values) {
             return new Evaluated(values);
         }
 
@@ -480,7 +452,6 @@ public class Key {
          * @param rest the rest of the values
          * @return a new key consisting of the provided values
          */
-        @Nonnull
         public static Evaluated concatenate(@Nullable Object first, @Nullable Object... rest) {
             final ArrayList<Object> values = new ArrayList<>(rest.length + 1);
             values.add(first);
@@ -494,8 +465,7 @@ public class Key {
          * @param tuple the tuple to convert
          * @return a new key based on the given tuple
          */
-        @Nonnull
-        public static Evaluated fromTuple(@Nonnull Tuple tuple) {
+        public static Evaluated fromTuple(Tuple tuple) {
             return new Evaluated(tuple.getItems());
         }
 
@@ -504,7 +474,6 @@ public class Key {
          * into the database.
          * @return this key converted into a {@link Tuple}
          */
-        @Nonnull
         public Tuple toTuple() {
             if (tuple == null) {
                 tuple = Tuple.fromList(toTupleAppropriateList());
@@ -512,7 +481,7 @@ public class Key {
             return tuple;
         }
 
-        Evaluated(@Nonnull List<Object> values) {
+        Evaluated(List<Object> values) {
             this.values = values;
         }
 
@@ -562,7 +531,6 @@ public class Key {
             }
         }
 
-        @Nonnull
         private <T> T notNull(int idx, @Nullable T value) {
             if (value == null) {
                 throw new KeyExpression.InvalidResultException("Unexpected null value")
@@ -611,8 +579,7 @@ public class Key {
          * @param secondValue another key that will form the second part of the new key.
          * @return a new key consisting of the elements in this key, and then the elements of the second key
          */
-        @Nonnull
-        public Evaluated append(@Nonnull Evaluated secondValue) {
+        public Evaluated append(Evaluated secondValue) {
             final ArrayList<Object> combined = new ArrayList<>(values);
             combined.addAll(secondValue.values);
             return new Evaluated(combined);
@@ -622,7 +589,6 @@ public class Key {
          * Converts to a list. Useful for creating tuples
          * @return the elements of this key value
          */
-        @Nonnull
         public List<Object> toList() {
             return toTupleAppropriateList();
         }
@@ -632,7 +598,6 @@ public class Key {
          * types that Tuple can handle.
          * @return the elements of this key value
          */
-        @Nonnull
         public List<Object> toTupleAppropriateList() {
             if (tupleAppropriateList == null) {
                 tupleAppropriateList = TupleTypeUtil.toTupleAppropriateList(values);

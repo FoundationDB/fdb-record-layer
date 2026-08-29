@@ -37,8 +37,7 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -51,18 +50,15 @@ import java.util.function.Function;
 @API(API.Status.EXPERIMENTAL)
 public class TempTableInsertCursor implements RecordCursor<QueryResult> {
 
-    @Nonnull
     private final RecordCursor<QueryResult> childCursor;
-    @Nonnull
     private final TempTable tempTable;
 
-    private TempTableInsertCursor(@Nonnull final RecordCursor<QueryResult> childCursor,
-                                  @Nonnull final TempTable tempTable) {
+    private TempTableInsertCursor(final RecordCursor<QueryResult> childCursor,
+                                  final TempTable tempTable) {
         this.childCursor = childCursor;
         this.tempTable = tempTable;
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<QueryResult>> onNext() {
         return childCursor.onNext().thenApply(childCursorResult -> {
@@ -89,14 +85,13 @@ public class TempTableInsertCursor implements RecordCursor<QueryResult> {
         return childCursor.isClosed();
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return childCursor.getExecutor();
     }
 
     @Override
-    public boolean accept(@Nonnull final RecordCursorVisitor visitor) {
+    public boolean accept(final RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
             childCursor.accept(visitor);
         }
@@ -113,11 +108,10 @@ public class TempTableInsertCursor implements RecordCursor<QueryResult> {
      * @return a new {@link TempTableInsertCursor} that either resumes the execution according to the given continuation,
      *         or starts from the beginning.
      */
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
     public static TempTableInsertCursor from(@Nullable byte[] unparsed,
-                                             @Nonnull Function<PTempTable, TempTable> tempTableDeserializer,
-                                             @Nonnull Function<byte[], RecordCursor<QueryResult>> childCursorCreator) {
+                                             Function<PTempTable, TempTable> tempTableDeserializer,
+                                             Function<byte[], RecordCursor<QueryResult>> childCursorCreator) {
         final var continuation = Continuation.from(unparsed, tempTableDeserializer);
         final var childCursor = childCursorCreator.apply(continuation.getChildContinuation().toBytes());
         return new TempTableInsertCursor(childCursor, continuation.getTempTable());
@@ -125,28 +119,23 @@ public class TempTableInsertCursor implements RecordCursor<QueryResult> {
 
     private static class Continuation implements RecordCursorContinuation {
 
-        @Nonnull
         private final TempTable tempTable;
-        @Nonnull
         private final RecordCursorContinuation childContinuation;
 
-        private Continuation(@Nonnull final TempTable tempTable,
-                             @Nonnull final RecordCursorContinuation childContinuation) {
+        private Continuation(final TempTable tempTable,
+                             final RecordCursorContinuation childContinuation) {
             this.tempTable = tempTable;
             this.childContinuation = childContinuation;
         }
 
-        @Nonnull
         public RecordCursorContinuation getChildContinuation() {
             return childContinuation;
         }
 
-        @Nonnull
         public TempTable getTempTable() {
             return tempTable;
         }
 
-        @Nonnull
         private RecordCursorProto.TempTableInsertContinuation toProto() {
             RecordCursorProto.TempTableInsertContinuation.Builder builder =
                     RecordCursorProto.TempTableInsertContinuation.newBuilder();
@@ -158,7 +147,6 @@ public class TempTableInsertCursor implements RecordCursor<QueryResult> {
             return builder.build();
         }
 
-        @Nonnull
         @Override
         public ByteString toByteString() {
             return toProto().toByteString();
@@ -178,10 +166,9 @@ public class TempTableInsertCursor implements RecordCursor<QueryResult> {
             return childContinuation.isEnd();
         }
 
-        @Nonnull
-        private static  Continuation from(@Nonnull final RecordCursorProto.TempTableInsertContinuation parsed,
+        private static  Continuation from(final RecordCursorProto.TempTableInsertContinuation parsed,
                                           @Nullable final PTempTable parsedTempTable,
-                                          @Nonnull final Function<PTempTable, TempTable> tempTableDeserializer) {
+                                          final Function<PTempTable, TempTable> tempTableDeserializer) {
             final var tempTable = tempTableDeserializer.apply(parsedTempTable);
             final var childContinuation = parsed.hasChildContinuation()
                                           ? ByteArrayContinuation.fromNullable(parsed.getChildContinuation().toByteArray())
@@ -189,9 +176,8 @@ public class TempTableInsertCursor implements RecordCursor<QueryResult> {
             return new Continuation(tempTable, childContinuation);
         }
 
-        @Nonnull
         private static Continuation from(@Nullable final byte[] unparsed,
-                                         @Nonnull final Function<PTempTable, TempTable> tempTableDeserializer) {
+                                         final Function<PTempTable, TempTable> tempTableDeserializer) {
             if (unparsed == null) {
                 return new Continuation(tempTableDeserializer.apply(null), RecordCursorStartContinuation.START);
             } else {

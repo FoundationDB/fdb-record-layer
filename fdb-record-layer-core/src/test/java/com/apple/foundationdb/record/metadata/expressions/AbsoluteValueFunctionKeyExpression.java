@@ -28,8 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.List;
 
@@ -41,13 +40,12 @@ public class AbsoluteValueFunctionKeyExpression extends InvertibleFunctionKeyExp
     public static final String NAME = "abs_value";
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Absoluste-Value-Function");
 
-    protected AbsoluteValueFunctionKeyExpression(@Nonnull final String name, @Nonnull final KeyExpression arguments) {
+    protected AbsoluteValueFunctionKeyExpression(final String name, final KeyExpression arguments) {
         super(name, arguments);
     }
 
-    @Nonnull
     @Override
-    public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable final FDBRecord<M> record, @Nullable final Message message, @Nonnull final Key.Evaluated arguments) {
+    public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable final FDBRecord<M> record, @Nullable final Message message, final Key.Evaluated arguments) {
         if (arguments.getObject(0) == null) {
             return Collections.singletonList(arguments);
         }
@@ -63,7 +61,7 @@ public class AbsoluteValueFunctionKeyExpression extends InvertibleFunctionKeyExp
     }
 
     @Override
-    protected List<Key.Evaluated> evaluateInverseInternal(@Nonnull final Key.Evaluated result) {
+    protected List<Key.Evaluated> evaluateInverseInternal(final Key.Evaluated result) {
         if (result.getObject(0) == null) {
             return Collections.emptyList();
         }
@@ -78,7 +76,7 @@ public class AbsoluteValueFunctionKeyExpression extends InvertibleFunctionKeyExp
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return super.basePlanHash(mode, BASE_HASH, arguments);
     }
 
@@ -107,9 +105,8 @@ public class AbsoluteValueFunctionKeyExpression extends InvertibleFunctionKeyExp
         return 1;
     }
 
-    @Nonnull
     @Override
-    public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+    public Value toValue(final List<? extends Value> argumentValues) {
         throw new UnsupportedOperationException("not implemented");
     }
 
@@ -118,9 +115,8 @@ public class AbsoluteValueFunctionKeyExpression extends InvertibleFunctionKeyExp
             super(NAME);
         }
 
-        @Nonnull
         @Override
-        public AbsoluteValueFunctionKeyExpression build(@Nonnull final KeyExpression arguments) {
+        public AbsoluteValueFunctionKeyExpression build(final KeyExpression arguments) {
             return new AbsoluteValueFunctionKeyExpression(getName(), arguments);
         }
     }
@@ -130,7 +126,6 @@ public class AbsoluteValueFunctionKeyExpression extends InvertibleFunctionKeyExp
      */
     @AutoService(FunctionKeyExpression.Factory.class)
     public static class Factory implements FunctionKeyExpression.Factory {
-        @Nonnull
         @Override
         public List<FunctionKeyExpression.Builder> getBuilders() {
             return List.of(new Builder());

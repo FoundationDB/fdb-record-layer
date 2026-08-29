@@ -24,20 +24,18 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
-
 /**
  * Builder class for {@link NestedRecordType}s. This is used primarily by the {@link UnnestedRecordTypeBuilder} to keep
  * track of nested types.
  */
 @API(API.Status.EXPERIMENTAL)
 public class NestedRecordTypeBuilder extends RecordTypeBuilder {
-    public NestedRecordTypeBuilder(@Nonnull final Descriptors.Descriptor descriptor) {
+    public NestedRecordTypeBuilder(final Descriptors.Descriptor descriptor) {
         super(descriptor);
     }
 
     @Override
-    public RecordType build(@Nonnull final RecordMetaData metaData) {
+    public RecordType build(final RecordMetaData metaData) {
         throw new MetaDataException("attempted to build a nested record type");
     }
 }

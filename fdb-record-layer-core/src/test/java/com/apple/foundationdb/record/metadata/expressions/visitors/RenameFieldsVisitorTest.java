@@ -45,7 +45,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -77,7 +76,6 @@ class RenameFieldsVisitorTest {
 
     // Tests for running the RenameFieldsVisitor
 
-    @Nonnull
     static Stream<KeyExpression> fieldMissingInSource() {
         return Stream.of(
                 field("not_in_outer"),
@@ -93,7 +91,7 @@ class RenameFieldsVisitorTest {
 
     @ParameterizedTest(name = "fieldMissingInSource[{0}]")
     @MethodSource
-    void fieldMissingInSource(@Nonnull KeyExpression expression) {
+    void fieldMissingInSource(KeyExpression expression) {
         final Descriptors.Descriptor source = TestRecordsDoubleNestedProto.OuterRecord.getDescriptor();
         // The actual target here shouldn't matter, as our check only requires that we can reason about the source
         final Descriptors.Descriptor target = randomizeOuterRecord(new Random()).getPayload();
@@ -102,7 +100,6 @@ class RenameFieldsVisitorTest {
                 .hasMessageContaining("field not found in source");
     }
 
-    @Nonnull
     static Stream<KeyExpression> fieldMissingInTarget() {
         return Stream.of(
                 field("other_int"),
@@ -116,7 +113,7 @@ class RenameFieldsVisitorTest {
 
     @ParameterizedTest(name = "fieldMissingInTarget[{0}]")
     @MethodSource
-    void fieldMissingInTarget(@Nonnull KeyExpression expression) {
+    void fieldMissingInTarget(KeyExpression expression) {
         final Descriptors.Descriptor source = TestRecordsDoubleNestedProto.OuterRecord.getDescriptor();
         final Descriptors.Descriptor target = mutateOuterRecord(descriptor -> {
             final DescriptorProtos.DescriptorProto.Builder builder = descriptor.toProto().toBuilder();
@@ -182,7 +179,6 @@ class RenameFieldsVisitorTest {
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 
-    @Nonnull
     static Stream<Arguments> renameMySimpleRecord() {
         final Named<Descriptors.Descriptor> identity = Named.of("IDENTITY", TestRecords1Proto.MySimpleRecord.getDescriptor());
         final Named<Descriptors.Descriptor> renameNumValue2 = remapMySimpleRecord(Map.of("num_value_2", "num_value_2a"));
@@ -273,11 +269,10 @@ class RenameFieldsVisitorTest {
 
     @ParameterizedTest(name = "renameMySimpleRecord[{0}, {1}]")
     @MethodSource
-    void renameMySimpleRecord(@Nonnull KeyExpression original, @Nonnull Descriptors.Descriptor renamedDescriptor, @Nonnull KeyExpression expected) {
+    void renameMySimpleRecord(KeyExpression original, Descriptors.Descriptor renamedDescriptor, KeyExpression expected) {
         assertRenaming(original, TestRecords1Proto.MySimpleRecord.getDescriptor(), renamedDescriptor, expected);
     }
 
-    @Nonnull
     static Stream<Arguments> renameOuterRecord() {
         // Create some static test cases. These focus on nesting cases, as the non-nested cases are covered by the randomized tests or by the
         // static tests in renameMySimpleRecord
@@ -333,11 +328,10 @@ class RenameFieldsVisitorTest {
 
     @ParameterizedTest(name = "renameOuterRecord[{0}, {1}]")
     @MethodSource
-    void renameOuterRecord(@Nonnull KeyExpression original, @Nonnull Descriptors.Descriptor targetDescriptor, @Nonnull KeyExpression expected) {
+    void renameOuterRecord(KeyExpression original, Descriptors.Descriptor targetDescriptor, KeyExpression expected) {
         assertRenaming(original, TestRecordsDoubleNestedProto.OuterRecord.getDescriptor(), targetDescriptor, expected);
     }
 
-    @Nonnull
     static Stream<Arguments> renameMiddleRecord() {
         // Create some static test cases. These are mainly designed to allow us to make sure the renaming visitor properly follows types
         final Named<Descriptors.Descriptor> identity = Named.of("IDENTITY", TestRecordsDoubleNestedProto.MiddleRecord.getDescriptor());
@@ -382,11 +376,10 @@ class RenameFieldsVisitorTest {
 
     @ParameterizedTest(name = "renameMiddleRecord[{0}, {1}]")
     @MethodSource
-    void renameMiddleRecord(@Nonnull KeyExpression original, @Nonnull Descriptors.Descriptor targetDescriptor, @Nonnull KeyExpression expected) {
+    void renameMiddleRecord(KeyExpression original, Descriptors.Descriptor targetDescriptor, KeyExpression expected) {
         assertRenaming(original, TestRecordsDoubleNestedProto.MiddleRecord.getDescriptor(), targetDescriptor, expected);
     }
 
-    @Nonnull
     static Stream<Arguments> renameMergedRecord() {
         // Create some static test cases. See the test method for an explanation as to how these are supposed to be structured
         final Named<Descriptors.Descriptor> identity = Named.of("IDENTITY", TestMergedNestedTypesProto.MyRecord.getDescriptor());
@@ -450,11 +443,10 @@ class RenameFieldsVisitorTest {
      */
     @ParameterizedTest(name = "renameMergedRecord[{0}, {1}]")
     @MethodSource
-    void renameMergedRecord(@Nonnull KeyExpression original, @Nonnull Descriptors.Descriptor targetDescriptor, @Nonnull KeyExpression expected) {
+    void renameMergedRecord(KeyExpression original, Descriptors.Descriptor targetDescriptor, KeyExpression expected) {
         assertRenaming(original, TestUnmergedNestedTypesProto.MyRecord.getDescriptor(), targetDescriptor, expected);
     }
 
-    @Nonnull
     static Stream<Arguments> renameSplitRecord() {
         // Create some static test cases. See the test method for an explanation as to how these are supposed to be structured
         final Named<Descriptors.Descriptor> identity = Named.of("IDENTITY", TestSplitNestedTypesProto.MyRecord.getDescriptor());
@@ -506,11 +498,11 @@ class RenameFieldsVisitorTest {
      */
     @ParameterizedTest(name = "renameSplitRecord[{0}, {1}]")
     @MethodSource
-    void renameSplitRecord(@Nonnull KeyExpression original, @Nonnull Descriptors.Descriptor targetDescriptor, @Nonnull KeyExpression expected) {
+    void renameSplitRecord(KeyExpression original, Descriptors.Descriptor targetDescriptor, KeyExpression expected) {
         assertRenaming(original, TestMergedNestedTypesProto.MyRecord.getDescriptor(), targetDescriptor, expected);
     }
 
-    private static void assertRenaming(@Nonnull KeyExpression original, @Nonnull Descriptors.Descriptor descriptor, @Nonnull Descriptors.Descriptor targetDescriptor, @Nonnull KeyExpression expected) {
+    private static void assertRenaming(KeyExpression original, Descriptors.Descriptor descriptor, Descriptors.Descriptor targetDescriptor, KeyExpression expected) {
         final KeyExpression renamed = RenameFieldsVisitor.renameFields(original, descriptor, targetDescriptor);
         assertThat(renamed)
                 .isEqualTo(expected);
@@ -573,8 +565,7 @@ class RenameFieldsVisitorTest {
      * @return a pair consisting of a random expression evaluatable on the {@code sourceDescriptor} on the left and then that
      *      same expression with its referenced fields renamed subject so that it applies to the {@code targetDescriptor} on the right
      */
-    @Nonnull
-    private static NonnullPair<KeyExpression, KeyExpression> randomExpressionWithRename(@Nonnull Random random, @Nonnull Descriptors.Descriptor sourceDescriptor, @Nonnull Descriptors.Descriptor targetDescriptor, int depth) {
+    private static NonnullPair<KeyExpression, KeyExpression> randomExpressionWithRename(Random random, Descriptors.Descriptor sourceDescriptor, Descriptors.Descriptor targetDescriptor, int depth) {
         double randomChoice = random.nextDouble();
         if (depth > 0 && randomChoice < 0.05) {
             // EmptyKeyExpression
@@ -666,8 +657,7 @@ class RenameFieldsVisitorTest {
     }
 
 
-    @Nonnull
-    private static Function<Descriptors.Descriptor, DescriptorProtos.DescriptorProto> mutatorByMap(@Nonnull Map<Descriptors.Descriptor, Map<String, String>> renamingMap) {
+    private static Function<Descriptors.Descriptor, DescriptorProtos.DescriptorProto> mutatorByMap(Map<Descriptors.Descriptor, Map<String, String>> renamingMap) {
         return descriptor -> {
             final DescriptorProtos.DescriptorProto descriptorProto = descriptor.toProto();
             if (renamingMap.containsKey(descriptor)) {
@@ -681,8 +671,7 @@ class RenameFieldsVisitorTest {
         };
     }
 
-    @Nonnull
-    private static Function<Descriptors.Descriptor, DescriptorProtos.DescriptorProto> randomMutator(@Nonnull Random random) {
+    private static Function<Descriptors.Descriptor, DescriptorProtos.DescriptorProto> randomMutator(Random random) {
         return descriptor -> {
             final DescriptorProtos.DescriptorProto.Builder protoBuilder = descriptor.toProto().toBuilder();
             protoBuilder.getFieldBuilderList().forEach(fieldBuilder -> {
@@ -694,101 +683,83 @@ class RenameFieldsVisitorTest {
         };
     }
 
-    @Nonnull
-    private static Named<Descriptors.Descriptor> remapMySimpleRecord(@Nonnull Map<String, String> renaming) {
+    private static Named<Descriptors.Descriptor> remapMySimpleRecord(Map<String, String> renaming) {
         return Named.of(renaming.toString(), mutateMySimpleRecord(mutatorByMap(Map.of(TestRecords1Proto.MySimpleRecord.getDescriptor(), renaming))));
     }
 
-    @Nonnull
-    private static Named<Descriptors.Descriptor> randomizeMySimpleRecord(@Nonnull Random random) {
+    private static Named<Descriptors.Descriptor> randomizeMySimpleRecord(Random random) {
         final long seed = random.nextLong();
         return Named.of("randomizedMySimpleRecord[seed=" + seed + "]", mutateMySimpleRecord(randomMutator(new Random(seed))));
     }
 
-    @Nonnull
-    private static Descriptors.Descriptor mutateMySimpleRecord(@Nonnull Function<Descriptors.Descriptor, DescriptorProtos.DescriptorProto> mutator) {
+    private static Descriptors.Descriptor mutateMySimpleRecord(Function<Descriptors.Descriptor, DescriptorProtos.DescriptorProto> mutator) {
         return mutateSingleType(TestRecords1Proto.getDescriptor(), "MySimpleRecord", mutator);
     }
 
-    @Nonnull
-    private static Named<Descriptors.Descriptor> remapOuterRecord(@Nonnull Map<Descriptors.Descriptor, Map<String, String>> renaming) {
+    private static Named<Descriptors.Descriptor> remapOuterRecord(Map<Descriptors.Descriptor, Map<String, String>> renaming) {
         return Named.of(remapName(renaming), mutateOuterRecord(mutatorByMap(renaming)));
     }
 
-    @Nonnull
-    private static Named<Descriptors.Descriptor> randomizeOuterRecord(@Nonnull Random random) {
+    private static Named<Descriptors.Descriptor> randomizeOuterRecord(Random random) {
         final long seed = random.nextLong();
         return Named.of("randomizedOuterRecord[seed=" + seed + "]", mutateOuterRecord(randomMutator(new Random(seed))));
     }
 
-    @Nonnull
-    private static Descriptors.Descriptor mutateOuterRecord(@Nonnull Function<Descriptors.Descriptor, DescriptorProtos.DescriptorProto> mutator) {
+    private static Descriptors.Descriptor mutateOuterRecord(Function<Descriptors.Descriptor, DescriptorProtos.DescriptorProto> mutator) {
         return mutateSingleType(TestRecordsDoubleNestedProto.getDescriptor(), "OuterRecord", mutator);
     }
 
-    @Nonnull
-    private static Named<Descriptors.Descriptor> remapMiddleRecord(@Nonnull Map<Descriptors.Descriptor, Map<String, String>> renaming) {
+    private static Named<Descriptors.Descriptor> remapMiddleRecord(Map<Descriptors.Descriptor, Map<String, String>> renaming) {
         return Named.of(remapName(renaming), mutateMiddleRecord(mutatorByMap(renaming)));
     }
 
-    @Nonnull
-    private static Named<Descriptors.Descriptor> randomizeMiddleRecord(@Nonnull Random random) {
+    private static Named<Descriptors.Descriptor> randomizeMiddleRecord(Random random) {
         final long seed = random.nextLong();
         return Named.of("randomizedMiddleRecord[seed=" + seed + "]", mutateMiddleRecord(randomMutator(new Random(seed))));
     }
 
-    @Nonnull
-    private static Descriptors.Descriptor mutateMiddleRecord(@Nonnull Function<Descriptors.Descriptor, DescriptorProtos.DescriptorProto> mutator) {
+    private static Descriptors.Descriptor mutateMiddleRecord(Function<Descriptors.Descriptor, DescriptorProtos.DescriptorProto> mutator) {
         return mutateSingleType(TestRecordsDoubleNestedProto.getDescriptor(), "MiddleRecord", mutator);
     }
 
-    @Nonnull
-    private static Named<Descriptors.Descriptor> remapMergedRecord(@Nonnull Map<Descriptors.Descriptor, Map<String, String>> renaming) {
+    private static Named<Descriptors.Descriptor> remapMergedRecord(Map<Descriptors.Descriptor, Map<String, String>> renaming) {
         return Named.of(remapName(renaming), mutateMergedRecord(mutatorByMap(renaming)));
     }
 
-    @Nonnull
-    private static Named<Descriptors.Descriptor> randomizeMergedRecord(@Nonnull Random random) {
+    private static Named<Descriptors.Descriptor> randomizeMergedRecord(Random random) {
         final long seed = random.nextLong();
         return Named.of("randomizedMergedRecord[seed=" + seed + "]", mutateMergedRecord(randomMutator(new Random(seed))));
     }
 
-    @Nonnull
-    private static Descriptors.Descriptor mutateMergedRecord(@Nonnull Function<Descriptors.Descriptor, DescriptorProtos.DescriptorProto> mutator) {
+    private static Descriptors.Descriptor mutateMergedRecord(Function<Descriptors.Descriptor, DescriptorProtos.DescriptorProto> mutator) {
         return mutateSingleType(TestMergedNestedTypesProto.getDescriptor(), "MyRecord", mutator);
     }
 
-    @Nonnull
-    private static Named<Descriptors.Descriptor> remapSplitRecord(@Nonnull Map<Descriptors.Descriptor, Map<String, String>> renaming) {
+    private static Named<Descriptors.Descriptor> remapSplitRecord(Map<Descriptors.Descriptor, Map<String, String>> renaming) {
         return Named.of(remapName(renaming), mutateSplitRecord(mutatorByMap(renaming)));
     }
 
-    @Nonnull
-    private static Descriptors.Descriptor mutateSplitRecord(@Nonnull Function<Descriptors.Descriptor, DescriptorProtos.DescriptorProto> mutator) {
+    private static Descriptors.Descriptor mutateSplitRecord(Function<Descriptors.Descriptor, DescriptorProtos.DescriptorProto> mutator) {
         return mutateSingleType(TestSplitNestedTypesProto.getDescriptor(), "MyRecord", mutator);
     }
 
-    @Nonnull
-    private static Named<Descriptors.Descriptor> randomizeSplitRecord(@Nonnull Random random) {
+    private static Named<Descriptors.Descriptor> randomizeSplitRecord(Random random) {
         final long seed = random.nextLong();
         return Named.of("randomizedSplitRecord[seed=" + seed + "]", mutateMergedRecord(randomMutator(new Random(seed))));
     }
 
-    @Nonnull
-    private static Descriptors.Descriptor mutateSingleType(@Nonnull Descriptors.FileDescriptor originalFile, @Nonnull String typeName, @Nonnull Function<Descriptors.Descriptor, DescriptorProtos.DescriptorProto> mutator) {
+    private static Descriptors.Descriptor mutateSingleType(Descriptors.FileDescriptor originalFile, String typeName, Function<Descriptors.Descriptor, DescriptorProtos.DescriptorProto> mutator) {
         final Descriptors.FileDescriptor renamedFile = mutateFileDescriptor(originalFile, mutator);
         return renamedFile.findMessageTypeByName(typeName);
     }
 
-    @Nonnull
-    private static String remapName(@Nonnull Map<Descriptors.Descriptor, Map<String, String>> remapping) {
+    private static String remapName(Map<Descriptors.Descriptor, Map<String, String>> remapping) {
         return remapping.entrySet().stream()
                 .map(entry -> entry.getKey().getName() + ": " + entry.getValue())
                 .collect(Collectors.joining(", ", "{", "}"));
     }
 
-    @Nonnull
-    private static Descriptors.FileDescriptor mutateFileDescriptor(@Nonnull Descriptors.FileDescriptor originalFile, @Nonnull Function<Descriptors.Descriptor, DescriptorProtos.DescriptorProto> mutator) {
+    private static Descriptors.FileDescriptor mutateFileDescriptor(Descriptors.FileDescriptor originalFile, Function<Descriptors.Descriptor, DescriptorProtos.DescriptorProto> mutator) {
         final DescriptorProtos.FileDescriptorProto.Builder fileBuilder = originalFile.toProto().toBuilder();
         fileBuilder.clearMessageType();
         for (Descriptors.Descriptor descriptor : originalFile.getMessageTypes()) {
@@ -801,8 +772,7 @@ class RenameFieldsVisitorTest {
         }
     }
 
-    @Nonnull
-    private static DescriptorProtos.DescriptorProto mutateDescriptor(@Nonnull Descriptors.Descriptor descriptor, @Nonnull Function<Descriptors.Descriptor, DescriptorProtos.DescriptorProto> mutator) {
+    private static DescriptorProtos.DescriptorProto mutateDescriptor(Descriptors.Descriptor descriptor, Function<Descriptors.Descriptor, DescriptorProtos.DescriptorProto> mutator) {
         final DescriptorProtos.DescriptorProto mutated = mutator.apply(descriptor);
         if (descriptor.getNestedTypes().isEmpty()) {
             return mutated;

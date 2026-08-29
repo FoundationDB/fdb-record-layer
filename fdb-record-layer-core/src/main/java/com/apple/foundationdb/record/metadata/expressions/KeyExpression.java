@@ -32,8 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -62,7 +61,6 @@ public interface KeyExpression extends PlanHashable {
      * @throws InvalidResultException if any returned result has some number of columns other
      *         than the return value of {@link #getColumnSize()}
      */
-    @Nonnull
     default <M extends Message> List<Key.Evaluated> evaluate(@Nullable FDBRecord<M> record) {
         return evaluateMessage(record, record == null ? null : record.getRecord());
     }
@@ -73,7 +71,6 @@ public interface KeyExpression extends PlanHashable {
      * @param record the record
      * @return the evaluated keys for the given record
      */
-    @Nonnull
     default <M extends Message> Key.Evaluated evaluateSingleton(@Nullable FDBRecord<M> record) {
         final List<Key.Evaluated> keys = evaluate(record);
         if (keys.size() != 1) {
@@ -95,7 +92,6 @@ public interface KeyExpression extends PlanHashable {
      * @throws InvalidResultException if any returned result has some number of columns other
      *         than the return value of {@link #getColumnSize()}
      */
-    @Nonnull
     default <M extends Message> Key.Evaluated evaluateMessageSingleton(@Nullable FDBRecord<M> record, @Nullable Message message) {
         final List<Key.Evaluated> keys = evaluateMessage(record, message);
         if (keys.size() != 1) {
@@ -121,7 +117,6 @@ public interface KeyExpression extends PlanHashable {
      * @param message the Protobuf message to evaluate against
      * @return the evaluated keys for the given record
      */
-    @Nonnull
     <M extends Message> List<Key.Evaluated> evaluateMessage(@Nullable FDBRecord<M> record, @Nullable Message message);
 
     /**
@@ -142,7 +137,7 @@ public interface KeyExpression extends PlanHashable {
      * @throws InvalidExpressionException
      * if the expression is not valid for the given descriptor
      */
-    List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor descriptor);
+    List<Descriptors.FieldDescriptor> validate(Descriptors.Descriptor descriptor);
 
     /**
      * Returns the number of items in each KeyValue that will be returned. For key expressions that support
@@ -199,10 +194,8 @@ public interface KeyExpression extends PlanHashable {
         }
     }
 
-    @Nonnull
     Message toProto() throws SerializationException;
 
-    @Nonnull
     RecordKeyExpressionProto.KeyExpression toKeyExpression();
 
     /**
@@ -211,7 +204,6 @@ public interface KeyExpression extends PlanHashable {
      * when this has already been taken care of, such as individual index entries.
      * @return a list of key expressions in order
      */
-    @Nonnull
     default List<KeyExpression> normalizeKeyForPositions() {
         return Collections.singletonList(this);
     }
@@ -263,8 +255,7 @@ public interface KeyExpression extends PlanHashable {
      * @see com.apple.foundationdb.record.query.expressions.QueryComponent#expand
      */
     @API(API.Status.EXPERIMENTAL)
-    @Nonnull
-    <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull KeyExpressionVisitor<S, R> visitor);
+    <S extends KeyExpressionVisitor.State, R> R expand(KeyExpressionVisitor<S, R> visitor);
 
     /**
      * Return the key fields for an expression.
@@ -272,7 +263,7 @@ public interface KeyExpression extends PlanHashable {
      * @return the parts of the key expression that are in the key
      */
     @API(API.Status.EXPERIMENTAL)
-    static List<KeyExpression> getKeyFields(@Nonnull KeyExpression rootExpression) {
+    static List<KeyExpression> getKeyFields(KeyExpression rootExpression) {
         final List<KeyExpression> normalizedKeys = rootExpression.normalizeKeyForPositions();
         if (rootExpression instanceof KeyWithValueExpression) {
             final KeyWithValueExpression keyWithValue = (KeyWithValueExpression) rootExpression;
@@ -288,7 +279,7 @@ public interface KeyExpression extends PlanHashable {
      * @return the parts of the key expression that are in the value
      */
     @API(API.Status.EXPERIMENTAL)
-    static List<KeyExpression> getValueFields(@Nonnull KeyExpression rootExpression) {
+    static List<KeyExpression> getValueFields(KeyExpression rootExpression) {
         if (rootExpression instanceof KeyWithValueExpression) {
             final List<KeyExpression> normalizedKeys = rootExpression.normalizeKeyForPositions();
             final KeyWithValueExpression keyWithValue = (KeyWithValueExpression) rootExpression;
@@ -330,7 +321,6 @@ public interface KeyExpression extends PlanHashable {
      *     if the key expression cannot be split at the current location because a split point would land in the
      *     middle of a key expression that does not support being split
      */
-    @Nonnull
     KeyExpression getSubKey(int start, int end);
 
     /**
@@ -338,13 +328,12 @@ public interface KeyExpression extends PlanHashable {
      * @param key the whole key to check
      * @return {@code true} if {@code prefix} is a left subset of {@code key}
      */
-    boolean isPrefixKey(@Nonnull KeyExpression key);
+    boolean isPrefixKey(KeyExpression key);
 
     default boolean hasProperInterfaces() {
         return this instanceof KeyExpressionWithChildren || this instanceof KeyExpressionWithoutChildren;
     }
 
-    @Nonnull
     static KeyExpression fromProto(RecordKeyExpressionProto.KeyExpression expression)
             throws DeserializationException {
         KeyExpression root = null;
@@ -413,8 +402,7 @@ public interface KeyExpression extends PlanHashable {
      * @param path The path to use for constructing the {@link KeyExpression}.
      * @return The resulting {@link KeyExpression}.
      */
-    @Nonnull
-    static KeyExpression fromPath(@Nonnull final List<String> path) {
+    static KeyExpression fromPath(final List<String> path) {
         if (path.isEmpty()) {
             throw new InvalidExpressionException("attempt to create key expression using empty path");
         }
@@ -432,11 +420,11 @@ public interface KeyExpression extends PlanHashable {
      */
     @SuppressWarnings("serial")
     class SerializationException extends RecordCoreException {
-        public SerializationException(@Nonnull String message) {
+        public SerializationException(String message) {
             super(message);
         }
 
-        public SerializationException(@Nonnull String message, @Nullable Exception cause) {
+        public SerializationException(String message, @Nullable Exception cause) {
             super(message, cause);
         }
     }
@@ -446,11 +434,11 @@ public interface KeyExpression extends PlanHashable {
      */
     @SuppressWarnings("serial")
     class DeserializationException extends RecordCoreException {
-        public DeserializationException(@Nonnull String message) {
+        public DeserializationException(String message) {
             super(message);
         }
 
-        public DeserializationException(@Nonnull String message, @Nullable Exception cause) {
+        public DeserializationException(String message, @Nullable Exception cause) {
             super(message, cause);
         }
     }

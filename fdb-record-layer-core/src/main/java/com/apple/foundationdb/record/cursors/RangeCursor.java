@@ -28,8 +28,7 @@ import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.nio.ByteBuffer;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -40,29 +39,26 @@ import java.util.concurrent.Executor;
  */
 @API(API.Status.UNSTABLE)
 public class RangeCursor implements RecordCursor<Integer> {
-    @Nonnull
     private final Executor executor;
     private final int exclusiveLimit;
     private int nextPosition; // position of the next value to return
     private boolean closed = false;
 
-    public RangeCursor(@Nonnull Executor executor, final int exclusiveLimit, byte[] continuation) {
+    public RangeCursor(Executor executor, final int exclusiveLimit, byte[] continuation) {
         this(executor, exclusiveLimit, continuation != null ? ByteBuffer.wrap(continuation).getInt() : 0);
     }
 
-    public RangeCursor(@Nonnull Executor executor, final int exclusiveLimit, final int nextPosition) {
+    public RangeCursor(Executor executor, final int exclusiveLimit, final int nextPosition) {
         this.executor = executor;
         this.exclusiveLimit = exclusiveLimit;
         this.nextPosition = nextPosition;
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<Integer>> onNext() {
         return CompletableFuture.completedFuture(getNext());
     }
 
-    @Nonnull
     @Override
     public RecordCursorResult<Integer> getNext() {
         RecordCursorResult<Integer> nextResult;
@@ -86,13 +82,12 @@ public class RangeCursor implements RecordCursor<Integer> {
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         visitor.visitEnter(this);
         return visitor.visitLeave(this);
     }
 
     @Override
-    @Nonnull
     public Executor getExecutor() {
         return executor;
     }
@@ -115,7 +110,6 @@ public class RangeCursor implements RecordCursor<Integer> {
             return nextPosition > size;
         }
 
-        @Nonnull
         @Override
         public ByteString toByteString() {
             if (isEnd()) {

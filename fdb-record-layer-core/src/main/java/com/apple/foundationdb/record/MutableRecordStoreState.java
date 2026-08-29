@@ -22,12 +22,13 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+
+import static com.apple.foundationdb.record.RecordMetaDataProto.DataStoreInfo;
 
 /**
  * A record store that can be modified to reflect changes made to the database.
@@ -42,12 +43,12 @@ public class MutableRecordStoreState extends RecordStoreState {
 
     private final AtomicLong users = new AtomicLong();
 
-    public MutableRecordStoreState(@Nullable RecordMetaDataProto.DataStoreInfo storeHeader, @Nullable Map<String, IndexState> indexStateMap) {
+    public MutableRecordStoreState(@Nullable DataStoreInfo storeHeader, @Nullable Map<String, IndexState> indexStateMap) {
         super(storeHeader, indexStateMap);
     }
 
     // Copy constructor
-    MutableRecordStoreState(@Nonnull RecordStoreState recordStoreState) {
+    MutableRecordStoreState(RecordStoreState recordStoreState) {
         this(recordStoreState.getStoreHeader(), recordStoreState.getIndexStates());
     }
 
@@ -128,8 +129,7 @@ public class MutableRecordStoreState extends RecordStoreState {
      * @param state the new state for the given index
      * @return the previous state of the given index
      */
-    @Nonnull
-    public IndexState setState(@Nonnull String indexName, @Nonnull IndexState state) {
+    public IndexState setState(String indexName, IndexState state) {
         verifyWritable();
         IndexState previous;
         if (state.isReadable()) {
@@ -140,9 +140,8 @@ public class MutableRecordStoreState extends RecordStoreState {
         return previous == null ? IndexState.READABLE : previous;
     }
 
-    @Nonnull
     @Override
-    public MutableRecordStoreState withWriteOnlyIndexes(@Nonnull final List<String> writeOnlyIndexNames) {
+    public MutableRecordStoreState withWriteOnlyIndexes(final List<String> writeOnlyIndexNames) {
         return new MutableRecordStoreState(getStoreHeader(), writeOnlyMap(writeOnlyIndexNames));
     }
 
@@ -153,8 +152,7 @@ public class MutableRecordStoreState extends RecordStoreState {
      * @param storeHeader the updated store header
      * @return the previous store header value
      */
-    @Nonnull
-    public RecordMetaDataProto.DataStoreInfo setStoreHeader(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader) {
+    public DataStoreInfo setStoreHeader(DataStoreInfo storeHeader) {
         verifyWritable();
         return this.storeHeader.getAndSet(storeHeader);
     }
@@ -172,7 +170,6 @@ public class MutableRecordStoreState extends RecordStoreState {
         return super.hashCode();
     }
 
-    @Nonnull
     @Override
     public RecordStoreState toImmutable() {
         return new RecordStoreState(storeHeader.get(), indexStateMap.get());

@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
 import java.util.Collections;
 
 /**
@@ -36,10 +35,10 @@ import java.util.Collections;
 @API(API.Status.EXPERIMENTAL)
 public class NestedRecordType extends RecordType {
     @API(API.Status.INTERNAL)
-    public NestedRecordType(@Nonnull final RecordMetaData metaData,
-                            @Nonnull final Descriptors.Descriptor descriptor,
-                            @Nonnull final RecordType parentType,
-                            @Nonnull final KeyExpression primaryKey) {
+    public NestedRecordType(final RecordMetaData metaData,
+                            final Descriptors.Descriptor descriptor,
+                            final RecordType parentType,
+                            final KeyExpression primaryKey) {
         super(metaData, descriptor, primaryKey, Collections.emptyList(), Collections.emptyList(), parentType.getSinceVersion(), parentType.getRecordTypeKey());
     }
 }

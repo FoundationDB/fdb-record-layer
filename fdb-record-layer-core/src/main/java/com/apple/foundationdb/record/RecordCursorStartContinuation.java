@@ -23,8 +23,7 @@ package com.apple.foundationdb.record;
 import com.apple.foundationdb.annotation.API;
 import com.google.protobuf.ByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A continuation representing the start of a cursor's execution.
@@ -47,7 +46,6 @@ public class RecordCursorStartContinuation implements RecordCursorContinuation {
         return false;
     }
 
-    @Nonnull
     @Override
     public ByteString toByteString() {
         return ByteString.EMPTY;

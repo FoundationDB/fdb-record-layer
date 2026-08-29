@@ -22,8 +22,6 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-
 /**
  * A source of {@link RecordMetaData}.
  *
@@ -39,6 +37,5 @@ public interface RecordMetaDataProvider {
      *
      * @return an instance of {@link RecordMetaData}
      */
-    @Nonnull
     RecordMetaData getRecordMetaData();
 }

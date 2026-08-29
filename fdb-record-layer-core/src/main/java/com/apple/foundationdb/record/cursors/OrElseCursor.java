@@ -31,8 +31,7 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
@@ -44,11 +43,8 @@ import java.util.function.Function;
  */
 @API(API.Status.UNSTABLE)
 public final class OrElseCursor<T> implements RecordCursor<T> {
-    @Nonnull
     private final RecordCursor<T> inner;
-    @Nonnull
     private final Function<Executor, RecordCursor<T>> func;
-    @Nonnull
     private RecordCursorProto.OrElseContinuation.State state;
     @Nullable
     private RecordCursor<T> other;
@@ -56,8 +52,8 @@ public final class OrElseCursor<T> implements RecordCursor<T> {
     private RecordCursorResult<T> nextResult;
 
     @API(API.Status.INTERNAL)
-    public OrElseCursor(@Nonnull Function<byte[], ? extends RecordCursor<T>> innerFunc,
-                        @Nonnull BiFunction<Executor, byte[], ? extends RecordCursor<T>> elseFunc,
+    public OrElseCursor(Function<byte[], ? extends RecordCursor<T>> innerFunc,
+                        BiFunction<Executor, byte[], ? extends RecordCursor<T>> elseFunc,
                         @Nullable byte[] continuation) {
         final Function<Executor, RecordCursor<T>> newElseFunc = executor -> elseFunc.apply(executor, null);
 
@@ -93,7 +89,6 @@ public final class OrElseCursor<T> implements RecordCursor<T> {
         }
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         if (nextResult != null && !nextResult.hasNext()) {
@@ -133,7 +128,6 @@ public final class OrElseCursor<T> implements RecordCursor<T> {
     }
 
     // shim to support old continuation style
-    @Nonnull
     private RecordCursorResult<T> postProcess(RecordCursorResult<T> result) {
         nextResult = result;
         return result;
@@ -152,14 +146,13 @@ public final class OrElseCursor<T> implements RecordCursor<T> {
         return (other == null || other.isClosed()) && inner.isClosed();
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return inner.getExecutor();
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
             inner.accept(visitor);
         }
@@ -176,10 +169,9 @@ public final class OrElseCursor<T> implements RecordCursor<T> {
 
     private static class Continuation implements RecordCursorContinuation {
         private final RecordCursorProto.OrElseContinuation.State state;
-        @Nonnull
         private final RecordCursorContinuation innerOrOtherContinuation;
 
-        public Continuation(@Nonnull RecordCursorProto.OrElseContinuation.State state, @Nonnull RecordCursorContinuation innerOrOtherContinuation) {
+        public Continuation(RecordCursorProto.OrElseContinuation.State state, RecordCursorContinuation innerOrOtherContinuation) {
             this.state = state;
             this.innerOrOtherContinuation = innerOrOtherContinuation;
         }
@@ -189,7 +181,6 @@ public final class OrElseCursor<T> implements RecordCursor<T> {
             return innerOrOtherContinuation.isEnd();
         }
 
-        @Nonnull
         @Override
         public ByteString toByteString() {
             ByteString bytes = innerOrOtherContinuation.toByteString();

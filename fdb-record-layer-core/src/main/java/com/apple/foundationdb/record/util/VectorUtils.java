@@ -28,10 +28,8 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.protobuf.ByteString;
 
-import javax.annotation.Nonnull;
-
 public class VectorUtils {
-    public static int getVectorPrecision(@Nonnull final RealVector vector) {
+    public static int getVectorPrecision(final RealVector vector) {
         if (vector instanceof DoubleRealVector) {
             return 64;
         }
@@ -44,14 +42,12 @@ public class VectorUtils {
         throw new RecordCoreException("unexpected vector type " + vector.getClass());
     }
 
-    @Nonnull
-    public static RealVector parseVector(@Nonnull final ByteString byteString, @Nonnull final Type.Vector vectorType) {
+    public static RealVector parseVector(final ByteString byteString, final Type.Vector vectorType) {
         final var precision = vectorType.getPrecision();
         return parseVector(byteString, precision);
     }
 
-    @Nonnull
-    public static RealVector parseVector(@Nonnull final ByteString byteString, int precision) {
+    public static RealVector parseVector(final ByteString byteString, int precision) {
         if (precision == 16) {
             return HalfRealVector.fromBytes(byteString.toByteArray());
         }

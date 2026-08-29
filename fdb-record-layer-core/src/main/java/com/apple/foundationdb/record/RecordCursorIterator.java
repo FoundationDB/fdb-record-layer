@@ -26,8 +26,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.cursors.IllegalContinuationAccessChecker;
 import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -41,7 +40,6 @@ import java.util.concurrent.ExecutionException;
  */
 @API(API.Status.UNSTABLE)
 public class RecordCursorIterator<T> implements AsyncIterator<T>, AutoCloseable {
-    @Nonnull
     private final RecordCursor<T> cursor;
     @Nullable
     private CompletableFuture<Boolean> onHasNextFuture;
@@ -51,7 +49,7 @@ public class RecordCursorIterator<T> implements AsyncIterator<T>, AutoCloseable 
     // for detecting incorrect cursor usage
     private boolean mayGetContinuation = false;
 
-    RecordCursorIterator(@Nonnull RecordCursor<T> cursor) {
+    RecordCursorIterator(RecordCursor<T> cursor) {
         this.cursor = cursor;
     }
 
@@ -60,7 +58,6 @@ public class RecordCursorIterator<T> implements AsyncIterator<T>, AutoCloseable 
      * @return a future that when complete will hold <code>true</code> if {@link #next()} would return a record.
      * @see com.apple.foundationdb.async.AsyncIterator#onHasNext()
      */
-    @Nonnull
     @Override
     public CompletableFuture<Boolean> onHasNext() {
         if (nextResult != null && !nextResult.hasNext()) {
@@ -136,7 +133,6 @@ public class RecordCursorIterator<T> implements AsyncIterator<T>, AutoCloseable 
      * may be an exception.
      * @return the reason that the cursor stopped
      */
-    @Nonnull
     public RecordCursor.NoNextReason getNoNextReason() {
         return nextResult.getNoNextReason();
     }

@@ -28,8 +28,7 @@ import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayDeque;
 import java.util.Iterator;
 import java.util.Queue;
@@ -51,15 +50,12 @@ import java.util.function.Function;
 public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
 
     private static final CompletableFuture<Boolean> ALREADY_CANCELLED = MoreAsyncUtil.alreadyCancelled();
-    @Nonnull
     private final RecordCursor<T> inner;
-    @Nonnull
     private final Function<T, CompletableFuture<V>> func;
     private final int pipelineSize;
     /**
      * The pipeline, note this queue is not thread safe, so interactions must be in the same future pipeline.
      */
-    @Nonnull
     private final Queue<CompletableFuture<RecordCursorResult<V>>> pipeline;
     private boolean innerExhausted = false;
     private volatile boolean closed = false;
@@ -69,7 +65,7 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
     @Nullable
     private RecordCursorResult<V> nextResult = null;
 
-    public MapPipelinedCursor(@Nonnull RecordCursor<T> inner, @Nonnull Function<T, CompletableFuture<V>> func,
+    public MapPipelinedCursor(RecordCursor<T> inner, Function<T, CompletableFuture<V>> func,
                               int pipelineSize) {
         this.inner = inner;
         this.func = func;
@@ -77,7 +73,6 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
         this.pipeline = new ArrayDeque<>(pipelineSize);
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<V>> onNext() {
         if (nextResult != null && !nextResult.hasNext()) {
@@ -112,14 +107,13 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
         return closed;
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return inner.getExecutor();
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
             inner.accept(visitor);
         }
@@ -184,7 +178,6 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
         return pipeline.peek().thenApply(vignore -> false); // the next result is ready
     }
 
-    @Nonnull
     private CompletableFuture<Boolean> cancellAll() {
         while (!pipeline.isEmpty()) {
             pipeline.remove().cancel(false);
@@ -192,7 +185,6 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
         return ALREADY_CANCELLED;
     }
 
-    @Nonnull
     private RecordCursorContinuation cancelPendingFutures() {
         Iterator<CompletableFuture<RecordCursorResult<V>>> iter = pipeline.iterator();
         // The earliest continuation we could need to start with is the one from the last returned result.

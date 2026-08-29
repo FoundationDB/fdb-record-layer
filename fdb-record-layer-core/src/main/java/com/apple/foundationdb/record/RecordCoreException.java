@@ -23,8 +23,7 @@ package com.apple.foundationdb.record;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.util.LoggableException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An exception thrown by the core of the Record Layer.
@@ -32,7 +31,7 @@ import javax.annotation.Nullable;
 @API(API.Status.UNSTABLE)
 @SuppressWarnings("serial")
 public class RecordCoreException extends LoggableException {
-    public RecordCoreException(@Nonnull String msg, @Nullable Object ... keyValues) {
+    public RecordCoreException(String msg, @Nullable Object ... keyValues) {
         super(msg, keyValues);
     }
 
@@ -40,7 +39,7 @@ public class RecordCoreException extends LoggableException {
         super(cause);
     }
 
-    public RecordCoreException(@Nonnull String msg, @Nullable Throwable cause) {
+    public RecordCoreException(String msg, @Nullable Throwable cause) {
         super(msg, cause);
     }
 
@@ -51,15 +50,13 @@ public class RecordCoreException extends LoggableException {
     }
 
     @Override
-    @Nonnull
-    public RecordCoreException addLogInfo(@Nonnull String description, Object object) {
+    public RecordCoreException addLogInfo(String description, Object object) {
         super.addLogInfo(description, object);
         return this;
     }
 
     @Override
-    @Nonnull
-    public RecordCoreException addLogInfo(@Nonnull Object ... keyValue) {
+    public RecordCoreException addLogInfo(Object ... keyValue) {
         super.addLogInfo(keyValue);
         return this;
     }

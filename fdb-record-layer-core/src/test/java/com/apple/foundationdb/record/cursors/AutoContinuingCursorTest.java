@@ -35,7 +35,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -135,13 +134,12 @@ public class AutoContinuingCursorTest {
     private static class TestingListCursor<T> extends ListCursor<T> {
         private final Supplier<CompletableFuture<Void>> pollOnNext;
 
-        public TestingListCursor(@Nonnull final List<T> list, final byte[] continuation,
+        public TestingListCursor(final List<T> list, final byte[] continuation,
                                  Supplier<CompletableFuture<Void>> pollOnNext) {
             super(list, continuation);
             this.pollOnNext = pollOnNext;
         }
 
-        @Nonnull
         @Override
         public CompletableFuture<RecordCursorResult<T>> onNext() {
             return pollOnNext.get().thenCompose(vignore -> super.onNext());

@@ -45,11 +45,12 @@ import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
+
+import static com.google.protobuf.Descriptors.FieldDescriptor;
 
 /**
  * Visitor that can be used to rewrite a {@link KeyExpression} in response to a field renaming. This
@@ -58,29 +59,25 @@ import java.util.List;
  * @see #renameFields(KeyExpression, Descriptors.Descriptor, Descriptors.Descriptor)
  */
 public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFieldsVisitor.RenameFieldsState, KeyExpression> {
-    @Nonnull
     private final Deque<RenameFieldsState> stateStack;
 
-    private RenameFieldsVisitor(@Nonnull Descriptors.Descriptor sourceDescriptor, @Nonnull Descriptors.Descriptor targetDescriptor) {
+    private RenameFieldsVisitor(Descriptors.Descriptor sourceDescriptor, Descriptors.Descriptor targetDescriptor) {
         this.stateStack = new ArrayDeque<>();
         stateStack.add(new RenameFieldsState(sourceDescriptor, targetDescriptor));
     }
 
     @Override
-    @Nonnull
     public RenameFieldsState getCurrentState() {
         return stateStack.getLast();
     }
 
-    @Nonnull
     @Override
-    public EmptyKeyExpression visitExpression(@Nonnull final EmptyKeyExpression emptyKeyExpression) {
+    public EmptyKeyExpression visitExpression(final EmptyKeyExpression emptyKeyExpression) {
         return emptyKeyExpression;
     }
 
-    @Nonnull
     @Override
-    public FieldKeyExpression visitExpression(@Nonnull final FieldKeyExpression fieldKeyExpression) {
+    public FieldKeyExpression visitExpression(final FieldKeyExpression fieldKeyExpression) {
         final String originalName = fieldKeyExpression.getFieldName();
         final RenameFieldsState state = getCurrentState();
         final String newName = state.renameField(originalName);
@@ -92,9 +89,8 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    @Nonnull
     @Override
-    public NestingKeyExpression visitExpression(@Nonnull final NestingKeyExpression nestingKeyExpression) {
+    public NestingKeyExpression visitExpression(final NestingKeyExpression nestingKeyExpression) {
         // Rewrite the parent field
         final FieldKeyExpression originalParent = nestingKeyExpression.getParent();
         final FieldKeyExpression newParent = visitExpression(originalParent);
@@ -120,15 +116,14 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
         }
     }
 
-    @Nonnull
-    private static Descriptors.Descriptor getMessageTypeForField(@Nonnull Descriptors.Descriptor descriptor, @Nonnull FieldKeyExpression field) {
-        final Descriptors.FieldDescriptor targetFieldDescriptor = descriptor.findFieldByName(field.getFieldName());
+    private static Descriptors.Descriptor getMessageTypeForField(Descriptors.Descriptor descriptor, FieldKeyExpression field) {
+        final FieldDescriptor targetFieldDescriptor = descriptor.findFieldByName(field.getFieldName());
         if (targetFieldDescriptor == null) {
             throw new MetaDataException("parent field not found")
                     .addLogInfo(LogMessageKeys.FIELD_NAME, field.getFieldName())
                     .addLogInfo(LogMessageKeys.MESSAGE, descriptor.getFullName());
         }
-        if (targetFieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
+        if (targetFieldDescriptor.getJavaType() == FieldDescriptor.JavaType.MESSAGE) {
             return targetFieldDescriptor.getMessageType();
         } else {
             throw new MetaDataException("parent field is not of message type")
@@ -137,9 +132,8 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
         }
     }
 
-    @Nonnull
     @Override
-    public KeyExpressionWithValue visitExpression(@Nonnull final KeyExpressionWithValue keyExpressionWithValue) {
+    public KeyExpressionWithValue visitExpression(final KeyExpressionWithValue keyExpressionWithValue) {
         if (keyExpressionWithValue instanceof LiteralKeyExpression<?>
                 || keyExpressionWithValue instanceof VersionKeyExpression
                 || keyExpressionWithValue instanceof RecordTypeKeyExpression) {
@@ -151,9 +145,8 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
         }
     }
 
-    @Nonnull
     @Override
-    public FunctionKeyExpression visitExpression(@Nonnull final FunctionKeyExpression functionKeyExpression) {
+    public FunctionKeyExpression visitExpression(final FunctionKeyExpression functionKeyExpression) {
         final KeyExpression newArguments = rewriteChild(functionKeyExpression);
         if (newArguments == null) {
             return functionKeyExpression;
@@ -163,9 +156,8 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    @Nonnull
     @Override
-    public KeyWithValueExpression visitExpression(@Nonnull final KeyWithValueExpression keyWithValueExpression) {
+    public KeyWithValueExpression visitExpression(final KeyWithValueExpression keyWithValueExpression) {
         // The child of a KeyWithValueExpression refers just to the component in the key, so we can't use rewriteChild here
         final KeyExpression newWholeKey = keyWithValueExpression.getInnerKey().expand(this);
         if (newWholeKey == keyWithValueExpression.getInnerKey()) {
@@ -175,9 +167,8 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
         }
     }
 
-    @Nonnull
     @Override
-    public ThenKeyExpression visitExpression(@Nonnull final ThenKeyExpression thenKeyExpression) {
+    public ThenKeyExpression visitExpression(final ThenKeyExpression thenKeyExpression) {
         final List<KeyExpression> newChildren = rewriteChildren(thenKeyExpression);
         if (newChildren == null) {
             return thenKeyExpression;
@@ -186,9 +177,8 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
         }
     }
 
-    @Nonnull
     @Override
-    public ListKeyExpression visitExpression(@Nonnull final ListKeyExpression listKeyExpression) {
+    public ListKeyExpression visitExpression(final ListKeyExpression listKeyExpression) {
         final List<KeyExpression> newChildren = rewriteChildren(listKeyExpression);
         if (newChildren == null) {
             return listKeyExpression;
@@ -197,9 +187,8 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
         }
     }
 
-    @Nonnull
     @Override
-    public KeyExpression visitExpression(@Nonnull final KeyExpression keyExpression) {
+    public KeyExpression visitExpression(final KeyExpression keyExpression) {
         // These KeyExpression classes implementations fall through to the default KeyExpression within the visitor.
         // We should consider adding them to the top-level visitor so that we can follow the visitor
         // pattern more generally.
@@ -217,8 +206,7 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    @Nonnull
-    public GroupingKeyExpression visitExpression(@Nonnull final GroupingKeyExpression groupingKeyExpression) {
+    public GroupingKeyExpression visitExpression(final GroupingKeyExpression groupingKeyExpression) {
         final KeyExpression newWholeKey = groupingKeyExpression.getWholeKey().expand(this);
         if (newWholeKey == groupingKeyExpression.getWholeKey()) {
             return groupingKeyExpression;
@@ -228,8 +216,7 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    @Nonnull
-    public SplitKeyExpression visitExpression(@Nonnull final SplitKeyExpression splitKeyExpression) {
+    public SplitKeyExpression visitExpression(final SplitKeyExpression splitKeyExpression) {
         // Note: "JOINED" is not a child expression, so we can't use rewriteChild here
         final KeyExpression newJoined = splitKeyExpression.getJoined().expand(this);
         if (newJoined == splitKeyExpression.getJoined()) {
@@ -240,8 +227,7 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
 
     }
 
-    @Nonnull
-    public DimensionsKeyExpression visitExpression(@Nonnull final DimensionsKeyExpression dimensionsKeyExpression) {
+    public DimensionsKeyExpression visitExpression(final DimensionsKeyExpression dimensionsKeyExpression) {
         final KeyExpression newChild = rewriteChild(dimensionsKeyExpression);
         if (newChild == null) {
             return dimensionsKeyExpression;
@@ -252,7 +238,7 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     @Nullable
-    private KeyExpression rewriteChild(@Nonnull final KeyExpressionWithChild keyExpressionWithChild) {
+    private KeyExpression rewriteChild(final KeyExpressionWithChild keyExpressionWithChild) {
         final KeyExpression child = keyExpressionWithChild.getChild();
         final KeyExpression rewritten = child.expand(this);
         if (child == rewritten) {
@@ -264,7 +250,7 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     @Nullable
-    private List<KeyExpression> rewriteChildren(@Nonnull final KeyExpressionWithChildren keyExpressionWithChildren) {
+    private List<KeyExpression> rewriteChildren(final KeyExpressionWithChildren keyExpressionWithChildren) {
         boolean anyChanged = false;
         final List<KeyExpression> children = keyExpressionWithChildren.getChildren();
         final ImmutableList.Builder<KeyExpression> newChildren = ImmutableList.builderWithExpectedSize(children.size());
@@ -281,27 +267,24 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
     }
 
     public static final class RenameFieldsState implements KeyExpressionVisitor.State {
-        @Nonnull
         private final Descriptors.Descriptor sourceDescriptor;
-        @Nonnull
         private final Descriptors.Descriptor targetDescriptor;
 
-        private RenameFieldsState(@Nonnull Descriptors.Descriptor sourceDescriptor, @Nonnull Descriptors.Descriptor targetDescriptor) {
+        private RenameFieldsState(Descriptors.Descriptor sourceDescriptor, Descriptors.Descriptor targetDescriptor) {
             this.sourceDescriptor = sourceDescriptor;
             this.targetDescriptor = targetDescriptor;
         }
 
-        @Nonnull
-        public String renameField(@Nonnull String sourceFieldName) {
+        public String renameField(String sourceFieldName) {
             // Grab the source field descriptor by name
-            @Nullable Descriptors.FieldDescriptor sourceField = sourceDescriptor.findFieldByName(sourceFieldName);
+            @Nullable FieldDescriptor sourceField = sourceDescriptor.findFieldByName(sourceFieldName);
             if (sourceField == null) {
                 throw new MetaDataException("field not found in source descriptor")
                         .addLogInfo(LogMessageKeys.FIELD_NAME, sourceFieldName)
                         .addLogInfo(LogMessageKeys.MESSAGE, sourceDescriptor.getFullName());
             }
             // Use the field number to find the equivalent field in the target
-            @Nullable Descriptors.FieldDescriptor targetField = targetDescriptor.findFieldByNumber(sourceField.getNumber());
+            @Nullable FieldDescriptor targetField = targetDescriptor.findFieldByNumber(sourceField.getNumber());
             if (targetField == null) {
                 throw new MetaDataException("field not found in target descriptor")
                         .addLogInfo(LogMessageKeys.OLD_FIELD_NAME, sourceFieldName)
@@ -324,8 +307,7 @@ public final class RenameFieldsVisitor implements KeyExpressionVisitor<RenameFie
      * @return a new key expression with rewritten field information
      */
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    @Nonnull
-    public static KeyExpression renameFields(@Nonnull KeyExpression expression, @Nonnull Descriptors.Descriptor sourceDescriptor, @Nonnull Descriptors.Descriptor targetDescriptor) {
+    public static KeyExpression renameFields(KeyExpression expression, Descriptors.Descriptor sourceDescriptor, Descriptors.Descriptor targetDescriptor) {
         if (sourceDescriptor == targetDescriptor) {
             return expression;
         }

@@ -27,8 +27,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -40,9 +39,7 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBuilder.Constituent> extends RecordTypeIndexesBuilder {
-    @Nonnull
     private final RecordMetaDataBuilder metaDataBuilder;
-    @Nonnull
     private final List<C> constituents = new ArrayList<>();
 
     /**
@@ -52,28 +49,24 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
      * The same record type can appear more than once with different correlation names (for implementing self-joins).
      */
     public static class Constituent {
-        @Nonnull
         private final String name;
-        @Nonnull
         private final RecordTypeBuilder recordType;
 
-        protected Constituent(@Nonnull String name, @Nonnull RecordTypeBuilder recordType) {
+        protected Constituent(String name, RecordTypeBuilder recordType) {
             this.name = name;
             this.recordType = recordType;
         }
 
-        @Nonnull
         public String getName() {
             return name;
         }
 
-        @Nonnull
         public RecordTypeBuilder getRecordType() {
             return recordType;
         }
     }
 
-    protected SyntheticRecordTypeBuilder(@Nonnull String name, @Nonnull Object recordTypeKey, @Nonnull RecordMetaDataBuilder metaDataBuilder) {
+    protected SyntheticRecordTypeBuilder(String name, Object recordTypeKey, RecordMetaDataBuilder metaDataBuilder) {
         super(name);
         this.recordTypeKey = recordTypeKey;
         this.metaDataBuilder = metaDataBuilder;
@@ -89,21 +82,18 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
      * Get the constitutents of this synthetic record type.
      * @return list of constituents
      */
-    @Nonnull
     public List<C> getConstituents() {
         return constituents;
     }
 
-    @Nonnull
-    protected abstract C newConstituent(@Nonnull String name, @Nonnull RecordTypeBuilder recordType);
+    protected abstract C newConstituent(String name, RecordTypeBuilder recordType);
 
     /**
      * Add a new constituent.
      * @param constituent the new constituent
      * @return the newly added constituent
      */
-    @Nonnull
-    protected C addConstituent(@Nonnull C constituent) {
+    protected C addConstituent(C constituent) {
         constituents.add(constituent);
         return constituent;
     }
@@ -114,8 +104,7 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
      * @param recordType the record type for the new constituent
      * @return the newly added constituent
      */
-    @Nonnull
-    public C addConstituent(@Nonnull String name, @Nonnull RecordTypeBuilder recordType) {
+    public C addConstituent(String name, RecordTypeBuilder recordType) {
         return addConstituent(newConstituent(name, recordType));
     }
 
@@ -125,8 +114,7 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
      * @param recordType the name of the record type for the new constituent
      * @return the newly added constituent
      */
-    @Nonnull
-    public C addConstituent(@Nonnull String name, @Nonnull String recordType) {
+    public C addConstituent(String name, String recordType) {
         return addConstituent(name, metaDataBuilder.getRecordType(recordType));
     }
 
@@ -135,8 +123,7 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
      * @param recordType the record type for the new constituent
      * @return the newly added constituent
      */
-    @Nonnull
-    public C addConstituent(@Nonnull RecordTypeBuilder recordType) {
+    public C addConstituent(RecordTypeBuilder recordType) {
         return addConstituent(recordType.getName(), recordType);
     }
 
@@ -145,23 +132,21 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
      * @param constituent name of the record type for the new constituent
      * @return the newly added constituent
      */
-    @Nonnull
-    protected C addConstituent(@Nonnull String constituent) {
+    protected C addConstituent(String constituent) {
         return addConstituent(constituent, constituent);
     }
 
-    @Nonnull
     @SuppressWarnings("squid:S1452")
-    public abstract SyntheticRecordType<?> build(@Nonnull RecordMetaData metaData, @Nonnull Descriptors.FileDescriptor fileDescriptor);
+    public abstract SyntheticRecordType<?> build(RecordMetaData metaData, Descriptors.FileDescriptor fileDescriptor);
 
     @API(API.Status.INTERNAL)
-    public void buildDescriptor(@Nonnull DescriptorProtos.FileDescriptorProto.Builder fileDescriptorProto, @Nonnull Set<Descriptors.FileDescriptor> sources) {
+    public void buildDescriptor(DescriptorProtos.FileDescriptorProto.Builder fileDescriptorProto, Set<Descriptors.FileDescriptor> sources) {
         final DescriptorProtos.DescriptorProto.Builder descriptorProto = fileDescriptorProto.addMessageTypeBuilder();
         descriptorProto.setName(name);
         addConstituentFields(descriptorProto, sources);
     }
 
-    protected void addConstituentFields(@Nonnull DescriptorProtos.DescriptorProto.Builder descriptorProto, @Nonnull Set<Descriptors.FileDescriptor> sources) {
+    protected void addConstituentFields(DescriptorProtos.DescriptorProto.Builder descriptorProto, Set<Descriptors.FileDescriptor> sources) {
         int fieldNumber = 0;
         for (Constituent constituent : constituents) {
             descriptorProto.addFieldBuilder()
@@ -173,7 +158,6 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
         }
     }
 
-    @Nonnull
     protected KeyExpression buildPrimaryKey() {
         // The 0th component is the synthetic record type's key, since multiple synthetic records might involve the same children.
         // The nth component is the nth constituent record's primary key, with no flattening.

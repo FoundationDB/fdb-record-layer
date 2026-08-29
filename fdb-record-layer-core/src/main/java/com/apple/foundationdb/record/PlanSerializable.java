@@ -23,8 +23,6 @@ package com.apple.foundationdb.record;
 import com.apple.foundationdb.annotation.API;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-
 /**
  * Base interface to indicate that a java class is reachable through a
  * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan} and therefore needs to be capable of
@@ -146,6 +144,5 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.UNSTABLE)
 public interface PlanSerializable {
-    @Nonnull
-    Message toProto(@Nonnull PlanSerializationContext serializationContext);
+    Message toProto(PlanSerializationContext serializationContext);
 }

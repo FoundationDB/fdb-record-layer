@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -42,7 +41,6 @@ import java.util.stream.Collectors;
 @API(API.Status.EXPERIMENTAL)
 public final class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRecordTypeBuilder.JoinConstituent> {
 
-    @Nonnull
     private final List<Join> joins = new ArrayList<>();
 
     /**
@@ -51,7 +49,7 @@ public final class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Jo
     public static class JoinConstituent extends SyntheticRecordTypeBuilder.Constituent {
         private final boolean outerJoined;
 
-        public JoinConstituent(@Nonnull String name, @Nonnull RecordTypeBuilder recordType, boolean outerJoined) {
+        public JoinConstituent(String name, RecordTypeBuilder recordType, boolean outerJoined) {
             super(name, recordType);
             this.outerJoined = outerJoined;
         }
@@ -60,8 +58,7 @@ public final class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Jo
             return outerJoined;
         }
 
-        @Nonnull
-        JoinedRecordType.JoinConstituent build(@Nonnull RecordMetaData metaData) {
+        JoinedRecordType.JoinConstituent build(RecordMetaData metaData) {
             return new JoinedRecordType.JoinConstituent(getName(), metaData.getRecordType(getRecordType().getName()), outerJoined);
         }
     }
@@ -70,53 +67,44 @@ public final class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Jo
      * An equi-join between constituent types.
      */
     public static class Join {
-        @Nonnull
         private final String left;
-        @Nonnull
         private final KeyExpression leftExpression;
-        @Nonnull
         private final String right;
-        @Nonnull
         private final KeyExpression rightExpression;
 
-        public Join(@Nonnull String left, @Nonnull KeyExpression leftExpression, @Nonnull String right, @Nonnull KeyExpression rightExpression) {
+        public Join(String left, KeyExpression leftExpression, String right, KeyExpression rightExpression) {
             this.left = left;
             this.leftExpression = leftExpression;
             this.right = right;
             this.rightExpression = rightExpression;
         }
 
-        @Nonnull
         public String getLeft() {
             return left;
         }
 
-        @Nonnull
         public KeyExpression getLeftExpression() {
             return leftExpression;
         }
 
-        @Nonnull
         public String getRight() {
             return right;
         }
 
-        @Nonnull
         public KeyExpression getRightExpression() {
             return rightExpression;
         }
 
-        @Nonnull
-        protected JoinedRecordType.Join build(@Nonnull Map<String, JoinedRecordType.JoinConstituent> constituentsByName) {
+        protected JoinedRecordType.Join build(Map<String, JoinedRecordType.JoinConstituent> constituentsByName) {
             return new JoinedRecordType.Join(constituentsByName.get(left), leftExpression, constituentsByName.get(right), rightExpression);
         }
     }
 
-    public JoinedRecordTypeBuilder(@Nonnull String name, @Nonnull Object recordTypeKey, @Nonnull RecordMetaDataBuilder metaDataBuilder) {
+    public JoinedRecordTypeBuilder(String name, Object recordTypeKey, RecordMetaDataBuilder metaDataBuilder) {
         super(name, recordTypeKey, metaDataBuilder);
     }
 
-    public JoinedRecordTypeBuilder(@Nonnull RecordMetaDataProto.JoinedRecordType typeProto, @Nonnull RecordMetaDataBuilder metaDataBuilder) {
+    public JoinedRecordTypeBuilder(RecordMetaDataProto.JoinedRecordType typeProto, RecordMetaDataBuilder metaDataBuilder) {
         super(typeProto.getName(), LiteralKeyExpression.fromProtoValue(typeProto.getRecordTypeKey()), metaDataBuilder);
         for (RecordMetaDataProto.JoinedRecordType.JoinConstituent joinConstituent : typeProto.getJoinConstituentsList()) {
             addConstituent(joinConstituent.getName(), metaDataBuilder.getRecordType(joinConstituent.getRecordType()), joinConstituent.getOuterJoined());
@@ -127,8 +115,7 @@ public final class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Jo
     }
 
     @Override
-    @Nonnull
-    protected JoinConstituent newConstituent(@Nonnull String name, @Nonnull RecordTypeBuilder recordType) {
+    protected JoinConstituent newConstituent(String name, RecordTypeBuilder recordType) {
         return new JoinConstituent(name, recordType, false);
     }
 
@@ -139,8 +126,7 @@ public final class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Jo
      * @param isOuterJoined whether constituent is outer-joined in joins in which it participates
      * @return the newly added constituent
      */
-    @Nonnull
-    public JoinConstituent addConstituent(@Nonnull String name, @Nonnull RecordTypeBuilder recordType, boolean isOuterJoined) {
+    public JoinConstituent addConstituent(String name, RecordTypeBuilder recordType, boolean isOuterJoined) {
         return addConstituent(new JoinConstituent(name, recordType, isOuterJoined));
     }
 
@@ -148,7 +134,6 @@ public final class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Jo
      * Get the list of joins for this joined record type.
      * @return the list of joins
      */
-    @Nonnull
     public List<Join> getJoins() {
         return joins;
     }
@@ -161,8 +146,7 @@ public final class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Jo
      * @param rightExpression an expression to evaluate against the right constituent
      * @return the newly added join
      */
-    @Nonnull
-    public Join addJoin(@Nonnull String left, @Nonnull KeyExpression leftExpression, @Nonnull String right, @Nonnull KeyExpression rightExpression) {
+    public Join addJoin(String left, KeyExpression leftExpression, String right, KeyExpression rightExpression) {
         if (leftExpression.getColumnSize() != rightExpression.getColumnSize()) {
             throw new RecordCoreArgumentException("Two sides of join are not the same size and will never match")
                     .addLogInfo("left", leftExpression, "right", rightExpression);
@@ -180,16 +164,14 @@ public final class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Jo
      * @param rightField a field to evaluate in the right constituent
      * @return the newly added join
      */
-    @Nonnull
-    public Join addJoin(@Nonnull String left, @Nonnull String leftField, @Nonnull String right, @Nonnull String rightField) {
+    public Join addJoin(String left, String leftField, String right, String rightField) {
         Join join = new Join(left, Key.Expressions.field(leftField), right, Key.Expressions.field(rightField));
         joins.add(join);
         return join;
     }
 
-    @Nonnull
     @Override
-    public JoinedRecordType build(@Nonnull RecordMetaData metaData, @Nonnull Descriptors.FileDescriptor fileDescriptor) {
+    public JoinedRecordType build(RecordMetaData metaData, Descriptors.FileDescriptor fileDescriptor) {
         final List<JoinedRecordType.JoinConstituent> builtConstituents = getConstituents().stream()
                 .map(constituent -> constituent.build(metaData))
                 .collect(Collectors.toList());

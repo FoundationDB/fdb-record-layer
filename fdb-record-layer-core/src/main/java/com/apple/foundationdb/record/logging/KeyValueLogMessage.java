@@ -22,8 +22,7 @@ package com.apple.foundationdb.record.logging;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -37,19 +36,16 @@ import java.util.TreeMap;
  */
 @API(API.Status.UNSTABLE)
 public class KeyValueLogMessage {
-    @Nonnull
     private final long timestamp;
-    @Nonnull
     private final String staticMessage;
 
-    @Nonnull
     private final Map<String, String> keyValueMap;
 
-    public static String of(@Nonnull final String staticMessage, @Nullable final Object... keysAndValues) {
+    public static String of(final String staticMessage, @Nullable final Object... keysAndValues) {
         return new KeyValueLogMessage(staticMessage, mapFromKeysAndValues(keysAndValues)).toString();
     }
 
-    public static KeyValueLogMessage build(@Nonnull final String staticMessage, @Nullable final Object... keysAndValues) {
+    public static KeyValueLogMessage build(final String staticMessage, @Nullable final Object... keysAndValues) {
         return new KeyValueLogMessage(staticMessage, mapFromKeysAndValues(keysAndValues));
     }
 
@@ -66,13 +62,13 @@ public class KeyValueLogMessage {
         return keyValueMap;
     }
 
-    private KeyValueLogMessage(@Nonnull final String staticMessage, @Nonnull Map<String, String> keyValueMap) {
+    private KeyValueLogMessage(final String staticMessage, Map<String, String> keyValueMap) {
         this.staticMessage = staticMessage;
         this.timestamp = System.currentTimeMillis();
         this.keyValueMap = keyValueMap;
     }
 
-    private static void addKeyValueImpl(@Nonnull Map<String, String> keyValueMap, @Nullable final Object key, @Nullable Object value) {
+    private static void addKeyValueImpl(Map<String, String> keyValueMap, @Nullable final Object key, @Nullable Object value) {
         if (key == null) {
             throw new IllegalArgumentException("null key passed to KeyValueLogMessage"); // better to throw an exception rather than silently swallow the key
         }
@@ -83,27 +79,25 @@ public class KeyValueLogMessage {
         addKeyValueImpl(keyValueMap, key, value);
     }
 
-    public KeyValueLogMessage addKeysAndValues(@Nonnull final Map<?, ?> map) {
+    public KeyValueLogMessage addKeysAndValues(final Map<?, ?> map) {
         for (Map.Entry<?, ?> entry : map.entrySet()) {
             addKeyValueImpl(entry.getKey(), entry.getValue());
         }
         return this;
     }
 
-    public KeyValueLogMessage addKeysAndValues(@Nonnull final List<Object> keyValues) {
+    public KeyValueLogMessage addKeysAndValues(final List<Object> keyValues) {
         for (int u = 0; u < (keyValues.size() / 2) * 2; u += 2) {
             addKeyValueImpl(keyValues.get(u), keyValues.get(u + 1));
         }
         return this;
     }
 
-    @Nonnull
-    private static String sanitizeValue(@Nonnull final String value) {
+    private static String sanitizeValue(final String value) {
         return value.replace("\"", "'");
     }
 
-    @Nonnull
-    private static String sanitizeKey(@Nonnull final String key) {
+    private static String sanitizeKey(final String key) {
         return key.replace("=", "");
     }
 
@@ -112,7 +106,6 @@ public class KeyValueLogMessage {
         return getMessageWithKeys();
     }
 
-    @Nonnull
     public String getMessageWithKeys() {
         final StringBuilder sb = new StringBuilder( keyValueMap.size() * 30);
         sb.append(staticMessage);
@@ -126,7 +119,6 @@ public class KeyValueLogMessage {
         return sb.toString();
     }
 
-    @Nonnull
     public Object[] getValues() {
         return keyValueMap.values().toArray();
     }
@@ -137,17 +129,16 @@ public class KeyValueLogMessage {
         return ret;
     }
 
-    public KeyValueLogMessage addKeyAndValue(@Nonnull final Object key, @Nullable final Object value) {
+    public KeyValueLogMessage addKeyAndValue(final Object key, @Nullable final Object value) {
         addKeyValueImpl(key, value);
         return this;
     }
 
-    @Nonnull
     public String getStaticMessage() {
         return keyValueMap.get(LogMessageKeys.TITLE.toString());
     }
 
-    public void setStaticMessage(@Nonnull final String staticMessage) {
+    public void setStaticMessage(final String staticMessage) {
         keyValueMap.put(LogMessageKeys.TITLE.toString(), staticMessage);
     }
 
@@ -155,7 +146,6 @@ public class KeyValueLogMessage {
         return timestamp;
     }
 
-    @Nonnull
     public Map<String, String> getKeyValueMap() {
         return Collections.unmodifiableMap(keyValueMap);
     }

@@ -22,8 +22,6 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-
 /**
  * The type of one of the endpoints of a {@link TupleRange}.
  * <p>
@@ -41,7 +39,6 @@ public enum EndpointType {
     PREFIX_STRING,
     CONTINUATION;
 
-    @Nonnull
     public String toString(boolean high) {
         switch (this) {
             case TREE_START:

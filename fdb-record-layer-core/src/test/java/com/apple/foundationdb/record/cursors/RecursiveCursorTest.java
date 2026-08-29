@@ -25,8 +25,7 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.test.TestExecutors;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -41,12 +40,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link RecursiveCursor}.
  */
 class RecursiveCursorTest {
-    @Nonnull
     private static RecordCursor<String> numberStrings(int n, @Nullable byte[] continuation) {
         return new RangeCursor(TestExecutors.defaultThreadPool(), n, continuation).map(i -> Integer.toString(i));
     }
 
-    @Nonnull
     private static RecursiveCursor.ChildCursorFunction<String> stringPaths(int nchildren, int maxDepth) {
         return (value, depth, continuation) -> {
             if (depth > maxDepth) {
@@ -78,7 +75,6 @@ class RecursiveCursorTest {
      * @param continuation optional continuation token for resuming traversal
      * @return a cursor over string paths at the specified depth
      */
-    @Nonnull
     private static RecordCursor<String> stringPathsCursor(int nroot, int nchildren, int depth,
                                                           @Nullable byte[] continuation) {
         return RecursiveCursor.create(c -> numberStrings(nroot, c), stringPaths(nchildren, depth - 1),

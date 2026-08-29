@@ -20,8 +20,7 @@
 
 package com.apple.foundationdb.record;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 
 /**
@@ -34,13 +33,11 @@ public class ValueRange<T> {
     private final T low;
     @Nullable
     private final T high;
-    @Nonnull
     private final EndpointType lowEndpoint;
-    @Nonnull
     private final EndpointType highEndpoint;
 
     public ValueRange(@Nullable T low, @Nullable T high,
-                      @Nonnull EndpointType lowEndpoint, @Nonnull EndpointType highEndpoint) {
+                      EndpointType lowEndpoint, EndpointType highEndpoint) {
         this.low = low;
         this.high = high;
         this.lowEndpoint = lowEndpoint;
@@ -57,12 +54,10 @@ public class ValueRange<T> {
         return high;
     }
 
-    @Nonnull
     public EndpointType getLowEndpoint() {
         return lowEndpoint;
     }
 
-    @Nonnull
     public EndpointType getHighEndpoint() {
         return highEndpoint;
     }

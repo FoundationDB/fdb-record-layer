@@ -25,8 +25,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -35,23 +34,19 @@ import java.util.concurrent.CompletableFuture;
 @API(API.Status.INTERNAL)
 public class AsyncLock {
     // All the read tasks that are pending up till the current lock instance.
-    @Nonnull
     private final CompletableFuture<Void> pendingReads;
     // All the write tasks that are pending up till the current lock instance.
-    @Nonnull
     private final CompletableFuture<Void> pendingWrites ;
     // Current task, represented by this instance.
-    @Nonnull
     private final CompletableFuture<Void> taskFuture;
     // waiting tasks that the current lock instance is waiting upon.
-    @Nonnull
     private final CompletableFuture<Void> waitFuture;
     @Nullable
     private final StoreTimer timer;
 
-    AsyncLock(@Nullable final StoreTimer timer, @Nonnull final CompletableFuture<Void> pendingReads,
-              @Nonnull final CompletableFuture<Void> pendingWrites, @Nonnull final CompletableFuture<Void> taskFuture,
-              @Nonnull final CompletableFuture<Void> waitFuture) {
+    AsyncLock(@Nullable final StoreTimer timer, final CompletableFuture<Void> pendingReads,
+              final CompletableFuture<Void> pendingWrites, final CompletableFuture<Void> taskFuture,
+              final CompletableFuture<Void> waitFuture) {
         this.timer = timer;
         this.pendingReads = pendingReads;
         this.pendingWrites = pendingWrites;

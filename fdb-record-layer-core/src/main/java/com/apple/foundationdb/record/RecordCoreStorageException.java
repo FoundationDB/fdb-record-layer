@@ -22,8 +22,7 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Exceptions due to problems with the state of or connection to a particular record store.
@@ -31,15 +30,15 @@ import javax.annotation.Nullable;
 @API(API.Status.UNSTABLE)
 @SuppressWarnings("serial")
 public class RecordCoreStorageException extends RecordCoreException {
-    public RecordCoreStorageException(@Nonnull String msg) {
+    public RecordCoreStorageException(String msg) {
         super(msg);
     }
 
-    public RecordCoreStorageException(@Nonnull String msg, @Nullable Object ... keyValues) {
+    public RecordCoreStorageException(String msg, @Nullable Object ... keyValues) {
         super(msg, keyValues);
     }
 
-    public RecordCoreStorageException(@Nonnull String msg, @Nullable Throwable cause) {
+    public RecordCoreStorageException(String msg, @Nullable Throwable cause) {
         super(msg, cause);
     }
 }

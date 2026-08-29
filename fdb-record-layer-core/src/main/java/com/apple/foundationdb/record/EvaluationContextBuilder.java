@@ -24,8 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A builder for {@link EvaluationContext}.
@@ -35,7 +34,6 @@ import javax.annotation.Nullable;
  */
 @API(API.Status.UNSTABLE)
 public class EvaluationContextBuilder {
-    @Nonnull
     protected final Bindings.Builder bindings;
 
     /**
@@ -52,7 +50,7 @@ public class EvaluationContextBuilder {
      * for those which have had their value over-ridden).
      * @param original the original {@link EvaluationContext} to build a new one around
      */
-    protected EvaluationContextBuilder(@Nonnull EvaluationContext original) {
+    protected EvaluationContextBuilder(EvaluationContext original) {
         this.bindings = original.getBindings().childBuilder();
     }
 
@@ -67,7 +65,7 @@ public class EvaluationContextBuilder {
      * @see EvaluationContext#getBinding(String)
      */
     @Nullable
-    public Object getBinding(@Nonnull String name) {
+    public Object getBinding(String name) {
         return bindings.get(name);
     }
 
@@ -80,8 +78,7 @@ public class EvaluationContextBuilder {
      * @param value the value to associate with the name
      * @return this <code>EvaluationContextBuilder</code>
      */
-    @Nonnull
-    public EvaluationContextBuilder setBinding(@Nonnull String name, @Nullable Object value) {
+    public EvaluationContextBuilder setBinding(String name, @Nullable Object value) {
         bindings.set(name, value);
         return this;
     }
@@ -95,11 +92,11 @@ public class EvaluationContextBuilder {
      * @param value the value to associate with the name
      * @return this <code>EvaluationContextBuilder</code>
      */
-    public EvaluationContextBuilder setBinding(@Nonnull CorrelationIdentifier alias, @Nullable Object value) {
+    public EvaluationContextBuilder setBinding(CorrelationIdentifier alias, @Nullable Object value) {
         return setBinding(Bindings.Internal.CORRELATION.bindingName(alias.getId()), value);
     }
 
-    public EvaluationContextBuilder setConstant(@Nonnull CorrelationIdentifier alias, @Nullable Object value) {
+    public EvaluationContextBuilder setConstant(CorrelationIdentifier alias, @Nullable Object value) {
         return setBinding(Bindings.Internal.CONSTANT.bindingName(alias.getId()), value);
     }
 
@@ -114,8 +111,7 @@ public class EvaluationContextBuilder {
      * @param typeRepository a type repository to be used in the new context
      * @return an {@link EvaluationContext} with updated bindings
      */
-    @Nonnull
-    public EvaluationContext build(@Nonnull final TypeRepository typeRepository) {
+    public EvaluationContext build(final TypeRepository typeRepository) {
         return EvaluationContext.forBindingsAndTypeRepository(bindings.build(), typeRepository);
     }
 }

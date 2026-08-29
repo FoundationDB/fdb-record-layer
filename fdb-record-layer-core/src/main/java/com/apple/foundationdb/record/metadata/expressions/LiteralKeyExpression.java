@@ -37,8 +37,7 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.List;
 
@@ -53,9 +52,7 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
 
     @Nullable
     private final T value;
-    @Nonnull
     private final List<Key.Evaluated> evaluated;
-    @Nonnull
     private final RecordKeyExpressionProto.Value proto;
 
     public LiteralKeyExpression(@Nullable T value) {
@@ -63,7 +60,7 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
         this(value, toProtoValue(value));
     }
 
-    private LiteralKeyExpression(@Nullable T value, @Nonnull RecordKeyExpressionProto.Value proto) {
+    private LiteralKeyExpression(@Nullable T value, RecordKeyExpressionProto.Value proto) {
         this.value = value;
         this.evaluated = ImmutableList.of(value == null ? Key.Evaluated.NULL : Key.Evaluated.scalar(value));
         this.proto = proto;
@@ -74,7 +71,6 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
         return value;
     }
 
-    @Nonnull
     @Override
     public <M extends Message> List<Key.Evaluated> evaluateMessage(@Nullable FDBRecord<M> record, @Nullable Message message) {
         return evaluated;
@@ -86,7 +82,7 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
     }
 
     @Override
-    public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor descriptor) {
+    public List<Descriptors.FieldDescriptor> validate(Descriptors.Descriptor descriptor) {
         return Collections.emptyList();
     }
 
@@ -95,26 +91,22 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
         return 1;
     }
 
-    @Nonnull
     @Override
     public RecordKeyExpressionProto.Value toProto() throws SerializationException {
         return proto;
     }
 
-    @Nonnull
     @Override
-    public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+    public <S extends KeyExpressionVisitor.State, R> R expand(final KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
     }
 
-    @Nonnull
     @Override
-    public Value toValue(@Nonnull final CorrelationIdentifier baseAlias,
-                         @Nonnull final Type baseType) {
+    public Value toValue(final CorrelationIdentifier baseAlias,
+                         final Type baseType) {
         return LiteralValue.ofScalar(value);
     }
 
-    @Nonnull
     @Override
     public RecordKeyExpressionProto.KeyExpression toKeyExpression() {
         return RecordKeyExpressionProto.KeyExpression.newBuilder().setValue(toProto()).build();
@@ -125,7 +117,6 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
         return false;
     }
 
-    @Nonnull
     public static LiteralKeyExpression<?> fromProto(RecordKeyExpressionProto.Value proto) {
         return new LiteralKeyExpression<>(fromProtoValue(proto), proto);
     }
@@ -172,7 +163,6 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
         return value;
     }
 
-    @Nonnull
     public static RecordKeyExpressionProto.Value toProtoValue(@Nullable Object value) {
         RecordKeyExpressionProto.Value.Builder builder = RecordKeyExpressionProto.Value.newBuilder();
         if (value instanceof Double) {
@@ -220,7 +210,7 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
