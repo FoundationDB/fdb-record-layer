@@ -34,7 +34,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.ExecutionException;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -53,15 +52,13 @@ public class JoinedRecordTypeTest extends FDBRecordStoreQueryTestBase {
     public static final String SIMPLE_RECORD = "simple_record";
     public static final String OTHER_RECORD = "other_record";
 
-    @Nonnull
-    private static RecordMetaData baseMetaData(@Nonnull RecordMetaDataHook hook) {
+    private static RecordMetaData baseMetaData(RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
                 .setRecords(TestRecordsJoinIndexProto.getDescriptor());
         hook.apply(metaDataBuilder);
         return metaDataBuilder.build();
     }
 
-    @Nonnull
     private static RecordMetaDataHook addJoinedType() {
         return metaDataBuilder -> {
             JoinedRecordTypeBuilder typeBuilder = metaDataBuilder.addJoinedRecordType(JOINED_RECORD_NAME);

@@ -23,8 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Exception thrown when {@link FDBRecordStoreBase#insertRecord} is called, but the record already exists.
@@ -33,7 +32,7 @@ import javax.annotation.Nullable;
 @SuppressWarnings("serial")
 @API(API.Status.UNSTABLE)
 public class RecordAlreadyExistsException extends RecordCoreException {
-    public RecordAlreadyExistsException(@Nonnull String msg, @Nullable Object ... keyValues) {
+    public RecordAlreadyExistsException(String msg, @Nullable Object ... keyValues) {
         super(msg, keyValues);
     }
 }

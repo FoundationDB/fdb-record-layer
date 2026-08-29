@@ -74,8 +74,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -137,56 +137,40 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 @Tag(Tags.RequiresFDB)
 class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
-    @Nonnull
     private static final String OUTER = "OuterRecord";
-    @Nonnull
     private static final String UNNESTED_MAP = "UnnestedMap";
-    @Nonnull
     private static final String TWO_UNNESTED_MAPS = "TwoUnnestedMaps";
-    @Nonnull
     private static final String DOUBLE_NESTED = "DoubleNested";
 
-    @Nonnull
     private static final KeyExpression ENTRIES_FAN_OUT = field("map").nest(field("entry", FanType.FanOut));
-    @Nonnull
     private static final String PARENT_CONSTITUENT = "parent";
-    @Nonnull
     private static final String KEY_OTHER_INT_VALUE_INDEX = "keyOtherIntValue";
-    @Nonnull
     private static final String KEY_ONE_KEY_TWO_VALUE_ONE_VALUE_TWO_INDEX = "keyOneKeyTwoValueOneValueTwo";
-    @Nonnull
     private static final String INNER_FOO_OUTER_BAR_INNER_BAR_INDEX = "innerFooOuterBarInnerBar";
-    @Nonnull
     private static final String OTHER_KEY_ID_VALUE_INDEX = "otherKeyIdValue";
-    @Nonnull
     private static final String MULTI_TYPE_DOUBLE_NESTED_INDEX = "multiTypeDoubleNested";
 
-    @Nonnull
     private static List<String> RANDOM_MAP_KEYS = List.of("foo", "bar", "baz", "quop", "asdf", "qwerty", "zop");
 
-    @Nonnull
     static Stream<Long> randomSeeds() {
         return RandomizedTestUtils.randomSeeds(0xba5eba1L, 0xfdb5ca1eL);
     }
 
-    @Nonnull
-    private static RecordMetaData mapMetaData(@Nonnull RecordMetaDataHook hook) {
+    private static RecordMetaData mapMetaData(RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
                 .setRecords(TestRecordsNestedMapProto.getDescriptor());
         hook.apply(metaDataBuilder);
         return metaDataBuilder.build();
     }
 
-    @Nonnull
-    private static RecordMetaData importedMapMetaData(@Nonnull RecordMetaDataHook hook) {
+    private static RecordMetaData importedMapMetaData(RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
                 .setRecords(TestRecordsImportedMapProto.getDescriptor());
         hook.apply(metaDataBuilder);
         return metaDataBuilder.build();
     }
 
-    @Nonnull
-    private static RecordMetaData doublyImportedMapMetaData(@Nonnull RecordMetaDataHook hook) {
+    private static RecordMetaData doublyImportedMapMetaData(RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
                 .setRecords(TestRecordsDoublyImportedMapProto.getDescriptor());
         hook.apply(metaDataBuilder);
@@ -194,20 +178,17 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
     }
 
     @SuppressWarnings("unused") // used as parameter supplier to parameterized test
-    @Nonnull
     private static Stream<Function<RecordMetaDataHook, RecordMetaData>> mapMetaDataSuppliers() {
         return Stream.of(UnnestedRecordTypeTest::mapMetaData, UnnestedRecordTypeTest::importedMapMetaData, UnnestedRecordTypeTest::doublyImportedMapMetaData);
     }
 
-    @Nonnull
-    private static RecordMetaData doubleNestedMetaData(@Nonnull RecordMetaDataHook hook) {
+    private static RecordMetaData doubleNestedMetaData(RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
                 .setRecords(TestRecordsDoubleNestedProto.getDescriptor());
         hook.apply(metaDataBuilder);
         return metaDataBuilder.build();
     }
 
-    @Nonnull
     private static RecordMetaDataHook addMapType() {
         return metaDataBuilder -> {
             UnnestedRecordTypeBuilder typeBuilder = metaDataBuilder.addUnnestedRecordType(UNNESTED_MAP);
@@ -217,7 +198,6 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
         };
     }
 
-    @Nonnull
     private static RecordMetaDataHook addTwoMapsType() {
         return metaDataBuilder -> {
             UnnestedRecordTypeBuilder typeBuilder = metaDataBuilder.addUnnestedRecordType(TWO_UNNESTED_MAPS);
@@ -229,7 +209,6 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
         };
     }
 
-    @Nonnull
     private static RecordMetaDataHook addDoubleNestedType() {
         return metaDataBuilder -> {
             final UnnestedRecordTypeBuilder typeBuilder = metaDataBuilder.addUnnestedRecordType(DOUBLE_NESTED);
@@ -243,7 +222,6 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
         };
     }
 
-    @Nonnull
     private static RecordMetaDataHook addKeyOtherIntValueIndex() {
         return metaDataBuilder -> {
             final KeyExpression expr = concat(
@@ -255,7 +233,6 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
         };
     }
 
-    @Nonnull
     private static RecordMetaDataHook addKeyOneKeyTwoValueOneValueTwo() {
         return metaDataBuilder -> {
             final KeyExpression expr = new KeyWithValueExpression(concat(
@@ -268,13 +245,11 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
         };
     }
 
-    @Nonnull
     private static RecordMetaDataHook addInnerFooOuterBarInnerBarIndex() {
         return metaDataBuilder -> metaDataBuilder.addIndex(DOUBLE_NESTED, new Index(INNER_FOO_OUTER_BAR_INNER_BAR_INDEX,
                 concat(field("inner").nest("foo"), field("outer_inner").nest("bar"), field("inner").nest("bar"))));
     }
 
-    @Nonnull
     private static RecordMetaDataHook addOtherKeyIdValueIndex() {
         return metaData -> {
             final KeyExpression expr = concat(
@@ -287,13 +262,11 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
         };
     }
 
-    @Nonnull
     private static RecordMetaDataHook addMultiTypeDoubleUnnestedIndex() {
         return addMultiTypeDoubleUnnestedIndex(concat(field(PARENT_CONSTITUENT).nest(field("middle").nest("other_int")), field("inner").nest("foo")));
     }
 
-    @Nonnull
-    private static RecordMetaDataHook addMultiTypeDoubleUnnestedIndex(@Nonnull KeyExpression rootExpression) {
+    private static RecordMetaDataHook addMultiTypeDoubleUnnestedIndex(KeyExpression rootExpression) {
         return addDoubleNestedType().andThen(metaDataBuilder -> {
             UnnestedRecordTypeBuilder secondUnnested = metaDataBuilder.addUnnestedRecordType("MiddleUnnested");
             secondUnnested.addParentConstituent(PARENT_CONSTITUENT, metaDataBuilder.getRecordType("MiddleRecord"));
@@ -305,24 +278,21 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
         });
     }
 
-    @Nonnull
-    private static RecordMetaDataHook setOuterAndOtherPrimaryKey(@Nonnull KeyExpression primaryKey) {
+    private static RecordMetaDataHook setOuterAndOtherPrimaryKey(KeyExpression primaryKey) {
         return metaData -> {
             metaData.getRecordType(OUTER).setPrimaryKey(primaryKey);
             metaData.getRecordType("OtherRecord").setPrimaryKey(primaryKey);
         };
     }
 
-    @Nonnull
-    private static RecordMetaDataHook setOuterAndMiddlePrimaryKey(@Nonnull KeyExpression primaryKey) {
+    private static RecordMetaDataHook setOuterAndMiddlePrimaryKey(KeyExpression primaryKey) {
         return metaData -> {
             metaData.getRecordType(OUTER).setPrimaryKey(primaryKey);
             metaData.getRecordType("MiddleRecord").setPrimaryKey(primaryKey);
         };
     }
 
-    @Nonnull
-    private static <M> List<M> randomMessageList(@Nonnull Random r, int count, @Nonnull BiFunction<Random, Long, M> generator) {
+    private static <M> List<M> randomMessageList(Random r, int count, BiFunction<Random, Long, M> generator) {
         return LongStream.generate(r::nextLong)
                 .distinct()
                 .mapToObj(id -> generator.apply(r, id))
@@ -330,7 +300,6 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
                 .collect(Collectors.toList());
     }
 
-    @Nonnull
     private static TestRecordsNestedMapProto.OuterRecord sampleMapRecord() {
         return TestRecordsNestedMapProto.OuterRecord.newBuilder()
                 .setRecId(1066)
@@ -344,7 +313,6 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
     }
 
 
-    @Nonnull
     private static TestRecordsNestedMapProto.OuterRecord sampleMapRecordWithOnlyValueDifferent() {
         return TestRecordsNestedMapProto.OuterRecord.newBuilder()
                 .setRecId(1215L)
@@ -358,7 +326,6 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
     }
 
 
-    @Nonnull
     private static TestRecordsNestedMapProto.OuterRecord sampleMapRecordWithDuplicateEntries() {
         return TestRecordsNestedMapProto.OuterRecord.newBuilder()
                 .setRecId(1415L)
@@ -371,7 +338,6 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
                 .build();
     }
 
-    @Nonnull
     private static TestRecordsNestedMapProto.OuterRecord emptyMapRecord() {
         return TestRecordsNestedMapProto.OuterRecord.newBuilder()
                 .setRecId(1815L)
@@ -380,7 +346,6 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
                 .build();
     }
 
-    @Nonnull
     private static TestRecordsNestedMapProto.OuterRecord unsetMapRecord() {
         return TestRecordsNestedMapProto.OuterRecord.newBuilder()
                 .setRecId(1863L)
@@ -388,7 +353,6 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
                 .build();
     }
 
-    @Nonnull
     private static Collection<TestRecordsNestedMapProto.OuterRecord> sampleMapRecords() {
         return List.of(
                 sampleMapRecord(),
@@ -399,8 +363,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
         );
     }
 
-    @Nonnull
-    private static TestRecordsNestedMapProto.OuterRecord randomMapRecord(@Nonnull Random r, long id) {
+    private static TestRecordsNestedMapProto.OuterRecord randomMapRecord(Random r, long id) {
         TestRecordsNestedMapProto.MapRecord.Builder mapBuilder = TestRecordsNestedMapProto.MapRecord.newBuilder();
         Stream.generate(() -> TestRecordsNestedMapProto.MapRecord.Entry.newBuilder()
                 .setKey(RANDOM_MAP_KEYS.get(r.nextInt(RANDOM_MAP_KEYS.size())))
@@ -415,12 +378,10 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
                 .build();
     }
 
-    @Nonnull
-    private static List<TestRecordsNestedMapProto.OuterRecord> randomMapRecords(@Nonnull Random r, int count) {
+    private static List<TestRecordsNestedMapProto.OuterRecord> randomMapRecords(Random r, int count) {
         return randomMessageList(r, count, UnnestedRecordTypeTest::randomMapRecord);
     }
 
-    @Nonnull
     private static TestRecordsDoubleNestedProto.OuterRecord sampleDoubleNestedRecord() {
         return TestRecordsDoubleNestedProto.OuterRecord.newBuilder()
                 .setRecNo(1066)
@@ -490,7 +451,6 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
                 .build();
     }
 
-    @Nonnull
     private static TestRecordsDoubleNestedProto.OuterRecord sampleDoubleNestedWithEmptyOuterInner() {
         return sampleDoubleNestedRecord().toBuilder()
                 .setRecNo(1215L)
@@ -498,7 +458,6 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
                 .build();
     }
 
-    @Nonnull
     private static TestRecordsDoubleNestedProto.OuterRecord sampleDoubleNestedWithEmptyManyMiddleInner() {
         return sampleDoubleNestedRecord().toBuilder()
                 .setRecNo(1415L)
@@ -506,7 +465,6 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
                 .build();
     }
 
-    @Nonnull
     private static TestRecordsDoubleNestedProto.OuterRecord sampleDoubleNestedWithEmptyMiddleInners() {
         TestRecordsDoubleNestedProto.OuterRecord.Builder outerBuilder = sampleDoubleNestedRecord().toBuilder()
                 .setRecNo(1815L);
@@ -516,7 +474,6 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
         return outerBuilder.build();
     }
 
-    @Nonnull
     private static TestRecordsDoubleNestedProto.OuterRecord sampleDoubleNestedWithOneEmptyMiddleInner() {
         return sampleDoubleNestedRecord().toBuilder()
                 .setRecNo(1863L)
@@ -524,7 +481,6 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
                 .build();
     }
 
-    @Nonnull
     private static TestRecordsDoubleNestedProto.OuterRecord sampleDoubleNestedWithOneEmptyMiddleInnerAtBeginning() {
         TestRecordsDoubleNestedProto.OuterRecord.Builder outerBuilder = sampleDoubleNestedRecord().toBuilder()
                 .setRecNo(1867L);
@@ -536,12 +492,10 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
                 .build();
     }
 
-    @Nonnull
     private static TestRecordsDoubleNestedProto.OuterRecord emptyDoubleNestedRecord() {
         return TestRecordsDoubleNestedProto.OuterRecord.getDefaultInstance();
     }
 
-    @Nonnull
     private static List<TestRecordsDoubleNestedProto.OuterRecord> sampleDoubleNestedRecords() {
         return List.of(
                 sampleDoubleNestedRecord(),
@@ -554,8 +508,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
         );
     }
 
-    @Nonnull
-    private static TestRecordsDoubleNestedProto.OtherRecord randomOtherRecord(@Nonnull Random r, double decayRate) {
+    private static TestRecordsDoubleNestedProto.OtherRecord randomOtherRecord(Random r, double decayRate) {
         TestRecordsDoubleNestedProto.OtherRecord.Builder builder = TestRecordsDoubleNestedProto.OtherRecord.newBuilder();
         if (r.nextDouble() < decayRate) {
             double newDecayRate = r.nextDouble() * decayRate * 0.75;
@@ -564,8 +517,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
         return builder.build();
     }
 
-    @Nonnull
-    private static TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord randomInnerRecord(@Nonnull Random r, double decayRate) {
+    private static TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord randomInnerRecord(Random r, double decayRate) {
         double newDecayRate = r.nextDouble() * decayRate * 0.75;
         TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.Builder builder = TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.InnerRecord.newBuilder()
                 .setFoo(r.nextInt(20))
@@ -579,8 +531,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
         return builder.build();
     }
 
-    @Nonnull
-    private static TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord randomOuterMiddle(@Nonnull Random r, double decayRate) {
+    private static TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord randomOuterMiddle(Random r, double decayRate) {
         double newDecayRate = r.nextDouble() * decayRate * 0.75;
         TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.Builder builder =  TestRecordsDoubleNestedProto.OuterRecord.MiddleRecord.newBuilder()
                 .setOtherInt(r.nextInt(10));
@@ -593,8 +544,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
         return builder.build();
     }
 
-    @Nonnull
-    private static TestRecordsDoubleNestedProto.MiddleRecord randomMiddleRecord(@Nonnull Random r, long id, double decayRate) {
+    private static TestRecordsDoubleNestedProto.MiddleRecord randomMiddleRecord(Random r, long id, double decayRate) {
         double newDecayRate = r.nextDouble() * decayRate * 0.75;
         TestRecordsDoubleNestedProto.MiddleRecord.Builder builder = TestRecordsDoubleNestedProto.MiddleRecord.newBuilder()
                 .setRecNo(id)
@@ -608,18 +558,15 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
         return builder.build();
     }
 
-    @Nonnull
-    private static TestRecordsDoubleNestedProto.MiddleRecord randomMiddleRecord(@Nonnull Random r, long id) {
+    private static TestRecordsDoubleNestedProto.MiddleRecord randomMiddleRecord(Random r, long id) {
         return randomMiddleRecord(r, id, 1.0);
     }
 
-    @Nonnull
-    private static List<TestRecordsDoubleNestedProto.MiddleRecord> randomMiddleRecords(@Nonnull Random r, int count) {
+    private static List<TestRecordsDoubleNestedProto.MiddleRecord> randomMiddleRecords(Random r, int count) {
         return randomMessageList(r, count, UnnestedRecordTypeTest::randomMiddleRecord);
     }
 
-    @Nonnull
-    private static TestRecordsDoubleNestedProto.OuterRecord randomDoubleNestedMapRecord(@Nonnull Random r, long id, double decayRate) {
+    private static TestRecordsDoubleNestedProto.OuterRecord randomDoubleNestedMapRecord(Random r, long id, double decayRate) {
         double newDecayRate = r.nextDouble() * decayRate * 0.75;
         TestRecordsDoubleNestedProto.OuterRecord.Builder builder = TestRecordsDoubleNestedProto.OuterRecord.newBuilder()
                 .setRecNo(id)
@@ -636,18 +583,15 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
         return builder.build();
     }
 
-    @Nonnull
-    private static TestRecordsDoubleNestedProto.OuterRecord randomDoubleNestedMapRecord(@Nonnull Random r, long id) {
+    private static TestRecordsDoubleNestedProto.OuterRecord randomDoubleNestedMapRecord(Random r, long id) {
         return randomDoubleNestedMapRecord(r, id, 1.0);
     }
 
-    @Nonnull
-    private static List<TestRecordsDoubleNestedProto.OuterRecord> randomDoubleNestedMapRecords(@Nonnull Random r, int count) {
+    private static List<TestRecordsDoubleNestedProto.OuterRecord> randomDoubleNestedMapRecords(Random r, int count) {
         return randomMessageList(r, count, UnnestedRecordTypeTest::randomDoubleNestedMapRecord);
     }
 
-    @Nonnull
-    private static TestRecordsImportedMapProto.OuterRecord asImported(@Nonnull TestRecordsNestedMapProto.OuterRecord outerRecord) {
+    private static TestRecordsImportedMapProto.OuterRecord asImported(TestRecordsNestedMapProto.OuterRecord outerRecord) {
         // Copy the outer record into an imported outer record. Note that because the map type is imported, the map
         // field can just be copied over
         return TestRecordsImportedMapProto.OuterRecord.newBuilder()
@@ -657,8 +601,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
                 .build();
     }
 
-    @Nonnull
-    private static TestRecordsDoublyImportedMapProto.OuterRecord asDoubleImported(@Nonnull TestRecordsNestedMapProto.OuterRecord outerRecord) {
+    private static TestRecordsDoublyImportedMapProto.OuterRecord asDoubleImported(TestRecordsNestedMapProto.OuterRecord outerRecord) {
         // Copy the outer record into an imported outer record. Note that because the map type is imported, the map
         // field can just be copied over
         var builder = TestRecordsDoublyImportedMapProto.OuterRecord.newBuilder()
@@ -673,8 +616,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
         return builder.build();
     }
 
-    @Nonnull
-    private static Message convertOuterRecord(@Nonnull RecordMetaData metaData, @Nonnull TestRecordsNestedMapProto.OuterRecord outerRecord) {
+    private static Message convertOuterRecord(RecordMetaData metaData, TestRecordsNestedMapProto.OuterRecord outerRecord) {
         if (metaData.getRecordsDescriptor() == TestRecordsNestedMapProto.getDescriptor()) {
             return outerRecord;
         } else if (metaData.getRecordsDescriptor() == TestRecordsImportedMapProto.getDescriptor()) {
@@ -686,8 +628,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @Nonnull
-    private static <C extends SyntheticRecordType.Constituent> C getConstituent(@Nonnull SyntheticRecordType<C> type, @Nonnull String name) {
+    private static <C extends SyntheticRecordType.Constituent> C getConstituent(SyntheticRecordType<C> type, String name) {
         return type.getConstituents().stream()
                 .filter(c -> c.getName().equals(name))
                 .findFirst()
@@ -806,7 +747,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
         });
     }
 
-    private void assertMetaDataFails(@Nonnull Descriptors.FileDescriptor base, @Nonnull String messageContains, @Nonnull RecordMetaDataHook hook) {
+    private void assertMetaDataFails(Descriptors.FileDescriptor base, String messageContains, RecordMetaDataHook hook) {
         MetaDataException err = assertThrows(MetaDataException.class, () -> {
             RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(base);
             hook.apply(metaDataBuilder);
@@ -821,8 +762,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
     // Tests that assert on what synthetic records are returned by the synthetic planner given a stored record
     //
 
-    @Nonnull
-    private List<FDBSyntheticRecord> evaluateUnnesting(@Nonnull SyntheticRecordType<?> syntheticType, @Nonnull FDBStoredRecord<? extends Message> storedRecord) {
+    private List<FDBSyntheticRecord> evaluateUnnesting(SyntheticRecordType<?> syntheticType, FDBStoredRecord<? extends Message> storedRecord) {
         SyntheticRecordPlanner syntheticPlanner = new SyntheticRecordPlanner(recordStore);
         SyntheticRecordFromStoredRecordPlan plan = syntheticPlanner.forType(syntheticType);
         List<FDBSyntheticRecord> syntheticRecords = plan.execute(recordStore, storedRecord)
@@ -1289,8 +1229,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
     // Tests that assert on query plans and results
     //
 
-    @Nonnull
-    private List<Pair<TestRecordsNestedMapProto.OuterRecord, TestRecordsNestedMapProto.MapRecord.Entry>> queryUnnestedMap(@Nonnull RecordQueryPlan plan, @Nonnull Bindings bindings) {
+    private List<Pair<TestRecordsNestedMapProto.OuterRecord, TestRecordsNestedMapProto.MapRecord.Entry>> queryUnnestedMap(RecordQueryPlan plan, Bindings bindings) {
         EvaluationContext evaluationContext = EvaluationContext.forBindings(bindings);
         return plan.execute(recordStore, evaluationContext)
                 .map(FDBQueriedRecord::getSyntheticRecord)
@@ -1423,7 +1362,6 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @Nonnull
     static Stream<Arguments> indexMatchOrdersOnSingleColumnPrimaryKey() {
         return Stream.concat(
                 Stream.of(
@@ -1857,11 +1795,10 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
                         }
 
                         @Override
-                        public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
+                        public CompletableFuture<Integer> checkUserVersion(final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
                             return CompletableFuture.completedFuture(storeHeader.getUserVersion());
                         }
 
-                        @Nonnull
                         @Override
                         public CompletableFuture<IndexState> needRebuildIndex(final Index index, final Supplier<CompletableFuture<Long>> lazyRecordCount, final Supplier<CompletableFuture<Long>> lazyEstimatedSize, final boolean indexOnNewRecordTypes) {
                             newIndexesToBuild.add(index);
@@ -2338,7 +2275,6 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @Nonnull
     private List<FDBSyntheticRecord> queryOtherKeyIdValue(long otherId) {
         final RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType(UNNESTED_MAP)
@@ -2350,7 +2286,6 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @Nonnull
     private List<FDBStoredRecord<Message>> saveRecordsForDeleteRecordsWhere(TestRecordsNestedMapProto.OuterRecord baseRec) {
         final List<FDBStoredRecord<Message>> saved = new ArrayList<>();
         saved.add(recordStore.saveRecord(baseRec));
@@ -2372,7 +2307,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
                 assertNull(recordStore.loadRecord(rec.getPrimaryKey()), () -> ("record with primary key " + rec.getPrimaryKey() + " should be absent")));
     }
 
-    private void assertDeleteRecordsWhereFails(@Nullable String typeName, @Nullable QueryComponent component, @Nonnull String indexName) {
+    private void assertDeleteRecordsWhereFails(@Nullable String typeName, @Nullable QueryComponent component, String indexName) {
         Query.InvalidExpressionException err = assertThrows(Query.InvalidExpressionException.class, () -> {
             if (typeName == null) {
                 recordStore.deleteRecordsWhere(component);

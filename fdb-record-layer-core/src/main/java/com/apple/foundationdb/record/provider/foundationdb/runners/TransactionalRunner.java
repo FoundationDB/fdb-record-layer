@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -38,12 +37,9 @@ import java.util.function.Function;
 @API(API.Status.INTERNAL)
 public class TransactionalRunner implements AutoCloseable {
 
-    @Nonnull
     private final FDBDatabase database;
-    @Nonnull
     private final FDBRecordContextConfig.Builder contextConfigBuilder;
     private boolean closed;
-    @Nonnull
     private final List<FDBRecordContext> contextsToClose;
 
     /**
@@ -51,8 +47,8 @@ public class TransactionalRunner implements AutoCloseable {
      * @param database the underlying databse to open contexts against
      * @param contextConfig configuration for how to open contexts
      */
-    public TransactionalRunner(@Nonnull FDBDatabase database,
-                               @Nonnull FDBRecordContextConfig contextConfig) {
+    public TransactionalRunner(FDBDatabase database,
+                               FDBRecordContextConfig contextConfig) {
         this(database, contextConfig.toBuilder());
     }
 
@@ -68,8 +64,8 @@ public class TransactionalRunner implements AutoCloseable {
      * Note: The same as FDBDatabaseRunnerImpl, this maintains mutability, but that mutability is not thread safe, so
      * you shouldn't change it, while simultaneously calling {@link #runAsync(boolean, Function)}.
      */
-    public TransactionalRunner(@Nonnull FDBDatabase database,
-                               @Nonnull FDBRecordContextConfig.Builder contextConfigBuilder) {
+    public TransactionalRunner(FDBDatabase database,
+                               FDBRecordContextConfig.Builder contextConfigBuilder) {
         this.database = database;
         this.contextConfigBuilder = contextConfigBuilder;
 
@@ -94,10 +90,9 @@ public class TransactionalRunner implements AutoCloseable {
      * Note: the future will not be {@code null}, but if the runnable returns a future containing {@code null} then
      * so will the future returned here.
      */
-    @Nonnull
     @SuppressWarnings({"PMD.CloseResource", "PMD.UseTryWithResources"})
     public <T> CompletableFuture<T> runAsync(final boolean clearWeakReadSemantics,
-                                             @Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> runnable) {
+                                             Function<? super FDBRecordContext, CompletableFuture<? extends T>> runnable) {
         return runAsync(clearWeakReadSemantics, true, runnable);
     }
 
@@ -113,11 +108,10 @@ public class TransactionalRunner implements AutoCloseable {
      * Note: the future will not be {@code null}, but if the runnable returns a future containing {@code null} then
      * so will the future returned here.
      */
-    @Nonnull
     @SuppressWarnings({"PMD.CloseResource", "PMD.UseTryWithResources"})
     public <T> CompletableFuture<T> runAsync(final boolean clearWeakReadSemantics,
                                               boolean commitWhenDone,
-                                              @Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> runnable) {
+                                              Function<? super FDBRecordContext, CompletableFuture<? extends T>> runnable) {
         FDBRecordContext context = openContext(clearWeakReadSemantics);
         boolean returnedFuture = false;
         try {
@@ -155,7 +149,7 @@ public class TransactionalRunner implements AutoCloseable {
      * @return the value returned by {@code runnable}.
      */
     public <T> T run(final boolean clearWeakReadSemantics,
-                     @Nonnull Function<? super FDBRecordContext, ? extends T> runnable) {
+                     Function<? super FDBRecordContext, ? extends T> runnable) {
         final T result;
         try (FDBRecordContext context = openContext(clearWeakReadSemantics)) {
             result = runnable.apply(context);
@@ -172,12 +166,10 @@ public class TransactionalRunner implements AutoCloseable {
      * </p>
      * @return a new context
      */
-    @Nonnull
     public FDBRecordContext openContext() {
         return openContext(true);
     }
 
-    @Nonnull
     private FDBRecordContext openContext(boolean clearWeakReadSemantics) {
         if (closed) {
             throw new FDBDatabaseRunner.RunnerClosed();
@@ -194,7 +186,7 @@ public class TransactionalRunner implements AutoCloseable {
         return context;
     }
 
-    private synchronized void addContextToClose(@Nonnull FDBRecordContext context) {
+    private synchronized void addContextToClose(FDBRecordContext context) {
         if (closed) {
             context.close();
             throw new FDBDatabaseRunner.RunnerClosed();

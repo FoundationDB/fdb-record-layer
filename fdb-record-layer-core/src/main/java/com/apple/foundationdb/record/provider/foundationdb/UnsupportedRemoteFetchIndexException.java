@@ -23,8 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Exception thrown when remote fetch is attempted on an index that does not support remote fetch.
@@ -36,7 +35,7 @@ import javax.annotation.Nullable;
 @SuppressWarnings({"serial", "java:S110"})
 @API(API.Status.EXPERIMENTAL)
 public class UnsupportedRemoteFetchIndexException extends RecordCoreException {
-    public UnsupportedRemoteFetchIndexException(@Nonnull String msg, @Nullable Object ... keyValues) {
+    public UnsupportedRemoteFetchIndexException(String msg, @Nullable Object ... keyValues) {
         super(msg, keyValues);
     }
 
@@ -44,7 +43,7 @@ public class UnsupportedRemoteFetchIndexException extends RecordCoreException {
         super(cause);
     }
 
-    public UnsupportedRemoteFetchIndexException(@Nonnull String msg, @Nullable Throwable cause) {
+    public UnsupportedRemoteFetchIndexException(String msg, @Nullable Throwable cause) {
         super(msg, cause);
     }
 }

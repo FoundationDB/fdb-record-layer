@@ -40,8 +40,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -75,7 +75,7 @@ class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildIndexTest {
                     .mapToLong(TestRecords1Proto.MySimpleRecord::getNumValue2)
                     .sum();
 
-    private static IndexMaintenanceFilter filterOddsForIndexes(@Nonnull Collection<String> indexNames) {
+    private static IndexMaintenanceFilter filterOddsForIndexes(Collection<String> indexNames) {
         return (index, record) -> {
             if (!indexNames.contains(index.getName())) {
                 return IndexMaintenanceFilter.IndexValues.ALL;
@@ -95,11 +95,11 @@ class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildIndexTest {
     }
 
     @SuppressWarnings("try")
-    private void sumRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records,
+    private void sumRebuild(List<TestRecords1Proto.MySimpleRecord> records,
                             @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
                             @Nullable List<Long> deletedIds,
                             @Nullable IndexMaintenanceFilter filter,
-                            @Nonnull Function<List<TestRecords1Proto.MySimpleRecord>, Long> sumFunction,
+                            Function<List<TestRecords1Proto.MySimpleRecord>, Long> sumFunction,
                             @Nullable Index sourceIndex,
                             int agents,
                             boolean overlap) {
@@ -141,7 +141,7 @@ class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildIndexTest {
     }
 
     @SuppressWarnings("try")
-    private void sumRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records,
+    private void sumRebuild(List<TestRecords1Proto.MySimpleRecord> records,
                             @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
                             @Nullable List<Long> deletedIds,
                             @Nullable Index sourceIndex,
@@ -150,21 +150,21 @@ class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildIndexTest {
         sumRebuild(records, recordsWhileBuilding, deletedIds, null, ALL_RECORDS_SUM, sourceIndex, agents, overlap);
     }
 
-    private void sumRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records,
+    private void sumRebuild(List<TestRecords1Proto.MySimpleRecord> records,
                             @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
                             @Nullable Index sourceIndex) {
         sumRebuild(records, recordsWhileBuilding, null, sourceIndex, 1, false);
     }
 
-    private void sumRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding) {
+    private void sumRebuild(List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding) {
         sumRebuild(records, recordsWhileBuilding, null);
     }
 
-    private void sumRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records) {
+    private void sumRebuild(List<TestRecords1Proto.MySimpleRecord> records) {
         sumRebuild(records, null);
     }
 
-    private void sumRebuildFiltered(@Nonnull List<TestRecords1Proto.MySimpleRecord> records,
+    private void sumRebuildFiltered(List<TestRecords1Proto.MySimpleRecord> records,
                                     @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
                                     @Nullable List<Long> deletedIds,
                                     @Nullable Index sourceIndex,
@@ -183,7 +183,6 @@ class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildIndexTest {
         return Arrays.asList(null, REC_NO_INDEX, NUM_VALUE_2_INDEX);
     }
 
-    @Nonnull
     static Stream<Arguments> sourceIndexesAndRandomSeeds() {
         List<Index> sourceIndexes = sourceIndexes();
         return Stream.concat(
@@ -198,7 +197,6 @@ class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildIndexTest {
         );
     }
 
-    @Nonnull
     static Stream<Arguments> sourceIndexesFilteredAndRandomSeeds() {
         List<Index> sourceIndexes = sourceIndexes();
         return Stream.concat(

@@ -44,8 +44,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -55,46 +55,38 @@ import java.util.Set;
  */
 @API(API.Status.UNSTABLE)
 public class MultidimensionalIndexScanComparisons implements IndexScanParameters {
-    @Nonnull
     private final ScanComparisons prefixScanComparisons;
-    @Nonnull
     private final List<ScanComparisons> dimensionsScanComparisons;
-    @Nonnull
     private final ScanComparisons suffixScanComparisons;
 
-    public MultidimensionalIndexScanComparisons(@Nonnull final ScanComparisons prefixScanComparisons,
-                                                @Nonnull final List<ScanComparisons> dimensionsScanComparisons,
-                                                @Nonnull final ScanComparisons suffixKeyComparisonRanges) {
+    public MultidimensionalIndexScanComparisons(final ScanComparisons prefixScanComparisons,
+                                                final List<ScanComparisons> dimensionsScanComparisons,
+                                                final ScanComparisons suffixKeyComparisonRanges) {
         this.prefixScanComparisons = prefixScanComparisons;
         this.dimensionsScanComparisons = dimensionsScanComparisons;
         this.suffixScanComparisons = suffixKeyComparisonRanges;
     }
 
-    @Nonnull
     @Override
     public IndexScanType getScanType() {
         return IndexScanType.BY_VALUE;
     }
 
-    @Nonnull
     public ScanComparisons getPrefixScanComparisons() {
         return prefixScanComparisons;
     }
 
-    @Nonnull
     public List<ScanComparisons> getDimensionsScanComparisons() {
         return dimensionsScanComparisons;
     }
 
-    @Nonnull
     public ScanComparisons getSuffixScanComparisons() {
         return suffixScanComparisons;
     }
 
-    @Nonnull
     @Override
-    public MultidimensionalIndexScanBounds bind(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final Index index,
-                                                @Nonnull final EvaluationContext context) {
+    public MultidimensionalIndexScanBounds bind(final FDBRecordStoreBase<?> store, final Index index,
+                                                final EvaluationContext context) {
         final ImmutableList.Builder<TupleRange> dimensionsTupleRangeBuilder = ImmutableList.builder();
         for (final ScanComparisons dimensionScanComparison : dimensionsScanComparisons) {
             dimensionsTupleRangeBuilder.add(dimensionScanComparison.toTupleRange(store, context));
@@ -105,20 +97,19 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
     }
 
     @Override
-    public int planHash(@Nonnull PlanHashMode mode) {
+    public int planHash(PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, prefixScanComparisons, dimensionsScanComparisons,
                 suffixScanComparisons);
     }
 
     @Override
-    public boolean isUnique(@Nonnull Index index) {
+    public boolean isUnique(Index index) {
         return prefixScanComparisons.isEquality() && prefixScanComparisons.size() == index.getColumnSize();
     }
 
-    @Nonnull
     @Override
     public ExplainTokensWithPrecedence explain() {
-        @Nullable var tupleRange = prefixScanComparisons.toTupleRangeWithoutContext();
+        @Nullable TupleRange tupleRange = prefixScanComparisons.toTupleRangeWithoutContext();
         final var prefix = tupleRange == null
                            ? prefixScanComparisons.explain().getExplainTokens()
                            : new ExplainTokens().addToString(tupleRange);
@@ -127,7 +118,7 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
                 new ExplainTokens().addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
                         () -> dimensionsScanComparisons.stream()
                                 .map(dimensionScanComparisons -> {
-                                    @Nullable var dimensionTupleRange = dimensionScanComparisons.toTupleRangeWithoutContext();
+                                    @Nullable TupleRange dimensionTupleRange = dimensionScanComparisons.toTupleRangeWithoutContext();
                                     return dimensionTupleRange == null
                                            ? dimensionScanComparisons.explain().getExplainTokens()
                                            : new ExplainTokens().addToString(dimensionTupleRange);
@@ -144,7 +135,7 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
     }
 
     @Override
-    public void getPlannerGraphDetails(@Nonnull ImmutableList.Builder<String> detailsBuilder, @Nonnull ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
+    public void getPlannerGraphDetails(ImmutableList.Builder<String> detailsBuilder, ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
         @Nullable TupleRange tupleRange = prefixScanComparisons.toTupleRangeWithoutContext();
         if (tupleRange != null) {
             detailsBuilder.add("prefix: " + tupleRange.getLowEndpoint().toString(false) + "{{plow}}, {{phigh}}" + tupleRange.getHighEndpoint().toString(true));
@@ -179,7 +170,6 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
         }
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
         final ImmutableSet.Builder<CorrelationIdentifier> correlatedToBuilder = ImmutableSet.builder();
@@ -190,15 +180,14 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
         return correlatedToBuilder.build();
     }
 
-    @Nonnull
     @Override
-    public IndexScanParameters rebase(@Nonnull final AliasMap translationMap) {
+    public IndexScanParameters rebase(final AliasMap translationMap) {
         return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap), false);
     }
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
+    public boolean semanticEquals(@Nullable final Object other, final AliasMap aliasMap) {
         if (this == other) {
             return true;
         }
@@ -233,10 +222,9 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
         return 31 * hashCode + suffixScanComparisons.semanticHashCode();
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public IndexScanParameters translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public IndexScanParameters translateCorrelations(final TranslationMap translationMap,
                                                      final boolean shouldSimplifyValues) {
         final ScanComparisons translatedPrefixScanComparisons =
                 prefixScanComparisons.translateCorrelations(translationMap, shouldSimplifyValues);
@@ -263,10 +251,9 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
         return this;
     }
 
-    @Nonnull
-    protected MultidimensionalIndexScanComparisons withComparisons(@Nonnull final ScanComparisons prefixScanComparisons,
-                                                                   @Nonnull final List<ScanComparisons> dimensionsComparisonRanges,
-                                                                   @Nonnull final ScanComparisons suffixKeyScanComparisons) {
+    protected MultidimensionalIndexScanComparisons withComparisons(final ScanComparisons prefixScanComparisons,
+                                                                   final List<ScanComparisons> dimensionsComparisonRanges,
+                                                                   final ScanComparisons suffixKeyScanComparisons) {
         return new MultidimensionalIndexScanComparisons(prefixScanComparisons, dimensionsComparisonRanges,
                 suffixKeyScanComparisons);
     }
@@ -288,9 +275,8 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
         return semanticHashCode();
     }
 
-    @Nonnull
     @Override
-    public PMultidimensionalIndexScanComparisons toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PMultidimensionalIndexScanComparisons toProto(final PlanSerializationContext serializationContext) {
         final PMultidimensionalIndexScanComparisons.Builder builder = PMultidimensionalIndexScanComparisons.newBuilder();
         builder.setPrefixScanComparisons(prefixScanComparisons.toProto(serializationContext));
         for (final ScanComparisons dimensionsScanComparison : dimensionsScanComparisons) {
@@ -300,15 +286,13 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    public PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PIndexScanParameters toIndexScanParametersProto(final PlanSerializationContext serializationContext) {
         return PIndexScanParameters.newBuilder().setMultidimensionalIndexScanComparisons(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static MultidimensionalIndexScanComparisons fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                                 @Nonnull final PMultidimensionalIndexScanComparisons multidimensionalIndexScanComparisonsProto) {
+    public static MultidimensionalIndexScanComparisons fromProto(final PlanSerializationContext serializationContext,
+                                                                 final PMultidimensionalIndexScanComparisons multidimensionalIndexScanComparisonsProto) {
         final ImmutableList.Builder<ScanComparisons> dimensionScanComparisonsBuilder = ImmutableList.builder();
         for (int i = 0; i < multidimensionalIndexScanComparisonsProto.getDimensionsScanComparisonsCount(); i ++) {
             dimensionScanComparisonsBuilder.add(ScanComparisons.fromProto(serializationContext,
@@ -319,9 +303,8 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
                 ScanComparisons.fromProto(serializationContext, Objects.requireNonNull(multidimensionalIndexScanComparisonsProto.getSuffixScanComparisons())));
     }
 
-    @Nonnull
     public static MultidimensionalIndexScanComparisons byValue(@Nullable ScanComparisons prefixScanComparisons,
-                                                               @Nonnull final List<ScanComparisons> dimensionsComparisonRanges,
+                                                               final List<ScanComparisons> dimensionsComparisonRanges,
                                                                @Nullable ScanComparisons suffixKeyScanComparisons) {
         if (prefixScanComparisons == null) {
             prefixScanComparisons = ScanComparisons.EMPTY;
@@ -339,16 +322,14 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PMultidimensionalIndexScanComparisons, MultidimensionalIndexScanComparisons> {
-        @Nonnull
         @Override
         public Class<PMultidimensionalIndexScanComparisons> getProtoMessageClass() {
             return PMultidimensionalIndexScanComparisons.class;
         }
 
-        @Nonnull
         @Override
-        public MultidimensionalIndexScanComparisons fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                              @Nonnull final PMultidimensionalIndexScanComparisons multidimensionalIndexScanComparisonsProto) {
+        public MultidimensionalIndexScanComparisons fromProto(final PlanSerializationContext serializationContext,
+                                                              final PMultidimensionalIndexScanComparisons multidimensionalIndexScanComparisonsProto) {
             return MultidimensionalIndexScanComparisons.fromProto(serializationContext, multidimensionalIndexScanComparisonsProto);
         }
     }

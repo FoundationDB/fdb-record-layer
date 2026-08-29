@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.provider.foundationdb.SubspaceProvider;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
-import javax.annotation.Nonnull;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
@@ -49,9 +48,8 @@ public class MetaDataVersionStampStoreStateCacheFactory implements FDBRecordStor
     private long maxSize = DEFAULT_MAX_SIZE;
     private long expireAfterAccessMillis = DEFAULT_EXPIRE_AFTER_ACCESS_MILLIS;
 
-    @Nonnull
     @Override
-    public FDBRecordStoreStateCache getCache(@Nonnull FDBDatabase database) {
+    public FDBRecordStoreStateCache getCache(FDBDatabase database) {
         CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder();
         if (maxSize != UNLIMITED) {
             cacheBuilder.maximumSize(maxSize);
@@ -71,7 +69,6 @@ public class MetaDataVersionStampStoreStateCacheFactory implements FDBRecordStor
      * @param expireAfterAccessMillis the amount of time to keep the item in each cache after last access
      * @return this factory
      */
-    @Nonnull
     public MetaDataVersionStampStoreStateCacheFactory setExpireAfterAccessMillis(long expireAfterAccessMillis) {
         this.expireAfterAccessMillis = expireAfterAccessMillis;
         return this;
@@ -93,7 +90,6 @@ public class MetaDataVersionStampStoreStateCacheFactory implements FDBRecordStor
      * @param maxSize the maximum number of elements to keep in each cache
      * @return this factory
      */
-    @Nonnull
     public MetaDataVersionStampStoreStateCacheFactory setMaxSize(long maxSize) {
         this.maxSize = maxSize;
         return this;
@@ -113,7 +109,6 @@ public class MetaDataVersionStampStoreStateCacheFactory implements FDBRecordStor
      *
      * @return a new factory of {@link MetaDataVersionStampStoreStateCache}s
      */
-    @Nonnull
     public static MetaDataVersionStampStoreStateCacheFactory newInstance() {
         return new MetaDataVersionStampStoreStateCacheFactory();
     }

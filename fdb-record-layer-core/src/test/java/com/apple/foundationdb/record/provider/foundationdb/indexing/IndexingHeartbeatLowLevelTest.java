@@ -48,7 +48,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -92,20 +91,19 @@ class IndexingHeartbeatLowLevelTest {
         return context;
     }
 
-    @Nonnull
     private FDBRecordStore.Builder createStoreBuilder() {
         return FDBRecordStore.newBuilder()
                 .setMetaDataProvider(metaData)
                 .setKeySpacePath(path);
     }
 
-    void openMetaData(@Nonnull Descriptors.FileDescriptor descriptor, @Nonnull FDBRecordStoreTestBase.RecordMetaDataHook hook) {
+    void openMetaData(Descriptors.FileDescriptor descriptor, FDBRecordStoreTestBase.RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(descriptor);
         hook.apply(metaDataBuilder);
         metaData = metaDataBuilder.getRecordMetaData();
     }
 
-    void openSimpleMetaData(@Nonnull FDBRecordStoreTestBase.RecordMetaDataHook hook) {
+    void openSimpleMetaData(FDBRecordStoreTestBase.RecordMetaDataHook hook) {
         openMetaData(TestRecords1Proto.getDescriptor(), hook);
     }
 

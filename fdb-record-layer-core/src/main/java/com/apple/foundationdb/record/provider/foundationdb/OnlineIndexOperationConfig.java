@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
 
 /**
  * A holder for the mutable configuration parameters needed to rebuild an online index. These parameters are
@@ -196,7 +195,6 @@ public class OnlineIndexOperationConfig {
         return transactionTimeLimitMilliseconds;
     }
 
-    @Nonnull
     public static Builder newBuilder() {
         return new Builder();
     }
@@ -222,7 +220,6 @@ public class OnlineIndexOperationConfig {
      *
      * @return a {@link Builder}
      */
-    @Nonnull
     public Builder toBuilder() {
         return OnlineIndexOperationConfig.newBuilder()
                 .setMaxLimit(this.maxLimit)
@@ -280,7 +277,6 @@ public class OnlineIndexOperationConfig {
          *
          * @return this builder
          */
-        @Nonnull
         public Builder setMaxLimit(int limit) {
             this.maxLimit = limit;
             return this;
@@ -306,7 +302,6 @@ public class OnlineIndexOperationConfig {
          *
          * @return this builder
          */
-        @Nonnull
         public Builder setInitialLimit(int limit) {
             this.initialLimit = limit;
             return this;
@@ -331,7 +326,6 @@ public class OnlineIndexOperationConfig {
          *
          * @return this builder
          */
-        @Nonnull
         public Builder setWriteLimitBytes(int limit) {
             this.maxWriteLimitBytes = limit;
             return this;
@@ -357,7 +351,6 @@ public class OnlineIndexOperationConfig {
          *
          * @return this builder
          */
-        @Nonnull
         public Builder setMaxRetries(int maxRetries) {
             this.maxRetries = maxRetries;
             return this;
@@ -383,7 +376,6 @@ public class OnlineIndexOperationConfig {
          *
          * @return this builder
          */
-        @Nonnull
         public Builder setRecordsPerSecond(int recordsPerSecond) {
             this.recordsPerSecond = recordsPerSecond;
             return this;
@@ -411,7 +403,6 @@ public class OnlineIndexOperationConfig {
          *
          * @return this builder
          */
-        @Nonnull
         public Builder setEnforcedPostTransactionDelay(long enforcedPostTransactionDelay) {
             this.enforcedPostTransactionDelay = enforcedPostTransactionDelay;
             return this;
@@ -437,7 +428,6 @@ public class OnlineIndexOperationConfig {
          *
          * @return this builder
          */
-        @Nonnull
         public Builder setProgressLogIntervalMillis(long progressLogIntervalMillis) {
             this.progressLogIntervalMillis = progressLogIntervalMillis;
             return this;
@@ -468,7 +458,6 @@ public class OnlineIndexOperationConfig {
          *
          * @return this builder
          */
-        @Nonnull
         public Builder setIncreaseLimitAfter(int increaseLimitAfter) {
             this.increaseLimitAfter = increaseLimitAfter;
             return this;
@@ -493,7 +482,6 @@ public class OnlineIndexOperationConfig {
          *
          * @return this builder
          */
-        @Nonnull
         public Builder setTimeLimitMilliseconds(long timeLimitMilliseconds) {
             if (timeLimitMilliseconds < 0) {
                 timeLimitMilliseconds = UNLIMITED_TIME;
@@ -527,7 +515,6 @@ public class OnlineIndexOperationConfig {
          *
          * @return this builder
          */
-        @Nonnull
         public Builder setTransactionTimeLimitMilliseconds(long timeLimitMilliseconds) {
             this.transactionTimeLimitMilliseconds = timeLimitMilliseconds;
             return this;
@@ -564,7 +551,6 @@ public class OnlineIndexOperationConfig {
          *
          * @return a new Config object needed by {@link OnlineIndexer}
          */
-        @Nonnull
         public OnlineIndexOperationConfig build() {
             return new OnlineIndexOperationConfig(maxLimit, initialLimit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter,
                     maxWriteLimitBytes, timeLimitMilliseconds, transactionTimeLimitMilliseconds,

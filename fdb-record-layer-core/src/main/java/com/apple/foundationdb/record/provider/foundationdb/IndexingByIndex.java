@@ -41,7 +41,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -58,13 +57,12 @@ public class IndexingByIndex extends IndexingBase {
     // LOGGER here?
     private IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp = null;
 
-    IndexingByIndex(@Nonnull IndexingCommon common,
-                    @Nonnull OnlineIndexer.IndexingPolicy policy) {
+    IndexingByIndex(IndexingCommon common,
+                    OnlineIndexer.IndexingPolicy policy) {
         super(common, policy);
     }
 
     @Override
-    @Nonnull
     IndexBuildProto.IndexBuildIndexingStamp getIndexingTypeStamp(FDBRecordStore store) {
         if ( myIndexingTypeStamp == null) {
             Index srcIndex = getSourceIndex(store.getRecordMetaData());
@@ -73,7 +71,6 @@ public class IndexingByIndex extends IndexingBase {
         return myIndexingTypeStamp;
     }
 
-    @Nonnull
     private static IndexBuildProto.IndexBuildIndexingStamp compileIndexingTypeStamp(Index srcIndex) {
         return IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
                 .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX)
@@ -91,7 +88,6 @@ public class IndexingByIndex extends IndexingBase {
         );
     }
 
-    @Nonnull
     private Index getSourceIndex(RecordMetaData metaData) {
         if (policy.getSourceIndexSubspaceKey() != null) {
             return metaData.getIndexFromSubspaceKey(policy.getSourceIndexSubspaceKey());
@@ -105,7 +101,6 @@ public class IndexingByIndex extends IndexingBase {
                 LogMessageKeys.INDEXER_ID, common.getIndexerId());
     }
 
-    @Nonnull
     @Override
     CompletableFuture<Void> buildIndexInternalAsync() {
         return getRunner().runAsync(context -> openRecordStore(context)
@@ -117,15 +112,13 @@ public class IndexingByIndex extends IndexingBase {
                 }), common.indexLogMessageKeyValues("IndexingByIndex::buildIndexInternalAsync"));
     }
 
-    @Nonnull
     private CompletableFuture<Void> buildIndexFromIndex() {
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildIndexFromIndex");
         return iterateAllRanges(additionalLogMessageKeyValues,
                 this::buildRangeOnly);
     }
 
-    @Nonnull
-    private CompletableFuture<Boolean> buildRangeOnly(@Nonnull FDBRecordStore store, @Nonnull AtomicLong recordsScanned) {
+    private CompletableFuture<Boolean> buildRangeOnly(FDBRecordStore store, AtomicLong recordsScanned) {
         // return false when done
 
         validateSameMetadataOrThrow(store);
@@ -176,16 +169,14 @@ public class IndexingByIndex extends IndexingBase {
         }
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    private  CompletableFuture<FDBStoredRecord<Message>> getRecordIfTypeMatch(FDBRecordStore store, @Nonnull RecordCursorResult<FDBIndexedRecord<Message>> cursorResult) {
+    private  CompletableFuture<FDBStoredRecord<Message>> getRecordIfTypeMatch(FDBRecordStore store, RecordCursorResult<FDBIndexedRecord<Message>> cursorResult) {
         FDBIndexedRecord<Message> indexResult = cursorResult.get();
         FDBStoredRecord<Message> rec = indexResult == null ? null : indexResult.getStoredRecord();
         return recordIfInIndexedTypes(rec);
     }
 
     // support rebuildIndexAsync
-    @Nonnull
     @Override
     CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store) {
         AtomicReference<Tuple> nextResultCont = new AtomicReference<>();
@@ -202,9 +193,8 @@ public class IndexingByIndex extends IndexingBase {
         }, store.getExecutor());
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    private CompletableFuture<Tuple> rebuildRangeOnly(@Nonnull FDBRecordStore store, Tuple cont, @Nonnull AtomicLong recordsScanned) {
+    private CompletableFuture<Tuple> rebuildRangeOnly(FDBRecordStore store, Tuple cont, AtomicLong recordsScanned) {
         validateSameMetadataOrThrow(store);
         final Index index = common.getIndex();
         final IndexMaintainer maintainer = store.getIndexMaintainer(index);
@@ -248,7 +238,7 @@ public class IndexingByIndex extends IndexingBase {
         validateOrThrowEx(common.getAllRecordTypes().containsAll(srcRecordTypes), "source index's type is not equal to target index's");
     }
 
-    private void validateIdempotenceIfNecessary(@Nonnull FDBRecordStore store, @Nonnull IndexMaintainer maintainer) {
+    private void validateIdempotenceIfNecessary(FDBRecordStore store, IndexMaintainer maintainer) {
         // idempotence - Non-idempotent indexes can only be built from a source if the store format version supports it
         // Prior to this format version, record updates to non-idempotent indexes would check to see if the record
         // had been built already by looking for its primary key in the range set, which is incorrect for most source

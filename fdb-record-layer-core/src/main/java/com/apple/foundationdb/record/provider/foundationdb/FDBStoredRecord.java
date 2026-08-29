@@ -25,8 +25,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A record stored in the database.
@@ -38,11 +37,8 @@ import javax.annotation.Nullable;
  */
 @API(API.Status.UNSTABLE)
 public class FDBStoredRecord<M extends Message> implements FDBIndexableRecord<M> {
-    @Nonnull
     private final Tuple primaryKey;
-    @Nonnull
     private final RecordType recordType;
-    @Nonnull
     private final M protoRecord;
     @Nullable
     private final FDBRecordVersion recordVersion;
@@ -53,14 +49,14 @@ public class FDBStoredRecord<M extends Message> implements FDBIndexableRecord<M>
     private final boolean split;
     private final boolean versionedInline;
 
-    public FDBStoredRecord(@Nonnull Tuple primaryKey, @Nonnull RecordType recordType, @Nonnull M protoRecord,
-                           @Nonnull FDBStoredSizes size, @Nullable FDBRecordVersion recordVersion) {
+    public FDBStoredRecord(Tuple primaryKey, RecordType recordType, M protoRecord,
+                           FDBStoredSizes size, @Nullable FDBRecordVersion recordVersion) {
         this(primaryKey, recordType, protoRecord, size.getKeyCount(), size.getKeySize(), size.getValueSize(), size.isSplit(), size.isVersionedInline(), recordVersion);
     }
 
     @API(API.Status.INTERNAL)
     @SuppressWarnings("squid:S00107")
-    public FDBStoredRecord(@Nonnull Tuple primaryKey, @Nonnull RecordType recordType, @Nonnull M protoRecord,
+    public FDBStoredRecord(Tuple primaryKey, RecordType recordType, M protoRecord,
                            int keyCount, int keySize, int valueSize, boolean split, boolean versionedInline, @Nullable FDBRecordVersion recordVersion) {
 
         this.primaryKey = primaryKey;
@@ -76,19 +72,16 @@ public class FDBStoredRecord<M extends Message> implements FDBIndexableRecord<M>
     }
 
     @Override
-    @Nonnull
     public Tuple getPrimaryKey() {
         return primaryKey;
     }
 
     @Override
-    @Nonnull
     public RecordType getRecordType() {
         return recordType;
     }
 
     @Override
-    @Nonnull
     public M getRecord() {
         return protoRecord;
     }
@@ -134,7 +127,6 @@ public class FDBStoredRecord<M extends Message> implements FDBIndexableRecord<M>
      * @param <M> type used to represent stored records
      * @return a new uninitialized builder
      */
-    @Nonnull
     public static <M extends Message> FDBStoredRecordBuilder<M> newBuilder() {
         return new FDBStoredRecordBuilder<>();
     }
@@ -145,8 +137,7 @@ public class FDBStoredRecord<M extends Message> implements FDBIndexableRecord<M>
      * @param <M> type used to represent stored records
      * @return a new builder initialized with the record
      */
-    @Nonnull
-    public static <M extends Message> FDBStoredRecordBuilder<M> newBuilder(@Nonnull M protoRecord) {
+    public static <M extends Message> FDBStoredRecordBuilder<M> newBuilder(M protoRecord) {
         return new FDBStoredRecordBuilder<>(protoRecord);
     }
 
@@ -163,7 +154,6 @@ public class FDBStoredRecord<M extends Message> implements FDBIndexableRecord<M>
      * @param recordVersion new version
      * @return a new stored record with the given version
      */
-    @Nonnull
     public FDBStoredRecord<M> withVersion(@Nullable FDBRecordVersion recordVersion) {
         return new FDBStoredRecord<>(primaryKey, recordType, protoRecord, this, recordVersion);
     }
@@ -176,7 +166,6 @@ public class FDBStoredRecord<M extends Message> implements FDBIndexableRecord<M>
      * @param committedVersion the result of {@link FDBRecordContext#getVersionStamp}
      * @return a stored record with the given version
      */
-    @Nonnull
     public FDBStoredRecord<M> withCommittedVersion(@Nullable byte[] committedVersion) {
         if (recordVersion == null || recordVersion.isComplete()) {
             return this;

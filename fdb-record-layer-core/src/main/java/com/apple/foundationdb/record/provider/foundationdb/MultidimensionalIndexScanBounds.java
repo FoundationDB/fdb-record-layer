@@ -28,7 +28,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -43,40 +42,33 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.EXPERIMENTAL)
 public class MultidimensionalIndexScanBounds implements IndexScanBounds {
-    @Nonnull
     private final TupleRange prefixRange;
 
-    @Nonnull
     private final SpatialPredicate spatialPredicate;
 
-    @Nonnull
     private final TupleRange suffixRange;
 
-    public MultidimensionalIndexScanBounds(@Nonnull final TupleRange prefixRange,
-                                           @Nonnull final SpatialPredicate spatialPredicate,
-                                           @Nonnull final TupleRange suffixRange) {
+    public MultidimensionalIndexScanBounds(final TupleRange prefixRange,
+                                           final SpatialPredicate spatialPredicate,
+                                           final TupleRange suffixRange) {
         this.prefixRange = prefixRange;
         this.spatialPredicate = spatialPredicate;
         this.suffixRange = suffixRange;
     }
 
-    @Nonnull
     @Override
     public IndexScanType getScanType() {
         return IndexScanType.BY_VALUE;
     }
 
-    @Nonnull
     public TupleRange getPrefixRange() {
         return prefixRange;
     }
 
-    @Nonnull
     public SpatialPredicate getSpatialPredicate() {
         return spatialPredicate;
     }
 
-    @Nonnull
     public TupleRange getSuffixRange() {
         return suffixRange;
     }
@@ -90,7 +82,7 @@ public class MultidimensionalIndexScanBounds implements IndexScanBounds {
      * @param mbr the minimum-bounding {@link RTree.Rectangle}
      * @return {@code true} if {@code this} overlaps with {@code mbr}
      */
-    public boolean overlapsMbrApproximately(@Nonnull RTree.Rectangle mbr) {
+    public boolean overlapsMbrApproximately(RTree.Rectangle mbr) {
         return spatialPredicate.overlapsMbrApproximately(mbr);
     }
 
@@ -99,7 +91,7 @@ public class MultidimensionalIndexScanBounds implements IndexScanBounds {
      * @param position the {@link RTree.Point}
      * @return {@code true} if {@code position} is contained by {@code this}
      */
-    public boolean containsPosition(@Nonnull RTree.Point position) {
+    public boolean containsPosition(RTree.Point position) {
         return spatialPredicate.containsPosition(position);
     }
 
@@ -111,40 +103,39 @@ public class MultidimensionalIndexScanBounds implements IndexScanBounds {
     public interface SpatialPredicate {
         SpatialPredicate TAUTOLOGY = new SpatialPredicate() {
             @Override
-            public boolean overlapsMbrApproximately(@Nonnull final RTree.Rectangle mbr) {
+            public boolean overlapsMbrApproximately(final RTree.Rectangle mbr) {
                 return true;
             }
 
             @Override
-            public boolean containsPosition(@Nonnull final RTree.Point position) {
+            public boolean containsPosition(final RTree.Point position) {
                 return true;
             }
         };
 
-        boolean overlapsMbrApproximately(@Nonnull RTree.Rectangle mbr);
+        boolean overlapsMbrApproximately(RTree.Rectangle mbr);
 
-        boolean containsPosition(@Nonnull RTree.Point position);
+        boolean containsPosition(RTree.Point position);
     }
 
     /**
      * Scan bounds that consists of other {@link SpatialPredicate}s to form a logical OR.
      */
     public static class Or implements SpatialPredicate {
-        @Nonnull
         private final List<SpatialPredicate> children;
 
-        public Or(@Nonnull final List<SpatialPredicate> children) {
+        public Or(final List<SpatialPredicate> children) {
             this.children = ImmutableList.copyOf(children);
         }
 
         @Override
-        public boolean overlapsMbrApproximately(@Nonnull final RTree.Rectangle mbr) {
+        public boolean overlapsMbrApproximately(final RTree.Rectangle mbr) {
             return children.stream()
                     .anyMatch(child -> child.overlapsMbrApproximately(mbr));
         }
 
         @Override
-        public boolean containsPosition(@Nonnull final RTree.Point position) {
+        public boolean containsPosition(final RTree.Point position) {
             return children.stream()
                     .anyMatch(child -> child.containsPosition(position));
         }
@@ -159,21 +150,20 @@ public class MultidimensionalIndexScanBounds implements IndexScanBounds {
      * Scan bounds that consists of other {@link SpatialPredicate}s to form a logical AND.
      */
     public static class And implements SpatialPredicate {
-        @Nonnull
         private final List<SpatialPredicate> children;
 
-        public And(@Nonnull final List<SpatialPredicate> children) {
+        public And(final List<SpatialPredicate> children) {
             this.children = ImmutableList.copyOf(children);
         }
 
         @Override
-        public boolean overlapsMbrApproximately(@Nonnull final RTree.Rectangle mbr) {
+        public boolean overlapsMbrApproximately(final RTree.Rectangle mbr) {
             return children.stream()
                     .allMatch(child -> child.overlapsMbrApproximately(mbr));
         }
 
         @Override
-        public boolean containsPosition(@Nonnull final RTree.Point position) {
+        public boolean containsPosition(final RTree.Point position) {
             return children.stream()
                     .allMatch(child -> child.containsPosition(position));
         }
@@ -188,15 +178,14 @@ public class MultidimensionalIndexScanBounds implements IndexScanBounds {
      * Scan bounds describing an n-dimensional hypercube.
      */
     public static class Hypercube implements SpatialPredicate {
-        @Nonnull
         private final List<TupleRange> dimensionRanges;
 
-        public Hypercube(@Nonnull final List<TupleRange> dimensionRanges) {
+        public Hypercube(final List<TupleRange> dimensionRanges) {
             this.dimensionRanges = ImmutableList.copyOf(dimensionRanges);
         }
 
         @Override
-        public boolean overlapsMbrApproximately(@Nonnull final RTree.Rectangle mbr) {
+        public boolean overlapsMbrApproximately(final RTree.Rectangle mbr) {
             Preconditions.checkArgument(mbr.getNumDimensions() == dimensionRanges.size());
 
             for (int d = 0; d < mbr.getNumDimensions(); d++) {
@@ -211,7 +200,7 @@ public class MultidimensionalIndexScanBounds implements IndexScanBounds {
         }
 
         @Override
-        public boolean containsPosition(@Nonnull final RTree.Point position) {
+        public boolean containsPosition(final RTree.Point position) {
             Preconditions.checkArgument(position.getNumDimensions() == dimensionRanges.size());
 
             for (int d = 0; d < position.getNumDimensions(); d++) {
@@ -224,7 +213,6 @@ public class MultidimensionalIndexScanBounds implements IndexScanBounds {
             return true;
         }
 
-        @Nonnull
         public List<TupleRange> getDimensionRanges() {
             return dimensionRanges;
         }

@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.PlanDeserializer;
@@ -46,8 +47,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 import java.util.Set;
 
@@ -59,38 +60,31 @@ import static com.apple.foundationdb.record.provider.foundationdb.VectorIndexSca
  */
 @API(API.Status.UNSTABLE)
 public final class VectorIndexScanComparisons implements IndexScanParameters {
-    @Nonnull
     private final ScanComparisons prefixScanComparisons;
-    @Nonnull
     private final DistanceRankValueComparison distanceRankValueComparison;
-    @Nonnull
     private final VectorIndexScanOptions vectorIndexScanOptions;
 
-    private VectorIndexScanComparisons(@Nonnull final ScanComparisons prefixScanComparisons,
-                                       @Nonnull final DistanceRankValueComparison distanceRankValueComparison,
-                                       @Nonnull final VectorIndexScanOptions vectorIndexScanOptions) {
+    private VectorIndexScanComparisons(final ScanComparisons prefixScanComparisons,
+                                       final DistanceRankValueComparison distanceRankValueComparison,
+                                       final VectorIndexScanOptions vectorIndexScanOptions) {
         this.prefixScanComparisons = prefixScanComparisons;
         this.distanceRankValueComparison = distanceRankValueComparison;
         this.vectorIndexScanOptions = vectorIndexScanOptions;
     }
 
-    @Nonnull
     @Override
     public IndexScanType getScanType() {
         return IndexScanType.BY_DISTANCE;
     }
 
-    @Nonnull
     public ScanComparisons getPrefixScanComparisons() {
         return prefixScanComparisons;
     }
 
-    @Nonnull
     public DistanceRankValueComparison getDistanceRankValueComparison() {
         return distanceRankValueComparison;
     }
 
-    @Nonnull
     public VectorIndexScanOptions getVectorIndexScanOptions() {
         return vectorIndexScanOptions;
     }
@@ -106,23 +100,22 @@ public final class VectorIndexScanComparisons implements IndexScanParameters {
         return prefixScanComparisons;
     }
 
-    @Nonnull
     @Override
-    public VectorIndexScanBounds bind(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final Index index,
-                                      @Nonnull final EvaluationContext context) {
+    public VectorIndexScanBounds bind(final FDBRecordStoreBase<?> store, final Index index,
+                                      final EvaluationContext context) {
         return new VectorIndexScanBounds(prefixScanComparisons.toTupleRange(store, context),
                 distanceRankValueComparison.getType(), distanceRankValueComparison.getVector(store, context),
                 distanceRankValueComparison.getLimit(store, context), vectorIndexScanOptions);
     }
 
     @Override
-    public int planHash(@Nonnull PlanHashMode mode) {
+    public int planHash(PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, prefixScanComparisons, distanceRankValueComparison,
                 vectorIndexScanOptions);
     }
 
     @Override
-    public boolean isUnique(@Nonnull Index index) {
+    public boolean isUnique(Index index) {
         //
         // This is currently never true as we would need an equality-bound scan comparison that includes the primary
         // key which we currently cannot express. We can only express equality-bound constraints on the prefix, thus
@@ -133,17 +126,16 @@ public final class VectorIndexScanComparisons implements IndexScanParameters {
         return false;
     }
 
-    @Nonnull
     @Override
     public ExplainTokensWithPrecedence explain() {
-        @Nullable var tupleRange = prefixScanComparisons.toTupleRangeWithoutContext();
+        @Nullable TupleRange tupleRange = prefixScanComparisons.toTupleRangeWithoutContext();
         final var prefix = tupleRange == null
                            ? prefixScanComparisons.explain().getExplainTokens()
                            : new ExplainTokens().addToString(tupleRange);
 
         ExplainTokens distanceRank;
         try {
-            @Nullable var vector = distanceRankValueComparison.getVector(null, null);
+            @Nullable RealVector vector = distanceRankValueComparison.getVector(null, null);
             int limit = distanceRankValueComparison.getLimit(null, null);
             distanceRank =
                     new ExplainTokens().addNested(vector == null
@@ -162,8 +154,8 @@ public final class VectorIndexScanComparisons implements IndexScanParameters {
 
     @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
     @Override
-    public void getPlannerGraphDetails(@Nonnull final ImmutableList.Builder<String> detailsBuilder,
-                                       @Nonnull final ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
+    public void getPlannerGraphDetails(final ImmutableList.Builder<String> detailsBuilder,
+                                       final ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
         @Nullable TupleRange tupleRange = prefixScanComparisons.toTupleRangeWithoutContext();
         if (tupleRange != null) {
             detailsBuilder.add("prefix: " + tupleRange.getLowEndpoint().toString(false) + "{{plow}}, {{phigh}}" + tupleRange.getHighEndpoint().toString(true));
@@ -175,7 +167,7 @@ public final class VectorIndexScanComparisons implements IndexScanParameters {
         }
 
         try {
-            @Nullable var vector = distanceRankValueComparison.getVector(null, null);
+            @Nullable RealVector vector = distanceRankValueComparison.getVector(null, null);
             int limit = distanceRankValueComparison.getLimit(null, null);
             detailsBuilder.add("distanceRank: {{vector}} {{type}} {{limit}}");
             attributeMapBuilder.put("vector", Attribute.gml(String.valueOf(vector)));
@@ -190,7 +182,6 @@ public final class VectorIndexScanComparisons implements IndexScanParameters {
         attributeMapBuilder.put("scanoptions", Attribute.gml(vectorIndexScanOptions.toString()));
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
         final ImmutableSet.Builder<CorrelationIdentifier> correlatedToBuilder = ImmutableSet.builder();
@@ -199,15 +190,14 @@ public final class VectorIndexScanComparisons implements IndexScanParameters {
         return correlatedToBuilder.build();
     }
 
-    @Nonnull
     @Override
-    public IndexScanParameters rebase(@Nonnull final AliasMap translationMap) {
+    public IndexScanParameters rebase(final AliasMap translationMap) {
         return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap), false);
     }
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
+    public boolean semanticEquals(@Nullable final Object other, final AliasMap aliasMap) {
         if (this == other) {
             return true;
         }
@@ -234,10 +224,9 @@ public final class VectorIndexScanComparisons implements IndexScanParameters {
         return 31 * hashCode + vectorIndexScanOptions.hashCode();
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public IndexScanParameters translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public IndexScanParameters translateCorrelations(final TranslationMap translationMap,
                                                      final boolean shouldSimplifyValues) {
         final ScanComparisons translatedPrefixScanComparisons =
                 prefixScanComparisons.translateCorrelations(translationMap, shouldSimplifyValues);
@@ -253,10 +242,9 @@ public final class VectorIndexScanComparisons implements IndexScanParameters {
         return this;
     }
 
-    @Nonnull
-    VectorIndexScanComparisons withComparisonsAndOptions(@Nonnull final ScanComparisons prefixScanComparisons,
-                                                         @Nonnull final DistanceRankValueComparison distanceRankValueComparison,
-                                                         @Nonnull final VectorIndexScanOptions vectorIndexScanOptions) {
+    VectorIndexScanComparisons withComparisonsAndOptions(final ScanComparisons prefixScanComparisons,
+                                                         final DistanceRankValueComparison distanceRankValueComparison,
+                                                         final VectorIndexScanOptions vectorIndexScanOptions) {
         return new VectorIndexScanComparisons(prefixScanComparisons, distanceRankValueComparison,
                 vectorIndexScanOptions);
     }
@@ -278,9 +266,8 @@ public final class VectorIndexScanComparisons implements IndexScanParameters {
         return semanticHashCode();
     }
 
-    @Nonnull
     @Override
-    public PVectorIndexScanComparisons toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PVectorIndexScanComparisons toProto(final PlanSerializationContext serializationContext) {
         final PVectorIndexScanComparisons.Builder builder = PVectorIndexScanComparisons.newBuilder();
         builder.setPrefixScanComparisons(prefixScanComparisons.toProto(serializationContext));
         builder.setDistanceRankValueComparison(distanceRankValueComparison.toProto(serializationContext));
@@ -288,24 +275,21 @@ public final class VectorIndexScanComparisons implements IndexScanParameters {
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    public PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PIndexScanParameters toIndexScanParametersProto(final PlanSerializationContext serializationContext) {
         return PIndexScanParameters.newBuilder().setVectorIndexScanComparisons(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static VectorIndexScanComparisons fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                       @Nonnull final PVectorIndexScanComparisons vectorIndexScanComparisonsProto) {
+    public static VectorIndexScanComparisons fromProto(final PlanSerializationContext serializationContext,
+                                                       final PVectorIndexScanComparisons vectorIndexScanComparisonsProto) {
         return new VectorIndexScanComparisons(ScanComparisons.fromProto(serializationContext,
                 Objects.requireNonNull(vectorIndexScanComparisonsProto.getPrefixScanComparisons())),
                 DistanceRankValueComparison.fromProto(serializationContext, Objects.requireNonNull(vectorIndexScanComparisonsProto.getDistanceRankValueComparison())),
                 VectorIndexScanOptions.fromProto(Objects.requireNonNull(vectorIndexScanComparisonsProto.getVectorIndexScanOptions())));
     }
 
-    @Nonnull
     public static VectorIndexScanComparisons byDistance(@Nullable ScanComparisons prefixScanComparisons,
-                                                        @Nonnull final DistanceRankValueComparison distanceRankValueComparison) {
+                                                        final DistanceRankValueComparison distanceRankValueComparison) {
         if (prefixScanComparisons == null) {
             prefixScanComparisons = ScanComparisons.EMPTY;
         }
@@ -320,11 +304,10 @@ public final class VectorIndexScanComparisons implements IndexScanParameters {
         return byDistance(prefixScanComparisons, distanceRankValueComparison, vectorIndexScanOptionsBuilder.build());
     }
 
-    @Nonnull
     @VisibleForTesting
-    public static VectorIndexScanComparisons byDistance(@Nonnull final ScanComparisons prefixScanComparisons,
-                                                        @Nonnull final DistanceRankValueComparison distanceRankValueComparison,
-                                                        @Nonnull final VectorIndexScanOptions vectorIndexScanOptions) {
+    public static VectorIndexScanComparisons byDistance(final ScanComparisons prefixScanComparisons,
+                                                        final DistanceRankValueComparison distanceRankValueComparison,
+                                                        final VectorIndexScanOptions vectorIndexScanOptions) {
         return new VectorIndexScanComparisons(prefixScanComparisons, distanceRankValueComparison, vectorIndexScanOptions);
     }
 
@@ -333,16 +316,14 @@ public final class VectorIndexScanComparisons implements IndexScanParameters {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PVectorIndexScanComparisons, VectorIndexScanComparisons> {
-        @Nonnull
         @Override
         public Class<PVectorIndexScanComparisons> getProtoMessageClass() {
             return PVectorIndexScanComparisons.class;
         }
 
-        @Nonnull
         @Override
-        public VectorIndexScanComparisons fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                    @Nonnull final PVectorIndexScanComparisons vectorIndexScanComparisonsProto) {
+        public VectorIndexScanComparisons fromProto(final PlanSerializationContext serializationContext,
+                                                    final PVectorIndexScanComparisons vectorIndexScanComparisonsProto) {
             return VectorIndexScanComparisons.fromProto(serializationContext, vectorIndexScanComparisonsProto);
         }
     }

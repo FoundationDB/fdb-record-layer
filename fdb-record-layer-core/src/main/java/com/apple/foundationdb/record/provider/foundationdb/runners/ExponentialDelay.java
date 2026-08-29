@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.google.common.annotations.VisibleForTesting;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
@@ -49,10 +48,9 @@ public class ExponentialDelay {
     private final long maxDelayMillis;
     private long currentDelayMillis;
     private long nextDelayMillis;
-    @Nonnull
     private ScheduledExecutorService scheduledExecutor;
 
-    public ExponentialDelay(final long initialDelayMillis, final long maxDelayMillis, @Nonnull ScheduledExecutorService scheduledExecutor) {
+    public ExponentialDelay(final long initialDelayMillis, final long maxDelayMillis, ScheduledExecutorService scheduledExecutor) {
         currentDelayMillis = initialDelayMillis;
         this.maxDelayMillis = maxDelayMillis;
         this.nextDelayMillis = calculateNextDelayMillis();
@@ -71,7 +69,6 @@ public class ExponentialDelay {
         return (long)(ThreadLocalRandom.current().nextDouble() * currentDelayMillis);
     }
 
-    @Nonnull
     @VisibleForTesting
     protected CompletableFuture<Void> delayedFuture(final long nextDelayMillis) {
         return MoreAsyncUtil.delayedFuture(nextDelayMillis, TimeUnit.MILLISECONDS, scheduledExecutor);

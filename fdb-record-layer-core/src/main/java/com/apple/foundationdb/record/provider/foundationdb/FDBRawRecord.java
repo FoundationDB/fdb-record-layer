@@ -23,8 +23,8 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -36,8 +36,8 @@ import java.util.Objects;
  */
 @API(API.Status.INTERNAL)
 public class FDBRawRecord implements FDBStoredSizes {
-    @Nonnull private final Tuple primaryKey;
-    @Nonnull private final byte[] rawRecord;
+    private final Tuple primaryKey;
+    private final byte[] rawRecord;
     @Nullable private final FDBRecordVersion version;
 
     // Size information
@@ -47,13 +47,13 @@ public class FDBRawRecord implements FDBStoredSizes {
     private final boolean split;
     private final boolean versionedInline;
 
-    public FDBRawRecord(@Nonnull Tuple primaryKey, @Nonnull byte[] rawRecord, @Nullable FDBRecordVersion version,
-                        @Nonnull FDBStoredSizes size) {
+    public FDBRawRecord(Tuple primaryKey, byte[] rawRecord, @Nullable FDBRecordVersion version,
+                        FDBStoredSizes size) {
         this(primaryKey, rawRecord, version, size.getKeyCount(), size.getKeySize(), size.getValueSize(), size.isSplit(), size.isVersionedInline());
     }
 
     @SuppressWarnings("squid:S00107") // too many parameters
-    public FDBRawRecord(@Nonnull Tuple primaryKey, @Nonnull byte[] rawRecord, @Nullable FDBRecordVersion version,
+    public FDBRawRecord(Tuple primaryKey, byte[] rawRecord, @Nullable FDBRecordVersion version,
                         int keyCount, int keySize, int valueSize, boolean split, boolean versionedInline) {
         this.primaryKey = primaryKey;
         this.rawRecord = rawRecord;
@@ -98,7 +98,6 @@ public class FDBRawRecord implements FDBStoredSizes {
      * Get the primary key for this record.
      * @return the primary key for this record
      */
-    @Nonnull
     public Tuple getPrimaryKey() {
         return primaryKey;
     }
@@ -111,7 +110,6 @@ public class FDBRawRecord implements FDBStoredSizes {
      *
      * @return the raw representation of this record
      */
-    @Nonnull
     public byte[] getRawRecord() {
         return rawRecord;
     }

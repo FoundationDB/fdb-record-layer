@@ -34,8 +34,8 @@ import com.apple.foundationdb.record.util.Result;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSession;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -74,9 +74,9 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
      * @param runner the underlying runner
      * @return a future that will return a runner maintaining a new synchronized session
      */
-    public static CompletableFuture<SynchronizedSessionRunner> startSessionAsync(@Nonnull Subspace lockSubspace,
+    public static CompletableFuture<SynchronizedSessionRunner> startSessionAsync(Subspace lockSubspace,
                                                                                  long leaseLengthMill,
-                                                                                 @Nonnull FDBDatabaseRunnerImpl runner) {
+                                                                                 FDBDatabaseRunnerImpl runner) {
         final UUID newSessionId = UUID.randomUUID();
         SynchronizedSession session = new SynchronizedSession(lockSubspace, newSessionId, leaseLengthMill);
         return runner.runAsync(context -> session.initializeSessionAsync(context.ensureActive()),
@@ -94,9 +94,9 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
      * @param runner the underlying runner
      * @return a runner maintaining a new synchronized session
      */
-    public static SynchronizedSessionRunner startSession(@Nonnull Subspace lockSubspace,
+    public static SynchronizedSessionRunner startSession(Subspace lockSubspace,
                                                          long leaseLengthMill,
-                                                         @Nonnull FDBDatabaseRunnerImpl runner) {
+                                                         FDBDatabaseRunnerImpl runner) {
         return runner.asyncToSync(FDBStoreTimer.Waits.WAIT_INIT_SYNC_SESSION,
                 startSessionAsync(lockSubspace, leaseLengthMill, runner));
     }
@@ -111,16 +111,16 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
      * @param runner the underlying runner
      * @return a runner maintaining a existing synchronized session
      */
-    public static SynchronizedSessionRunner joinSession(@Nonnull Subspace lockSubspace,
-                                                        @Nonnull UUID sessionId,
+    public static SynchronizedSessionRunner joinSession(Subspace lockSubspace,
+                                                        UUID sessionId,
                                                         long leaseLengthMill,
-                                                        @Nonnull FDBDatabaseRunnerImpl runner) {
+                                                        FDBDatabaseRunnerImpl runner) {
         SynchronizedSession session = new SynchronizedSession(lockSubspace, sessionId, leaseLengthMill);
         return new SynchronizedSessionRunner(runner, session);
     }
 
-    private SynchronizedSessionRunner(@Nonnull FDBDatabaseRunnerImpl underlyingRunner,
-                                      @Nonnull SynchronizedSession session) {
+    private SynchronizedSessionRunner(FDBDatabaseRunnerImpl underlyingRunner,
+                                      SynchronizedSession session) {
         this.underlying = underlyingRunner;
         this.session = session;
     }
@@ -129,7 +129,7 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
     // TODO: Maybe the time should be updated even if the work is failed. For example, online indexer may fail
     // in the first a few transactions to find the optimal number of records to scan in one transaction.
     private <T> Function<FDBRecordContext, T> runInSession(
-            @Nonnull Function<? super FDBRecordContext, ? extends T> work) {
+            Function<? super FDBRecordContext, ? extends T> work) {
         return context -> {
             context.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_SYNC_SESSION, session.checkLockAsync((context.ensureActive())));
             T result = work.apply(context);
@@ -139,7 +139,7 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
     }
 
     private <T> Function<? super FDBRecordContext, CompletableFuture<? extends T>> runInSessionAsync(
-            @Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> work) {
+            Function<? super FDBRecordContext, CompletableFuture<? extends T>> work) {
         return context -> session.checkLockAsync(context.ensureActive())
                 .thenCompose(vignore -> work.apply(context))
                 .thenApply(result -> {
@@ -196,15 +196,14 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
     }
 
     @Override
-    public <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable,
+    public <T> T run(Function<? super FDBRecordContext, ? extends T> retriable,
                      @Nullable List<Object> additionalLogMessageKeyValues) {
         return underlying.run(runInSession(retriable), additionalLogMessageKeyValues);
     }
 
     @Override
-    @Nonnull
-    public <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
-                                             @Nonnull BiFunction<? super T, Throwable, Result<? extends T, ? extends Throwable>> handlePostTransaction,
+    public <T> CompletableFuture<T> runAsync(Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
+                                             BiFunction<? super T, Throwable, Result<? extends T, ? extends Throwable>> handlePostTransaction,
                                              @Nullable List<Object> additionalLogMessageKeyValues) {
         final List<Object> logDetails;
         if (additionalLogMessageKeyValues == null || additionalLogMessageKeyValues.isEmpty()) {
@@ -222,7 +221,6 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
     // methods that create SynchronizedSessionRunner.
 
     @Override
-    @Nonnull
     public FDBDatabase getDatabase() {
         return underlying.getDatabase();
     }
@@ -278,14 +276,13 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
     }
 
     @Override
-    @Nonnull
     public FDBRecordContext openContext() {
         return underlying.openContext();
     }
 
     @Override
     @Nullable
-    public <T> T asyncToSync(StoreTimer.Wait event, @Nonnull CompletableFuture<T> async) {
+    public <T> T asyncToSync(StoreTimer.Wait event, CompletableFuture<T> async) {
         return underlying.asyncToSync(event, async);
     }
 
@@ -295,17 +292,17 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
     }
 
     @Override
-    public CompletableFuture<SynchronizedSessionRunner> startSynchronizedSessionAsync(@Nonnull Subspace lockSubspace, long leaseLengthMillis) {
+    public CompletableFuture<SynchronizedSessionRunner> startSynchronizedSessionAsync(Subspace lockSubspace, long leaseLengthMillis) {
         return underlying.startSynchronizedSessionAsync(lockSubspace, leaseLengthMillis);
     }
 
     @Override
-    public SynchronizedSessionRunner startSynchronizedSession(@Nonnull Subspace lockSubspace, long leaseLengthMillis) {
+    public SynchronizedSessionRunner startSynchronizedSession(Subspace lockSubspace, long leaseLengthMillis) {
         return underlying.startSynchronizedSession(lockSubspace, leaseLengthMillis);
     }
 
     @Override
-    public SynchronizedSessionRunner joinSynchronizedSession(@Nonnull Subspace lockSubspace, @Nonnull UUID sessionId, long leaseLengthMillis) {
+    public SynchronizedSessionRunner joinSynchronizedSession(Subspace lockSubspace, UUID sessionId, long leaseLengthMillis) {
         return underlying.joinSynchronizedSession(lockSubspace, sessionId, leaseLengthMillis);
     }
 

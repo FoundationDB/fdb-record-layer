@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
 
 /**
  * The FoundationDB native client can be configured to emit its trace logs (containing important
@@ -61,11 +60,10 @@ public enum FDBTraceFormat {
      */
     JSON("json", false);
 
-    @Nonnull
     private final String optionValue;
     private final boolean defaultValue;
 
-    FDBTraceFormat(@Nonnull String optionValue, boolean defaultValue) {
+    FDBTraceFormat(String optionValue, boolean defaultValue) {
         this.optionValue = optionValue;
         this.defaultValue = defaultValue;
     }
@@ -76,7 +74,6 @@ public enum FDBTraceFormat {
      *
      * @return the value to pass to {@link com.apple.foundationdb.NetworkOptions#setTraceFormat(String) setTraceFormat()}
      */
-    @Nonnull
     public String getOptionValue() {
         return optionValue;
     }

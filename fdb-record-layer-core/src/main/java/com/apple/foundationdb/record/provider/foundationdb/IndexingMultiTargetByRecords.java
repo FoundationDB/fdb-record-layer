@@ -37,8 +37,8 @@ import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRang
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -54,13 +54,12 @@ import java.util.stream.Collectors;
 public class IndexingMultiTargetByRecords extends IndexingBase {
     private IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp = null;
 
-    IndexingMultiTargetByRecords(@Nonnull IndexingCommon common,
-                                 @Nonnull OnlineIndexer.IndexingPolicy policy) {
+    IndexingMultiTargetByRecords(IndexingCommon common,
+                                 OnlineIndexer.IndexingPolicy policy) {
         super(common, policy);
     }
 
     @Override
-    @Nonnull
     IndexBuildProto.IndexBuildIndexingStamp getIndexingTypeStamp(FDBRecordStore store) {
         if (myIndexingTypeStamp == null) {
             myIndexingTypeStamp = compileIndexingTypeStamp(common.getTargetIndexesNames());
@@ -68,7 +67,6 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
         return myIndexingTypeStamp;
     }
 
-    @Nonnull
     private static IndexBuildProto.IndexBuildIndexingStamp compileIndexingTypeStamp(List<String> targetIndexes) {
 
         if (targetIndexes.isEmpty()) {
@@ -84,7 +82,6 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
                 .build();
     }
 
-    @Nonnull
     protected static IndexBuildProto.IndexBuildIndexingStamp compileSingleTargetLegacyIndexingTypeStamp() {
         return
                 IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
@@ -92,7 +89,7 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
                         .build();
     }
 
-    private static boolean areTheyAllIdempotent(@Nonnull FDBRecordStore store, List<Index> targetIndexes) {
+    private static boolean areTheyAllIdempotent(FDBRecordStore store, List<Index> targetIndexes) {
         return targetIndexes.stream()
                 .allMatch(targetIndex -> store.getIndexMaintainer(targetIndex).isIdempotent());
     }
@@ -105,7 +102,6 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
         );
     }
 
-    @Nonnull
     @Override
     CompletableFuture<Void> buildIndexInternalAsync() {
         return getRunner().runAsync(context -> openRecordStore(context)
@@ -114,15 +110,13 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
                 common.indexLogMessageKeyValues("IndexingMultiTargetByRecords::buildIndexInternalAsync"));
     }
 
-    @Nonnull
     private CompletableFuture<Void> buildMultiTargetIndex() {
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildMultiTargetIndex");
         return maybePresetRecordsRangeAsync().thenCompose(ignore ->
                         iterateAllRanges(additionalLogMessageKeyValues, this::buildRangeOnly));
     }
 
-    @Nonnull
-    private CompletableFuture<Boolean> buildRangeOnly(@Nonnull FDBRecordStore store, @Nonnull AtomicLong recordsScanned) {
+    private CompletableFuture<Boolean> buildRangeOnly(FDBRecordStore store, AtomicLong recordsScanned) {
         // return false when done
         /* Multi target consistency:
          * 1. Identify missing ranges from only the first index
@@ -175,14 +169,13 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
     }
 
     @SuppressWarnings("unused")
-    private  CompletableFuture<FDBStoredRecord<Message>> getRecordIfTypeMatch(FDBRecordStore store, @Nonnull RecordCursorResult<FDBStoredRecord<Message>> cursorResult) {
+    private  CompletableFuture<FDBStoredRecord<Message>> getRecordIfTypeMatch(FDBRecordStore store, RecordCursorResult<FDBStoredRecord<Message>> cursorResult) {
         // No need to "translate" rec, so store is unused
         FDBStoredRecord<Message> rec = cursorResult.get();
         return recordIfInIndexedTypes(rec);
     }
 
     // support rebuildIndexAsync
-    @Nonnull
     @Override
     CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store) {
         final TupleRange tupleRange = common.computeRecordsRange();
@@ -204,9 +197,8 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
                 }), store.getExecutor());
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    private CompletableFuture<Tuple> rebuildRangeOnly(@Nonnull FDBRecordStore store, Tuple cont, @Nonnull AtomicLong recordsScanned, @Nullable Tuple rangeEndInclusive) {
+    private CompletableFuture<Tuple> rebuildRangeOnly(FDBRecordStore store, Tuple cont, AtomicLong recordsScanned, @Nullable Tuple rangeEndInclusive) {
         validateSameMetadataOrThrow(store);
         final boolean isIdempotent = areTheyAllIdempotent(store, common.getTargetIndexes());
 

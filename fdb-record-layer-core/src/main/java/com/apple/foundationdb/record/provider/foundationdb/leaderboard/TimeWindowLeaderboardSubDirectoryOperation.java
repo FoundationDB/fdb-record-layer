@@ -24,21 +24,18 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
 
 /**
  * Get a sub-directory, which presently only contains information about direction.
  */
 @API(API.Status.EXPERIMENTAL)
 public class TimeWindowLeaderboardSubDirectoryOperation extends IndexOperation {
-    @Nonnull
     private final Tuple group;
 
-    public TimeWindowLeaderboardSubDirectoryOperation(@Nonnull Tuple group) {
+    public TimeWindowLeaderboardSubDirectoryOperation(Tuple group) {
         this.group = group;
     }
 
-    @Nonnull
     public Tuple getGroup() {
         return group;
     }

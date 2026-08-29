@@ -25,8 +25,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -41,7 +41,6 @@ import java.util.concurrent.ScheduledExecutorService;
 public class FDBTransactionContext {
     private final Executor executor;
 
-    @Nonnull
     protected final FDBDatabase database;
     @Nullable
     protected Transaction transaction;
@@ -50,8 +49,8 @@ public class FDBTransactionContext {
     @Nullable
     protected FDBStoreTimer delayedTimer;
 
-    protected FDBTransactionContext(@Nonnull FDBDatabase database,
-                                    @Nonnull Transaction transaction,
+    protected FDBTransactionContext(FDBDatabase database,
+                                    Transaction transaction,
                                     @Nullable FDBStoreTimer timer,
                                     @Nullable FDBStoreTimer delayedTimer) {
         this.database = database;
@@ -65,17 +64,14 @@ public class FDBTransactionContext {
         }
     }
 
-    @Nonnull
     public FDBDatabase getDatabase() {
         return database;
     }
 
-    @Nonnull
     public Transaction ensureActive() {
         return transaction;
     }
 
-    @Nonnull
     public Executor getExecutor() {
         return executor;
     }
@@ -86,12 +82,10 @@ public class FDBTransactionContext {
      * @return a scheduled executor to use for scheduling delayed tasks
      */
     @API(API.Status.INTERNAL)
-    @Nonnull
     public ScheduledExecutorService getScheduledExecutor() {
         return database.getScheduledExecutor();
     }
 
-    @Nonnull
     public CompletableFuture<Long> getApproximateTransactionSize() {
         return transaction.getApproximateSize();
     }
@@ -120,7 +114,7 @@ public class FDBTransactionContext {
      * @see APIVersion
      */
     @API(API.Status.INTERNAL)
-    public boolean isAPIVersionAtLeast(@Nonnull APIVersion apiVersion) {
+    public boolean isAPIVersionAtLeast(APIVersion apiVersion) {
         return getAPIVersion().isAtLeast(apiVersion);
     }
 
@@ -130,7 +124,7 @@ public class FDBTransactionContext {
     }
 
     @Nullable
-    public FDBStoreTimer getTimerForEvent(@Nonnull StoreTimer.Event event) {
+    public FDBStoreTimer getTimerForEvent(StoreTimer.Event event) {
         return event.isDelayedUntilCommit() ? delayedTimer : timer;
     }
 
@@ -203,7 +197,7 @@ public class FDBTransactionContext {
      * @param timeDelta the time the event took to complete
      * @see StoreTimer#record(StoreTimer.Event, long) StoreTimer.record()
      */
-    public void record(@Nonnull StoreTimer.Event event, long timeDelta) {
+    public void record(StoreTimer.Event event, long timeDelta) {
         FDBStoreTimer eventTimer = getTimerForEvent(event);
         if (eventTimer != null) {
             eventTimer.record(event, timeDelta);
@@ -217,7 +211,7 @@ public class FDBTransactionContext {
      * @param size size the size of the event being recorded
      * @see StoreTimer#recordSize(StoreTimer.SizeEvent, long)
      */
-    public void recordSize(@Nonnull StoreTimer.SizeEvent sizeEvent, long size) {
+    public void recordSize(StoreTimer.SizeEvent sizeEvent, long size) {
         FDBStoreTimer eventTimer = getTimerForEvent(sizeEvent);
         if (eventTimer != null) {
             eventTimer.recordSize(sizeEvent, size);
@@ -230,7 +224,7 @@ public class FDBTransactionContext {
      * @param count the event being recorded
      * @see StoreTimer#increment(StoreTimer.Count) StoreTimer.increment()
      */
-    public void increment(@Nonnull StoreTimer.Count count) {
+    public void increment(StoreTimer.Count count) {
         FDBStoreTimer eventTimer = getTimerForEvent(count);
         if (eventTimer != null) {
             eventTimer.increment(count);
@@ -244,7 +238,7 @@ public class FDBTransactionContext {
      * @param amount the amount to increment the event
      * @see StoreTimer#increment(StoreTimer.Count, int) StoreTimer.increment()
      */
-    public void increment(@Nonnull StoreTimer.Count count, int amount) {
+    public void increment(StoreTimer.Count count, int amount) {
         FDBStoreTimer eventTimer = getTimerForEvent(count);
         if (eventTimer != null) {
             eventTimer.increment(count, amount);

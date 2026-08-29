@@ -24,4 +24,7 @@
  * and {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext}s.
  * @see com.apple.foundationdb.synchronizedsession.SynchronizedSession
  */
+@NullMarked
 package com.apple.foundationdb.record.provider.foundationdb.synchronizedsession;
+
+import org.jspecify.annotations.NullMarked;

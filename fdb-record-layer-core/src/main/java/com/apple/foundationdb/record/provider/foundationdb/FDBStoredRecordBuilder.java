@@ -26,8 +26,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A builder for {@link FDBStoredRecord}.
@@ -55,11 +54,11 @@ public class FDBStoredRecordBuilder<M extends Message> implements FDBRecord<M>, 
     }
 
     // Having this means the diamond operator can be used more often.
-    public FDBStoredRecordBuilder(@Nonnull M protoRecord) {
+    public FDBStoredRecordBuilder(M protoRecord) {
         this.protoRecord = protoRecord;
     }
 
-    public FDBStoredRecordBuilder(@Nonnull FDBStoredRecord<M> record) {
+    public FDBStoredRecordBuilder(FDBStoredRecord<M> record) {
         this.protoRecord = record.getRecord();
         this.primaryKey = record.getPrimaryKey();
         this.recordType = record.getRecordType();
@@ -72,7 +71,6 @@ public class FDBStoredRecordBuilder<M extends Message> implements FDBRecord<M>, 
     }
 
     @Override
-    @Nonnull
     public Tuple getPrimaryKey() {
         if (primaryKey == null) {
             throw new RecordCoreException("primary key has not been set");
@@ -81,7 +79,6 @@ public class FDBStoredRecordBuilder<M extends Message> implements FDBRecord<M>, 
     }
 
     @Override
-    @Nonnull
     public RecordType getRecordType() {
         if (recordType == null) {
             throw new RecordCoreException("record type has not been set");
@@ -90,7 +87,6 @@ public class FDBStoredRecordBuilder<M extends Message> implements FDBRecord<M>, 
     }
 
     @Override
-    @Nonnull
     public M getRecord() {
         if (protoRecord == null) {
             throw new RecordCoreException("record has not been set");
@@ -179,7 +175,7 @@ public class FDBStoredRecordBuilder<M extends Message> implements FDBRecord<M>, 
         return this;
     }
 
-    public FDBStoredRecordBuilder<M> setSize(@Nonnull FDBStoredSizes size) {
+    public FDBStoredRecordBuilder<M> setSize(FDBStoredSizes size) {
         this.keyCount = size.getKeyCount();
         this.keySize = size.getKeySize();
         this.valueSize = size.getValueSize();

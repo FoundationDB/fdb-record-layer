@@ -46,8 +46,8 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -58,24 +58,21 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.UNSTABLE)
 public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIteratorCursor<K> implements BaseCursor<K> {
-    @Nonnull
     private final FDBRecordContext context;
     private final int prefixLength;
-    @Nonnull
     private final CursorLimitManager limitManager;
     private final int valuesLimit;
     // the pointer may be mutated, but the actual array must never be mutated or continuations will break
     @Nullable
     private byte[] lastKey;
-    @Nonnull
     private final SerializationMode serializationMode;
 
-    protected KeyValueCursorBase(@Nonnull final FDBRecordContext context,
-                                 @Nonnull final AsyncIterator<K> iterator,
+    protected KeyValueCursorBase(final FDBRecordContext context,
+                                 final AsyncIterator<K> iterator,
                                  int prefixLength,
-                                 @Nonnull final CursorLimitManager limitManager,
+                                 final CursorLimitManager limitManager,
                                  int valuesLimit,
-                                 @Nonnull final SerializationMode serializationMode) {
+                                 final SerializationMode serializationMode) {
         super(context.getExecutor(), iterator);
 
         this.context = context;
@@ -87,7 +84,6 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         context.instrument(FDBStoreTimer.DetailEvents.GET_SCAN_RANGE_RAW_FIRST_CHUNK, iterator.onHasNext());
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<K>> onNext() {
         if (nextResult != null && !nextResult.hasNext()) {
@@ -130,12 +126,10 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
     }
 
     @Override
-    @Nonnull
     public RecordCursorResult<K> getNext() {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, onNext());
     }
 
-    @Nonnull
     private RecordCursorContinuation continuationHelper() {
         return new Continuation(lastKey, prefixLength, serializationMode);
     }
@@ -177,7 +171,6 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             return lastKey == null;
         }
 
-        @Nonnull
         @Override
         public ByteString toByteString() {
             if (serializationMode == SerializationMode.TO_OLD) {
@@ -223,7 +216,6 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             }
         }
 
-        @Nonnull
         private RecordCursorProto.KeyValueCursorContinuation toProto() {
             RecordCursorProto.KeyValueCursorContinuation.Builder builder = RecordCursorProto.KeyValueCursorContinuation.newBuilder();
             if (lastKey == null) {
@@ -279,7 +271,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         private KeySelector end;
         protected SerializationMode serializationMode;
 
-        protected Builder(@Nonnull Subspace subspace) {
+        protected Builder(Subspace subspace) {
             this.subspace = subspace;
             this.serializationMode = SerializationMode.TO_NEW;
         }
@@ -371,48 +363,48 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             return self();
         }
 
-        public T setScanProperties(@Nonnull ScanProperties scanProperties) {
+        public T setScanProperties(ScanProperties scanProperties) {
             this.scanProperties = scanProperties;
             return self();
         }
 
-        public T setRange(@Nonnull KeyRange range) {
+        public T setRange(KeyRange range) {
             setLow(range.getLowKey(), range.getLowEndpoint());
             setHigh(range.getHighKey(), range.getHighEndpoint());
             return self();
         }
 
-        public T setRange(@Nonnull TupleRange range) {
+        public T setRange(TupleRange range) {
             setLow(range.getLow(), range.getLowEndpoint());
             setHigh(range.getHigh(), range.getHighEndpoint());
             return self();
         }
 
-        public T setLow(@Nullable Tuple low, @Nonnull EndpointType lowEndpoint) {
+        public T setLow(@Nullable Tuple low, EndpointType lowEndpoint) {
             setLow(low != null ? subspace.pack(low) : subspace.pack(), lowEndpoint);
             return self();
         }
 
         @SpotBugsSuppressWarnings(value = "EI2", justification = "copies are expensive")
-        public T setLow(@Nonnull byte[] lowBytes, @Nonnull EndpointType lowEndpoint) {
+        public T setLow(byte[] lowBytes, EndpointType lowEndpoint) {
             this.lowBytes = lowBytes;
             this.lowEndpoint = lowEndpoint;
             return self();
         }
 
-        public T setHigh(@Nullable Tuple high, @Nonnull EndpointType highEndpoint) {
+        public T setHigh(@Nullable Tuple high, EndpointType highEndpoint) {
             setHigh(high != null ? subspace.pack(high) : subspace.pack(), highEndpoint);
             return self();
         }
 
         @SpotBugsSuppressWarnings(value = "EI2", justification = "copies are expensive")
-        public T setHigh(@Nonnull byte[] highBytes, @Nonnull EndpointType highEndpoint) {
+        public T setHigh(byte[] highBytes, EndpointType highEndpoint) {
             this.highBytes = highBytes;
             this.highEndpoint = highEndpoint;
             return self();
         }
 
-        public T setSerializationMode(@Nonnull final SerializationMode serializationMode) {
+        public T setSerializationMode(final SerializationMode serializationMode) {
             this.serializationMode = serializationMode;
             return self();
         }

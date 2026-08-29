@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexScanType;
 
-import javax.annotation.Nonnull;
 
 /**
  * The bounds for an index scan.
@@ -36,6 +35,5 @@ public interface IndexScanBounds {
      * Get the type of index scan to be performed.
      * @return the scan type
      */
-    @Nonnull
     IndexScanType getScanType();
 }

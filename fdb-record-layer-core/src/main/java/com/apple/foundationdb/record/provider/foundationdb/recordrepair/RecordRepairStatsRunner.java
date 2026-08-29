@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.ThrottledRetryingIterator;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -34,10 +33,9 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.EXPERIMENTAL)
 public class RecordRepairStatsRunner extends RecordRepair {
-    @Nonnull
     private final RepairStatsResults statsResult;
 
-    RecordRepairStatsRunner(@Nonnull final Builder config) {
+    RecordRepairStatsRunner(final Builder config) {
         // stats runner never commits a transaction
         super(config, false);
         statsResult = new RepairStatsResults();
@@ -56,9 +54,8 @@ public class RecordRepairStatsRunner extends RecordRepair {
         });
     }
 
-    @Nonnull
     @Override
-    protected CompletableFuture<Void> handleOneItem(@Nonnull FDBRecordStore store, @Nonnull RecordCursorResult<Tuple> lastResult, @Nonnull ThrottledRetryingIterator.QuotaManager quotaManager) {
+    protected CompletableFuture<Void> handleOneItem(FDBRecordStore store, RecordCursorResult<Tuple> lastResult, ThrottledRetryingIterator.QuotaManager quotaManager) {
         return validateInternal(lastResult, store, false).thenAccept(result -> {
             statsResult.increment(result.getErrorCode());
         });

@@ -28,4 +28,7 @@
  *     are not included in this package.
  * </p>
  */
+@NullMarked
 package com.apple.foundationdb.record.provider.foundationdb.runners;
+
+import org.jspecify.annotations.NullMarked;

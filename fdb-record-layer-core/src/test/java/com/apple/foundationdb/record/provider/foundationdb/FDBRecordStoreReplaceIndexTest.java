@@ -48,8 +48,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -62,6 +62,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.UserVersionChecker;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
@@ -95,7 +96,7 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
     private static final Tuple STR_NUM_THEN_NUM3_KEY = Tuple.from(STR_VALUE, (long)NUM_VALUE_2, (long)NUM_VALUE_3, REC_NO);
     private static final Tuple STR_NUM_THEN_UNIQUE_KEY = Tuple.from(STR_VALUE, (long)NUM_VALUE_2, (long)NUM_VALUE_UNIQUE, REC_NO);
 
-    private Index setReplacementIndexes(@Nonnull Index index, Index... replacementIndexes) {
+    private Index setReplacementIndexes(Index index, Index... replacementIndexes) {
         Map<String, String> newOptions = new HashMap<>(index.getOptions());
         // Remove any existing replacement indexes
         final List<String> optionsToRemove = index.getOptions().keySet().stream()
@@ -118,11 +119,11 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
         return newIndex;
     }
 
-    private RecordMetaDataHook addIndexHook(@Nonnull String recordTypeName, @Nonnull Index index) {
+    private RecordMetaDataHook addIndexHook(String recordTypeName, Index index) {
         return metaDataBuilder -> metaDataBuilder.addIndex(recordTypeName, index);
     }
 
-    private RecordMetaDataHook addIndexAndReplacements(@Nonnull String recordTypeName, @Nonnull Index origIndex, @Nonnull Index... newIndexes) {
+    private RecordMetaDataHook addIndexAndReplacements(String recordTypeName, Index origIndex, Index... newIndexes) {
         return metaDataBuilder -> {
             final Index origIndexWithReplacement = setReplacementIndexes(origIndex, newIndexes);
             metaDataBuilder.addIndex(recordTypeName, origIndexWithReplacement);
@@ -209,16 +210,16 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
      * Open the store with {@code origIndex} configured as replaced by {@code newIndexes} (all added at once), a bumped
      * meta-data version to trigger {@code checkVersion}, and the checker for {@code rebuildOption}.
      */
-    private void openWithReplacements(@Nonnull FDBRecordContext context, @Nonnull RebuildOption rebuildOption,
-                                      @Nonnull Index origIndex, @Nonnull Index... newIndexes) {
+    private void openWithReplacements(FDBRecordContext context, RebuildOption rebuildOption,
+                                      Index origIndex, Index... newIndexes) {
         final RecordMetaDataHook hook = composeHooks(addIndexAndReplacements(RECORD_TYPE, origIndex, newIndexes), bumpMetaDataVersionHook());
         final String[] newIndexNames = Arrays.stream(newIndexes).map(Index::getName).toArray(String[]::new);
         openWithChecker(context, hook, rebuildOption.userVersionChecker(origIndex.getName(), newIndexNames));
     }
 
     /** Open the store applying {@code hook} to the meta-data and using the given (possibly null) checker. */
-    private void openWithChecker(@Nonnull FDBRecordContext context, @Nullable RecordMetaDataHook hook,
-                                 @Nullable FDBRecordStoreBase.UserVersionChecker userVersionChecker) {
+    private void openWithChecker(FDBRecordContext context, @Nullable RecordMetaDataHook hook,
+                                 @Nullable UserVersionChecker userVersionChecker) {
         recordStore = getStoreBuilder(context, simpleMetaData(hook))
                 .setUserVersionChecker(userVersionChecker)
                 .createOrOpen();
@@ -228,7 +229,7 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
      * Remove the {@code replacedBy} configuration, force {@code origIndex} readable, and assert it holds no data. This
      * is how a caller confirms that a replaced original index had its data cleared.
      */
-    private void assertOriginalIndexDataCleared(@Nonnull Index origIndex, @Nonnull Index... newIndexes) {
+    private void assertOriginalIndexDataCleared(Index origIndex, Index... newIndexes) {
         final RecordMetaDataHook addAllPlainIndexes = composeHooks(
                 addIndexHook(RECORD_TYPE, origIndex),
                 composeHooks(Arrays.stream(newIndexes).map(index -> addIndexHook(RECORD_TYPE, index)).toArray(RecordMetaDataHook[]::new)));
@@ -245,7 +246,7 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
      * {@code UserVersionChecker}'s requested state must be honored regardless of {@code replacedBy}, and a readable
      * index must reflect its records.
      */
-    private void assertIndexStateAndContents(@Nonnull Index index, @Nonnull IndexState expectedState, @Nonnull Tuple expectedKey) {
+    private void assertIndexStateAndContents(Index index, IndexState expectedState, Tuple expectedKey) {
         assertEquals(expectedState, recordStore.getIndexState(index.getName()),
                 "Index " + index.getName() + " should be " + expectedState);
         if (expectedState.isReadable()) {
@@ -706,7 +707,7 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void forEachStore(@Nonnull KeySpacePath root, @Nonnull List<String> storePaths, @Nonnull BiConsumer<String, FDBRecordStore> subStoreConsumer) {
+    private void forEachStore(KeySpacePath root, List<String> storePaths, BiConsumer<String, FDBRecordStore> subStoreConsumer) {
         for (String storePathName : storePaths) {
             final KeySpacePath storePath = root.add(TestKeySpace.STORE_PATH, storePathName);
             final FDBRecordStore subStore = recordStore.asBuilder()
@@ -1040,7 +1041,7 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
         }
 
         @Nullable
-        FDBRecordStoreBase.UserVersionChecker userVersionChecker(@Nonnull String origIndexName, @Nonnull String... newIndexNames) {
+        UserVersionChecker userVersionChecker(String origIndexName, String... newIndexNames) {
             final Map<String, IndexState> immediateStates = new HashMap<>();
             return switch (this) {
                 case NULL_CHECKER -> null;
@@ -1080,7 +1081,7 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
      * A {@link FDBRecordStoreBase.UserVersionChecker} that returns a fixed {@link IndexState} for named indexes and
      * consults the record count for the rest.
      */
-    private static class SelectiveUserVersionChecker implements FDBRecordStoreBase.UserVersionChecker {
+    private static class SelectiveUserVersionChecker implements UserVersionChecker {
         private final Map<String, IndexState> immediateStates;
 
         SelectiveUserVersionChecker(Map<String, IndexState> immediateStates) {
@@ -1088,7 +1089,7 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
         }
 
         @Override
-        public CompletableFuture<Integer> checkUserVersion(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader,
+        public CompletableFuture<Integer> checkUserVersion(RecordMetaDataProto.DataStoreInfo storeHeader,
                                                            RecordMetaDataProvider metaData) {
             return CompletableFuture.completedFuture(storeHeader.getUserVersion());
         }
@@ -1100,7 +1101,6 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
             return Assertions.fail(); // if we've hit this, then we've gone down an unexpected path
         }
 
-        @Nonnull
         @Override
         public CompletableFuture<IndexState> needRebuildIndex(Index index,
                                                               Supplier<CompletableFuture<Long>> lazyRecordCount,

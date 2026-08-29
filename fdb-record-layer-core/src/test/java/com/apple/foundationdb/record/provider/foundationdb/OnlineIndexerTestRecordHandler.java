@@ -25,8 +25,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Interface for use within {@link OnlineIndexerTest}s that provides information like the file descriptor and the
@@ -39,12 +38,9 @@ interface OnlineIndexerTestRecordHandler<M extends Message> {
 
     Descriptors.FileDescriptor getFileDescriptor();
 
-    @Nonnull
     FDBRecordStoreTestBase.RecordMetaDataHook baseHook(boolean splitLongRecords, @Nullable Index sourceIndex);
 
-    @Nonnull
-    FDBRecordStoreTestBase.RecordMetaDataHook addIndexHook(@Nonnull Index index);
+    FDBRecordStoreTestBase.RecordMetaDataHook addIndexHook(Index index);
 
-    @Nonnull
-    Tuple getPrimaryKey(@Nonnull M message);
+    Tuple getPrimaryKey(M message);
 }

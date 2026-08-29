@@ -48,7 +48,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -615,12 +614,10 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
         return recordStore.getRecordMetaData().getRecordType("MySimpleRecord").getPrimaryKey();
     }
 
-    @Nonnull
     private IndexScanRange scanBounds() {
         return new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL);
     }
 
-    @Nonnull
     private final RecordMetaDataHook splitRecordsHook = metaDataBuilder -> {
         // UseSplitRecords can be set to different values to impact the way the store is opened
         metaDataBuilder.setSplitLongRecords(isUseSplitRecords());

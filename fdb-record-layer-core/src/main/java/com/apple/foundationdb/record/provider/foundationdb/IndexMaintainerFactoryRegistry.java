@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 
-import javax.annotation.Nonnull;
 
 /**
  * Registry of {@link IndexMaintainerFactory} objects. Each index type has an associated
@@ -57,25 +56,22 @@ public interface IndexMaintainerFactoryRegistry extends IndexMaintainerRegistry,
      *     {@link IndexMaintainerFactory} cannot be retrieved (e.g., if the index type
      *     is unknown)
      */
-    @Nonnull
-    IndexMaintainerFactory getIndexMaintainerFactory(@Nonnull Index index);
+    IndexMaintainerFactory getIndexMaintainerFactory(Index index);
 
-    @Nonnull
     @Override
-    default IndexValidator getIndexValidator(@Nonnull Index index) {
+    default IndexValidator getIndexValidator(Index index) {
         final IndexMaintainerFactory factory = getIndexMaintainerFactory(index);
         return factory.getIndexValidator(index);
     }
 
-    @Nonnull
     @Override
-    default IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
+    default IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
         final IndexMaintainerFactory factory = getIndexMaintainerFactory(state.index);
         return factory.getIndexMaintainer(state);
     }
 
     @Override
-    default Iterable<MatchCandidate> createMatchCandidates(@Nonnull RecordMetaData metaData, @Nonnull Index index, boolean reverse) {
+    default Iterable<MatchCandidate> createMatchCandidates(RecordMetaData metaData, Index index, boolean reverse) {
         final IndexMaintainerFactory factory = getIndexMaintainerFactory(index);
         return factory.createMatchCandidates(metaData, index, reverse);
     }

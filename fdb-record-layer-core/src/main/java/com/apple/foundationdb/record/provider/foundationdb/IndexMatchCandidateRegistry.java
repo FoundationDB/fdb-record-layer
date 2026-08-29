@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 
-import javax.annotation.Nonnull;
 
 /**
  * A registry for mapping indexes to {@link MatchCandidate}s that can be used during
@@ -47,7 +46,7 @@ public interface IndexMatchCandidateRegistry {
      * @return a collection of {@link MatchCandidate}s representing this index
      * @see IndexMaintainerFactory#createMatchCandidates(RecordMetaData, Index, boolean)
      */
-    Iterable<MatchCandidate> createMatchCandidates(@Nonnull RecordMetaData metaData,
-                                                   @Nonnull Index index,
+    Iterable<MatchCandidate> createMatchCandidates(RecordMetaData metaData,
+                                                   Index index,
                                                    boolean reverse);
 }

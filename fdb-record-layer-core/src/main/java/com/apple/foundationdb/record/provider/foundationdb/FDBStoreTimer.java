@@ -28,8 +28,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveLevelU
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -277,7 +277,6 @@ public class FDBStoreTimer extends StoreTimer {
         }
 
         @Override
-        @Nonnull
         public String logKey() {
             return this.logKey;
         }
@@ -336,7 +335,6 @@ public class FDBStoreTimer extends StoreTimer {
         }
 
         @Override
-        @Nonnull
         public String logKey() {
             return this.logKey;
         }
@@ -498,7 +496,6 @@ public class FDBStoreTimer extends StoreTimer {
         }
 
         @Override
-        @Nonnull
         public String logKey() {
             return this.logKey;
         }
@@ -818,7 +815,6 @@ public class FDBStoreTimer extends StoreTimer {
         }
 
         @Override
-        @Nonnull
         public String logKey() {
             return this.logKey;
         }
@@ -852,19 +848,16 @@ public class FDBStoreTimer extends StoreTimer {
                 Counts.REPLACE_RECORD_VALUE_BYTES
         ),
         ;
-        @Nonnull
         private final String title;
         private final boolean isSize;
-        @Nonnull
         private final String logKey;
-        @Nonnull
         private final Set<Count> events;
 
-        CountAggregates(@Nonnull String title, @Nonnull Count... events) {
+        CountAggregates(String title, Count... events) {
             this(title, null, events);
         }
 
-        CountAggregates(@Nonnull String title, @Nullable String logKey, @Nonnull Count... events) {
+        CountAggregates(String title, @Nullable String logKey, Count... events) {
             this.title = title;
             this.logKey = (logKey != null) ? logKey : Aggregate.super.logKey();
             this.events = ImmutableSet.copyOf(validate((first, other) -> {
@@ -876,13 +869,11 @@ public class FDBStoreTimer extends StoreTimer {
         }
 
         @Override
-        @Nonnull
         public String title() {
             return title;
         }
 
         @Override
-        @Nonnull
         public String logKey() {
             return this.logKey;
         }
@@ -894,7 +885,7 @@ public class FDBStoreTimer extends StoreTimer {
 
         @Nullable
         @Override
-        public Counter compute(@Nonnull StoreTimer storeTimer) {
+        public Counter compute(StoreTimer storeTimer) {
             return compute(storeTimer, events);
         }
 
@@ -916,11 +907,11 @@ public class FDBStoreTimer extends StoreTimer {
         private final String title;
         private final boolean delayedUntilCommit;
 
-        SizeEvents(@Nonnull String title) {
+        SizeEvents(String title) {
             this(title, false);
         }
 
-        SizeEvents(@Nonnull String title, boolean delayedUntilCommit) {
+        SizeEvents(String title, boolean delayedUntilCommit) {
             this.title = title;
             this.delayedUntilCommit = delayedUntilCommit;
         }
@@ -960,7 +951,6 @@ public class FDBStoreTimer extends StoreTimer {
     }
 
     @Override
-    @Nonnull
     public Set<Aggregate> getAggregates() {
         return ALL_AGGREGATES;
     }

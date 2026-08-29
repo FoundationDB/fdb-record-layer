@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
@@ -45,7 +44,6 @@ public class PreventCommitCheck implements FDBRecordContext.CommitCheckAsync {
     }
 
     @Override
-    @Nonnull
     public CompletableFuture<Void> checkAsync() {
         return CompletableFuture.failedFuture(exceptionSupplier.get());
     }

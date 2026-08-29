@@ -22,8 +22,8 @@ package com.apple.foundationdb.record.provider.foundationdb.recordrepair;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 
 /**
@@ -39,11 +39,10 @@ public class RepairValidationResults {
     private final boolean isComplete;
     @Nullable
     private final Throwable caughtException;
-    @Nonnull
     private final List<RecordRepairResult> invalidResults;
     private final int validResultCount;
 
-    public RepairValidationResults(final boolean isComplete, @Nullable final Throwable caughtException, @Nonnull final List<RecordRepairResult> invalidResults, final int validResultCount) {
+    public RepairValidationResults(final boolean isComplete, @Nullable final Throwable caughtException, final List<RecordRepairResult> invalidResults, final int validResultCount) {
         this.isComplete = isComplete;
         this.caughtException = caughtException;
         this.invalidResults = invalidResults;
@@ -74,7 +73,6 @@ public class RepairValidationResults {
      * Note that this list can be limited in size by calling {@link RecordRepair.Builder#withMaxResultsReturned(int)}
      * @return the list of record validation results that ended up with non-valid code.
      */
-    @Nonnull
     public List<RecordRepairResult> getInvalidResults() {
         return invalidResults;
     }

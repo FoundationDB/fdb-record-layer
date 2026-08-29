@@ -22,8 +22,8 @@ package com.apple.foundationdb.record.provider.foundationdb.recordrepair;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -35,7 +35,6 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.EXPERIMENTAL)
 public class RepairStatsResults {
-    @Nonnull
     private final Map<String, AtomicInteger> stats;
     @Nullable
     private Throwable exceptionCaught;
@@ -48,7 +47,6 @@ public class RepairStatsResults {
      * Get the stats collected during the validation process.
      * @return A Map of error code to a count of the times that this code was encountered
      */
-    @Nonnull
     public Map<String, Integer> getStats() {
         return stats.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().get()));
     }

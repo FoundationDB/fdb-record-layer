@@ -51,7 +51,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
@@ -82,7 +81,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Tag(Tags.RequiresFDB)
 class FDBDatabaseTest {
-    @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseTest.class);
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();

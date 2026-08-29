@@ -33,7 +33,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -371,7 +370,6 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
         }
     }
 
-    @Nonnull
     private Thread collectHeartbeatsThread(final AtomicBoolean indexerDone, final Semaphore colectorGo, final List<Index> indexes, final List<Map<UUID, IndexBuildProto.IndexBuildHeartbeat>> heartbeatsQueries, final Semaphore indexerGo) {
         return new Thread(() -> {
             while (!indexerDone.get()) {
@@ -386,7 +384,6 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
         });
     }
 
-    @Nonnull
     private Thread buildIndexesThread(final List<Index> indexes, final Semaphore colectorGo, final Semaphore indexerGo, final AtomicBoolean indexerDone) {
         return new Thread(() -> {
             try (OnlineIndexer indexer = newIndexerBuilder(indexes)

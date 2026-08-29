@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.IndexValidatorRegistry;
 
-import javax.annotation.Nonnull;
 
 /**
  * A registry of {@link IndexMaintainer}s.
@@ -31,6 +30,5 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.UNSTABLE)
 public interface IndexMaintainerRegistry extends IndexValidatorRegistry {
-    @Nonnull
-    IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state);
+    IndexMaintainer getIndexMaintainer(IndexMaintainerState state);
 }

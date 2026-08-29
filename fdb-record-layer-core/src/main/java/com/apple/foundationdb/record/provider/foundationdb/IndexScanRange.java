@@ -24,30 +24,25 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.TupleRange;
 
-import javax.annotation.Nonnull;
 
 /**
  * {@link TupleRange} for an index scan.
  */
 @API(API.Status.UNSTABLE)
 public class IndexScanRange implements IndexScanBounds {
-    @Nonnull
     private final IndexScanType scanType;
-    @Nonnull
     private final TupleRange scanRange;
 
-    public IndexScanRange(@Nonnull IndexScanType scanType, @Nonnull TupleRange scanRange) {
+    public IndexScanRange(IndexScanType scanType, TupleRange scanRange) {
         this.scanType = scanType;
         this.scanRange = scanRange;
     }
 
-    @Nonnull
     @Override
     public IndexScanType getScanType() {
         return scanType;
     }
 
-    @Nonnull
     public TupleRange getScanRange() {
         return scanRange;
     }

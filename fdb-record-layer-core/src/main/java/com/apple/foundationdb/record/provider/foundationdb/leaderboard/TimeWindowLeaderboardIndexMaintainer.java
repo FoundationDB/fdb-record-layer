@@ -67,8 +67,8 @@ import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -100,13 +100,11 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
         this.config = RankedSetIndexHelper.getConfig(state.index);
     }
 
-    @Nonnull
     protected CompletableFuture<TimeWindowLeaderboard> oldestLeaderboardMatching(int type, long timestamp) {
         return loadDirectory().thenApply(directory -> directory == null ? null :
                 directory.oldestLeaderboardMatching(type, timestamp));
     }
 
-    @Nonnull
     protected CompletableFuture<TimeWindowLeaderboardDirectory> loadDirectory() {
         final Subspace extraSubspace = getSecondarySubspace();
         return state.transaction.get(extraSubspace.pack()).thenApply(bytes -> {
@@ -128,8 +126,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
         state.transaction.set(extraSubspace.pack(), directory.toProto().toByteArray());
     }
 
-    @Nonnull
-    protected CompletableFuture<TimeWindowLeaderboardSubDirectory> loadSubDirectory(@Nonnull TimeWindowLeaderboardDirectory directory, @Nonnull Tuple group) {
+    protected CompletableFuture<TimeWindowLeaderboardSubDirectory> loadSubDirectory(TimeWindowLeaderboardDirectory directory, Tuple group) {
         TimeWindowLeaderboardSubDirectory subdirectory = directory.getSubDirectory(group);
         if (subdirectory != null) {
             return CompletableFuture.completedFuture(subdirectory);
@@ -153,22 +150,21 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
         });
     }
 
-    protected void saveSubDirectory(@Nonnull TimeWindowLeaderboardSubDirectory subdirectory) {
+    protected void saveSubDirectory(TimeWindowLeaderboardSubDirectory subdirectory) {
         final Subspace extraSubspace = getSecondarySubspace();
         state.transaction.set(extraSubspace.pack(SUB_DIRECTORY_PREFIX.addAll(subdirectory.getGroup())), subdirectory.toProto().toByteArray());
     }
 
     @Override
-    public RecordCursor<IndexEntry> scan(@Nonnull IndexScanType scanType, @Nonnull TupleRange range,
-                                         @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+    public RecordCursor<IndexEntry> scan(IndexScanType scanType, TupleRange range,
+                                         @Nullable byte[] continuation, ScanProperties scanProperties) {
         return scan(new IndexScanRange(scanType, range), continuation, scanProperties);
     }
 
-    @Nonnull
     @Override
-    public RecordCursor<IndexEntry> scan(@Nonnull IndexScanBounds scanBounds,
+    public RecordCursor<IndexEntry> scan(IndexScanBounds scanBounds,
                                          @Nullable byte[] continuation,
-                                         @Nonnull ScanProperties scanProperties) {
+                                         ScanProperties scanProperties) {
         final IndexScanType scanType = scanBounds.getScanType();
         if (!scanType.equals(IndexScanType.BY_VALUE) && !scanType.equals(IndexScanType.BY_RANK) && !scanType.equals(IndexScanType.BY_TIME_WINDOW)) {
             throw new RecordCoreException("Can only scan leaderboard index by time window, rank or value.");
@@ -258,11 +254,11 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                 .mapPipelined(kv -> getIndexEntry(kv, groupPrefixSize, state.context.joinNow(leaderboardFuture).getDirectory()), 1);
     }
 
-    protected RecordCursor<IndexEntry> scanLeaderboard(@Nonnull TimeWindowLeaderboard leaderboard,
+    protected RecordCursor<IndexEntry> scanLeaderboard(TimeWindowLeaderboard leaderboard,
                                                        boolean highScoreFirst,
-                                                       @Nonnull TupleRange scoreRange,
+                                                       TupleRange scoreRange,
                                                        @Nullable byte[] continuation,
-                                                       @Nonnull ScanProperties scanProperties) {
+                                                       ScanProperties scanProperties) {
         if (highScoreFirst) {
             // Reverse direction and endpoints and negate score values.
             return scanLeaderboard(leaderboard, negateScoreRange(scoreRange),
@@ -272,10 +268,10 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
         }
     }
 
-    protected RecordCursor<IndexEntry> scanLeaderboard(@Nonnull TimeWindowLeaderboard leaderboard,
-                                                       @Nonnull final TupleRange range,
+    protected RecordCursor<IndexEntry> scanLeaderboard(TimeWindowLeaderboard leaderboard,
+                                                       final TupleRange range,
                                                        @Nullable byte[] continuation,
-                                                       @Nonnull ScanProperties scanProperties) {
+                                                       ScanProperties scanProperties) {
         return scan(range.prepend(leaderboard.getSubspaceKey()), continuation, scanProperties);
     }
 
@@ -285,7 +281,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
      * @param range the range of scores in normal order
      * @return a range with scores negated so that they sort in reverse order
      */
-    protected TupleRange negateScoreRange(@Nonnull TupleRange range) {
+    protected TupleRange negateScoreRange(TupleRange range) {
         final int groupPrefixSize = getGroupingCount();
         Tuple low = range.getLow();
         Tuple high = range.getHigh();
@@ -309,7 +305,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
     }
 
     // Remove leaderboard key and negate score if necessary.
-    protected CompletableFuture<IndexEntry> getIndexEntry(@Nonnull IndexEntry rawEntry, int groupPrefixSize, @Nonnull TimeWindowLeaderboardDirectory directory) {
+    protected CompletableFuture<IndexEntry> getIndexEntry(IndexEntry rawEntry, int groupPrefixSize, TimeWindowLeaderboardDirectory directory) {
         Tuple rawKey = rawEntry.getKey().popFront();
         return isHighScoreFirst(directory, TupleHelpers.subTuple(rawKey, 0, groupPrefixSize))
                 .thenApply(highScoreFirst -> {
@@ -323,7 +319,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                 });
     }
 
-    protected CompletableFuture<Boolean> isHighScoreFirst(@Nonnull TimeWindowLeaderboardDirectory directory, @Nonnull Tuple group) {
+    protected CompletableFuture<Boolean> isHighScoreFirst(TimeWindowLeaderboardDirectory directory, Tuple group) {
         return loadSubDirectory(directory, group).thenApply(TimeWindowLeaderboardSubDirectory::isHighScoreFirst);
     }
 
@@ -333,14 +329,13 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
      * @param position position in {@code Tuple} of the score value
      * @return a new entry with the score negated
      */
-    protected static Tuple negateScoreForHighScoreFirst(@Nonnull Tuple entry, int position) {
+    protected static Tuple negateScoreForHighScoreFirst(Tuple entry, int position) {
         return TupleHelpers.set(entry, position, TupleHelpers.negate((Number)entry.get(position)));
     }
 
-    @Nonnull
     @Override
-    protected List<IndexEntry> commonKeys(@Nonnull List<IndexEntry> oldIndexKeys,
-                                          @Nonnull List<IndexEntry> newIndexKeys) {
+    protected List<IndexEntry> commonKeys(List<IndexEntry> oldIndexKeys,
+                                          List<IndexEntry> newIndexKeys) {
         if (oldIndexKeys.equals(newIndexKeys)) {
             // If the scores are completely unchanged, we are okay to skip the update.
             return oldIndexKeys;
@@ -353,9 +348,9 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
     }
 
     @Override
-    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
+    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(final FDBIndexableRecord<M> savedRecord,
                                                                           final boolean remove,
-                                                                          @Nonnull final List<IndexEntry> indexEntries) {
+                                                                          final List<IndexEntry> indexEntries) {
         final Subspace extraSubspace = getSecondarySubspace();
         // The value for the index key cannot vary from entry-to-entry, so get the value only from the first entry.
         final Tuple entryValue = indexEntries.isEmpty()
@@ -418,7 +413,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
     }
 
     @Override
-    public boolean canEvaluateRecordFunction(@Nonnull IndexRecordFunction<?> function) {
+    public boolean canEvaluateRecordFunction(IndexRecordFunction<?> function) {
         return (FunctionNames.RANK.equals(function.getName()) ||
                 FunctionNames.TIME_WINDOW_RANK.equals(function.getName()) ||
                 FunctionNames.TIME_WINDOW_RANK_AND_ENTRY.equals(function.getName())) &&
@@ -426,12 +421,11 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
     }
 
     @Override
-    @Nonnull
     @SuppressWarnings({"unchecked", "PMD.UnnecessaryLocalBeforeReturn"})
     @SpotBugsSuppressWarnings("BC_UNCONFIRMED_CAST")
-    public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(@Nonnull EvaluationContext context,
-                                                                              @Nonnull IndexRecordFunction<T> function,
-                                                                              @Nonnull FDBRecord<M> record) {
+    public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(EvaluationContext context,
+                                                                              IndexRecordFunction<T> function,
+                                                                              FDBRecord<M> record) {
         if (FunctionNames.RANK.equals(function.getName())) {
             final CompletableFuture<Long> rank = timeWindowRankAndEntry(record, TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE, 0)
                     .thenApply(re -> re == null ? null : re.getRank());
@@ -454,7 +448,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
     }
 
     @Override
-    public boolean canEvaluateAggregateFunction(@Nonnull IndexAggregateFunction function) {
+    public boolean canEvaluateAggregateFunction(IndexAggregateFunction function) {
         if (FunctionNames.TIME_WINDOW_COUNT.equals(function.getName()) &&
                 function.getOperand().equals(state.index.getRootExpression())) {
             return true;
@@ -468,11 +462,10 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
         return super.canEvaluateAggregateFunction(function);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull IndexAggregateFunction function,
-                                                              @Nonnull TupleRange range,
-                                                              @Nonnull IsolationLevel isolationLevel) {
+    public CompletableFuture<Tuple> evaluateAggregateFunction(IndexAggregateFunction function,
+                                                              TupleRange range,
+                                                              IsolationLevel isolationLevel) {
         if (FunctionNames.TIME_WINDOW_COUNT.equals(function.getName()) && range.isEquals()) {
             return evaluateEqualRange(range, (leaderboard, rankedSet, groupKey, values) ->
                     rankedSet.size(state.context.readTransaction(isolationLevel.isSnapshot())).thenApply(Tuple::from));
@@ -499,12 +492,11 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
     }
 
     private interface EvaluateEqualRange {
-        @Nonnull
-        CompletableFuture<Tuple> apply(@Nonnull TimeWindowLeaderboard leaderboard, @Nonnull RankedSet rankedSet, @Nonnull Tuple groupKey, @Nonnull Tuple values);
+        CompletableFuture<Tuple> apply(TimeWindowLeaderboard leaderboard, RankedSet rankedSet, Tuple groupKey, Tuple values);
     }
 
-    private CompletableFuture<Tuple> evaluateEqualRange(@Nonnull TupleRange range,
-                                                        @Nonnull EvaluateEqualRange function) {
+    private CompletableFuture<Tuple> evaluateEqualRange(TupleRange range,
+                                                        EvaluateEqualRange function) {
         final Tuple tuple = range.getLow();
         final int type = (int) tuple.getLong(0);
         final long timestamp = tuple.getLong(1);
@@ -531,10 +523,9 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
     public static class TimeWindowRankAndEntry {
         @Nullable
         private final Long rank;
-        @Nonnull
         private final Tuple entry;
 
-        private TimeWindowRankAndEntry(@Nullable Long rank, @Nonnull Tuple entry) {
+        private TimeWindowRankAndEntry(@Nullable Long rank, Tuple entry) {
             this.rank = rank;
             this.entry = entry;
         }
@@ -544,7 +535,6 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
             return rank;
         }
 
-        @Nonnull
         public Tuple getEntry() {
             return entry;
         }
@@ -575,15 +565,13 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
         }
     }
 
-    @Nonnull
-    public <M extends Message> CompletableFuture<TimeWindowRankAndEntry> timeWindowRankAndEntry(@Nonnull EvaluationContext context,
-                                                                                                @Nonnull TimeWindowForFunction timeWindow,
-                                                                                                @Nonnull FDBRecord<M> record) {
+    public <M extends Message> CompletableFuture<TimeWindowRankAndEntry> timeWindowRankAndEntry(EvaluationContext context,
+                                                                                                TimeWindowForFunction timeWindow,
+                                                                                                FDBRecord<M> record) {
         return timeWindowRankAndEntry(record, timeWindow.getLeaderboardType(context), timeWindow.getLeaderboardTimestamp(context));
     }
 
-    @Nonnull
-    public <M extends Message> CompletableFuture<TimeWindowRankAndEntry> timeWindowRankAndEntry(@Nonnull FDBRecord<M> record,
+    public <M extends Message> CompletableFuture<TimeWindowRankAndEntry> timeWindowRankAndEntry(FDBRecord<M> record,
                                                                                                 int type, long timestamp) {
         final List<IndexEntry> indexEntries = evaluateIndex(record);
 
@@ -628,7 +616,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
     }
 
     @Override
-    public CompletableFuture<Void> deleteWhere(Transaction tr, @Nonnull Tuple prefix) {
+    public CompletableFuture<Void> deleteWhere(Transaction tr, Tuple prefix) {
         return loadDirectory().thenApply(directory -> {
             if (directory != null) {
                 final Subspace indexSubspace = getIndexSubspace();
@@ -652,8 +640,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
     }
 
     @Override
-    @Nonnull
-    public CompletableFuture<IndexOperationResult> performOperation(@Nonnull IndexOperation operation) {
+    public CompletableFuture<IndexOperationResult> performOperation(IndexOperation operation) {
         CompletableFuture<IndexOperationResult> result;
         StoreTimer.Event event = null;
         if (operation instanceof TimeWindowLeaderboardWindowUpdate) {
@@ -853,7 +840,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
     }
 
     protected CompletableFuture<Collection<Tuple>> trimScores(@Nullable TimeWindowLeaderboardDirectory directory,
-                                                              @Nonnull Collection<Tuple> scores, boolean includesGroup) {
+                                                              Collection<Tuple> scores, boolean includesGroup) {
         if (directory == null) {
             return CompletableFuture.completedFuture(scores);
         }
@@ -884,8 +871,8 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
      * @param includesGroup whether index entries also include the group key(s)
      * @return a future that completes to index keys grouped by leaderboard
      */
-    protected CompletableFuture<Map<Tuple, Collection<OrderedScoreIndexKey>>> groupOrderedScoreIndexKeys(@Nonnull Iterable<IndexEntry> indexEntries,
-                                                                                                         @Nonnull TimeWindowLeaderboardDirectory directory,
+    protected CompletableFuture<Map<Tuple, Collection<OrderedScoreIndexKey>>> groupOrderedScoreIndexKeys(Iterable<IndexEntry> indexEntries,
+                                                                                                         TimeWindowLeaderboardDirectory directory,
                                                                                                          boolean includesGroup) {
         final int groupPrefixSize = getGroupingCount();
         final Map<Tuple, CompletableFuture<Boolean>> groupDirections = new HashMap<>();
@@ -931,9 +918,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
      * {@link #groupOrderedScoreIndexKeys}
      */
     static class OrderedScoreIndexKey implements Comparable<OrderedScoreIndexKey> {
-        @Nonnull
         final IndexEntry indexEntry;
-        @Nonnull
         final Tuple scoreKey;
         final long timestamp;
 
@@ -944,7 +929,6 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
             timestamp = scoreKey.getLong(1);
         }
 
-        @Nonnull
         public IndexEntry getIndexEntry() {
             return indexEntry;
         }

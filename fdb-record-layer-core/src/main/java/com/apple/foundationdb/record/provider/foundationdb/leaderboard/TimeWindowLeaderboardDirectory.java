@@ -24,8 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.TimeWindowLeaderboardProto;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.Map;
 import java.util.TreeMap;
@@ -116,15 +116,14 @@ public final class TimeWindowLeaderboardDirectory {
     }
 
     @Nullable
-    public TimeWindowLeaderboardSubDirectory getSubDirectory(@Nonnull Tuple subdir) {
+    public TimeWindowLeaderboardSubDirectory getSubDirectory(Tuple subdir) {
         return subdirectories.get(subdir);
     }
 
-    public void addSubDirectory(@Nonnull TimeWindowLeaderboardSubDirectory subdir) {
+    public void addSubDirectory(TimeWindowLeaderboardSubDirectory subdir) {
         subdirectories.put(subdir.getGroup(), subdir);
     }
 
-    @Nonnull
     public TimeWindowLeaderboardProto.TimeWindowLeaderboardDirectory toProto() {
         TimeWindowLeaderboardProto.TimeWindowLeaderboardDirectory.Builder builder = TimeWindowLeaderboardProto.TimeWindowLeaderboardDirectory.newBuilder();
         builder.setUpdateTimestamp(updateTimestamp);

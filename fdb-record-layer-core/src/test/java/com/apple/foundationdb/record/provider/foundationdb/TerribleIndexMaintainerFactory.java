@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.google.auto.service.AutoService;
 
-import javax.annotation.Nonnull;
 import java.util.Collections;
 
 /**
@@ -32,21 +31,18 @@ import java.util.Collections;
  */
 @AutoService(IndexMaintainerFactory.class)
 public class TerribleIndexMaintainerFactory implements IndexMaintainerFactory {
-    @Nonnull
     @Override
     public Iterable<String> getIndexTypes() {
         return Collections.singletonList("terrible");
     }
 
-    @Nonnull
     @Override
     public IndexValidator getIndexValidator(Index index) {
         return new IndexValidator(index);
     }
 
-    @Nonnull
     @Override
-    public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
+    public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
         return new TerribleIndexMaintainer(state);
     }
 }

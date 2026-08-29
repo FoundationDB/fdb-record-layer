@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
 import java.util.UUID;
 
 /**
@@ -49,8 +48,7 @@ public final class IndexingSubspaces {
         throw new IllegalStateException("Utility class");
     }
 
-    @Nonnull
-    private static Subspace indexBuildSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, Object key) {
+    private static Subspace indexBuildSubspace(FDBRecordStoreBase<?> store, Index index, Object key) {
         return store.getUntypedRecordStore().indexBuildSubspace(index).subspace(Tuple.from(key));
     }
 
@@ -60,8 +58,7 @@ public final class IndexingSubspaces {
      * @param index index
      * @return subspace
      */
-    @Nonnull
-    public static Subspace indexBuildLockSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+    public static Subspace indexBuildLockSubspace(FDBRecordStoreBase<?> store, Index index) {
         return indexBuildSubspace(store, index, INDEX_BUILD_LOCK_KEY);
     }
 
@@ -71,8 +68,7 @@ public final class IndexingSubspaces {
      * @param index index
      * @return subspace
      */
-    @Nonnull
-    public static Subspace indexBuildScannedRecordsSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+    public static Subspace indexBuildScannedRecordsSubspace(FDBRecordStoreBase<?> store, Index index) {
         return indexBuildSubspace(store, index, INDEX_BUILD_SCANNED_RECORDS);
     }
 
@@ -82,8 +78,7 @@ public final class IndexingSubspaces {
      * @param index index
      * @return subspace
      */
-    @Nonnull
-    public static Subspace indexBuildTypeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+    public static Subspace indexBuildTypeSubspace(FDBRecordStoreBase<?> store, Index index) {
         return indexBuildSubspace(store, index, INDEX_BUILD_TYPE_VERSION);
     }
 
@@ -93,8 +88,7 @@ public final class IndexingSubspaces {
      * @param index index
      * @return subspace
      */
-    @Nonnull
-    public static Subspace indexHeartbeatSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+    public static Subspace indexHeartbeatSubspace(FDBRecordStoreBase<?> store, Index index) {
         return indexBuildSubspace(store, index, INDEX_BUILD_HEARTBEAT_PREFIX);
     }
 
@@ -105,8 +99,7 @@ public final class IndexingSubspaces {
      * @param indexerId session id
      * @return subspace
      */
-    @Nonnull
-    public static byte[] indexHeartbeatSubspaceBytes(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull UUID indexerId) {
+    public static byte[] indexHeartbeatSubspaceBytes(FDBRecordStoreBase<?> store, Index index, UUID indexerId) {
         return indexHeartbeatSubspace(store, index).subspace(Tuple.from(indexerId)).pack();
     }
 
@@ -116,8 +109,7 @@ public final class IndexingSubspaces {
      * @param index index
      * @return subspace
      */
-    @Nonnull
-    public static Subspace indexPendingWriteQueueSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+    public static Subspace indexPendingWriteQueueSubspace(FDBRecordStoreBase<?> store, Index index) {
         return indexBuildSubspace(store, index, INDEX_PENDING_WRITE_QUEUE_PREFIX);
     }
 
@@ -127,8 +119,7 @@ public final class IndexingSubspaces {
      * @param index index
      * @return subspace
      */
-    @Nonnull
-    public static Subspace indexPendingWriteQueueSizeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+    public static Subspace indexPendingWriteQueueSizeSubspace(FDBRecordStoreBase<?> store, Index index) {
         return indexBuildSubspace(store, index, INDEX_PENDING_WRITE_QUEUE_SIZE);
     }
 
@@ -139,8 +130,7 @@ public final class IndexingSubspaces {
      * @param index index
      * @return subspace
      */
-    @Nonnull
-    private static Subspace indexScrubRecordsRangeSubspaceZero(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+    private static Subspace indexScrubRecordsRangeSubspaceZero(FDBRecordStoreBase<?> store, Index index) {
         // Backward compatible subspace for range-id zero
         return indexBuildSubspace(store, index, INDEX_SCRUBBED_RECORDS_RANGES_ZERO);
     }
@@ -151,8 +141,7 @@ public final class IndexingSubspaces {
      * @param index index
      * @return subspace
      */
-    @Nonnull
-    private static Subspace indexScrubRecordsRangeSubspaceRoot(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+    private static Subspace indexScrubRecordsRangeSubspaceRoot(FDBRecordStoreBase<?> store, Index index) {
         return indexBuildSubspace(store, index, INDEX_SCRUBBED_RECORDS_RANGES);
     }
 
@@ -162,8 +151,7 @@ public final class IndexingSubspaces {
      * @param index index
      * @return subspace
      */
-    @Nonnull
-    public static Subspace indexScrubRecordsRangeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, int rangeId) {
+    public static Subspace indexScrubRecordsRangeSubspace(FDBRecordStoreBase<?> store, Index index, int rangeId) {
         return rangeId == 0 ?
                // Backward compatible
                IndexingSubspaces.indexScrubRecordsRangeSubspaceZero(store, index) :
@@ -177,8 +165,7 @@ public final class IndexingSubspaces {
      * @param index index
      * @return subspace
      */
-    @Nonnull
-    private static Subspace indexScrubIndexRangeSubspaceZero(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+    private static Subspace indexScrubIndexRangeSubspaceZero(FDBRecordStoreBase<?> store, Index index) {
         // Backward compatible subspace for range-id zero
         return indexBuildSubspace(store, index, INDEX_SCRUBBED_INDEX_RANGES_ZERO);
     }
@@ -189,8 +176,7 @@ public final class IndexingSubspaces {
      * @param index index
      * @return subspace
      */
-    @Nonnull
-    private static Subspace indexScrubIndexRangeSubspaceRoot(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+    private static Subspace indexScrubIndexRangeSubspaceRoot(FDBRecordStoreBase<?> store, Index index) {
         return indexBuildSubspace(store, index, INDEX_SCRUBBED_INDEX_RANGES);
     }
 
@@ -201,8 +187,7 @@ public final class IndexingSubspaces {
      * @param rangeId used by the caller to distinct different scrubbing sessions.
      * @return subspace
      */
-    @Nonnull
-    public static Subspace indexScrubIndexRangeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, int rangeId) {
+    public static Subspace indexScrubIndexRangeSubspace(FDBRecordStoreBase<?> store, Index index, int rangeId) {
         return rangeId == 0 ?
             // Backward compatible
             IndexingSubspaces.indexScrubIndexRangeSubspaceZero(store, index) :
@@ -215,7 +200,7 @@ public final class IndexingSubspaces {
      * @param store store
      * @param index index
      */
-    public static void eraseAllIndexingScrubbingData(@Nonnull FDBRecordContext context, @Nonnull FDBRecordStore store, @Nonnull Index index) {
+    public static void eraseAllIndexingScrubbingData(FDBRecordContext context, FDBRecordStore store, Index index) {
         context.clear(Range.startsWith(indexScrubIndexRangeSubspaceZero(store, index).pack()));
         context.clear(Range.startsWith(indexScrubIndexRangeSubspaceRoot(store, index).pack()));
         context.clear(Range.startsWith(indexScrubRecordsRangeSubspaceZero(store, index).pack()));
@@ -229,7 +214,7 @@ public final class IndexingSubspaces {
      * @param store store
      * @param index index
      */
-    public static void eraseAllIndexingDataButTheLockAndRangeSet(@Nonnull FDBRecordContext context, @Nonnull FDBRecordStore store, @Nonnull Index index) {
+    public static void eraseAllIndexingDataButTheLockAndRangeSet(FDBRecordContext context, FDBRecordStore store, Index index) {
         eraseAllIndexingScrubbingData(context, store, index);
         context.clear(Range.startsWith(indexPendingWriteQueueSubspace(store, index).pack()));
         context.clear(Range.startsWith(indexPendingWriteQueueSizeSubspace(store, index).pack()));

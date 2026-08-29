@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.util.pair.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -54,23 +53,19 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.EXPERIMENTAL)
 public class ReadVersionRecordStoreStateCache implements FDBRecordStoreStateCache {
-    @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(ReadVersionRecordStoreStateCache.class);
-    @Nonnull
     private final AsyncLoadingCache<Pair<SubspaceProvider, Long>, FDBRecordStoreStateCacheEntry> cache;
-    @Nonnull
     private final FDBDatabase database;
 
-    ReadVersionRecordStoreStateCache(@Nonnull FDBDatabase database, long refreshTimeMillis, long deadlineTimeMillis, long maxSize) {
+    ReadVersionRecordStoreStateCache(FDBDatabase database, long refreshTimeMillis, long deadlineTimeMillis, long maxSize) {
         this.database = database;
         this.cache = new AsyncLoadingCache<>(refreshTimeMillis, deadlineTimeMillis, maxSize, database.getScheduledExecutor());
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CloseResource")
-    public CompletableFuture<FDBRecordStoreStateCacheEntry> get(@Nonnull FDBRecordStore recordStore,
-                                                                @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
+    public CompletableFuture<FDBRecordStoreStateCacheEntry> get(FDBRecordStore recordStore,
+                                                                FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
         final FDBRecordContext context = recordStore.getContext();
         validateContext(context);
         if (context.hasDirtyStoreState()) {
@@ -101,7 +96,7 @@ public class ReadVersionRecordStoreStateCache implements FDBRecordStoreStateCach
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public void validateDatabase(@Nonnull FDBDatabase database) {
+    public void validateDatabase(FDBDatabase database) {
         if (database != this.database) {
             throw new RecordCoreArgumentException("record store state cache used with different database than the one it was initialized with");
         }

@@ -32,8 +32,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -53,7 +53,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
  */
 class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuildIndexTest {
 
-    private void valueRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
+    private void valueRebuild(List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
                               int agents, boolean overlap, boolean splitLongRecords) {
         final OnlineIndexerTestRecordHandler<TestRecords1Proto.MySimpleRecord> recordHandler = OnlineIndexerTestSimpleRecordHandler.instance();
         Index index = new Index("newIndex", field("num_value_2"));
@@ -148,20 +148,20 @@ class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuildIndexTest {
         singleRebuild(recordHandler, records, recordsWhileBuilding, null, agents, overlap, splitLongRecords, index, null, beforeBuild, afterBuild, afterReadable);
     }
 
-    private void valueRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
+    private void valueRebuild(List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
                               int agents, boolean overlap) {
         valueRebuild(records, recordsWhileBuilding, agents, overlap, false);
     }
 
-    private void valueRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding) {
+    private void valueRebuild(List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding) {
         valueRebuild(records, recordsWhileBuilding, 1, false);
     }
 
-    private void valueRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, boolean splitLongRecords) {
+    private void valueRebuild(List<TestRecords1Proto.MySimpleRecord> records, boolean splitLongRecords) {
         valueRebuild(records, null, 1, false, splitLongRecords);
     }
 
-    private void valueRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records) {
+    private void valueRebuild(List<TestRecords1Proto.MySimpleRecord> records) {
         valueRebuild(records, null);
     }
 

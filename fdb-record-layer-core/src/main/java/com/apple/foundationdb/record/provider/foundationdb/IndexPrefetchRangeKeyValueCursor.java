@@ -26,7 +26,6 @@ import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.subspace.Subspace;
 
-import javax.annotation.Nonnull;
 
 /**
  * A {@link KeyValueCursor} that scans an index using the IndexPrefetch operation.
@@ -37,12 +36,12 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public class IndexPrefetchRangeKeyValueCursor extends KeyValueCursorBase<MappedKeyValue> {
-    private IndexPrefetchRangeKeyValueCursor(@Nonnull final FDBRecordContext context,
-                                             @Nonnull final AsyncIterator<MappedKeyValue> iterator,
+    private IndexPrefetchRangeKeyValueCursor(final FDBRecordContext context,
+                                             final AsyncIterator<MappedKeyValue> iterator,
                                              int prefixLength,
-                                             @Nonnull final CursorLimitManager limitManager,
+                                             final CursorLimitManager limitManager,
                                              int valuesLimit,
-                                             @Nonnull SerializationMode serializationMode) {
+                                             SerializationMode serializationMode) {
 
         super(context, iterator, prefixLength, limitManager, valuesLimit, serializationMode);
     }
@@ -55,12 +54,12 @@ public class IndexPrefetchRangeKeyValueCursor extends KeyValueCursorBase<MappedK
         // The HopInfo that is used for the getRangeAndFlatMap call
         private final byte[] mapper;
 
-        private Builder(@Nonnull Subspace indexSubspace, @Nonnull byte[] mapper) {
+        private Builder(Subspace indexSubspace, byte[] mapper) {
             super(indexSubspace);
             this.mapper = mapper;
         }
 
-        public static Builder newBuilder(@Nonnull Subspace indexSubspace, @Nonnull byte[] hopInfo) {
+        public static Builder newBuilder(Subspace indexSubspace, byte[] hopInfo) {
             return new Builder(indexSubspace, hopInfo);
         }
 

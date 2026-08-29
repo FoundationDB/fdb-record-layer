@@ -64,8 +64,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -627,7 +627,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
             }
         }
 
-        private @Nonnull Matcher<Iterable<? extends Tuple>> containsAllPrimaryKeys() {
+        private Matcher<Iterable<? extends Tuple>> containsAllPrimaryKeys() {
             return containsInAnyOrder(
                     recordNumbers.stream()
                             .map(items -> Matchers.equalTo(Tuple.from(items)))
@@ -795,21 +795,18 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
     @AutoService(IndexMaintainerFactory.class)
     public static class DefaultClearUniquenessViolationsFactory implements IndexMaintainerFactory {
 
-        @Nonnull
         @Override
         public Iterable<String> getIndexTypes() {
             return Collections.singletonList(NO_UNIQUE_CLEAR_INDEX_TYPE);
         }
 
-        @Nonnull
         @Override
         public IndexValidator getIndexValidator(Index index) {
             return new IndexValidator(index);
         }
 
-        @Nonnull
         @Override
-        public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
+        public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
             return new DefaultClearUniquenessViolations(state);
         }
     }
@@ -833,39 +830,33 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
             underlying = new ValueIndexMaintainer(state);
         }
 
-        @Nonnull
         @Override
-        public RecordCursor<IndexEntry> scan(@Nonnull final IndexScanType scanType, @Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+        public RecordCursor<IndexEntry> scan(final IndexScanType scanType, final TupleRange range, @Nullable final byte[] continuation, final ScanProperties scanProperties) {
             return underlying.scan(scanType, range, continuation, scanProperties);
         }
 
-        @Nonnull
         @Override
         public <M extends Message> CompletableFuture<Void> update(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
             return underlying.update(oldRecord,  newRecord);
         }
 
-        @Nonnull
         @Override
         public <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
             return underlying.updateWhileWriteOnly(oldRecord, newRecord);
         }
 
-        @Nonnull
         @Override
         public <M extends Message> Any serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
             return underlying.serializePendingWriteQueue(oldRecord, newRecord);
         }
 
-        @Nonnull
         @Override
-        public CompletableFuture<Void> updateFromQueue(@Nonnull final Any data) {
+        public CompletableFuture<Void> updateFromQueue(final Any data) {
             return underlying.updateFromQueue(data);
         }
 
-        @Nonnull
         @Override
-        public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+        public RecordCursor<IndexEntry> scanUniquenessViolations(final TupleRange range, @Nullable final byte[] continuation, final ScanProperties scanProperties) {
             return underlying.scanUniquenessViolations(range, continuation, scanProperties);
         }
 
@@ -874,20 +865,19 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
             return super.clearUniquenessViolations();
         }
 
-        @Nonnull
         @Override
         public RecordCursor<InvalidIndexEntry> validateEntries(@Nullable final byte[] continuation, @Nullable final ScanProperties scanProperties) {
             return underlying.validateEntries(continuation, scanProperties);
         }
 
         @Override
-        public boolean canEvaluateRecordFunction(@Nonnull final IndexRecordFunction<?> function) {
+        public boolean canEvaluateRecordFunction(final IndexRecordFunction<?> function) {
             return false;
         }
 
         @Nullable
         @Override
-        public <M extends Message> List<IndexEntry> evaluateIndex(@Nonnull final FDBRecord<M> record) {
+        public <M extends Message> List<IndexEntry> evaluateIndex(final FDBRecord<M> record) {
             return underlying.evaluateIndex(record);
         }
 
@@ -897,20 +887,18 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
             return underlying.filteredIndexEntries(savedRecord);
         }
 
-        @Nonnull
         @Override
-        public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(@Nonnull final EvaluationContext context, @Nonnull final IndexRecordFunction<T> function, @Nonnull final FDBRecord<M> record) {
+        public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(final EvaluationContext context, final IndexRecordFunction<T> function, final FDBRecord<M> record) {
             return underlying.evaluateRecordFunction(context, function, record);
         }
 
         @Override
-        public boolean canEvaluateAggregateFunction(@Nonnull final IndexAggregateFunction function) {
+        public boolean canEvaluateAggregateFunction(final IndexAggregateFunction function) {
             return underlying.canEvaluateAggregateFunction(function);
         }
 
-        @Nonnull
         @Override
-        public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull final IndexAggregateFunction function, @Nonnull final TupleRange range, @Nonnull final IsolationLevel isolationLevel) {
+        public CompletableFuture<Tuple> evaluateAggregateFunction(final IndexAggregateFunction function, final TupleRange range, final IsolationLevel isolationLevel) {
             return underlying.evaluateAggregateFunction(function, range, isolationLevel);
         }
 
@@ -924,24 +912,23 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
             return underlying.isPendingWriteQueueAllowed();
         }
 
-        @Nonnull
         @Override
-        public CompletableFuture<Boolean> addedRangeWithKey(@Nonnull final Tuple primaryKey) {
+        public CompletableFuture<Boolean> addedRangeWithKey(final Tuple primaryKey) {
             return addedRangeWithKey(primaryKey);
         }
 
         @Override
-        public boolean canDeleteWhere(@Nonnull final QueryToKeyMatcher matcher, @Nonnull final Key.Evaluated evaluated) {
+        public boolean canDeleteWhere(final QueryToKeyMatcher matcher, final Key.Evaluated evaluated) {
             return underlying.canDeleteWhere(matcher, evaluated);
         }
 
         @Override
-        public CompletableFuture<Void> deleteWhere(@Nonnull final Transaction tr, @Nonnull final Tuple prefix) {
+        public CompletableFuture<Void> deleteWhere(final Transaction tr, final Tuple prefix) {
             return underlying.deleteWhere(tr, prefix);
         }
 
         @Override
-        public CompletableFuture<IndexOperationResult> performOperation(@Nonnull final IndexOperation operation) {
+        public CompletableFuture<IndexOperationResult> performOperation(final IndexOperation operation) {
             return underlying.performOperation(operation);
         }
 

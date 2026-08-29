@@ -29,8 +29,8 @@ import com.apple.foundationdb.record.util.Result;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSession;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -39,6 +39,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+
+import static com.apple.foundationdb.record.provider.foundationdb.FDBDatabase.WeakReadSemantics;
 
 /**
  * A context for running against an {@link FDBDatabase} with retrying of transient exceptions.
@@ -69,7 +71,6 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * Get the database against which functions are run.
      * @return the database used to run
      */
-    @Nonnull
     FDBDatabase getDatabase();
 
     /**
@@ -77,7 +78,6 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * Any changes made to the returned builder will be reflected in contexts opened by this runner.
      * @return configuration to use
      */
-    @Nonnull
     FDBRecordContextConfig.Builder getContextConfigBuilder();
 
     /**
@@ -143,7 +143,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @return allowable staleness parameters if caching read versions
      */
     @Nullable
-    default FDBDatabase.WeakReadSemantics getWeakReadSemantics() {
+    default WeakReadSemantics getWeakReadSemantics() {
         return getContextConfigBuilder().getWeakReadSemantics();
     }
 
@@ -160,7 +160,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @param weakReadSemantics allowable staleness parameters if caching read versions
      * @see FDBDatabase#openContext(Map,FDBStoreTimer,FDBDatabase.WeakReadSemantics)
      */
-    default void setWeakReadSemantics(@Nullable FDBDatabase.WeakReadSemantics weakReadSemantics) {
+    default void setWeakReadSemantics(@Nullable WeakReadSemantics weakReadSemantics) {
         getContextConfigBuilder().setWeakReadSemantics(weakReadSemantics);
     }
 
@@ -169,7 +169,6 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @return the priority of transactions opened by this runner
      * @see FDBRecordContext#getPriority()
      */
-    @Nonnull
     default FDBTransactionPriority getPriority() {
         return getContextConfigBuilder().getPriority();
     }
@@ -179,7 +178,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @param priority the priority of transactions by this runner
      * @see FDBRecordContext#getPriority()
      */
-    default void setPriority(@Nonnull FDBTransactionPriority priority) {
+    default void setPriority(FDBTransactionPriority priority) {
         getContextConfigBuilder().setPriority(priority);
     }
 
@@ -218,7 +217,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @param propertyStorage the storage of properties
      * @see FDBRecordContext#getPropertyStorage()
      */
-    default void setRecordLayerPropertyStorage(@Nonnull RecordLayerPropertyStorage propertyStorage) {
+    default void setRecordLayerPropertyStorage(RecordLayerPropertyStorage propertyStorage) {
         getContextConfigBuilder().setRecordContextProperties(propertyStorage);
     }
 
@@ -295,7 +294,6 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @return a new open record context
      * @see FDBDatabase#openContext(Map,FDBStoreTimer,FDBDatabase.WeakReadSemantics)
      */
-    @Nonnull
     FDBRecordContext openContext();
 
     /**
@@ -304,7 +302,6 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @return an {@link ExponentialDelay} that can be used to inject retry delay
      */
     @API(API.Status.INTERNAL)
-    @Nonnull
     default ExponentialDelay createExponentialDelay() {
         return new ExponentialDelay(getInitialDelayMillis(), getMaxDelayMillis(), getDatabase().getScheduledExecutor());
     }
@@ -319,7 +316,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @return result of function after successful run and commit
      * @see #runAsync(Function)
      */
-    default <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable) {
+    default <T> T run(Function<? super FDBRecordContext, ? extends T> retriable) {
         return run(retriable, null);
     }
 
@@ -335,7 +332,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @see #runAsync(Function)
      */
     @API(API.Status.EXPERIMENTAL)
-    <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable,
+    <T> T run(Function<? super FDBRecordContext, ? extends T> retriable,
               @Nullable List<Object> additionalLogMessageKeyValues);
 
     /**
@@ -348,8 +345,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @return future that will contain the result of {@code retriable} after successful run and commit
      * @see #run(Function)
      */
-    @Nonnull
-    default <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable) {
+    default <T> CompletableFuture<T> runAsync(Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable) {
         return runAsync(retriable, Result::of);
     }
 
@@ -364,8 +360,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @return future that will contain the result of {@code retriable} after successful run and commit
      * @see #run(Function)
      */
-    @Nonnull
-    default <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
+    default <T> CompletableFuture<T> runAsync(Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
                                               @Nullable List<Object> additionalLogMessageKeyValues) {
         return runAsync(retriable, Result::of, additionalLogMessageKeyValues);
     }
@@ -382,9 +377,8 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @return future that will contain the result of {@code retriable} after successful run and commit
      * @see #run(Function)
      */
-    @Nonnull
-    default <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
-                                              @Nonnull BiFunction<? super T, Throwable, Result<? extends T, ? extends Throwable>> handlePostTransaction) {
+    default <T> CompletableFuture<T> runAsync(Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
+                                              BiFunction<? super T, Throwable, Result<? extends T, ? extends Throwable>> handlePostTransaction) {
         return runAsync(retriable, handlePostTransaction, null);
     }
 
@@ -401,14 +395,13 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @return future that will contain the result of {@code retriable} after successful run and commit
      * @see #run(Function)
      */
-    @Nonnull
     @API(API.Status.EXPERIMENTAL)
-    <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
-                                      @Nonnull BiFunction<? super T, Throwable, Result<? extends T, ? extends Throwable>> handlePostTransaction,
+    <T> CompletableFuture<T> runAsync(Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
+                                      BiFunction<? super T, Throwable, Result<? extends T, ? extends Throwable>> handlePostTransaction,
                                       @Nullable List<Object> additionalLogMessageKeyValues);
 
     @Nullable
-    <T> T asyncToSync(FDBStoreTimer.Wait event, @Nonnull CompletableFuture<T> async);
+    <T> T asyncToSync(FDBStoreTimer.Wait event, CompletableFuture<T> async);
 
     /**
      * Close this runner.
@@ -435,7 +428,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @see SynchronizedSession
      */
     @API(API.Status.EXPERIMENTAL)
-    CompletableFuture<SynchronizedSessionRunner> startSynchronizedSessionAsync(@Nonnull Subspace lockSubspace, long leaseLengthMillis);
+    CompletableFuture<SynchronizedSessionRunner> startSynchronizedSessionAsync(Subspace lockSubspace, long leaseLengthMillis);
 
     /**
      * Synchronous/blocking version of {@link #startSynchronizedSessionAsync(Subspace, long)}.
@@ -444,7 +437,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @return a runner maintaining a new synchronized session
      */
     @API(API.Status.EXPERIMENTAL)
-    SynchronizedSessionRunner startSynchronizedSession(@Nonnull Subspace lockSubspace, long leaseLengthMillis);
+    SynchronizedSessionRunner startSynchronizedSession(Subspace lockSubspace, long leaseLengthMillis);
 
     /**
      * Produces a new runner, wrapping this runner, which performs all work in the context of an existing
@@ -456,7 +449,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @see SynchronizedSession
      */
     @API(API.Status.EXPERIMENTAL)
-    SynchronizedSessionRunner joinSynchronizedSession(@Nonnull Subspace lockSubspace, @Nonnull UUID sessionId, long leaseLengthMillis);
+    SynchronizedSessionRunner joinSynchronizedSession(Subspace lockSubspace, UUID sessionId, long leaseLengthMillis);
 
     /**
      * Exception thrown when {@link FDBDatabaseRunner} has been closed but tries to do work.

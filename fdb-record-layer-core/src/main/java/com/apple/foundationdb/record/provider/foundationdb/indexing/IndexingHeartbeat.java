@@ -35,7 +35,6 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -53,7 +52,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 @API(API.Status.INTERNAL)
 public class IndexingHeartbeat {
     // [prefix, indexerId] -> [creator info, create time, heartbeat time]
-    @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(IndexingHeartbeat.class);
     public static final String INVALID_HEARTBEAT_INFO = "<< Invalid Heartbeat >>";
 
@@ -75,7 +73,7 @@ public class IndexingHeartbeat {
         return indexerId;
     }
 
-    public void updateHeartbeat(@Nonnull FDBRecordStore store, @Nonnull Index index) {
+    public void updateHeartbeat(FDBRecordStore store, Index index) {
         byte[] key = IndexingSubspaces.indexHeartbeatSubspaceBytes(store, index, indexerId);
         byte[] value = IndexBuildProto.IndexBuildHeartbeat.newBuilder()
                 .setInfo(info)
@@ -85,7 +83,7 @@ public class IndexingHeartbeat {
         store.ensureContextActive().set(key, value);
     }
 
-    public CompletableFuture<Void> checkAndUpdateHeartbeat(@Nonnull FDBRecordStore store, @Nonnull Index index) {
+    public CompletableFuture<Void> checkAndUpdateHeartbeat(FDBRecordStore store, Index index) {
         // complete exceptionally if non-mutual, other exists
         if (allowMutual) {
             updateHeartbeat(store, index);
@@ -98,7 +96,7 @@ public class IndexingHeartbeat {
                 .thenRun(() -> updateHeartbeat(store, index));
     }
 
-    private void checkSingleHeartbeat(final @Nonnull FDBRecordStore store, final @Nonnull Index index, final KeyValue kv, final long now) {
+    private void checkSingleHeartbeat(final FDBRecordStore store, final Index index, final KeyValue kv, final long now) {
         try {
             final UUID otherIndexerId = heartbeatKeyToIndexerId(store, index, kv.getKey());
             if (!otherIndexerId.equals(this.indexerId)) {
@@ -124,11 +122,11 @@ public class IndexingHeartbeat {
         }
     }
 
-    public void clearHeartbeat(@Nonnull FDBRecordStore store, @Nonnull Index index) {
+    public void clearHeartbeat(FDBRecordStore store, Index index) {
         store.ensureContextActive().clear(IndexingSubspaces.indexHeartbeatSubspaceBytes(store, index, indexerId));
     }
 
-    public static void clearAllHeartbeats(@Nonnull FDBRecordStore store, @Nonnull Index index) {
+    public static void clearAllHeartbeats(FDBRecordStore store, Index index) {
         store.ensureContextActive().clear(IndexingSubspaces.indexHeartbeatSubspace(store, index).range());
     }
 
@@ -162,7 +160,7 @@ public class IndexingHeartbeat {
                 .thenApply(ignore -> ret);
     }
 
-    public static CompletableFuture<Integer> clearIndexingHeartbeats(@Nonnull FDBRecordStore store, @Nonnull Index index, long minAgeMilliseconds, int maxIteration) {
+    public static CompletableFuture<Integer> clearIndexingHeartbeats(FDBRecordStore store, Index index, long minAgeMilliseconds, int maxIteration) {
         final AsyncIterator<KeyValue> iterator = heartbeatsIterator(store, index);
         final AtomicInteger deleteCount = new AtomicInteger(0);
         final AtomicInteger iterationCount = new AtomicInteger(0);

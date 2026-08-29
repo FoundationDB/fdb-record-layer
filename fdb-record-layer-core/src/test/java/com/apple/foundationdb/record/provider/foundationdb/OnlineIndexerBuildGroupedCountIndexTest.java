@@ -40,8 +40,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -77,7 +77,6 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
         return Arrays.asList(null, "MySimpleRecord$primary_key", NUM_VALUE_2_INDEX.getName(), STR_VALUE_INDEX.getName());
     }
 
-    @Nonnull
     static Stream<Arguments> sourceIndexesAndRandomSeeds() {
         List<String> sourceIndexNames = sourceIndexNames();
         return Stream.concat(
@@ -92,7 +91,7 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
         );
     }
 
-    private static String randomString(@Nonnull Random r) {
+    private static String randomString(Random r) {
         char[] chars = new char[r.nextInt(15) + 1];
         for (int i = 0; i < chars.length; i++) {
             chars[i] = (char)('a' + r.nextInt(26));
@@ -100,7 +99,7 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
         return new String(chars);
     }
 
-    private static TestRecords1Proto.MySimpleRecord randomSimpleRecord(@Nonnull Random r) {
+    private static TestRecords1Proto.MySimpleRecord randomSimpleRecord(Random r) {
         return TestRecords1Proto.MySimpleRecord.newBuilder()
                 .setRecNo(r.nextLong())
                 .setNumValue2(r.nextInt(10))
@@ -109,7 +108,7 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
                 .build();
     }
 
-    private static TestRecords1Proto.MyOtherRecord randomOtherRecord(@Nonnull Random r) {
+    private static TestRecords1Proto.MyOtherRecord randomOtherRecord(Random r) {
         return TestRecords1Proto.MyOtherRecord.newBuilder()
                 .setRecNo(r.nextLong())
                 .setNumValue2(r.nextInt(10))
@@ -165,28 +164,28 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
         }
     }
 
-    private static <M extends Message> Map<Tuple, M> byPrimaryKey(@Nonnull Collection<M> records) {
+    private static <M extends Message> Map<Tuple, M> byPrimaryKey(Collection<M> records) {
         Map<Tuple, M> recordMap = Maps.newHashMapWithExpectedSize(records.size());
         records.forEach(rec -> recordMap.put(PRIMARY_KEY.evaluateMessageSingleton(null, rec).toTuple(), rec));
         return recordMap;
     }
 
-    private static Map<Integer, Long> expectedCountByGroup(@Nonnull Collection<TestRecords1Proto.MySimpleRecord> records) {
+    private static Map<Integer, Long> expectedCountByGroup(Collection<TestRecords1Proto.MySimpleRecord> records) {
         Map<Integer, Long> values = new HashMap<>();
         records.forEach(rec -> values.compute(rec.getNumValue2(), (numValue2, count) -> count == null ? 1L : (count + 1L)));
         return values;
     }
 
-    private void validateCountByGroup(@Nonnull Collection<TestRecords1Proto.MySimpleRecord> records) {
+    private void validateCountByGroup(Collection<TestRecords1Proto.MySimpleRecord> records) {
         Map<Integer, Long> expected = expectedCountByGroup(records);
         Map<Integer, Long> scanned = countByGroup();
         assertEquals(expected, scanned);
     }
 
-    private void rebuildGroupedCount(@Nonnull Collection<TestRecords1Proto.MySimpleRecord> recordsBefore,
+    private void rebuildGroupedCount(Collection<TestRecords1Proto.MySimpleRecord> recordsBefore,
                                      @Nullable Collection<TestRecords1Proto.MyOtherRecord> otherRecordsBefore,
                                      @Nullable String sourceIndex,
-                                     @Nonnull RecordsUpdater updater) {
+                                     RecordsUpdater updater) {
         openSimpleMetaData(baseGroupedHook());
         try (FDBRecordContext context = openContext()) {
             recordsBefore.forEach(recordStore::saveRecord);
@@ -223,7 +222,7 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
         validateCountByGroup(recordsAfter);
     }
 
-    private void rebuildGroupedCount(@Nonnull Collection<TestRecords1Proto.MySimpleRecord> recordsBefore,
+    private void rebuildGroupedCount(Collection<TestRecords1Proto.MySimpleRecord> recordsBefore,
                                      @Nullable Collection<TestRecords1Proto.MyOtherRecord> otherRecordsBefore,
                                      @Nullable String sourceIndex) {
         rebuildGroupedCount(recordsBefore, otherRecordsBefore, sourceIndex, NO_UPDATES);

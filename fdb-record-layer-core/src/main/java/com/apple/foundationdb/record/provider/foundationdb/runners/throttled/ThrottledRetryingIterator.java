@@ -39,8 +39,8 @@ import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -70,22 +70,16 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
     public static final int NUMBER_OF_RETRIES = 100;
     private static final int SUCCESS_INCREASE_THRESHOLD = 40;
 
-    @Nonnull
     private final TransactionalRunner transactionalRunner;
-    @Nonnull
     private final Executor executor;
-    @Nonnull
     private final ScheduledExecutorService scheduledExecutor;
-    @Nonnull
     private final FutureAutoClose futureManager;
 
     private final int transactionTimeQuotaMillis;
     private final int maxRecordDeletesPerTransaction;
     private final int maxRecordScannedPerSec;
     private final int maxRecordDeletesPerSec;
-    @Nonnull
     private final CursorFactory<T> cursorCreator;
-    @Nonnull
     private final ItemHandler<T> singleItemHandler;
     @Nullable
     private final Consumer<QuotaManager> transactionSuccessNotification;

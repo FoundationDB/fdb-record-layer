@@ -49,8 +49,8 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -312,7 +312,7 @@ public class FDBStoreTimerTest {
         private final String title;
         private final String logKey;
 
-        TestEvent(@Nonnull String title, String logKey) {
+        TestEvent(String title, String logKey) {
             this.title = title;
             this.logKey = (logKey != null) ? logKey : StoreTimer.Event.super.logKey();
         }
@@ -626,12 +626,12 @@ public class FDBStoreTimerTest {
         int closes;
 
         @Override
-        public void create(@Nonnull final FDBDatabase database, @Nonnull final Transaction transaction) {
+        public void create(final FDBDatabase database, final Transaction transaction) {
             ++transactions;
         }
 
         @Override
-        public void commit(@Nonnull final FDBDatabase database, @Nonnull final Transaction transaction,
+        public void commit(final FDBDatabase database, final Transaction transaction,
                            @Nullable final StoreTimer storeTimer, @Nullable final Throwable exception) {
             reads += storeTimer.getCount(FDBStoreTimer.Counts.READS);
             writes += storeTimer.getCount(FDBStoreTimer.Counts.WRITES);
@@ -640,7 +640,7 @@ public class FDBStoreTimerTest {
         }
 
         @Override
-        public void close(@Nonnull final FDBDatabase database, @Nonnull final Transaction transaction, @Nullable final StoreTimer storeTimer) {
+        public void close(final FDBDatabase database, final Transaction transaction, @Nullable final StoreTimer storeTimer) {
             reads += storeTimer.getCount(FDBStoreTimer.Counts.READS);
             writes += storeTimer.getCount(FDBStoreTimer.Counts.WRITES);
             storeTimer.reset();

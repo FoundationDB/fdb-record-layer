@@ -23,8 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A class that is notified of events that take place within the scope of a transaction, such as
@@ -40,7 +39,7 @@ public interface TransactionListener {
      * @param database the database for which the transaction was created.
      * @param transaction the transaction that was created
      */
-    void create(@Nonnull FDBDatabase database, @Nonnull Transaction transaction);
+    void create(FDBDatabase database, Transaction transaction);
 
     /**
      * Called when a transaction commit completes, either successfully or unsuccessfully. While the
@@ -56,8 +55,8 @@ public interface TransactionListener {
      * @param storeTimer low level I/O metrics accumulated by the transaction
      * @param exception if present, the exception encountered during the commit
      */
-    void commit(@Nonnull FDBDatabase database,
-                @Nonnull Transaction transaction,
+    void commit(FDBDatabase database,
+                Transaction transaction,
                 @Nullable StoreTimer storeTimer,
                 @Nullable Throwable exception);
 
@@ -73,7 +72,7 @@ public interface TransactionListener {
      * @param transaction the transaction for which the commit occurred
      * @param storeTimer low level I/O metrics accumulated by the transaction
      */
-    void close(@Nonnull FDBDatabase database,
-               @Nonnull Transaction transaction,
+    void close(FDBDatabase database,
+               Transaction transaction,
                @Nullable StoreTimer storeTimer);
 }

@@ -54,7 +54,6 @@ import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.UUID;
@@ -82,7 +81,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Isolated // Needs to be run in isolation because key space path deletion updates the special meta-data versionstamp key, which is read within these tests
 public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
 
-    @Nonnull
     public static Stream<FDBRecordStoreStateCacheFactory> factorySource() {
         return Stream.of(FDBRecordStoreStateCacheTestUtils.readVersionCacheFactory, FDBRecordStoreStateCacheTestUtils.metaDataVersionStampCacheFactory);
     }
@@ -394,7 +392,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
      */
     @ParameterizedTest(name = "conflictWhenCachedChanged (test context = {0})")
     @MethodSource("testContextSource")
-    public void conflictWhenCachedChanged(@Nonnull FDBRecordStoreStateCacheTestUtils.StateCacheTestContext testContext) {
+    public void conflictWhenCachedChanged(FDBRecordStoreStateCacheTestUtils.StateCacheTestContext testContext) {
         fdb.setStoreStateCache(testContext.getCache(fdb));
 
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
@@ -479,7 +477,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
      */
     @ParameterizedTest(name = "existenceCheckOnCachedStoreStates (test context = {0})")
     @MethodSource("testContextSource")
-    public void existenceCheckOnCachedStoreStates(@Nonnull FDBRecordStoreStateCacheTestUtils.StateCacheTestContext testContext) throws Exception {
+    public void existenceCheckOnCachedStoreStates(FDBRecordStoreStateCacheTestUtils.StateCacheTestContext testContext) throws Exception {
         fdb.setStoreStateCache(testContext.getCache(fdb));
 
         // Create a record store
@@ -525,7 +523,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
      */
     @ParameterizedTest(name = "cacheUserFields (test context = {0})")
     @MethodSource("testContextSource")
-    public void cacheUserFields(@Nonnull FDBRecordStoreStateCacheTestUtils.StateCacheTestContext testContext) throws Exception {
+    public void cacheUserFields(FDBRecordStoreStateCacheTestUtils.StateCacheTestContext testContext) throws Exception {
         fdb.setStoreStateCache(testContext.getCache(fdb));
 
         FDBRecordStore.Builder storeBuilder;
@@ -564,7 +562,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
      */
     @ParameterizedTest(name = "cacheTwoSubspaces (test context = {0})")
     @MethodSource("testContextSource")
-    public void cacheTwoSubspaces(@Nonnull FDBRecordStoreStateCacheTestUtils.StateCacheTestContext testContext) throws Exception {
+    public void cacheTwoSubspaces(FDBRecordStoreStateCacheTestUtils.StateCacheTestContext testContext) throws Exception {
         fdb.setStoreStateCache(testContext.getCache(fdb));
         final KeySpacePath path1 = pathManager.createPath();
         final KeySpacePath path2 = pathManager.createPath();
@@ -626,7 +624,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
      */
     @ParameterizedTest(name = "cacheWithVersionTracking (test context = {0})")
     @MethodSource("testContextSource")
-    public void cacheWithVersionTracking(@Nonnull FDBRecordStoreStateCacheTestUtils.StateCacheTestContext testContext) throws Exception {
+    public void cacheWithVersionTracking(FDBRecordStoreStateCacheTestUtils.StateCacheTestContext testContext) throws Exception {
         fdb.setStoreStateCache(testContext.getCache(fdb));
         fdb.setTrackLastSeenVersion(true);
         FDBStoreTimer timer = new FDBStoreTimer();

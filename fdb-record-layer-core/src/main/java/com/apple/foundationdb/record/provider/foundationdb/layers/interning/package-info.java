@@ -32,4 +32,7 @@
  * an interned path element might be anywhere in the path.
  * </p>
  */
+@NullMarked
 package com.apple.foundationdb.record.provider.foundationdb.layers.interning;
+
+import org.jspecify.annotations.NullMarked;

@@ -25,15 +25,13 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A cache used to track and handle the results of asynchronously preloaded records.
  */
 @API(API.Status.INTERNAL)
 class FDBPreloadRecordCache {
-    @Nonnull
     private final Cache<Tuple, EntryImpl>  cache;
 
     public FDBPreloadRecordCache(int maximumSize) {
@@ -67,8 +65,7 @@ class FDBPreloadRecordCache {
      * @param tuple the tuple to be have prefetched
      * @return a holder with which to set the fetched value when it has completed
      */
-    @Nonnull
-    public Future beginPrefetch(@Nonnull Tuple tuple) {
+    public Future beginPrefetch(Tuple tuple) {
         EntryImpl entry = new EntryImpl(tuple);
         cache.put(tuple, entry);
         return entry;
@@ -78,7 +75,7 @@ class FDBPreloadRecordCache {
      * Invalidates an entry in the cache, or discarding the outstanding result of a pre-fetch when it completes.
      * @param tuple the tuple to invalidate
      */
-    public void invalidate(@Nonnull Tuple tuple) {
+    public void invalidate(Tuple tuple) {
         cache.invalidate(tuple);
     }
 
@@ -98,7 +95,7 @@ class FDBPreloadRecordCache {
      * @return the cached entry or {@code null} if not entry is available in the cache
      */
     @Nullable
-    public Entry get(@Nonnull Tuple tuple) {
+    public Entry get(Tuple tuple) {
         EntryImpl entry = cache.getIfPresent(tuple);
         if (entry != null && entry.isComplete()) {
             return entry;
@@ -148,10 +145,9 @@ class FDBPreloadRecordCache {
         @Nullable
         private FDBRawRecord rawRecord;
 
-        @Nonnull
         private final Tuple primaryKey;
 
-        public EntryImpl(@Nonnull Tuple primaryKey) {
+        public EntryImpl(Tuple primaryKey) {
             this.primaryKey = primaryKey;
         }
 

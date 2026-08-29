@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.subspace.Subspace;
-import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -38,8 +37,7 @@ public interface SubspaceProvider {
      *
      * @return Subspace
      */
-    @Nonnull
-    Subspace getSubspace(@Nonnull FDBRecordContext context);
+    Subspace getSubspace(FDBRecordContext context);
 
     /**
      * Asynchronously resolves the subspace against the database associated with {@link FDBRecordContext}.
@@ -48,10 +46,8 @@ public interface SubspaceProvider {
      *
      * @return CompletableFuture&lt;Subspace&gt;
      */
-    @Nonnull
-    CompletableFuture<Subspace> getSubspaceAsync(@Nonnull FDBRecordContext context);
+    CompletableFuture<Subspace> getSubspaceAsync(FDBRecordContext context);
 
-    @Nonnull
     LogMessageKeys logKey();
 
     /**
@@ -63,7 +59,7 @@ public interface SubspaceProvider {
      *
      * @return CompletableFuture&lt;Subspace&gt;
      */
-    String toString(@Nonnull FDBRecordContext context);
+    String toString(FDBRecordContext context);
 
     @Override
     String toString();

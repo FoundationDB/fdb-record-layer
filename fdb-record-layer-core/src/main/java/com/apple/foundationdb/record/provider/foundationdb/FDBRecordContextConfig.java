@@ -24,11 +24,13 @@ import com.apple.foundationdb.TransactionOptions;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
+
+import static com.apple.foundationdb.record.provider.foundationdb.FDBDatabase.WeakReadSemantics;
 
 /**
  * A configuration struct that can be used to set various options on an {@link FDBRecordContext}. Instances
@@ -41,8 +43,7 @@ public class FDBRecordContextConfig {
     @Nullable
     private final FDBStoreTimer timer;
     @Nullable
-    private final FDBDatabase.WeakReadSemantics weakReadSemantics;
-    @Nonnull
+    private final WeakReadSemantics weakReadSemantics;
     private final FDBTransactionPriority priority;
     @Nullable
     private final String transactionId;
@@ -54,15 +55,13 @@ public class FDBRecordContextConfig {
     private final boolean saveOpenStackTrace;
     @Nullable
     private final TransactionListener listener;
-    @Nonnull
     private final RecordLayerPropertyStorage propertyStorage;
-    @Nonnull
     private final Set<String> tags;
     private final boolean reportConflictingKeys;
     @Nullable
     private final KeyChecker keyChecker;
 
-    private FDBRecordContextConfig(@Nonnull Builder builder) {
+    private FDBRecordContextConfig(Builder builder) {
         this.mdcContext = builder.mdcContext;
         this.timer = builder.timer;
         this.weakReadSemantics = builder.weakReadSemantics;
@@ -111,7 +110,7 @@ public class FDBRecordContextConfig {
      * @return the {@link com.apple.foundationdb.record.provider.foundationdb.FDBDatabase.WeakReadSemantics} to use when creating the transaction
      */
     @Nullable
-    public FDBDatabase.WeakReadSemantics getWeakReadSemantics() {
+    public WeakReadSemantics getWeakReadSemantics() {
         return weakReadSemantics;
     }
 
@@ -121,7 +120,6 @@ public class FDBRecordContextConfig {
      *
      * @return the priority for the created transaction
      */
-    @Nonnull
     public FDBTransactionPriority getPriority() {
         return priority;
     }
@@ -194,7 +192,6 @@ public class FDBRecordContextConfig {
      *
      * @return a new builder for this class
      */
-    @Nonnull
     public static Builder newBuilder() {
         return new Builder();
     }
@@ -214,7 +211,6 @@ public class FDBRecordContextConfig {
      *
      * @return a wrapper of the properties mapping
      */
-    @Nonnull
     public RecordLayerPropertyStorage getPropertyStorage() {
         return propertyStorage;
     }
@@ -223,7 +219,6 @@ public class FDBRecordContextConfig {
      * Get tags used for throttling.
      * @return throttling tags
      */
-    @Nonnull
     public Set<String> getTags() {
         return tags;
     }
@@ -251,7 +246,6 @@ public class FDBRecordContextConfig {
      *
      * @return a new builder based on this configuration object
      */
-    @Nonnull
     public Builder toBuilder() {
         return new Builder(this);
     }
@@ -265,8 +259,7 @@ public class FDBRecordContextConfig {
         @Nullable
         private FDBStoreTimer timer = null;
         @Nullable
-        private FDBDatabase.WeakReadSemantics weakReadSemantics = null;
-        @Nonnull
+        private WeakReadSemantics weakReadSemantics = null;
         private FDBTransactionPriority priority = FDBTransactionPriority.DEFAULT;
         @Nullable
         private String transactionId = null;
@@ -278,7 +271,6 @@ public class FDBRecordContextConfig {
         private boolean saveOpenStackTrace = false;
         private TransactionListener listener = null;
         private RecordLayerPropertyStorage recordContextProperties = RecordLayerPropertyStorage.getEmptyInstance();
-        @Nonnull
         private Set<String> tags = Collections.emptySet();
         private boolean reportConflictingKeys = false;
         @Nullable
@@ -287,7 +279,7 @@ public class FDBRecordContextConfig {
         private Builder() {
         }
 
-        private Builder(@Nonnull FDBRecordContextConfig config) {
+        private Builder(FDBRecordContextConfig config) {
             this.mdcContext = config.mdcContext;
             this.timer = config.timer;
             this.weakReadSemantics = config.weakReadSemantics;
@@ -306,7 +298,7 @@ public class FDBRecordContextConfig {
             this.keyChecker = config.keyChecker;
         }
 
-        private Builder(@Nonnull Builder config) {
+        private Builder(Builder config) {
             this.mdcContext = config.mdcContext;
             this.timer = config.timer;
             this.weakReadSemantics = config.weakReadSemantics;
@@ -336,7 +328,6 @@ public class FDBRecordContextConfig {
          * @see FDBRecordContextConfig#getMdcContext()
          * @see FDBRecordContextConfig.Builder#setTransactionId(String)
          */
-        @Nonnull
         public Builder setMdcContext(@Nullable Map<String, String> mdcContext) {
             this.mdcContext = mdcContext;
             return this;
@@ -361,7 +352,6 @@ public class FDBRecordContextConfig {
          * @return this builder
          * @see FDBRecordContextConfig#getTimer()
          */
-        @Nonnull
         public Builder setTimer(@Nullable FDBStoreTimer timer) {
             this.timer = timer;
             return this;
@@ -390,8 +380,7 @@ public class FDBRecordContextConfig {
          * @return this builder
          * @see FDBRecordContextConfig#getWeakReadSemantics()
          */
-        @Nonnull
-        public Builder setWeakReadSemantics(@Nullable FDBDatabase.WeakReadSemantics weakReadSemantics) {
+        public Builder setWeakReadSemantics(@Nullable WeakReadSemantics weakReadSemantics) {
             this.weakReadSemantics = weakReadSemantics;
             return this;
         }
@@ -404,7 +393,7 @@ public class FDBRecordContextConfig {
          * @see FDBRecordContextConfig#getWeakReadSemantics()
          */
         @Nullable
-        public FDBDatabase.WeakReadSemantics getWeakReadSemantics() {
+        public WeakReadSemantics getWeakReadSemantics() {
             return weakReadSemantics;
         }
 
@@ -418,8 +407,7 @@ public class FDBRecordContextConfig {
          * @see FDBTransactionPriority
          * @see FDBRecordContextConfig#getPriority()
          */
-        @Nonnull
-        public Builder setPriority(@Nonnull FDBTransactionPriority priority) {
+        public Builder setPriority(FDBTransactionPriority priority) {
             this.priority = priority;
             return this;
         }
@@ -430,7 +418,6 @@ public class FDBRecordContextConfig {
          * @return the transaction priority
          * @see FDBRecordContextConfig#getPriority()
          */
-        @Nonnull
         public FDBTransactionPriority getPriority() {
             return priority;
         }
@@ -452,7 +439,6 @@ public class FDBRecordContextConfig {
          * @see FDBRecordContext#getTransactionId()
          * @see TransactionOptions#setDebugTransactionIdentifier(String)
          */
-        @Nonnull
         public Builder setTransactionId(@Nullable String transactionId) {
             this.transactionId = transactionId;
             return this;
@@ -481,7 +467,6 @@ public class FDBRecordContextConfig {
          * @see FDBRecordContextConfig#getTransactionTimeoutMillis()
          * @see FDBDatabaseFactory#setTransactionTimeoutMillis(long)
          */
-        @Nonnull
         public Builder setTransactionTimeoutMillis(long transactionTimeoutMillis) {
             if (transactionTimeoutMillis < FDBDatabaseFactory.DEFAULT_TR_TIMEOUT_MILLIS) {
                 throw new RecordCoreArgumentException("cannot set transaction timeout to " + transactionTimeoutMillis);
@@ -639,7 +624,7 @@ public class FDBRecordContextConfig {
          * @param recordContextProperties the wrapper of properties to be used by this context, configured by adopter
          * @return this builder
          */
-        public Builder setRecordContextProperties(@Nonnull final RecordLayerPropertyStorage recordContextProperties) {
+        public Builder setRecordContextProperties(final RecordLayerPropertyStorage recordContextProperties) {
             this.recordContextProperties = recordContextProperties;
             return this;
         }
@@ -648,7 +633,6 @@ public class FDBRecordContextConfig {
          * Get tags used for throttling.
          * @return throttling tags
          */
-        @Nonnull
         public Set<String> getTags() {
             return tags;
         }
@@ -658,7 +642,7 @@ public class FDBRecordContextConfig {
          * @param tags new set of tags
          * @return this builder
          */
-        public Builder setTags(@Nonnull final Set<String> tags) {
+        public Builder setTags(final Set<String> tags) {
             if (tags.size() > 5) {
                 throw new IllegalArgumentException("At most 5 tags allowed");
             }
@@ -711,7 +695,6 @@ public class FDBRecordContextConfig {
          *
          * @return an {@link FDBRecordContextConfig} with its values set based on this builder
          */
-        @Nonnull
         public FDBRecordContextConfig build() {
             return new FDBRecordContextConfig(this);
         }

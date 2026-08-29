@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 
-import javax.annotation.Nonnull;
 
 /**
  * An enum representing the different supported FDB API versions. The
@@ -88,7 +87,7 @@ public enum APIVersion {
      * @param other the API version to compare against
      * @return whether this API version is at least the provided API version
      */
-    public boolean isAtLeast(@Nonnull APIVersion other) {
+    public boolean isAtLeast(APIVersion other) {
         return versionNumber >= other.getVersionNumber();
     }
 

@@ -32,8 +32,8 @@ import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -45,7 +45,6 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseFactory.class);
 
-    @Nonnull
     private static final FDBDatabaseFactoryImpl INSTANCE = new FDBDatabaseFactoryImpl();
 
     /**
@@ -70,7 +69,6 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
      */
     protected static volatile int threadsPerClientVersion = 1;
 
-    @Nonnull
     private FDBLocalityProvider localityProvider = FDBLocalityUtil.instance();
 
     @Nullable
@@ -81,9 +79,7 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
     private String traceDirectory = null;
     @Nullable
     private String traceLogGroup = null;
-    @Nonnull
     private FDBTraceFormat traceFormat = FDBTraceFormat.DEFAULT;
-    @Nonnull
     private APIVersion apiVersion = APIVersion.getDefault();
     private volatile boolean shutdownHookDisabled;
 
@@ -93,12 +89,11 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
      * The default is a log-based predicate, which can also be used to enable tracing on a more granular level
      * (such as by request) using {@link #setTransactionIsTracedSupplier(Supplier)}.
      */
-    @Nonnull
     private Supplier<Boolean> transactionIsTracedSupplier = LOGGER::isTraceEnabled;
 
     @API(API.Status.INTERNAL)
     @VisibleForTesting
-    public static FDBDatabaseFactoryImpl testInstance(@Nonnull FDB initedFDB) {
+    public static FDBDatabaseFactoryImpl testInstance(FDB initedFDB) {
         final FDBDatabaseFactoryImpl impl = new FDBDatabaseFactoryImpl();
         impl.fdb = initedFDB;
         impl.apiVersion = APIVersion.fromVersionNumber(initedFDB.getAPIVersion());
@@ -107,7 +102,6 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
     }
 
     @SpotBugsSuppressWarnings(value = "MS_EXPOSE_REP", justification = "Returned static object is mutable to allow caching database objects")
-    @Nonnull
     public static FDBDatabaseFactoryImpl instance() {
         return INSTANCE;
     }
@@ -196,12 +190,12 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
     }
 
     @Override
-    public void setTraceFormat(@Nonnull FDBTraceFormat traceFormat) {
+    public void setTraceFormat(FDBTraceFormat traceFormat) {
         this.traceFormat = traceFormat;
     }
 
     @Override
-    public synchronized void setAPIVersion(@Nonnull APIVersion apiVersion) {
+    public synchronized void setAPIVersion(APIVersion apiVersion) {
         if (this.apiVersion == apiVersion) {
             return;
         }
@@ -255,7 +249,6 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
     }
 
     @Override
-    @Nonnull
     public synchronized FDBDatabase getDatabase(@Nullable String clusterFile) {
         FDBDatabase database = databases.get(clusterFile);
         if (database == null) {
@@ -271,13 +264,12 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
     }
 
     @Override
-    @Nonnull
     public FDBLocalityProvider getLocalityProvider() {
         return localityProvider;
     }
 
     @Override
-    public void setLocalityProvider(@Nonnull FDBLocalityProvider localityProvider) {
+    public void setLocalityProvider(FDBLocalityProvider localityProvider) {
         this.localityProvider = localityProvider;
     }
 
@@ -303,7 +295,6 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
         return threadsPerClientVersion;
     }
 
-    @Nonnull
     @Override
     public Database open(final String clusterFile) {
         FDB fdb = initFDB();

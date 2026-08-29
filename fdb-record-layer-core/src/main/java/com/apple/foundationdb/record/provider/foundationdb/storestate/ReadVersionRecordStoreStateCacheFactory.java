@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.AsyncLoadingCache;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 
-import javax.annotation.Nonnull;
 
 /**
  * A factory for creating {@link ReadVersionRecordStoreStateCache}s.
@@ -64,7 +63,6 @@ public class ReadVersionRecordStoreStateCacheFactory implements FDBRecordStoreSt
      * @param refreshTimeMillis the maximum amount of time to keep an entry in milliseconds
      * @return this factory
      */
-    @Nonnull
     public ReadVersionRecordStoreStateCacheFactory setRefreshTimeMillis(long refreshTimeMillis) {
         this.refreshTimeMillis = refreshTimeMillis;
         return this;
@@ -76,7 +74,6 @@ public class ReadVersionRecordStoreStateCacheFactory implements FDBRecordStoreSt
      * @param deadlineTimeMillis the maximum amount of to wait for an entry to be loaded in milliseconds
      * @return this factory
      */
-    @Nonnull
     public ReadVersionRecordStoreStateCacheFactory setDeadlineTimeMillis(long deadlineTimeMillis) {
         this.deadlineTimeMillis = deadlineTimeMillis;
         return this;
@@ -88,7 +85,6 @@ public class ReadVersionRecordStoreStateCacheFactory implements FDBRecordStoreSt
      * @param maxSize the maximum number of elements to store in the cache
      * @return this factory
      */
-    @Nonnull
     public ReadVersionRecordStoreStateCacheFactory setMaxSize(long maxSize) {
         this.maxSize = maxSize;
         return this;
@@ -100,9 +96,8 @@ public class ReadVersionRecordStoreStateCacheFactory implements FDBRecordStoreSt
      *
      * @return a new {@link ReadVersionRecordStoreStateCache}
      */
-    @Nonnull
     @Override
-    public ReadVersionRecordStoreStateCache getCache(@Nonnull FDBDatabase database) {
+    public ReadVersionRecordStoreStateCache getCache(FDBDatabase database) {
         return new ReadVersionRecordStoreStateCache(database, refreshTimeMillis, deadlineTimeMillis, maxSize);
     }
 
@@ -111,7 +106,6 @@ public class ReadVersionRecordStoreStateCacheFactory implements FDBRecordStoreSt
      *
      * @return a new factory of {@link ReadVersionRecordStoreStateCache}s
      */
-    @Nonnull
     public static ReadVersionRecordStoreStateCacheFactory newInstance() {
         return new ReadVersionRecordStoreStateCacheFactory();
     }

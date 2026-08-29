@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.subspace.Subspace;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -31,15 +30,12 @@ import java.util.concurrent.CompletableFuture;
  * from other types of commit checks and to associate it with the {@link Index} it is checking.
  */
 class IndexUniquenessCommitCheck implements FDBRecordContext.CommitCheckAsync {
-    @Nonnull
     private final Index index;
 
-    @Nonnull
     private final Subspace indexSubspace;
-    @Nonnull
     private final FDBRecordContext.CommitCheckAsync underlying;
 
-    IndexUniquenessCommitCheck(@Nonnull Index index, @Nonnull Subspace indexSubspace, @Nonnull CompletableFuture<Void> check) {
+    IndexUniquenessCommitCheck(Index index, Subspace indexSubspace, CompletableFuture<Void> check) {
         this.index = index;
         this.indexSubspace = indexSubspace;
         this.underlying = FDBRecordContext.CommitCheckAsync.fromFuture(check);
@@ -50,18 +46,15 @@ class IndexUniquenessCommitCheck implements FDBRecordContext.CommitCheckAsync {
         return underlying.isReady();
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<Void> checkAsync() {
         return underlying.checkAsync();
     }
 
-    @Nonnull
     public Index getIndex() {
         return index;
     }
 
-    @Nonnull
     public Subspace getIndexSubspace() {
         return indexSubspace;
     }

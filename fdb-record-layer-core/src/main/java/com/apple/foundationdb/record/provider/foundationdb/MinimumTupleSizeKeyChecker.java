@@ -27,8 +27,8 @@ import com.apple.foundationdb.tuple.TupleHelpers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -49,7 +49,6 @@ public class MinimumTupleSizeKeyChecker implements KeyChecker {
      * Only the first matching prefix will be used.
      */
     public static class CheckedSubspace {
-        @Nonnull
         private final byte[] prefix;
         private final boolean dryRun;
         private final boolean checkReads;
@@ -64,7 +63,7 @@ public class MinimumTupleSizeKeyChecker implements KeyChecker {
          * @param minTupleSize minimum size (number of elements) of tuple-decoded keys
          * @param maxTuplePrefixCount maximum number of different prefixes
          */
-        public CheckedSubspace(@Nonnull byte[] prefix,
+        public CheckedSubspace(byte[] prefix,
                                boolean dryRun, boolean checkReads,
                                int minTupleSize, int maxTuplePrefixCount) {
             this.prefix = prefix;
@@ -79,7 +78,7 @@ public class MinimumTupleSizeKeyChecker implements KeyChecker {
      * Create a new checker.
      * @param checks ordered list of checks to match and apply
      */
-    public MinimumTupleSizeKeyChecker(@Nonnull List<CheckedSubspace> checks) {
+    public MinimumTupleSizeKeyChecker(List<CheckedSubspace> checks) {
         this.checks = checks;
     }
 
@@ -124,7 +123,7 @@ public class MinimumTupleSizeKeyChecker implements KeyChecker {
     }
 
     @Nullable
-    private CheckedSubspace findCheckedSubspace(@Nonnull byte[] key) {
+    private CheckedSubspace findCheckedSubspace(byte[] key) {
         for (CheckedSubspace checkedSubspace : checks) {
             if (keyHasPrefix(key, checkedSubspace.prefix)) {
                 return checkedSubspace;
@@ -134,7 +133,7 @@ public class MinimumTupleSizeKeyChecker implements KeyChecker {
     }
 
     @Nullable
-    private synchronized byte[] checkKeyLength(@Nonnull CheckedSubspace checkedSubspace, final byte[] key) {
+    private synchronized byte[] checkKeyLength(CheckedSubspace checkedSubspace, final byte[] key) {
         final int prefixLength = TupleHelpers.prefixLengthOfSize(key, checkedSubspace.minTupleSize);
         if (prefixLength < 0) {
             checkFails(checkedSubspace, "key not long enough", "key", ByteArrayUtil2.loggable(key));
@@ -154,12 +153,12 @@ public class MinimumTupleSizeKeyChecker implements KeyChecker {
         return prefix;
     }
 
-    private static boolean keyHasPrefix(@Nonnull byte[] key, @Nonnull byte[] prefix) {
+    private static boolean keyHasPrefix(byte[] key, byte[] prefix) {
         return key.length >= prefix.length &&
                 Arrays.equals(key, 0, prefix.length, prefix, 0, prefix.length);
     }
 
-    private synchronized void checkPrefixesCount(@Nonnull CheckedSubspace checkedSubspace) {
+    private synchronized void checkPrefixesCount(CheckedSubspace checkedSubspace) {
         int count = 0;
         for (byte[] prefix : prefixes) {
             if (keyHasPrefix(prefix, checkedSubspace.prefix)) {
@@ -172,8 +171,8 @@ public class MinimumTupleSizeKeyChecker implements KeyChecker {
         }
     }
 
-    private void checkFails(@Nonnull CheckedSubspace checkedSubspace,
-                            @Nonnull String message, @Nonnull Object... keysAndValues) {
+    private void checkFails(CheckedSubspace checkedSubspace,
+                            String message, Object... keysAndValues) {
         if (checkedSubspace.dryRun) {
             if (LOGGER.isInfoEnabled()) {
                 LOGGER.info(KeyValueLogMessage.of(message, keysAndValues), new Throwable("not thrown"));

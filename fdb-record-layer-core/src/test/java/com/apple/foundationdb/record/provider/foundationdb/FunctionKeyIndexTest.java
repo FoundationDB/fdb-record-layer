@@ -58,8 +58,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -478,7 +478,6 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
      */
     @AutoService(FunctionKeyExpression.Factory.class)
     public static class TestFunctionRegistry implements FunctionKeyExpression.Factory {
-        @Nonnull
         @Override
         public List<FunctionKeyExpression.Builder> getBuilders() {
             return Collections.singletonList(new FunctionKeyExpression.BiFunctionBuilder("indexStrFields", IndexStrFields::new));
@@ -492,7 +491,7 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
     public static class IndexStrFields extends FunctionKeyExpression {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Index-Str-Fields");
 
-        public IndexStrFields(@Nonnull String name, @Nonnull KeyExpression arguments) {
+        public IndexStrFields(String name, KeyExpression arguments) {
             super(name, arguments);
         }
 
@@ -506,11 +505,10 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
             return 0;
         }
 
-        @Nonnull
         @Override
         public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record,
                                                                         @Nullable Message message,
-                                                                        @Nonnull Key.Evaluated arguments) {
+                                                                        Key.Evaluated arguments) {
             if (message == null) {
                 return Collections.emptyList();
             }
@@ -528,7 +526,7 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
             return keys;
         }
 
-        private Key.Evaluated toKey(@Nonnull String value) {
+        private Key.Evaluated toKey(String value) {
             String[] values = value.split(",");
             if (values.length < 3) {
                 throw new InvalidResultException(
@@ -548,13 +546,12 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
+        public int planHash(final PlanHashable.PlanHashMode mode) {
             return super.basePlanHash(mode, BASE_HASH);
         }
 
-        @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+        public Value toValue(final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
     }

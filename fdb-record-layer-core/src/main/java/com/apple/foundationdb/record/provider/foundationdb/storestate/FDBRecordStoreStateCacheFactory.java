@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 
-import javax.annotation.Nonnull;
 
 /**
  * A factory interface for {@link FDBRecordStoreStateCache}s. This can be given to the
@@ -46,6 +45,5 @@ public interface FDBRecordStoreStateCacheFactory {
      * @param database the database that the produced cache will be used with
      * @return a {@link FDBRecordStoreStateCache}
      */
-    @Nonnull
-    FDBRecordStoreStateCache getCache(@Nonnull FDBDatabase database);
+    FDBRecordStoreStateCache getCache(FDBDatabase database);
 }

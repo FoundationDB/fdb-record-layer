@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -46,6 +45,5 @@ public interface ItemHandler<T> {
      * @param quotaManager the current quota manager state
      * @return Future (Void) for when the operation is complete
      */
-    @Nonnull
-    CompletableFuture<Void> handleOneItem(@Nonnull FDBRecordStore store, @Nonnull RecordCursorResult<T> lastResult, @Nonnull ThrottledRetryingIterator.QuotaManager quotaManager);
+    CompletableFuture<Void> handleOneItem(FDBRecordStore store, RecordCursorResult<T> lastResult, ThrottledRetryingIterator.QuotaManager quotaManager);
 }

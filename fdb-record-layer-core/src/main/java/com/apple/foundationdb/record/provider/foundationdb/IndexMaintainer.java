@@ -41,8 +41,8 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Any;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -70,7 +70,6 @@ public abstract class IndexMaintainer {
      * Returns the subspace in which the index data is stored.
      * @return subspace for index data
      */
-    @Nonnull
     public Subspace getIndexSubspace() {
         return state.indexSubspace;
     }
@@ -79,7 +78,6 @@ public abstract class IndexMaintainer {
      * Returns the secondary subspace in which the index data is stored.
      * @return secondary subspace for index data
      */
-    @Nonnull
     public Subspace getSecondarySubspace() {
         return state.store.indexSecondarySubspace(state.index);
     }
@@ -91,7 +89,6 @@ public abstract class IndexMaintainer {
      * types that also use the secondary subspace.
      * @return sliding window subspace for index data
      */
-    @Nonnull
     public Subspace getSlidingWindowSubspace() {
         return state.store.indexSlidingWindowSubspace(state.index);
     }
@@ -104,11 +101,10 @@ public abstract class IndexMaintainer {
      * @param scanProperties skip, limit and other properties of the scan
      * @return a cursor over index entries in the given range
      */
-    @Nonnull
-    public abstract RecordCursor<IndexEntry> scan(@Nonnull IndexScanType scanType,
-                                                  @Nonnull TupleRange range,
+    public abstract RecordCursor<IndexEntry> scan(IndexScanType scanType,
+                                                  TupleRange range,
                                                   @Nullable byte[] continuation,
-                                                  @Nonnull ScanProperties scanProperties);
+                                                  ScanProperties scanProperties);
 
     /**
      * Scan entries in the index.
@@ -117,10 +113,9 @@ public abstract class IndexMaintainer {
      * @param scanProperties skip, limit and other properties of the scan
      * @return a cursor over index entries in the given range
      */
-    @Nonnull
-    public RecordCursor<IndexEntry> scan(@Nonnull IndexScanBounds scanBounds,
+    public RecordCursor<IndexEntry> scan(IndexScanBounds scanBounds,
                                          @Nullable byte[] continuation,
-                                         @Nonnull ScanProperties scanProperties) {
+                                         ScanProperties scanProperties) {
         return scan(scanBounds.getScanType(), ((IndexScanRange)scanBounds).getScanRange(), continuation, scanProperties);
     }
 
@@ -131,7 +126,6 @@ public abstract class IndexMaintainer {
      * @param <M> type of message
      * @return a future that is complete when the index update is done
      */
-    @Nonnull
     public abstract <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
                                                                        @Nullable FDBIndexableRecord<M> newRecord);
 
@@ -149,7 +143,6 @@ public abstract class IndexMaintainer {
      * @param <M> type of message
      * @return a future that is complete when the index update is done
      */
-    @Nonnull
     public abstract <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable FDBIndexableRecord<M> oldRecord,
                                                                                      @Nullable FDBIndexableRecord<M> newRecord);
 
@@ -166,7 +159,6 @@ public abstract class IndexMaintainer {
      * @param <M> type of message
      * @return a packed message to save in the pending write queue
      */
-    @Nonnull
     @API(API.Status.EXPERIMENTAL)
     public <M extends Message> Any serializePendingWriteQueue(@Nullable FDBIndexableRecord<M> oldRecord,
                                                               @Nullable FDBIndexableRecord<M> newRecord) {
@@ -180,9 +172,8 @@ public abstract class IndexMaintainer {
      * @param data the {@link com.google.protobuf.Any}-packed message produced by {@code serializePendingWriteQueue}
      * @return a future that is complete when the update has been applied
      */
-    @Nonnull
     @API(API.Status.EXPERIMENTAL)
-    public CompletableFuture<Void> updateFromQueue(@Nonnull Any data) {
+    public CompletableFuture<Void> updateFromQueue(Any data) {
         throw new UnsupportedOperationException(state.index.getName() + " does not support the pending write queue");
     }
 
@@ -205,8 +196,7 @@ public abstract class IndexMaintainer {
      * @param scanProperties row limit and other scan properties
      * @return a cursor that will return primary key-index key pairs indicating uniqueness violations
      */
-    @Nonnull
-    public abstract RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties);
+    public abstract RecordCursor<IndexEntry> scanUniquenessViolations(TupleRange range, @Nullable byte[] continuation, ScanProperties scanProperties);
 
     /**
      * Clear the list of uniqueness violations.
@@ -247,7 +237,6 @@ public abstract class IndexMaintainer {
      * @return a cursor over invalid index entries including reasons
      */
     @API(API.Status.EXPERIMENTAL)
-    @Nonnull
     public abstract RecordCursor<InvalidIndexEntry> validateEntries(@Nullable byte[] continuation,
                                                                     @Nullable ScanProperties scanProperties);
 
@@ -256,7 +245,7 @@ public abstract class IndexMaintainer {
      * @param function requested function
      * @return {@code true} if this index can be used to evaluate the given function
      */
-    public abstract boolean canEvaluateRecordFunction(@Nonnull IndexRecordFunction<?> function);
+    public abstract boolean canEvaluateRecordFunction(IndexRecordFunction<?> function);
 
     /**
      * Apply the key and value expressions to a <code>record</code>.
@@ -265,7 +254,7 @@ public abstract class IndexMaintainer {
      * @return a list of index keys and values
      */
     @Nullable
-    public abstract <M extends Message> List<IndexEntry> evaluateIndex(@Nonnull FDBRecord<M> record);
+    public abstract <M extends Message> List<IndexEntry> evaluateIndex(FDBRecord<M> record);
 
     /**
      * Similar to {@link #evaluateIndex(FDBRecord)}, but returns null if the record should be filtered out.
@@ -285,13 +274,11 @@ public abstract class IndexMaintainer {
      * @param record record against which to evaluate
      * @return a future that completes with the result of evaluation
      */
-    @Nonnull
-    public abstract <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(@Nonnull EvaluationContext context,
-                                                                                       @Nonnull IndexRecordFunction<T> function,
-                                                                                       @Nonnull FDBRecord<M> record);
+    public abstract <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(EvaluationContext context,
+                                                                                       IndexRecordFunction<T> function,
+                                                                                       FDBRecord<M> record);
 
-    @Nonnull
-    protected <T> CompletableFuture<T> unsupportedRecordFunction(@Nonnull IndexRecordFunction<T> function) {
+    protected <T> CompletableFuture<T> unsupportedRecordFunction(IndexRecordFunction<T> function) {
         throw new RecordCoreException("Index " + state.index.getName() + " does not support " + function);
     }
 
@@ -300,7 +287,7 @@ public abstract class IndexMaintainer {
      * @param function the requested aggregate function
      * @return <code>true</code> if this index be used to evaluate the given aggregate function
      */
-    public abstract boolean canEvaluateAggregateFunction(@Nonnull IndexAggregateFunction function);
+    public abstract boolean canEvaluateAggregateFunction(IndexAggregateFunction function);
 
     /**
      * Evaluate an aggregate function over the given range using this index.
@@ -309,13 +296,11 @@ public abstract class IndexMaintainer {
      * @param isolationLevel the isolation level at which to perform the scan
      * @return a future that completes with the aggregate result
      */
-    @Nonnull
-    public abstract CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull IndexAggregateFunction function,
-                                                                       @Nonnull TupleRange range,
-                                                                       @Nonnull IsolationLevel isolationLevel);
+    public abstract CompletableFuture<Tuple> evaluateAggregateFunction(IndexAggregateFunction function,
+                                                                       TupleRange range,
+                                                                       IsolationLevel isolationLevel);
 
-    @Nonnull
-    protected CompletableFuture<Tuple> unsupportedAggregateFunction(@Nonnull IndexAggregateFunction function) {
+    protected CompletableFuture<Tuple> unsupportedAggregateFunction(IndexAggregateFunction function) {
         throw new RecordCoreException("Index " + state.index.getName() + " does not support " + function);
     }
 
@@ -351,8 +336,7 @@ public abstract class IndexMaintainer {
      * @param primaryKey the record key of the record to check
      * @return a future that will be <code>true</code> if some range contains the record and <code>false</code> otherwise
      */
-    @Nonnull
-    public abstract CompletableFuture<Boolean> addedRangeWithKey(@Nonnull Tuple primaryKey);
+    public abstract CompletableFuture<Boolean> addedRangeWithKey(Tuple primaryKey);
 
     /**
      * Get whether this index scan delete records matching a particular key query.
@@ -360,7 +344,7 @@ public abstract class IndexMaintainer {
      * @param evaluated parameters to the key query
      * @return <code>true</code> if this index accommodate a <code>whereRecordsWhere</code>
      */
-    public abstract boolean canDeleteWhere(@Nonnull QueryToKeyMatcher matcher, @Nonnull Key.Evaluated evaluated);
+    public abstract boolean canDeleteWhere(QueryToKeyMatcher matcher, Key.Evaluated evaluated);
 
     /**
      * Clear index storage associated with the given key prefix.
@@ -368,7 +352,7 @@ public abstract class IndexMaintainer {
      * @param prefix prefix of primary key to clear
      * @return a future that is complete when the given prefix has been cleared from this index
      */
-    public abstract CompletableFuture<Void> deleteWhere(@Nonnull Transaction tr, @Nonnull Tuple prefix);
+    public abstract CompletableFuture<Void> deleteWhere(Transaction tr, Tuple prefix);
 
     /**
      * Perform a type-specific operation on index. 
@@ -376,7 +360,7 @@ public abstract class IndexMaintainer {
      * @param operation the requested operation
      * @return a future that completes with the result of the operation
      */
-    public abstract CompletableFuture<IndexOperationResult> performOperation(@Nonnull IndexOperation operation);
+    public abstract CompletableFuture<IndexOperationResult> performOperation(IndexOperation operation);
 
     /**
      * Use the getMappedRange scan method to return a range scan with the dereferenced record for each index entry.
@@ -386,11 +370,10 @@ public abstract class IndexMaintainer {
      * @param commonPrimaryKeyLength the length (# of components) of common primary key for the de-referenced records
      * @return a cursor of the index prefetch call result: will contain both index entries and de-referenced records
      */
-    @Nonnull
     @API(API.Status.EXPERIMENTAL)
-    public RecordCursor<FDBIndexedRawRecord> scanRemoteFetch(@Nonnull final IndexScanBounds scanBounds,
+    public RecordCursor<FDBIndexedRawRecord> scanRemoteFetch(final IndexScanBounds scanBounds,
                                                              @Nullable final byte[] continuation,
-                                                             @Nonnull final ScanProperties scanProperties,
+                                                             final ScanProperties scanProperties,
                                                              int commonPrimaryKeyLength) {
         // Not implemented by default - needs to be overridden by individual maintainers
         throw new UnsupportedRemoteFetchIndexException("scanRemoteFetch operation is not supported by this index maintainer for Index " + state.index.getName());

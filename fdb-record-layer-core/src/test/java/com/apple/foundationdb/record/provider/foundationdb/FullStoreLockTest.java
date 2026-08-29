@@ -43,7 +43,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 
@@ -346,11 +345,11 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
                 store -> assertEquals(disabled, store.getRecordStoreState().getState(newIndex.getName())));
     }
 
-    private void withStore(@Nonnull final RecordMetaData metaData, @Nonnull final Consumer<FDBRecordStore> action) {
+    private void withStore(final RecordMetaData metaData, final Consumer<FDBRecordStore> action) {
         withStore(getStoreBuilder(metaData), action);
     }
 
-    private void withStore(@Nonnull final FDBRecordStore.Builder storeBuilder, @Nonnull final Consumer<FDBRecordStore> action) {
+    private void withStore(final FDBRecordStore.Builder storeBuilder, final Consumer<FDBRecordStore> action) {
         try (FDBRecordContext context = openContext()) {
             action.accept(storeBuilder.setContext(context).createOrOpen());
             commit(context);
@@ -361,7 +360,7 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
         assertCannotOpen(getStoreBuilder());
     }
 
-    private void assertCannotOpen(@Nonnull final FDBRecordStore.Builder storeBuilder) {
+    private void assertCannotOpen(final FDBRecordStore.Builder storeBuilder) {
         try (FDBRecordContext context = openContext()) {
             StoreIsFullyLockedException exception = assertThrows(StoreIsFullyLockedException.class,
                     () -> storeBuilder.setContext(context).open());
@@ -369,7 +368,7 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private static void saveSomeRecords(@Nonnull final FDBRecordStore recordStore, final int count) {
+    private static void saveSomeRecords(final FDBRecordStore recordStore, final int count) {
         for (int i = 0; i < count; i++) {
             recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
                     .setRecNo(i)
@@ -378,20 +377,18 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private static void setFullStoreLock(@Nonnull final FDBRecordStore store, @Nonnull final String lockReason) {
+    private static void setFullStoreLock(final FDBRecordStore store, final String lockReason) {
         store.setStoreLockStateAsync(
                 RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FULL_STORE,
                 lockReason
         ).join();
     }
 
-    @Nonnull
     private FDBRecordStore.Builder getStoreBuilder() {
         return getStoreBuilder(simpleMetaData(null));
     }
 
-    @Nonnull
-    private FDBRecordStore.Builder getStoreBuilder(@Nonnull final RecordMetaData metadata) {
+    private FDBRecordStore.Builder getStoreBuilder(final RecordMetaData metadata) {
         return FDBRecordStore.newBuilder()
                 .setFormatVersion(formatVersion)
                 .setKeySpacePath(path)

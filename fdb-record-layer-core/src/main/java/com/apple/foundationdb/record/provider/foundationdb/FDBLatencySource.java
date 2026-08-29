@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 
-import javax.annotation.Nonnull;
 import java.util.function.Function;
 
 /**
@@ -40,10 +39,9 @@ public enum FDBLatencySource {
     COMMIT_ASYNC(FDBStoreTimer.Events.INJECTED_COMMIT_LATENCY),
     ;
 
-    @Nonnull
     private final StoreTimer.Event event;
 
-    FDBLatencySource(@Nonnull StoreTimer.Event event) {
+    FDBLatencySource(StoreTimer.Event event) {
         this.event = event;
     }
 
@@ -52,7 +50,6 @@ public enum FDBLatencySource {
      *
      * @return the event used to instrument injecting this latency source
      */
-    @Nonnull
     public StoreTimer.Event getTimerEvent() {
         return event;
     }

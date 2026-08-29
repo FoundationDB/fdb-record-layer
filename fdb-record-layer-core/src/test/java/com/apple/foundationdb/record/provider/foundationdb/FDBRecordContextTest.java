@@ -49,7 +49,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -90,9 +89,7 @@ public class FDBRecordContextTest {
 
     // A list of transaction IDs where the left item is the original ID and the right item is the expected
     // sanitized ID. It is a list of pairs rather than a map to support null as the expected value.
-    @Nonnull
     private static final List<Pair<String, String>> trIds;
-    @Nonnull
     private static final FDBDatabase.WeakReadSemantics UNLIMITED_STALE_READ = new FDBDatabase.WeakReadSemantics(0L, Long.MAX_VALUE, true);
     protected FDBDatabase fdb;
 
@@ -760,7 +757,7 @@ public class FDBRecordContextTest {
     static class ThreadIdRestoringExecutor extends TaskNotifyingExecutor {
         private int threadId;
 
-        public ThreadIdRestoringExecutor(@Nonnull Executor executor, int threadId) {
+        public ThreadIdRestoringExecutor(Executor executor, int threadId) {
             super(executor);
             this.threadId = threadId;
         }

@@ -52,7 +52,6 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -1871,21 +1870,18 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         final Index index = new Index("test", "field");
         // Anonymous implementation that doesn't override getIndexGeneralAttributes
         IndexMaintainerFactory factory = new IndexMaintainerFactory() {
-            @Nonnull
             @Override
             public Iterable<String> getIndexTypes() {
                 return List.of("test");
             }
 
-            @Nonnull
             @Override
             public IndexValidator getIndexValidator(final Index index) {
                 return new IndexValidator(index);
             }
 
-            @Nonnull
             @Override
-            public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
+            public IndexMaintainer getIndexMaintainer(final IndexMaintainerState state) {
                 throw new UnsupportedOperationException();
             }
         };

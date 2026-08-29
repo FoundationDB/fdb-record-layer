@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-import javax.annotation.Nonnull;
 
 /**
  * The parameterized form of index scan bounds.
@@ -50,7 +49,6 @@ public interface IndexScanParameters extends PlanHashable, Correlated<IndexScanP
      * Get the type of index scan to be performed.
      * @return the scan type
      */
-    @Nonnull
     IndexScanType getScanType();
 
     /**
@@ -63,21 +61,19 @@ public interface IndexScanParameters extends PlanHashable, Correlated<IndexScanP
      * @param context query parameters for the scan
      * @return the index scan bounds
      */
-    @Nonnull
-    IndexScanBounds bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context);
+    IndexScanBounds bind(FDBRecordStoreBase<?> store, Index index, EvaluationContext context);
 
     /**
      * Get whether this scan is fully restricted, so that it can only output one or zero entries.
      * @param index the index against which the scan will be conducted
      * @return {@code true} if this scan is unique
      */
-    boolean isUnique(@Nonnull Index index);
+    boolean isUnique(Index index);
 
     /**
      * Get a short summary of the scan, not including the scan type.
      * @return the scan details
      */
-    @Nonnull
     ExplainTokensWithPrecedence explain();
 
     /**
@@ -85,7 +81,7 @@ public interface IndexScanParameters extends PlanHashable, Correlated<IndexScanP
      * @param detailsBuilder builder into which to put details
      * @param attributeMapBuilder builder into which to put attributes
      */
-    void getPlannerGraphDetails(@Nonnull ImmutableList.Builder<String> detailsBuilder, @Nonnull ImmutableMap.Builder<String, Attribute> attributeMapBuilder);
+    void getPlannerGraphDetails(ImmutableList.Builder<String> detailsBuilder, ImmutableMap.Builder<String, Attribute> attributeMapBuilder);
 
     default boolean hasScanComparisons() {
         return false;
@@ -95,15 +91,12 @@ public interface IndexScanParameters extends PlanHashable, Correlated<IndexScanP
         throw new RecordCoreException("this index scan parameter object does not use ScanComparisons");
     }
 
-    @Nonnull
-    IndexScanParameters translateCorrelations(@Nonnull TranslationMap translationMap, boolean shouldSimplifyValues);
+    IndexScanParameters translateCorrelations(TranslationMap translationMap, boolean shouldSimplifyValues);
 
-    @Nonnull
-    PIndexScanParameters toIndexScanParametersProto(@Nonnull PlanSerializationContext serializationContext);
+    PIndexScanParameters toIndexScanParametersProto(PlanSerializationContext serializationContext);
 
-    @Nonnull
-    static IndexScanParameters fromIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                            @Nonnull final PIndexScanParameters indexScanParametersProto) {
+    static IndexScanParameters fromIndexScanParametersProto(final PlanSerializationContext serializationContext,
+                                                            final PIndexScanParameters indexScanParametersProto) {
         return (IndexScanParameters)PlanSerialization.dispatchFromProtoContainer(serializationContext, indexScanParametersProto);
     }
 }

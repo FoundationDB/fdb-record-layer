@@ -40,8 +40,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -69,17 +69,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 public class MetaDataProtoEditorUnitTest {
 
-    @Nonnull
-    private FieldTypeMatch fieldIsType(@Nonnull DescriptorProtos.FileDescriptorProto.Builder file,
-                                       @Nonnull String messageName, @Nonnull String fieldName,
-                                       @Nonnull String typeName) throws Descriptors.DescriptorValidationException {
+    private FieldTypeMatch fieldIsType(DescriptorProtos.FileDescriptorProto.Builder file,
+                                       String messageName, String fieldName,
+                                       String typeName) throws Descriptors.DescriptorValidationException {
         return fieldIsType(file.build(), messageName, fieldName, typeName);
     }
 
-    @Nonnull
-    private FieldTypeMatch fieldIsType(@Nonnull DescriptorProtos.FileDescriptorProto file,
-                                       @Nonnull String messageName, @Nonnull String fieldName,
-                                       @Nonnull String typeName) throws Descriptors.DescriptorValidationException {
+    private FieldTypeMatch fieldIsType(DescriptorProtos.FileDescriptorProto file,
+                                       String messageName, String fieldName,
+                                       String typeName) throws Descriptors.DescriptorValidationException {
 
         final DescriptorProtos.DescriptorProto record = file.getMessageTypeList().stream()
                 .filter(message -> message.getName().equals(messageName))
@@ -302,7 +300,6 @@ public class MetaDataProtoEditorUnitTest {
                 .findNestedTypeByName("MiddleRecord")));
     }
 
-    @Nonnull
     private static Set<String> getNestedTypeNames(final Descriptors.Descriptor messageDescriptor) {
         return messageDescriptor
                 .getNestedTypes().stream()
@@ -310,12 +307,11 @@ public class MetaDataProtoEditorUnitTest {
                 .collect(Collectors.toSet());
     }
 
-    @Nonnull
     private static Descriptors.FileDescriptor[] getDependencies(final RecordMetaData metaData) {
         return metaData.getRecordsDescriptor().getDependencies().toArray(new Descriptors.FileDescriptor[0]);
     }
 
-    private void renameFieldTypes(@Nonnull DescriptorProtos.DescriptorProto.Builder messageTypeBuilder, @Nonnull String oldTypeName, @Nonnull String newTypeName) {
+    private void renameFieldTypes(DescriptorProtos.DescriptorProto.Builder messageTypeBuilder, String oldTypeName, String newTypeName) {
         messageTypeBuilder.getFieldBuilderList().forEach(field -> {
             if (field.getTypeName().equals(oldTypeName)) {
                 field.setTypeName(newTypeName);
@@ -370,7 +366,7 @@ public class MetaDataProtoEditorUnitTest {
 
     }
 
-    public static RecordMetaDataProto.MetaData.Builder loadMetaData(@Nonnull String name) throws IOException {
+    public static RecordMetaDataProto.MetaData.Builder loadMetaData(String name) throws IOException {
         try (@Nullable InputStream input = MetaDataProtoEditorUnitTest.class.getResourceAsStream("/" + name);
                 InputStreamReader reader = new InputStreamReader(Objects.requireNonNull(input,
                         () -> "No resource: " + name))) {
@@ -421,14 +417,12 @@ public class MetaDataProtoEditorUnitTest {
                 ));
     }
 
-    @Nonnull
     private static Descriptors.Descriptor getMessage(final RecordMetaData renamed, final String T1) {
         return renamed.getRecordsDescriptor().getMessageTypes().stream()
                 .filter(type -> type.getName().equals(T1))
                 .findFirst().orElseThrow();
     }
 
-    @Nonnull
     private static Descriptors.Descriptor getFieldMessageType(final RecordMetaData renamed, String typeName, String fieldName) {
         return renamed.getRecordType(typeName)
                 .getDescriptor().getFields()
@@ -569,24 +563,20 @@ public class MetaDataProtoEditorUnitTest {
         }
     }
 
-    @Nonnull
     private static String simpleRenameUndo(final String newName) {
         assertEquals("__x_", newName.substring(0, 4));
         return newName.substring(4);
     }
 
-    @Nonnull
     private static String simpleRename(final String oldName) {
         return "__x_" + oldName;
     }
 
-    @Nonnull
     private RecordMetaData runRename(final String name) throws IOException {
         final RecordMetaDataProto.MetaData originalProto = loadMetaData(name).build();
         return runRename(originalProto, MetaDataProtoEditorUnitTest::simpleRename, MetaDataProtoEditorUnitTest::simpleRenameUndo);
     }
 
-    @Nonnull
     private RecordMetaData runRename(final RecordMetaDataProto.MetaData originalProto,
                                      final Function<String, String> rename,
                                      final Function<String, String> undoRename) {
@@ -601,7 +591,6 @@ public class MetaDataProtoEditorUnitTest {
                 undoRename);
     }
 
-    @Nonnull
     private static RecordMetaData basicRenameAsserts(final RecordMetaDataProto.MetaData build,
                                                      final RecordMetaData originalMetaData,
                                                      final Function<String, String> renamer,

@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -37,31 +36,26 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @API(API.Status.INTERNAL)
 public class SubspaceProviderByKeySpacePath implements SubspaceProvider {
-    @Nonnull
     private final KeySpacePath keySpacePath;
 
-    @Nonnull
     private final ConcurrentHashMap<Optional<String>, Subspace> databases;
 
-    SubspaceProviderByKeySpacePath(@Nonnull KeySpacePath keySpacePath) {
+    SubspaceProviderByKeySpacePath(KeySpacePath keySpacePath) {
         this.keySpacePath = keySpacePath;
         databases = new ConcurrentHashMap<>();
     }
 
-    @Nonnull
     public KeySpacePath getKeySpacePath() {
         return keySpacePath;
     }
 
-    @Nonnull
     @Override
-    public Subspace getSubspace(@Nonnull FDBRecordContext context) {
+    public Subspace getSubspace(FDBRecordContext context) {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, getSubspaceAsync(context));
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Subspace> getSubspaceAsync(@Nonnull FDBRecordContext context) {
+    public CompletableFuture<Subspace> getSubspaceAsync(FDBRecordContext context) {
         CompletableFuture<Subspace> subspaceFuture;
         String clusterFile = context.getDatabase().getClusterFile();
         Optional<String> key = Optional.ofNullable(clusterFile);
@@ -78,14 +72,13 @@ public class SubspaceProviderByKeySpacePath implements SubspaceProvider {
         return subspaceFuture;
     }
 
-    @Nonnull
     @Override
     public LogMessageKeys logKey() {
         return LogMessageKeys.KEY_SPACE_PATH;
     }
 
     @Override
-    public String toString(@Nonnull FDBRecordContext context) {
+    public String toString(FDBRecordContext context) {
         Optional<String> key = Optional.ofNullable(context.getDatabase().getClusterFile());
         Subspace subspace = databases.get(key);
         if (subspace != null) {

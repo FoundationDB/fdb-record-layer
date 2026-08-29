@@ -26,43 +26,37 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Evaluate aggregate functions in a certain time window.
  */
 @API(API.Status.EXPERIMENTAL)
 public class TimeWindowAggregateFunction extends IndexAggregateFunction {
-    @Nonnull
     private final TimeWindowForFunction timeWindow;
 
-    public TimeWindowAggregateFunction(@Nonnull String name, @Nonnull KeyExpression operand, @Nullable String index,
-                                       @Nonnull TimeWindowForFunction timeWindow) {
+    public TimeWindowAggregateFunction(String name, KeyExpression operand, @Nullable String index,
+                                       TimeWindowForFunction timeWindow) {
         super(name, operand, index);
         this.timeWindow = timeWindow;
     }
 
-    @Nonnull
     public TimeWindowForFunction getTimeWindow() {
         return timeWindow;
     }
 
-    @Nonnull
     @Override
-    public TimeWindowAggregateFunction cloneWithOperand(@Nonnull KeyExpression operand) {
+    public TimeWindowAggregateFunction cloneWithOperand(KeyExpression operand) {
         return new TimeWindowAggregateFunction(getName(), operand, getIndex(), timeWindow);
     }
 
-    @Nonnull
     @Override
-    public TimeWindowAggregateFunction cloneWithIndex(@Nonnull String index) {
+    public TimeWindowAggregateFunction cloneWithIndex(String index) {
         return new TimeWindowAggregateFunction(getName(), getOperand(), index, timeWindow);
     }
 
-    @Nonnull
     @Override
-    public TupleRange adjustRange(@Nonnull EvaluationContext context, @Nonnull TupleRange tupleRange) {
+    public TupleRange adjustRange(EvaluationContext context, TupleRange tupleRange) {
         return timeWindow.prependLeaderboardKeys(context, tupleRange);
     }
 

@@ -36,7 +36,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -208,15 +207,13 @@ class VectorIndexScanComparisonsTest {
         assertThat(scanComparisons.getInequalityComparisons()).isEmpty();
     }
 
-    @Nonnull
-    protected static String renderExplain(@Nonnull final IndexScanParameters vectorIndexScanComparisons) {
+    protected static String renderExplain(final IndexScanParameters vectorIndexScanComparisons) {
         return vectorIndexScanComparisons.explain()
                 .getExplainTokens()
                 .render(DefaultExplainFormatter.forDebugging())
                 .toString();
     }
 
-    @Nonnull
     private static ScanComparisons randomPrefixScanComparisons() {
         return new ScanComparisons.Builder()
                 .addEqualityComparison(
@@ -228,7 +225,6 @@ class VectorIndexScanComparisonsTest {
                 .build();
     }
 
-    @Nonnull
     private static ScanComparisons correlatedPrefixScanComparisons() {
         return new ScanComparisons.Builder()
                 .addEqualityComparison(
@@ -240,7 +236,6 @@ class VectorIndexScanComparisonsTest {
                 .build();
     }
 
-    @Nonnull
     private static ScanComparisons correlatedEqualsPrefixScanComparisons() {
         return new ScanComparisons.Builder()
                 .addEqualityComparison(
@@ -252,20 +247,17 @@ class VectorIndexScanComparisonsTest {
                 .build();
     }
 
-    @Nonnull
     private static Comparisons.DistanceRankValueComparison randomDistanceRankComparison() {
         return new Comparisons.DistanceRankValueComparison(Comparisons.Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL,
                 getRandomVectorValue(), new LiteralValue<>(10), null, null);
     }
 
-    @Nonnull
     private static Comparisons.DistanceRankValueComparison correlatedDistanceRankComparison() {
         return new Comparisons.DistanceRankValueComparison(Comparisons.Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL,
                 QuantifiedObjectValue.of(q3(), Type.Vector.of(false, 64, 128)),
                 QuantifiedObjectValue.of(q4(), Type.primitiveType(Type.TypeCode.INT, false)), null, null);
     }
 
-    @Nonnull
     private static LiteralValue<DoubleRealVector> getRandomVectorValue() {
         final int numDimensions = 128;
         final double[] components = new double[128];
@@ -276,42 +268,34 @@ class VectorIndexScanComparisonsTest {
                 new DoubleRealVector(components));
     }
 
-    @Nonnull
     protected static CorrelationIdentifier q1() {
         return CorrelationIdentifier.of("q1");
     }
 
-    @Nonnull
     protected static CorrelationIdentifier q2() {
         return CorrelationIdentifier.of("q2");
     }
 
-    @Nonnull
     protected static CorrelationIdentifier q3() {
         return CorrelationIdentifier.of("q3");
     }
 
-    @Nonnull
     protected static CorrelationIdentifier q4() {
         return CorrelationIdentifier.of("q4");
     }
 
-    @Nonnull
     protected static CorrelationIdentifier q5() {
         return CorrelationIdentifier.of("q5");
     }
 
-    @Nonnull
     protected static CorrelationIdentifier q6() {
         return CorrelationIdentifier.of("q6");
     }
 
-    @Nonnull
     protected static CorrelationIdentifier q7() {
         return CorrelationIdentifier.of("q7");
     }
 
-    @Nonnull
     protected static CorrelationIdentifier q8() {
         return CorrelationIdentifier.of("q8");
     }

@@ -23,8 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Exception thrown when a record store has a format version in the database that is not supported by this codebase.
@@ -34,7 +33,7 @@ import javax.annotation.Nullable;
 @SuppressWarnings("serial")
 @API(API.Status.UNSTABLE)
 public class UnsupportedFormatVersionException extends RecordCoreException {
-    public UnsupportedFormatVersionException(@Nonnull String msg, @Nullable Object ... keyValues) {
+    public UnsupportedFormatVersionException(String msg, @Nullable Object ... keyValues) {
         super(msg, keyValues);
     }
 
@@ -42,7 +41,7 @@ public class UnsupportedFormatVersionException extends RecordCoreException {
         super(cause);
     }
 
-    public UnsupportedFormatVersionException(@Nonnull String msg, @Nullable Throwable cause) {
+    public UnsupportedFormatVersionException(String msg, @Nullable Throwable cause) {
         super(msg, cause);
     }
 }

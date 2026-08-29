@@ -23,8 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Exception thrown when {@link FDBRecordStore.Builder#createOrOpen} is called, and the record store does
@@ -34,11 +33,11 @@ import javax.annotation.Nullable;
 @SuppressWarnings("serial")
 @API(API.Status.UNSTABLE)
 public class RecordStoreNoInfoAndNotEmptyException extends RecordCoreStorageException {
-    public RecordStoreNoInfoAndNotEmptyException(@Nonnull String msg, @Nullable Throwable cause) {
+    public RecordStoreNoInfoAndNotEmptyException(String msg, @Nullable Throwable cause) {
         super(msg, cause);
     }
 
-    public RecordStoreNoInfoAndNotEmptyException(@Nonnull String msg, @Nullable Object ... keyValues) {
+    public RecordStoreNoInfoAndNotEmptyException(String msg, @Nullable Object ... keyValues) {
         super(msg, keyValues);
     }
 }

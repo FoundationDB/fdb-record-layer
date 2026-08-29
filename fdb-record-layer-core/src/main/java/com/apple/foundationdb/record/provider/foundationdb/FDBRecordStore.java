@@ -125,8 +125,8 @@ import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -151,6 +151,9 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
+
+import static com.apple.foundationdb.record.metadata.Key.Evaluated;
+import static com.apple.foundationdb.record.provider.foundationdb.SplitHelper.SizeInfo;
 
 /**
  * A multi-type record store.
@@ -274,33 +277,26 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     private boolean omitUnsplitRecordSuffix;
 
-    @Nonnull
     protected final RecordMetaDataProvider metaDataProvider;
 
     private volatile boolean versionChanged;
 
-    @Nonnull
     protected final AtomicReference<MutableRecordStoreState> recordStoreStateRef = new AtomicReference<>();
 
-    @Nonnull
     protected final RecordSerializer<Message> serializer;
 
-    @Nonnull
     protected final IndexMaintainerFactoryRegistry indexMaintainerRegistry;
 
-    @Nonnull
     protected final IndexMaintenanceFilter indexMaintenanceFilter;
 
-    @Nonnull
     protected final PipelineSizer pipelineSizer;
 
     @Nullable
     protected final FDBRecordStoreStateCache storeStateCache;
-    @Nonnull
     protected final StateCacheabilityOnOpen stateCacheabilityOnOpen;
 
     @Nullable
-    private final FDBRecordStoreBase.UserVersionChecker userVersionChecker;
+    private final UserVersionChecker userVersionChecker;
 
     @Nullable
     private final String bypassFullStoreLockReason;
@@ -308,33 +304,30 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nullable
     private Subspace cachedRecordsSubspace;
 
-    @Nonnull
     private final FDBPreloadRecordCache preloadCache;
 
     private boolean storeStateReadConflict;
     private IndexDeferredMaintenanceControl indexDeferredMaintenanceControl;
 
-    @Nonnull
     private final Set<String> indexStateReadConflicts = ConcurrentHashMap.newKeySet(8);
 
-    @Nonnull
     private final PlanSerializationRegistry planSerializationRegistry;
 
     @SuppressWarnings("squid:S00107")
     @API(API.Status.INTERNAL)
-    protected FDBRecordStore(@Nonnull FDBRecordContext context,
-                             @Nonnull SubspaceProvider subspaceProvider,
-                             @Nonnull FormatVersion formatVersion,
-                             @Nonnull RecordMetaDataProvider metaDataProvider,
-                             @Nonnull RecordSerializer<Message> serializer,
-                             @Nonnull IndexMaintainerFactoryRegistry indexMaintainerRegistry,
-                             @Nonnull IndexMaintenanceFilter indexMaintenanceFilter,
-                             @Nonnull PipelineSizer pipelineSizer,
+    protected FDBRecordStore(FDBRecordContext context,
+                             SubspaceProvider subspaceProvider,
+                             FormatVersion formatVersion,
+                             RecordMetaDataProvider metaDataProvider,
+                             RecordSerializer<Message> serializer,
+                             IndexMaintainerFactoryRegistry indexMaintainerRegistry,
+                             IndexMaintenanceFilter indexMaintenanceFilter,
+                             PipelineSizer pipelineSizer,
                              @Nullable FDBRecordStoreStateCache storeStateCache,
-                             @Nonnull StateCacheabilityOnOpen stateCacheabilityOnOpen,
+                             StateCacheabilityOnOpen stateCacheabilityOnOpen,
                              @Nullable UserVersionChecker userVersionChecker,
                              @Nullable String bypassFullStoreLockReason,
-                             @Nonnull PlanSerializationRegistry planSerializationRegistry) {
+                             PlanSerializationRegistry planSerializationRegistry) {
         super(context, subspaceProvider);
         this.formatVersion = formatVersion;
         this.metaDataProvider = metaDataProvider;
@@ -356,7 +349,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return this;
     }
 
-    @Nonnull
     @Override
     public FDBRecordContext getContext() {
         return context;
@@ -434,7 +426,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return the associated meta-data
      */
     @Override
-    @Nonnull
     public RecordMetaData getRecordMetaData() {
         return metaDataProvider.getRecordMetaData();
     }
@@ -446,7 +437,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return the store state for this store
      */
     @Override
-    @Nonnull
     public RecordStoreState getRecordStoreState() {
         if (recordStoreStateRef.get() == null) {
             context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD_STORE_STATE,
@@ -465,18 +455,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Override
-    @Nonnull
     public RecordSerializer<Message> getSerializer() {
         return serializer;
     }
 
     @Override
-    @Nonnull
     public IndexMaintainerFactoryRegistry getIndexMaintainerRegistry() {
         return indexMaintainerRegistry;
     }
 
-    @Nonnull
     public IndexMaintenanceFilter getIndexMaintenanceFilter() {
         return indexMaintenanceFilter;
     }
@@ -485,7 +472,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Method to return the {@link PlanSerializationRegistry} in use.
      * @return the current {@link PlanSerializationRegistry}
      */
-    @Nonnull
     public PlanSerializationRegistry getPlanSerializationRegistry() {
         return planSerializationRegistry;
     }
@@ -499,16 +485,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return a future that completes with the stored record form of the saved record
      */
     @Override
-    @Nonnull
-    public CompletableFuture<FDBStoredRecord<Message>> saveRecordAsync(@Nonnull final Message rec, @Nonnull RecordExistenceCheck existenceCheck,
-                                                                       @Nullable FDBRecordVersion version, @Nonnull final VersionstampSaveBehavior behavior) {
+    public CompletableFuture<FDBStoredRecord<Message>> saveRecordAsync(final Message rec, RecordExistenceCheck existenceCheck,
+                                                                       @Nullable FDBRecordVersion version, final VersionstampSaveBehavior behavior) {
         return saveTypedRecord(serializer, rec, existenceCheck, version, behavior);
     }
 
     @Override
-    @Nonnull
-    public CompletableFuture<FDBStoredRecord<Message>> dryRunSaveRecordAsync(@Nonnull final Message rec, @Nonnull RecordExistenceCheck existenceCheck,
-                                                                             @Nullable FDBRecordVersion version, @Nonnull VersionstampSaveBehavior behavior) {
+    public CompletableFuture<FDBStoredRecord<Message>> dryRunSaveRecordAsync(final Message rec, RecordExistenceCheck existenceCheck,
+                                                                             @Nullable FDBRecordVersion version, VersionstampSaveBehavior behavior) {
         return saveTypedRecord(serializer, rec, existenceCheck, null, VersionstampSaveBehavior.DEFAULT, true, false);
     }
 
@@ -521,30 +505,27 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param behavior the save behavior w.r.t. the given <code>version</code>
      * @return a future that completes with the stored record form of the saved record
      */
-    @Nonnull
     @API(API.Status.INTERNAL)
-    public CompletableFuture<FDBStoredRecord<Message>> overrideLockSaveRecordAsync(@Nonnull final Message rec, @Nonnull RecordExistenceCheck existenceCheck,
-                                                                                   @Nullable FDBRecordVersion version, @Nonnull final VersionstampSaveBehavior behavior) {
+    public CompletableFuture<FDBStoredRecord<Message>> overrideLockSaveRecordAsync(final Message rec, RecordExistenceCheck existenceCheck,
+                                                                                   @Nullable FDBRecordVersion version, final VersionstampSaveBehavior behavior) {
         return saveTypedRecord(serializer, rec, existenceCheck, version, behavior, false, true);
     }
 
-    @Nonnull
     @API(API.Status.INTERNAL)
-    protected <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveTypedRecord(@Nonnull RecordSerializer<M> typedSerializer,
-                                                                                        @Nonnull M rec,
-                                                                                        @Nonnull RecordExistenceCheck existenceCheck,
+    protected <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveTypedRecord(RecordSerializer<M> typedSerializer,
+                                                                                        M rec,
+                                                                                        RecordExistenceCheck existenceCheck,
                                                                                         @Nullable FDBRecordVersion version,
-                                                                                        @Nonnull VersionstampSaveBehavior behavior) {
+                                                                                        VersionstampSaveBehavior behavior) {
         return saveTypedRecord(typedSerializer, rec, existenceCheck, version, behavior, false, false);
     }
 
-    @Nonnull
     @API(API.Status.INTERNAL)
-    protected <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveTypedRecord(@Nonnull RecordSerializer<M> typedSerializer,
-                                                                                        @Nonnull M rec,
-                                                                                        @Nonnull RecordExistenceCheck existenceCheck,
+    protected <M extends Message> CompletableFuture<FDBStoredRecord<M>> saveTypedRecord(RecordSerializer<M> typedSerializer,
+                                                                                        M rec,
+                                                                                        RecordExistenceCheck existenceCheck,
                                                                                         @Nullable FDBRecordVersion version,
-                                                                                        @Nonnull VersionstampSaveBehavior behavior,
+                                                                                        VersionstampSaveBehavior behavior,
                                                                                         boolean isDryRun,
                                                                                         boolean overrideLock) {
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
@@ -599,7 +580,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    private <M extends Message> void addRecordCount(@Nonnull RecordMetaData metaData, @Nonnull FDBStoredRecord<M> rec, @Nonnull byte[] increment) {
+    private <M extends Message> void addRecordCount(RecordMetaData metaData, FDBStoredRecord<M> rec, byte[] increment) {
         if (metaData.getRecordCountKey() != null) {
             beginRecordStoreStateRead();
             try {
@@ -607,7 +588,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 // We do not need to check the format version here. In order for it to be DISABLED we would have to be
                 // on a format version that supports such a state.
                 if (header.getRecordCountState() != RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
-                    Key.Evaluated subkey = metaData.getRecordCountKey().evaluateSingleton(rec);
+                    Evaluated subkey = metaData.getRecordCountKey().evaluateSingleton(rec);
                     final byte[] keyBytes = getSubspace().pack(Tuple.from(RECORD_COUNT_KEY).addAll(subkey.toTupleAppropriateList()));
                     ensureContextActive().mutate(MutationType.ADD, keyBytes, increment);
                 }
@@ -618,7 +599,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Nullable
-    private FDBRecordVersion recordVersionForSave(@Nonnull RecordMetaData metaData, @Nullable FDBRecordVersion version, @Nonnull final VersionstampSaveBehavior behavior) {
+    private FDBRecordVersion recordVersionForSave(RecordMetaData metaData, @Nullable FDBRecordVersion version, final VersionstampSaveBehavior behavior) {
         if (behavior.equals(VersionstampSaveBehavior.NO_VERSION)) {
             if (version != null) {
                 throw recordCoreException("Nonnull version supplied with a NO_VERSION behavior: " + version);
@@ -632,8 +613,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return version;
     }
 
-    @Nonnull
-    private <M extends Message> CompletableFuture<FDBStoredRecord<M>> loadExistingRecord(@Nonnull RecordSerializer<M> typedSerializer, @Nonnull Tuple primaryKey) {
+    private <M extends Message> CompletableFuture<FDBStoredRecord<M>> loadExistingRecord(RecordSerializer<M> typedSerializer, Tuple primaryKey) {
         // Note: this assumes that any existing record is compatible with the serializer (even if not of the same record type).
         // To relax that would perhaps mean catching errors and falling back to the untyped serializer.
         // This would in turn require care with the type parameters to updateSecondaryIndexes.
@@ -641,26 +621,24 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return loadTypedRecord(typedSerializer, primaryKey, false);
     }
 
-    @Nonnull
-    private <M extends Message> FDBStoredRecord<M> dryRunSetSizeInfo(@Nonnull RecordSerializer<M> typedSerializer, @Nonnull final FDBStoredRecordBuilder<M> recordBuilder,
-                                                                          @Nonnull final RecordMetaData metaData) {
+    private <M extends Message> FDBStoredRecord<M> dryRunSetSizeInfo(RecordSerializer<M> typedSerializer, final FDBStoredRecordBuilder<M> recordBuilder,
+                                                                          final RecordMetaData metaData) {
         final FDBRecordVersion version = recordBuilder.getVersion();
         final byte[] serialized = typedSerializer.serialize(metaData, recordBuilder.getRecordType(), recordBuilder.getRecord(), getTimer());
         final FDBRecordVersion splitVersion = useOldVersionFormat() ? null : version;
-        final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
+        final SizeInfo sizeInfo = new SizeInfo();
         SplitHelper.dryRunSaveWithSplitOnlySetSizeInfo(recordsSubspace(), recordBuilder.getPrimaryKey(), serialized, splitVersion, metaData.isSplitLongRecords(), omitUnsplitRecordSuffix, sizeInfo);
         recordBuilder.setSize(sizeInfo);
         return recordBuilder.build();
     }
 
-    @Nonnull
-    private <M extends Message> FDBStoredRecord<M> serializeAndSaveRecord(@Nonnull RecordSerializer<M> typedSerializer, @Nonnull final FDBStoredRecordBuilder<M> recordBuilder,
-                                                                          @Nonnull final RecordMetaData metaData, @Nullable FDBStoredSizes oldSizeInfo) {
+    private <M extends Message> FDBStoredRecord<M> serializeAndSaveRecord(RecordSerializer<M> typedSerializer, final FDBStoredRecordBuilder<M> recordBuilder,
+                                                                          final RecordMetaData metaData, @Nullable FDBStoredSizes oldSizeInfo) {
         final Tuple primaryKey = recordBuilder.getPrimaryKey();
         final FDBRecordVersion version = recordBuilder.getVersion();
         final byte[] serialized = typedSerializer.serialize(metaData, recordBuilder.getRecordType(), recordBuilder.getRecord(), getTimer());
         final FDBRecordVersion splitVersion = useOldVersionFormat() ? null : version;
-        final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
+        final SizeInfo sizeInfo = new SizeInfo();
         preloadCache.invalidate(primaryKey); // clear out cache of older value if present
         SplitHelper.saveWithSplit(context, recordsSubspace(), recordBuilder.getPrimaryKey(), serialized, splitVersion, metaData.isSplitLongRecords(), omitUnsplitRecordSuffix, true, oldSizeInfo, sizeInfo);
         countKeysAndValues(FDBStoreTimer.Counts.SAVE_RECORD_KEY, FDBStoreTimer.Counts.SAVE_RECORD_KEY_BYTES, FDBStoreTimer.Counts.SAVE_RECORD_VALUE_BYTES, sizeInfo);
@@ -672,7 +650,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return recordBuilder.build();
     }
 
-    private void saveVersionWithOldFormat(@Nonnull Tuple primaryKey, @Nonnull FDBRecordVersion version) {
+    private void saveVersionWithOldFormat(Tuple primaryKey, FDBRecordVersion version) {
         byte[] versionKey = getSubspace().pack(recordVersionKey(primaryKey));
         if (version.isComplete()) {
             context.ensureActive().set(versionKey, version.toBytes());
@@ -685,8 +663,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
-    @Nonnull
-    private Tuple recordVersionKey(@Nonnull Tuple primaryKey) {
+    private Tuple recordVersionKey(Tuple primaryKey) {
         if (useOldVersionFormat()) {
             return Tuple.from(RECORD_VERSION_KEY).addAll(primaryKey);
         } else {
@@ -694,7 +671,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private <M extends Message> CompletableFuture<Void> updateSecondaryIndexes(@Nullable final FDBStoredRecord<M> oldRecord,
                                                                                @Nullable final FDBStoredRecord<M> newRecord) {
@@ -767,8 +743,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     private <M extends Message> void updateSecondaryIndexes(@Nullable final FDBIndexableRecord<M> oldRecord,
                                                             @Nullable final FDBIndexableRecord<M> newRecord,
-                                                            @Nonnull final List<CompletableFuture<Void>> futures,
-                                                            @Nonnull final List<Index> indexes) {
+                                                            final List<CompletableFuture<Void>> futures,
+                                                            final List<Index> indexes) {
         if (oldRecord == null && newRecord == null) {
             return;
         }
@@ -819,7 +795,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private <M extends Message> void updateSyntheticIndexes(@Nullable FDBStoredRecord<M> oldRecord,
                                                             @Nullable FDBStoredRecord<M> newRecord,
-                                                            @Nonnull final List<CompletableFuture<Void>> futures) {
+                                                            final List<CompletableFuture<Void>> futures) {
         final SyntheticRecordPlanner planner = new SyntheticRecordPlanner(this);
         // Index maintainers are not required to be thread-safe, so only do one synthetic record at a time.
         final int pipelineSize = 1;
@@ -833,7 +809,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             final Map<RecordType, Collection<IndexMaintainer>> maintainers = getSyntheticMaintainers(plan.getSyntheticRecordTypes());
             final Map<Tuple, FDBSyntheticRecord> oldRecords = new ConcurrentHashMap<>();
             CompletableFuture<Void> future = plan.execute(this, oldRecord).forEach(syntheticRecord -> oldRecords.put(syntheticRecord.getPrimaryKey(), syntheticRecord));
-            @Nonnull final FDBStoredRecord<M> theNewRecord = newRecord; // @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "https://github.com/spotbugs/spotbugs/issues/552")
+            final FDBStoredRecord<M> theNewRecord = newRecord; // @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "https://github.com/spotbugs/spotbugs/issues/552")
             future = future.thenCompose(v -> plan.execute(this, theNewRecord).forEachAsync(syntheticRecord -> runSyntheticMaintainers(maintainers, oldRecords.remove(syntheticRecord.getPrimaryKey()), syntheticRecord), pipelineSize));
             future = future.thenCompose(v -> {
                 // Any synthetic record that was generated by the plan on the old record but not by the plan on the new record needs to be removed from its indexes.
@@ -875,9 +851,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
-    @Nonnull
     @API(API.Status.EXPERIMENTAL)
-    private Map<RecordType, Collection<IndexMaintainer>> getSyntheticMaintainers(@Nonnull Set<String> syntheticRecordTypes) {
+    private Map<RecordType, Collection<IndexMaintainer>> getSyntheticMaintainers(Set<String> syntheticRecordTypes) {
         final RecordMetaData metaData = getRecordMetaData();
         return syntheticRecordTypes.stream()
                 .map(metaData::getSyntheticRecordType).collect(Collectors.toMap(Function.identity(), syntheticRecordType -> {
@@ -888,9 +863,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 }));
     }
 
-    @Nonnull
     @API(API.Status.EXPERIMENTAL)
-    private CompletableFuture<Void> runSyntheticMaintainers(@Nonnull Map<RecordType, Collection<IndexMaintainer>> maintainers, @Nullable FDBSyntheticRecord oldRecord, @Nullable FDBSyntheticRecord newRecord) {
+    private CompletableFuture<Void> runSyntheticMaintainers(Map<RecordType, Collection<IndexMaintainer>> maintainers, @Nullable FDBSyntheticRecord oldRecord, @Nullable FDBSyntheticRecord newRecord) {
         if (oldRecord == null && newRecord == null) {
             return AsyncUtil.DONE;
         }
@@ -917,9 +891,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return a future which completes to the synthesized record
      */
     @API(API.Status.EXPERIMENTAL)
-    @Nonnull
     @Override
-    public CompletableFuture<FDBSyntheticRecord> loadSyntheticRecord(@Nonnull Tuple primaryKey, final IndexOrphanBehavior orphanBehavior) {
+    public CompletableFuture<FDBSyntheticRecord> loadSyntheticRecord(Tuple primaryKey, final IndexOrphanBehavior orphanBehavior) {
         SyntheticRecordType<?> syntheticRecordType = getRecordMetaData().getSyntheticRecordTypeFromRecordTypeKey(primaryKey.get(0));
         if (syntheticRecordType.getConstituents().size() != primaryKey.size() - 1) {
             throw recordCoreException("Primary key does not have correct number of nested keys: " + primaryKey);
@@ -927,7 +900,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return syntheticRecordType.loadByPrimaryKeyAsync(this, primaryKey, orphanBehavior);
     }
 
-    @Nonnull
     public Subspace recordsSubspace() {
         if (cachedRecordsSubspace == null) {
             cachedRecordsSubspace = getSubspace().subspace(Tuple.from(RECORD_KEY));
@@ -935,23 +907,19 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return cachedRecordsSubspace;
     }
 
-    @Nonnull
-    public Subspace indexSubspace(@Nonnull Index index) {
+    public Subspace indexSubspace(Index index) {
         return getSubspace().subspace(Tuple.from(INDEX_KEY, index.getSubspaceTupleKey()));
     }
 
-    @Nonnull
-    public Subspace indexSubspaceFromMaintainer(@Nonnull Index index) {
+    public Subspace indexSubspaceFromMaintainer(Index index) {
         return getIndexMaintainer(index).getIndexSubspace();
     }
 
-    @Nonnull
     public Subspace indexStateSubspace() {
         return getSubspace().subspace(Tuple.from(INDEX_STATE_SPACE_KEY));
     }
 
-    @Nonnull
-    public Subspace indexSecondarySubspace(@Nonnull Index index) {
+    public Subspace indexSecondarySubspace(Index index) {
         return getSubspace().subspace(Tuple.from(INDEX_SECONDARY_SPACE_KEY, index.getSubspaceTupleKey()));
     }
 
@@ -962,8 +930,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param index the index to retrieve the sliding window subspace for
      * @return the sliding window subspace for the given index
      */
-    @Nonnull
-    public Subspace indexSlidingWindowSubspace(@Nonnull Index index) {
+    public Subspace indexSlidingWindowSubspace(Index index) {
         return getSubspace().subspace(Tuple.from(INDEX_SLIDING_WINDOW_SPACE_KEY, index.getSubspaceTupleKey()));
     }
 
@@ -974,8 +941,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param index the index to retrieve the range subspace for
      * @return the subspace for the {@link com.apple.foundationdb.async.RangeSet RangeSet} for the given index
      */
-    @Nonnull
-    public Subspace indexRangeSubspace(@Nonnull Index index) {
+    public Subspace indexRangeSubspace(Index index) {
         return getSubspace().subspace(Tuple.from(INDEX_RANGE_SPACE_KEY, index.getSubspaceTupleKey()));
     }
 
@@ -986,8 +952,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param index the index to retrieve the uniqueness violation subspace for
      * @return the subspace for the uniqueness violations for the given index
      */
-    @Nonnull
-    public Subspace indexUniquenessViolationsSubspace(@Nonnull Index index) {
+    public Subspace indexUniquenessViolationsSubspace(Index index) {
         return getSubspace().subspace(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY, index.getSubspaceTupleKey()));
     }
 
@@ -996,8 +961,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param index the index to retrieve the build information for
      * @return the subspace for the build information of the given index
      */
-    @Nonnull
-    Subspace indexBuildSubspace(@Nonnull Index index) {
+    Subspace indexBuildSubspace(Index index) {
         return getSubspace().subspace(Tuple.from(INDEX_BUILD_SPACE_KEY, index.getSubspaceTupleKey()));
     }
 
@@ -1006,15 +970,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param index the required index
      * @return the maintainer for the given index
      */
-    @Nonnull
     @Override
-    public IndexMaintainer getIndexMaintainer(@Nonnull Index index) {
+    public IndexMaintainer getIndexMaintainer(Index index) {
         final IndexMaintainerState maintainerState = new IndexMaintainerState(this, index, indexMaintenanceFilter);
         return indexMaintainerRegistry.getIndexMaintainer(maintainerState);
     }
 
-    @Nonnull
-    public PlanSerializationContext newPlanSerializationContext(@Nonnull final PlanHashable.PlanHashMode mode) {
+    public PlanSerializationContext newPlanSerializationContext(final PlanHashable.PlanHashMode mode) {
         return new PlanSerializationContext(planSerializationRegistry, mode);
     }
 
@@ -1026,36 +988,33 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return VALUE_SIZE_LIMIT;
     }
 
-    public CompletableFuture<IndexOperationResult> performIndexOperationAsync(@Nonnull String indexName,
-                                                                              @Nonnull IndexOperation operation) {
+    public CompletableFuture<IndexOperationResult> performIndexOperationAsync(String indexName,
+                                                                              IndexOperation operation) {
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
         final Index index = metaData.getIndex(indexName);
         return getIndexMaintainer(index).performOperation(operation);
     }
 
-    public IndexOperationResult performIndexOperation(@Nonnull String indexName, @Nonnull IndexOperation operation) {
+    public IndexOperationResult performIndexOperation(String indexName, IndexOperation operation) {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_OPERATION, performIndexOperationAsync(indexName, operation));
     }
 
     @Override
-    @Nonnull
-    public CompletableFuture<FDBStoredRecord<Message>> loadRecordInternal(@Nonnull final Tuple primaryKey,
-                                                                          @Nonnull ExecuteState executeState,
+    public CompletableFuture<FDBStoredRecord<Message>> loadRecordInternal(final Tuple primaryKey,
+                                                                          ExecuteState executeState,
                                                                           final boolean snapshot) {
         return loadTypedRecord(serializer, primaryKey, executeState, snapshot);
     }
 
-    @Nonnull
-    protected <M extends Message> CompletableFuture<FDBStoredRecord<M>> loadTypedRecord(@Nonnull RecordSerializer<M> typedSerializer,
-                                                                                        @Nonnull final Tuple primaryKey,
+    protected <M extends Message> CompletableFuture<FDBStoredRecord<M>> loadTypedRecord(RecordSerializer<M> typedSerializer,
+                                                                                        final Tuple primaryKey,
                                                                                         final boolean snapshot) {
         return loadTypedRecord(typedSerializer, primaryKey, ExecuteState.NO_LIMITS, snapshot);
     }
 
-    @Nonnull
-    protected <M extends Message> CompletableFuture<FDBStoredRecord<M>> loadTypedRecord(@Nonnull RecordSerializer<M> typedSerializer,
-                                                                                        @Nonnull final Tuple primaryKey,
-                                                                                        @Nonnull ExecuteState executeState,
+    protected <M extends Message> CompletableFuture<FDBStoredRecord<M>> loadTypedRecord(RecordSerializer<M> typedSerializer,
+                                                                                        final Tuple primaryKey,
+                                                                                        ExecuteState executeState,
                                                                                         final boolean snapshot) {
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
 
@@ -1066,7 +1025,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             versionFutureOptional = Optional.empty();
         }
 
-        final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
+        final SizeInfo sizeInfo = new SizeInfo();
         CompletableFuture<FDBStoredRecord<M>> result = loadRawRecordAsync(primaryKey, sizeInfo, snapshot)
                 .thenCompose(rawRecord -> {
                     final ByteScanLimiter byteScanLimiter = executeState.getByteScanLimiter();
@@ -1087,8 +1046,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param primaryKey the primary key of the record
      * @return a future that completes with the version of the record of {@code Optional.empty()} if versions are not enabled for this store
      */
-    @Nonnull
-    public Optional<CompletableFuture<FDBRecordVersion>> loadRecordVersionAsync(@Nonnull final Tuple primaryKey) {
+    public Optional<CompletableFuture<FDBRecordVersion>> loadRecordVersionAsync(final Tuple primaryKey) {
         return loadRecordVersionAsync(primaryKey, false);
     }
 
@@ -1098,8 +1056,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param snapshot whether to snapshot read
      * @return a future that completes with the version of the record of {@code Optional.empty()} if versions are not enabled for this store
      */
-    @Nonnull
-    public Optional<CompletableFuture<FDBRecordVersion>> loadRecordVersionAsync(@Nonnull final Tuple primaryKey, final boolean snapshot) {
+    public Optional<CompletableFuture<FDBRecordVersion>> loadRecordVersionAsync(final Tuple primaryKey, final boolean snapshot) {
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
         if (useOldVersionFormat() && !metaData.isStoreRecordVersions()) {
             // Because we clear out the version space whenever the user specifies that they
@@ -1136,8 +1093,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param primaryKey the primary key for the record
      * @return an {@link Optional} that, if not empty, contains record's version
      */
-    @Nonnull
-    public Optional<FDBRecordVersion> loadRecordVersion(@Nonnull final Tuple primaryKey) {
+    public Optional<FDBRecordVersion> loadRecordVersion(final Tuple primaryKey) {
         return loadRecordVersionAsync(primaryKey).map(future -> context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD_VERSION, future));
     }
 
@@ -1150,14 +1106,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param snapshot whether this operation should be done with a <code>snapshot</code>
      * @return an {@link Optional} that, if not empty, contain's the record version
      */
-    @Nonnull
-    public Optional<FDBRecordVersion> loadRecordVersion(@Nonnull final Tuple primaryKey, final boolean snapshot) {
+    public Optional<FDBRecordVersion> loadRecordVersion(final Tuple primaryKey, final boolean snapshot) {
         return loadRecordVersionAsync(primaryKey, snapshot).map(future -> context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD_VERSION, future));
     }
 
-    private <M extends Message> CompletableFuture<FDBStoredRecord<M>> deserializeRecord(@Nonnull RecordSerializer<M> typedSerializer, @Nonnull final FDBRawRecord rawRecord,
-                                                                                        @Nonnull final RecordMetaData metaData,
-                                                                                        @Nonnull final Optional<CompletableFuture<FDBRecordVersion>> versionFutureOptional) {
+    private <M extends Message> CompletableFuture<FDBStoredRecord<M>> deserializeRecord(RecordSerializer<M> typedSerializer, final FDBRawRecord rawRecord,
+                                                                                        final RecordMetaData metaData,
+                                                                                        final Optional<CompletableFuture<FDBRecordVersion>> versionFutureOptional) {
         final Tuple primaryKey = rawRecord.getPrimaryKey();
         final byte[] serialized = rawRecord.getRawRecord();
 
@@ -1203,10 +1158,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
-    protected void countKeysAndValues(@Nonnull final FDBStoreTimer.Count key,
-                                      @Nonnull final FDBStoreTimer.Count keyBytes,
-                                      @Nonnull final FDBStoreTimer.Count valueBytes,
-                                      @Nonnull final FDBStoredSizes sizeInfo) {
+    protected void countKeysAndValues(final FDBStoreTimer.Count key,
+                                      final FDBStoreTimer.Count keyBytes,
+                                      final FDBStoreTimer.Count valueBytes,
+                                      final FDBStoredSizes sizeInfo) {
         final FDBStoreTimer timer = getTimer();
         if (timer != null) {
             timer.increment(key, sizeInfo.getKeyCount());
@@ -1215,17 +1170,17 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
-    public void countKeyValue(@Nonnull final FDBStoreTimer.Count key,
-                              @Nonnull final FDBStoreTimer.Count keyBytes,
-                              @Nonnull final FDBStoreTimer.Count valueBytes,
-                              @Nonnull final KeyValue keyValue) {
+    public void countKeyValue(final FDBStoreTimer.Count key,
+                              final FDBStoreTimer.Count keyBytes,
+                              final FDBStoreTimer.Count valueBytes,
+                              final KeyValue keyValue) {
         countKeyValue(key, keyBytes, valueBytes, keyValue.getKey(), keyValue.getValue());
     }
 
-    public void countKeyValue(@Nonnull final FDBStoreTimer.Count key,
-                              @Nonnull final FDBStoreTimer.Count keyBytes,
-                              @Nonnull final FDBStoreTimer.Count valueBytes,
-                              @Nonnull final byte[] k, @Nonnull final byte[] v) {
+    public void countKeyValue(final FDBStoreTimer.Count key,
+                              final FDBStoreTimer.Count keyBytes,
+                              final FDBStoreTimer.Count valueBytes,
+                              final byte[] k, final byte[] v) {
         final FDBStoreTimer timer = getTimer();
         if (timer != null) {
             timer.increment(key);
@@ -1235,8 +1190,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Override
-    @Nonnull
-    public CompletableFuture<Void> preloadRecordAsync(@Nonnull final Tuple primaryKey) {
+    public CompletableFuture<Void> preloadRecordAsync(final Tuple primaryKey) {
         FDBPreloadRecordCache.Future futureRecord = preloadCache.beginPrefetch(primaryKey);
         return loadRawRecordAsync(primaryKey, null, false)
                 .whenComplete((rawRecord, ex) -> {
@@ -1250,27 +1204,25 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Override
-    @Nonnull
-    public CompletableFuture<Boolean> recordExistsAsync(@Nonnull final Tuple primaryKey, @Nonnull final IsolationLevel isolationLevel) {
+    public CompletableFuture<Boolean> recordExistsAsync(final Tuple primaryKey, final IsolationLevel isolationLevel) {
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
         final ReadTransaction tr = isolationLevel.isSnapshot() ? ensureContextActive().snapshot() : ensureContextActive();
         return SplitHelper.keyExists(tr, context, recordsSubspace(),
                 primaryKey, metaData.isSplitLongRecords(), omitUnsplitRecordSuffix);
     }
 
-    @Nonnull
-    private Range getRangeForRecord(@Nonnull Tuple primaryKey) {
+    private Range getRangeForRecord(Tuple primaryKey) {
         return TupleRange.allOf(primaryKey).toRange(recordsSubspace());
     }
 
     @Override
-    public void addRecordReadConflict(@Nonnull Tuple primaryKey) {
+    public void addRecordReadConflict(Tuple primaryKey) {
         final Range recordRange = getRangeForRecord(primaryKey);
         ensureContextActive().addReadConflictRange(recordRange.begin, recordRange.end);
     }
 
     @Override
-    public void addRecordWriteConflict(@Nonnull Tuple primaryKey) {
+    public void addRecordWriteConflict(Tuple primaryKey) {
         final Range recordRange = getRangeForRecord(primaryKey);
         ensureContextActive().addWriteConflictRange(recordRange.begin, recordRange.end);
     }
@@ -1282,9 +1234,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param snapshot whether to snapshot read
      * @return a CompletableFuture that will return a message or null if there was no record with that key
      */
-    @Nonnull
-    private CompletableFuture<FDBRawRecord> loadRawRecordAsync(@Nonnull final Tuple primaryKey,
-                                                               @Nullable final SplitHelper.SizeInfo sizeInfo,
+    private CompletableFuture<FDBRawRecord> loadRawRecordAsync(final Tuple primaryKey,
+                                                               @Nullable final SizeInfo sizeInfo,
                                                                final boolean snapshot) {
         final FDBPreloadRecordCache.Entry entry = preloadCache.get(primaryKey);
         if (entry != null) {
@@ -1298,11 +1249,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Override
-    @Nonnull
     public RecordCursor<FDBStoredRecord<Message>> scanRecords(@Nullable final Tuple low, @Nullable final Tuple high,
-                                                              @Nonnull final EndpointType lowEndpoint, @Nonnull final EndpointType highEndpoint,
+                                                              final EndpointType lowEndpoint, final EndpointType highEndpoint,
                                                               @Nullable byte[] continuation,
-                                                              @Nonnull ScanProperties scanProperties) {
+                                                              ScanProperties scanProperties) {
         return scanTypedRecords(serializer, low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
     }
 
@@ -1316,18 +1266,16 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      *
      * @return a cursor over the stored records in the given range
      */
-    @Nonnull
     @API(API.Status.INTERNAL)
-    public RecordCursor<FDBStoredRecord<Message>> scanRecords(@Nonnull final KeyRange range,
+    public RecordCursor<FDBStoredRecord<Message>> scanRecords(final KeyRange range,
                                                               @Nullable byte[] continuation,
-                                                              @Nonnull ScanProperties scanProperties) {
+                                                              ScanProperties scanProperties) {
         return scanTypedRecords(serializer, range, continuation, scanProperties);
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CloseResource")
-    public RecordCursor<Tuple> scanRecordKeys(@Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+    public RecordCursor<Tuple> scanRecordKeys(@Nullable final byte[] continuation, final ScanProperties scanProperties) {
         if ( ! getFormatVersionEnum().isAtLeast(FormatVersion.RECORD_COUNT_KEY_ADDED)) {
             // This is only tested for version >= 3
             throw new UnsupportedFormatVersionException("scanRecordKeys does not support this format version");
@@ -1371,13 +1319,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    public <M extends Message> RecordCursor<FDBStoredRecord<M>> scanTypedRecords(@Nonnull RecordSerializer<M> typedSerializer,
+    public <M extends Message> RecordCursor<FDBStoredRecord<M>> scanTypedRecords(RecordSerializer<M> typedSerializer,
                                                                                  @Nullable final Tuple low, @Nullable final Tuple high,
-                                                                                 @Nonnull final EndpointType lowEndpoint, @Nonnull final EndpointType highEndpoint,
+                                                                                 final EndpointType lowEndpoint, final EndpointType highEndpoint,
                                                                                  @Nullable byte[] continuation,
-                                                                                 @Nonnull ScanProperties scanProperties) {
+                                                                                 ScanProperties scanProperties) {
         final Subspace recordsSubspace = recordsSubspace();
         return scanTypedRecords(typedSerializer,
                 low != null ? recordsSubspace.pack(low) : recordsSubspace.pack(), lowEndpoint,
@@ -1385,12 +1332,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 continuation, scanProperties);
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    public <M extends Message> RecordCursor<FDBStoredRecord<M>> scanTypedRecords(@Nonnull RecordSerializer<M> typedSerializer,
-                                                                                 @Nonnull final KeyRange range,
+    public <M extends Message> RecordCursor<FDBStoredRecord<M>> scanTypedRecords(RecordSerializer<M> typedSerializer,
+                                                                                 final KeyRange range,
                                                                                  @Nullable byte[] continuation,
-                                                                                 @Nonnull ScanProperties scanProperties) {
+                                                                                 ScanProperties scanProperties) {
         final byte[] subspacePrefix = recordsSubspace().pack();
         return scanTypedRecords(typedSerializer,
                 ByteArrayUtil.join(subspacePrefix, range.getLowKey()), range.getLowEndpoint(),
@@ -1398,16 +1344,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 continuation, scanProperties);
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    private <M extends Message> RecordCursor<FDBStoredRecord<M>> scanTypedRecords(@Nonnull RecordSerializer<M> typedSerializer,
-                                                                                  @Nonnull byte[] lowBytes, @Nonnull EndpointType lowEndpoint,
-                                                                                  @Nonnull byte[] highBytes, @Nonnull EndpointType highEndpoint,
+    private <M extends Message> RecordCursor<FDBStoredRecord<M>> scanTypedRecords(RecordSerializer<M> typedSerializer,
+                                                                                  byte[] lowBytes, EndpointType lowEndpoint,
+                                                                                  byte[] highBytes, EndpointType highEndpoint,
                                                                                   @Nullable byte[] continuation,
-                                                                                  @Nonnull ScanProperties scanProperties) {
+                                                                                  ScanProperties scanProperties) {
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
         final Subspace recordsSubspace = recordsSubspace();
-        final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
+        final SizeInfo sizeInfo = new SizeInfo();
         final RecordCursor<FDBRawRecord> rawRecords;
         if (metaData.isSplitLongRecords()) {
             RecordCursor<KeyValue> keyValues = KeyValueCursor.Builder.withSubspace(recordsSubspace)
@@ -1468,13 +1413,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Override
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
     public CompletableFuture<Integer> countRecords(
             @Nullable Tuple low, @Nullable Tuple high,
-            @Nonnull EndpointType lowEndpoint, @Nonnull EndpointType highEndpoint,
+            EndpointType lowEndpoint, EndpointType highEndpoint,
             @Nullable byte[] continuation,
-            @Nonnull ScanProperties scanProperties) {
+            ScanProperties scanProperties) {
         final Subspace recordsSubspace = recordsSubspace();
         RecordCursor<KeyValue> keyValues = KeyValueCursor.Builder.withSubspace(recordsSubspace)
                 .setContext(context)
@@ -1493,10 +1437,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Override
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    public RecordCursor<IndexEntry> scanIndex(@Nonnull Index index, @Nonnull IndexScanBounds scanBounds,
-                                              @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+    public RecordCursor<IndexEntry> scanIndex(Index index, IndexScanBounds scanBounds,
+                                              @Nullable byte[] continuation, ScanProperties scanProperties) {
         if (!getIndexState(index).isScannable()) {
             throw new ScanNonReadableIndexException("Cannot scan non-readable index",
                     LogMessageKeys.INDEX_NAME, index.getName(),
@@ -1507,26 +1450,24 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return context.instrument(FDBStoreTimer.Events.SCAN_INDEX_KEYS, result);
     }
 
-    @Nonnull
     @Override
-    public RecordCursor<FDBIndexedRecord<Message>> scanIndexRemoteFetch(@Nonnull Index index,
-                                                                        @Nonnull IndexScanBounds scanBounds,
+    public RecordCursor<FDBIndexedRecord<Message>> scanIndexRemoteFetch(Index index,
+                                                                        IndexScanBounds scanBounds,
                                                                         int commonPrimaryKeyLength,
                                                                         @Nullable byte[] continuation,
-                                                                        @Nonnull ScanProperties scanProperties,
-                                                                        @Nonnull final IndexOrphanBehavior orphanBehavior) {
+                                                                        ScanProperties scanProperties,
+                                                                        final IndexOrphanBehavior orphanBehavior) {
         return scanIndexRemoteFetchInternal(index, scanBounds, commonPrimaryKeyLength, continuation, serializer, scanProperties, orphanBehavior);
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    protected <M extends Message> RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetchInternal(@Nonnull final Index index,
-                                                                                                 @Nonnull final IndexScanBounds scanBounds,
+    protected <M extends Message> RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetchInternal(final Index index,
+                                                                                                 final IndexScanBounds scanBounds,
                                                                                                  int commonPrimaryKeyLength,
                                                                                                  @Nullable final byte[] continuation,
-                                                                                                 @Nonnull RecordSerializer<M> typedSerializer,
-                                                                                                 @Nonnull final ScanProperties scanProperties,
-                                                                                                 @Nonnull final IndexOrphanBehavior orphanBehavior) {
+                                                                                                 RecordSerializer<M> typedSerializer,
+                                                                                                 final ScanProperties scanProperties,
+                                                                                                 final IndexOrphanBehavior orphanBehavior) {
         // Note that even though it is legal to have 0-len PK, we actually require >0 for remote fetch
         if (commonPrimaryKeyLength <= 0) {
             throw new RecordCoreArgumentException("commonPrimaryKeyLength has to be a positive number", LogMessageKeys.INDEX_NAME, index.getName());
@@ -1555,12 +1496,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @VisibleForTesting
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    <M extends Message> RecordCursor<FDBIndexedRecord<M>> indexEntriesToIndexRecords(@Nonnull final ScanProperties scanProperties,
-                                                                                     @Nonnull final IndexOrphanBehavior orphanBehavior,
-                                                                                     @Nonnull final RecordCursor<FDBIndexedRawRecord> indexEntries,
-                                                                                     @Nonnull RecordSerializer<M> typedSerializer) {
+    <M extends Message> RecordCursor<FDBIndexedRecord<M>> indexEntriesToIndexRecords(final ScanProperties scanProperties,
+                                                                                     final IndexOrphanBehavior orphanBehavior,
+                                                                                     final RecordCursor<FDBIndexedRawRecord> indexEntries,
+                                                                                     RecordSerializer<M> typedSerializer) {
         ByteScanLimiter byteScanLimiter = scanProperties.getExecuteProperties().getState().getByteScanLimiter();
         RecordCursor<FDBIndexedRecord<M>> indexedRecordCursor = indexEntries.mapPipelined(indexedRawRecord -> {
             CompletableFuture<FDBIndexedRecord<M>> indexedRecordFuture = buildSingleRecordInternal(indexedRawRecord, typedSerializer, byteScanLimiter);
@@ -1582,15 +1522,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Override
-    @Nonnull
-    public CompletableFuture<FDBIndexedRecord<Message>> buildSingleRecord(@Nonnull FDBIndexedRawRecord indexedRawRecord) {
+    public CompletableFuture<FDBIndexedRecord<Message>> buildSingleRecord(FDBIndexedRawRecord indexedRawRecord) {
         return buildSingleRecordInternal(indexedRawRecord, serializer, null);
     }
 
-    protected <M extends Message> CompletableFuture<FDBIndexedRecord<M>> buildSingleRecordInternal(@Nonnull FDBIndexedRawRecord indexedRawRecord,
-                                                                                                 @Nonnull RecordSerializer<M> typedSerializer,
+    protected <M extends Message> CompletableFuture<FDBIndexedRecord<M>> buildSingleRecordInternal(FDBIndexedRawRecord indexedRawRecord,
+                                                                                                 RecordSerializer<M> typedSerializer,
                                                                                                  @Nullable final ByteScanLimiter byteScanLimiter) {
-        SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
+        SizeInfo sizeInfo = new SizeInfo();
         // Use the raw record entries to reconstruct the original raw record (include all splits and version, if applicable)
         FDBRawRecord fdbRawRecord = reconstructSingleRecord(recordsSubspace(), sizeInfo, indexedRawRecord.getRawRecord(), useOldVersionFormat());
         if (fdbRawRecord == null) {
@@ -1643,7 +1582,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @Nullable
     @SuppressWarnings("PMD.CloseResource")
-    private FDBRawRecord reconstructSingleRecord(final Subspace recordSubspace, final SplitHelper.SizeInfo sizeInfo,
+    private FDBRawRecord reconstructSingleRecord(final Subspace recordSubspace, final SizeInfo sizeInfo,
                                                  final MappedKeyValue mappedResult, final boolean oldVersionFormat) {
         List<KeyValue> scannedRange = mappedResult.getRangeResult();
         if ((scannedRange == null) || scannedRange.isEmpty()) {
@@ -1677,11 +1616,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Override
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    public RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(@Nonnull Index index, @Nonnull TupleRange range,
+    public RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(Index index, TupleRange range,
                                                                                  @Nullable byte[] continuation,
-                                                                                 @Nonnull ScanProperties scanProperties) {
+                                                                                 ScanProperties scanProperties) {
         if (!index.isUnique()) {
             return RecordCursor.empty(getExecutor());
         }
@@ -1696,8 +1634,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Override
-    @Nonnull
-    public CompletableFuture<Void> resolveUniquenessViolation(@Nonnull Index index, @Nonnull Tuple valueKey, @Nullable Tuple remainPrimaryKey) {
+    public CompletableFuture<Void> resolveUniquenessViolation(Index index, Tuple valueKey, @Nullable Tuple remainPrimaryKey) {
         return scanUniquenessViolations(index, valueKey).forEachAsync(uniquenessViolation -> {
             if (remainPrimaryKey == null || !remainPrimaryKey.equals(uniquenessViolation.getPrimaryKey())) {
                 return deleteRecordAsync(uniquenessViolation.getPrimaryKey()).thenApply(ignore -> null);
@@ -1710,8 +1647,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @API(API.Status.INTERNAL)
-    public void addIndexUniquenessCommitCheck(@Nonnull Index index, @Nonnull Subspace indexSubspace,
-                                              @Nonnull CompletableFuture<Void> check) {
+    public void addIndexUniquenessCommitCheck(Index index, Subspace indexSubspace,
+                                              CompletableFuture<Void> check) {
         IndexUniquenessCommitCheck commitCheck = new IndexUniquenessCommitCheck(index, indexSubspace, check);
         getRecordContext().addCommitCheck(commitCheck);
     }
@@ -1725,9 +1662,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param index the index to collect commit checks for
      * @return a future that will complete when all outstanding uniqueness checks for the index have completed
      */
-    @Nonnull
     @VisibleForTesting
-    CompletableFuture<Void> whenAllIndexUniquenessCommitChecks(@Nonnull Index index) {
+    CompletableFuture<Void> whenAllIndexUniquenessCommitChecks(Index index) {
         // we need to check based on the index subspace instead of the index, in case there are two stores open in
         // the same context, and one has uniqueness violations, and the other does not
         final Subspace indexSubspace = indexSubspace(index);
@@ -1744,20 +1680,17 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Override
-    @Nonnull
-    public CompletableFuture<Boolean> dryRunDeleteRecordAsync(@Nonnull final Tuple primaryKey) {
+    public CompletableFuture<Boolean> dryRunDeleteRecordAsync(final Tuple primaryKey) {
         return deleteTypedRecord(serializer, primaryKey, true);
     }
 
     @Override
-    @Nonnull
-    public CompletableFuture<Boolean> deleteRecordAsync(@Nonnull final Tuple primaryKey) {
+    public CompletableFuture<Boolean> deleteRecordAsync(final Tuple primaryKey) {
         return deleteTypedRecord(serializer, primaryKey, false);
     }
 
-    @Nonnull
-    protected <M extends Message> CompletableFuture<Boolean> deleteTypedRecord(@Nonnull RecordSerializer<M> typedSerializer,
-                                                                               @Nonnull Tuple primaryKey, boolean isDryRun) {
+    protected <M extends Message> CompletableFuture<Boolean> deleteTypedRecord(RecordSerializer<M> typedSerializer,
+                                                                               Tuple primaryKey, boolean isDryRun) {
         if (isDryRun) {
             return loadTypedRecord(typedSerializer, primaryKey, false).thenCompose(oldRecord -> oldRecord == null ? AsyncUtil.READY_FALSE : AsyncUtil.READY_TRUE);
         }
@@ -1798,7 +1731,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @API(API.Status.INTERNAL)
-    public <M extends Message> void deleteRecordSplits(final @Nonnull Tuple primaryKey, final boolean clearBasedOnPreviousSizeInfo, final @Nullable FDBStoredRecord<M> oldRecord, final @Nonnull RecordMetaData metaData) {
+    public <M extends Message> void deleteRecordSplits(final Tuple primaryKey, final boolean clearBasedOnPreviousSizeInfo, final @Nullable FDBStoredRecord<M> oldRecord, final RecordMetaData metaData) {
         SplitHelper.deleteSplit(getRecordContext(), recordsSubspace(), primaryKey, metaData.isSplitLongRecords(), omitUnsplitRecordSuffix, clearBasedOnPreviousSizeInfo, oldRecord);
     }
 
@@ -1927,7 +1860,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Override
-    public CompletableFuture<Void> deleteRecordsWhereAsync(@Nonnull QueryComponent component) {
+    public CompletableFuture<Void> deleteRecordsWhereAsync(QueryComponent component) {
         if (recordStoreStateRef.get() == null) {
             return preloadRecordStoreStateAsync().thenCompose(ignore -> deleteRecordsWhereAsync(component));
         }
@@ -1946,7 +1879,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
-    private static void validateRecordUpdateAllowed(@Nonnull RecordStoreState state) {
+    private static void validateRecordUpdateAllowed(RecordStoreState state) {
         if (!state.isRecordUpdateAllowed()) {
             throw new StoreIsLockedForRecordUpdates(state);
         }
@@ -1962,23 +1895,23 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     class RecordsWhereDeleter {
-        @Nonnull final RecordMetaData recordMetaData;
+        final RecordMetaData recordMetaData;
         @Nullable final RecordType recordType;
 
-        @Nonnull final QueryComponent component;
+        final QueryComponent component;
         @Nullable final QueryComponent typelessComponent;
-        @Nonnull final QueryToKeyMatcher matcher;
+        final QueryToKeyMatcher matcher;
         @Nullable final QueryToKeyMatcher indexMatcher;
 
-        @Nonnull final Collection<RecordType> allRecordTypes;
-        @Nonnull final Collection<Index> allIndexes;
+        final Collection<RecordType> allRecordTypes;
+        final Collection<Index> allIndexes;
 
-        @Nonnull final List<IndexMaintainer> indexMaintainers;
+        final List<IndexMaintainer> indexMaintainers;
 
-        @Nullable final Key.Evaluated evaluated;
-        @Nullable final Key.Evaluated indexEvaluated;
+        @Nullable final Evaluated evaluated;
+        @Nullable final Evaluated indexEvaluated;
 
-        public RecordsWhereDeleter(@Nonnull QueryComponent component) {
+        public RecordsWhereDeleter(QueryComponent component) {
             this.component = component;
 
             RecordTypeKeyComparison recordTypeKeyComparison = null;
@@ -2040,13 +1973,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (recordTypeKeyComparison == null) {
                 indexEvaluated = evaluated;
             } else {
-                indexEvaluated = Key.Evaluated.concatenate(evaluated.values().subList(1, evaluated.values().size()));
+                indexEvaluated = Evaluated.concatenate(evaluated.values().subList(1, evaluated.values().size()));
             }
             deleteRecordsWhereCheckIndexes();
         }
 
-        private Key.Evaluated deleteRecordsWhereCheckRecordTypes() {
-            Key.Evaluated evaluated = null;
+        private Evaluated deleteRecordsWhereCheckRecordTypes() {
+            Evaluated evaluated = null;
 
             for (RecordType recordType : allRecordTypes) {
                 final QueryToKeyMatcher.Match match = matcher.matchesSatisfyingQuery(recordType.getPrimaryKey());
@@ -2075,7 +2008,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 if (match.getType() != QueryToKeyMatcher.MatchType.EQUALITY) {
                     throw new Query.InvalidExpressionException("Record count key not matching for deleteRecordsWhere");
                 }
-                final Key.Evaluated subkey = match.getEquality(FDBRecordStore.this, EvaluationContext.EMPTY);
+                final Evaluated subkey = match.getEquality(FDBRecordStore.this, EvaluationContext.EMPTY);
                 if (!evaluated.equals(subkey)) {
                     throw recordCoreException("Record count key prefix doesn't align",
                             "initialPrefix", evaluated,
@@ -2099,7 +2032,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
         }
 
-        private boolean canDeleteWhereForIndex(@Nonnull final IndexMaintainer indexMaintainer) {
+        private boolean canDeleteWhereForIndex(final IndexMaintainer indexMaintainer) {
             final Index index = indexMaintainer.state.index;
             final Collection<RecordType> recordTypesForIndex = recordMetaData.recordTypesForIndex(index);
             boolean containsStoredTypes = false;
@@ -2130,7 +2063,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
         }
 
-        private boolean canDeleteWhereForIndexOnStoredTypes(@Nonnull final IndexMaintainer indexMaintainer) {
+        private boolean canDeleteWhereForIndexOnStoredTypes(final IndexMaintainer indexMaintainer) {
             final Index index = indexMaintainer.state.index;
             final Collection<RecordType> recordTypesForIndex = recordMetaData.recordTypesForIndex(index);
 
@@ -2146,7 +2079,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
         }
 
-        private boolean canDeleteWhereForIndexOnJoinedTypes(@Nonnull final IndexMaintainer indexMaintainer) {
+        private boolean canDeleteWhereForIndexOnJoinedTypes(final IndexMaintainer indexMaintainer) {
             final Index index = indexMaintainer.state.index;
             final Collection<RecordType> recordTypesForIndex = recordMetaData.recordTypesForIndex(index);
 
@@ -2214,7 +2147,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             return false;
         }
 
-        private boolean canDeleteWhereForIndexOnUnnestedTypes(@Nonnull final IndexMaintainer indexMaintainer) {
+        private boolean canDeleteWhereForIndexOnUnnestedTypes(final IndexMaintainer indexMaintainer) {
             final Index index = indexMaintainer.state.index;
             final Collection<RecordType> recordTypesForIndex = recordMetaData.recordTypesForIndex(index);
 
@@ -2254,7 +2187,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             return canDeleteWhereOnConstituent(indexMaintainer, constituentName);
         }
 
-        private boolean canDeleteWhereOnConstituent(final @Nonnull IndexMaintainer indexMaintainer, final String constituentName) {
+        private boolean canDeleteWhereOnConstituent(final IndexMaintainer indexMaintainer, final String constituentName) {
             if (typelessComponent == null) {
                 // The only predicate was the one on type. If we get here, all records should be synthesized from the
                 // stored type being deleted, so return true (which will clear the index)
@@ -2340,8 +2273,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
-    @Nonnull
-    protected static QueryComponent mergeRecordTypeAndComponent(@Nonnull String recordType, @Nullable QueryComponent component) {
+    protected static QueryComponent mergeRecordTypeAndComponent(String recordType, @Nullable QueryComponent component) {
         if (component == null) {
             return new RecordTypeKeyComparison(recordType);
         }
@@ -2360,33 +2292,30 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return pipelineSizer;
     }
 
-    @Nonnull
     private FDBRecordStoreStateCache getStoreStateCache() {
         return storeStateCache == null ? context.getDatabase().getStoreStateCache() : storeStateCache;
     }
 
     @Override
-    @Nonnull
     public CompletableFuture<Long> estimateStoreSizeAsync() {
         final long startTime = System.nanoTime();
         return getSubspaceAsync().thenCompose(subspace -> estimateSize(subspace.range(), startTime));
     }
 
     @Override
-    @Nonnull
-    public CompletableFuture<Long> estimateRecordsSizeAsync(@Nonnull TupleRange range) {
+    public CompletableFuture<Long> estimateRecordsSizeAsync(TupleRange range) {
         final long startTime = System.nanoTime();
         return getSubspaceAsync().thenCompose(ignore -> estimateSize(range.toRange(recordsSubspace()), startTime));
     }
 
-    private CompletableFuture<Long> estimateSize(@Nonnull Range range, long startTimeNanos) {
+    private CompletableFuture<Long> estimateSize(Range range, long startTimeNanos) {
         final CompletableFuture<Long> sizeFuture = ensureContextActive().getEstimatedRangeSizeBytes(range);
         return instrument(FDBStoreTimer.Events.ESTIMATE_SIZE, sizeFuture, startTimeNanos);
     }
 
     @Override
-    public CompletableFuture<Long> getSnapshotRecordCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value,
-                                                          @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
+    public CompletableFuture<Long> getSnapshotRecordCount(KeyExpression key, Evaluated value,
+                                                          IndexQueryabilityFilter indexQueryabilityFilter) {
         final RecordMetaData recordMetaData = getRecordMetaData();
         if (recordMetaData.getRecordCountKey() != null) {
             beginRecordStoreStateRead();
@@ -2428,8 +2357,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Override
-    public CompletableFuture<Long> getSnapshotRecordCountForRecordType(@Nonnull String recordTypeName,
-                                                                       @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
+    public CompletableFuture<Long> getSnapshotRecordCountForRecordType(String recordTypeName,
+                                                                       IndexQueryabilityFilter indexQueryabilityFilter) {
         // A COUNT index on this record type.
         IndexAggregateFunction aggregateFunction = IndexFunctionHelper.count(EmptyKeyExpression.EMPTY);
         Optional<IndexMaintainer> indexMaintainer = IndexFunctionHelper.indexMaintainerForAggregateFunction(this,
@@ -2461,17 +2390,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Override
-    @Nonnull
-    public <T> CompletableFuture<T> evaluateIndexRecordFunction(@Nonnull EvaluationContext evaluationContext,
-                                                                @Nonnull IndexRecordFunction<T> function,
-                                                                @Nonnull FDBRecord<Message> rec) {
+    public <T> CompletableFuture<T> evaluateIndexRecordFunction(EvaluationContext evaluationContext,
+                                                                IndexRecordFunction<T> function,
+                                                                FDBRecord<Message> rec) {
         return evaluateTypedIndexRecordFunction(evaluationContext, function, rec);
     }
 
-    @Nonnull
-    protected <T, M extends Message> CompletableFuture<T> evaluateTypedIndexRecordFunction(@Nonnull EvaluationContext evaluationContext,
-                                                                                           @Nonnull IndexRecordFunction<T> indexRecordFunction,
-                                                                                           @Nonnull FDBRecord<M> rec) {
+    protected <T, M extends Message> CompletableFuture<T> evaluateTypedIndexRecordFunction(EvaluationContext evaluationContext,
+                                                                                           IndexRecordFunction<T> indexRecordFunction,
+                                                                                           FDBRecord<M> rec) {
         return IndexFunctionHelper.indexMaintainerForRecordFunction(this, indexRecordFunction, rec)
                 .orElseThrow(() -> recordCoreException("Record function " + indexRecordFunction +
                                                        " requires appropriate index on " + rec.getRecordType().getName()))
@@ -2479,18 +2406,16 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Override
-    @Nonnull
-    public <T> CompletableFuture<T> evaluateStoreFunction(@Nonnull EvaluationContext evaluationContext,
-                                                          @Nonnull StoreRecordFunction<T> function,
-                                                          @Nonnull FDBRecord<Message> rec) {
+    public <T> CompletableFuture<T> evaluateStoreFunction(EvaluationContext evaluationContext,
+                                                          StoreRecordFunction<T> function,
+                                                          FDBRecord<Message> rec) {
         return evaluateTypedStoreFunction(evaluationContext, function, rec);
     }
 
     @SuppressWarnings("unchecked")
-    @Nonnull
-    public <T, M extends Message> CompletableFuture<T> evaluateTypedStoreFunction(@Nonnull EvaluationContext evaluationContext,
-                                                                                  @Nonnull StoreRecordFunction<T> function,
-                                                                                  @Nonnull FDBRecord<M> rec) {
+    public <T, M extends Message> CompletableFuture<T> evaluateTypedStoreFunction(EvaluationContext evaluationContext,
+                                                                                  StoreRecordFunction<T> function,
+                                                                                  FDBRecord<M> rec) {
         if (FunctionNames.VERSION.equals(function.getName())) {
             if (rec.hasVersion() && rec.getVersion().isComplete()) {
                 return CompletableFuture.completedFuture((T) rec.getVersion());
@@ -2502,12 +2427,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Override
-    @Nonnull
-    public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull List<String> recordTypeNames,
-                                                              @Nonnull IndexAggregateFunction aggregateFunction,
-                                                              @Nonnull TupleRange range,
-                                                              @Nonnull IsolationLevel isolationLevel,
-                                                              @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
+    public CompletableFuture<Tuple> evaluateAggregateFunction(List<String> recordTypeNames,
+                                                              IndexAggregateFunction aggregateFunction,
+                                                              TupleRange range,
+                                                              IsolationLevel isolationLevel,
+                                                              IndexQueryabilityFilter indexQueryabilityFilter) {
         return IndexFunctionHelper.indexMaintainerForAggregateFunction(this,
                         aggregateFunction, recordTypeNames, indexQueryabilityFilter)
                 .orElseThrow(() ->
@@ -2518,16 +2442,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Override
-    @Nonnull
-    public RecordQueryPlan planQuery(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
+    public RecordQueryPlan planQuery(RecordQuery query, ParameterRelationshipGraph parameterRelationshipGraph) {
         final RecordQueryPlanner planner = new RecordQueryPlanner(getRecordMetaData(), getRecordStoreState());
         return planner.plan(query, parameterRelationshipGraph);
     }
 
     @Override
-    @Nonnull
-    public RecordQueryPlan planQuery(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph,
-                                     @Nonnull RecordQueryPlannerConfiguration plannerConfiguration) {
+    public RecordQueryPlan planQuery(RecordQuery query, ParameterRelationshipGraph parameterRelationshipGraph,
+                                     RecordQueryPlannerConfiguration plannerConfiguration) {
         final RecordQueryPlanner planner = new RecordQueryPlanner(getRecordMetaData(), getRecordStoreState());
         planner.setConfiguration(plannerConfiguration);
         return planner.plan(query, parameterRelationshipGraph);
@@ -2545,7 +2467,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      *      {@link IndexState#WRITE_ONLY} otherwise
      * @see UserVersionChecker#needRebuildIndex(Index, long, boolean)
      */
-    @Nonnull
     public static IndexState writeOnlyIfTooManyRecordsForRebuild(long recordCount, boolean indexOnNewRecordTypes) {
         return readableIfNewTypeOrFewRecordsForRebuild(recordCount, indexOnNewRecordTypes, IndexState.WRITE_ONLY);
     }
@@ -2563,15 +2484,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      *      {@link IndexState#DISABLED} otherwise
      * @see UserVersionChecker#needRebuildIndex(Index, long, boolean)
      */
-    @Nonnull
     public static IndexState disabledIfTooManyRecordsForRebuild(long recordCount, boolean indexOnNewRecordTypes) {
         return readableIfNewTypeOrFewRecordsForRebuild(recordCount, indexOnNewRecordTypes, IndexState.DISABLED);
     }
 
-    @Nonnull
     private static IndexState readableIfNewTypeOrFewRecordsForRebuild(long recordCount,
                                                                       boolean indexOnNewRecordTypes,
-                                                                      @Nonnull IndexState defaultState) {
+                                                                      IndexState defaultState) {
         if (indexOnNewRecordTypes || recordCount <= MAX_RECORDS_FOR_REBUILD) {
             return IndexState.READABLE;
         } else {
@@ -2609,16 +2528,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param existenceCheck when to throw an exception if the record store does or does not already exist
      * @return future with whether the record store was modified by the check
      */
-    @Nonnull
     public CompletableFuture<Boolean> checkVersion(@Nullable UserVersionChecker userVersionChecker,
-                                                   @Nonnull StoreExistenceCheck existenceCheck) {
+                                                   StoreExistenceCheck existenceCheck) {
         return checkVersion(userVersionChecker, existenceCheck, AsyncUtil.DONE);
     }
 
-    @Nonnull
     private CompletableFuture<Boolean> checkVersion(@Nullable UserVersionChecker userVersionChecker,
-                                                    @Nonnull StoreExistenceCheck existenceCheck,
-                                                    @Nonnull CompletableFuture<Void> metaDataPreloadFuture) {
+                                                    StoreExistenceCheck existenceCheck,
+                                                    CompletableFuture<Void> metaDataPreloadFuture) {
         CompletableFuture<Void> subspacePreloadFuture = preloadSubspaceAsync();
         CompletableFuture<RecordStoreState> stateFuture;
         if (bypassFullStoreLockReason != null) {
@@ -2650,8 +2567,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         });
     }
 
-    @Nonnull
-    private CompletableFuture<Boolean> checkVersion(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader, @Nullable UserVersionChecker userVersionChecker) {
+    private CompletableFuture<Boolean> checkVersion(RecordMetaDataProto.DataStoreInfo storeHeader, @Nullable UserVersionChecker userVersionChecker) {
         RecordMetaDataProto.DataStoreInfo.Builder info = storeHeader.toBuilder();
         if (info.hasFormatVersion() && info.getFormatVersion() >= SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION) {
             // If the store is already using a format version greater than or equal to the version
@@ -2698,8 +2614,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @SuppressWarnings("squid:S3776") // cognitive complexity is high, candidate for refactoring
     private CompletableFuture<Void> checkUserVersion(@Nullable UserVersionChecker userVersionChecker,
-                                                     @Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader,
-                                                     @Nonnull RecordMetaDataProto.DataStoreInfo.Builder info, @Nonnull boolean[] dirty) {
+                                                     final RecordMetaDataProto.DataStoreInfo storeHeader,
+                                                     RecordMetaDataProto.DataStoreInfo.Builder info, boolean[] dirty) {
         if (userVersionChecker == null) {
             return AsyncUtil.DONE;
         }
@@ -2739,13 +2655,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 });
     }
 
-    private static boolean isNewStoreHeader(@Nonnull RecordMetaDataProto.DataStoreInfoOrBuilder storeInfo) {
+    private static boolean isNewStoreHeader(RecordMetaDataProto.DataStoreInfoOrBuilder storeInfo) {
         return storeInfo.getFormatVersion() == 0;
     }
 
-    @Nonnull
     private RecordMetaDataProto.DataStoreInfo checkAndParseStoreHeader(@Nullable KeyValue firstKeyValue,
-                                                                       @Nonnull StoreExistenceCheck existenceCheck,
+                                                                       StoreExistenceCheck existenceCheck,
                                                                        @Nullable String bypassFullStoreLockReason) {
         RecordMetaDataProto.DataStoreInfo info;
         if (firstKeyValue == null) {
@@ -2767,13 +2682,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @API(API.Status.INTERNAL)
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public static CompletableFuture<Void> checkStoreHeader(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader,
-                                                           @Nonnull FDBRecordContext context,
-                                                           @Nonnull SubspaceProvider subspaceProvider,
-                                                           @Nonnull Subspace subspace,
-                                                           @Nonnull StoreExistenceCheck existenceCheck) {
+    public static CompletableFuture<Void> checkStoreHeader(RecordMetaDataProto.DataStoreInfo storeHeader,
+                                                           FDBRecordContext context,
+                                                           SubspaceProvider subspaceProvider,
+                                                           Subspace subspace,
+                                                           StoreExistenceCheck existenceCheck) {
         if (storeHeader == RecordMetaDataProto.DataStoreInfo.getDefaultInstance()) {
             // Validate that the store is empty
             return readStoreFirstKey(context, subspace, IsolationLevel.SNAPSHOT).thenAccept(firstKeyValue -> {
@@ -2800,11 +2714,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
-    private static boolean checkFirstKeyIsHeader(@Nonnull KeyValue firstKeyValue,
-                                                 @Nonnull FDBRecordContext context,
-                                                 @Nonnull SubspaceProvider subspaceProvider,
-                                                 @Nonnull Subspace subspace,
-                                                 @Nonnull StoreExistenceCheck existenceCheck) {
+    private static boolean checkFirstKeyIsHeader(KeyValue firstKeyValue,
+                                                 FDBRecordContext context,
+                                                 SubspaceProvider subspaceProvider,
+                                                 Subspace subspace,
+                                                 StoreExistenceCheck existenceCheck) {
         final Tuple firstKey = subspace.unpack(firstKeyValue.getKey());
         if (TupleHelpers.equals(firstKey, Tuple.from(STORE_INFO_KEY))) {
             return true;
@@ -2844,8 +2758,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @SuppressWarnings("PMD.PreserveStackTrace")
-    @Nonnull
-    private static FDBRecordStoreKeyspace determineRecordStoreKeyspace(@Nonnull Tuple firstKey, @Nonnull SubspaceProvider subspaceProvider, @Nonnull FDBRecordContext context) {
+    private static FDBRecordStoreKeyspace determineRecordStoreKeyspace(Tuple firstKey, SubspaceProvider subspaceProvider, FDBRecordContext context) {
         if (firstKey.isEmpty()) {
             // This shouldn't happen because of how the range read is performed
             throw new RecordCoreException("First key in record store is empty",
@@ -2862,21 +2775,20 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
-    @Nonnull
-    private static RecordStoreNoInfoAndNotEmptyException noInfoAndNotEmptyException(@Nonnull String staticMessage,
-                                                                                    @Nonnull Tuple firstKey,
-                                                                                    @Nonnull SubspaceProvider subspaceProvider,
-                                                                                    @Nonnull FDBRecordContext context) {
+    private static RecordStoreNoInfoAndNotEmptyException noInfoAndNotEmptyException(String staticMessage,
+                                                                                    Tuple firstKey,
+                                                                                    SubspaceProvider subspaceProvider,
+                                                                                    FDBRecordContext context) {
         return new RecordStoreNoInfoAndNotEmptyException(staticMessage,
                     subspaceProvider.logKey(), subspaceProvider.toString(context),
                     LogMessageKeys.KEY, firstKey);
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private static void checkStoreHeaderInternal(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader,
-                                                 @Nonnull FDBRecordContext context,
-                                                 @Nonnull SubspaceProvider subspaceProvider,
-                                                 @Nonnull StoreExistenceCheck existenceCheck,
+    private static void checkStoreHeaderInternal(RecordMetaDataProto.DataStoreInfo storeHeader,
+                                                 FDBRecordContext context,
+                                                 SubspaceProvider subspaceProvider,
+                                                 StoreExistenceCheck existenceCheck,
                                                  @Nullable String bypassFullStoreLockReason) {
         if (storeHeader == RecordMetaDataProto.DataStoreInfo.getDefaultInstance()) {
             if (existenceCheck == StoreExistenceCheck.ERROR_IF_NOT_EXISTS) {
@@ -2903,8 +2815,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param subspaceProvider the subspace provider for error messages
      * @param bypassFullStoreLockReason if non-null, allows bypassing FULL_STORE lock if it matches the stored reason
      */
-    private static void validateStoreLockState(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader,
-                                               @Nonnull SubspaceProvider subspaceProvider,
+    private static void validateStoreLockState(RecordMetaDataProto.DataStoreInfo storeHeader,
+                                               SubspaceProvider subspaceProvider,
                                                @Nullable String bypassFullStoreLockReason) {
         if (!storeHeader.hasStoreLockState()) {
             return;
@@ -2968,7 +2880,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @see #addRemoveReplacedIndexesCommitCheckIfChanged(boolean)
      * @see com.apple.foundationdb.record.metadata.IndexOptions#REPLACED_BY_OPTION_PREFIX
      */
-    @Nonnull
     private CompletableFuture<Boolean> removeReplacedIndexesIfChanged(boolean changed) {
         if (changed) {
             return removeReplacedIndexes().thenApply(vignore -> true);
@@ -2977,7 +2888,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
-    @Nonnull
     private CompletableFuture<Void> removeReplacedIndexes() {
         if (recordStoreStateRef.get() == null) {
             return preloadRecordStoreStateAsync().thenCompose(vignore -> removeReplacedIndexes());
@@ -3042,13 +2952,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         recordStoreStateRef.get().endWrite();
     }
 
-    @Nonnull
-    private CompletableFuture<RecordMetaDataProto.DataStoreInfo> loadStoreHeaderAsync(@Nonnull StoreExistenceCheck existenceCheck, @Nonnull IsolationLevel isolationLevel, @Nullable String bypassFullStoreLockReason) {
+    private CompletableFuture<RecordMetaDataProto.DataStoreInfo> loadStoreHeaderAsync(StoreExistenceCheck existenceCheck, IsolationLevel isolationLevel, @Nullable String bypassFullStoreLockReason) {
         return readStoreFirstKey(context, getSubspace(), isolationLevel).thenApply(keyValue -> checkAndParseStoreHeader(keyValue, existenceCheck, bypassFullStoreLockReason));
     }
 
     @VisibleForTesting
-    protected void saveStoreHeader(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader) {
+    protected void saveStoreHeader(RecordMetaDataProto.DataStoreInfo storeHeader) {
         if (recordStoreStateRef.get() == null) {
             throw uninitializedStoreException("cannot update store header on an uninitialized store");
         }
@@ -3067,8 +2976,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
-    @Nonnull
-    private CompletableFuture<Void> updateStoreHeaderAsync(@Nonnull UnaryOperator<RecordMetaDataProto.DataStoreInfo.Builder> storeHeaderMutator) {
+    private CompletableFuture<Void> updateStoreHeaderAsync(UnaryOperator<RecordMetaDataProto.DataStoreInfo.Builder> storeHeaderMutator) {
         if (recordStoreStateRef.get() == null) {
             return preloadRecordStoreStateAsync().thenCompose(vignore -> updateStoreHeaderAsync(storeHeaderMutator));
         }
@@ -3118,8 +3026,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
-    @Nonnull
-    private static CompletableFuture<KeyValue> readStoreFirstKey(@Nonnull FDBRecordContext context, @Nonnull Subspace subspace, @Nonnull IsolationLevel isolationLevel) {
+    private static CompletableFuture<KeyValue> readStoreFirstKey(FDBRecordContext context, Subspace subspace, IsolationLevel isolationLevel) {
         final AsyncIterator<KeyValue> iterator = context.readTransaction(isolationLevel.isSnapshot()).getRange(subspace.range(), 1).iterator();
         return context.instrument(FDBStoreTimer.Events.LOAD_RECORD_STORE_INFO,
                 iterator.onHasNext().thenApply(hasNext -> hasNext ? iterator.next() : null));
@@ -3134,7 +3041,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      *
      * @return a future that will complete when all of the indexes are built
      */
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
     public CompletableFuture<Void> rebuildAllIndexes() {
         // Note that index states are *not* cleared, as rebuilding the indexes resets each state
@@ -3159,7 +3065,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      *     defined
      * @see Index#getReplacedByIndexNames()
      */
-    @Nonnull
     public Map<Index, List<RecordType>> getIndexesToBuild() {
         if (recordStoreStateRef.get() == null) {
             throw uninitializedStoreException("cannot get indexes to build on uninitialized store");
@@ -3174,8 +3079,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
-    @Nonnull
-    public CompletableFuture<Void> clearAndMarkIndexWriteOnly(@Nonnull String indexName) {
+    public CompletableFuture<Void> clearAndMarkIndexWriteOnly(String indexName) {
         return clearAndMarkIndexWriteOnly(metaDataProvider.getRecordMetaData().getIndex(indexName));
     }
 
@@ -3184,8 +3088,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param index the index to build
      * @return a future that completes when the index has been cleared and marked write-only for building
      */
-    @Nonnull
-    public CompletableFuture<Void> clearAndMarkIndexWriteOnly(@Nonnull Index index) {
+    public CompletableFuture<Void> clearAndMarkIndexWriteOnly(Index index) {
         return markIndexWriteOnly(index)
                 .thenRun(() -> clearIndexData(index));
     }
@@ -3196,8 +3099,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param index the index to build
      * @return a future that completes when the index has been cleared and marked write-only-with-queue for building
      */
-    @Nonnull
-    public CompletableFuture<Void> clearAndMarkIndexWriteOnlyWithQueue(@Nonnull Index index) {
+    public CompletableFuture<Void> clearAndMarkIndexWriteOnlyWithQueue(Index index) {
         return markIndexWriteOnlyWithQueue(index)
                 .thenRun(() -> clearIndexData(index));
     }
@@ -3283,7 +3185,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @see StateCacheabilityOnOpen
      * @see #setStateCacheabilityAsync(boolean)
      */
-    @Nonnull
     public StateCacheabilityOnOpen getStateCacheabilityOnOpen() {
         return stateCacheabilityOnOpen;
     }
@@ -3299,7 +3200,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param cacheable whether the meta-data version-stamp should be invalidated upon store state change
      * @return a future that will complete to {@code true} if the store state's cacheability has changed
      */
-    @Nonnull
     public CompletableFuture<Boolean> setStateCacheabilityAsync(boolean cacheable) {
         if (recordStoreStateRef.get() == null) {
             return preloadRecordStoreStateAsync().thenCompose(vignore -> setStateCacheabilityAsync(cacheable));
@@ -3361,7 +3261,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @see #setHeaderUserFieldAsync(String, ByteString)
      */
     @Nullable
-    public ByteString getHeaderUserField(@Nonnull String userField) {
+    public ByteString getHeaderUserField(String userField) {
         validateCanAccessHeaderUserFields();
         if (recordStoreStateRef.get() == null) {
             throw uninitializedStoreException("cannot get field from header on uninitialized store");
@@ -3438,8 +3338,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return a future that will be ready when setting the field has completed
      * @see #getHeaderUserField(String)
      */
-    @Nonnull
-    public CompletableFuture<Void> setHeaderUserFieldAsync(@Nonnull String userField, @Nonnull ByteString value) {
+    public CompletableFuture<Void> setHeaderUserFieldAsync(String userField, ByteString value) {
         return updateStoreHeaderAsync(storeHeaderBuilder -> {
             validateCanAccessHeaderUserFields();
             boolean found = false;
@@ -3466,8 +3365,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return a future that will be ready when setting the field has completed
      * @see #setHeaderUserFieldAsync(String, ByteString)
      */
-    @Nonnull
-    public CompletableFuture<Void> setHeaderUserFieldAsync(@Nonnull String userField, @Nonnull byte[] value) {
+    public CompletableFuture<Void> setHeaderUserFieldAsync(String userField, byte[] value) {
         return setHeaderUserFieldAsync(userField, ByteString.copyFrom(value));
     }
 
@@ -3482,7 +3380,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @see #setHeaderUserFieldAsync(String, ByteString)
      * @see #setStateCacheabilityAsync(boolean)
      */
-    public void setHeaderUserField(@Nonnull String userField, @Nonnull ByteString value) {
+    public void setHeaderUserField(String userField, ByteString value) {
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_EDIT_HEADER_USER_FIELD, setHeaderUserFieldAsync(userField, value));
     }
 
@@ -3497,7 +3395,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @see #setHeaderUserFieldAsync(String, ByteString)
      * @see #setStateCacheabilityAsync(boolean)
      */
-    public void setHeaderUserField(@Nonnull String userField, @Nonnull byte[] value) {
+    public void setHeaderUserField(String userField, byte[] value) {
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_EDIT_HEADER_USER_FIELD, setHeaderUserFieldAsync(userField, value));
     }
 
@@ -3513,8 +3411,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return a future that will be ready when the field has bean cleared
      * @see #setHeaderUserFieldAsync(String, ByteString)
      */
-    @Nonnull
-    public CompletableFuture<Void> clearHeaderUserFieldAsync(@Nonnull String userField) {
+    public CompletableFuture<Void> clearHeaderUserFieldAsync(String userField) {
         return updateStoreHeaderAsync(storeHeaderBuilder -> {
             validateCanAccessHeaderUserFields();
             for (int i = storeHeaderBuilder.getUserFieldCount() - 1; i >= 0; i--) {
@@ -3537,7 +3434,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @see #clearHeaderUserFieldAsync(String)
      * @see #setStateCacheabilityAsync(boolean)
      */
-    public void clearHeaderUserField(@Nonnull String userField) {
+    public void clearHeaderUserField(String userField) {
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_EDIT_HEADER_USER_FIELD, clearHeaderUserFieldAsync(userField));
     }
 
@@ -3554,7 +3451,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param newState the new state to update it to.
      * @return a future once that completes once the state is updated, and the data is cleared.
      */
-    public CompletableFuture<Void> updateRecordCountStateAsync(@Nonnull RecordMetaDataProto.DataStoreInfo.RecordCountState newState) {
+    public CompletableFuture<Void> updateRecordCountStateAsync(RecordMetaDataProto.DataStoreInfo.RecordCountState newState) {
         return updateStoreHeaderAsync(builder -> {
             if (!getFormatVersionEnum().isAtLeast(FormatVersion.RECORD_COUNT_STATE)) {
                 throw new RecordCoreException("Store does not support updating record count state")
@@ -3590,7 +3487,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param reason a free text message that can hint future observers about the reasons for setting this state.
      * @return a future that sets this state
      */
-    public CompletableFuture<Void> setStoreLockStateAsync(@Nonnull RecordMetaDataProto.DataStoreInfo.StoreLockState.State state, @Nonnull String reason) {
+    public CompletableFuture<Void> setStoreLockStateAsync(RecordMetaDataProto.DataStoreInfo.StoreLockState.State state, String reason) {
         if (!getFormatVersionEnum().isAtLeast(FormatVersion.STORE_LOCK_STATE)) {
             throw new RecordCoreException("Store does not support setting a store lock state")
                     .addLogInfo(LogMessageKeys.FORMAT_VERSION, getFormatVersionEnum());
@@ -3629,7 +3526,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Override
-    public CompletableFuture<Void> updateIncarnation(@Nonnull IntFunction<Integer> updater) {
+    public CompletableFuture<Void> updateIncarnation(IntFunction<Integer> updater) {
         if (!getFormatVersionEnum().isAtLeast(FormatVersion.INCARNATION)) {
             throw new RecordCoreException("Store does not support incarnation")
                     .addLogInfo(LogMessageKeys.FORMAT_VERSION, getFormatVersionEnum());
@@ -3649,7 +3546,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     // Actually (1) writes the index state to the database and (2) updates the cached state with the new state
     @SuppressWarnings("PMD.CloseResource")
-    private void updateIndexState(@Nonnull String indexName, byte[] indexKey, @Nonnull IndexState indexState) {
+    private void updateIndexState(String indexName, byte[] indexKey, IndexState indexState) {
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info(KeyValueLogMessage.of("index state change",
                     LogMessageKeys.INDEX_NAME, indexName,
@@ -3686,9 +3583,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    private CompletableFuture<Boolean> markIndexNotReadable(@Nonnull String indexName, @Nonnull IndexState indexState) {
+    private CompletableFuture<Boolean> markIndexNotReadable(String indexName, IndexState indexState) {
         if (recordStoreStateRef.get() == null) {
             return preloadRecordStoreStateAsync().thenCompose(vignore -> markIndexNotReadable(indexName, indexState));
         }
@@ -3747,8 +3643,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * otherwise
      * @throws IllegalArgumentException if the index is not present in the meta-data
      */
-    @Nonnull
-    public CompletableFuture<Boolean> markIndexWriteOnly(@Nonnull String indexName) {
+    public CompletableFuture<Boolean> markIndexWriteOnly(String indexName) {
         return markIndexNotReadable(indexName, IndexState.WRITE_ONLY);
     }
 
@@ -3761,8 +3656,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return a future that will contain <code>true</code> if the store was modified and
      * <code>false</code> otherwise
      */
-    @Nonnull
-    public CompletableFuture<Boolean> markIndexWriteOnly(@Nonnull Index index) {
+    public CompletableFuture<Boolean> markIndexWriteOnly(Index index) {
         return markIndexWriteOnly(index.getName());
     }
 
@@ -3776,8 +3670,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * otherwise
      * @throws IllegalArgumentException if the index is not present in the meta-data
      */
-    @Nonnull
-    public CompletableFuture<Boolean> markIndexWriteOnlyWithQueue(@Nonnull String indexName) {
+    public CompletableFuture<Boolean> markIndexWriteOnlyWithQueue(String indexName) {
         return markIndexNotReadable(indexName, IndexState.WRITE_ONLY_WITH_QUEUE);
     }
 
@@ -3787,8 +3680,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return a future that will contain <code>true</code> if the store was modified and
      * <code>false</code> otherwise
      */
-    @Nonnull
-    public CompletableFuture<Boolean> markIndexWriteOnlyWithQueue(@Nonnull Index index) {
+    public CompletableFuture<Boolean> markIndexWriteOnlyWithQueue(Index index) {
         return markIndexWriteOnlyWithQueue(index.getName());
     }
 
@@ -3806,8 +3698,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * <code>false</code> otherwise
      * @throws IllegalArgumentException if the index is not present in the meta-data
      */
-    @Nonnull
-    public CompletableFuture<Boolean> markIndexDisabled(@Nonnull String indexName) {
+    public CompletableFuture<Boolean> markIndexDisabled(String indexName) {
         return markIndexDisabled(metaDataProvider.getRecordMetaData().getIndex(indexName));
     }
 
@@ -3820,8 +3711,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return a future that will contain <code>true</code> if the store was modified and
      * <code>false</code> otherwise
      */
-    @Nonnull
-    public CompletableFuture<Boolean> markIndexDisabled(@Nonnull Index index) {
+    public CompletableFuture<Boolean> markIndexDisabled(Index index) {
         return markIndexNotReadable(index.getName(), IndexState.DISABLED).thenApply(changed -> {
             if (changed) {
                 clearIndexData(index);
@@ -3838,9 +3728,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param index the index to check built state
      * @return a future that will contain the first unbuilt range if any
      */
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    public CompletableFuture<Optional<Range>> firstUnbuiltRange(@Nonnull Index index) {
+    public CompletableFuture<Optional<Range>> firstUnbuiltRange(Index index) {
         if (!getRecordMetaData().hasIndex(index.getName())) {
             throw new MetaDataException("Index " + index.getName() + " does not exist in meta-data.");
         }
@@ -3863,7 +3752,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          * @param unbuiltRange one of the unbuilt ranges associated with this exception
          * @param keyValues additional information for logging
          */
-        public IndexNotBuiltException(@Nonnull String message, @Nullable Range unbuiltRange, @Nullable Object ... keyValues) {
+        public IndexNotBuiltException(String message, @Nullable Range unbuiltRange, @Nullable Object ... keyValues) {
             super(message, keyValues);
             this.unbuiltRange = unbuiltRange;
         }
@@ -3889,8 +3778,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * be made readable/unique-pending or will contain <code>true</code> if the store was modified
      * and <code>false</code> otherwise
      */
-    @Nonnull
-    public CompletableFuture<Boolean> markIndexReadableOrUniquePending(@Nonnull Index index) {
+    public CompletableFuture<Boolean> markIndexReadableOrUniquePending(Index index) {
         return markIndexReadable(index, true);
     }
 
@@ -3904,14 +3792,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * be made readable or will contain <code>true</code> if the store was modified
      * and <code>false</code> otherwise
      */
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    public CompletableFuture<Boolean> markIndexReadable(@Nonnull Index index) {
+    public CompletableFuture<Boolean> markIndexReadable(Index index) {
         return markIndexReadable(index, false);
     }
 
-    @Nonnull
-    private CompletableFuture<Boolean> markIndexReadable(@Nonnull Index index, boolean allowUniquePending) {
+    private CompletableFuture<Boolean> markIndexReadable(Index index, boolean allowUniquePending) {
         if (recordStoreStateRef.get() == null) {
             return preloadRecordStoreStateAsync().thenCompose(vignore -> markIndexReadable(index, allowUniquePending));
         }
@@ -3955,8 +3841,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * be made readable or will contain <code>true</code> if the store was modified
      * and <code>false</code> otherwise
      */
-    @Nonnull
-    public CompletableFuture<Boolean> markIndexReadable(@Nonnull String indexName) {
+    public CompletableFuture<Boolean> markIndexReadable(String indexName) {
         return markIndexReadable(getRecordMetaData().getIndex(indexName));
     }
 
@@ -4033,9 +3918,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return a future that will contain <code>true</code> if the store was modified
      * and <code>false</code> otherwise
      */
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    public CompletableFuture<Boolean> uncheckedMarkIndexReadable(@Nonnull String indexName) {
+    public CompletableFuture<Boolean> uncheckedMarkIndexReadable(String indexName) {
         if (recordStoreStateRef.get() == null) {
             return preloadRecordStoreStateAsync().thenCompose(vignore -> uncheckedMarkIndexReadable(indexName));
         }
@@ -4068,7 +3952,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Ensure that subspace provider has cached {@code Subspace} so that calling {@link #getSubspace} will not block.
      * @return a future that will be complete when the subspace is available
      */
-    @Nonnull
     @API(API.Status.INTERNAL)
     protected CompletableFuture<Void> preloadSubspaceAsync() {
         return getSubspaceAsync().thenApply(subspace -> null);
@@ -4078,7 +3961,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Loads the current state of the record store asynchronously and caches it in memory so that {@link #getRecordStoreState()} requires no i/o.
      * @return a future that will be complete when this store has loaded its record store state
      */
-    @Nonnull
     @API(API.Status.INTERNAL)
     protected CompletableFuture<Void> preloadRecordStoreStateAsync() {
         return preloadRecordStoreStateAsync(StoreExistenceCheck.NONE, IsolationLevel.SNAPSHOT, IsolationLevel.SNAPSHOT);
@@ -4091,11 +3973,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param indexStateIsolationLevel the isolation level for loading index state
      * @return a future that will be complete when this store has loaded its record store state
      */
-    @Nonnull
     @API(API.Status.INTERNAL)
-    protected CompletableFuture<Void> preloadRecordStoreStateAsync(@Nonnull StoreExistenceCheck existenceCheck,
-                                                                   @Nonnull IsolationLevel storeHeaderIsolationLevel,
-                                                                   @Nonnull IsolationLevel indexStateIsolationLevel) {
+    protected CompletableFuture<Void> preloadRecordStoreStateAsync(StoreExistenceCheck existenceCheck,
+                                                                   IsolationLevel storeHeaderIsolationLevel,
+                                                                   IsolationLevel indexStateIsolationLevel) {
         return loadRecordStoreStateAsync(existenceCheck, storeHeaderIsolationLevel, indexStateIsolationLevel)
                 .thenAccept(state -> {
                     if (this.recordStoreStateRef.get() == null) {
@@ -4112,33 +3993,29 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return a future that will contain the state of the record state located at the given subspace
      */
     @API(API.Status.INTERNAL)
-    @Nonnull
-    public CompletableFuture<RecordStoreState> loadRecordStoreStateAsync(@Nonnull StoreExistenceCheck existenceCheck) {
+    public CompletableFuture<RecordStoreState> loadRecordStoreStateAsync(StoreExistenceCheck existenceCheck) {
         return loadRecordStoreStateAsync(existenceCheck, IsolationLevel.SERIALIZABLE, IsolationLevel.SNAPSHOT);
     }
 
-    @Nonnull
-    private CompletableFuture<RecordStoreState> loadRecordStoreStateAsync(@Nonnull StoreExistenceCheck existenceCheck,
-                                                                          @Nonnull IsolationLevel storeHeaderIsolationLevel,
-                                                                          @Nonnull IsolationLevel indexStateIsolationLevel) {
+    private CompletableFuture<RecordStoreState> loadRecordStoreStateAsync(StoreExistenceCheck existenceCheck,
+                                                                          IsolationLevel storeHeaderIsolationLevel,
+                                                                          IsolationLevel indexStateIsolationLevel) {
         // Don't rely on the subspace being loaded as this is called as part of store initialization
         return getSubspaceAsync().thenCompose(subspace ->
                 loadRecordStoreStateInternalAsync(existenceCheck, storeHeaderIsolationLevel, indexStateIsolationLevel)
         );
     }
 
-    @Nonnull
-    private CompletableFuture<RecordStoreState> loadRecordStoreStateInternalAsync(@Nonnull StoreExistenceCheck existenceCheck,
-                                                                                  @Nonnull IsolationLevel storeHeaderIsolationLevel,
-                                                                                  @Nonnull IsolationLevel indexStateIsolationLevel) {
+    private CompletableFuture<RecordStoreState> loadRecordStoreStateInternalAsync(StoreExistenceCheck existenceCheck,
+                                                                                  IsolationLevel storeHeaderIsolationLevel,
+                                                                                  IsolationLevel indexStateIsolationLevel) {
         CompletableFuture<RecordMetaDataProto.DataStoreInfo> storeHeaderFuture = loadStoreHeaderAsync(existenceCheck, storeHeaderIsolationLevel, bypassFullStoreLockReason);
         CompletableFuture<Map<String, IndexState>> loadIndexStates = loadIndexStatesAsync(indexStateIsolationLevel);
         return context.instrument(FDBStoreTimer.Events.LOAD_RECORD_STORE_STATE, storeHeaderFuture.thenCombine(loadIndexStates, RecordStoreState::new));
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    private CompletableFuture<Map<String, IndexState>> loadIndexStatesAsync(@Nonnull IsolationLevel isolationLevel) {
+    private CompletableFuture<Map<String, IndexState>> loadIndexStatesAsync(IsolationLevel isolationLevel) {
         Subspace isSubspace = getSubspace().subspace(Tuple.from(INDEX_STATE_SPACE_KEY));
         KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(isSubspace)
                 .setContext(getContext())
@@ -4184,7 +4061,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param indexName the index to conflict on, if it's state changes
      */
     @SuppressWarnings("PMD.CloseResource")
-    private void addIndexStateReadConflict(@Nonnull String indexName) {
+    private void addIndexStateReadConflict(String indexName) {
         if (!getRecordMetaData().hasIndex(indexName)) {
             throw new MetaDataException("Index " + indexName + " does not exist in meta-data.");
         }
@@ -4223,8 +4100,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return the state of the given index
      * @throws IllegalArgumentException if no index in the metadata has the same name as this index
      */
-    @Nonnull
-    public IndexState getIndexState(@Nonnull Index index) {
+    public IndexState getIndexState(Index index) {
         return getIndexState(index.getName());
     }
 
@@ -4237,8 +4113,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return the state of the given index
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
-    @Nonnull
-    public IndexState getIndexState(@Nonnull String indexName) {
+    public IndexState getIndexState(String indexName) {
         addIndexStateReadConflict(indexName);
         return getRecordStoreState().getState(indexName);
     }
@@ -4255,7 +4130,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @throws IllegalArgumentException if no index in the metadata has the same name as this index
      */
     @API(API.Status.DEPRECATED)
-    public boolean isIndexReadable(@Nonnull Index index) {
+    public boolean isIndexReadable(Index index) {
         return isIndexReadable(index.getName());
     }
 
@@ -4269,7 +4144,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
     @API(API.Status.DEPRECATED)
-    public boolean isIndexReadable(@Nonnull String indexName) {
+    public boolean isIndexReadable(String indexName) {
         return getIndexState(indexName).isReadable();
     }
 
@@ -4288,7 +4163,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @throws IllegalArgumentException if no index in the metadata has the same name as this index
      */
     @API(API.Status.DEPRECATED)
-    public boolean isIndexReadableUniquePending(@Nonnull Index index) {
+    public boolean isIndexReadableUniquePending(Index index) {
         return isIndexReadableUniquePending(index.getName());
     }
 
@@ -4305,7 +4180,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
     @API(API.Status.DEPRECATED)
-    public boolean isIndexReadableUniquePending(@Nonnull String indexName) {
+    public boolean isIndexReadableUniquePending(String indexName) {
         return getIndexState(indexName).isReadableUniquePending();
     }
 
@@ -4320,7 +4195,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
     @API(API.Status.DEPRECATED)
-    public boolean isIndexScannable(@Nonnull Index index) {
+    public boolean isIndexScannable(Index index) {
         return isIndexScannable(index.getName());
     }
 
@@ -4335,7 +4210,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
     @API(API.Status.DEPRECATED)
-    public boolean isIndexScannable(@Nonnull String indexName) {
+    public boolean isIndexScannable(String indexName) {
         return getIndexState(indexName).isScannable();
     }
 
@@ -4351,7 +4226,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @throws IllegalArgumentException if no index in the metadata has the same name as this index
      */
     @API(API.Status.DEPRECATED)
-    public boolean isIndexWriteOnlyNoQueue(@Nonnull Index index) {
+    public boolean isIndexWriteOnlyNoQueue(Index index) {
         return isIndexWriteOnlyNoQueue(index.getName());
     }
 
@@ -4365,7 +4240,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
     @API(API.Status.DEPRECATED)
-    public boolean isIndexWriteOnlyNoQueue(@Nonnull String indexName) {
+    public boolean isIndexWriteOnlyNoQueue(String indexName) {
         return getIndexState(indexName).isWriteOnlyNoQueue();
     }
 
@@ -4381,7 +4256,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @throws IllegalArgumentException if no index in the metadata has the same name as this index
      */
     @API(API.Status.DEPRECATED)
-    public boolean isIndexWriteOnlyWithQueue(@Nonnull Index index) {
+    public boolean isIndexWriteOnlyWithQueue(Index index) {
         return isIndexWriteOnlyWithQueue(index.getName());
     }
 
@@ -4395,7 +4270,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
     @API(API.Status.DEPRECATED)
-    public boolean isIndexWriteOnlyWithQueue(@Nonnull String indexName) {
+    public boolean isIndexWriteOnlyWithQueue(String indexName) {
         return getIndexState(indexName).isWriteOnlyWithQueue();
     }
 
@@ -4412,7 +4287,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @throws IllegalArgumentException if no index in the metadata has the same name as this index
      */
     @API(API.Status.DEPRECATED)
-    public boolean isIndexWriteOnly(@Nonnull Index index) {
+    public boolean isIndexWriteOnly(Index index) {
         return isIndexWriteOnly(index.getName());
     }
 
@@ -4427,7 +4302,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
     @API(API.Status.DEPRECATED)
-    public boolean isIndexWriteOnly(@Nonnull String indexName) {
+    public boolean isIndexWriteOnly(String indexName) {
         return getIndexState(indexName).isWriteOnly();
     }
 
@@ -4443,7 +4318,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @throws IllegalArgumentException if no index in the metadata has the same name as this index
      */
     @API(API.Status.DEPRECATED)
-    public boolean isIndexDisabled(@Nonnull Index index) {
+    public boolean isIndexDisabled(Index index) {
         return isIndexDisabled(index.getName());
     }
 
@@ -4457,7 +4332,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
     @API(API.Status.DEPRECATED)
-    public boolean isIndexDisabled(@Nonnull String indexName) {
+    public boolean isIndexDisabled(String indexName) {
         return getIndexState(indexName).isDisabled();
     }
 
@@ -4480,7 +4355,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @see #saveIndexingTypeStamp(Index, IndexBuildProto.IndexBuildIndexingStamp)
      */
     @API(API.Status.INTERNAL)
-    @Nonnull
     public CompletableFuture<IndexBuildProto.IndexBuildIndexingStamp> loadIndexingTypeStampAsync(Index index) {
         byte[] stampKey = IndexingSubspaces.indexBuildTypeSubspace(this, index).pack();
         return ensureContextActive().get(stampKey).thenApply(serializedStamp -> {
@@ -4516,7 +4390,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     // Remove any indexes that do not match the filter.
     // NOTE: This assumes that the filter will not filter out any indexes if all indexes are readable.
-    private List<Index> sanitizeIndexes(@Nonnull List<Index> indexes, @Nonnull Predicate<Index> filter) {
+    private List<Index> sanitizeIndexes(List<Index> indexes, Predicate<Index> filter) {
         final RecordStoreState localRecordStoreState = getRecordStoreState();
         localRecordStoreState.beginRead();
         try {
@@ -4538,8 +4412,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param recordType type of record to get the readable indexes of
      * @return the list of readable indexes on the given type
      */
-    @Nonnull
-    public List<Index> getReadableIndexes(@Nonnull RecordTypeOrBuilder recordType) {
+    public List<Index> getReadableIndexes(RecordTypeOrBuilder recordType) {
         return sanitizeIndexes(recordType.getIndexes(), index -> getIndexState(index).isReadable());
     }
 
@@ -4550,8 +4423,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param recordType type of record to get the enabled indexes of
      * @return the list of enabled indexes on the given type
      */
-    @Nonnull
-    public List<Index> getEnabledIndexes(@Nonnull RecordTypeOrBuilder recordType) {
+    public List<Index> getEnabledIndexes(RecordTypeOrBuilder recordType) {
         return sanitizeIndexes(recordType.getIndexes(), index -> !getIndexState(index).isDisabled());
     }
 
@@ -4562,8 +4434,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param recordType type of record to get the readable multi-type indexes of
      * @return the list of readable indexes on multiple types including the given type
      */
-    @Nonnull
-    public List<Index> getReadableMultiTypeIndexes(@Nonnull RecordTypeOrBuilder recordType) {
+    public List<Index> getReadableMultiTypeIndexes(RecordTypeOrBuilder recordType) {
         return sanitizeIndexes(recordType.getMultiTypeIndexes(), index -> getIndexState(index).isReadable());
     }
 
@@ -4574,8 +4445,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param recordType type of record to get the enabled multi-type indexes of
      * @return the list of readable indexes on multiple types including the given type
      */
-    @Nonnull
-    public List<Index> getEnabledMultiTypeIndexes(@Nonnull RecordTypeOrBuilder recordType) {
+    public List<Index> getEnabledMultiTypeIndexes(RecordTypeOrBuilder recordType) {
         return sanitizeIndexes(recordType.getMultiTypeIndexes(), index -> !getIndexState(index).isDisabled());
     }
 
@@ -4585,7 +4455,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * within the {@link RecordStoreState}'s list of write-only indexes or its list of disabled indexes.
      * @return the list of readable universal indexes
      */
-    @Nonnull
     public List<Index> getReadableUniversalIndexes() {
         return sanitizeIndexes(getRecordMetaData().getUniversalIndexes(), index -> getIndexState(index).isReadable());
     }
@@ -4596,7 +4465,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * within the {@link RecordStoreState}'s list of disabled indexes.
      * @return the list of readable universal indexes
      */
-    @Nonnull
     public List<Index> getEnabledUniversalIndexes() {
         return sanitizeIndexes(getRecordMetaData().getUniversalIndexes(), index -> !getIndexState(index).isDisabled());
     }
@@ -4609,7 +4477,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * as this record store will fail to commit due to conflicts.
      * @return a map of all the index states.
      */
-    @Nonnull
     public Map<Index, IndexState> getAllIndexStates() {
         final RecordStoreState localRecordStoreState = getRecordStoreState();
         localRecordStoreState.beginRead();
@@ -4623,8 +4490,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     private CompletableFuture<Map<Index, IndexState>> rebuildIndexesGetDesiredIndexStates(
-            @Nonnull List<CompletableFuture<Void>> preWork,
-            @Nonnull Map<Index, CompletableFuture<IndexState>> newStates) {
+            List<CompletableFuture<Void>> preWork,
+            Map<Index, CompletableFuture<IndexState>> newStates) {
         final ConcurrentHashMap<Index, IndexState> desiredIndexStates = new ConcurrentHashMap<>();
         // Combine pre-existing work and newStates resolution into a single list of futures
         final List<CompletableFuture<Void>> allWork = new ArrayList<>(preWork);
@@ -4634,11 +4501,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return AsyncUtil.whenAll(allWork).thenApply(ignore -> desiredIndexStates);
     }
 
-    @Nonnull
-    protected CompletableFuture<Void> rebuildIndexes(@Nonnull Map<Index, List<RecordType>> indexes,
-                                                     @Nonnull Map<Index, CompletableFuture<IndexState>> newStates,
-                                                     @Nonnull List<CompletableFuture<Void>> work,
-                                                     @Nonnull RebuildIndexReason reason,
+    protected CompletableFuture<Void> rebuildIndexes(Map<Index, List<RecordType>> indexes,
+                                                     Map<Index, CompletableFuture<IndexState>> newStates,
+                                                     List<CompletableFuture<Void>> work,
+                                                     RebuildIndexReason reason,
                                                      @Nullable Integer oldMetaDataVersion) {
         // Finish any pre-existing work items and resolve desired index states (which may query index states) before
         // rebuilding indexes (which writes index states)
@@ -4646,10 +4512,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 rebuildIndexes(indexes, desiredIndexStates, reason, oldMetaDataVersion));
     }
 
-    @Nonnull
-    protected CompletableFuture<Void> rebuildIndexes(@Nonnull Map<Index, List<RecordType>> indexes,
-                                                     @Nonnull Map<Index, IndexState> desiredIndexStates,
-                                                     @Nonnull RebuildIndexReason reason,
+    protected CompletableFuture<Void> rebuildIndexes(Map<Index, List<RecordType>> indexes,
+                                                     Map<Index, IndexState> desiredIndexStates,
+                                                     RebuildIndexReason reason,
                                                      @Nullable Integer oldMetaDataVersion) {
         List<CompletableFuture<Void>> work = new ArrayList<>();
         Iterator<Map.Entry<Index, List<RecordType>>> indexIter = indexes.entrySet().iterator();
@@ -4715,10 +4580,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         })));
     }
 
-    protected CompletableFuture<Void> rebuildOrMarkIndex(@Nonnull Index index, @Nonnull IndexState indexState,
-                                                         @Nullable List<RecordType> recordTypes, @Nonnull RebuildIndexReason reason,
+    protected CompletableFuture<Void> rebuildOrMarkIndex(Index index, IndexState indexState,
+                                                         @Nullable List<RecordType> recordTypes, RebuildIndexReason reason,
                                                          @Nullable Integer oldMetaDataVersion,
-                                                         @Nonnull StringBuilder errMessageBuilder) {
+                                                         StringBuilder errMessageBuilder) {
         // Skip index rebuild if the index is on new record types. This may fail because of reusing an index name whose
         // state hasn't been cleared.
         if (!indexState.isDisabled() && areAllRecordTypesSince(recordTypes, oldMetaDataVersion)) {
@@ -4743,8 +4608,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
-    @Nonnull
-    private CompletableFuture<Void> rebuildIndexWithNoRecord(@Nonnull final Index index, @Nonnull RebuildIndexReason reason) {
+    private CompletableFuture<Void> rebuildIndexWithNoRecord(final Index index, RebuildIndexReason reason) {
         final boolean newStore = reason == RebuildIndexReason.NEW_STORE;
         if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
             final KeyValueLogMessage msg = KeyValueLogMessage.build("rebuilding index with no record",
@@ -4784,16 +4648,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return a future that will complete when the index build has finished
      * @see OnlineIndexer
      */
-    @Nonnull
-    public CompletableFuture<Void> rebuildIndex(@Nonnull Index index) {
+    public CompletableFuture<Void> rebuildIndex(Index index) {
         return rebuildIndex(index, RebuildIndexReason.EXPLICIT);
     }
 
     @API(API.Status.INTERNAL)
-    @Nonnull
     @VisibleForTesting
     @SuppressWarnings({"squid:S2095", "PMD.CloseResource"}) // Resource usage for indexBuilder is too complicated for rules.
-    public CompletableFuture<Void> rebuildIndex(@Nonnull final Index index, @Nonnull RebuildIndexReason reason) {
+    public CompletableFuture<Void> rebuildIndex(final Index index, RebuildIndexReason reason) {
         final boolean newStore = reason == RebuildIndexReason.NEW_STORE;
         if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
             final KeyValueLogMessage msg = KeyValueLogMessage.build("rebuilding index",
@@ -4839,8 +4701,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @SuppressWarnings("PMD.GuardLogStatement") // Already is, but around several call.
     private CompletableFuture<Void> checkPossiblyRebuild(@Nullable UserVersionChecker userVersionChecker,
-                                                         @Nonnull RecordMetaDataProto.DataStoreInfo.Builder info,
-                                                         @Nonnull boolean[] dirty) {
+                                                         RecordMetaDataProto.DataStoreInfo.Builder info,
+                                                         boolean[] dirty) {
         final int oldFormatVersion = info.getFormatVersion();
         final int newFormatVersion = Math.max(oldFormatVersion, formatVersion.getValueForSerialization());
         final boolean formatVersionChanged = oldFormatVersion != newFormatVersion;
@@ -4892,8 +4754,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @SuppressWarnings("PMD.CloseResource")
     private CompletableFuture<Void> checkRebuild(@Nullable UserVersionChecker userVersionChecker,
-                                                 @Nonnull RecordMetaDataProto.DataStoreInfo.Builder info,
-                                                 @Nonnull RecordMetaData metaData) {
+                                                 RecordMetaDataProto.DataStoreInfo.Builder info,
+                                                 RecordMetaData metaData) {
         final List<CompletableFuture<Void>> work = new LinkedList<>();
 
         final int oldFormatVersion = info.getFormatVersion();
@@ -4958,7 +4820,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     private CompletableFuture<Void> checkRebuildIndexes(@Nullable UserVersionChecker userVersionChecker,
-                                                        int oldFormatVersion, @Nonnull RecordMetaData metaData, int oldMetaDataVersion,
+                                                        int oldFormatVersion, RecordMetaData metaData, int oldMetaDataVersion,
                                                         boolean rebuildRecordCounts, List<CompletableFuture<Void>> work) {
         final boolean newStore = oldFormatVersion == 0;
         // Note: We are specifically calling `getIndexesSince` and not `getIndexesToBuildSince` because we want to see
@@ -5002,9 +4864,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param indexesToBuildSince the list of indexes whose {@code lastModifiedVersion} has changed since we last did
      * {@code checkVersion}
      */
-    private void handleNoLongerUniqueIndex(@Nonnull final RecordMetaData metaData,
-                                           @Nonnull final List<CompletableFuture<Void>> work,
-                                           @Nonnull final Map<Index, List<RecordType>> indexesToBuildSince) {
+    private void handleNoLongerUniqueIndex(final RecordMetaData metaData,
+                                           final List<CompletableFuture<Void>> work,
+                                           final Map<Index, List<RecordType>> indexesToBuildSince) {
         for (Index index : metaData.getAllIndexes()) {
             if (!indexesToBuildSince.containsKey(index) &&
                     !index.isUnique()) {
@@ -5034,7 +4896,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
-    private static Supplier<CompletableFuture<Long>> getAndRememberFutureLong(@Nonnull AtomicLong ref, @Nonnull Supplier<CompletableFuture<Long>> lazyFuture) {
+    private static Supplier<CompletableFuture<Long>> getAndRememberFutureLong(AtomicLong ref, Supplier<CompletableFuture<Long>> lazyFuture) {
         return Suppliers.memoize(() -> lazyFuture.get().whenComplete((val, err) -> {
             if (err == null) {
                 ref.set(val);
@@ -5057,10 +4919,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @param singleRecordTypeWithPrefixKey either a single record type prefixed by the record type key or {@code null}
      * @return a future that completes to the record count for the version checker
      */
-    @Nonnull
     @SuppressWarnings({"PMD.EmptyCatchBlock", "PMD.CloseResource"})
     protected CompletableFuture<Long> getRecordCountForRebuildIndexes(boolean newStore, boolean rebuildRecordCounts,
-                                                                      @Nonnull Map<Index, List<RecordType>> indexes,
+                                                                      Map<Index, List<RecordType>> indexes,
                                                                       @Nullable RecordType singleRecordTypeWithPrefixKey) {
         // Do this with the new indexes filtered out to avoid using one of them when evaluating the snapshot record count.
         // At this point we won't have written that any new indexes are disabled
@@ -5080,7 +4941,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 // consider checking the size by default or otherwise making the ergonomics around hitting that limitation
                 // better in the future
                 // See: FDBRecordStoreBase.checkPossiblyRebuild() could take a long time if the record count index is split into many groups (https://github.com/FoundationDB/fdb-record-layer/issues/7)
-                return getSnapshotRecordCount(EmptyKeyExpression.EMPTY, Key.Evaluated.EMPTY, indexQueryabilityFilter);
+                return getSnapshotRecordCount(EmptyKeyExpression.EMPTY, Evaluated.EMPTY, indexQueryabilityFilter);
             } catch (RecordCoreException ex) {
                 // Probably this was from the lack of appropriate index on count; treat like rebuildRecordCounts = true.
             }
@@ -5123,7 +4984,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         });
     }
 
-    @Nonnull
     private CompletableFuture<Long> getRecordSizeForRebuildIndexes(@Nullable RecordType singleRecordTypeWithPrefixKey) {
         if (singleRecordTypeWithPrefixKey == null) {
             return estimateRecordsSizeAsync();
@@ -5134,7 +4994,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Nullable
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    protected RecordType singleRecordTypeWithPrefixKey(@Nonnull Map<Index, List<RecordType>> indexes) {
+    protected RecordType singleRecordTypeWithPrefixKey(Map<Index, List<RecordType>> indexes) {
         RecordType recordType = null;
         for (List<RecordType> entry : indexes.values()) {
             Collection<RecordType> types = entry != null ? entry : getRecordMetaData().getRecordTypes().values();
@@ -5155,7 +5015,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    private void addConvertRecordVersions(@Nonnull List<CompletableFuture<Void>> work) {
+    private void addConvertRecordVersions(List<CompletableFuture<Void>> work) {
         if (useOldVersionFormat()) {
             throw recordCoreException("attempted to convert record versions when still using older format");
         }
@@ -5184,11 +5044,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return getSubspace().subspace(Tuple.from(RECORD_VERSION_KEY));
     }
 
-    @Nonnull
     protected Map<Index, CompletableFuture<IndexState>> getStatesForRebuildIndexes(@Nullable UserVersionChecker userVersionChecker,
-                                                                                   @Nonnull Map<Index, List<RecordType>> indexes,
-                                                                                   @Nonnull Supplier<CompletableFuture<Long>> lazyRecordCount,
-                                                                                   @Nonnull Supplier<CompletableFuture<Long>> lazyRecordsSize,
+                                                                                   Map<Index, List<RecordType>> indexes,
+                                                                                   Supplier<CompletableFuture<Long>> lazyRecordCount,
+                                                                                   Supplier<CompletableFuture<Long>> lazyRecordsSize,
                                                                                    boolean newStore,
                                                                                    int oldMetaDataVersion,
                                                                                    int oldFormatVersion) {
@@ -5226,9 +5085,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return newStates;
     }
 
-    private void maybeLogIndexesNeedingRebuilding(@Nonnull Map<Index, CompletableFuture<IndexState>> newStates,
-                                                  @Nonnull AtomicLong recordCountRef,
-                                                  @Nonnull AtomicLong recordsSizeRef,
+    private void maybeLogIndexesNeedingRebuilding(Map<Index, CompletableFuture<IndexState>> newStates,
+                                                  AtomicLong recordCountRef,
+                                                  AtomicLong recordsSizeRef,
                                                   boolean rebuildRecordCounts,
                                                   boolean newStore) {
         if (LOGGER.isDebugEnabled()) {
@@ -5278,7 +5137,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     // either going to rebuild it or disable it. It is therefore package private.
     // TODO: Better to go through the index maintainer?
     @SuppressWarnings("PMD.CloseResource")
-    void clearIndexData(@Nonnull Index index) {
+    void clearIndexData(Index index) {
         context.clear(Range.startsWith(indexSubspace(index).pack())); // startsWith to handle ungrouped aggregate indexes
         context.clear(indexSecondarySubspace(index).range());
         context.clear(indexSlidingWindowSubspace(index).range());
@@ -5338,9 +5197,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    protected boolean checkPossiblyRebuildRecordCounts(@Nonnull RecordMetaData metaData,
-                                                       @Nonnull RecordMetaDataProto.DataStoreInfo.Builder info,
-                                                       @Nonnull List<CompletableFuture<Void>> work,
+    protected boolean checkPossiblyRebuildRecordCounts(RecordMetaData metaData,
+                                                       RecordMetaDataProto.DataStoreInfo.Builder info,
+                                                       List<CompletableFuture<Void>> work,
                                                        int oldFormatVersion) {
         boolean existingStore = oldFormatVersion > 0;
         KeyExpression countKeyExpression = metaData.getRecordCountKey();
@@ -5387,16 +5246,16 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             LOGGER.debug(KeyValueLogMessage.of("recounting all records",
                                            subspaceProvider.logKey(), subspaceProvider.toString(context)));
         }
-        final Map<Key.Evaluated, Long> counts = new HashMap<>();
+        final Map<Evaluated, Long> counts = new HashMap<>();
         final RecordCursor<FDBStoredRecord<Message>> records = scanRecords(null, ScanProperties.FORWARD_SCAN);
         CompletableFuture<Void> future = records.forEach(rec -> {
-            Key.Evaluated subkey = recordCountKey.evaluateSingleton(rec);
+            Evaluated subkey = recordCountKey.evaluateSingleton(rec);
             counts.compute(subkey, (k, v) -> (v == null) ? 1 : v + 1);
         }).thenApply(vignore -> {
             final Transaction tr = ensureContextActive();
             final byte[] bytes = new byte[8];
             final ByteBuffer buf = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
-            for (Map.Entry<Key.Evaluated, Long> entry : counts.entrySet()) {
+            for (Map.Entry<Evaluated, Long> entry : counts.entrySet()) {
                 buf.putLong(entry.getValue());
                 tr.set(getSubspace().pack(Tuple.from(RECORD_COUNT_KEY).addAll(entry.getKey().toTupleAppropriateList())),
                         bytes);
@@ -5428,13 +5287,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return the list of boundary primary keys
      */
     @API(API.Status.EXPERIMENTAL)
-    @Nonnull
-    public RecordCursor<Tuple> getPrimaryKeyBoundaries(@Nonnull Tuple low, @Nonnull Tuple high) {
+    public RecordCursor<Tuple> getPrimaryKeyBoundaries(Tuple low, Tuple high) {
         return getPrimaryKeyBoundaries(recordsSubspace().pack(low), recordsSubspace().pack(high));
     }
 
     @API(API.Status.EXPERIMENTAL)
-    @Nonnull
     public RecordCursor<Tuple> getPrimaryKeyBoundaries(@Nullable TupleRange tupleRange) {
         if (tupleRange == null) {
             tupleRange = TupleRange.ALL;
@@ -5474,8 +5331,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
-    @Nonnull
-    public CompletableFuture<byte[]> repairRecordKeys(@Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+    public CompletableFuture<byte[]> repairRecordKeys(@Nullable byte[] continuation, ScanProperties scanProperties) {
         return repairRecordKeys(continuation, scanProperties, false);
     }
 
@@ -5499,10 +5355,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      *   would have been repaired are incremented
      * @return a future that completes to a continuation or {@code null} if the repair has been completed
      */
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
     public CompletableFuture<byte[]> repairRecordKeys(@Nullable byte[] continuation,
-                                                      @Nonnull ScanProperties scanProperties,
+                                                      ScanProperties scanProperties,
                                                       final boolean isDryRun) {
         // If the records aren't split to begin with, then there is nothing to do.
         if (getRecordMetaData().isSplitLongRecords()) {
@@ -5539,8 +5394,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    private void repairRecordKeyIfNecessary(@Nonnull FDBRecordContext context, @Nonnull Subspace recordSubspace,
-                                            @Nonnull KeyValue keyValue, final boolean isDryRun) {
+    private void repairRecordKeyIfNecessary(FDBRecordContext context, Subspace recordSubspace,
+                                            KeyValue keyValue, final boolean isDryRun) {
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
         final Tuple recordKey = recordSubspace.unpack(keyValue.getKey());
 
@@ -5599,21 +5454,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return suffix instanceof Long && (((Long) suffix) == SplitHelper.RECORD_VERSION);
     }
 
-    @Nonnull
-    private RecordCoreException recordCoreException(@Nonnull String msg) {
+    private RecordCoreException recordCoreException(String msg) {
         return new RecordCoreException(msg,
                 subspaceProvider.logKey(), subspaceProvider.toString(context));
     }
 
-    @Nonnull
-    private RecordCoreException recordCoreException(@Nonnull String msg, Object... keysAndValues) {
+    private RecordCoreException recordCoreException(String msg, Object... keysAndValues) {
         RecordCoreException err = new RecordCoreException(msg, keysAndValues);
         err.addLogInfo(subspaceProvider.logKey().toString(), subspaceProvider.toString(context));
         return err;
     }
 
-    @Nonnull
-    private UninitializedRecordStoreException uninitializedStoreException(@Nonnull String msg) {
+    private UninitializedRecordStoreException uninitializedStoreException(String msg) {
         return new UninitializedRecordStoreException(msg,
                 subspaceProvider.logKey(), subspaceProvider.toString(context));
     }
@@ -5627,7 +5479,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return an {@link IndexDeferredMaintenanceControl} object.
      */
     @API(API.Status.EXPERIMENTAL)
-    @Nonnull
     public synchronized IndexDeferredMaintenanceControl getIndexDeferredMaintenanceControl() {
         if (indexDeferredMaintenanceControl == null) {
             indexDeferredMaintenanceControl = new IndexDeferredMaintenanceControl();
@@ -5635,12 +5486,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return indexDeferredMaintenanceControl;
     }
 
-    @Nonnull
     public static Builder newBuilder() {
         return new Builder();
     }
 
-    @Nonnull
     public Builder asBuilder() {
         return new Builder(this);
     }
@@ -5679,15 +5528,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         private FDBRecordContext context;
 
         @Nullable
-        private FDBRecordStoreBase.UserVersionChecker userVersionChecker;
+        private UserVersionChecker userVersionChecker;
 
-        @Nonnull
         private IndexMaintainerFactoryRegistry indexMaintainerRegistry = IndexMaintainerFactoryRegistryImpl.instance();
 
-        @Nonnull
         private IndexMaintenanceFilter indexMaintenanceFilter = IndexMaintenanceFilter.NORMAL;
 
-        @Nonnull
         private FDBRecordStoreBase.PipelineSizer pipelineSizer = DEFAULT_PIPELINE_SIZER;
 
         @Nullable
@@ -5696,13 +5542,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @Nullable
         private FDBRecordStoreStateCache storeStateCache = null;
 
-        @Nonnull
         private StateCacheabilityOnOpen stateCacheabilityOnOpen = StateCacheabilityOnOpen.DEFAULT;
 
         @Nullable
         private String bypassFullStoreLockReason = null;
 
-        @Nonnull
         private PlanSerializationRegistry planSerializationRegistry = DefaultPlanSerializationRegistry.INSTANCE;
 
         protected Builder() {
@@ -5720,7 +5564,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          * Copy state from another store builder.
          * @param other the record store builder whose state to take
          */
-        public final void copyFrom(@Nonnull Builder other) {
+        public final void copyFrom(Builder other) {
             this.serializer = other.serializer;
             this.formatVersion = other.formatVersion;
             this.metaDataProvider = other.metaDataProvider;
@@ -5741,7 +5585,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          * Copy state from a record store.
          * @param store the record store whose state to take
          */
-        public final void copyFrom(@Nonnull FDBRecordStore store) {
+        public final void copyFrom(FDBRecordStore store) {
             this.serializer = store.serializer;
             this.formatVersion = store.formatVersion;
             this.metaDataProvider = store.metaDataProvider;
@@ -5763,8 +5607,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
         @Override
-        @Nonnull
-        public Builder setSerializer(@Nonnull RecordSerializer<Message> serializer) {
+        public Builder setSerializer(RecordSerializer<Message> serializer) {
             this.serializer = serializer;
             return this;
         }
@@ -5782,7 +5625,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
         @Override
-        @Nonnull
         @Deprecated(forRemoval = true)
         @SuppressWarnings("removal") // this method is deprecated to be removed with parent
         public Builder setFormatVersion(int formatVersion) {
@@ -5802,7 +5644,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
         @Override
-        @Nonnull
         public Builder setMetaDataProvider(@Nullable RecordMetaDataProvider metaDataProvider) {
             this.metaDataProvider = metaDataProvider;
             return this;
@@ -5815,7 +5656,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
         @Override
-        @Nonnull
         public Builder setMetaDataStore(@Nullable FDBMetaDataStore metaDataStore) {
             this.metaDataStore = metaDataStore;
             if (metaDataStore != null && context == null) {
@@ -5831,7 +5671,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
         @Override
-        @Nonnull
         public Builder setContext(@Nullable FDBRecordContext context) {
             this.context = context;
             return this;
@@ -5844,14 +5683,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
         @Override
-        @Nonnull
         public Builder setSubspaceProvider(@Nullable SubspaceProvider subspaceProvider) {
             this.subspaceProvider = subspaceProvider;
             return this;
         }
 
         @Override
-        @Nonnull
         @API(API.Status.UNSTABLE)
         public Builder setSubspace(@Nullable Subspace subspace) {
             this.subspaceProvider = subspace == null ? null : new SubspaceProviderBySubspace(subspace);
@@ -5862,7 +5699,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          * Sets the {@link KeySpacePath} location of the {@link FDBRecordStore}.
          */
         @Override
-        @Nonnull
         public Builder setKeySpacePath(@Nullable KeySpacePath keySpacePath) {
             this.subspaceProvider = keySpacePath == null ? null : new SubspaceProviderByKeySpacePath(keySpacePath);
             return this;
@@ -5875,47 +5711,40 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
         @Override
-        @Nonnull
         public Builder setUserVersionChecker(@Nullable UserVersionChecker userVersionChecker) {
             this.userVersionChecker = userVersionChecker;
             return this;
         }
 
         @Override
-        @Nonnull
         public IndexMaintainerFactoryRegistry getIndexMaintainerRegistry() {
             return indexMaintainerRegistry;
         }
 
         @Override
-        @Nonnull
-        public Builder setIndexMaintainerRegistry(@Nonnull IndexMaintainerFactoryRegistry indexMaintainerRegistry) {
+        public Builder setIndexMaintainerRegistry(IndexMaintainerFactoryRegistry indexMaintainerRegistry) {
             this.indexMaintainerRegistry = indexMaintainerRegistry;
             return this;
         }
 
         @Override
-        @Nonnull
         public IndexMaintenanceFilter getIndexMaintenanceFilter() {
             return indexMaintenanceFilter;
         }
 
         @Override
-        @Nonnull
-        public Builder setIndexMaintenanceFilter(@Nonnull IndexMaintenanceFilter indexMaintenanceFilter) {
+        public Builder setIndexMaintenanceFilter(IndexMaintenanceFilter indexMaintenanceFilter) {
             this.indexMaintenanceFilter = indexMaintenanceFilter;
             return this;
         }
 
         @Override
-        @Nonnull
         public PipelineSizer getPipelineSizer() {
             return pipelineSizer;
         }
 
         @Override
-        @Nonnull
-        public Builder setPipelineSizer(@Nonnull PipelineSizer pipelineSizer) {
+        public Builder setPipelineSizer(PipelineSizer pipelineSizer) {
             this.pipelineSizer = pipelineSizer;
             return this;
         }
@@ -5927,21 +5756,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
         @Override
-        @Nonnull
         public Builder setStoreStateCache(@Nullable FDBRecordStoreStateCache storeStateCache) {
             this.storeStateCache = storeStateCache;
             return this;
         }
 
         @Override
-        @Nonnull
         public StateCacheabilityOnOpen getStateCacheabilityOnOpen() {
             return stateCacheabilityOnOpen;
         }
 
         @Override
-        @Nonnull
-        public Builder setStateCacheabilityOnOpen(@Nonnull final StateCacheabilityOnOpen stateCacheabilityOnOpen) {
+        public Builder setStateCacheabilityOnOpen(final StateCacheabilityOnOpen stateCacheabilityOnOpen) {
             this.stateCacheabilityOnOpen = stateCacheabilityOnOpen;
             return this;
         }
@@ -5953,29 +5779,25 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
         @Override
-        @Nonnull
         public Builder setBypassFullStoreLockReason(@Nullable final String reason) {
             this.bypassFullStoreLockReason = reason;
             return this;
         }
 
-        @Nonnull
         public PlanSerializationRegistry getPlanSerializationRegistry() {
             return planSerializationRegistry;
         }
 
-        public void setPlanSerializationRegistry(@Nonnull final PlanSerializationRegistry planSerializationRegistry) {
+        public void setPlanSerializationRegistry(final PlanSerializationRegistry planSerializationRegistry) {
             this.planSerializationRegistry = planSerializationRegistry;
         }
 
         @Override
-        @Nonnull
         public Builder copyBuilder() {
             return new Builder(this);
         }
 
         @Override
-        @Nonnull
         public FDBRecordStore build() {
             if (context == null) {
                 throw new RecordCoreException("record context must be supplied");
@@ -5994,7 +5816,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
         @Override
-        @Nonnull
         public CompletableFuture<FDBRecordStore> uncheckedOpenAsync() {
             final CompletableFuture<Long> readVersionFuture = preloadReadVersion();
             final CompletableFuture<Void> preloadMetaData = readVersionFuture.thenCompose(ignore -> preloadMetaData());
@@ -6005,8 +5826,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
         @Override
-        @Nonnull
-        public CompletableFuture<FDBRecordStore> createOrOpenAsync(@Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
+        public CompletableFuture<FDBRecordStore> createOrOpenAsync(FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
             // Might be as many as four reads: meta-data store, keyspace path, store index state, store info header.
             // Try to do them as much in parallel as possible.
             final CompletableFuture<Long> readVersionFuture = preloadReadVersion();
@@ -6016,7 +5836,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             return checkVersion.thenApply(vignore -> recordStore);
         }
 
-        @Nonnull
         private RecordMetaDataProvider getMetaDataProviderForBuild() {
             if (metaDataStore != null) {
                 return metaDataStore;
@@ -6037,7 +5856,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          * @return a future that will contain the transaction's read version
          * @see FDBRecordContext#getReadVersionAsync()
          */
-        @Nonnull
         private CompletableFuture<Long> preloadReadVersion() {
             if (context == null) {
                 throw new RecordCoreException("record context must be supplied");
@@ -6045,7 +5863,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             return context.getReadVersionAsync();
         }
 
-        @Nonnull
         private CompletableFuture<Void> preloadMetaData() {
             if (metaDataStore != null) {
                 return metaDataStore.preloadMetaData(metaDataProvider);
@@ -6135,8 +5952,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          */
         @API(API.Status.EXPERIMENTAL)
         public CompletableFuture<NonnullPair<Boolean, FDBRecordStore>> repairMissingHeader(
-                final int userVersion, @Nonnull final FormatVersion minimumPossibleFormatVersion,
-                @Nonnull final RepairMissingHeaderOptions repairMissingHeaderOptions) {
+                final int userVersion, final FormatVersion minimumPossibleFormatVersion,
+                final RepairMissingHeaderOptions repairMissingHeaderOptions) {
             if (!formatVersion.isAtLeast(minimumPossibleFormatVersion)) {
                 throw new RecordCoreArgumentException("minimumPossibleFormatVersion is greater than the target formatVerson")
                         .addLogInfo(LogMessageKeys.FORMAT_VERSION, minimumPossibleFormatVersion)
@@ -6158,9 +5975,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         private CompletableFuture<NonnullPair<Boolean, FDBRecordStore>> repairMissingHeader(
                 final int userVersion,
-                @Nonnull final FDBRecordStore store,
-                @Nonnull final RecordMetaDataProto.DataStoreInfo existing,
-                @Nonnull final RepairMissingHeaderOptions repairMissingHeaderOptions) {
+                final FDBRecordStore store,
+                final RecordMetaDataProto.DataStoreInfo existing,
+                final RepairMissingHeaderOptions repairMissingHeaderOptions) {
             if (!existing.equals(RecordMetaDataProto.DataStoreInfo.getDefaultInstance())) {
                 return store.checkVersion(userVersionChecker, StoreExistenceCheck.ERROR_IF_NOT_EXISTS)
                         .thenApply(checkVersionDidSomething -> NonnullPair.of(false, store));

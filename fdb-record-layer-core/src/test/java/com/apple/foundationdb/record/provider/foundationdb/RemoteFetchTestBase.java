@@ -42,8 +42,8 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.provider.Arguments;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.function.BiConsumer;
@@ -143,7 +143,6 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
         assertThat(myrec.getNumValueUnique(), equalTo(numValue));
     }
 
-    @Nonnull
     protected RecordQueryPlan plan(final RecordQuery query, final IndexFetchMethod useIndexPrefetch) {
         planner.setConfiguration(planner.getConfiguration()
                 .asBuilder()
@@ -253,7 +252,6 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
         return results;
     }
 
-    @Nonnull
     protected ExecuteProperties serializableWithStreamingMode(final CursorStreamingMode streamingMode) {
         final ExecuteProperties execProperties = ExecuteProperties.newBuilder()
                 .setIsolationLevel(IsolationLevel.SERIALIZABLE)

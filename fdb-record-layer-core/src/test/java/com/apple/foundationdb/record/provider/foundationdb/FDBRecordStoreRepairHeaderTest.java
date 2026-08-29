@@ -54,7 +54,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
@@ -82,7 +81,6 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
 
     static final String REPAIR_REASON = "Repair Reason";
 
-    @Nonnull
     protected final KeySpacePath path;
 
     public FDBRecordStoreRepairHeaderTest() {
@@ -234,7 +232,6 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
 
         final int userVersion = 2;
         final FDBRecordStoreBase.UserVersionChecker userVersionChecker = new AssertMatchingUserVersion(userVersion, userVersion) {
-            @Nonnull
             @Override
             public CompletableFuture<IndexState> needRebuildIndex(final Index index, final Supplier<CompletableFuture<Long>> lazyRecordCount, final Supplier<CompletableFuture<Long>> lazyEstimatedSize, final boolean indexOnNewRecordTypes) {
                 return Assertions.fail("needRebuildIndex should not be called");
@@ -868,8 +865,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
         return metaDataBuilder.getRecordMetaData();
     }
 
-    @Nonnull
-    protected FDBRecordStore.Builder getStoreBuilder(@Nonnull FDBRecordContext context, @Nonnull RecordMetaData metaData) {
+    protected FDBRecordStore.Builder getStoreBuilder(FDBRecordContext context, RecordMetaData metaData) {
         return getStoreBuilder(context, metaData, path);
     }
 
@@ -906,7 +902,6 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
         }
     }
 
-    @Nonnull
     private static FDBRecordStore joinRepair(final FDBRecordContext context, final CompletableFuture<NonnullPair<Boolean, FDBRecordStore>> repairFuture) {
         final NonnullPair<Boolean, FDBRecordStore> result = context.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION,
                 repairFuture);
@@ -914,7 +909,6 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
         return result.getRight();
     }
 
-    @Nonnull
     private FDBRecordStoreBase.UserVersionChecker setupCachedStoreState(final RecordMetaData recordMetaData) {
         FDBRecordStoreBase.UserVersionChecker userVersionChecker = new AssertMatchingUserVersion(0, 1);
 
@@ -977,7 +971,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
         }
 
         @Override
-        public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
+        public CompletableFuture<Integer> checkUserVersion(final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
             assertEquals(oldUserVersion, storeHeader.getUserVersion());
             return CompletableFuture.completedFuture(newUserVersion);
         }
@@ -998,7 +992,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
         }
 
         @Override
-        public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
+        public CompletableFuture<Integer> checkUserVersion(final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
             assertThat(storeHeader.getMetaDataversion()).isEqualTo(expected.getVersion());
             assertThat(metaData).isEqualTo(expected);
             return CompletableFuture.completedFuture(storeHeader.getUserVersion());

@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb.runners;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -45,7 +44,6 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.INTERNAL)
 public class FutureAutoClose implements AutoCloseable {
-    @Nonnull
     private final List<CompletableFuture<?>> futuresToClose;
     private boolean closed;
 

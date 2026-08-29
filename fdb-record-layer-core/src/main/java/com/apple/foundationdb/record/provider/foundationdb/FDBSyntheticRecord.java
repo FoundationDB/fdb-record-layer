@@ -29,8 +29,8 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -46,21 +46,17 @@ import java.util.Objects;
 @API(API.Status.EXPERIMENTAL)
 public class FDBSyntheticRecord implements FDBIndexableRecord<Message> {
 
-    @Nonnull
     private final Tuple primaryKey;
-    @Nonnull
     private final SyntheticRecordType<?> recordType;
-    @Nonnull
     private final Message protoRecord;
-    @Nonnull
     private final Map<String, FDBStoredRecord<? extends Message>> constituents;
 
     private final int keyCount;
     private final int keySize;
     private final int valueSize;
 
-    protected FDBSyntheticRecord(@Nonnull Tuple primaryKey, @Nonnull SyntheticRecordType<?> recordType, @Nonnull Message protoRecord,
-                                 @Nonnull FDBStoredSizes size, @Nonnull Map<String, FDBStoredRecord<? extends Message>> constituents) {
+    protected FDBSyntheticRecord(Tuple primaryKey, SyntheticRecordType<?> recordType, Message protoRecord,
+                                 FDBStoredSizes size, Map<String, FDBStoredRecord<? extends Message>> constituents) {
         this.primaryKey = primaryKey;
         this.recordType = recordType;
         this.protoRecord = protoRecord;
@@ -70,9 +66,8 @@ public class FDBSyntheticRecord implements FDBIndexableRecord<Message> {
         this.valueSize = size.getValueSize();
     }
     
-    @Nonnull
-    public static FDBSyntheticRecord of(@Nonnull SyntheticRecordType<?> recordType,
-                                        @Nonnull Map<String, FDBStoredRecord<? extends Message>> constituents) {
+    public static FDBSyntheticRecord of(SyntheticRecordType<?> recordType,
+                                        Map<String, FDBStoredRecord<? extends Message>> constituents) {
         // Each constituent's primary key goes into a subtuple.
         final List<Object> constituentPrimaryKeys = new ArrayList<>(recordType.getConstituents().size() + 1);
         constituentPrimaryKeys.add(recordType.getRecordTypeKey());
@@ -116,19 +111,16 @@ public class FDBSyntheticRecord implements FDBIndexableRecord<Message> {
      * of the constituent records as nested tuples.
      * @return primary key for this record
      */
-    @Nonnull
     @Override
     public Tuple getPrimaryKey() {
         return primaryKey;
     }
 
-    @Nonnull
     @Override
     public SyntheticRecordType<?> getRecordType() {
         return recordType;
     }
 
-    @Nonnull
     @Override
     public Message getRecord() {
         return protoRecord;
@@ -185,7 +177,6 @@ public class FDBSyntheticRecord implements FDBIndexableRecord<Message> {
         return false;
     }
 
-    @Nonnull
     @SuppressWarnings("squid:S1452")
     public Map<String, FDBStoredRecord<? extends Message>> getConstituents() {
         return constituents;
@@ -193,7 +184,7 @@ public class FDBSyntheticRecord implements FDBIndexableRecord<Message> {
 
     @Nullable
     @SuppressWarnings("squid:S1452")
-    public FDBStoredRecord<? extends Message> getConstituent(@Nonnull String name) {
+    public FDBStoredRecord<? extends Message> getConstituent(String name) {
         return constituents.get(name);
     }
 

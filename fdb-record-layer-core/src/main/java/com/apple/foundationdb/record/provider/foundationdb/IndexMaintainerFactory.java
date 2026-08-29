@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 
-import javax.annotation.Nonnull;
 import java.util.Collections;
 
 /**
@@ -55,7 +54,6 @@ public interface IndexMaintainerFactory {
      * Get the index types supported by this factory.
      * @return a collection of strings of index types supported by this factory
      */
-    @Nonnull
     Iterable<String> getIndexTypes();
 
     /**
@@ -63,7 +61,6 @@ public interface IndexMaintainerFactory {
      * @param index an index that was produced by this factory
      * @return a validator for this kind of index
      */
-    @Nonnull
     IndexValidator getIndexValidator(Index index);
 
     /**
@@ -71,8 +68,7 @@ public interface IndexMaintainerFactory {
      * @param state the state of the new index maintainer
      * @return a new index maintainer for the type of index given
      */
-    @Nonnull
-    IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state);
+    IndexMaintainer getIndexMaintainer(IndexMaintainerState state);
 
     /**
      * Create {@link MatchCandidate}s to use for the given {@link Index}.
@@ -114,8 +110,7 @@ public interface IndexMaintainerFactory {
      * @param reverse whether the index is to be scanned in reverse
      * @return a collection of {@link MatchCandidate}s to match the index against
      */
-    @Nonnull
-    default Iterable<MatchCandidate> createMatchCandidates(@Nonnull RecordMetaData metaData, @Nonnull Index index, boolean reverse) {
+    default Iterable<MatchCandidate> createMatchCandidates(RecordMetaData metaData, Index index, boolean reverse) {
         return Collections.emptyList();
     }
 
@@ -126,8 +121,7 @@ public interface IndexMaintainerFactory {
      * @param index the index to get attributes for
      * @return the index attributes for this index
      */
-    @Nonnull
-    default IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull Index index) {
+    default IndexGeneralAttributes getIndexGeneralAttributes(Index index) {
         return DEFAULT_GENERAL_ATTRIBUTES;
     }
 }

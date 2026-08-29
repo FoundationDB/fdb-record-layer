@@ -25,7 +25,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.stream.Stream;
 
@@ -43,7 +42,7 @@ class APIVersionTest {
 
     @ParameterizedTest
     @MethodSource
-    void isAtLeast(@Nonnull APIVersion version1, @Nonnull APIVersion version2) {
+    void isAtLeast(APIVersion version1, APIVersion version2) {
         assertEquals(version1.getVersionNumber() >= version2.getVersionNumber(), version1.isAtLeast(version2));
     }
 }

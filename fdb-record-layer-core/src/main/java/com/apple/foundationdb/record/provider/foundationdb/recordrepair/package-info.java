@@ -22,4 +22,7 @@
  * Classes for validating and repairing records in the DB.
  * @see com.apple.foundationdb.record.provider.foundationdb.recordrepair.RecordValidator
  */
+@NullMarked
 package com.apple.foundationdb.record.provider.foundationdb.recordrepair;
+
+import org.jspecify.annotations.NullMarked;

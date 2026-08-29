@@ -37,7 +37,6 @@ import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
@@ -45,32 +44,29 @@ import java.util.Objects;
  */
 @API(API.Status.EXPERIMENTAL)
 public class TimeWindowScanComparisons extends IndexScanComparisons {
-    @Nonnull
     private final TimeWindowForFunction timeWindow;
 
-    protected TimeWindowScanComparisons(@Nonnull final PlanSerializationContext serializationContext,
-                                        @Nonnull final PTimeWindowScanComparisons timeWindowScanComparisonsProto) {
+    protected TimeWindowScanComparisons(final PlanSerializationContext serializationContext,
+                                        final PTimeWindowScanComparisons timeWindowScanComparisonsProto) {
         super(serializationContext, Objects.requireNonNull(timeWindowScanComparisonsProto.getSuper()));
         this.timeWindow = TimeWindowForFunction.fromProto(serializationContext, Objects.requireNonNull(timeWindowScanComparisonsProto.getTimeWindow()));
     }
 
-    public TimeWindowScanComparisons(@Nonnull TimeWindowForFunction timeWindow, @Nonnull ScanComparisons comparisons) {
+    public TimeWindowScanComparisons(TimeWindowForFunction timeWindow, ScanComparisons comparisons) {
         super(IndexScanType.BY_TIME_WINDOW, comparisons);
         this.timeWindow = timeWindow;
     }
 
-    @Nonnull
     @Override
-    public TimeWindowScanRange bind(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull final EvaluationContext context) {
+    public TimeWindowScanRange bind(final FDBRecordStoreBase<?> store, Index index, final EvaluationContext context) {
         return new TimeWindowScanRange(timeWindow.getLeaderboardType(context), timeWindow.getLeaderboardTimestamp(context), super.bind(store, index, context).getScanRange());
     }
     
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return super.planHash(mode) + timeWindow.planHash(mode);
     }
 
-    @Nonnull
     @Override
     public ExplainTokensWithPrecedence explain() {
         return ExplainTokensWithPrecedence.of(
@@ -78,7 +74,7 @@ public class TimeWindowScanComparisons extends IndexScanComparisons {
     }
 
     @Override
-    public void getPlannerGraphDetails(@Nonnull ImmutableList.Builder<String> detailsBuilder, @Nonnull ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
+    public void getPlannerGraphDetails(ImmutableList.Builder<String> detailsBuilder, ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
         super.getPlannerGraphDetails(detailsBuilder, attributeMapBuilder);
         detailsBuilder.add("time window type: {{timeWindowType}}");
         detailsBuilder.add("time window timestamp: {{timeWindowTimestamp}}");
@@ -86,9 +82,8 @@ public class TimeWindowScanComparisons extends IndexScanComparisons {
         attributeMapBuilder.put("timeWindowTimestamp", Attribute.gml(timeWindow.leaderboardTimestampString()));
     }
 
-    @Nonnull
     @Override
-    protected TimeWindowScanComparisons withScanComparisons(@Nonnull final ScanComparisons newScanComparisons) {
+    protected TimeWindowScanComparisons withScanComparisons(final ScanComparisons newScanComparisons) {
         return new TimeWindowScanComparisons(timeWindow, newScanComparisons);
     }
 
@@ -121,24 +116,21 @@ public class TimeWindowScanComparisons extends IndexScanComparisons {
         return result;
     }
 
-    @Nonnull
     @Override
-    public PTimeWindowScanComparisons toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PTimeWindowScanComparisons toProto(final PlanSerializationContext serializationContext) {
         return PTimeWindowScanComparisons.newBuilder()
                 .setSuper(toIndexScanComparisonsProto(serializationContext))
                 .setTimeWindow(timeWindow.toProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PIndexScanParameters toIndexScanParametersProto(final PlanSerializationContext serializationContext) {
         return PIndexScanParameters.newBuilder().setTimeWindowScanComparisons(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static TimeWindowScanComparisons fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                      @Nonnull final PTimeWindowScanComparisons timeWindowScanComparisonsProto) {
+    public static TimeWindowScanComparisons fromProto(final PlanSerializationContext serializationContext,
+                                                      final PTimeWindowScanComparisons timeWindowScanComparisonsProto) {
         return new TimeWindowScanComparisons(serializationContext, timeWindowScanComparisonsProto);
     }
 
@@ -147,16 +139,14 @@ public class TimeWindowScanComparisons extends IndexScanComparisons {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PTimeWindowScanComparisons, TimeWindowScanComparisons> {
-        @Nonnull
         @Override
         public Class<PTimeWindowScanComparisons> getProtoMessageClass() {
             return PTimeWindowScanComparisons.class;
         }
 
-        @Nonnull
         @Override
-        public TimeWindowScanComparisons fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                   @Nonnull final PTimeWindowScanComparisons timeWindowScanComparisonsProto) {
+        public TimeWindowScanComparisons fromProto(final PlanSerializationContext serializationContext,
+                                                   final PTimeWindowScanComparisons timeWindowScanComparisonsProto) {
             return TimeWindowScanComparisons.fromProto(serializationContext, timeWindowScanComparisonsProto);
         }
     }

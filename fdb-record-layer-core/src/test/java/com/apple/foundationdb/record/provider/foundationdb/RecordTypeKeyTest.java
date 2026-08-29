@@ -56,7 +56,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -375,7 +374,6 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
      * reverse order.
      * @return a stream of arguments to use for parameterized tests with sorts
      */
-    @Nonnull
     static Stream<Arguments> sortArgs() {
         // Sorts should be plannable on the primary key if (1) the sort is on the full primary key
         // or (2) if the sort is on just the second column of the primary key as the fact that the query
@@ -386,7 +384,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "testDoublyBoundedScanWithSort [sortExpr = {0}, reverse = {1}]")
     @MethodSource("sortArgs")
-    public void testDoublyBoundedScanWithSort(@Nonnull KeyExpression sortExpr, boolean reverse) throws Exception {
+    public void testDoublyBoundedScanWithSort(KeyExpression sortExpr, boolean reverse) throws Exception {
         List<FDBStoredRecord<Message>> recs = saveSomeRecords(BASIC_HOOK);
 
         try (FDBRecordContext context = openContext()) {
@@ -430,7 +428,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
     @ParameterizedTest(name = "testSortOnSingleRecordType [sortExpr = {0}, reverse = {1}]")
     @MethodSource("sortArgs")
     @Disabled
-    public void testSortOnSingleRecordType(@Nonnull KeyExpression sortExpr, boolean reverse) throws Exception {
+    public void testSortOnSingleRecordType(KeyExpression sortExpr, boolean reverse) throws Exception {
         List<FDBStoredRecord<Message>> recs = saveSomeRecords(BASIC_HOOK);
 
         try (FDBRecordContext context = openContext()) {
@@ -456,7 +454,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
     @ParameterizedTest(name = "testSortOnSingleRecordType [sortExpr = {0}, reverse = {1}]")
     @MethodSource("sortArgs")
     @Disabled
-    public void testSortOnIndexWithComparisonOnSecondColumn(@Nonnull KeyExpression sortExpr, boolean reverse) throws Exception {
+    public void testSortOnIndexWithComparisonOnSecondColumn(KeyExpression sortExpr, boolean reverse) throws Exception {
         final Index index = new Index("recno-type", concat(field("num_value_2"), recordType()));
         RecordMetaDataHook hook = metaData -> {
             BASIC_HOOK.apply(metaData);
@@ -832,7 +830,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    private List<FDBStoredRecord<Message>> saveSomeRecords(@Nonnull RecordMetaDataHook hook) throws Exception {
+    private List<FDBStoredRecord<Message>> saveSomeRecords(RecordMetaDataHook hook) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
 
@@ -865,7 +863,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    private void saveManyRecords(@Nonnull RecordMetaDataHook hook, int count1, int count2) throws Exception {
+    private void saveManyRecords(RecordMetaDataHook hook, int count1, int count2) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
 

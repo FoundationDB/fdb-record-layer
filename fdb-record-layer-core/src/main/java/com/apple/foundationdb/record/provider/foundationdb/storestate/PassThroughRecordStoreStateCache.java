@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -41,21 +40,19 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.EXPERIMENTAL)
 public class PassThroughRecordStoreStateCache implements FDBRecordStoreStateCache {
-    @Nonnull
     private static final PassThroughRecordStoreStateCache INSTANCE = new PassThroughRecordStoreStateCache();
 
     private PassThroughRecordStoreStateCache() {
     }
 
     @Override
-    @Nonnull
-    public CompletableFuture<FDBRecordStoreStateCacheEntry> get(@Nonnull FDBRecordStore recordStore, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
+    public CompletableFuture<FDBRecordStoreStateCacheEntry> get(FDBRecordStore recordStore, FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
         // No cache to check. Always go to the database.
         return FDBRecordStoreStateCacheEntry.load(recordStore, existenceCheck);
     }
 
     @Override
-    public void validateDatabase(@Nonnull FDBDatabase database) {
+    public void validateDatabase(FDBDatabase database) {
         // All databases are valid with this cache.
     }
 
@@ -65,7 +62,6 @@ public class PassThroughRecordStoreStateCache implements FDBRecordStoreStateCach
     }
 
     @SpotBugsSuppressWarnings(value = "MS_EXPOSE_REP", justification = "Object is not actually mutable")
-    @Nonnull
     public static PassThroughRecordStoreStateCache instance() {
         return INSTANCE;
     }

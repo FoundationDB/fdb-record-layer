@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.metadata.Index;
 import com.google.protobuf.MessageOrBuilder;
 
-import javax.annotation.Nonnull;
 
 /**
  * A hook for suppressing secondary indexing of some records.
@@ -44,13 +43,13 @@ public interface IndexMaintenanceFilter {
      */
     IndexMaintenanceFilter NO_NULLS = new IndexMaintenanceFilter() {
         @Override
-        public IndexValues maintainIndex(@Nonnull Index index, @Nonnull MessageOrBuilder record) {
+        public IndexValues maintainIndex(Index index, MessageOrBuilder record) {
             return IndexValues.SOME;
         }
 
         @Override
-        public boolean maintainIndexValue(@Nonnull Index index, @Nonnull MessageOrBuilder record,
-                                          @Nonnull IndexEntry indexEntry) {
+        public boolean maintainIndexValue(Index index, MessageOrBuilder record,
+                                          IndexEntry indexEntry) {
             return !indexEntry.keyContainsNonUniqueNull();
         }
     };
@@ -60,7 +59,7 @@ public interface IndexMaintenanceFilter {
      */
     enum IndexValues { ALL, NONE, SOME }
 
-    IndexValues maintainIndex(@Nonnull Index index, @Nonnull MessageOrBuilder record);
+    IndexValues maintainIndex(Index index, MessageOrBuilder record);
 
     /**
      * Get whether a specific index entry should be maintained.
@@ -70,8 +69,8 @@ public interface IndexMaintenanceFilter {
      * @param indexEntry potential entry in the index
      * @return {@code true} if the given entry should be maintained in the given index
      */
-    default boolean maintainIndexValue(@Nonnull Index index, @Nonnull MessageOrBuilder record,
-                                       @Nonnull IndexEntry indexEntry) {
+    default boolean maintainIndexValue(Index index, MessageOrBuilder record,
+                                       IndexEntry indexEntry) {
         return true;
     }
 
