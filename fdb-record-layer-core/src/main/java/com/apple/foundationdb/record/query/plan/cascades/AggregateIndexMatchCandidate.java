@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueComputationRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp.UnificationPullUp;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
@@ -63,8 +64,8 @@ import com.google.common.collect.Sets;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -75,28 +76,21 @@ import java.util.Objects;
 public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQuantifierMatchCandidate {
 
     // The backing index metadata structure.
-    @Nonnull
     private final Index index;
 
     // The expression representation of the match candidate.
-    @Nonnull
     private final Traversal traversal;
 
     // list of aliases pertaining ordering information.
-    @Nonnull
     private final List<CorrelationIdentifier> sargableAndOrderAliases;
 
     // list of base indexed record types.
-    @Nonnull
     private final List<RecordType> recordTypes;
 
-    @Nonnull
     private final Type.Record baseType;
 
-    @Nonnull
     private final Value groupByResultValue;
 
-    @Nonnull
     private final SelectExpression selectHavingExpression;
 
     /**
@@ -110,13 +104,13 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
      * @param groupByResultValue The group by expression result value.
      * @param selectHavingExpression The select-having expression.
      */
-    public AggregateIndexMatchCandidate(@Nonnull final Index index,
-                                        @Nonnull final Traversal traversal,
-                                        @Nonnull final List<CorrelationIdentifier> sargableAndOrderAliases,
-                                        @Nonnull final Collection<RecordType> recordTypes,
-                                        @Nonnull final Type.Record baseType,
-                                        @Nonnull final Value groupByResultValue,
-                                        @Nonnull final SelectExpression selectHavingExpression) {
+    public AggregateIndexMatchCandidate(final Index index,
+                                        final Traversal traversal,
+                                        final List<CorrelationIdentifier> sargableAndOrderAliases,
+                                        final Collection<RecordType> recordTypes,
+                                        final Type.Record baseType,
+                                        final Value groupByResultValue,
+                                        final SelectExpression selectHavingExpression) {
         Preconditions.checkArgument(!recordTypes.isEmpty());
         this.index = index;
         this.traversal = traversal;
@@ -127,31 +121,26 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         this.selectHavingExpression = selectHavingExpression;
     }
 
-    @Nonnull
     @Override
     public String getName() {
         return index.getName();
     }
 
-    @Nonnull
     @Override
     public Traversal getTraversal() {
         return traversal;
     }
 
-    @Nonnull
     @Override
     public List<CorrelationIdentifier> getSargableAliases() {
         return sargableAndOrderAliases; // only these for now, later on we should also add the aggregated column alias as well.
     }
 
-    @Nonnull
     @Override
     public List<CorrelationIdentifier> getOrderingAliases() {
         return sargableAndOrderAliases;
     }
 
-    @Nonnull
     @Override
     public KeyExpression getFullKeyExpression() {
         return index.getRootExpression();
@@ -186,10 +175,9 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         return permutedSizeOption == null ? 0 : Integer.parseInt(permutedSizeOption);
     }
 
-    @Nonnull
     @Override
-    public List<MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull final MatchInfo matchInfo,
-                                                                 @Nonnull final List<CorrelationIdentifier> sortParameterIds,
+    public List<MatchedOrderingPart> computeMatchedOrderingParts(final MatchInfo matchInfo,
+                                                                 final List<CorrelationIdentifier> sortParameterIds,
                                                                  final boolean isReverse) {
         final var regularMatchInfo = matchInfo.getRegularMatchInfo();
         final var parameterBindingMap = regularMatchInfo.getParameterBindingMap();
@@ -222,7 +210,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
 
             Objects.requireNonNull(parameterId);
             Objects.requireNonNull(normalizedKeyExpression);
-            @Nullable final var comparisonRange = parameterBindingMap.get(parameterId);
+            @Nullable final ComparisonRange comparisonRange = parameterBindingMap.get(parameterId);
 
             if (normalizedKeyExpression.createsDuplicates()) {
                 if (comparisonRange != null) {
@@ -284,9 +272,8 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         }
     }
 
-    @Nonnull
     @Override
-    public Ordering computeOrderingFromScanComparisons(@Nonnull final ScanComparisons scanComparisons, final boolean isReverse, final boolean isDistinct) {
+    public Ordering computeOrderingFromScanComparisons(final ScanComparisons scanComparisons, final boolean isReverse, final boolean isDistinct) {
         final var bindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
         final int groupingCount = ((GroupingKeyExpression)index.getRootExpression()).getGroupingCount();
 
@@ -368,9 +355,9 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
 
     @Nullable
     @Override
-    public PullUp.UnificationPullUp prepareForUnification(@Nonnull final PartialMatch partialMatch,
-                                                          @Nonnull final CorrelationIdentifier topAlias,
-                                                          @Nonnull final CorrelationIdentifier topCandidateAlias) {
+    public UnificationPullUp prepareForUnification(final PartialMatch partialMatch,
+                                                          final CorrelationIdentifier topAlias,
+                                                          final CorrelationIdentifier topCandidateAlias) {
         final var regularMatchInfo = partialMatch.getRegularMatchInfo();
         if (regularMatchInfo.getRollUpToGroupingValues() != null) {
             final var groupingAndAggregateAccessors =
@@ -393,12 +380,11 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         return null;
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPlan toEquivalentPlan(@Nonnull final PartialMatch partialMatch,
-                                            @Nonnull final PlanContext planContext,
-                                            @Nonnull final Memoizer memoizer,
-                                            @Nonnull final List<ComparisonRange> comparisonRanges,
+    public RecordQueryPlan toEquivalentPlan(final PartialMatch partialMatch,
+                                            final PlanContext planContext,
+                                            final Memoizer memoizer,
+                                            final List<ComparisonRange> comparisonRanges,
                                             final boolean reverseScanOrder) {
         final var selectHavingResultValue = selectHavingExpression.getResultValue();
         final var resultType = (Type.Record)selectHavingResultValue.getResultType();
@@ -463,7 +449,6 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         return plan;
     }
 
-    @Nonnull
     @Override
     public List<RecordType> getQueriedRecordTypes() {
         return recordTypes;
@@ -476,14 +461,12 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
                : keyExpressionGroupingCount;
     }
 
-    @Nonnull
-    public NonnullPair<List<Value>, Value> getGroupingAndAggregateAccessors(@Nonnull final CorrelationIdentifier alias) {
+    public NonnullPair<List<Value>, Value> getGroupingAndAggregateAccessors(final CorrelationIdentifier alias) {
         return getGroupingAndAggregateAccessors(getGroupingCount(), alias);
     }
 
-    @Nonnull
     public NonnullPair<List<Value>, Value> getGroupingAndAggregateAccessors(final int numGroupings,
-                                                                            @Nonnull final CorrelationIdentifier alias) {
+                                                                            final CorrelationIdentifier alias) {
         final var selectHavingResultValue = selectHavingExpression.getResultValue();
         final var selectHavingResultType = (Type.Record)selectHavingResultValue.getResultType();
         final var unbasedResultValue =
@@ -508,8 +491,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
      *             for the respective planners.
      * @return a new {@link IndexKeyValueToPartialRecord}
      */
-    @Nonnull
-    private IndexKeyValueToPartialRecord createIndexEntryConverter(@Nonnull final Descriptors.Descriptor messageDescriptor) {
+    private IndexKeyValueToPartialRecord createIndexEntryConverter(final Descriptors.Descriptor messageDescriptor) {
         final var selectHavingResultValue = selectHavingExpression.getResultValue();
         final var selectHavingResultType = (Type.Record)selectHavingResultValue.getResultType();
         final var groupingCount = getGroupingCount();
@@ -533,10 +515,10 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         return builder.build();
     }
 
-    private void addFieldsForPermutedIndexEntry(@Nonnull final Type.Record selectHavingResultType,
-                                                @Nonnull final Value baseObjectValue,
+    private void addFieldsForPermutedIndexEntry(final Type.Record selectHavingResultType,
+                                                final Value baseObjectValue,
                                                 int groupingCount,
-                                                @Nonnull IndexKeyValueToPartialRecord.Builder builder) {
+                                                IndexKeyValueToPartialRecord.Builder builder) {
         //
         // The selectHavingFields come in an order matching the original columns in the key expression.
         // That is, if there are n grouping columns and m aggregate columns, we have fields like:
@@ -581,10 +563,10 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         }
     }
 
-    private void addFieldsForNonPermutedIndexEntry(@Nonnull final Type.Record selectHavingResultType,
-                                                   @Nonnull final Value baseObjectValue,
+    private void addFieldsForNonPermutedIndexEntry(final Type.Record selectHavingResultType,
+                                                   final Value baseObjectValue,
                                                    final int groupingCount,
-                                                   @Nonnull final IndexKeyValueToPartialRecord.Builder builder) {
+                                                   final IndexKeyValueToPartialRecord.Builder builder) {
         //
         // key structure : KEY(groupingCol1, groupingCol2, ... groupingColn), VALUE(agg(coln+1))
         // groupingCount : n+1
@@ -604,10 +586,10 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         }
     }
 
-    private static void addCoveringField(@Nonnull final IndexKeyValueToPartialRecord.Builder builder,
-                                         @Nonnull final Type.Record.Field field,
-                                         @Nonnull final Value baseObjectValue,
-                                         @Nonnull final IndexKeyValueToPartialRecord.TupleSource tupleSource,
+    private static void addCoveringField(final IndexKeyValueToPartialRecord.Builder builder,
+                                         final Type.Record.Field field,
+                                         final Value baseObjectValue,
+                                         final IndexKeyValueToPartialRecord.TupleSource tupleSource,
                                          final int index) {
         final var fieldName = field.getFieldName();
         final var fieldValue = FieldValue.ofFieldName(baseObjectValue, fieldName);
@@ -625,8 +607,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         }
     }
 
-    @Nonnull
-    private static ScanComparisons toScanComparisons(@Nonnull final List<ComparisonRange> comparisonRanges) {
+    private static ScanComparisons toScanComparisons(final List<ComparisonRange> comparisonRanges) {
         final ScanComparisons.Builder builder = new ScanComparisons.Builder();
         for (ComparisonRange comparisonRange : comparisonRanges) {
             builder.addComparisonRange(comparisonRange);
@@ -634,7 +615,6 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         return builder.build();
     }
 
-    @Nonnull
     @Override
     public Type.Record getBaseType() {
         return baseType;

@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
-import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.NestedField;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
@@ -39,8 +39,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -63,7 +63,6 @@ import java.util.stream.Collectors;
  * </p>
  */
 public class ComparisonRanges implements PlanHashable, Correlated<ComparisonRanges> {
-    @Nonnull
     private final List<ComparisonRange> ranges;
 
     private int sealedSize;
@@ -72,7 +71,7 @@ public class ComparisonRanges implements PlanHashable, Correlated<ComparisonRang
         this.ranges = Lists.newArrayList();
     }
 
-    public ComparisonRanges(@Nonnull final List<ComparisonRange> ranges) {
+    public ComparisonRanges(final List<ComparisonRange> ranges) {
         this.ranges = Lists.newArrayList(ranges);
         this.sealedSize = 0;
     }
@@ -94,19 +93,18 @@ public class ComparisonRanges implements PlanHashable, Correlated<ComparisonRang
         return ranges.size() - sealedSize;
     }
 
-    @Nonnull
     public List<ComparisonRange> getUncommittedComparisonRanges() {
         return ranges.subList(sealedSize, ranges.size());
     }
 
-    public void addEqualityComparison(@Nonnull final Comparisons.Comparison comparison) {
+    public void addEqualityComparison(final Comparison comparison) {
         Verify.verify(sealedSize == ranges.size());
         final ComparisonRange newComparisonRange = ComparisonRange.from(comparison);
         Verify.verify(newComparisonRange.isEquality());
         ranges.add(newComparisonRange);
     }
 
-    public void addInequalityComparison(@Nonnull final Comparisons.Comparison comparison) {
+    public void addInequalityComparison(final Comparison comparison) {
         final ComparisonRange newComparisonRange = ComparisonRange.from(comparison);
         Verify.verify(newComparisonRange.isInequality());
         if (sealedSize < ranges.size()) {
@@ -127,7 +125,7 @@ public class ComparisonRanges implements PlanHashable, Correlated<ComparisonRang
         }
     }
 
-    public void addAll(@Nonnull ComparisonRanges comparisonRanges) {
+    public void addAll(ComparisonRanges comparisonRanges) {
         Preconditions.checkArgument(isUncommitedComparisonRangesEqualities());
         ranges.addAll(comparisonRanges.ranges);
     }
@@ -136,7 +134,7 @@ public class ComparisonRanges implements PlanHashable, Correlated<ComparisonRang
         return isEqualities(ranges);
     }
 
-    private boolean isEqualities(@Nonnull final List<ComparisonRange> ranges) {
+    private boolean isEqualities(final List<ComparisonRange> ranges) {
         return ranges.stream().allMatch(ComparisonRange::isEquality);
     }
 
@@ -171,7 +169,6 @@ public class ComparisonRanges implements PlanHashable, Correlated<ComparisonRang
         return true;
     }
 
-    @Nonnull
     public ComparisonRanges toPrefixRanges() {
         int last;
         for (last = 0; last < ranges.size(); last++) {
@@ -188,12 +185,11 @@ public class ComparisonRanges implements PlanHashable, Correlated<ComparisonRang
         return new ComparisonRanges(ranges.subList(0, last));
     }
 
-    @Nonnull
     public ScanComparisons toScanComparisons() {
         final ComparisonRanges prefixRanges = toPrefixRanges();
 
-        final List<Comparisons.Comparison> equalityComparisons = Lists.newArrayList();
-        final Set<Comparisons.Comparison> inequalityComparisons = Sets.newHashSet();
+        final List<Comparison> equalityComparisons = Lists.newArrayList();
+        final Set<Comparison> inequalityComparisons = Sets.newHashSet();
 
         for (final ComparisonRange range : prefixRanges.ranges) {
             if (range.isEquality()) {
@@ -207,7 +203,7 @@ public class ComparisonRanges implements PlanHashable, Correlated<ComparisonRang
     }
 
     @Nullable
-    public List<QueryComponent> compensateForScanComparisons(@Nonnull final List<KeyExpression> normalizedKeyExpressions) {
+    public List<QueryComponent> compensateForScanComparisons(final List<KeyExpression> normalizedKeyExpressions) {
         final ComparisonRanges prefixRanges = toPrefixRanges();
         final List<QueryComponent> compensations = Lists.newArrayList();
         for (int i = prefixRanges.size(); i < size(); i ++) {
@@ -215,7 +211,7 @@ public class ComparisonRanges implements PlanHashable, Correlated<ComparisonRang
             if (!comparisonRange.isEmpty()) {
                 final KeyExpression expression = normalizedKeyExpressions.get(i);
                 if (comparisonRange.isEquality()) {
-                    final Comparisons.Comparison comparison = comparisonRange.getEqualityComparison();
+                    final Comparison comparison = comparisonRange.getEqualityComparison();
                     final QueryComponent component = toQueryComponentWithComparison(expression, comparison);
                     if (component == null) {
                         return null;
@@ -223,7 +219,7 @@ public class ComparisonRanges implements PlanHashable, Correlated<ComparisonRang
                     compensations.add(component);
                 } else {
                     Verify.verify(comparisonRange.isInequality());
-                    for (final Comparisons.Comparison comparison : comparisonRange.getInequalityComparisons()) {
+                    for (final Comparison comparison : comparisonRange.getInequalityComparisons()) {
                         final QueryComponent component = toQueryComponentWithComparison(expression, comparison);
                         if (component == null) {
                             return null;
@@ -237,7 +233,7 @@ public class ComparisonRanges implements PlanHashable, Correlated<ComparisonRang
     }
 
     @Nullable
-    private static QueryComponent toQueryComponentWithComparison(@Nonnull final KeyExpression expression, @Nonnull Comparisons.Comparison comparison) {
+    private static QueryComponent toQueryComponentWithComparison(final KeyExpression expression, Comparison comparison) {
         if (expression instanceof FieldKeyExpression) {
             if (((FieldKeyExpression)expression).getFanType() != KeyExpression.FanType.None) {
                 return null;
@@ -276,17 +272,14 @@ public class ComparisonRanges implements PlanHashable, Correlated<ComparisonRang
                 .sum();
     }
 
-    @Nonnull
     public List<ComparisonRange> getRanges() {
         return ranges;
     }
 
-    @Nonnull
     public List<ComparisonRange> subRanges(final int startInclusive, final int endExclusive) {
         return ranges.subList(startInclusive, endExclusive);
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
         return ranges.stream()
@@ -294,15 +287,13 @@ public class ComparisonRanges implements PlanHashable, Correlated<ComparisonRang
                 .collect(ImmutableSet.toImmutableSet());
     }
 
-    @Nonnull
     @Override
-    public ComparisonRanges rebase(@Nonnull final AliasMap aliasMap) {
+    public ComparisonRanges rebase(final AliasMap aliasMap) {
         return translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap), false);
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public ComparisonRanges translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean shouldSimplifyValues) {
+    public ComparisonRanges translateCorrelations(final TranslationMap translationMap, final boolean shouldSimplifyValues) {
         final ImmutableList.Builder<ComparisonRange> rebasedRangesBuilder = ImmutableList.builder();
         boolean isSame = true;
         for (final ComparisonRange range : ranges) {
@@ -320,7 +311,7 @@ public class ComparisonRanges implements PlanHashable, Correlated<ComparisonRang
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
+    public boolean semanticEquals(@Nullable final Object other, final AliasMap aliasMap) {
         if (this == other) {
             return true;
         }
@@ -366,7 +357,7 @@ public class ComparisonRanges implements PlanHashable, Correlated<ComparisonRang
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectPlanHash(mode, ranges);
     }
 
@@ -375,7 +366,6 @@ public class ComparisonRanges implements PlanHashable, Correlated<ComparisonRang
         return "{" + ranges.stream().map(ComparisonRange::toString).collect(Collectors.joining("; ")) + "}";
     }
 
-    @Nonnull
     public static ComparisonRanges from(@Nullable final ScanComparisons scanComparisons) {
         if (scanComparisons == null) {
             return new ComparisonRanges();
@@ -383,7 +373,7 @@ public class ComparisonRanges implements PlanHashable, Correlated<ComparisonRang
 
         final ImmutableList.Builder<ComparisonRange> rangesBuilder = ImmutableList.builder();
 
-        for (final Comparisons.Comparison comparison : scanComparisons.getEqualityComparisons()) {
+        for (final Comparison comparison : scanComparisons.getEqualityComparisons()) {
             rangesBuilder.add(ComparisonRange.from(comparison));
         }
 
@@ -395,7 +385,7 @@ public class ComparisonRanges implements PlanHashable, Correlated<ComparisonRang
     }
 
     @Nullable
-    public static ComparisonRanges tryFrom(@Nullable final Comparisons.Comparison comparison) {
+    public static ComparisonRanges tryFrom(@Nullable final Comparison comparison) {
         if (comparison == null) {
             return null;
         }

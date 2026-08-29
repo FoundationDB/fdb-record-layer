@@ -39,8 +39,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
@@ -142,25 +142,22 @@ public interface Compensation {
             return false;
         }
 
-        @Nonnull
         @Override
-        public Compensation intersect(@Nonnull final Compensation otherCompensation) {
+        public Compensation intersect(final Compensation otherCompensation) {
             return this;
         }
 
-        @Nonnull
         @Override
-        public RelationalExpression apply(@Nonnull final Memoizer memoizer,
-                                          @Nonnull final RelationalExpression relationalExpression,
-                                          @Nonnull Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
+        public RelationalExpression apply(final Memoizer memoizer,
+                                          final RelationalExpression relationalExpression,
+                                          Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
             throw new RecordCoreException("this method should not be called");
         }
 
-        @Nonnull
         @Override
-        public RelationalExpression applyFinal(@Nonnull final Memoizer memoizer,
-                                               @Nonnull final RelationalExpression relationalExpression,
-                                               @Nonnull Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
+        public RelationalExpression applyFinal(final Memoizer memoizer,
+                                               final RelationalExpression relationalExpression,
+                                               Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
             throw new RecordCoreException("this method should not be called");
         }
 
@@ -193,33 +190,29 @@ public interface Compensation {
             return true;
         }
 
-        @Nonnull
         @Override
-        public Compensation intersect(@Nonnull final Compensation otherCompensation) {
+        public Compensation intersect(final Compensation otherCompensation) {
             return otherCompensation;
         }
 
-        @Nonnull
         @Override
-        public RelationalExpression apply(@Nonnull final Memoizer memoizer,
-                                          @Nonnull final RelationalExpression relationalExpression,
-                                          @Nonnull Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
+        public RelationalExpression apply(final Memoizer memoizer,
+                                          final RelationalExpression relationalExpression,
+                                          Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
             throw new RecordCoreException("this method should not be called");
         }
 
-        @Nonnull
         @Override
-        public RelationalExpression applyFinal(@Nonnull final Memoizer memoizer,
-                                               @Nonnull final RelationalExpression relationalExpression,
-                                               @Nonnull Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
+        public RelationalExpression applyFinal(final Memoizer memoizer,
+                                               final RelationalExpression relationalExpression,
+                                               Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
             throw new RecordCoreException("this method should not be called");
         }
     };
 
-    @Nonnull
-    default RelationalExpression applyAllNeededCompensations(@Nonnull final Memoizer memoizer,
-                                                             @Nonnull RelationalExpression relationalExpression,
-                                                             @Nonnull Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
+    default RelationalExpression applyAllNeededCompensations(final Memoizer memoizer,
+                                                             RelationalExpression relationalExpression,
+                                                             Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
         if (isNeededForFiltering()) {
             relationalExpression = apply(memoizer, relationalExpression, matchedToRealizedTranslationMapFunction);
         }
@@ -242,9 +235,8 @@ public interface Compensation {
      * @return a new relational expression that corrects the result of {@code reference} by applying appropriate
      *         filters and/or transformations
      */
-    @Nonnull
-    RelationalExpression apply(@Nonnull Memoizer memoizer, @Nonnull RelationalExpression relationalExpression,
-                               @Nonnull Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction);
+    RelationalExpression apply(Memoizer memoizer, RelationalExpression relationalExpression,
+                               Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction);
 
     /**
      * When applied to a reference this method returns a {@link RelationalExpression} consuming the
@@ -258,9 +250,8 @@ public interface Compensation {
      * @return a new relational expression that corrects the result of {@code reference} by applying a final shape
      *         correction of the resulting records.
      */
-    @Nonnull
-    RelationalExpression applyFinal(@Nonnull Memoizer memoizer, @Nonnull RelationalExpression relationalExpression,
-                                    @Nonnull Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction);
+    RelationalExpression applyFinal(Memoizer memoizer, RelationalExpression relationalExpression,
+                                    Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction);
 
     /**
      * Returns if this compensation object needs to be applied in order to correct the result of a match.
@@ -323,8 +314,7 @@ public interface Compensation {
      * @param otherCompensation other compensation to union this compensation with
      * @return the new compensation representing the union of both compensations
      */
-    @Nonnull
-    default Compensation union(@Nonnull Compensation otherCompensation) {
+    default Compensation union(Compensation otherCompensation) {
         if (!isNeeded() && !otherCompensation.isNeeded()) {
             return noCompensation();
         }
@@ -338,20 +328,18 @@ public interface Compensation {
         }
 
         return new Compensation() {
-            @Nonnull
             @Override
-            public RelationalExpression apply(@Nonnull final Memoizer memoizer,
-                                              @Nonnull final RelationalExpression relationalExpression,
-                                              @Nonnull Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
+            public RelationalExpression apply(final Memoizer memoizer,
+                                              final RelationalExpression relationalExpression,
+                                              Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
                 return Compensation.this.apply(memoizer, otherCompensation.apply(memoizer, relationalExpression,
                         matchedToRealizedTranslationMapFunction), matchedToRealizedTranslationMapFunction);
             }
 
-            @Nonnull
             @Override
-            public RelationalExpression applyFinal(@Nonnull final Memoizer memoizer,
-                                                   @Nonnull final RelationalExpression relationalExpression,
-                                                   @Nonnull Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
+            public RelationalExpression applyFinal(final Memoizer memoizer,
+                                                   final RelationalExpression relationalExpression,
+                                                   Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
                 return Compensation.this.applyFinal(memoizer, otherCompensation.applyFinal(memoizer,
                         relationalExpression, matchedToRealizedTranslationMapFunction),
                         matchedToRealizedTranslationMapFunction);
@@ -364,28 +352,25 @@ public interface Compensation {
      * @param otherCompensation other compensation to intersect this compensation with
      * @return the new compensation representing the intersection of both compensations
      */
-    @Nonnull
-    default Compensation intersect(@Nonnull Compensation otherCompensation) {
+    default Compensation intersect(Compensation otherCompensation) {
         if (!isNeeded() || !otherCompensation.isNeeded()) {
             return noCompensation();
         }
 
         return new Compensation() {
-            @Nonnull
             @Override
-            public RelationalExpression apply(@Nonnull final Memoizer memoizer,
-                                              @Nonnull final RelationalExpression relationalExpression,
-                                              @Nonnull final Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
+            public RelationalExpression apply(final Memoizer memoizer,
+                                              final RelationalExpression relationalExpression,
+                                              final Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
                 return Compensation.this.apply(memoizer,
                         otherCompensation.apply(memoizer, relationalExpression,
                                 matchedToRealizedTranslationMapFunction), matchedToRealizedTranslationMapFunction);
             }
 
-            @Nonnull
             @Override
-            public RelationalExpression applyFinal(@Nonnull final Memoizer memoizer,
-                                                   @Nonnull final RelationalExpression relationalExpression,
-                                                   @Nonnull final Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
+            public RelationalExpression applyFinal(final Memoizer memoizer,
+                                                   final RelationalExpression relationalExpression,
+                                                   final Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
                 return Compensation.this.applyFinal(memoizer,
                         otherCompensation.applyFinal(memoizer, relationalExpression,
                                 matchedToRealizedTranslationMapFunction), matchedToRealizedTranslationMapFunction);
@@ -398,7 +383,6 @@ public interface Compensation {
      * {@link #isNeeded()} returns {@code false}. That object cannot be applied.
      * @return a compensation object that represents the absence of the need for compensation
      */
-    @Nonnull
     static Compensation noCompensation() {
         return NO_COMPENSATION;
     }
@@ -411,19 +395,17 @@ public interface Compensation {
      * cannot be computed.
      * @return a compensation object that represents an impossible compensation
      */
-    @Nonnull
     static Compensation impossibleCompensation() {
         return IMPOSSIBLE_COMPENSATION;
     }
 
-    @Nonnull
     default ForMatch derived(final boolean isImpossible,
-                             @Nonnull final LinkedIdentityMap<QueryPredicate, PredicateCompensationFunction> predicateCompensationMap,
-                             @Nonnull final Collection<? extends Quantifier> matchedQuantifiers,
-                             @Nonnull final Set<? extends Quantifier> unmatchedQuantifiers,
-                             @Nonnull final Set<CorrelationIdentifier> compensatedAliases,
-                             @Nonnull final ResultCompensationFunction resultCompensationFunction,
-                             @Nonnull final GroupByMappings groupByMappings) {
+                             final LinkedIdentityMap<QueryPredicate, PredicateCompensationFunction> predicateCompensationMap,
+                             final Collection<? extends Quantifier> matchedQuantifiers,
+                             final Set<? extends Quantifier> unmatchedQuantifiers,
+                             final Set<CorrelationIdentifier> compensatedAliases,
+                             final ResultCompensationFunction resultCompensationFunction,
+                             final GroupByMappings groupByMappings) {
         //
         // At least one of these conditions must be true:
         // - it is an impossible compensation (in which case the predicate compensation map may be empty)
@@ -445,8 +427,7 @@ public interface Compensation {
      * @param rootOfMatchPullUp pull up to get expressions to top level
      * @return a {@link CompensatedResult}
      */
-    @Nonnull
-    static Optional<CompensatedResult> computeResultCompensation(@Nonnull final PartialMatch partialMatch,
+    static Optional<CompensatedResult> computeResultCompensation(final PartialMatch partialMatch,
                                                                  @Nullable final PullUp rootOfMatchPullUp) {
         final var matchInfo = partialMatch.getMatchInfo();
         boolean isCompensationImpossible = false;
@@ -491,14 +472,12 @@ public interface Compensation {
 
     class CompensatedResult {
         private final boolean isCompensationImpossible;
-        @Nonnull
         private final PredicateMultiMap.ResultCompensationFunction resultCompensationFunction;
-        @Nonnull
         private final GroupByMappings groupByMappings;
 
         public CompensatedResult(final boolean isCompensationImpossible,
-                                 @Nonnull final PredicateMultiMap.ResultCompensationFunction resultCompensationFunction,
-                                 @Nonnull final GroupByMappings groupByMappings) {
+                                 final PredicateMultiMap.ResultCompensationFunction resultCompensationFunction,
+                                 final GroupByMappings groupByMappings) {
             this.isCompensationImpossible = isCompensationImpossible;
             this.resultCompensationFunction = resultCompensationFunction;
             this.groupByMappings = groupByMappings;
@@ -508,12 +487,10 @@ public interface Compensation {
             return isCompensationImpossible;
         }
 
-        @Nonnull
         public PredicateMultiMap.ResultCompensationFunction getResultCompensationFunction() {
             return resultCompensationFunction;
         }
 
-        @Nonnull
         public GroupByMappings getGroupByMappings() {
             return groupByMappings;
         }
@@ -544,29 +521,20 @@ public interface Compensation {
             return getResultCompensationFunction().isNeeded();
         }
 
-        @Nonnull
         Compensation getChildCompensation();
 
-        @Nonnull
         Set<Quantifier> getMatchedQuantifiers();
 
-
-        @Nonnull
         Set<Quantifier> getUnmatchedQuantifiers();
 
-        @Nonnull
         Set<CorrelationIdentifier> getCompensatedAliases();
 
-        @Nonnull
         Set<Quantifier> getUnmatchedForEachQuantifiers();
 
-        @Nonnull
         Map<QueryPredicate, PredicateCompensationFunction> getPredicateCompensationMap();
 
-        @Nonnull
         ResultCompensationFunction getResultCompensationFunction();
 
-        @Nonnull
         GroupByMappings getGroupByMappings();
 
         /**
@@ -579,9 +547,8 @@ public interface Compensation {
          * @return a new compensation object representing the logical union between {@code this} and
          *         {@code otherCompensation}
          */
-        @Nonnull
         @Override
-        default Compensation union(@Nonnull Compensation otherCompensation) {
+        default Compensation union(Compensation otherCompensation) {
             if (!(otherCompensation instanceof WithSelectCompensation)) {
                 return otherCompensation.union(this);
             }
@@ -676,9 +643,8 @@ public interface Compensation {
          * @return a new compensation object representing the logical intersection between {@code this} and
          *         {@code otherCompensation}
          */
-        @Nonnull
         @Override
-        default Compensation intersect(@Nonnull Compensation otherCompensation) {
+        default Compensation intersect(Compensation otherCompensation) {
             if (!(otherCompensation instanceof WithSelectCompensation)) {
                 return otherCompensation.intersect(this);
             }
@@ -810,13 +776,9 @@ public interface Compensation {
     class ForMatch implements WithSelectCompensation {
         final boolean isImpossible;
 
-        @Nonnull
         private final Compensation childCompensation;
-        @Nonnull
         final Map<QueryPredicate, PredicateCompensationFunction> predicateCompensationMap;
-        @Nonnull
         private final Set<Quantifier> matchedQuantifiers;
-        @Nonnull
         private final Set<Quantifier> unmatchedQuantifiers;
 
         /**
@@ -825,24 +787,20 @@ public interface Compensation {
          * together with the compensation can replace those quantifiers. Normally the set of compensated aliases
          * comprises all matched quantifiers and existential non-matched quantifiers.
          */
-        @Nonnull
         private final Set<CorrelationIdentifier> compensatedAliases;
-        @Nonnull
         private final ResultCompensationFunction resultCompensationFunction;
-        @Nonnull
         private final GroupByMappings groupByMappings;
 
-        @Nonnull
         private final Supplier<Set<Quantifier>> unmatchedForEachQuantifiersSupplier;
 
         private ForMatch(final boolean isImpossible,
-                         @Nonnull final Compensation childCompensation,
-                         @Nonnull final Map<QueryPredicate, PredicateCompensationFunction> predicateCompensationMap,
-                         @Nonnull final Collection<? extends Quantifier> matchedQuantifiers,
-                         @Nonnull final Collection<? extends Quantifier> unmatchedQuantifiers,
-                         @Nonnull final Set<CorrelationIdentifier> compensatedAliases,
-                         @Nonnull final ResultCompensationFunction resultCompensationFunction,
-                         @Nonnull final GroupByMappings groupByMappings) {
+                         final Compensation childCompensation,
+                         final Map<QueryPredicate, PredicateCompensationFunction> predicateCompensationMap,
+                         final Collection<? extends Quantifier> matchedQuantifiers,
+                         final Collection<? extends Quantifier> unmatchedQuantifiers,
+                         final Set<CorrelationIdentifier> compensatedAliases,
+                         final ResultCompensationFunction resultCompensationFunction,
+                         final GroupByMappings groupByMappings) {
             this.isImpossible = isImpossible;
             this.childCompensation = childCompensation;
             this.predicateCompensationMap = new LinkedIdentityMap<>();
@@ -863,55 +821,46 @@ public interface Compensation {
         }
 
         @Override
-        @Nonnull
         public Compensation getChildCompensation() {
             return childCompensation;
         }
 
-        @Nonnull
         @Override
         public Set<Quantifier> getMatchedQuantifiers() {
             return matchedQuantifiers;
         }
 
-        @Nonnull
         @Override
         public Set<Quantifier> getUnmatchedQuantifiers() {
             return unmatchedQuantifiers;
         }
 
-        @Nonnull
         @Override
         public Set<CorrelationIdentifier> getCompensatedAliases() {
             return compensatedAliases;
         }
 
-        @Nonnull
         @Override
         public Set<Quantifier> getUnmatchedForEachQuantifiers() {
             return unmatchedForEachQuantifiersSupplier.get();
         }
 
-        @Nonnull
         public Set<Quantifier> computeUnmatchedForEachQuantifiers() {
             return unmatchedQuantifiers.stream()
                     .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
                     .collect(LinkedIdentitySet.toLinkedIdentitySet());
         }
 
-        @Nonnull
         @Override
         public Map<QueryPredicate, PredicateCompensationFunction> getPredicateCompensationMap() {
             return predicateCompensationMap;
         }
 
-        @Nonnull
         @Override
         public ResultCompensationFunction getResultCompensationFunction() {
             return resultCompensationFunction;
         }
 
-        @Nonnull
         @Override
         public GroupByMappings getGroupByMappings() {
             return groupByMappings;
@@ -930,11 +879,10 @@ public interface Compensation {
          * @return a new relational expression that corrects the result of {@code reference} by applying appropriate
          * filters and/or transformations
          */
-        @Nonnull
         @Override
-        public RelationalExpression apply(@Nonnull final Memoizer memoizer,
-                                          @Nonnull RelationalExpression relationalExpression,
-                                          @Nonnull final Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
+        public RelationalExpression apply(final Memoizer memoizer,
+                                          RelationalExpression relationalExpression,
+                                          final Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
             Verify.verify(!isImpossible());
 
             // apply the child as needed
@@ -1029,7 +977,6 @@ public interface Compensation {
             }
         }
 
-        @Nonnull
         private CorrelationIdentifier getMatchedForEachAlias() {
             final var matchedQuantifierMap =
                     Quantifiers.aliasToQuantifierMap(matchedQuantifiers);
@@ -1047,11 +994,10 @@ public interface Compensation {
             return Iterables.getOnlyElement(matchedForEachQuantifierAliases);
         }
 
-        @Nonnull
         @Override
-        public RelationalExpression applyFinal(@Nonnull final Memoizer memoizer,
-                                               @Nonnull RelationalExpression relationalExpression,
-                                               @Nonnull Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
+        public RelationalExpression applyFinal(final Memoizer memoizer,
+                                               RelationalExpression relationalExpression,
+                                               Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
             Verify.verify(!isImpossible());
             Verify.verify(resultCompensationFunction.isNeeded());
 
@@ -1074,7 +1020,6 @@ public interface Compensation {
                     .buildSelectWithResultValue(resultValue);
         }
 
-        @Nonnull
         @Override
         public String toString() {
             final var result = new StringBuilder();

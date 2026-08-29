@@ -37,7 +37,6 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -60,13 +59,11 @@ public class PredicateMultiMap {
     /**
      * Backing multimap.
      */
-    @Nonnull
     private final SetMultimap<QueryPredicate, PredicateMapping> map;
 
-    @Nonnull
-    private static Value replaceNewlyMatchedValues(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
-                                                   @Nonnull final Map<Value, Value> amendedMatchedAggregateMap,
-                                                   @Nonnull final Value rootValue) {
+    private static Value replaceNewlyMatchedValues(final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                                   final Map<Value, Value> amendedMatchedAggregateMap,
+                                                   final Value rootValue) {
         return Objects.requireNonNull(rootValue.replace(currentValue -> {
             if (currentValue instanceof GroupByExpression.UnmatchedAggregateValue) {
                 final var unmatchedId =
@@ -88,10 +85,9 @@ public class PredicateMultiMap {
      */
     @FunctionalInterface
     public interface PredicateCompensation {
-        @Nonnull
-        PredicateCompensationFunction computeCompensationFunction(@Nonnull PartialMatch partialMatch,
-                                                                  @Nonnull Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                  @Nonnull PullUp pullup);
+        PredicateCompensationFunction computeCompensationFunction(PartialMatch partialMatch,
+                                                                  Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                  PullUp pullup);
     }
 
     /**
@@ -110,16 +106,14 @@ public class PredicateMultiMap {
                         return false;
                     }
 
-                    @Nonnull
                     @Override
-                    public PredicateCompensationFunction amend(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
-                                                               @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
+                    public PredicateCompensationFunction amend(final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                                               final Map<Value, Value> amendedMatchedAggregateMap) {
                         return this;
                     }
 
-                    @Nonnull
                     @Override
-                    public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final TranslationMap translationMap) {
+                    public Set<QueryPredicate> applyCompensationForPredicate(final TranslationMap translationMap) {
                         throw new IllegalArgumentException("this method should not be called");
                     }
                 };
@@ -136,20 +130,17 @@ public class PredicateMultiMap {
                         return true;
                     }
 
-                    @Nonnull
                     @Override
-                    public PredicateCompensationFunction amend(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
-                                                               @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
+                    public PredicateCompensationFunction amend(final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                                               final Map<Value, Value> amendedMatchedAggregateMap) {
                         return this;
                     }
 
-                    @Nonnull
                     @Override
-                    public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final TranslationMap translationMap) {
+                    public Set<QueryPredicate> applyCompensationForPredicate(final TranslationMap translationMap) {
                         throw new IllegalArgumentException("this method should not be called");
                     }
                 };
-
 
         boolean isNeeded();
 
@@ -163,20 +154,16 @@ public class PredicateMultiMap {
          * @param amendedMatchedAggregateMap matched aggregate map (amended)
          * @return a new {@link PredicateCompensationFunction}
          */
-        @Nonnull
-        PredicateCompensationFunction amend(@Nonnull BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
-                                            @Nonnull Map<Value, Value> amendedMatchedAggregateMap);
+        PredicateCompensationFunction amend(BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                            Map<Value, Value> amendedMatchedAggregateMap);
 
-        @Nonnull
-        Set<QueryPredicate> applyCompensationForPredicate(@Nonnull TranslationMap translationMap);
+        Set<QueryPredicate> applyCompensationForPredicate(TranslationMap translationMap);
 
-        @Nonnull
-        static PredicateCompensationFunction ofPredicate(@Nonnull final QueryPredicate predicate) {
+        static PredicateCompensationFunction ofPredicate(final QueryPredicate predicate) {
             return ofPredicate(predicate, false);
         }
 
-        @Nonnull
-        static PredicateCompensationFunction ofPredicate(@Nonnull final QueryPredicate predicate,
+        static PredicateCompensationFunction ofPredicate(final QueryPredicate predicate,
                                                          final boolean shouldSimplifyValues) {
             final var isImpossible = predicateContainsUncompensatableValues(predicate);
 
@@ -191,10 +178,9 @@ public class PredicateMultiMap {
                     return isImpossible;
                 }
 
-                @Nonnull
                 @Override
-                public PredicateCompensationFunction amend(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
-                                                           @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
+                public PredicateCompensationFunction amend(final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                                           final Map<Value, Value> amendedMatchedAggregateMap) {
                     final var amendedTranslatedPredicateOptional =
                             predicate.replaceValuesMaybe(rootValue ->
                                     Optional.of(replaceNewlyMatchedValues(unmatchedAggregateMap, amendedMatchedAggregateMap,
@@ -203,15 +189,14 @@ public class PredicateMultiMap {
                     return ofPredicate(amendedTranslatedPredicateOptional.get(), true);
                 }
 
-                @Nonnull
                 @Override
-                public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final TranslationMap translationMap) {
+                public Set<QueryPredicate> applyCompensationForPredicate(final TranslationMap translationMap) {
                     return LinkedIdentitySet.of(predicate.translateCorrelations(translationMap, shouldSimplifyValues));
                 }
             };
         }
 
-        private static boolean predicateContainsUncompensatableValues(@Nonnull final QueryPredicate pulledUpPredicate) {
+        private static boolean predicateContainsUncompensatableValues(final QueryPredicate pulledUpPredicate) {
             if (pulledUpPredicate instanceof PredicateWithValue) {
                 final var value = Objects.requireNonNull(((PredicateWithValue)pulledUpPredicate).getValue());
                 if (value.preOrderStream()
@@ -235,8 +220,7 @@ public class PredicateMultiMap {
             return false;
         }
 
-        @Nonnull
-        static PredicateCompensationFunction ofExistentialValuePredicate(@Nonnull final ExistentialValuePredicate existentialValuePredicate) {
+        static PredicateCompensationFunction ofExistentialValuePredicate(final ExistentialValuePredicate existentialValuePredicate) {
             final var result = LinkedIdentitySet.of((QueryPredicate)existentialValuePredicate);
 
             return new PredicateCompensationFunction() {
@@ -250,24 +234,21 @@ public class PredicateMultiMap {
                     return false;
                 }
 
-                @Nonnull
                 @Override
-                public PredicateCompensationFunction amend(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
-                                                           @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
+                public PredicateCompensationFunction amend(final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                                           final Map<Value, Value> amendedMatchedAggregateMap) {
                     return this;
                 }
 
-                @Nonnull
                 @Override
-                public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final TranslationMap translationMap) {
+                public Set<QueryPredicate> applyCompensationForPredicate(final TranslationMap translationMap) {
                     return result;
                 }
             };
         }
 
-        @Nonnull
-        static PredicateCompensationFunction ofChildrenCompensationFunctions(@Nonnull final List<PredicateCompensationFunction> childrenCompensationFunctions,
-                                                                             @Nonnull final BiFunction<List<PredicateCompensationFunction>, TranslationMap, Set<QueryPredicate>> compensationFunction) {
+        static PredicateCompensationFunction ofChildrenCompensationFunctions(final List<PredicateCompensationFunction> childrenCompensationFunctions,
+                                                                             final BiFunction<List<PredicateCompensationFunction>, TranslationMap, Set<QueryPredicate>> compensationFunction) {
             return new PredicateCompensationFunction() {
                 @Override
                 public boolean isNeeded() {
@@ -279,10 +260,9 @@ public class PredicateMultiMap {
                     return childrenCompensationFunctions.stream().anyMatch(PredicateCompensationFunction::isImpossible);
                 }
 
-                @Nonnull
                 @Override
-                public PredicateCompensationFunction amend(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
-                                                           @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
+                public PredicateCompensationFunction amend(final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                                           final Map<Value, Value> amendedMatchedAggregateMap) {
                     final var amendedChildrenCompensationFunctions =
                             childrenCompensationFunctions.stream()
                                     .map(childrenCompensationFunction ->
@@ -292,20 +272,17 @@ public class PredicateMultiMap {
                     return ofChildrenCompensationFunctions(amendedChildrenCompensationFunctions, compensationFunction);
                 }
 
-                @Nonnull
                 @Override
-                public Set<QueryPredicate> applyCompensationForPredicate(@Nonnull final TranslationMap translationMap) {
+                public Set<QueryPredicate> applyCompensationForPredicate(final TranslationMap translationMap) {
                     return compensationFunction.apply(childrenCompensationFunctions, translationMap);
                 }
             };
         }
 
-        @Nonnull
         static PredicateCompensationFunction noCompensationNeeded() {
             return NO_COMPENSATION_NEEDED;
         }
 
-        @Nonnull
         static PredicateCompensationFunction impossibleCompensation() {
             return IMPOSSIBLE_COMPENSATION;
         }
@@ -327,16 +304,14 @@ public class PredicateMultiMap {
                         return false;
                     }
 
-                    @Nonnull
                     @Override
-                    public ResultCompensationFunction amend(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
-                                                            @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
+                    public ResultCompensationFunction amend(final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                                            final Map<Value, Value> amendedMatchedAggregateMap) {
                         return this;
                     }
 
-                    @Nonnull
                     @Override
-                    public Value applyCompensationForResult(@Nonnull final TranslationMap translationMap) {
+                    public Value applyCompensationForResult(final TranslationMap translationMap) {
                         throw new IllegalArgumentException("this method should not be called");
                     }
                 };
@@ -353,20 +328,17 @@ public class PredicateMultiMap {
                         return true;
                     }
 
-                    @Nonnull
                     @Override
-                    public ResultCompensationFunction amend(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
-                                                            @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
+                    public ResultCompensationFunction amend(final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                                            final Map<Value, Value> amendedMatchedAggregateMap) {
                         return this;
                     }
 
-                    @Nonnull
                     @Override
-                    public Value applyCompensationForResult(@Nonnull final TranslationMap translationMap) {
+                    public Value applyCompensationForResult(final TranslationMap translationMap) {
                         throw new IllegalArgumentException("this method should not be called");
                     }
                 };
-
 
         boolean isNeeded();
 
@@ -380,20 +352,16 @@ public class PredicateMultiMap {
          * @param amendedMatchedAggregateMap matched aggregate map (amended)
          * @return a new {@link ResultCompensationFunction}
          */
-        @Nonnull
-        ResultCompensationFunction amend(@Nonnull BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
-                                         @Nonnull Map<Value, Value> amendedMatchedAggregateMap);
+        ResultCompensationFunction amend(BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                         Map<Value, Value> amendedMatchedAggregateMap);
 
-        @Nonnull
-        Value applyCompensationForResult(@Nonnull TranslationMap translationMap);
+        Value applyCompensationForResult(TranslationMap translationMap);
 
-        @Nonnull
-        static ResultCompensationFunction ofValue(@Nonnull final Value value) {
+        static ResultCompensationFunction ofValue(final Value value) {
             return ofValue(value, false);
         }
 
-        @Nonnull
-        static ResultCompensationFunction ofValue(@Nonnull final Value value, final boolean shouldSimplifyValue) {
+        static ResultCompensationFunction ofValue(final Value value, final boolean shouldSimplifyValue) {
             final var isImpossible = valueContainsUnmatchedValues(value);
 
             return new ResultCompensationFunction() {
@@ -407,34 +375,30 @@ public class PredicateMultiMap {
                     return isImpossible;
                 }
 
-                @Nonnull
                 @Override
-                public ResultCompensationFunction amend(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
-                                                        @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
+                public ResultCompensationFunction amend(final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                                        final Map<Value, Value> amendedMatchedAggregateMap) {
                     final var amendedTranslatedQueryValue =
                             replaceNewlyMatchedValues(unmatchedAggregateMap, amendedMatchedAggregateMap, value);
                     return ofValue(amendedTranslatedQueryValue, true);
                 }
 
-                @Nonnull
                 @Override
-                public Value applyCompensationForResult(@Nonnull final TranslationMap translationMap) {
+                public Value applyCompensationForResult(final TranslationMap translationMap) {
                     return value.translateCorrelations(translationMap, shouldSimplifyValue);
                 }
             };
         }
 
-        @Nonnull
         static ResultCompensationFunction noCompensationNeeded() {
             return NO_COMPENSATION_NEEDED;
         }
 
-        @Nonnull
         static ResultCompensationFunction impossibleCompensation() {
             return IMPOSSIBLE_COMPENSATION;
         }
 
-        private static boolean valueContainsUnmatchedValues(final @Nonnull Value pulledUpValue) {
+        private static boolean valueContainsUnmatchedValues(final Value pulledUpValue) {
             return pulledUpValue.preOrderStream()
                     .anyMatch(v -> v instanceof GroupByExpression.UnmatchedAggregateValue);
         }
@@ -454,27 +418,21 @@ public class PredicateMultiMap {
             OR_TERM_IMPLIES_CANDIDATE
         }
 
-        @Nonnull
         private final MappingKey mappingKey;
-        @Nonnull
         private final PredicateCompensation predicateCompensation;
-        @Nonnull
         private final Optional<CorrelationIdentifier> parameterAliasOptional;
-        @Nonnull
         private final Optional<ComparisonRange> comparisonRangeOptional;
-        @Nonnull
         private final QueryPlanConstraint constraint;
-        @Nonnull
         private final QueryPredicate translatedQueryPredicate;
 
-        private PredicateMapping(@Nonnull final QueryPredicate originalQueryPredicate,
-                                 @Nonnull final QueryPredicate candidatePredicate,
-                                 @Nonnull final MappingKind mappingKind,
-                                 @Nonnull final PredicateCompensation predicateCompensation,
-                                 @Nonnull final Optional<CorrelationIdentifier> parameterAlias,
-                                 @Nonnull final Optional<ComparisonRange> comparisonRangeOptional,
-                                 @Nonnull final QueryPlanConstraint constraint,
-                                 @Nonnull final QueryPredicate translatedQueryPredicate) {
+        private PredicateMapping(final QueryPredicate originalQueryPredicate,
+                                 final QueryPredicate candidatePredicate,
+                                 final MappingKind mappingKind,
+                                 final PredicateCompensation predicateCompensation,
+                                 final Optional<CorrelationIdentifier> parameterAlias,
+                                 final Optional<ComparisonRange> comparisonRangeOptional,
+                                 final QueryPlanConstraint constraint,
+                                 final QueryPredicate translatedQueryPredicate) {
             this.mappingKey = new MappingKey(originalQueryPredicate, candidatePredicate, mappingKind);
             this.predicateCompensation = predicateCompensation;
             this.parameterAliasOptional = parameterAlias;
@@ -483,57 +441,46 @@ public class PredicateMultiMap {
             this.translatedQueryPredicate = translatedQueryPredicate;
         }
 
-        @Nonnull
         public QueryPredicate getOriginalQueryPredicate() {
             return mappingKey.getOriginalQueryPredicate();
         }
 
-        @Nonnull
         public QueryPredicate getCandidatePredicate() {
             return mappingKey.getCandidatePredicate();
         }
 
-        @Nonnull
         public MappingKind getMappingKind() {
             return mappingKey.getMappingKind();
         }
 
-        @Nonnull
         public MappingKey getMappingKey() {
             return mappingKey;
         }
 
-        @Nonnull
         public PredicateCompensation getPredicateCompensation() {
             return predicateCompensation;
         }
 
-        @Nonnull
         public Optional<CorrelationIdentifier> getParameterAliasOptional() {
             return parameterAliasOptional;
         }
 
-        @Nonnull
         public Optional<ComparisonRange> getComparisonRangeOptional() {
             return comparisonRangeOptional;
         }
 
-        @Nonnull
         public QueryPlanConstraint getConstraint() {
             return constraint;
         }
 
-        @Nonnull
         public QueryPredicate getTranslatedQueryPredicate() {
             return translatedQueryPredicate;
         }
 
-        @Nonnull
-        public PredicateMapping withTranslatedQueryPredicate(@Nonnull final QueryPredicate translatedQueryPredicate) {
+        public PredicateMapping withTranslatedQueryPredicate(final QueryPredicate translatedQueryPredicate) {
             return toBuilder().setTranslatedQueryPredicate(translatedQueryPredicate).build();
         }
 
-        @Nonnull
         public Builder toBuilder() {
             return new Builder(getOriginalQueryPredicate(), getTranslatedQueryPredicate(), getCandidatePredicate(), getMappingKind())
                     .setPredicateCompensation(getPredicateCompensation())
@@ -542,18 +489,16 @@ public class PredicateMultiMap {
                     .setTranslatedQueryPredicate(getTranslatedQueryPredicate());
         }
 
-        @Nonnull
-        public static PredicateMapping.Builder regularMappingBuilder(@Nonnull final QueryPredicate originalQueryPredicate,
-                                                                     @Nonnull final QueryPredicate translatedQueryPredicate,
-                                                                     @Nonnull final QueryPredicate candidatePredicate) {
+        public static PredicateMapping.Builder regularMappingBuilder(final QueryPredicate originalQueryPredicate,
+                                                                     final QueryPredicate translatedQueryPredicate,
+                                                                     final QueryPredicate candidatePredicate) {
             return new Builder(originalQueryPredicate, translatedQueryPredicate, candidatePredicate,
                     MappingKind.REGULAR_IMPLIES_CANDIDATE);
         }
 
-        @Nonnull
-        public static PredicateMapping.Builder orTermMappingBuilder(@Nonnull final QueryPredicate originalQueryPredicate,
-                                                                    @Nonnull final QueryPredicate translatedQueryPredicate,
-                                                                    @Nonnull final QueryPredicate candidatePredicate) {
+        public static PredicateMapping.Builder orTermMappingBuilder(final QueryPredicate originalQueryPredicate,
+                                                                    final QueryPredicate translatedQueryPredicate,
+                                                                    final QueryPredicate candidatePredicate) {
             return new Builder(originalQueryPredicate, translatedQueryPredicate, candidatePredicate,
                     MappingKind.OR_TERM_IMPLIES_CANDIDATE);
         }
@@ -562,30 +507,24 @@ public class PredicateMultiMap {
          * Class to capture the relationship between query predicate and candidate predicate.
          */
         public static class MappingKey {
-            @Nonnull
             private final QueryPredicate originalQueryPredicate;
-            @Nonnull
             private final QueryPredicate candidatePredicate;
-            @Nonnull
             private final MappingKind mappingKind;
 
-            public MappingKey(@Nonnull final QueryPredicate originalQueryPredicate, @Nonnull final QueryPredicate candidatePredicate, @Nonnull final MappingKind mappingKind) {
+            public MappingKey(final QueryPredicate originalQueryPredicate, final QueryPredicate candidatePredicate, final MappingKind mappingKind) {
                 this.originalQueryPredicate = originalQueryPredicate;
                 this.candidatePredicate = candidatePredicate;
                 this.mappingKind = mappingKind;
             }
 
-            @Nonnull
             public QueryPredicate getOriginalQueryPredicate() {
                 return originalQueryPredicate;
             }
 
-            @Nonnull
             public QueryPredicate getCandidatePredicate() {
                 return candidatePredicate;
             }
 
-            @Nonnull
             public MappingKind getMappingKind() {
                 return mappingKind;
             }
@@ -615,27 +554,19 @@ public class PredicateMultiMap {
          * Builder class for {@link PredicateMapping}.
          */
         public static class Builder {
-            @Nonnull
             private final QueryPredicate originalQueryPredicate;
-            @Nonnull
             private final QueryPredicate candidatePredicate;
-            @Nonnull
             private final MappingKind mappingKind;
-            @Nonnull
             private PredicateCompensation predicateCompensation;
-            @Nonnull
             private Optional<CorrelationIdentifier> parameterAliasOptional;
-            @Nonnull
             private Optional<ComparisonRange> comparisonRangeOptional;
-            @Nonnull
             private QueryPlanConstraint constraint;
-            @Nonnull
             private QueryPredicate translatedQueryPredicate;
 
-            public Builder(@Nonnull final QueryPredicate originalQueryPredicate,
-                           @Nonnull final QueryPredicate translatedQueryPredicate,
-                           @Nonnull final QueryPredicate candidatePredicate,
-                           @Nonnull final MappingKind mappingKind) {
+            public Builder(final QueryPredicate originalQueryPredicate,
+                           final QueryPredicate translatedQueryPredicate,
+                           final QueryPredicate candidatePredicate,
+                           final MappingKind mappingKind) {
                 this.originalQueryPredicate = originalQueryPredicate;
                 this.translatedQueryPredicate = translatedQueryPredicate;
                 this.candidatePredicate = candidatePredicate;
@@ -647,54 +578,45 @@ public class PredicateMultiMap {
                 this.constraint = QueryPlanConstraint.noConstraint();
             }
 
-            @Nonnull
-            public Builder setPredicateCompensation(@Nonnull final PredicateCompensation predicateCompensation) {
+            public Builder setPredicateCompensation(final PredicateCompensation predicateCompensation) {
                 this.predicateCompensation = predicateCompensation;
                 return this;
             }
 
-            @Nonnull
-            public Builder setParameterAlias(@Nonnull final CorrelationIdentifier parameterAlias) {
+            public Builder setParameterAlias(final CorrelationIdentifier parameterAlias) {
                 return setParameterAliasOptional(Optional.of(parameterAlias));
             }
 
-            @Nonnull
-            public Builder setParameterAliasOptional(@Nonnull final Optional<CorrelationIdentifier> parameterAliasOptional) {
+            public Builder setParameterAliasOptional(final Optional<CorrelationIdentifier> parameterAliasOptional) {
                 this.parameterAliasOptional = parameterAliasOptional;
                 return this;
             }
 
-            @Nonnull
-            public Builder setComparisonRange(@Nonnull final ComparisonRange comparisonRange) {
+            public Builder setComparisonRange(final ComparisonRange comparisonRange) {
                 return setComparisonRangeOptional(Optional.of(comparisonRange));
             }
 
-            @Nonnull
-            public Builder setComparisonRangeOptional(@Nonnull final Optional<ComparisonRange> comparisonRangeOptional) {
+            public Builder setComparisonRangeOptional(final Optional<ComparisonRange> comparisonRangeOptional) {
                 this.comparisonRangeOptional = comparisonRangeOptional;
                 return this;
             }
 
-            @Nonnull
-            public Builder setSargable(@Nonnull final CorrelationIdentifier parameterAlias,
-                                       @Nonnull final ComparisonRange comparisonRange) {
+            public Builder setSargable(final CorrelationIdentifier parameterAlias,
+                                       final ComparisonRange comparisonRange) {
                 return setParameterAlias(parameterAlias)
                         .setComparisonRange(comparisonRange);
             }
 
-            @Nonnull
-            public Builder setConstraint(@Nonnull final QueryPlanConstraint constraint) {
+            public Builder setConstraint(final QueryPlanConstraint constraint) {
                 this.constraint = constraint;
                 return this;
             }
 
-            @Nonnull
-            public Builder setTranslatedQueryPredicate(@Nonnull final QueryPredicate translatedQueryPredicate) {
+            public Builder setTranslatedQueryPredicate(final QueryPredicate translatedQueryPredicate) {
                 this.translatedQueryPredicate = translatedQueryPredicate;
                 return this;
             }
 
-            @Nonnull
             public PredicateMapping build() {
                 return new PredicateMapping(originalQueryPredicate, candidatePredicate, mappingKind,
                         predicateCompensation, parameterAliasOptional, comparisonRangeOptional, constraint,
@@ -703,18 +625,17 @@ public class PredicateMultiMap {
         }
     }
 
-    protected PredicateMultiMap(@Nonnull final SetMultimap<QueryPredicate, PredicateMapping> map) {
+    protected PredicateMultiMap(final SetMultimap<QueryPredicate, PredicateMapping> map) {
         SetMultimap<QueryPredicate, PredicateMapping> copy = Multimaps.newSetMultimap(new LinkedIdentityMap<>(), LinkedIdentitySet::new);
         map.entries().forEach(entry -> copy.put(entry.getKey(), entry.getValue()));
         this.map = Multimaps.unmodifiableSetMultimap(copy);
     }
 
-    @Nonnull
     protected SetMultimap<QueryPredicate, PredicateMapping> getMap() {
         return map;
     }
 
-    public Set<PredicateMapping> get(@Nonnull final QueryPredicate queryPredicate) {
+    public Set<PredicateMapping> get(final QueryPredicate queryPredicate) {
         return map.get(queryPredicate);
     }
 
@@ -730,12 +651,11 @@ public class PredicateMultiMap {
         return map.values();
     }
 
-    @Nonnull
     public static Builder builder() {
         return new Builder();
     }
 
-    private static Optional<SetMultimap<QueryPredicate, PredicateMapping>> checkConflicts(@Nonnull final SetMultimap<QueryPredicate, PredicateMapping> map) {
+    private static Optional<SetMultimap<QueryPredicate, PredicateMapping>> checkConflicts(final SetMultimap<QueryPredicate, PredicateMapping> map) {
         final Set<QueryPredicate> seenCandidatePredicates = Sets.newIdentityHashSet();
         for (final QueryPredicate queryPredicate : map.keySet()) {
             final Set<PredicateMapping> candidatePredicateMappings = map.get(queryPredicate);
@@ -760,12 +680,12 @@ public class PredicateMultiMap {
             map = Multimaps.newSetMultimap(new LinkedIdentityMap<>(), LinkedIdentitySet::new);
         }
 
-        public boolean put(@Nonnull final QueryPredicate queryPredicate,
-                           @Nonnull final PredicateMapping predicateMapping) {
+        public boolean put(final QueryPredicate queryPredicate,
+                           final PredicateMapping predicateMapping) {
             return map.put(queryPredicate, predicateMapping);
         }
 
-        public boolean putAll(@Nonnull final PredicateMultiMap otherMap) {
+        public boolean putAll(final PredicateMultiMap otherMap) {
             boolean isModified = false;
             for (final Map.Entry<QueryPredicate, PredicateMapping> entry : otherMap.getMap().entries()) {
                 isModified = map.put(entry.getKey(), entry.getValue()) || isModified;
@@ -774,7 +694,7 @@ public class PredicateMultiMap {
             return isModified;
         }
 
-        public boolean putAll(@Nonnull final QueryPredicate queryPredicate, @Nonnull final Set<PredicateMapping> predicateMappings) {
+        public boolean putAll(final QueryPredicate queryPredicate, final Set<PredicateMapping> predicateMappings) {
             boolean isModified = false;
             for (final PredicateMapping predicateMapping : predicateMappings) {
                 isModified = map.put(queryPredicate, predicateMapping) || isModified;

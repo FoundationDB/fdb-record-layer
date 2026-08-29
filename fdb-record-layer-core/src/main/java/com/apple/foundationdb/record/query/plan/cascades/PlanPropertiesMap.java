@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
@@ -56,24 +55,21 @@ public class PlanPropertiesMap extends ExpressionPropertiesMap<RecordQueryPlan> 
         this(ImmutableSet.of());
     }
 
-    public PlanPropertiesMap(@Nonnull Collection<? extends RelationalExpression> plans) {
+    public PlanPropertiesMap(Collection<? extends RelationalExpression> plans) {
         super(RecordQueryPlan.class, expressionProperties, ImmutableSet.of(), plans);
     }
 
-    @Nonnull
     @Override
-    public <P> Map<RecordQueryPlan, P> propertyValueForPlans(@Nonnull final ExpressionProperty<P> expressionProperty) {
+    public <P> Map<RecordQueryPlan, P> propertyValueForPlans(final ExpressionProperty<P> expressionProperty) {
         return propertyValueForExpressions(expressionProperty);
     }
 
-    @Nonnull
     @Override
     public Map<Map<ExpressionProperty<?>, ?>, Set<RecordQueryPlan>> getGroupingPropertiesPlansMap() {
         return getPartitioningPropertiesExpressionsMap();
     }
 
-    @Nonnull
-    public static Set<ExpressionProperty<?>> allAttributesExcept(@Nonnull final ExpressionProperty<?>... exceptAttributes) {
+    public static Set<ExpressionProperty<?>> allAttributesExcept(final ExpressionProperty<?>... exceptAttributes) {
         final var exceptAttributesSet = ImmutableSet.copyOf(Arrays.asList(exceptAttributes));
         return ImmutableSet.copyOf(Sets.difference(expressionProperties, exceptAttributesSet));
     }

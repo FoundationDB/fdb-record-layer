@@ -33,7 +33,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -62,14 +61,12 @@ public class ComputingMatcher<T, M, R> extends BaseMatcher<T> implements Generic
      * Match function that computes an {@link Iterable} of type {@code M} for each matching pair
      * of elements.
      */
-    @Nonnull
     private final MatchFunction<T, M> matchFunction;
 
     /**
      * Supplier to create accumulators to accumulate intermediate {@link Iterable}s
      * of type {@code M} into an {@link Iterable} of type {@code R}.
      */
-    @Nonnull
     private final Supplier<MatchAccumulator<M, R>> matchAccumulatorSupplier;
 
     /**
@@ -94,17 +91,17 @@ public class ComputingMatcher<T, M, R> extends BaseMatcher<T> implements Generic
      * @param matchAccumulatorSupplier a supplier to create accumulators to accumulate intermediate {@link Iterable}s
      *        of type {@code M} into an {@link Iterable} of type {@code R}
      */
-    private ComputingMatcher(@Nonnull final AliasMap boundAliasesMap,
-                             @Nonnull final Set<CorrelationIdentifier> aliases,
-                             @Nonnull final Function<T, CorrelationIdentifier> elementToAliasFn,
-                             @Nonnull final Map<CorrelationIdentifier, T> aliasToElementMap,
-                             @Nonnull final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> dependsOnMap,
-                             @Nonnull final Set<CorrelationIdentifier> otherAliases,
-                             @Nonnull final Function<T, CorrelationIdentifier> otherElementToAliasFn,
-                             @Nonnull final Map<CorrelationIdentifier, ? extends T> otherAliasToElementMap,
-                             @Nonnull final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> otherDependsOnMap,
-                             @Nonnull final MatchFunction<T, M> matchFunction,
-                             @Nonnull final Supplier<MatchAccumulator<M, R>> matchAccumulatorSupplier) {
+    private ComputingMatcher(final AliasMap boundAliasesMap,
+                             final Set<CorrelationIdentifier> aliases,
+                             final Function<T, CorrelationIdentifier> elementToAliasFn,
+                             final Map<CorrelationIdentifier, T> aliasToElementMap,
+                             final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> dependsOnMap,
+                             final Set<CorrelationIdentifier> otherAliases,
+                             final Function<T, CorrelationIdentifier> otherElementToAliasFn,
+                             final Map<CorrelationIdentifier, ? extends T> otherAliasToElementMap,
+                             final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> otherDependsOnMap,
+                             final MatchFunction<T, M> matchFunction,
+                             final Supplier<MatchAccumulator<M, R>> matchAccumulatorSupplier) {
         super(boundAliasesMap, aliases, elementToAliasFn, aliasToElementMap, dependsOnMap, otherAliases, otherElementToAliasFn, otherAliasToElementMap, otherDependsOnMap);
         this.matchFunction = matchFunction;
         this.matchAccumulatorSupplier = matchAccumulatorSupplier;
@@ -114,7 +111,6 @@ public class ComputingMatcher<T, M, R> extends BaseMatcher<T> implements Generic
      * Match using the method {@link #enumerate} as {@link EnumerationFunction}.
      * @return an iterable of match results.
      */
-    @Nonnull
     @Override
     public Iterable<BoundMatch<R>> match() {
         return match(this::enumerate, false);
@@ -134,9 +130,8 @@ public class ComputingMatcher<T, M, R> extends BaseMatcher<T> implements Generic
      * @return an {@link Iterator} of match results (of type {@code BoundMatch<R>})
      */
     @SuppressWarnings("java:S135")
-    @Nonnull
-    public Iterator<BoundMatch<R>> enumerate(@Nonnull final EnumeratingIterator<CorrelationIdentifier> iterator,
-                                             @Nonnull final List<CorrelationIdentifier> otherPermutation) {
+    public Iterator<BoundMatch<R>> enumerate(final EnumeratingIterator<CorrelationIdentifier> iterator,
+                                             final List<CorrelationIdentifier> otherPermutation) {
         final Set<CorrelationIdentifier> aliases = getAliases();
         final AliasMap boundAliasesMap = getBoundAliasesMap();
 
@@ -225,16 +220,15 @@ public class ComputingMatcher<T, M, R> extends BaseMatcher<T> implements Generic
      * @param <R> r
      * @return a newly created generic matcher of type {@code BoundMatch<R>}
      */
-    @Nonnull
-    public static <T, M, R> GenericMatcher<BoundMatch<R>> onAliasDependencies(@Nonnull final AliasMap boundAliasesMap,
-                                                                              @Nonnull final Collection<? extends T> elements,
-                                                                              @Nonnull final Function<T, CorrelationIdentifier> elementToAliasFn,
-                                                                              @Nonnull final Function<T, Set<CorrelationIdentifier>> dependsOnFn,
-                                                                              @Nonnull final Collection<? extends T> otherElements,
-                                                                              @Nonnull final Function<T, CorrelationIdentifier> otherElementToAliasFn,
-                                                                              @Nonnull final Function<T, Set<CorrelationIdentifier>> otherDependsOnFn,
-                                                                              @Nonnull final MatchFunction<T, M> matchFunction,
-                                                                              @Nonnull final Supplier<MatchAccumulator<M, R>> matchAccumulatorSupplier) {
+    public static <T, M, R> GenericMatcher<BoundMatch<R>> onAliasDependencies(final AliasMap boundAliasesMap,
+                                                                              final Collection<? extends T> elements,
+                                                                              final Function<T, CorrelationIdentifier> elementToAliasFn,
+                                                                              final Function<T, Set<CorrelationIdentifier>> dependsOnFn,
+                                                                              final Collection<? extends T> otherElements,
+                                                                              final Function<T, CorrelationIdentifier> otherElementToAliasFn,
+                                                                              final Function<T, Set<CorrelationIdentifier>> otherDependsOnFn,
+                                                                              final MatchFunction<T, M> matchFunction,
+                                                                              final Supplier<MatchAccumulator<M, R>> matchAccumulatorSupplier) {
         ImmutableSet<CorrelationIdentifier> aliases = DependencyUtils.computeAliases(elements, elementToAliasFn);
         final ImmutableMap<CorrelationIdentifier, T> aliasToElementMap = DependencyUtils.computeAliasToElementMap(elements, elementToAliasFn);
 
@@ -266,7 +260,6 @@ public class ComputingMatcher<T, M, R> extends BaseMatcher<T> implements Generic
      * @param <M> the type the {@link MatchFunction} produces {@link Iterable}s of
      * @return a newly created accumulator
      */
-    @Nonnull
     public static <M> MatchAccumulator<M, EnumeratingIterable<M>> productAccumulator() {
         return new MatchAccumulator<M, EnumeratingIterable<M>>() {
             private final ImmutableList.Builder<Iterable<M>> state = ImmutableList.builder();

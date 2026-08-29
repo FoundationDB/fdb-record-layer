@@ -33,8 +33,8 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
@@ -61,7 +61,6 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
     /**
      * Class object to do runtime type checks against as this is not Scala.
      */
-    @Nonnull
     private final Class<E> expressionClass;
 
     /**
@@ -81,25 +80,22 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
     /**
      * A queue with expressions whose properties have not been computed yet.
      */
-    @Nonnull
     private final Deque<E> toBeInsertedExpressions;
 
     /**
      * Map from each expression to its associated map of computed property values.
      */
-    @Nonnull
     private final Map<E, Map<ExpressionProperty<?>, ?>> propertiesMap;
 
     /**
      * {@link SetMultimap} from a map of computed properties to {@code E}s.
      */
-    @Nonnull
     private final SetMultimap<Map<ExpressionProperty<?>, ?>, E> partitioningPropertiesExpressionsMap;
 
-    public ExpressionPropertiesMap(@Nonnull final Class<E> expressionClass,
-                                   @Nonnull final Set<ExpressionProperty<?>> trackedPartitioningProperties,
-                                   @Nonnull final Set<ExpressionProperty<?>> trackedNonPartitioningProperties,
-                                   @Nonnull final Collection<? extends RelationalExpression> expressions) {
+    public ExpressionPropertiesMap(final Class<E> expressionClass,
+                                   final Set<ExpressionProperty<?>> trackedPartitioningProperties,
+                                   final Set<ExpressionProperty<?>> trackedNonPartitioningProperties,
+                                   final Collection<? extends RelationalExpression> expressions) {
         this.expressionClass = expressionClass;
         this.trackedPartitioningProperties = ImmutableSet.copyOf(trackedPartitioningProperties);
         this.trackedNonPartitioningProperties = ImmutableSet.copyOf(trackedNonPartitioningProperties);
@@ -109,8 +105,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
         expressions.forEach(this::add);
     }
 
-    @Nonnull
-    private E narrow(@Nonnull final RelationalExpression expression) {
+    private E narrow(final RelationalExpression expression) {
         Verify.verify(expressionClass.isInstance(expression),
                 "unable to cast property value to its declared type");
         return expressionClass.cast(expression);
@@ -138,12 +133,10 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
         }
     }
 
-    @Nonnull
     public Map<E, Map<ExpressionProperty<?>, ?>> getPropertiesMap() {
         return propertiesMap;
     }
 
-    @Nonnull
     public Map<E, Map<ExpressionProperty<?>, ?>> computeNonPartitioningPropertiesMap() {
         return Maps.transformValues(propertiesMap,
                 propertyMap ->
@@ -158,7 +151,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
      *         not stored in the properties map.
      */
     @Nullable
-    public Map<ExpressionProperty<?>, ?> getProperties(@Nonnull final RelationalExpression expression) {
+    public Map<ExpressionProperty<?>, ?> getProperties(final RelationalExpression expression) {
         update();
         return getCurrentProperties(expression);
     }
@@ -172,7 +165,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
      *         not yet processed).
      */
     @Nullable
-    public Map<ExpressionProperty<?>, ?> getCurrentProperties(@Nonnull final RelationalExpression expression) {
+    public Map<ExpressionProperty<?>, ?> getCurrentProperties(final RelationalExpression expression) {
         return propertiesMap.get(narrow(expression));
     }
 
@@ -181,7 +174,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
      * consumed upon read to lazily compute the properties of the plan passed in.
      * @param expression new expression to be added
      */
-    public final void add(@Nonnull final RelationalExpression expression) {
+    public final void add(final RelationalExpression expression) {
         toBeInsertedExpressions.add(narrow(expression));
     }
 
@@ -191,8 +184,8 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
      * @param expression new record query plan to be added
      * @param propertyMap a map containing all properties for the expression passed in
      */
-    public void add(@Nonnull final RelationalExpression expression,
-                    @Nonnull final Map<ExpressionProperty<?>, ?> propertyMap) {
+    public void add(final RelationalExpression expression,
+                    final Map<ExpressionProperty<?>, ?> propertyMap) {
         final var partitioningPropertyMapBuilder = ImmutableMap.<ExpressionProperty<?>, Object>builder();
         for (final var expressionProperty : trackedPartitioningProperties) {
             final var propertyValue = propertyMap.get(expressionProperty);
@@ -213,9 +206,9 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
      * @param partitioningPropertyMap a map containing all partitioning properties for the expression passed in
      * @param nonPartitioningPropertyMap a map containing all non-partitioning properties for the expression passed in
      */
-    public void add(@Nonnull final RelationalExpression expression,
-                    @Nonnull final Map<ExpressionProperty<?>, ?> partitioningPropertyMap,
-                    @Nonnull final Map<ExpressionProperty<?>, ?> nonPartitioningPropertyMap) {
+    public void add(final RelationalExpression expression,
+                    final Map<ExpressionProperty<?>, ?> partitioningPropertyMap,
+                    final Map<ExpressionProperty<?>, ?> nonPartitioningPropertyMap) {
         final E typedExpression = narrow(expression);
         Verify.verify(!propertiesMap.containsKey(typedExpression));
         final var combinedPropertyMap =
@@ -227,9 +220,8 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
         partitioningPropertiesExpressionsMap.put(partitioningPropertyMap, typedExpression);
     }
 
-    @Nonnull
-    private <P> P computePropertyValue(@Nonnull final ExpressionProperty<P> expressionProperty,
-                                       @Nonnull final RelationalExpression expression) {
+    private <P> P computePropertyValue(final ExpressionProperty<P> expressionProperty,
+                                       final RelationalExpression expression) {
         final var propertyVisitor = expressionProperty.createVisitor();
         return propertyVisitor.visit(expression);
     }
@@ -248,8 +240,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
      * @return a new map that holds a key/value for each plan that is currently being managed by this property map
      *         to its {@link ExpressionProperty}'s value
      */
-    @Nonnull
-    public <P> Map<E, P> propertyValueForExpressions(@Nonnull final ExpressionProperty<P> expressionProperty) {
+    public <P> Map<E, P> propertyValueForExpressions(final ExpressionProperty<P> expressionProperty) {
         update();
         final var resultMap = new LinkedIdentityMap<E, P>();
         for (final var entry : propertiesMap.entrySet()) {
@@ -258,13 +249,11 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
         return resultMap;
     }
 
-    @Nonnull
     public Map<Map<ExpressionProperty<?>, ?>, Set<E>> getPartitioningPropertiesExpressionsMap() {
         update();
         return Multimaps.asMap(partitioningPropertiesExpressionsMap);
     }
 
-    @Nonnull
     public Map<Map<ExpressionProperty<?>, ?>, Set<RecordQueryPlan>> getGroupingPropertiesPlansMap() {
         throw new UnsupportedOperationException("method should not be called");
     }
@@ -277,12 +266,10 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
      * @return a new map that holds a key/value for each plan that is currently being managed by this property map
      *         to its {@link ExpressionProperty}'s value
      */
-    @Nonnull
-    public <P> Map<RecordQueryPlan, P> propertyValueForPlans(@Nonnull final ExpressionProperty<P> expressionProperty) {
+    public <P> Map<RecordQueryPlan, P> propertyValueForPlans(final ExpressionProperty<P> expressionProperty) {
         throw new UnsupportedOperationException("method cannot provide plans");
     }
 
-    @Nonnull
     public static ExpressionPropertiesMap<RelationalExpression> defaultForRewritePhase() {
         return new ExpressionPropertiesMap<>(RelationalExpression.class,
                 ImmutableSet.of(

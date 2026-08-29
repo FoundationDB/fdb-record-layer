@@ -45,7 +45,6 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -844,7 +843,6 @@ class MessageTransformationTest {
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("z"))));
     }
 
-    @Nonnull
     private static Value makeRecordConstructor() {
         final var aaType = Type.Record.fromFields(false, ImmutableList.of(
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("aaa")),
@@ -904,7 +902,6 @@ class MessageTransformationTest {
         return returnValue;
     }
 
-    @Nonnull
     private static Value makeRecordConstructorForPartialPromotion() {
         final var aaType = Type.Record.fromFields(false, ImmutableList.of(
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("aaa")),
@@ -986,7 +983,6 @@ class MessageTransformationTest {
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("z"))));
     }
 
-    @Nonnull
     private static Value makeSparseRecordConstructor() {
         final var aaType = Type.Record.fromFields(false, ImmutableList.of(
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("aaa")),
@@ -1040,7 +1036,6 @@ class MessageTransformationTest {
         return returnValue;
     }
 
-    @Nonnull
     private static Value makeRestaurantConstructor() {
         final var reviewType = Type.Record.fromFields(false, ImmutableList.of(
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("reviewer")),
@@ -1088,7 +1083,6 @@ class MessageTransformationTest {
                 ));
     }
 
-    @Nonnull
     private static Value makeRestaurantConstructorWithNull() {
         final var reviewType = Type.Record.fromFields(false, ImmutableList.of(
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("reviewer")),

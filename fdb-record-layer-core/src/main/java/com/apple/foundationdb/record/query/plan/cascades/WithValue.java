@@ -22,8 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Trait for classes containing a {@code Value}.
@@ -34,6 +33,5 @@ public interface WithValue<T extends WithValue<T>> {
     @Nullable
     Value getValue();
 
-    @Nonnull
-    T withValue(@Nonnull Value value);
+    T withValue(Value value);
 }

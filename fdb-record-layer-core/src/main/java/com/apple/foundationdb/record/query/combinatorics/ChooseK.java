@@ -29,8 +29,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.IntStream;
@@ -52,7 +52,6 @@ public class ChooseK {
      * @param <T> type
      */
     private static class ComplexIterable<T> implements EnumeratingIterable<T> {
-        @Nonnull
         private final List<T> elements;
         private final int numberOfElementsToChoose;
 
@@ -230,12 +229,11 @@ public class ChooseK {
             }
         }
 
-        private ComplexIterable(@Nonnull final Iterable<? extends T> elements, final int numberOfElementsToChoose) {
+        private ComplexIterable(final Iterable<? extends T> elements, final int numberOfElementsToChoose) {
             this.elements = ImmutableList.copyOf(elements);
             this.numberOfElementsToChoose = numberOfElementsToChoose;
         }
 
-        @Nonnull
         @Override
         public EnumeratingIterator<T> iterator() {
             return new ComplexIterator();
@@ -251,10 +249,9 @@ public class ChooseK {
      * @param <T> type
      */
     private static class SingleIterable<T> implements EnumeratingIterable<T> {
-        @Nonnull
         private final List<T> singleElement;
 
-        private SingleIterable(@Nonnull final List<T> singleElement) {
+        private SingleIterable(final List<T> singleElement) {
             this.singleElement = singleElement;
         }
 
@@ -281,7 +278,6 @@ public class ChooseK {
             }
         }
 
-        @Nonnull
         @Override
         public EnumeratingIterator<T> iterator() {
             return new SingleIterator();
@@ -298,7 +294,7 @@ public class ChooseK {
      *         {@code dependsOnFn} in a sense that the iterators created by this iterator will not return
      *         orderings that violate the given depends-on constraints
      */
-    public static <T> EnumeratingIterable<T> chooseK(@Nonnull final Collection<? extends T> elements, final int numberOfElementsToChoose) {
+    public static <T> EnumeratingIterable<T> chooseK(final Collection<? extends T> elements, final int numberOfElementsToChoose) {
         Preconditions.checkArgument(numberOfElementsToChoose >= 0 && numberOfElementsToChoose <= elements.size());
         // try simple
         @Nullable
@@ -321,7 +317,7 @@ public class ChooseK {
      *         {@code dependsOnFn} in a sense that the iterators created by this iterator will not return
      *         orderings that violate the given depends-on constraints
      */
-    public static <T> Iterable<List<T>> chooseK(@Nonnull final Collection<T> elements, final int startInclusive, final int endExclusive) {
+    public static <T> Iterable<List<T>> chooseK(final Collection<T> elements, final int startInclusive, final int endExclusive) {
         Preconditions.checkArgument(startInclusive >= 0 && startInclusive <= elements.size());
         Preconditions.checkArgument(endExclusive >= startInclusive && endExclusive - 1 <= elements.size());
 
@@ -337,7 +333,7 @@ public class ChooseK {
     }
 
     @Nullable
-    private static <T> EnumeratingIterable<T> trySimpleIterable(@Nonnull final Collection<? extends T> elements, final int numberOfElementsToChoose) {
+    private static <T> EnumeratingIterable<T> trySimpleIterable(final Collection<? extends T> elements, final int numberOfElementsToChoose) {
         if (elements.isEmpty() || numberOfElementsToChoose == 0) {
             return new SingleIterable<>(ImmutableList.of());
         } else if (elements.size() == 1) {

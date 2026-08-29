@@ -39,8 +39,8 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -53,7 +53,6 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     /**
      * Index metadata structure.
      */
-    @Nonnull
     private final Index index;
 
     /**
@@ -64,60 +63,51 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     /**
      * Holds the parameter names for all necessary parameters that need to be bound during matching.
      */
-    @Nonnull
     private final List<CorrelationIdentifier> parameters;
 
     /**
      * Base type.
      */
-    @Nonnull
     private final Type.Record baseType;
 
     /**
      * Base alias.
      */
-    @Nonnull
     private final CorrelationIdentifier baseAlias;
 
     /**
      * List of values that represent the key parts of the index represented by the candidate in the expanded graph.
      */
-    @Nonnull
     private final List<Value> indexKeyValues;
 
     /**
      * List of values that represent the value parts of the index represented by the candidate in the expanded graph.
      */
-    @Nonnull
     private final List<Value> indexValueValues;
 
     /**
      * Traversal object of the expanded index scan graph.
      */
-    @Nonnull
     private final Traversal traversal;
 
-    @Nonnull
     private final KeyExpression fullKeyExpression;
 
     @Nullable
     private final KeyExpression primaryKey;
 
-    @Nonnull
     private final Supplier<Optional<List<Value>>> primaryKeyValuesOptionalSupplier;
 
-    @Nonnull
     private final Supplier<Optional<IndexEntryToLogicalRecord>> indexEntryToLogicalRecordOptionalSupplier;
 
-    public ValueIndexScanMatchCandidate(@Nonnull final Index index,
-                                        @Nonnull final Collection<RecordType> queriedRecordTypes,
-                                        @Nonnull final Traversal traversal,
-                                        @Nonnull final List<CorrelationIdentifier> parameters,
-                                        @Nonnull final Type.Record baseType,
-                                        @Nonnull final CorrelationIdentifier baseAlias,
-                                        @Nonnull final List<Value> indexKeyValues,
-                                        @Nonnull final List<Value> indexValueValues,
-                                        @Nonnull final KeyExpression fullKeyExpression,
+    public ValueIndexScanMatchCandidate(final Index index,
+                                        final Collection<RecordType> queriedRecordTypes,
+                                        final Traversal traversal,
+                                        final List<CorrelationIdentifier> parameters,
+                                        final Type.Record baseType,
+                                        final CorrelationIdentifier baseAlias,
+                                        final List<Value> indexKeyValues,
+                                        final List<Value> indexValueValues,
+                                        final KeyExpression fullKeyExpression,
                                         @Nullable final KeyExpression primaryKey) {
         this.index = index;
         this.queriedRecordTypes = ImmutableList.copyOf(queriedRecordTypes);
@@ -146,58 +136,48 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         return index.isUnique();
     }
 
-    @Nonnull
     @Override
     public String getName() {
         return index.getName();
     }
 
-    @Nonnull
     @Override
     public List<RecordType> getQueriedRecordTypes() {
         return queriedRecordTypes;
     }
 
-    @Nonnull
     @Override
     public Traversal getTraversal() {
         return traversal;
     }
 
-    @Nonnull
     @Override
     public List<CorrelationIdentifier> getSargableAliases() {
         return parameters;
     }
 
-    @Nonnull
     @Override
     public List<CorrelationIdentifier> getOrderingAliases() {
         return getSargableAliases();
     }
 
-    @Nonnull
     @Override
     public Type.Record getBaseType() {
         return baseType;
     }
 
-    @Nonnull
     public CorrelationIdentifier getBaseAlias() {
         return baseAlias;
     }
 
-    @Nonnull
     public List<Value> getIndexKeyValues() {
         return indexKeyValues;
     }
 
-    @Nonnull
     public List<Value> getIndexValueValues() {
         return indexValueValues;
     }
 
-    @Nonnull
     @Override
     public KeyExpression getFullKeyExpression() {
         return fullKeyExpression;
@@ -213,23 +193,20 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         return index.getRootExpression().createsDuplicates();
     }
 
-    @Nonnull
     @Override
     public Optional<List<Value>> getPrimaryKeyValuesMaybe() {
         return primaryKeyValuesOptionalSupplier.get();
     }
 
-    @Nonnull
     private Optional<IndexEntryToLogicalRecord> getIndexEntryToLogicalRecordMaybe() {
         return indexEntryToLogicalRecordOptionalSupplier.get();
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPlan toEquivalentPlan(@Nonnull final PartialMatch partialMatch,
-                                            @Nonnull final PlanContext planContext,
-                                            @Nonnull final Memoizer memoizer,
-                                            @Nonnull final List<ComparisonRange> comparisonRanges,
+    public RecordQueryPlan toEquivalentPlan(final PartialMatch partialMatch,
+                                            final PlanContext planContext,
+                                            final Memoizer memoizer,
+                                            final List<ComparisonRange> comparisonRanges,
                                             final boolean reverseScanOrder) {
         final var matchInfo = partialMatch.getRegularMatchInfo();
 
@@ -247,13 +224,12 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                 matchInfo.getConstraint()));
     }
 
-    @Nonnull
-    private Optional<RecordQueryPlan> tryFetchCoveringIndexScan(@Nonnull final PartialMatch partialMatch,
-                                                                @Nonnull final PlanContext planContext,
-                                                                @Nonnull final Memoizer memoizer,
-                                                                @Nonnull final List<ComparisonRange> comparisonRanges,
+    private Optional<RecordQueryPlan> tryFetchCoveringIndexScan(final PartialMatch partialMatch,
+                                                                final PlanContext planContext,
+                                                                final Memoizer memoizer,
+                                                                final List<ComparisonRange> comparisonRanges,
                                                                 final boolean isReverse,
-                                                                @Nonnull Type.Record baseRecordType) {
+                                                                Type.Record baseRecordType) {
         final var indexEntryToLogicalRecordOptional = getIndexEntryToLogicalRecordMaybe();
         if (indexEntryToLogicalRecordOptional.isEmpty()) {
             return Optional.empty();
@@ -282,11 +258,10 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                 coveringIndexPlan::pushValueThroughFetch, baseRecordType, RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY));
     }
 
-    @Nonnull
     @Override
-    public Optional<Value> pushValueThroughFetch(@Nonnull final Value toBePushedValue,
-                                                 @Nonnull final CorrelationIdentifier sourceAlias,
-                                                 @Nonnull final CorrelationIdentifier targetAlias) {
+    public Optional<Value> pushValueThroughFetch(final Value toBePushedValue,
+                                                 final CorrelationIdentifier sourceAlias,
+                                                 final CorrelationIdentifier targetAlias) {
         final var indexEntryToLogicalRecord =
                 getIndexEntryToLogicalRecordMaybe().orElseThrow(() -> new RecordCoreException("need index entry to logical record"));
 
@@ -303,8 +278,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         return queriedRecordTypes.size() == 1 || hasAndOrderedByRecordTypeKey();
     }
 
-    @Nonnull
-    private static ScanComparisons toScanComparisons(@Nonnull final List<ComparisonRange> comparisonRanges) {
+    private static ScanComparisons toScanComparisons(final List<ComparisonRange> comparisonRanges) {
         ScanComparisons.Builder builder = new ScanComparisons.Builder();
         for (ComparisonRange comparisonRange : comparisonRanges) {
             builder.addComparisonRange(comparisonRange);

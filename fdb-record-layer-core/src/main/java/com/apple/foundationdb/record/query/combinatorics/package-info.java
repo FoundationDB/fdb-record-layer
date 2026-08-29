@@ -21,4 +21,7 @@
 /**
  * Utility package to hold general-purpose algorithms used by the Cascades planner.
  */
+@NullMarked
 package com.apple.foundationdb.record.query.combinatorics;
+
+import org.jspecify.annotations.NullMarked;

@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 /**
@@ -39,7 +38,6 @@ public class BoundMatch<R> {
      * The alias map for this match containing <em>all</em> mappings necessary to describe this match (even bindings
      * coming from external (deep) correlations.
      */
-    @Nonnull
     private final AliasMap aliasMap;
 
     /**
@@ -47,7 +45,6 @@ public class BoundMatch<R> {
      * {@link RelationalExpression.CombineFunction} the opportunity
      * to produce a meaningful result when the matching sets are empty.
      */
-    @Nonnull
     private final Optional<R> matchResultOptional;
 
     /**
@@ -56,22 +53,19 @@ public class BoundMatch<R> {
      *        coming from external (deep) correlations
      * @param matchResultOptional an optional match result
      */
-    private BoundMatch(@Nonnull final AliasMap aliasMap, @Nonnull final Optional<R> matchResultOptional) {
+    private BoundMatch(final AliasMap aliasMap, final Optional<R> matchResultOptional) {
         this.aliasMap = aliasMap;
         this.matchResultOptional = matchResultOptional;
     }
 
-    @Nonnull
     public AliasMap getAliasMap() {
         return aliasMap;
     }
 
-    @Nonnull
     public Optional<R> getMatchResultOptional() {
         return matchResultOptional;
     }
 
-    @Nonnull
     public R getMatchResult() {
         Verify.verify(matchResultOptional.isPresent());
         return matchResultOptional.get();
@@ -85,8 +79,7 @@ public class BoundMatch<R> {
      * @param <R> result type
      * @return a newly created bound match
      */
-    @Nonnull
-    public static <R> BoundMatch<R> withAliasMapAndMatchResult(final AliasMap aliasMap, @Nonnull final R matchResult) {
+    public static <R> BoundMatch<R> withAliasMapAndMatchResult(final AliasMap aliasMap, final R matchResult) {
         return new BoundMatch<>(aliasMap, Optional.of(matchResult));
     }
 
@@ -97,7 +90,6 @@ public class BoundMatch<R> {
      * @param <R> result type
      * @return a newly created bound match that does not hold a match result
      */
-    @Nonnull
     public static <R> BoundMatch<R> withAliasMap(final AliasMap aliasMap) {
         return new BoundMatch<>(aliasMap, Optional.empty());
     }

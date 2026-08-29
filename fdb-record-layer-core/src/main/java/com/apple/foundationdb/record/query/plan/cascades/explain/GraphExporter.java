@@ -26,7 +26,6 @@ import com.google.common.graph.EndpointPair;
 import com.google.common.graph.ImmutableNetwork;
 import com.google.common.graph.Network;
 
-import javax.annotation.Nonnull;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.util.Collection;
@@ -45,14 +44,14 @@ import java.util.function.Function;
  */
 @SuppressWarnings("UnstableApiUsage")
 public abstract class GraphExporter<N, E> {
-    @Nonnull private final ComponentIdProvider<N> vertexIDProvider;
-    @Nonnull private final ComponentAttributeProvider<N> vertexAttributeProvider;
-    @Nonnull private final ComponentIdProvider<E> edgeIDProvider;
-    @Nonnull private final ComponentAttributeProvider<E> edgeAttributeProvider;
-    @Nonnull private final ImmutableMap<String, Attribute> graphAttributes;
-    @Nonnull private final Map<N, String> vertexIds;
-    @Nonnull private final Map<E, String> edgeIds;
-    @Nonnull private final ClusterProvider<N, E> clusterProvider;
+    private final ComponentIdProvider<N> vertexIDProvider;
+    private final ComponentAttributeProvider<N> vertexAttributeProvider;
+    private final ComponentIdProvider<E> edgeIDProvider;
+    private final ComponentAttributeProvider<E> edgeAttributeProvider;
+    private final ImmutableMap<String, Attribute> graphAttributes;
+    private final Map<N, String> vertexIds;
+    private final Map<E, String> edgeIds;
+    private final ClusterProvider<N, E> clusterProvider;
 
     /**
      * Shorthand-type for the extended functional interface.
@@ -74,29 +73,26 @@ public abstract class GraphExporter<N, E> {
      * @param <E> edge class
      */
     public static class Cluster<N, E> {
-        @Nonnull private final ImmutableSet<N> nodes;
-        @Nonnull final ComponentAttributeProvider<Cluster<N, E>> clusterAttributeProvider;
-        @Nonnull private final ClusterProvider<N, E> nestedClusterProvider;
+        private final ImmutableSet<N> nodes;
+        final ComponentAttributeProvider<Cluster<N, E>> clusterAttributeProvider;
+        private final ClusterProvider<N, E> nestedClusterProvider;
 
-        public Cluster(@Nonnull final Set<N> nodes,
-                       @Nonnull final ComponentAttributeProvider<Cluster<N, E>> clusterAttributeProvider,
-                       @Nonnull final ClusterProvider<N, E> nestedClusterProvider) {
+        public Cluster(final Set<N> nodes,
+                       final ComponentAttributeProvider<Cluster<N, E>> clusterAttributeProvider,
+                       final ClusterProvider<N, E> nestedClusterProvider) {
             this.nodes = ImmutableSet.copyOf(nodes);
             this.clusterAttributeProvider = clusterAttributeProvider;
             this.nestedClusterProvider = nestedClusterProvider;
         }
 
-        @Nonnull
         public ImmutableSet<N> getNodes() {
             return nodes;
         }
 
-        @Nonnull
         public ComponentAttributeProvider<Cluster<N, E>> getClusterAttributeProvider() {
             return clusterAttributeProvider;
         }
 
-        @Nonnull
         public ClusterProvider<N, E> getNestedClusterProvider() {
             return nestedClusterProvider;
         }
@@ -114,27 +110,22 @@ public abstract class GraphExporter<N, E> {
      * Context class used while serializing the graph.
      */
     public class ExporterContext {
-        @Nonnull
         private final ImmutableNetwork<N, E> network;
-        @Nonnull
         private final PrintWriter printWriter;
 
-        public ExporterContext(@Nonnull final ImmutableNetwork<N, E> network, @Nonnull final PrintWriter printWriter) {
+        public ExporterContext(final ImmutableNetwork<N, E> network, final PrintWriter printWriter) {
             this.network = network;
             this.printWriter = printWriter;
         }
 
-        @Nonnull
         public ImmutableNetwork<N, E> getNetwork() {
             return network;
         }
 
-        @Nonnull
         public PrintWriter getPrintWriter() {
             return printWriter;
         }
 
-        @Nonnull
         public GraphExporter<N, E> getExporter() {
             return GraphExporter.this;
         }
@@ -154,12 +145,12 @@ public abstract class GraphExporter<N, E> {
      * @param graphAttributes map of global graph-wide attributes
      * @param clusterProvider for partitioning the graph into clusters if warranted
      */
-    protected GraphExporter(@Nonnull final ComponentIdProvider<N> vertexIDProvider,
-                            @Nonnull final ComponentAttributeProvider<N> vertexAttributeProvider,
-                            @Nonnull final ComponentIdProvider<E> edgeIDProvider,
-                            @Nonnull final ComponentAttributeProvider<E> edgeAttributeProvider,
-                            @Nonnull final Map<String, Attribute> graphAttributes,
-                            @Nonnull final ClusterProvider<N, E> clusterProvider) {
+    protected GraphExporter(final ComponentIdProvider<N> vertexIDProvider,
+                            final ComponentAttributeProvider<N> vertexAttributeProvider,
+                            final ComponentIdProvider<E> edgeIDProvider,
+                            final ComponentAttributeProvider<E> edgeAttributeProvider,
+                            final Map<String, Attribute> graphAttributes,
+                            final ClusterProvider<N, E> clusterProvider) {
         this.vertexIDProvider = vertexIDProvider;
         this.vertexAttributeProvider = vertexAttributeProvider;
         this.edgeIDProvider = edgeIDProvider;
@@ -170,37 +161,30 @@ public abstract class GraphExporter<N, E> {
         this.clusterProvider = clusterProvider;
     }
 
-    @Nonnull
     protected ComponentIdProvider<N> getVertexIDProvider() {
         return vertexIDProvider;
     }
 
-    @Nonnull
     protected ComponentAttributeProvider<N> getVertexAttributeProvider() {
         return vertexAttributeProvider;
     }
 
-    @Nonnull
     public ComponentIdProvider<E> getEdgeIDProvider() {
         return edgeIDProvider;
     }
 
-    @Nonnull
     protected ComponentAttributeProvider<E> getEdgeAttributeProvider() {
         return edgeAttributeProvider;
     }
 
-    @Nonnull
     protected ImmutableMap<String, Attribute> getGraphAttributes() {
         return graphAttributes;
     }
 
-    @Nonnull
     protected Map<N, String> getVertexIds() {
         return vertexIds;
     }
 
-    @Nonnull
     protected ClusterProvider<N, E> getClusterProvider() {
         return clusterProvider;
     }
@@ -211,8 +195,8 @@ public abstract class GraphExporter<N, E> {
      * @param network the network to be exported
      * @param writer the context to which the network to be exported
      */
-    public void exportGraph(@Nonnull final ImmutableNetwork<N, E> network,
-                            @Nonnull final Writer writer) {
+    public void exportGraph(final ImmutableNetwork<N, E> network,
+                            final Writer writer) {
         final ExporterContext context = new ExporterContext(network,
                 new PrintWriter(writer));
 
@@ -233,8 +217,7 @@ public abstract class GraphExporter<N, E> {
      * @param node a node
      * @return a unique identifier
      */
-    @Nonnull
-    protected String getVertexID(@Nonnull final N node) {
+    protected String getVertexID(final N node) {
         return vertexIds.computeIfAbsent(node, n -> {
             final String idCandidate = vertexIDProvider.apply(node);
 
@@ -253,8 +236,7 @@ public abstract class GraphExporter<N, E> {
      * @param edge a edge
      * @return a unique identifier
      */
-    @Nonnull
-    protected String getEdgeID(@Nonnull final E edge) {
+    protected String getEdgeID(final E edge) {
         return edgeIds.computeIfAbsent(edge, n -> {
             final String idCandidate = edgeIDProvider.apply(edge);
             if (!isValidId(idCandidate)) {
@@ -267,7 +249,7 @@ public abstract class GraphExporter<N, E> {
         });
     }
 
-    protected abstract boolean isValidId(@Nonnull String idCandidate);
+    protected abstract boolean isValidId(String idCandidate);
 
     /**
      * Render the header. To be implemented by subclass.
@@ -275,7 +257,7 @@ public abstract class GraphExporter<N, E> {
      * @param context the context
      * @param graph the graph
      */
-    protected abstract void renderHeader(@Nonnull ExporterContext context, @Nonnull ImmutableNetwork<N, E> graph);
+    protected abstract void renderHeader(ExporterContext context, ImmutableNetwork<N, E> graph);
 
     /**
      * Render the global graph attributes. To be implemented by subclass.
@@ -283,15 +265,15 @@ public abstract class GraphExporter<N, E> {
      * @param context the context
      * @param attributes the attributes of the graph
      */
-    protected abstract void renderGraphAttributes(@Nonnull ExporterContext context,
-                                                  @Nonnull Map<String, Attribute> attributes);
+    protected abstract void renderGraphAttributes(ExporterContext context,
+                                                  Map<String, Attribute> attributes);
 
     /**
      * Render all nodes in the given network.
      *
      * @param context the context
      */
-    protected void renderNodes(@Nonnull final ExporterContext context) {
+    protected void renderNodes(final ExporterContext context) {
         final ImmutableNetwork<N, E> network = context.getNetwork();
 
         // vertex set
@@ -309,15 +291,15 @@ public abstract class GraphExporter<N, E> {
      * @param node the node to be rendered
      * @param attributes the attributes of the node
      */
-    protected abstract void renderNode(@Nonnull ExporterContext context,
-                                       @Nonnull N node,
-                                       @Nonnull Map<String, Attribute> attributes);
+    protected abstract void renderNode(ExporterContext context,
+                                       N node,
+                                       Map<String, Attribute> attributes);
 
     /**
      * Render all edges in a given network.
      * @param context the context to use
      */
-    protected void renderEdges(@Nonnull final ExporterContext context) {
+    protected void renderEdges(final ExporterContext context) {
         final ImmutableNetwork<N, E> network = context.getNetwork();
 
         // edge set
@@ -342,24 +324,24 @@ public abstract class GraphExporter<N, E> {
      * @param target the target node of the edge
      * @param attributes the attributes of the edge
      */
-    protected abstract void renderEdge(@Nonnull ExporterContext context,
+    protected abstract void renderEdge(ExporterContext context,
                                        boolean isDirected,
-                                       @Nonnull N source,
-                                       @Nonnull N target,
-                                       @Nonnull Map<String, Attribute> attributes);
+                                       N source,
+                                       N target,
+                                       Map<String, Attribute> attributes);
 
     /**
      * Render all sub clusters in a given network.
      * @param context the context to use
      * @param clusters the clusters on this level
      */
-    protected abstract void renderClusters(@Nonnull ExporterContext context,
-                                           @Nonnull Collection<Cluster<N, E>> clusters);
+    protected abstract void renderClusters(ExporterContext context,
+                                           Collection<Cluster<N, E>> clusters);
 
     /**
      * Render the footer.
      *
      * @param context the context
      */
-    protected abstract void renderFooter(@Nonnull ExporterContext context);
+    protected abstract void renderFooter(ExporterContext context);
 }

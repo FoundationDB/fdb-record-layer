@@ -92,7 +92,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionP
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -201,20 +200,18 @@ public class PlanningRuleSet extends CascadesRuleSet {
     }
 
     @VisibleForTesting
-    PlanningRuleSet(@Nonnull Set<CascadesRule<? extends RelationalExpression>> rules) {
+    PlanningRuleSet(Set<CascadesRule<? extends RelationalExpression>> rules) {
         super(rules);
     }
 
-    @Nonnull
     @Override
-    public Stream<AbstractCascadesRule<? extends PartialMatch>> getPartialMatchRules(@Nonnull final Predicate<AbstractCascadesRule<? extends PartialMatch>> rulePredicate) {
+    public Stream<AbstractCascadesRule<? extends PartialMatch>> getPartialMatchRules(final Predicate<AbstractCascadesRule<? extends PartialMatch>> rulePredicate) {
         return PARTIAL_MATCH_RULES.stream()
                 .filter(rulePredicate);
     }
 
-    @Nonnull
     @Override
-    public Stream<AbstractCascadesRule<? extends MatchPartition>> getMatchPartitionRules(@Nonnull final Predicate<AbstractCascadesRule<? extends MatchPartition>> rulePredicate) {
+    public Stream<AbstractCascadesRule<? extends MatchPartition>> getMatchPartitionRules(final Predicate<AbstractCascadesRule<? extends MatchPartition>> rulePredicate) {
         return MATCH_PARTITION_RULES.stream()
                 .filter(rulePredicate);
     }

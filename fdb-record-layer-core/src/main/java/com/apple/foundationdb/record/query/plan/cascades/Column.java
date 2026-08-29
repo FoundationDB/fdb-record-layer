@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.planprotos.PRecordConstructorValue.PColumn;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -37,22 +36,18 @@ import java.util.Optional;
  * @param <V> type parameter for the {@link Value}
  */
 public class Column<V extends Value> implements PlanHashable, PlanSerializable {
-    @Nonnull
     private final Field field;
-    @Nonnull
     private final V value;
 
-    public Column(@Nonnull final Field field, @Nonnull final V value) {
+    public Column(final Field field, final V value) {
         this.field = field;
         this.value = value;
     }
 
-    @Nonnull
     public Field getField() {
         return field;
     }
 
-    @Nonnull
     public V getValue() {
         return value;
     }
@@ -74,20 +69,20 @@ public class Column<V extends Value> implements PlanHashable, PlanSerializable {
         return Objects.hash(getField(), getValue());
     }
 
-    public static <V extends Value> Column<V> unnamedOf(@Nonnull final V value) {
+    public static <V extends Value> Column<V> unnamedOf(final V value) {
         return new Column<>(Field.unnamedOf(value.getResultType()), value);
     }
 
-    public static <V extends Value> Column<V> of(@Nonnull Optional<String> fieldNameOptional, @Nonnull final V value) {
+    public static <V extends Value> Column<V> of(Optional<String> fieldNameOptional, final V value) {
         return new Column<>(Field.of(value.getResultType(), fieldNameOptional), value);
     }
 
-    public static <V extends Value> Column<V> of(@Nonnull final Field field, @Nonnull final V value) {
+    public static <V extends Value> Column<V> of(final Field field, final V value) {
         return new Column<>(field, value);
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode hashMode) {
+    public int planHash(final PlanHashMode hashMode) {
         // plan hash everything substantial except the field result type
         // TODO: we should revisit normalization of field names and how they contribute the this hash calculation.
         final var fieldNameOptional = getField().getFieldNameOptional();
@@ -98,18 +93,16 @@ public class Column<V extends Value> implements PlanHashable, PlanSerializable {
         }
     }
 
-    @Nonnull
     @Override
-    public PColumn toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PColumn toProto(final PlanSerializationContext serializationContext) {
         return PColumn.newBuilder()
                 .setField(field.toProto(serializationContext))
                 .setValue(value.toValueProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
-    public static Column<? extends Value> fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                    @Nonnull final PColumn columnProto) {
+    public static Column<? extends Value> fromProto(final PlanSerializationContext serializationContext,
+                                                    final PColumn columnProto) {
         return new Column<>(Field.fromProto(serializationContext, Objects.requireNonNull(columnProto.getField())),
                 Value.fromValueProto(serializationContext, Objects.requireNonNull(columnProto.getValue())));
     }

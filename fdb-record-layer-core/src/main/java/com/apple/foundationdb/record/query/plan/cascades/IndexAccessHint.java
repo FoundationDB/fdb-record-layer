@@ -20,22 +20,19 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
  * Represents an index hint.
  */
 public class IndexAccessHint implements AccessHint {
-    @Nonnull
     private final String indexName;
 
-    public IndexAccessHint(@Nonnull final String indexName) {
+    public IndexAccessHint(final String indexName) {
         this.indexName = indexName;
     }
 
     @Override
-    @Nonnull
     public String getAccessHintType() {
         return "INDEX";
     }
@@ -56,7 +53,6 @@ public class IndexAccessHint implements AccessHint {
         return Objects.hash(indexName);
     }
 
-    @Nonnull
     public String getIndexName() {
         return indexName;
     }

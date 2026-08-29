@@ -25,7 +25,6 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
-import javax.annotation.Nonnull;
 import java.util.AbstractMap;
 import java.util.AbstractSet;
 import java.util.Iterator;
@@ -41,26 +40,22 @@ import java.util.function.Supplier;
  * @param <V> value type
  */
 public final class LinkedIdentityMap<K, V> extends AbstractMap<K, V> {
-    @Nonnull
     private static final Equivalence<Object> identity = Equivalence.identity();
 
-    @Nonnull
     private final Map<Equivalence.Wrapper<K>, V> map;
 
-    @Nonnull
     private final Supplier<Set<Entry<K, V>>> entrySetSupplier;
 
     public LinkedIdentityMap() {
         this(ImmutableMap.of());
     }
 
-    public LinkedIdentityMap(@Nonnull final Map<K, V> sourceMap) {
+    public LinkedIdentityMap(final Map<K, V> sourceMap) {
         this.map = Maps.newLinkedHashMap();
         this.entrySetSupplier = Suppliers.memoize(this::computeEntrySet);
         putAll(sourceMap);
     }
 
-    @Nonnull
     private Set<Entry<K, V>> computeEntrySet() {
         return new AbstractSet<>() {
             @Override
@@ -74,7 +69,6 @@ public final class LinkedIdentityMap<K, V> extends AbstractMap<K, V> {
                     }
 
                     @Override
-                    @Nonnull
                     public Entry<K, V> next() {
                         final Entry<Equivalence.Wrapper<K>, V> next = iterator.next();
                         return new SimpleEntry<>(next.getKey().get(), next.getValue());

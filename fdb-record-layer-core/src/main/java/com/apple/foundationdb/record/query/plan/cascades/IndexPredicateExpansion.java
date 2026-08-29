@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 /**
@@ -48,8 +47,7 @@ public class IndexPredicateExpansion {
      * @param predicate The predicate to transform.
      * @return A mapping from a {@link Value} and list of corresponding {@link RangeConstraints}.
      */
-    @Nonnull
-    public static Optional<Multimap<Value, RangeConstraints>> dnfPredicateToRanges(@Nonnull final QueryPredicate predicate) {
+    public static Optional<Multimap<Value, RangeConstraints>> dnfPredicateToRanges(final QueryPredicate predicate) {
         ImmutableMultimap.Builder<Value, RangeConstraints> result = ImmutableMultimap.builder();
 
         // simple case: x > 3 is DNF
@@ -68,7 +66,7 @@ public class IndexPredicateExpansion {
         return Optional.of(result.build());
     }
 
-    private static boolean conjunctionToRange(final @Nonnull QueryPredicate predicate, final ImmutableMultimap.Builder<Value, RangeConstraints> result, final QueryPredicate group) {
+    private static boolean conjunctionToRange(final QueryPredicate predicate, final ImmutableMultimap.Builder<Value, RangeConstraints> result, final QueryPredicate group) {
         if (group instanceof AndPredicate) {
             final var terms = ((AndPredicate)group).getChildren();
             Optional<Value> key = Optional.empty();

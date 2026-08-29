@@ -22,8 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordCoreException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Semantic exceptions that could occur e.g. to illegal type conversions, ... etc.
@@ -80,24 +79,22 @@ public class SemanticException extends RecordCoreException {
         }
     }
 
-    @Nonnull
     private final ErrorCode errorCode;
     @Nullable
     private final String additionalErrorMessage;
 
-    private SemanticException(@Nonnull final ErrorCode errorCode, @Nullable final String additionalErrorMessage) {
+    private SemanticException(final ErrorCode errorCode, @Nullable final String additionalErrorMessage) {
         super(errorCode.getMessage() + (additionalErrorMessage == null ? "" : " " + additionalErrorMessage));
         this.errorCode = errorCode;
         this.additionalErrorMessage = additionalErrorMessage;
     }
 
-    public SemanticException(@Nonnull final ErrorCode errorCode, @Nullable final String additionalErrorMessage, final Throwable cause) {
+    public SemanticException(final ErrorCode errorCode, @Nullable final String additionalErrorMessage, final Throwable cause) {
         super(errorCode.getMessage() + (additionalErrorMessage == null ? "" : " " + additionalErrorMessage), cause);
         this.errorCode = errorCode;
         this.additionalErrorMessage = additionalErrorMessage;
     }
 
-    @Nonnull
     public ErrorCode getErrorCode() {
         return errorCode;
     }
@@ -107,19 +104,19 @@ public class SemanticException extends RecordCoreException {
         return additionalErrorMessage;
     }
 
-    public static void check(final boolean condition, @Nonnull final ErrorCode message) {
+    public static void check(final boolean condition, final ErrorCode message) {
         if (!condition) {
             throw new SemanticException(message, null);
         }
     }
 
-    public static void check(final boolean condition, @Nonnull final ErrorCode message, @Nonnull final String additionalErrorMessage) {
+    public static void check(final boolean condition, final ErrorCode message, final String additionalErrorMessage) {
         if (!condition) {
             fail(message, additionalErrorMessage);
         }
     }
 
-    public static void fail(@Nonnull final ErrorCode message, @Nonnull final String additionalErrorMessage) {
+    public static void fail(final ErrorCode message, final String additionalErrorMessage) {
         throw new SemanticException(message, additionalErrorMessage);
     }
 
@@ -129,9 +126,8 @@ public class SemanticException extends RecordCoreException {
      * @param additionalErrorMessage a static message that supplements the error code's message
      * @return a new {@link SemanticException}
      */
-    @Nonnull
-    public static SemanticException newException(@Nonnull final ErrorCode errorCode,
-                                                @Nonnull final String additionalErrorMessage) {
+    public static SemanticException newException(final ErrorCode errorCode,
+                                                final String additionalErrorMessage) {
         return new SemanticException(errorCode, additionalErrorMessage);
     }
 }

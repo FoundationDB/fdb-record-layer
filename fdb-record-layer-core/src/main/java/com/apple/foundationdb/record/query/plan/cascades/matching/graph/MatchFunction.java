@@ -22,8 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.graph;
 
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 
-import javax.annotation.Nonnull;
-
 /**
  * An functional interface for a match function that computes a match result (an {@link Iterable} of type {@code M}.
  *
@@ -41,7 +39,7 @@ public interface MatchFunction<T, M> {
      *         A non-empty {@link Iterable} is considered a successful match attempt; an empty {@link Iterable} is
      *         considered a failed match attempt.
      */
-    Iterable<M> apply(@Nonnull T element,
-                      @Nonnull T otherElement,
-                      @Nonnull AliasMap aliasMap);
+    Iterable<M> apply(T element,
+                      T otherElement,
+                      AliasMap aliasMap);
 }

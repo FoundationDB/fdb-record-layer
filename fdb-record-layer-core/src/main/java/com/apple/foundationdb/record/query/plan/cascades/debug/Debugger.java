@@ -29,8 +29,8 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.google.common.base.Verify;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -80,7 +80,6 @@ public interface Debugger extends PlannerEventListeners.EventListener {
         return PlannerEventListeners.getListener(Debugger.class);
     }
 
-    @Nonnull
     static Optional<Debugger> getDebuggerMaybe() {
         final var debugger = getDebugger();
         return Optional.ofNullable(debugger);
@@ -90,7 +89,7 @@ public interface Debugger extends PlannerEventListeners.EventListener {
      * Invoke the {@link Consumer} on the currently set debugger. Do not do anything if there is no debugger set.
      * @param action consumer to invoke
      */
-    static void withDebugger(@Nonnull final Consumer<Debugger> action) {
+    static void withDebugger(final Consumer<Debugger> action) {
         final Debugger debugger = getDebugger();
         if (debugger != null) {
             action.accept(debugger);
@@ -101,8 +100,7 @@ public interface Debugger extends PlannerEventListeners.EventListener {
         Verify.verify(!isCascades());
     }
 
-    @Nonnull
-    static <T> T verifyHeuristicPlanner(@Nonnull T in) {
+    static <T> T verifyHeuristicPlanner(T in) {
         Verify.verify(!isCascades());
         return in;
     }
@@ -119,7 +117,7 @@ public interface Debugger extends PlannerEventListeners.EventListener {
      * Invoke the {@link Consumer} on the currently set debugger. Do not do anything if there is no debugger set.
      * @param runnable to invoke that may throw an exception
      */
-    static void sanityCheck(@Nonnull final Runnable runnable) {
+    static void sanityCheck(final Runnable runnable) {
         withDebugger(debugger -> {
             if (!debugger.isSane()) {
                 runnable.run();
@@ -135,8 +133,7 @@ public interface Debugger extends PlannerEventListeners.EventListener {
      *         returned {@code null}, {@code Optional.of(result)} where {@code result} is the result of applying
      *         {@code function}, otherwise.
      */
-    @Nonnull
-    static <T> Optional<T> mapDebugger(@Nonnull final Function<Debugger, T> function) {
+    static <T> Optional<T> mapDebugger(final Function<Debugger, T> function) {
         return getDebuggerMaybe().map(function);
     }
 
@@ -148,7 +145,7 @@ public interface Debugger extends PlannerEventListeners.EventListener {
         withDebugger(Debugger::onSetup);
     }
 
-    static void show(@Nonnull final Reference ref) {
+    static void show(final Reference ref) {
         withDebugger(debugger -> debugger.onShow(ref));
     }
 
@@ -156,7 +153,6 @@ public interface Debugger extends PlannerEventListeners.EventListener {
         return mapDebugger(debugger -> debugger.onGetIndex(clazz));
     }
 
-    @Nonnull
     @CanIgnoreReturnValue
     static Optional<Integer> updateIndex(Class<?> clazz, IntUnaryOperator updateFn) {
         return mapDebugger(debugger -> debugger.onUpdateIndex(clazz, updateFn));
@@ -179,28 +175,28 @@ public interface Debugger extends PlannerEventListeners.EventListener {
     }
 
     @Nullable
-    String nameForObject(@Nonnull Object object);
+    String nameForObject(Object object);
 
     @Nullable
     PlanContext getPlanContext();
 
     boolean isSane();
 
-    int onGetIndex(@Nonnull Class<?> clazz);
+    int onGetIndex(Class<?> clazz);
 
-    int onUpdateIndex(@Nonnull Class<?> clazz, @Nonnull IntUnaryOperator updateFn);
+    int onUpdateIndex(Class<?> clazz, IntUnaryOperator updateFn);
 
-    void onRegisterExpression(@Nonnull RelationalExpression expression);
+    void onRegisterExpression(RelationalExpression expression);
 
-    void onRegisterReference(@Nonnull Reference reference);
+    void onRegisterReference(Reference reference);
 
-    void onRegisterQuantifier(@Nonnull Quantifier quantifier);
+    void onRegisterQuantifier(Quantifier quantifier);
 
-    int onGetOrRegisterSingleton(@Nonnull Object singleton);
+    int onGetOrRegisterSingleton(Object singleton);
 
     void onInstall();
 
     void onSetup();
 
-    void onShow(@Nonnull Reference ref);
+    void onShow(Reference ref);
 }

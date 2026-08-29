@@ -69,7 +69,6 @@ import com.google.common.collect.Iterables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
@@ -218,33 +217,23 @@ import java.util.function.Supplier;
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
 public class CascadesPlanner implements QueryPlanner {
-    @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(CascadesPlanner.class);
 
-    @Nonnull
     private RecordQueryPlannerConfiguration configuration;
-    @Nonnull
     private final RecordMetaData metaData;
-    @Nonnull
     private final RecordStoreState recordStoreState;
-    @Nonnull
     private final IndexMatchCandidateRegistry matchCandidateRegistry;
-    @Nonnull
     private Reference currentRoot;
-    @Nonnull
     private PlanContext planContext;
-    @Nonnull
     private EvaluationContext evaluationContext;
-    @Nonnull
     private Traversal traversal;
-    @Nonnull
     private Deque<Task> taskStack; // Use a Dequeue instead of a Stack because we don't need synchronization.
     // total tasks executed for the current plan
     private int taskCount;
     // max size of the task queue encountered during the planning
     private int maxQueueSize;
 
-    public CascadesPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState, @Nonnull IndexMatchCandidateRegistry matchCandidateRegistry) {
+    public CascadesPlanner(RecordMetaData metaData, RecordStoreState recordStoreState, IndexMatchCandidateRegistry matchCandidateRegistry) {
         this.configuration = RecordQueryPlannerConfiguration.builder().build();
         this.metaData = metaData;
         this.recordStoreState = recordStoreState;
@@ -257,20 +246,18 @@ public class CascadesPlanner implements QueryPlanner {
         this.taskStack = new ArrayDeque<>();
     }
 
-    @Nonnull
     @Override
     public RecordMetaData getRecordMetaData() {
         return metaData;
     }
 
-    @Nonnull
     @Override
     public RecordStoreState getRecordStoreState() {
         return recordStoreState;
     }
 
     @Override
-    public void setIndexScanPreference(@Nonnull IndexScanPreference indexScanPreference) {
+    public void setIndexScanPreference(IndexScanPreference indexScanPreference) {
         configuration = this.configuration.asBuilder()
                 .setIndexScanPreference(indexScanPreference)
                 .build();
@@ -314,18 +301,16 @@ public class CascadesPlanner implements QueryPlanner {
                 .build();
     }
 
-    @Nonnull
     @Override
     public RecordQueryPlannerConfiguration getConfiguration() {
         return configuration;
     }
 
     @Override
-    public void setConfiguration(@Nonnull final RecordQueryPlannerConfiguration configuration) {
+    public void setConfiguration(final RecordQueryPlannerConfiguration configuration) {
         this.configuration = configuration;
     }
 
-    @Nonnull
     @VisibleForTesting
     Deque<Task> getTaskStack() {
         return taskStack;
@@ -344,10 +329,9 @@ public class CascadesPlanner implements QueryPlanner {
     }
 
     @HeuristicPlanner
-    @Nonnull
     @Override
-    public QueryPlanResult planQuery(@Nonnull final RecordQuery query,
-                                     @Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
+    public QueryPlanResult planQuery(final RecordQuery query,
+                                     final ParameterRelationshipGraph parameterRelationshipGraph) {
         RecordQueryPlan plan = plan(query, parameterRelationshipGraph);
         final var constraints = QueryPlanConstraint.collectConstraints(plan);
         QueryPlanInfo info = QueryPlanInfo.newBuilder()
@@ -362,10 +346,9 @@ public class CascadesPlanner implements QueryPlanner {
     }
 
     @HeuristicPlanner
-    @Nonnull
     @Override
-    public RecordQueryPlan plan(@Nonnull final RecordQuery query,
-                                @Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
+    public RecordQueryPlan plan(final RecordQuery query,
+                                final ParameterRelationshipGraph parameterRelationshipGraph) {
         try {
             planPartial(() -> Reference.initialOf(RelationalExpression.fromRecordQuery(metaData, query)),
                     rootReference -> MetaDataPlanContext.forRecordQuery(configuration, metaData, recordStoreState, matchCandidateRegistry, query),
@@ -377,11 +360,10 @@ public class CascadesPlanner implements QueryPlanner {
 
     }
 
-    @Nonnull
-    public QueryPlanResult planGraph(@Nonnull final Supplier<Reference> referenceSupplier,
-                                     @Nonnull final Optional<Collection<String>> allowedIndexesOptional,
-                                     @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter,
-                                     @Nonnull final EvaluationContext evaluationContext) {
+    public QueryPlanResult planGraph(final Supplier<Reference> referenceSupplier,
+                                     final Optional<Collection<String>> allowedIndexesOptional,
+                                     final IndexQueryabilityFilter indexQueryabilityFilter,
+                                     final EvaluationContext evaluationContext) {
         try {
             planPartial(referenceSupplier,
                     rootReference ->
@@ -428,9 +410,9 @@ public class CascadesPlanner implements QueryPlanner {
         return (RecordQueryPlan)singleRoot;
     }
 
-    private void planPartial(@Nonnull final Supplier<Reference> referenceSupplier,
-                             @Nonnull final Function<Reference, PlanContext> contextCreatorFunction,
-                             @Nonnull final EvaluationContext evaluationContext) {
+    private void planPartial(final Supplier<Reference> referenceSupplier,
+                             final Function<Reference, PlanContext> contextCreatorFunction,
+                             final EvaluationContext evaluationContext) {
         this.currentRoot = referenceSupplier.get();
         this.planContext = contextCreatorFunction.apply(currentRoot);
         this.evaluationContext = evaluationContext;
@@ -525,17 +507,17 @@ public class CascadesPlanner implements QueryPlanner {
         taskStack.push(new InitiatePlannerPhase(PlannerPhase.REWRITING));
     }
 
-    private void exploreExpressionAndOptimizeInputs(@Nonnull final PlannerPhase plannerPhase,
-                                                    @Nonnull final Reference group,
-                                                    @Nonnull final RelationalExpression expression,
+    private void exploreExpressionAndOptimizeInputs(final PlannerPhase plannerPhase,
+                                                    final Reference group,
+                                                    final RelationalExpression expression,
                                                     final boolean forceExploration) {
         taskStack.push(new OptimizeInputs(plannerPhase, group, expression, forceExploration));
         exploreExpression(plannerPhase, group, expression, forceExploration);
     }
 
-    private void exploreExpression(@Nonnull final PlannerPhase plannerPhase,
-                                   @Nonnull final Reference group,
-                                   @Nonnull final RelationalExpression expression,
+    private void exploreExpression(final PlannerPhase plannerPhase,
+                                   final Reference group,
+                                   final RelationalExpression expression,
                                    final boolean forceExploration) {
         Verify.verify(group.containsExactly(expression));
         if (forceExploration) {
@@ -549,7 +531,6 @@ public class CascadesPlanner implements QueryPlanner {
      * Represents actual tasks in the task stack of the planner.
      */
     public interface Task {
-        @Nonnull
         PlannerPhase getPlannerPhase();
 
         /**
@@ -577,15 +558,13 @@ public class CascadesPlanner implements QueryPlanner {
      * </pre>
      */
     private class InitiatePlannerPhase implements Task {
-        @Nonnull
         private final PlannerPhase plannerPhase;
 
-        public InitiatePlannerPhase(@Nonnull final PlannerPhase plannerPhase) {
+        public InitiatePlannerPhase(final PlannerPhase plannerPhase) {
             this.plannerPhase = plannerPhase;
         }
 
         @Override
-        @Nonnull
         public PlannerPhase getPlannerPhase() {
             return plannerPhase;
         }
@@ -602,7 +581,6 @@ public class CascadesPlanner implements QueryPlanner {
         }
 
         @Override
-        @Nonnull
         public PlannerEvent toTaskEvent(final Location location) {
             return new InitiatePhasePlannerEvent(plannerPhase, currentRoot, taskStack, location);
         }
@@ -628,18 +606,15 @@ public class CascadesPlanner implements QueryPlanner {
      * </pre>
      */
     private class OptimizeGroup implements Task {
-        @Nonnull
         final PlannerPhase plannerPhase;
-        @Nonnull
         private final Reference group;
 
-        public OptimizeGroup(@Nonnull final PlannerPhase plannerPhase,
-                             @Nonnull final Reference group) {
+        public OptimizeGroup(final PlannerPhase plannerPhase,
+                             final Reference group) {
             this.plannerPhase = plannerPhase;
             this.group = group;
         }
 
-        @Nonnull
         @Override
         public PlannerPhase getPlannerPhase() {
             return plannerPhase;
@@ -712,18 +687,15 @@ public class CascadesPlanner implements QueryPlanner {
      * </pre>
      */
     private class ExploreGroup implements Task {
-        @Nonnull
         private final PlannerPhase plannerPhase;
-        @Nonnull
         private final Reference group;
 
-        public ExploreGroup(@Nonnull final PlannerPhase plannerPhase,
-                            @Nonnull final Reference ref) {
+        public ExploreGroup(final PlannerPhase plannerPhase,
+                            final Reference ref) {
             this.plannerPhase = plannerPhase;
             this.group = ref;
         }
 
-        @Nonnull
         @Override
         public PlannerPhase getPlannerPhase() {
             return plannerPhase;
@@ -788,33 +760,27 @@ public class CascadesPlanner implements QueryPlanner {
      * Abstract base class for all tasks that have a <em>current</em> (group, expression).
      */
     private abstract class ExploreTask implements Task {
-        @Nonnull
         private final PlannerPhase plannerPhase;
-        @Nonnull
         private final Reference group;
-        @Nonnull
         private final RelationalExpression expression;
 
-        public ExploreTask(@Nonnull final PlannerPhase plannerPhase,
-                           @Nonnull final Reference group,
-                           @Nonnull final RelationalExpression expression) {
+        public ExploreTask(final PlannerPhase plannerPhase,
+                           final Reference group,
+                           final RelationalExpression expression) {
             this.plannerPhase = plannerPhase;
             this.group = group;
             this.expression = expression;
         }
 
-        @Nonnull
         @Override
         public PlannerPhase getPlannerPhase() {
             return plannerPhase;
         }
 
-        @Nonnull
         public Reference getGroup() {
             return group;
         }
 
-        @Nonnull
         public RelationalExpression getExpression() {
             return expression;
         }
@@ -825,7 +791,7 @@ public class CascadesPlanner implements QueryPlanner {
          * @param rule the rule in question
          * @return {@code true} if a task should be pushed for the given rule
          */
-        protected boolean shouldPushRule(@Nonnull CascadesRule<?> rule) {
+        protected boolean shouldPushRule(CascadesRule<?> rule) {
             return true;
         }
 
@@ -837,7 +803,7 @@ public class CascadesPlanner implements QueryPlanner {
          * trying; if that subset is empty, no task is pushed.
          */
         @VisibleForTesting
-        void pushTransformExpressionIfNeeded(@Nonnull CascadesRule<? extends RelationalExpression> rule) {
+        void pushTransformExpressionIfNeeded(CascadesRule<? extends RelationalExpression> rule) {
             if (!configuration.isRuleEnabled(rule) || !shouldPushRule(rule)) {
                 return;
             }
@@ -875,9 +841,9 @@ public class CascadesPlanner implements QueryPlanner {
      */
     @VisibleForTesting
     abstract class AbstractExploreExpression extends ExploreTask {
-        public AbstractExploreExpression(@Nonnull final PlannerPhase plannerPhase,
-                                         @Nonnull final Reference group,
-                                         @Nonnull final RelationalExpression expression) {
+        public AbstractExploreExpression(final PlannerPhase plannerPhase,
+                                         final Reference group,
+                                         final RelationalExpression expression) {
             super(plannerPhase, group, expression);
         }
 
@@ -947,19 +913,19 @@ public class CascadesPlanner implements QueryPlanner {
      * </pre>
      */
     private class ReExploreExpression extends AbstractExploreExpression {
-        public ReExploreExpression(@Nonnull final PlannerPhase plannerPhase,
-                                   @Nonnull final Reference group,
-                                   @Nonnull final RelationalExpression expression) {
+        public ReExploreExpression(final PlannerPhase plannerPhase,
+                                   final Reference group,
+                                   final RelationalExpression expression) {
             super(plannerPhase, group, expression);
         }
 
         @Override
-        protected boolean shouldPushRule(@Nonnull final CascadesRule<?> rule) {
+        protected boolean shouldPushRule(final CascadesRule<?> rule) {
             return CascadesPlanner.ruleIsApplicable(getGroup(), rule);
         }
     }
 
-    private static boolean ruleIsApplicable(@Nonnull Reference group, @Nonnull final CascadesRule<?> rule) {
+    private static boolean ruleIsApplicable(Reference group, final CascadesRule<?> rule) {
         final Set<PlannerConstraint<?>> requirementDependencies = rule.getConstraintDependencies();
         if (!group.isExploring()) {
             if (logger.isWarnEnabled()) {
@@ -982,9 +948,9 @@ public class CascadesPlanner implements QueryPlanner {
      */
     @VisibleForTesting
     class ExploreExpression extends AbstractExploreExpression {
-        public ExploreExpression(@Nonnull final PlannerPhase plannerPhase,
-                                 @Nonnull final Reference group,
-                                 @Nonnull final RelationalExpression expression) {
+        public ExploreExpression(final PlannerPhase plannerPhase,
+                                 final Reference group,
+                                 final RelationalExpression expression) {
             super(plannerPhase, group, expression);
         }
     }
@@ -994,50 +960,40 @@ public class CascadesPlanner implements QueryPlanner {
      * {@link RelationalExpression}, {@link PartialMatch}, of {@link MatchPartition}.
      */
     private abstract class AbstractTransform implements Task {
-        @Nonnull
         private final PlannerPhase plannerPhase;
-        @Nonnull
         private final Reference group;
-        @Nonnull
         private final RelationalExpression expression;
-        @Nonnull
         private final CascadesRule<?> rule;
 
-        protected AbstractTransform(@Nonnull final PlannerPhase plannerPhase,
-                                    @Nonnull final Reference group,
-                                    @Nonnull final RelationalExpression expression,
-                                    @Nonnull final CascadesRule<?> rule) {
+        protected AbstractTransform(final PlannerPhase plannerPhase,
+                                    final Reference group,
+                                    final RelationalExpression expression,
+                                    final CascadesRule<?> rule) {
             this.plannerPhase = plannerPhase;
             this.group = group;
             this.expression = expression;
             this.rule = rule;
         }
 
-        @Nonnull
         @Override
         public PlannerPhase getPlannerPhase() {
             return plannerPhase;
         }
 
-        @Nonnull
         public Reference getGroup() {
             return group;
         }
 
-        @Nonnull
         public RelationalExpression getExpression() {
             return expression;
         }
 
-        @Nonnull
         public CascadesRule<?> getRule() {
             return rule;
         }
 
-        @Nonnull
         protected abstract Object getBindable();
 
-        @Nonnull
         protected PlannerBindings getInitialBindings() {
             return new PlannerBindings.Builder()
                     .put(ReferenceMatchers.getTopReferenceMatcher(), currentRoot)
@@ -1099,7 +1055,7 @@ public class CascadesPlanner implements QueryPlanner {
             return hasMadeProgress;
         }
 
-        protected boolean executeRuleCall(@Nonnull CascadesRuleCall ruleCall) {
+        protected boolean executeRuleCall(CascadesRuleCall ruleCall) {
             boolean hasMadeProgress = false;
 
             ruleCall.run();
@@ -1173,14 +1129,13 @@ public class CascadesPlanner implements QueryPlanner {
      * Class to transform an expression using a rule.
      */
     private class TransformExpression extends AbstractTransform {
-        public TransformExpression(@Nonnull final PlannerPhase plannerPhase,
-                                   @Nonnull final Reference group,
-                                   @Nonnull final RelationalExpression expression,
-                                   @Nonnull final CascadesRule<? extends RelationalExpression> rule) {
+        public TransformExpression(final PlannerPhase plannerPhase,
+                                   final Reference group,
+                                   final RelationalExpression expression,
+                                   final CascadesRule<? extends RelationalExpression> rule) {
             super(plannerPhase, group, expression, rule);
         }
 
-        @Nonnull
         @Override
         protected Object getBindable() {
             // note that the bindable is the current expression itself
@@ -1192,7 +1147,6 @@ public class CascadesPlanner implements QueryPlanner {
             return super.shouldExecute() && getGroup().containsExactly(getExpression());
         }
 
-        @Nonnull
         @Override
         protected PlannerBindings getInitialBindings() {
             return PlannerBindings.newBuilder()   // TODO either put other bindings in here OR just call super
@@ -1209,21 +1163,20 @@ public class CascadesPlanner implements QueryPlanner {
      */
     @VisibleForTesting
     class ConditionalTransformExpression extends TransformExpression {
-        @Nonnull
         private final List<CascadesRule<? extends RelationalExpression>> rules;
         private final int index;
 
-        public ConditionalTransformExpression(@Nonnull final PlannerPhase plannerPhase,
-                                              @Nonnull final Reference group,
-                                              @Nonnull final RelationalExpression expression,
-                                              @Nonnull final List<? extends CascadesRule<? extends RelationalExpression>> rules) {
+        public ConditionalTransformExpression(final PlannerPhase plannerPhase,
+                                              final Reference group,
+                                              final RelationalExpression expression,
+                                              final List<? extends CascadesRule<? extends RelationalExpression>> rules) {
             this(plannerPhase, group, expression, ImmutableList.copyOf(rules), 0);
         }
 
-        private ConditionalTransformExpression(@Nonnull final PlannerPhase plannerPhase,
-                                               @Nonnull final Reference group,
-                                               @Nonnull final RelationalExpression expression,
-                                               @Nonnull final List<CascadesRule<? extends RelationalExpression>> rules,
+        private ConditionalTransformExpression(final PlannerPhase plannerPhase,
+                                               final Reference group,
+                                               final RelationalExpression expression,
+                                               final List<CascadesRule<? extends RelationalExpression>> rules,
                                                final int index) {
             super(plannerPhase, group, expression, rules.get(index));
             this.rules = rules;
@@ -1253,18 +1206,16 @@ public class CascadesPlanner implements QueryPlanner {
      * Class to transform a match partition using a rule.
      */
     private class TransformMatchPartition extends AbstractTransform {
-        @Nonnull
         private final Supplier<MatchPartition> matchPartitionSupplier;
 
-        public TransformMatchPartition(@Nonnull final PlannerPhase plannerPhase,
-                                       @Nonnull final Reference group,
-                                       @Nonnull final RelationalExpression expression,
-                                       @Nonnull final AbstractCascadesRule<? extends MatchPartition> rule) {
+        public TransformMatchPartition(final PlannerPhase plannerPhase,
+                                       final Reference group,
+                                       final RelationalExpression expression,
+                                       final AbstractCascadesRule<? extends MatchPartition> rule) {
             super(plannerPhase, group, expression, rule);
             this.matchPartitionSupplier = Suppliers.memoize(() -> MatchPartition.of(group, expression));
         }
 
-        @Nonnull
         @Override
         protected Object getBindable() {
             return matchPartitionSupplier.get();
@@ -1275,19 +1226,17 @@ public class CascadesPlanner implements QueryPlanner {
      * Class to transform a match partial match using a rule.
      */
     private class TransformPartialMatch extends AbstractTransform {
-        @Nonnull
         private final PartialMatch partialMatch;
 
-        public TransformPartialMatch(@Nonnull final PlannerPhase plannerPhase,
-                                     @Nonnull final Reference group,
-                                     @Nonnull final RelationalExpression expression,
-                                     @Nonnull final PartialMatch partialMatch,
-                                     @Nonnull final AbstractCascadesRule<? extends PartialMatch> rule) {
+        public TransformPartialMatch(final PlannerPhase plannerPhase,
+                                     final Reference group,
+                                     final RelationalExpression expression,
+                                     final PartialMatch partialMatch,
+                                     final AbstractCascadesRule<? extends PartialMatch> rule) {
             super(plannerPhase, group, expression, rule);
             this.partialMatch = partialMatch;
         }
 
-        @Nonnull
         @Override
         protected Object getBindable() {
             return partialMatch;
@@ -1305,13 +1254,12 @@ public class CascadesPlanner implements QueryPlanner {
      * </pre>
      */
     private class AdjustMatch extends ExploreTask {
-        @Nonnull
         final PartialMatch partialMatch;
 
-        public AdjustMatch(@Nonnull final PlannerPhase plannerPhase,
-                           @Nonnull final Reference group,
-                           @Nonnull final RelationalExpression expression,
-                           @Nonnull final PartialMatch partialMatch) {
+        public AdjustMatch(final PlannerPhase plannerPhase,
+                           final Reference group,
+                           final RelationalExpression expression,
+                           final PartialMatch partialMatch) {
             super(plannerPhase, group, expression);
             this.partialMatch = partialMatch;
         }
@@ -1359,9 +1307,9 @@ public class CascadesPlanner implements QueryPlanner {
     private class OptimizeInputs extends ExploreTask {
         private final boolean forceExploration;
 
-        public OptimizeInputs(@Nonnull final PlannerPhase plannerPhase,
-                              @Nonnull final Reference group,
-                              @Nonnull final RelationalExpression expression,
+        public OptimizeInputs(final PlannerPhase plannerPhase,
+                              final Reference group,
+                              final RelationalExpression expression,
                               boolean forceExploration) {
             super(plannerPhase, group, expression);
             this.forceExploration = forceExploration;
@@ -1386,7 +1334,7 @@ public class CascadesPlanner implements QueryPlanner {
         }
 
         @Override
-        protected boolean shouldPushRule(@Nonnull CascadesRule<?> rule) {
+        protected boolean shouldPushRule(CascadesRule<?> rule) {
             return forceExploration || ruleIsApplicable(getGroup(), rule);
         }
 

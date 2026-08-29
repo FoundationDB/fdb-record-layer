@@ -44,7 +44,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 
@@ -58,14 +57,13 @@ public class BitmapAggregateIndexExpansionVisitor extends AggregateIndexExpansio
      * @param index The target index.
      * @param recordTypes The indexed record types.
      */
-    public BitmapAggregateIndexExpansionVisitor(@Nonnull final Index index, @Nonnull final Collection<RecordType> recordTypes) {
+    public BitmapAggregateIndexExpansionVisitor(final Index index, final Collection<RecordType> recordTypes) {
         super(index, recordTypes);
         Verify.verify(IndexTypes.BITMAP_VALUE.equals(index.getType()));
     }
 
-    @Nonnull
     @Override
-    protected NonnullPair<Quantifier, List<Placeholder>> constructGroupBy(@Nonnull final Quantifier selectWhereQun, @Nonnull final GraphExpansion baseExpansion) {
+    protected NonnullPair<Quantifier, List<Placeholder>> constructGroupBy(final Quantifier selectWhereQun, final GraphExpansion baseExpansion) {
         if (groupingKeyExpression.getGroupedCount() != 1) {
             throw new UnsupportedOperationException("bitmap aggregate index is expected to contain exactly one grouped expression, however it contains " + groupingKeyExpression.getGroupedCount() + " aggregations");
         }

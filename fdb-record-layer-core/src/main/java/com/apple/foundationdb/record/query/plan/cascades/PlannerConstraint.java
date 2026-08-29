@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 /**
@@ -37,9 +36,8 @@ public interface PlannerConstraint<T> {
      * @param object an object that actually is of dynamic type {@code T}
      * @return the narrowed object of type {@code T}
      */
-    @Nonnull
     @SuppressWarnings("unchecked")
-    default T narrowConstraint(@Nonnull final Object object) {
+    default T narrowConstraint(final Object object) {
         return (T)object;
     }
 
@@ -60,6 +58,5 @@ public interface PlannerConstraint<T> {
      *         attribute was unable to create a new property in a meaningful way or if the current constraint already
      *         subsumes the new property.
      */
-    @Nonnull
-    Optional<T> combine(@Nonnull T currentConstraint, @Nonnull T newConstraint);
+    Optional<T> combine(T currentConstraint, T newConstraint);
 }

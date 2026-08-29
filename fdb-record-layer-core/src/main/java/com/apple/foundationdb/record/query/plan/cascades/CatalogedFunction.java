@@ -35,8 +35,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -54,16 +54,12 @@ import java.util.stream.IntStream;
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class CatalogedFunction {
-    @Nonnull
     protected final String functionName;
 
-    @Nonnull
     protected final List<Type> parameterTypes;
 
-    @Nonnull
     protected final BiMap<String, Integer> parameterNamesMap;
 
-    @Nonnull
     protected final List<Optional<Value>> parameterDefaults;
 
     /**
@@ -72,7 +68,7 @@ public abstract class CatalogedFunction {
     @Nullable
     private final Type variadicSuffixType;
 
-    protected CatalogedFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes,
+    protected CatalogedFunction(final String functionName, final List<Type> parameterTypes,
                                 @Nullable final Type variadicSuffixType) {
         this.functionName = functionName;
         this.parameterTypes = ImmutableList.copyOf(parameterTypes);
@@ -81,9 +77,9 @@ public abstract class CatalogedFunction {
         this.variadicSuffixType = variadicSuffixType;
     }
 
-    protected CatalogedFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
-                                @Nonnull final List<Type> parameterTypes,
-                                @Nonnull final List<Optional<Value>> parameterDefaults) {
+    protected CatalogedFunction(final String functionName, final List<String> parameterNames,
+                                final List<Type> parameterTypes,
+                                final List<Optional<Value>> parameterDefaults) {
         Verify.verify(parameterNames.size() == parameterTypes.size());
         this.functionName = functionName;
         this.parameterTypes = ImmutableList.copyOf(parameterTypes);
@@ -93,12 +89,10 @@ public abstract class CatalogedFunction {
         this.variadicSuffixType = null; // no support yet with named parameters.
     }
 
-    @Nonnull
     public String getFunctionName() {
         return functionName;
     }
 
-    @Nonnull
     public List<Type> getParameterTypes() {
         return parameterTypes;
     }
@@ -107,12 +101,10 @@ public abstract class CatalogedFunction {
         return !parameterNamesMap.isEmpty();
     }
 
-    @Nonnull
     public String getParameterName(int index) {
         return parameterNamesMap.inverse().get(index);
     }
 
-    @Nonnull
     public Collection<String> getParameterNames() {
         return parameterNamesMap.keySet();
     }
@@ -121,7 +113,6 @@ public abstract class CatalogedFunction {
         return variadicSuffixType != null;
     }
 
-    @Nonnull
     public Type computeParameterType(int index) {
         Verify.verify(index >= 0, "unexpected negative parameter index");
         if (index < parameterTypes.size()) {
@@ -134,16 +125,15 @@ public abstract class CatalogedFunction {
         }
     }
 
-    @Nonnull
-    public Type computeParameterType(@Nonnull final String parameterName) {
+    public Type computeParameterType(final String parameterName) {
         return computeParameterType(getParamIndex(parameterName));
     }
 
-    public int getParamIndex(@Nonnull final String parameter) {
+    public int getParamIndex(final String parameter) {
         return parameterNamesMap.get(parameter);
     }
 
-    public Optional<Value> getDefaultValue(@Nonnull final String paramName) {
+    public Optional<Value> getDefaultValue(final String paramName) {
         return parameterDefaults.get(getParamIndex(paramName));
     }
 
@@ -151,7 +141,7 @@ public abstract class CatalogedFunction {
         return parameterDefaults.isEmpty() ? Optional.empty() : parameterDefaults.get(paramIndex);
     }
 
-    public boolean hasDefaultValue(@Nonnull final String paramName) {
+    public boolean hasDefaultValue(final String paramName) {
         return getDefaultValue(paramName).isPresent();
     }
 
@@ -174,7 +164,6 @@ public abstract class CatalogedFunction {
      * </p>
      * @return the options this function understands
      */
-    @Nonnull
     public Set<CallSiteArguments.Option<?>> getSupportedOptions() {
         return ImmutableSet.of();
     }
@@ -187,8 +176,7 @@ public abstract class CatalogedFunction {
      * @param arguments the call-site arguments
      * @return {@code arguments}, with the option values converted to their declared types
      */
-    @Nonnull
-    protected final CallSiteArguments validateAndNormalizeOptions(@Nonnull final CallSiteArguments arguments) {
+    protected final CallSiteArguments validateAndNormalizeOptions(final CallSiteArguments arguments) {
         if (!arguments.hasOptions()) {
             return arguments;
         }
@@ -210,8 +198,7 @@ public abstract class CatalogedFunction {
      * @return if the arguments type match, an {@link Optional} containing <code>this</code> instance, otherwise
      * and empty {@link Optional}.
      */
-    @Nonnull
-    public Optional<CatalogedFunction> validateCall(@Nonnull final Map<String, ? extends Typed> namedArgumentsTypeMap) {
+    public Optional<CatalogedFunction> validateCall(final Map<String, ? extends Typed> namedArgumentsTypeMap) {
         if (parameterNamesMap.isEmpty()) {
             return Optional.empty();
         }
@@ -244,8 +231,7 @@ public abstract class CatalogedFunction {
      * @return if the arguments type match, an {@link Optional} containing <code>this</code> instance, otherwise
      * and empty {@link Optional}.
      */
-    @Nonnull
-    public Optional<CatalogedFunction> validateCall(@Nonnull final List<? extends Typed> unnamedArguments) {
+    public Optional<CatalogedFunction> validateCall(final List<? extends Typed> unnamedArguments) {
         if (unnamedArguments.size() > getParameterTypes().size()) {
             return Optional.empty();
         }
@@ -256,7 +242,6 @@ public abstract class CatalogedFunction {
         }
         return Optional.of(this);
     }
-
 
     /**
      * Resolves the list of {@link Value}s to be passed to this function from an unnamed (positional) argument list.
@@ -269,7 +254,7 @@ public abstract class CatalogedFunction {
      * @param arguments the positional arguments provided to the function call
      * @return a list of {@link Value}s, one per declared parameter
      */
-    protected List<Value> resolveParameterValuesFromArguments(@Nonnull List<? extends Typed> arguments) {
+    protected List<Value> resolveParameterValuesFromArguments(List<? extends Typed> arguments) {
         checkArgumentCount(arguments.size());
         ImmutableList.Builder<Value> valueBuilder = ImmutableList.builder();
         for (var paramIdx = 0; paramIdx < getParameterTypes().size(); paramIdx++) {
@@ -299,7 +284,7 @@ public abstract class CatalogedFunction {
      * @param namedArguments a map from parameter name to argument value provided to the function call
      * @return a list of {@link Value}s, one per declared parameter
      */
-    protected List<Value> resolveParameterValuesFromArguments(@Nonnull final Map<String, ? extends Typed> namedArguments) {
+    protected List<Value> resolveParameterValuesFromArguments(final Map<String, ? extends Typed> namedArguments) {
         checkArgumentCount(namedArguments.size());
         ImmutableList.Builder<Value> valueBuilder = ImmutableList.builder();
         SemanticException.check(
@@ -333,7 +318,7 @@ public abstract class CatalogedFunction {
      * @param parameterType the declared parameter type
      * @return {@link Value} that is the same as providedArgumentValue if no promotion is needed, otherwise a promoted {@link Value}.
      */
-    private Value promoteArgumentValueIfNeeded(@Nonnull final Value providedArgumentValue, final Type parameterType) {
+    private Value promoteArgumentValueIfNeeded(final Value providedArgumentValue, final Type parameterType) {
         if (!PromoteValue.isPromotionNeeded(providedArgumentValue.getResultType(), parameterType)) {
             return providedArgumentValue;
         }
@@ -355,7 +340,6 @@ public abstract class CatalogedFunction {
     }
 
     @SuppressWarnings("UnstableApiUsage")
-    @Nonnull
     @Override
     public String toString() {
         String variadicSuffixString = "";
@@ -375,6 +359,5 @@ public abstract class CatalogedFunction {
         return functionName + "(" + parameterTypes.stream().map(Object::toString).collect(Collectors.joining(",")) + variadicSuffixString + ")";
     }
 
-    @Nonnull
-    public abstract Typed encapsulate(@Nonnull CallSiteArguments arguments);
+    public abstract Typed encapsulate(CallSiteArguments arguments);
 }

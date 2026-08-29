@@ -91,7 +91,6 @@ import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Supplier;
@@ -182,8 +181,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
     }
 
     @Override
-    @Nonnull
-    public ExplainTokens add(@Nonnull final ExplainTokens.Token toAppend) {
+    public ExplainTokens add(final ExplainTokens.Token toAppend) {
         if (done) {
             return this;
         }
@@ -195,14 +193,13 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
         return this;
     }
 
-    @Nonnull
     private ExplainTokens pipe() {
         addLinebreakOrWhitespace().addToString("|").addWhitespace();
         return this;
     }
 
-    private ExplainPlanVisitor visitAndJoin(@Nonnull final Supplier<ExplainTokens> delimiterExplainTokensSupplier,
-                                            @Nonnull final Iterable<? extends RecordQueryPlan> plans) {
+    private ExplainPlanVisitor visitAndJoin(final Supplier<ExplainTokens> delimiterExplainTokensSupplier,
+                                            final Iterable<? extends RecordQueryPlan> plans) {
         for (final var iterator = plans.iterator(); iterator.hasNext(); ) {
             final var plan = iterator.next();
             visit(plan);
@@ -213,15 +210,13 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
         return this;
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitComposedBitmapIndexQueryPlan(@Nonnull final ComposedBitmapIndexQueryPlan element) {
+    public ExplainTokens visitComposedBitmapIndexQueryPlan(final ComposedBitmapIndexQueryPlan element) {
         return addToString(element.toString());
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitAggregateIndexPlan(@Nonnull final RecordQueryAggregateIndexPlan element) {
+    public ExplainTokens visitAggregateIndexPlan(final RecordQueryAggregateIndexPlan element) {
         addKeyword("AISCAN").addOptionalWhitespace().addOpeningParen().addOptionalWhitespace();
         addNested(indexDetails(element.getIndexPlan()));
         return addWhitespace().addToString("->").addWhitespace()
@@ -230,16 +225,14 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
                 .addClosingParen();
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitComparatorPlan(@Nonnull final RecordQueryComparatorPlan comparatorPlan) {
+    public ExplainTokens visitComparatorPlan(final RecordQueryComparatorPlan comparatorPlan) {
         addKeyword("COMPARATOR").addWhitespace().addKeyword("OF").addWhitespace();
         return visitAndJoin(() -> new ExplainTokens().addCommaAndWhiteSpace(), comparatorPlan.getChildren());
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitCoveringIndexPlan(@Nonnull final RecordQueryCoveringIndexPlan coveringIndexPlan) {
+    public ExplainTokens visitCoveringIndexPlan(final RecordQueryCoveringIndexPlan coveringIndexPlan) {
         addKeyword("COVERING").addOptionalWhitespace().addOpeningParen().addOptionalWhitespace();
         final var underlyingWithIndex = coveringIndexPlan.getIndexPlan();
         if (underlyingWithIndex instanceof RecordQueryIndexPlan) {
@@ -255,17 +248,15 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
                 .addClosingParen();
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitDeletePlan(@Nonnull final RecordQueryDeletePlan deletePlan) {
+    public ExplainTokens visitDeletePlan(final RecordQueryDeletePlan deletePlan) {
         // TODO provide proper explain
         visit(deletePlan.getChild());
         return pipe().addKeyword("DELETE");
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitExplodePlan(@Nonnull final RecordQueryExplodePlan explodePlan) {
+    public ExplainTokens visitExplodePlan(final RecordQueryExplodePlan explodePlan) {
         addKeyword("EXPLODE").addWhitespace()
                 .addNested(explodePlan.getCollectionValue().explain().getExplainTokens());
         if (explodePlan.isWithOrdinality()) {
@@ -274,40 +265,35 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
         return this;
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitFetchFromPartialRecordPlan(@Nonnull final RecordQueryFetchFromPartialRecordPlan fromPartialRecordPlan) {
+    public ExplainTokens visitFetchFromPartialRecordPlan(final RecordQueryFetchFromPartialRecordPlan fromPartialRecordPlan) {
         visit(fromPartialRecordPlan.getChild());
         return pipe().addKeyword("FETCH");
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitFilterPlan(@Nonnull final RecordQueryFilterPlan filterPlan) {
+    public ExplainTokens visitFilterPlan(final RecordQueryFilterPlan filterPlan) {
         visit(filterPlan.getChild());
         return pipe().addKeyword("QCFILTER").addWhitespace()
                 .addToString(filterPlan.getConjunctedFilter());
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitFirstOrDefaultPlan(@Nonnull final RecordQueryFirstOrDefaultPlan firstOrDefaultPlan) {
+    public ExplainTokens visitFirstOrDefaultPlan(final RecordQueryFirstOrDefaultPlan firstOrDefaultPlan) {
         visit(firstOrDefaultPlan.getChild());
         return pipe().addKeyword("DEFAULT").addWhitespace()
                 .addNested(firstOrDefaultPlan.getOnEmptyResultValue().explain().getExplainTokens());
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitDefaultOnEmptyPlan(@Nonnull final RecordQueryDefaultOnEmptyPlan defaultOnEmptyPlan) {
+    public ExplainTokens visitDefaultOnEmptyPlan(final RecordQueryDefaultOnEmptyPlan defaultOnEmptyPlan) {
         visit(defaultOnEmptyPlan.getChild());
         return pipe().addKeyword("ON").addWhitespace().addKeyword("EMPTY").addWhitespace()
                 .addNested(defaultOnEmptyPlan.getOnEmptyResultValue().explain().getExplainTokens());
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitFlatMapPlan(@Nonnull final RecordQueryFlatMapPlan flatMapPlan) {
+    public ExplainTokens visitFlatMapPlan(final RecordQueryFlatMapPlan flatMapPlan) {
         final var outerQuantifier = flatMapPlan.getOuterQuantifier();
         visit(outerQuantifier.getRangesOverPlan());
         pipe().addKeyword("FLATMAP").addWhitespace().addAliasDefinition(outerQuantifier.getAlias()).addWhitespace()
@@ -320,8 +306,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
                 .addWhitespace().addClosingBrace();
     }
 
-    @Nonnull
-    private ExplainTokens visitInJoinPlan(@Nonnull final RecordQueryInJoinPlan inJoinPlan) {
+    private ExplainTokens visitInJoinPlan(final RecordQueryInJoinPlan inJoinPlan) {
         final var inSource = inJoinPlan.getInSource();
         final var isCorrelation = Bindings.Internal.CORRELATION.isOfType(inSource.getBindingName());
         final var bindingName =
@@ -341,15 +326,13 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
         return visit(inJoinPlan.getChild()).addWhitespace().addClosingBrace();
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitInComparandJoinPlan(@Nonnull final RecordQueryInComparandJoinPlan inComparandJoinPlan) {
+    public ExplainTokens visitInComparandJoinPlan(final RecordQueryInComparandJoinPlan inComparandJoinPlan) {
         return visitInJoinPlan(inComparandJoinPlan);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitMultiIntersectionOnValuesPlan(@Nonnull final RecordQueryMultiIntersectionOnValuesPlan multiIntersectionOnValuesPlan) {
+    public ExplainTokens visitMultiIntersectionOnValuesPlan(final RecordQueryMultiIntersectionOnValuesPlan multiIntersectionOnValuesPlan) {
         visitAndJoin(() -> new ExplainTokens().addWhitespace().addToString("∩").addWhitespace(),
                 multiIntersectionOnValuesPlan.getChildren());
         final var compareByExplainTokens = new ExplainTokens().addWhitespace().addKeyword("COMPARE")
@@ -371,14 +354,12 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
         return addNested(ExplainLevel.SOME_DETAILS, returnExplainTokens);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitInParameterJoinPlan(@Nonnull final RecordQueryInParameterJoinPlan inParameterJoinPlan) {
+    public ExplainTokens visitInParameterJoinPlan(final RecordQueryInParameterJoinPlan inParameterJoinPlan) {
         return visitInJoinPlan(inParameterJoinPlan);
     }
 
-    @Nonnull
-    private ExplainTokens visitInUnionPlan(@Nonnull final RecordQueryInUnionPlan inUnionPlan) {
+    private ExplainTokens visitInUnionPlan(final RecordQueryInUnionPlan inUnionPlan) {
         final var inSourcesBuilder = ImmutableList.<ExplainTokens>builder();
         final var bindingsBuilder = ImmutableList.<ExplainTokens>builder();
 
@@ -407,34 +388,29 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
                         inUnionPlan.getComparisonKeyFunction().explain().getExplainTokens());
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitInUnionOnKeyExpressionPlan(@Nonnull final RecordQueryInUnionOnKeyExpressionPlan inUnionOnKeyExpressionPlan) {
+    public ExplainTokens visitInUnionOnKeyExpressionPlan(final RecordQueryInUnionOnKeyExpressionPlan inUnionOnKeyExpressionPlan) {
         return visitInUnionPlan(inUnionOnKeyExpressionPlan);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitInUnionOnValuesPlan(@Nonnull final RecordQueryInUnionOnValuesPlan inUnionOnValuesPlan) {
+    public ExplainTokens visitInUnionOnValuesPlan(final RecordQueryInUnionOnValuesPlan inUnionOnValuesPlan) {
         return visitInUnionPlan(inUnionOnValuesPlan);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitInValuesJoinPlan(@Nonnull final RecordQueryInValuesJoinPlan inValuesJoinPlan) {
+    public ExplainTokens visitInValuesJoinPlan(final RecordQueryInValuesJoinPlan inValuesJoinPlan) {
         return visitInJoinPlan(inValuesJoinPlan);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitIndexPlan(@Nonnull final RecordQueryIndexPlan indexPlan) {
+    public ExplainTokens visitIndexPlan(final RecordQueryIndexPlan indexPlan) {
         addKeyword("ISCAN").addOptionalWhitespace().addOpeningParen().addOptionalWhitespace();
         return addNested(indexDetails(indexPlan)).addOptionalWhitespace().addClosingParen();
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitRecursiveLevelUnionPlan(@Nonnull final RecordQueryRecursiveLevelUnionPlan recursiveUnionPlan) {
+    public ExplainTokens visitRecursiveLevelUnionPlan(final RecordQueryRecursiveLevelUnionPlan recursiveUnionPlan) {
         Verify.verify(recursiveUnionPlan.getChildren().size() == 2);
         addKeyword("RUNION").addWhitespace()
                 .addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
@@ -448,25 +424,22 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
                 .addOptionalWhitespace().addClosingBrace();
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitInsertPlan(@Nonnull final RecordQueryInsertPlan insertPlan) {
+    public ExplainTokens visitInsertPlan(final RecordQueryInsertPlan insertPlan) {
         // TODO maybe explain the coercion tree on ALL_DETAILS
         visit(insertPlan.getChild());
         return pipe().addKeyword("INSERT").addWhitespace().addKeyword("INTO").addWhitespace()
                 .addIdentifier(ProtoUtils.toUserIdentifier(insertPlan.getTargetRecordType()));
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitTableFunctionPlan(@Nonnull final RecordQueryTableFunctionPlan tableFunctionPlan) {
+    public ExplainTokens visitTableFunctionPlan(final RecordQueryTableFunctionPlan tableFunctionPlan) {
         return addKeyword("TF").addWhitespace()
                 .addNested(tableFunctionPlan.getValue().explain().getExplainTokens());
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan tempTableInsertPlan) {
+    public ExplainTokens visitTempTableInsertPlan(final TempTableInsertPlan tempTableInsertPlan) {
         // TODO provide proper explain
         visit(tempTableInsertPlan.getChild());
         return pipe().addKeyword("INSERT").addWhitespace().addKeyword("INTO").addWhitespace().addKeyword("TEMP")
@@ -474,8 +447,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
                         .getExplainTokens());
     }
 
-    @Nonnull
-    private ExplainTokens visitIntersectionPlan(@Nonnull final RecordQueryIntersectionPlan intersectionPlan) {
+    private ExplainTokens visitIntersectionPlan(final RecordQueryIntersectionPlan intersectionPlan) {
         visitAndJoin(() -> new ExplainTokens().addWhitespace().addToString("∩").addWhitespace(),
                 intersectionPlan.getChildren());
         final var compareByExplainTokens = new ExplainTokens().addWhitespace().addKeyword("COMPARE")
@@ -484,54 +456,47 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
         return addNested(ExplainLevel.SOME_DETAILS, compareByExplainTokens);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitIntersectionOnKeyExpressionPlan(@Nonnull final RecordQueryIntersectionOnKeyExpressionPlan intersectionOnKeyExpressionPlan) {
+    public ExplainTokens visitIntersectionOnKeyExpressionPlan(final RecordQueryIntersectionOnKeyExpressionPlan intersectionOnKeyExpressionPlan) {
         return visitIntersectionPlan(intersectionOnKeyExpressionPlan);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitIntersectionOnValuesPlan(@Nonnull final RecordQueryIntersectionOnValuesPlan intersectionOnValuesPlan) {
+    public ExplainTokens visitIntersectionOnValuesPlan(final RecordQueryIntersectionOnValuesPlan intersectionOnValuesPlan) {
         return visitIntersectionPlan(intersectionOnValuesPlan);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitLoadByKeysPlan(@Nonnull final RecordQueryLoadByKeysPlan loadByKeysPlan) {
+    public ExplainTokens visitLoadByKeysPlan(final RecordQueryLoadByKeysPlan loadByKeysPlan) {
         return addKeyword("BYKEYS").addWhitespace()
                 .addToString(loadByKeysPlan.getKeysSource());
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitMapPlan(@Nonnull final RecordQueryMapPlan mapPlan) {
+    public ExplainTokens visitMapPlan(final RecordQueryMapPlan mapPlan) {
         visit(mapPlan.getChild());
         return pipe().addKeyword("MAP").addWhitespace().addPush()
                 .addCurrentAliasDefinition(mapPlan.getInner().getAlias())
                 .addNested(mapPlan.getResultValue().explain().getExplainTokens()).addPop();
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitPredicatesFilterPlan(@Nonnull final RecordQueryPredicatesFilterPlan predicatesFilterPlan) {
+    public ExplainTokens visitPredicatesFilterPlan(final RecordQueryPredicatesFilterPlan predicatesFilterPlan) {
         visit(predicatesFilterPlan.getChild());
         return pipe().addKeyword("FILTER").addWhitespace().addPush()
                 .addCurrentAliasDefinition(predicatesFilterPlan.getInner().getAlias())
                 .addNested(predicatesFilterPlan.getConjunctedPredicate().explain().getExplainTokens()).addPop();
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitRangePlan(@Nonnull RecordQueryRangePlan element) {
+    public ExplainTokens visitRangePlan(RecordQueryRangePlan element) {
         return addKeyword("RANGE").addOptionalWhitespace().addOpeningParen().addOptionalWhitespace()
                 .addToString(element.getExclusiveLimitValue())
                 .addOptionalWhitespace().addClosingParen();
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitScanPlan(@Nonnull final RecordQueryScanPlan scanPlan) {
+    public ExplainTokens visitScanPlan(final RecordQueryScanPlan scanPlan) {
         final var scanComparisons = scanPlan.getScanComparisons();
         final var tupleRange = scanComparisons.toTupleRangeWithoutContext();
         addKeyword("SCAN").addOptionalWhitespace().addOpeningParen().addOptionalWhitespace();
@@ -543,24 +508,21 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
         return addOptionalWhitespace().addClosingParen();
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitScoreForRankPlan(@Nonnull final RecordQueryScoreForRankPlan scoreForRankPlan) {
+    public ExplainTokens visitScoreForRankPlan(final RecordQueryScoreForRankPlan scoreForRankPlan) {
         addKeyword("SRANK").addWhitespace().addToStrings(scoreForRankPlan.getRanks());
         pipe();
         return visit(scoreForRankPlan.getChild());
     }
 
-    @Nonnull
     @Override
-    public ExplainPlanVisitor visitSelectorPlan(@Nonnull final RecordQuerySelectorPlan selectorPlan) {
+    public ExplainPlanVisitor visitSelectorPlan(final RecordQuerySelectorPlan selectorPlan) {
         addKeyword("SELECTOR").addWhitespace().addKeyword("OF").addWhitespace();
         return visitAndJoin(() -> new ExplainTokens().addCommaAndWhiteSpace(), selectorPlan.getChildren());
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitStreamingAggregationPlan(@Nonnull final RecordQueryStreamingAggregationPlan streamingAggregationPlan) {
+    public ExplainTokens visitStreamingAggregationPlan(final RecordQueryStreamingAggregationPlan streamingAggregationPlan) {
         visit(streamingAggregationPlan.getChild());
         pipe().addKeyword("AGG").addWhitespace().addPush()
                 .addCurrentAliasDefinition(streamingAggregationPlan.getInner().getAlias())
@@ -574,17 +536,15 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
         return this;
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitTextIndexPlan(@Nonnull final RecordQueryTextIndexPlan textIndexPlan) {
+    public ExplainTokens visitTextIndexPlan(final RecordQueryTextIndexPlan textIndexPlan) {
         addKeyword("TISCAN").addOptionalWhitespace().addOpeningParen().addOptionalWhitespace();
         textIndexDetails(textIndexPlan);
         return addOptionalWhitespace().addClosingParen();
     }
 
     @SuppressWarnings("UnusedReturnValue")
-    @Nonnull
-    public ExplainTokens textIndexDetails(@Nonnull final RecordQueryTextIndexPlan textIndexPlan) {
+    public ExplainTokens textIndexDetails(final RecordQueryTextIndexPlan textIndexPlan) {
         final TextScan textScan = textIndexPlan.getTextScan();
         addToString(textScan.getIndex().getName()).addCommaAndWhiteSpace();
         if (textScan.getGroupingComparisons() != null) {
@@ -602,9 +562,8 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
         return this;
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitTypeFilterPlan(@Nonnull final RecordQueryTypeFilterPlan typeFilterPlan) {
+    public ExplainTokens visitTypeFilterPlan(final RecordQueryTypeFilterPlan typeFilterPlan) {
         visit(typeFilterPlan.getChild());
         return pipe().addKeyword("TFILTER").addWhitespace()
                 .addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
@@ -614,9 +573,8 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
                                 .iterator());
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitRecursiveDfsJoinPlan(@Nonnull final RecordQueryRecursiveDfsJoinPlan recursiveDfsJoinPlan) {
+    public ExplainTokens visitRecursiveDfsJoinPlan(final RecordQueryRecursiveDfsJoinPlan recursiveDfsJoinPlan) {
         Verify.verify(recursiveDfsJoinPlan.getChildren().size() == 2);
         addKeyword("RUNION-DFS").addWhitespace().addKeyword(recursiveDfsJoinPlan.getDfsTraversalStrategy().name()).addWhitespace();
         final var priorValueCorrelation = new ExplainTokens().addAliasDefinition(recursiveDfsJoinPlan.getPriorValueCorrelation());
@@ -630,8 +588,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
                 .addOptionalWhitespace().addClosingBrace();
     }
 
-    @Nonnull
-    private ExplainTokens visitUnionPlan(@Nonnull final RecordQueryUnionPlan unionPlan) {
+    private ExplainTokens visitUnionPlan(final RecordQueryUnionPlan unionPlan) {
         visitAndJoin(() -> new ExplainTokens().addWhitespace().addToString("∪").addWhitespace(),
                 unionPlan.getChildren());
 
@@ -641,82 +598,71 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
         return addNested(ExplainLevel.SOME_DETAILS, compareByExplainTokens);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitUnionOnKeyExpressionPlan(@Nonnull final RecordQueryUnionOnKeyExpressionPlan unionOnKeyExpressionPlan) {
+    public ExplainTokens visitUnionOnKeyExpressionPlan(final RecordQueryUnionOnKeyExpressionPlan unionOnKeyExpressionPlan) {
         return visitUnionPlan(unionOnKeyExpressionPlan);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitUnionOnValuesPlan(@Nonnull final RecordQueryUnionOnValuesPlan unionOnValuesPlan) {
+    public ExplainTokens visitUnionOnValuesPlan(final RecordQueryUnionOnValuesPlan unionOnValuesPlan) {
         return visitUnionPlan(unionOnValuesPlan);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitUnorderedDistinctPlan(@Nonnull final RecordQueryUnorderedDistinctPlan unorderedDistinctPlan) {
+    public ExplainTokens visitUnorderedDistinctPlan(final RecordQueryUnorderedDistinctPlan unorderedDistinctPlan) {
         visit(unorderedDistinctPlan.getChild());
         return pipe().addKeyword("DISTINCT").addWhitespace().addKeyword("BY").addWhitespace()
                 .addToString(ExplainLevel.SOME_DETAILS, unorderedDistinctPlan.getComparisonKey());
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitUnorderedPrimaryKeyDistinctPlan(@Nonnull final RecordQueryUnorderedPrimaryKeyDistinctPlan unorderedPrimaryKeyDistinctPlan) {
+    public ExplainTokens visitUnorderedPrimaryKeyDistinctPlan(final RecordQueryUnorderedPrimaryKeyDistinctPlan unorderedPrimaryKeyDistinctPlan) {
         visit(unorderedPrimaryKeyDistinctPlan.getChild());
         return pipe().addKeyword("DISTINCT").addWhitespace().addKeyword("BY").addWhitespace().addKeyword("PK");
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitUnorderedUnionPlan(@Nonnull final RecordQueryUnorderedUnionPlan unorderedUnionPlan) {
+    public ExplainTokens visitUnorderedUnionPlan(final RecordQueryUnorderedUnionPlan unorderedUnionPlan) {
         return visitAndJoin(() -> new ExplainTokens().addWhitespace().addToString("⊎").addWhitespace(),
                 unorderedUnionPlan.getChildren());
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitUpdatePlan(@Nonnull final RecordQueryUpdatePlan updatePlan) {
+    public ExplainTokens visitUpdatePlan(final RecordQueryUpdatePlan updatePlan) {
         // TODO explain with coercion and update tries in ALL_DETAILS
         visit(updatePlan.getChild());
         return pipe().addKeyword("UPDATE").addWhitespace().addIdentifier(ProtoUtils.toUserIdentifier(updatePlan.getTargetRecordType()));
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitDamPlan(@Nonnull final RecordQueryDamPlan damPlan) {
+    public ExplainTokens visitDamPlan(final RecordQueryDamPlan damPlan) {
         visit(damPlan.getChild());
         return pipe().addKeyword("DAM");
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitSortPlan(@Nonnull final RecordQuerySortPlan sortPlan) {
+    public ExplainTokens visitSortPlan(final RecordQuerySortPlan sortPlan) {
         visit(sortPlan.getChild());
         return pipe().addKeyword("SORT").addWhitespace().addKeyword("BY").addWhitespace()
                 .addToString(sortPlan.getKey());
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visitTempTableScanPlan(@Nonnull final TempTableScanPlan tempTableScanPlan) {
+    public ExplainTokens visitTempTableScanPlan(final TempTableScanPlan tempTableScanPlan) {
         return addKeyword("TEMP").addWhitespace().addKeyword("SCAN").addWhitespace()
                 .addNested(tempTableScanPlan.getTempTableReferenceValue().explain().getExplainTokens());
     }
 
-    @Nonnull
     @Override
-    public ExplainTokens visit(@Nonnull final RecordQueryPlan element) {
+    public ExplainTokens visit(final RecordQueryPlan element) {
         if (done) {
             return this;
         }
         return RecordQueryPlanVisitor.super.visit(element);
     }
 
-    @Nonnull
     @Override
-    public ExplainPlanVisitor visitDefault(@Nonnull RecordQueryPlan element) {
+    public ExplainPlanVisitor visitDefault(RecordQueryPlan element) {
         if (element instanceof RecordQueryPlanWithExplain) {
             addNested(((RecordQueryPlanWithExplain)element).explain().getExplainTokens());
             return this;
@@ -725,8 +671,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
         throw new RecordCoreException("no default implementation");
     }
 
-    @Nonnull
-    public static ExplainTokens indexDetails(@Nonnull final RecordQueryIndexPlan indexPlan) {
+    public static ExplainTokens indexDetails(final RecordQueryIndexPlan indexPlan) {
         final var resultExplainTokens = new ExplainTokens();
         final IndexScanParameters scanParameters = indexPlan.getScanParameters();
         resultExplainTokens.addIdentifier(indexPlan.getIndexName()).addWhitespace(ExplainLevel.SOME_DETAILS)
@@ -742,20 +687,17 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
         return resultExplainTokens;
     }
 
-    @Nonnull
-    public static String prettyExplain(@Nonnull final RecordQueryPlan plan, final int explainLevel) {
+    public static String prettyExplain(final RecordQueryPlan plan, final int explainLevel) {
         final var visitor = new ExplainPlanVisitor(Integer.MAX_VALUE);
         return visitor.visit(plan).render(explainLevel, PrettyExplainFormatter.forExplainPlan(), Integer.MAX_VALUE).toString();
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    public static String toStringForDebugging(@Nonnull final RecordQueryPlan plan) {
+    public static String toStringForDebugging(final RecordQueryPlan plan) {
         return toStringForDebugging(plan, ExplainLevel.ALL_DETAILS, Integer.MAX_VALUE);
     }
 
-    @Nonnull
-    public static String toStringForDebugging(@Nonnull final RecordQueryPlan plan, final int explainLevel,
+    public static String toStringForDebugging(final RecordQueryPlan plan, final int explainLevel,
                                               final int maxSize) {
         final var visitor = new ExplainPlanVisitor(maxSize);
         final var explainTokens = visitor.visit(plan);
@@ -763,14 +705,12 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
                 DefaultExplainFormatter.create(DefaultExplainSymbolMap::new), maxSize).toString();
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    public static String toStringForExternalExplain(@Nonnull final RecordQueryPlan plan) {
+    public static String toStringForExternalExplain(final RecordQueryPlan plan) {
         return toStringForExternalExplain(plan, ExplainLevel.ALL_DETAILS, Integer.MAX_VALUE);
     }
 
-    @Nonnull
-    public static String toStringForExternalExplain(@Nonnull final RecordQueryPlan plan, final int maxExplainLevel,
+    public static String toStringForExternalExplain(final RecordQueryPlan plan, final int maxExplainLevel,
                                                     final int maxSize) {
         final var visitor = new ExplainPlanVisitor(maxSize);
         final var explainTokens = visitor.visit(plan);
@@ -791,8 +731,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
                 .toString();
     }
 
-    @Nonnull
-    public static String prettyExplain(@Nonnull final RecordQueryPlan plan) {
+    public static String prettyExplain(final RecordQueryPlan plan) {
         return ExplainPlanVisitor.prettyExplain(plan, ExplainLevel.ALL_DETAILS);
     }
 }

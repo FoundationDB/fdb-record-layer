@@ -23,19 +23,19 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 
 public abstract class BuiltInTableFunction extends BuiltInFunction<StreamingValue> {
-    protected BuiltInTableFunction(@Nonnull final String functionName,
-                                   @Nonnull final List<Type> parameterTypes,
-                                   @Nonnull final EncapsulationFunction<StreamingValue> encapsulationFunction) {
+    protected BuiltInTableFunction(final String functionName,
+                                   final List<Type> parameterTypes,
+                                   final EncapsulationFunction<StreamingValue> encapsulationFunction) {
         super(functionName, parameterTypes, encapsulationFunction);
     }
 
-    protected BuiltInTableFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes,
-                                   @Nullable final Type variadicSuffixType, @Nonnull final EncapsulationFunction<StreamingValue> encapsulationFunction) {
+    protected BuiltInTableFunction(final String functionName, final List<Type> parameterTypes,
+                                   @Nullable final Type variadicSuffixType, final EncapsulationFunction<StreamingValue> encapsulationFunction) {
         super(functionName, parameterTypes, variadicSuffixType, encapsulationFunction);
     }
 }

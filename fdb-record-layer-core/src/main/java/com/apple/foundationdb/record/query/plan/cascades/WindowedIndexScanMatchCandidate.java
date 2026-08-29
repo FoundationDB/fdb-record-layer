@@ -49,8 +49,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -64,7 +64,6 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     /**
      * Index metadata structure.
      */
-    @Nonnull
     private final Index index;
 
     /**
@@ -75,74 +74,63 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     /**
      * Base type.
      */
-    @Nonnull
     private final Type.Record baseType;
 
     /**
      * Base alias.
      */
-    @Nonnull
     private final CorrelationIdentifier baseAlias;
 
     /**
      * Holds the grouping aliases for all groupings that can to be bound during matching.
      */
-    @Nonnull
     private final List<CorrelationIdentifier> groupingAliases;
 
     /**
      * Holds the alias for the score placeholder in the match candidate.
      */
-    @Nonnull
     private final CorrelationIdentifier scoreAlias;
 
     /**
      * Holds the alias for the rank placeholder in the match candidate.
      */
-    @Nonnull
     private final CorrelationIdentifier rankAlias;
 
     /**
      * Holds the grouping aliases for all primary keys.
      */
-    @Nonnull
     private final List<CorrelationIdentifier> primaryKeyAliases;
 
     /**
      * List of values that represent the key parts of the index represented by the candidate in the expanded graph.
      */
-    @Nonnull
     private final List<Value> indexKeyValues;
 
     /**
      * Traversal object of the expanded index scan graph.
      */
-    @Nonnull
     private final Traversal traversal;
 
-    @Nonnull
     private final KeyExpression fullKeyExpression;
 
     @Nullable
     private final KeyExpression primaryKey;
 
-    @Nonnull
     private final Supplier<Optional<List<Value>>> primaryKeyValuesSupplier;
 
-    @Nonnull
     private final Supplier<Optional<IndexEntryToLogicalRecord>> indexEntryToLogicalRecordOptionalSupplier;
 
-    public WindowedIndexScanMatchCandidate(@Nonnull Index index,
-                                           @Nonnull Collection<RecordType> queriedRecordTypes,
-                                           @Nonnull final Traversal traversal,
-                                           @Nonnull final Type.Record baseType,
-                                           @Nonnull final CorrelationIdentifier baseAlias,
-                                           @Nonnull final List<CorrelationIdentifier> groupingAliases,
-                                           @Nonnull final CorrelationIdentifier scoreAlias,
-                                           @Nonnull final CorrelationIdentifier rankAlias,
-                                           @Nonnull final List<CorrelationIdentifier> primaryKeyAliases,
-                                           @Nonnull final List<Value> indexKeyValues,
-                                           @Nonnull final KeyExpression fullKeyExpression,
+    public WindowedIndexScanMatchCandidate(Index index,
+                                           Collection<RecordType> queriedRecordTypes,
+                                           final Traversal traversal,
+                                           final Type.Record baseType,
+                                           final CorrelationIdentifier baseAlias,
+                                           final List<CorrelationIdentifier> groupingAliases,
+                                           final CorrelationIdentifier scoreAlias,
+                                           final CorrelationIdentifier rankAlias,
+                                           final List<CorrelationIdentifier> primaryKeyAliases,
+                                           final List<Value> indexKeyValues,
+                                           final KeyExpression fullKeyExpression,
                                            @Nullable final KeyExpression primaryKey) {
         this.index = index;
         this.queriedRecordTypes = ImmutableList.copyOf(queriedRecordTypes);
@@ -172,48 +160,40 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         return index.isUnique();
     }
 
-    @Nonnull
     @Override
     public String getName() {
         return index.getName();
     }
 
-    @Nonnull
     @Override
     public List<RecordType> getQueriedRecordTypes() {
         return queriedRecordTypes;
     }
 
-    @Nonnull
     @Override
     public Traversal getTraversal() {
         return traversal;
     }
 
-    @Nonnull
     @Override
     public List<CorrelationIdentifier> getSargableAliases() {
         return ImmutableList.<CorrelationIdentifier>builder().addAll(groupingAliases).add(rankAlias).build();
     }
 
-    @Nonnull
     @Override
     public List<CorrelationIdentifier> getOrderingAliases() {
         return orderingAliases(groupingAliases, scoreAlias, primaryKeyAliases);
     }
 
-    @Nonnull
     @Override
     public Type.Record getBaseType() {
         return baseType;
     }
 
-    @Nonnull
     public List<Value> getIndexKeyValues() {
         return indexKeyValues;
     }
 
-    @Nonnull
     @Override
     public KeyExpression getFullKeyExpression() {
         return fullKeyExpression;
@@ -229,21 +209,18 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         return index.getRootExpression().createsDuplicates();
     }
 
-    @Nonnull
     @Override
     public Optional<List<Value>> getPrimaryKeyValuesMaybe() {
         return primaryKeyValuesSupplier.get();
     }
 
-    @Nonnull
     private Optional<IndexEntryToLogicalRecord> getIndexEntryToLogicalRecordMaybe() {
         return indexEntryToLogicalRecordOptionalSupplier.get();
     }
 
-    @Nonnull
     @Override
-    public List<MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull MatchInfo matchInfo,
-                                                                 @Nonnull List<CorrelationIdentifier> sortParameterIds,
+    public List<MatchedOrderingPart> computeMatchedOrderingParts(MatchInfo matchInfo,
+                                                                 List<CorrelationIdentifier> sortParameterIds,
                                                                  boolean isReverse) {
         final var parameterBindingMap =
                 matchInfo.getRegularMatchInfo().getParameterBindingMap();
@@ -261,7 +238,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
             final var normalizedKeyExpression = normalizedKeyExpressions.get(ordinalInCandidate);
             Objects.requireNonNull(normalizedKeyExpression);
             Objects.requireNonNull(parameterId);
-            @Nullable final var comparisonRange = parameterBindingMap.get(parameterId);
+            @Nullable final ComparisonRange comparisonRange = parameterBindingMap.get(parameterId);
 
             if (normalizedKeyExpression.createsDuplicates()) {
                 if (comparisonRange != null) {
@@ -288,7 +265,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                     // rank (we should have). If the rank is bound by equality, the score is also bound by equality.
                     // We need to record that.
                     //
-                    @Nullable final var rankComparisonRange = parameterBindingMap.get(rankAlias);
+                    @Nullable final ComparisonRange rankComparisonRange = parameterBindingMap.get(rankAlias);
 
                     matchedOrderingPart =
                             normalizedValue.<MatchedSortOrder, MatchedOrderingPart>deriveOrderingPart(EvaluationContext.empty(),
@@ -318,9 +295,8 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         return queriedRecordTypes.size() == 1 || hasAndOrderedByRecordTypeKey();
     }
 
-    @Nonnull
     @Override
-    public Ordering computeOrderingFromScanComparisons(@Nonnull final ScanComparisons scanComparisons, final boolean isReverse, final boolean isDistinct) {
+    public Ordering computeOrderingFromScanComparisons(final ScanComparisons scanComparisons, final boolean isReverse, final boolean isDistinct) {
         final var bindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
         final var normalizedKeyExpressions = getFullKeyExpression().normalizeKeyForPositions();
         final var equalityComparisons = scanComparisons.getEqualityComparisons();
@@ -395,12 +371,11 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         return Ordering.ofOrderingSequence(bindingMapBuilder.build(), orderingSequenceBuilder.build(), isDistinct);
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPlan toEquivalentPlan(@Nonnull final PartialMatch partialMatch,
-                                            @Nonnull final PlanContext planContext,
-                                            @Nonnull final Memoizer memoizer,
-                                            @Nonnull final List<ComparisonRange> comparisonRanges,
+    public RecordQueryPlan toEquivalentPlan(final PartialMatch partialMatch,
+                                            final PlanContext planContext,
+                                            final Memoizer memoizer,
+                                            final List<ComparisonRange> comparisonRanges,
                                             final boolean reverseScanOrder) {
         return tryFetchCoveringIndexScan(partialMatch, planContext, memoizer, comparisonRanges, reverseScanOrder, baseType)
                 .orElseGet(() ->
@@ -416,13 +391,12 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                                 QueryPlanConstraint.noConstraint()));
     }
 
-    @Nonnull
-    private Optional<RecordQueryPlan> tryFetchCoveringIndexScan(@Nonnull final PartialMatch partialMatch,
-                                                                @Nonnull final PlanContext planContext,
-                                                                @Nonnull final Memoizer memoizer,
-                                                                @Nonnull final List<ComparisonRange> comparisonRanges,
+    private Optional<RecordQueryPlan> tryFetchCoveringIndexScan(final PartialMatch partialMatch,
+                                                                final PlanContext planContext,
+                                                                final Memoizer memoizer,
+                                                                final List<ComparisonRange> comparisonRanges,
                                                                 final boolean isReverse,
-                                                                @Nonnull final Type.Record baseRecordType) {
+                                                                final Type.Record baseRecordType) {
         final var indexEntryToLogicalRecordOptional = getIndexEntryToLogicalRecordMaybe();
         if (indexEntryToLogicalRecordOptional.isEmpty()) {
             return Optional.empty();
@@ -450,11 +424,10 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                 coveringIndexPlan::pushValueThroughFetch, baseRecordType, RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY));
     }
 
-    @Nonnull
     @Override
-    public Optional<Value> pushValueThroughFetch(@Nonnull Value toBePushedValue,
-                                                 @Nonnull CorrelationIdentifier sourceAlias,
-                                                 @Nonnull CorrelationIdentifier targetAlias) {
+    public Optional<Value> pushValueThroughFetch(Value toBePushedValue,
+                                                 CorrelationIdentifier sourceAlias,
+                                                 CorrelationIdentifier targetAlias) {
         final var indexEntryToLogicalRecord =
                 getIndexEntryToLogicalRecordMaybe().orElseThrow(() -> new RecordCoreException("need index entry to logical record"));
 
@@ -465,8 +438,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                 indexEntryToLogicalRecord.getLogicalKeyValues());
     }
 
-    @Nonnull
-    private static ScanComparisons toScanComparisons(@Nonnull final List<ComparisonRange> comparisonRanges) {
+    private static ScanComparisons toScanComparisons(final List<ComparisonRange> comparisonRanges) {
         ScanComparisons.Builder builder = new ScanComparisons.Builder();
         for (ComparisonRange comparisonRange : comparisonRanges) {
             builder.addComparisonRange(comparisonRange);
@@ -474,10 +446,9 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         return builder.build();
     }
 
-    @Nonnull
-    public static List<CorrelationIdentifier> orderingAliases(@Nonnull final List<CorrelationIdentifier> groupingAliases,
-                                                              @Nonnull final CorrelationIdentifier scoreAlias,
-                                                              @Nonnull final List<CorrelationIdentifier> primaryKeyAliases) {
+    public static List<CorrelationIdentifier> orderingAliases(final List<CorrelationIdentifier> groupingAliases,
+                                                              final CorrelationIdentifier scoreAlias,
+                                                              final List<CorrelationIdentifier> primaryKeyAliases) {
         return ImmutableList.<CorrelationIdentifier>builder().addAll(groupingAliases).add(scoreAlias).addAll(primaryKeyAliases).build();
     }
 }

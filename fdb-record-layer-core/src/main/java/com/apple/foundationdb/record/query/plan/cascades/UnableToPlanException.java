@@ -23,8 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Error being thrown when Cascades cannot plan a query.
@@ -33,7 +32,7 @@ import javax.annotation.Nullable;
 public class UnableToPlanException extends RecordCoreException {
     private static final long serialVersionUID = -640771754012134420L;
 
-    public UnableToPlanException(@Nonnull String msg, @Nullable Object ... keyValues) {
+    public UnableToPlanException(String msg, @Nullable Object ... keyValues) {
         super(msg, keyValues);
     }
 }

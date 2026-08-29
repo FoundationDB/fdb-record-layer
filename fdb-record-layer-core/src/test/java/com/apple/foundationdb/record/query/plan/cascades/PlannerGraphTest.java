@@ -33,8 +33,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectVa
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
-
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fieldPredicate;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fullTypeScan;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.selectWithPredicates;
@@ -51,7 +49,6 @@ class PlannerGraphTest {
         Debugger.setup();
     }
 
-    @Nonnull
     private RecordMetaData sampleMetaData() {
         return RecordMetaData.build(TestRecords1Proto.getDescriptor());
     }

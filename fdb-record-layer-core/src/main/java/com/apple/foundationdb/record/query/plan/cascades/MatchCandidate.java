@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.OrderingValueComputationRuleSet;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp.UnificationPullUp;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Verify;
@@ -43,8 +43,8 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -67,7 +67,6 @@ public interface MatchCandidate {
      *
      * @return the name of this match candidate
      */
-    @Nonnull
     String getName();
 
     /**
@@ -77,14 +76,12 @@ public interface MatchCandidate {
      * same object.
      * @return the traversal associated for this match candidate
      */
-    @Nonnull
     Traversal getTraversal();
 
     /**
      * Returns a list of parameter names for sargable parameters that can to be bound during matching.
      * @return a list of {@link CorrelationIdentifier}s for all sargable parameters in this match candidate
      */
-    @Nonnull
     List<CorrelationIdentifier> getSargableAliases();
 
     /**
@@ -92,7 +89,6 @@ public interface MatchCandidate {
      * (sargable and residual).
      * @return a list of {@link CorrelationIdentifier}s describing the ordering of the result set of this match candidate
      */
-    @Nonnull
     List<CorrelationIdentifier> getOrderingAliases();
 
     /**
@@ -114,7 +110,6 @@ public interface MatchCandidate {
      * @see PartialMatch#getBoundSargableAliases() for the set of actually bound aliases in a partial match
      * @see #getSargableAliases() for all available sargable aliases (whether required or optional)
      */
-    @Nonnull
     default Set<CorrelationIdentifier> getSargableAliasesRequiredForBinding() {
         return ImmutableSet.of();
     }
@@ -126,7 +121,6 @@ public interface MatchCandidate {
      * represent compensation or part of compensation if needed.
      * @return a key expression that can be evaluated based on a base record
      */
-    @Nonnull
     KeyExpression getFullKeyExpression();
 
     boolean createsDuplicates();
@@ -144,7 +138,7 @@ public interface MatchCandidate {
      * @return a map containing parameter to comparison range mappings for a prefix of parameters that is compatible
      *         with a physical scan over the materialized view (of the candidate)
      */
-    default Map<CorrelationIdentifier, ComparisonRange> computeBoundParameterPrefixMap(@Nonnull final MatchInfo matchInfo) {
+    default Map<CorrelationIdentifier, ComparisonRange> computeBoundParameterPrefixMap(final MatchInfo matchInfo) {
         final var prefixMap = Maps.<CorrelationIdentifier, ComparisonRange>newHashMap();
         final var parameterBindingMap =
                 matchInfo.getRegularMatchInfo().getParameterBindingMap();
@@ -152,7 +146,7 @@ public interface MatchCandidate {
         final var parameters = getSargableAliases();
         for (final var parameter : parameters) {
             Objects.requireNonNull(parameter);
-            @Nullable final var comparisonRange = parameterBindingMap.get(parameter);
+            @Nullable final ComparisonRange comparisonRange = parameterBindingMap.get(parameter);
             if (comparisonRange == null) {
                 return ImmutableMap.copyOf(prefixMap);
             }
@@ -186,9 +180,8 @@ public interface MatchCandidate {
      * @return a list of bound key parts that express the order of the outgoing data stream and their respective mappings
      *         between query and match candidate
      */
-    @Nonnull
-    List<MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull MatchInfo matchInfo,
-                                                          @Nonnull List<CorrelationIdentifier> sortParameterIds,
+    List<MatchedOrderingPart> computeMatchedOrderingParts(MatchInfo matchInfo,
+                                                          List<CorrelationIdentifier> sortParameterIds,
                                                           boolean isReverse);
 
     /**
@@ -203,7 +196,6 @@ public interface MatchCandidate {
      *
      * @return a set of ordering parts that are implicitly equality-bound by this candidate
      */
-    @Nonnull
     default Set<MatchedOrderingPart> computeEqualityBoundImplicitOrderingParts() {
         return ImmutableSet.of();
     }
@@ -225,15 +217,14 @@ public interface MatchCandidate {
         return false;
     }
 
-    @Nonnull
-    Ordering computeOrderingFromScanComparisons(@Nonnull ScanComparisons scanComparisons,
+    Ordering computeOrderingFromScanComparisons(ScanComparisons scanComparisons,
                                                 boolean isReverse,
                                                 boolean isDistinct);
 
     @Nullable
-    default PullUp.UnificationPullUp prepareForUnification(@Nonnull final PartialMatch partialMatch,
-                                                           @Nonnull final CorrelationIdentifier topAlias,
-                                                           @Nonnull final CorrelationIdentifier topCandidateAlias) {
+    default UnificationPullUp prepareForUnification(final PartialMatch partialMatch,
+                                                           final CorrelationIdentifier topAlias,
+                                                           final CorrelationIdentifier topCandidateAlias) {
         return null;
     }
 
@@ -246,9 +237,9 @@ public interface MatchCandidate {
      * @return a new {@link RecordQueryPlan}
      */
     @SuppressWarnings("java:S135")
-    default RecordQueryPlan toEquivalentPlan(@Nonnull final PartialMatch partialMatch,
-                                             @Nonnull final PlanContext planContext,
-                                             @Nonnull final Memoizer memoizer,
+    default RecordQueryPlan toEquivalentPlan(final PartialMatch partialMatch,
+                                             final PlanContext planContext,
+                                             final Memoizer memoizer,
                                              final boolean reverseScanOrder) {
         final var matchInfo = partialMatch.getMatchInfo();
         final var prefixMap = computeBoundParameterPrefixMap(matchInfo);
@@ -280,16 +271,14 @@ public interface MatchCandidate {
      * @param reverseScanOrder {@code true} if and only if a reverse scan is to be built
      * @return a new {@link RecordQueryPlan}
      */
-    @Nonnull
-    RecordQueryPlan toEquivalentPlan(@Nonnull PartialMatch partialMatch,
-                                     @Nonnull PlanContext planContext,
-                                     @Nonnull Memoizer memoizer,
-                                     @Nonnull List<ComparisonRange> comparisonRanges,
+    RecordQueryPlan toEquivalentPlan(PartialMatch partialMatch,
+                                     PlanContext planContext,
+                                     Memoizer memoizer,
+                                     List<ComparisonRange> comparisonRanges,
                                      boolean reverseScanOrder);
 
-    @Nonnull
     @SuppressWarnings("java:S1452")
-    default SetMultimap<Reference, RelationalExpression> findReferencingExpressions(@Nonnull final ImmutableList<? extends Reference> references) {
+    default SetMultimap<Reference, RelationalExpression> findReferencingExpressions(final ImmutableList<? extends Reference> references) {
         final var traversal = getTraversal();
 
         final var refToExpressionMap =
@@ -307,14 +296,12 @@ public interface MatchCandidate {
         return refToExpressionMap;
     }
 
-    @Nonnull
     List<RecordType> getQueriedRecordTypes();
 
     int getColumnSize();
 
     boolean isUnique();
 
-    @Nonnull
     default Set<String> getQueriedRecordTypeNames() {
         return getQueriedRecordTypes().stream()
                 .map(RecordType::getName)
@@ -325,8 +312,7 @@ public interface MatchCandidate {
         return false;
     }
 
-    @Nonnull
-    static Optional<List<Value>> computePrimaryKeyValuesMaybe(@Nullable KeyExpression primaryKey, @Nonnull Type flowedType) {
+    static Optional<List<Value>> computePrimaryKeyValuesMaybe(@Nullable KeyExpression primaryKey, Type flowedType) {
         if (primaryKey == null) {
             return Optional.empty();
         }
@@ -334,10 +320,9 @@ public interface MatchCandidate {
         return Optional.of(ScalarTranslationVisitor.translateKeyExpression(primaryKey, flowedType));
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    static Optional<NonnullPair<Value, Comparisons.Comparison>> simplifyComparisonMaybe(@Nonnull final Value value,
-                                                                                        @Nonnull final Comparisons.Comparison comparison) {
+    static Optional<NonnullPair<Value, Comparisons.Comparison>> simplifyComparisonMaybe(final Value value,
+                                                                                        final Comparisons.Comparison comparison) {
         final var providedOrderingPart =
                 value.deriveOrderingPart(EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(),
                         OrderingPart.ProvidedOrderingPart::new, OrderingValueComputationRuleSet.usingProvidedOrderingParts());

@@ -21,4 +21,7 @@
 /**
  * This will contain design docs for the Cascades planner at some point.
  */
+@NullMarked
 package com.apple.foundationdb.record.query.plan.cascades;
+
+import org.jspecify.annotations.NullMarked;

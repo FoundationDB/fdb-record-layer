@@ -28,8 +28,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -40,14 +40,13 @@ import java.util.Set;
 public class FindExpressionVisitor implements SimpleExpressionVisitor<Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> {
     private final Set<Class<? extends RelationalExpression>> expressionClasses;
 
-    public FindExpressionVisitor(@Nonnull final Set<Class<? extends RelationalExpression>> expressionClasses) {
+    public FindExpressionVisitor(final Set<Class<? extends RelationalExpression>> expressionClasses) {
         this.expressionClasses =
                 ImmutableSet.copyOf(expressionClasses);
     }
 
-    @Nonnull
     @Override
-    public Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> evaluateAtExpression(@Nonnull final RelationalExpression expression, @Nonnull final List<Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> childResults) {
+    public Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> evaluateAtExpression(final RelationalExpression expression, final List<Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> childResults) {
         final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> currentMap = Maps.newHashMap();
         for (final Class<? extends RelationalExpression> expressionClass : expressionClasses) {
             currentMap.compute(expressionClass,
@@ -68,16 +67,14 @@ public class FindExpressionVisitor implements SimpleExpressionVisitor<Map<Class<
         return mergeMaps(Iterables.concat(childResults, ImmutableList.of(currentMap)));
     }
 
-    @Nonnull
     @Override
-    public Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> evaluateAtRef(@Nonnull Reference ref, @Nonnull List<Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> memberResults) {
+    public Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> evaluateAtRef(Reference ref, List<Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> memberResults) {
         Verify.verify(memberResults.size() == 1);
         return Iterables.getOnlyElement(memberResults);
     }
 
-    @Nonnull
     @SuppressWarnings({"SameParameterValue", "java:S4276"})
-    private Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> mergeMaps(@Nonnull final Iterable<Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> childResults) {
+    private Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> mergeMaps(final Iterable<Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> childResults) {
         final ImmutableMap.Builder<Class<? extends RelationalExpression>, Set<RelationalExpression>> resultMap = ImmutableMap.builder();
         for (final Class<? extends RelationalExpression> expressionClass : expressionClasses) {
             final Set<RelationalExpression> accumulated = new LinkedIdentitySet<>();
@@ -92,13 +89,11 @@ public class FindExpressionVisitor implements SimpleExpressionVisitor<Map<Class<
         return resultMap.build();
     }
 
-    @Nonnull
-    public static Set<? extends RelationalExpression> findExpressions(@Nonnull final Class<? extends RelationalExpression> expressionClass, @Nonnull final RelationalExpression expression) {
+    public static Set<? extends RelationalExpression> findExpressions(final Class<? extends RelationalExpression> expressionClass, final RelationalExpression expression) {
         return findExpressions(ImmutableSet.of(expressionClass), expression);
     }
 
-    @Nonnull
-    public static Set<? extends RelationalExpression> findExpressions(@Nonnull final Set<Class<? extends RelationalExpression>> expressionClasses, @Nonnull final RelationalExpression expression) {
+    public static Set<? extends RelationalExpression> findExpressions(final Set<Class<? extends RelationalExpression>> expressionClasses, final RelationalExpression expression) {
         final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> expressionClassToExpressionsMap = new FindExpressionVisitor(expressionClasses).visit(expression);
         if (expressionClassToExpressionsMap == null) {
             return LinkedIdentitySet.of();
@@ -111,9 +106,8 @@ public class FindExpressionVisitor implements SimpleExpressionVisitor<Map<Class<
         return accumulated;
     }
 
-    @Nonnull
     @SafeVarargs
-    public static Set<? extends RelationalExpression> slice(@Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> inMap, @Nonnull final Class<? extends RelationalExpression>... expressionClasses) {
+    public static Set<? extends RelationalExpression> slice(final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> inMap, final Class<? extends RelationalExpression>... expressionClasses) {
         final Set<RelationalExpression> accumulated = new LinkedIdentitySet<>();
         for (final Class<? extends RelationalExpression> expressionClass : expressionClasses) {
             final Set<RelationalExpression> childResultForClass = inMap.get(expressionClass);
@@ -124,16 +118,15 @@ public class FindExpressionVisitor implements SimpleExpressionVisitor<Map<Class<
         return accumulated;
     }
 
-    public static int countExpressions(@Nonnull final Class<? extends RelationalExpression> expressionClass, @Nonnull final RelationalExpression expression) {
+    public static int countExpressions(final Class<? extends RelationalExpression> expressionClass, final RelationalExpression expression) {
         return countExpressions(ImmutableSet.of(expressionClass), expression);
     }
 
-    public static int countExpressions(@Nonnull final Set<Class<? extends RelationalExpression>> expressionClasses, @Nonnull final RelationalExpression expression) {
+    public static int countExpressions(final Set<Class<? extends RelationalExpression>> expressionClasses, final RelationalExpression expression) {
         return findExpressions(expressionClasses, expression).size();
     }
 
-    @Nonnull
-    public static Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> evaluate(@Nonnull Set<Class<? extends RelationalExpression>> expressionClasses, @Nonnull RelationalExpression expression) {
+    public static Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> evaluate(Set<Class<? extends RelationalExpression>> expressionClasses, RelationalExpression expression) {
         @Nullable final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> nullableResult =
                 expression.acceptVisitor(new FindExpressionVisitor(expressionClasses));
         return nullableResult == null ? ImmutableMap.of() : nullableResult;

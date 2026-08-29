@@ -26,7 +26,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
 
-import javax.annotation.Nonnull;
 import java.util.Iterator;
 import java.util.Optional;
 import java.util.Set;
@@ -35,11 +34,11 @@ import java.util.Set;
  * Predicate map that enforces a constraint that a predicate can only be mapped to at most one candidate.
  */
 public class PredicateMap extends PredicateMultiMap {
-    private PredicateMap(@Nonnull final SetMultimap<QueryPredicate, PredicateMapping> map) {
+    private PredicateMap(final SetMultimap<QueryPredicate, PredicateMapping> map) {
         super(map);
     }
 
-    public Optional<PredicateMapping> getMappingOptional(@Nonnull final QueryPredicate queryPredicate) {
+    public Optional<PredicateMapping> getMappingOptional(final QueryPredicate queryPredicate) {
         final Set<PredicateMapping> predicateEntries = getMap().get(queryPredicate);
         if (predicateEntries.size() != 1) {
             return Optional.empty();
@@ -48,17 +47,15 @@ public class PredicateMap extends PredicateMultiMap {
         return Optional.of(Iterables.getOnlyElement(predicateEntries));
     }
 
-    @Nonnull
     public static Builder builder() {
         return new Builder();
     }
 
-    @Nonnull
     public static PredicateMap empty() {
         return new Builder().build();
     }
 
-    private static Optional<SetMultimap<QueryPredicate, PredicateMapping>> checkUniqueness(@Nonnull final SetMultimap<QueryPredicate, PredicateMapping> map) {
+    private static Optional<SetMultimap<QueryPredicate, PredicateMapping>> checkUniqueness(final SetMultimap<QueryPredicate, PredicateMapping> map) {
         final ImmutableSetMultimap.Builder<QueryPredicate, PredicateMapping> dedupedBuilder = ImmutableSetMultimap.builder();
         for (final QueryPredicate queryPredicate : map.keySet()) {
             final Set<PredicateMapping> candidatePredicateMappings = map.get(queryPredicate);
@@ -78,8 +75,8 @@ public class PredicateMap extends PredicateMultiMap {
         return Optional.of(dedupedBuilder.build());
     }
 
-    private static boolean mappingsAreEquivalent(@Nonnull final PredicateMapping mapping1,
-                                                 @Nonnull final PredicateMapping mapping2) {
+    private static boolean mappingsAreEquivalent(final PredicateMapping mapping1,
+                                                 final PredicateMapping mapping2) {
         if (!mapping1.getMappingKind().equals(mapping2.getMappingKind())) {
             return false;
         }

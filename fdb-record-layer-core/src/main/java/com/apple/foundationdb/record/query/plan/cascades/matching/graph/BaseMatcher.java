@@ -33,7 +33,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 
-import javax.annotation.Nonnull;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -77,57 +76,48 @@ public class BaseMatcher<T> {
      * Map with previously-bound aliases. Any match that is computed and passed back to the client is an amendment of
      * this map, i.e., every resulting match's {@link AliasMap} always contains at least the bindings in this map.
      */
-    @Nonnull
     private final AliasMap boundAliasesMap;
 
     /**
      * Set of correlation identifiers representing the domain on this side.
      */
-    @Nonnull
     private final Set<CorrelationIdentifier> aliases;
 
     /**
      * Function to map elements of type {@code T} on this side to correlation identifiers.
      */
-    @Nonnull
     private final Function<T, CorrelationIdentifier> elementToAliasFn;
 
     /**
      * Map from correlation identifiers to elements of type {@code T} on this side.
      */
-    @Nonnull
     private final Map<CorrelationIdentifier, T> aliasToElementMap;
 
     /**
      * Map from correlation identifiers to correlation identifiers describing the depends-on relationships between
      * the elements (translated to aliases) on this side.
      */
-    @Nonnull
     private final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> dependsOnMap;
 
     /**
      * Set of correlation identifiers representing the domain on the other side.
      */
-    @Nonnull
     private final Set<CorrelationIdentifier> otherAliases;
 
     /**
      * Function to map elements of type {@code T} on the other side to correlation identifiers.
      */
-    @Nonnull
     private final Function<T, CorrelationIdentifier> otherElementToAliasFn;
 
     /**
      * Map from correlation identifiers to elements of type {@code T} on the other side.
      */
-    @Nonnull
     private final Map<CorrelationIdentifier, ? extends T> otherAliasToElementMap;
 
     /**
      * Map from correlation identifiers to correlation identifiers describing the depends-on relationships between
      * the elements (translated to aliases) on the other side.
      */
-    @Nonnull
     private final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> otherDependsOnMap;
 
     /**
@@ -148,15 +138,15 @@ public class BaseMatcher<T> {
      * @param otherDependsOnMap a map from correlation identifiers to correlation identifiers describing the depends-on
      *        relationships between the elements (translated to aliases) on the other side
      */
-    protected BaseMatcher(@Nonnull final AliasMap boundAliasesMap,
-                          @Nonnull final Set<CorrelationIdentifier> aliases,
-                          @Nonnull final Function<T, CorrelationIdentifier> elementToAliasFn,
-                          @Nonnull final Map<CorrelationIdentifier, T> aliasToElementMap,
-                          @Nonnull final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> dependsOnMap,
-                          @Nonnull final Set<CorrelationIdentifier> otherAliases,
-                          @Nonnull final Function<T, CorrelationIdentifier> otherElementToAliasFn,
-                          @Nonnull final Map<CorrelationIdentifier, ? extends T> otherAliasToElementMap,
-                          @Nonnull final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> otherDependsOnMap) {
+    protected BaseMatcher(final AliasMap boundAliasesMap,
+                          final Set<CorrelationIdentifier> aliases,
+                          final Function<T, CorrelationIdentifier> elementToAliasFn,
+                          final Map<CorrelationIdentifier, T> aliasToElementMap,
+                          final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> dependsOnMap,
+                          final Set<CorrelationIdentifier> otherAliases,
+                          final Function<T, CorrelationIdentifier> otherElementToAliasFn,
+                          final Map<CorrelationIdentifier, ? extends T> otherAliasToElementMap,
+                          final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> otherDependsOnMap) {
         this.boundAliasesMap = boundAliasesMap;
         this.aliases = aliases;
         this.elementToAliasFn = elementToAliasFn;
@@ -168,47 +158,38 @@ public class BaseMatcher<T> {
         this.otherDependsOnMap = otherDependsOnMap;
     }
 
-    @Nonnull
     public AliasMap getBoundAliasesMap() {
         return boundAliasesMap;
     }
 
-    @Nonnull
     public Set<CorrelationIdentifier> getAliases() {
         return aliases;
     }
 
-    @Nonnull
     public Function<T, CorrelationIdentifier> getElementToAliasFn() {
         return elementToAliasFn;
     }
 
-    @Nonnull
     public Map<CorrelationIdentifier, T> getAliasToElementMap() {
         return aliasToElementMap;
     }
 
-    @Nonnull
     public ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> getDependsOnMap() {
         return dependsOnMap;
     }
 
-    @Nonnull
     public Set<CorrelationIdentifier> getOtherAliases() {
         return otherAliases;
     }
 
-    @Nonnull
     public Function<T, CorrelationIdentifier> getOtherElementToAliasFn() {
         return otherElementToAliasFn;
     }
 
-    @Nonnull
     public Map<CorrelationIdentifier, ? extends T> getOtherAliasToElementMap() {
         return otherAliasToElementMap;
     }
 
-    @Nonnull
     public ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> getOtherDependsOnMap() {
         return otherDependsOnMap;
     }
@@ -232,8 +213,7 @@ public class BaseMatcher<T> {
      * @param <R> the result type of the enumeration function
      * @return an {@link Iterable} of type {@code R}
      */
-    @Nonnull
-    protected <R> Iterable<R> match(@Nonnull final EnumerationFunction<R> enumerationFunction, final boolean isCompleteMatchesOnly) {
+    protected <R> Iterable<R> match(final EnumerationFunction<R> enumerationFunction, final boolean isCompleteMatchesOnly) {
         //
         // Short-circuit the case where complete matches are requested but impossible due to
         // the sets having a different cardinality.
@@ -300,9 +280,9 @@ public class BaseMatcher<T> {
      * @param otherDependsOn other set
      * @return boolean equal to the result of {@code translate(set1, aliasMap).equals(otherSet)}
      */
-    protected boolean isIsomorphic(@Nonnull final AliasMap aliasMap,
-                                   @Nonnull final Set<CorrelationIdentifier> dependsOn,
-                                   @Nonnull final Set<CorrelationIdentifier> otherDependsOn) {
+    protected boolean isIsomorphic(final AliasMap aliasMap,
+                                   final Set<CorrelationIdentifier> dependsOn,
+                                   final Set<CorrelationIdentifier> otherDependsOn) {
         final ImmutableSet<CorrelationIdentifier> mappedSet =
                 dependsOn.stream()
                         .filter(aliasMap::containsSource)
@@ -312,10 +292,9 @@ public class BaseMatcher<T> {
         return otherDependsOn.containsAll(mappedSet);
     }
 
-    @Nonnull
     @SuppressWarnings("java:S3776")
-    private static Iterable<Set<CorrelationIdentifier>> soundCombinations(@Nonnull final Set<CorrelationIdentifier> aliases,
-                                                                          @Nonnull final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> dependsOnMap,
+    private static Iterable<Set<CorrelationIdentifier>> soundCombinations(final Set<CorrelationIdentifier> aliases,
+                                                                          final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> dependsOnMap,
                                                                           final int startInclusive,
                                                                           final int endInclusive) {
         Preconditions.checkArgument(endInclusive <= aliases.size());
@@ -388,10 +367,9 @@ public class BaseMatcher<T> {
      *         {@code Optional.of(resultMap)} where {@code resultMap} is an {@link AliasMap} only containing mappings
      *         from the dependsOn set of {@code alias} that are also contained in {@code aliasMap}, otherwise.
      */
-    @Nonnull
-    protected Optional<AliasMap> mapDependenciesToOther(@Nonnull AliasMap aliasMap,
-                                                        @Nonnull final CorrelationIdentifier alias,
-                                                        @Nonnull final CorrelationIdentifier otherAlias) {
+    protected Optional<AliasMap> mapDependenciesToOther(AliasMap aliasMap,
+                                                        final CorrelationIdentifier alias,
+                                                        final CorrelationIdentifier otherAlias) {
         final Set<CorrelationIdentifier> dependsOn = getDependsOnMap().get(alias);
         final Set<CorrelationIdentifier> otherDependsOn = getOtherDependsOnMap().get(otherAlias);
 

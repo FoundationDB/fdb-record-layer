@@ -21,4 +21,7 @@
 /**
  * This package contains everything related to graph matching.
  */
+@NullMarked
 package com.apple.foundationdb.record.query.plan.cascades.matching.graph;
+
+import org.jspecify.annotations.NullMarked;

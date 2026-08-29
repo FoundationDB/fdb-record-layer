@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 
 /**
@@ -67,7 +66,7 @@ public interface ImplementationCascadesRule<T extends RelationalExpression> exte
      * should instead override the more constrained {@link #onMatch(ImplementationCascadesRuleCall)}.
      */
     @Override
-    default void onMatch(@Nonnull final CascadesRuleCall call) {
+    default void onMatch(final CascadesRuleCall call) {
         onMatch((ImplementationCascadesRuleCall) call);
     }
 
@@ -76,5 +75,5 @@ public interface ImplementationCascadesRule<T extends RelationalExpression> exte
      *
      * @param call the constrained rule call
      */
-    void onMatch(@Nonnull ImplementationCascadesRuleCall call);
+    void onMatch(ImplementationCascadesRuleCall call);
 }
