@@ -29,8 +29,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 
 /**
@@ -39,26 +39,22 @@ import java.util.Objects;
 class SyntheticRecordScanPlan implements SyntheticRecordPlan  {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Synthetic-Record-Scan-Plan");
 
-    @Nonnull
     private final RecordQueryPlan seedPlan;
-    @Nonnull
     private final SyntheticRecordFromStoredRecordPlan fromSeedPlan;
     private final boolean needDistinct;
 
-    public SyntheticRecordScanPlan(@Nonnull RecordQueryPlan seedPlan,
-                                   @Nonnull SyntheticRecordFromStoredRecordPlan fromSeedPlan,
+    public SyntheticRecordScanPlan(RecordQueryPlan seedPlan,
+                                   SyntheticRecordFromStoredRecordPlan fromSeedPlan,
                                    boolean needDistinct) {
         this.seedPlan = seedPlan;
         this.fromSeedPlan = fromSeedPlan;
         this.needDistinct = needDistinct;
     }
 
-    @Nonnull
     public RecordQueryPlan getSeedPlan() {
         return seedPlan;
     }
 
-    @Nonnull
     public SyntheticRecordFromStoredRecordPlan getFromSeedPlan() {
         return fromSeedPlan;
     }
@@ -68,11 +64,10 @@ class SyntheticRecordScanPlan implements SyntheticRecordPlan  {
     }
 
     @Override
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    public RecordCursor<FDBSyntheticRecord> execute(@Nonnull FDBRecordStore store,
+    public RecordCursor<FDBSyntheticRecord> execute(FDBRecordStore store,
                                                     @Nullable byte[] continuation,
-                                                    @Nonnull ExecuteProperties executeProperties) {
+                                                    ExecuteProperties executeProperties) {
         final ExecuteProperties baseProperties = executeProperties.clearSkipAndLimit();
         RecordCursor<FDBSyntheticRecord> cursor = RecordCursor.flatMapPipelined(
                 outerContinuation -> store.executeQuery(seedPlan, outerContinuation, baseProperties),
@@ -111,7 +106,7 @@ class SyntheticRecordScanPlan implements SyntheticRecordPlan  {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return seedPlan.planHash(mode) + fromSeedPlan.planHash(mode) + (needDistinct ? 1 : 0);

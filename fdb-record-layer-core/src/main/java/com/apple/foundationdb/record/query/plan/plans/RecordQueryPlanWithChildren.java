@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
 
-import javax.annotation.Nonnull;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -43,11 +42,10 @@ public interface RecordQueryPlanWithChildren extends RecordQueryPlan, Relational
     }
 
     @Override
-    default boolean hasIndexScan(@Nonnull String indexName) {
+    default boolean hasIndexScan(String indexName) {
         return getChildren().stream().anyMatch(p -> p.hasIndexScan(indexName));
     }
 
-    @Nonnull
     @Override
     default Set<String> getUsedIndexes() {
         final Set<String> result = new HashSet<>();

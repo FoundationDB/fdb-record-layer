@@ -30,7 +30,6 @@ import com.google.common.collect.Streams;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Map;
@@ -43,9 +42,7 @@ public class DefaultPlanSerializationRegistry implements PlanSerializationRegist
     public static final PlanSerializationRegistry INSTANCE = new DefaultPlanSerializationRegistry();
     private static final String TYPE_URL_PREFIX = "c.a.fdb.types";
 
-    @Nonnull
     private final Map<Class<? extends Message>, PlanDeserializer<? extends Message, ?>> fromProtoClassDeserializerMap;
-    @Nonnull
     private final Map<String, Class<? extends Message>> fromProtoTypeUrlClassMap;
 
     public DefaultPlanSerializationRegistry() {
@@ -54,16 +51,14 @@ public class DefaultPlanSerializationRegistry implements PlanSerializationRegist
         this.fromProtoTypeUrlClassMap = methodMaps.getRight();
     }
 
-    @Nonnull
     @Override
     public String getTypeUrlPrefix() {
         return TYPE_URL_PREFIX;
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("unchecked")
-    public <M extends Message> PlanDeserializer<M, ?> lookUpFromProto(@Nonnull final Class<M> messageClass) {
+    public <M extends Message> PlanDeserializer<M, ?> lookUpFromProto(final Class<M> messageClass) {
         final PlanDeserializer<M, ?> deserializer = (PlanDeserializer<M, ?>)fromProtoClassDeserializerMap.get(messageClass);
         if (deserializer == null) {
             throw new RecordCoreException("unable to dispatch for message of class " + messageClass);
@@ -71,9 +66,8 @@ public class DefaultPlanSerializationRegistry implements PlanSerializationRegist
         return deserializer;
     }
 
-    @Nonnull
     @Override
-    public Class<? extends Message> lookUpMessageClass(@Nonnull final String typeUrl) {
+    public Class<? extends Message> lookUpMessageClass(final String typeUrl) {
         final Class<? extends Message> protoMessageClass = fromProtoTypeUrlClassMap.get(typeUrl);
         if (protoMessageClass == null) {
             throw new RecordCoreException("unable to dispatch for type url " + typeUrl);
@@ -112,8 +106,7 @@ public class DefaultPlanSerializationRegistry implements PlanSerializationRegist
         return NonnullPair.of(fromProtoClassDeserializerMapBuilder.build(), fromProtoTypeUrlClassMapBuilder.build());
     }
 
-    @Nonnull
-    private static String getTypeUrl(@Nonnull final Descriptors.Descriptor descriptor) {
+    private static String getTypeUrl(final Descriptors.Descriptor descriptor) {
         return TYPE_URL_PREFIX + "/" + descriptor.getFullName();
     }
 }

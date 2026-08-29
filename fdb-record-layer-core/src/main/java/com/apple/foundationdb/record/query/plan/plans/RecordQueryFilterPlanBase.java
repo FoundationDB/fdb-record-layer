@@ -36,8 +36,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -49,46 +49,40 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.INTERNAL)
 public abstract class RecordQueryFilterPlanBase extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChild {
-    @Nonnull
     private final Quantifier.Physical inner;
 
-    @Nonnull
     private static final Set<StoreTimer.Count> inCounts = ImmutableSet.of(FDBStoreTimer.Counts.QUERY_FILTER_GIVEN, FDBStoreTimer.Counts.QUERY_FILTER_PLAN_GIVEN);
-    @Nonnull
     private static final Set<StoreTimer.Event> duringEvents = Collections.singleton(FDBStoreTimer.Events.QUERY_FILTER);
-    @Nonnull
     private static final Set<StoreTimer.Count> successCounts = ImmutableSet.of(FDBStoreTimer.Counts.QUERY_FILTER_PASSED, FDBStoreTimer.Counts.QUERY_FILTER_PLAN_PASSED);
-    @Nonnull
     private static final Set<StoreTimer.Count> failureCounts = Collections.singleton(FDBStoreTimer.Counts.QUERY_DISCARDED);
 
-    protected RecordQueryFilterPlanBase(@Nonnull final PlanSerializationContext serializationContext,
-                                        @Nonnull final PRecordQueryFilterPlanBase recordQueryFilterPlanBaseProto) {
+    protected RecordQueryFilterPlanBase(final PlanSerializationContext serializationContext,
+                                        final PRecordQueryFilterPlanBase recordQueryFilterPlanBaseProto) {
         this(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryFilterPlanBaseProto.getInner())));
     }
 
-    protected RecordQueryFilterPlanBase(@Nonnull Quantifier.Physical inner) {
+    protected RecordQueryFilterPlanBase(Quantifier.Physical inner) {
         this.inner = inner;
     }
 
     protected abstract boolean hasAsyncFilter();
 
     @Nullable
-    protected abstract <M extends Message> Boolean evalFilter(@Nonnull FDBRecordStoreBase<M> store,
-                                                              @Nonnull EvaluationContext context,
-                                                              @Nonnull QueryResult datum);
+    protected abstract <M extends Message> Boolean evalFilter(FDBRecordStoreBase<M> store,
+                                                              EvaluationContext context,
+                                                              QueryResult datum);
 
     @Nullable
-    protected abstract <M extends Message> CompletableFuture<Boolean> evalFilterAsync(@Nonnull FDBRecordStoreBase<M> store,
-                                                                                      @Nonnull EvaluationContext context,
-                                                                                      @Nonnull QueryResult datum);
+    protected abstract <M extends Message> CompletableFuture<Boolean> evalFilterAsync(FDBRecordStoreBase<M> store,
+                                                                                      EvaluationContext context,
+                                                                                      QueryResult datum);
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CloseResource")
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
         final RecordCursor<QueryResult> results = getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
 
         if (hasAsyncFilter()) {
@@ -105,17 +99,14 @@ public abstract class RecordQueryFilterPlanBase extends AbstractRelationalExpres
         }
     }
 
-    @Nonnull
     public Quantifier.Physical getInner() {
         return inner;
     }
 
-    @Nonnull
     public RecordQueryPlan getInnerPlan() {
         return inner.getRangesOverPlan();
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
@@ -137,18 +128,16 @@ public abstract class RecordQueryFilterPlanBase extends AbstractRelationalExpres
     }
 
     @Override
-    public boolean hasIndexScan(@Nonnull String indexName) {
+    public boolean hasIndexScan(String indexName) {
         return getInnerPlan().hasIndexScan(indexName);
     }
 
-    @Nonnull
     @Override
     public Set<String> getUsedIndexes() {
         return getInnerPlan().getUsedIndexes();
     }
 
     @Override
-    @Nonnull
     public RecordQueryPlan getChild() {
         return getInnerPlan();
     }
@@ -164,8 +153,7 @@ public abstract class RecordQueryFilterPlanBase extends AbstractRelationalExpres
         return 1 + getInnerPlan().getComplexity();
     }
 
-    @Nonnull
-    protected PRecordQueryFilterPlanBase toRecordQueryFilterPlanBaseProto(@Nonnull final PlanSerializationContext serializationContext) {
+    protected PRecordQueryFilterPlanBase toRecordQueryFilterPlanBaseProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryFilterPlanBase.newBuilder().setInner(inner.toProto(serializationContext)).build();
     }
 }

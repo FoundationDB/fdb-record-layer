@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.expressions.NestedField;
 import com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
@@ -60,8 +59,8 @@ class GroupingValidator {
      * @param groupComparisons a list into which the comparisons used to satisfy the group key will be placed
      * @return <code>true</code> if the key is restricted to a single value by a subset of the filters provided or <code>false</code> otherwise
      */
-    static boolean findGroupKeyFilters(@Nonnull List<QueryComponent> filters, @Nonnull KeyExpression groupKey,
-                                       @Nonnull List<QueryComponent> groupFilters, @Nonnull List<Comparisons.Comparison> groupComparisons) {
+    static boolean findGroupKeyFilters(List<QueryComponent> filters, KeyExpression groupKey,
+                                       List<QueryComponent> groupFilters, List<Comparisons.Comparison> groupComparisons) {
         if (groupKey.getColumnSize() == 0) {
             return true;
         }
@@ -79,8 +78,8 @@ class GroupingValidator {
                 findNestingFilter(filters, (NestingKeyExpression)groupKey, groupFilters, groupComparisons));
     }
 
-    private static boolean findGroupFieldFilter(@Nonnull List<QueryComponent> filters, @Nonnull FieldKeyExpression groupField,
-                                                @Nonnull List<QueryComponent> groupFilters, @Nonnull List<Comparisons.Comparison> groupComparisons) {
+    private static boolean findGroupFieldFilter(List<QueryComponent> filters, FieldKeyExpression groupField,
+                                                List<QueryComponent> groupFilters, List<Comparisons.Comparison> groupComparisons) {
         for (QueryComponent filter : filters) {
             if (filter instanceof FieldWithComparison) {
                 FieldWithComparison comparisonFilter = (FieldWithComparison)filter;
@@ -96,8 +95,8 @@ class GroupingValidator {
         return false;
     }
 
-    private static boolean findNestingFilter(@Nonnull List<QueryComponent> filters, @Nonnull NestingKeyExpression nesting,
-                                             @Nonnull List<QueryComponent> groupFilters, @Nonnull List<Comparisons.Comparison> groupComparisons) {
+    private static boolean findNestingFilter(List<QueryComponent> filters, NestingKeyExpression nesting,
+                                             List<QueryComponent> groupFilters, List<Comparisons.Comparison> groupComparisons) {
         FieldKeyExpression parentFieldKey = nesting.getParent();
         for (QueryComponent filter : filters) {
             if (filter instanceof NestedField || filter instanceof OneOfThemWithComponent) {
@@ -110,8 +109,8 @@ class GroupingValidator {
         return false;
     }
 
-    private static boolean matchNestingField(@Nonnull QueryComponent filter, @Nonnull ComponentWithSingleChild nestingComponent, @Nonnull NestingKeyExpression nesting,
-                                             @Nonnull List<QueryComponent> groupFilters, @Nonnull List<Comparisons.Comparison> groupComparisons) {
+    private static boolean matchNestingField(QueryComponent filter, ComponentWithSingleChild nestingComponent, NestingKeyExpression nesting,
+                                             List<QueryComponent> groupFilters, List<Comparisons.Comparison> groupComparisons) {
         if (nesting.getChild() instanceof NestingKeyExpression) {
             NestingKeyExpression childNesting = (NestingKeyExpression)nesting.getChild();
             QueryComponent childComponent = nestingComponent.getChild();

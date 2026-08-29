@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorProto;
+import com.apple.foundationdb.record.RecordCursorProto.SelectorPlanContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
@@ -57,8 +58,8 @@ import com.google.protobuf.ZeroCopyByteString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -77,10 +78,9 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQuerySelectorPlan.class);
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Selector-Plan");
 
-    @Nonnull
     private final PlanSelector planSelector;
 
-    private RecordQuerySelectorPlan(@Nonnull final List<Quantifier.Physical> quantifiers, @Nonnull final PlanSelector planSelector) {
+    private RecordQuerySelectorPlan(final List<Quantifier.Physical> quantifiers, final PlanSelector planSelector) {
         super(quantifiers);
         this.planSelector = planSelector;
     }
@@ -93,7 +93,7 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
      * probability for selecting the plan. Sum of all the probabilities must be 100.
      * @return newly created plan
      */
-    public static RecordQuerySelectorPlan from(@Nonnull List<? extends RecordQueryPlan> children, @Nonnull final List<Integer> relativePlanProbabilities) {
+    public static RecordQuerySelectorPlan from(List<? extends RecordQueryPlan> children, final List<Integer> relativePlanProbabilities) {
         if (children.size() != relativePlanProbabilities.size()) {
             throw new RecordCoreArgumentException("Number of plans and number of relative probabilities should be the same");
         }
@@ -108,7 +108,7 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
      * @return newly created plan
      */
     @HeuristicPlanner
-    public static RecordQuerySelectorPlan from(@Nonnull List<? extends RecordQueryPlan> children, @Nonnull final PlanSelector planSelector) {
+    public static RecordQuerySelectorPlan from(List<? extends RecordQueryPlan> children, final PlanSelector planSelector) {
         Debugger.verifyHeuristicPlanner();
         if (children.isEmpty()) {
             throw new RecordCoreArgumentException("Selector plan should have at least one plan");
@@ -136,13 +136,12 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
      *
      * @return {@link RecordCursor} that iterates through the results of the execution
      */
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CloseResource")
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
         // The continuation should dictate which plan to select. In case the execution does not have a continuation,
         // select a plan from the available using the selection criteria.
         // Note that we are not doing any special validation of the continuation. The assumption is that the entire
@@ -157,7 +156,7 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, getChildren(), isReverse(), planSelector);
     }
 
@@ -176,7 +175,7 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap equivalences) {
+    public boolean equalsWithoutChildren(final RelationalExpression otherExpression, final AliasMap equivalences) {
         if (this == otherExpression) {
             return true;
         }
@@ -192,9 +191,8 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
         return Objects.hash(isReverse(), planSelector);
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.SELECTOR_OPERATOR,
@@ -203,11 +201,10 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
                 childGraphs);
     }
 
-    @Nonnull
     @Override
-    public RecordQuerySelectorPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQuerySelectorPlan translateCorrelations(final TranslationMap translationMap,
                                                          final boolean shouldSimplifyValues,
-                                                         @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                         final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQuerySelectorPlan(
                 Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers), planSelector);
     }
@@ -222,15 +219,13 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
         }
     }
 
-    @Nonnull
     @Override
-    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public Message toProto(final PlanSerializationContext serializationContext) {
         throw new RecordCoreException("serialization of this plan is not supported");
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         throw new RecordCoreException("serialization of this plan is not supported");
     }
 
@@ -238,17 +233,15 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
         // The index of the selected plan within the parent selector plan
         private final long selectedPlanIndex;
         // Inner cursor to provide record inflow
-        @Nonnull
         private final RecordCursor<QueryResult> inner;
         @Nullable FDBStoreTimer timer;
 
-        public SelectorPlanCursor(final long selectedPlanIndex, @Nonnull final RecordCursor<QueryResult> inner, @Nullable FDBStoreTimer timer) {
+        public SelectorPlanCursor(final long selectedPlanIndex, final RecordCursor<QueryResult> inner, @Nullable FDBStoreTimer timer) {
             this.inner = inner;
             this.selectedPlanIndex = selectedPlanIndex;
             this.timer = timer;
         }
 
-        @Nonnull
         @Override
         public CompletableFuture<RecordCursorResult<QueryResult>> onNext() {
             return inner.onNext().thenApply(this::calculateCursorResult);
@@ -264,14 +257,13 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
             return inner.isClosed();
         }
 
-        @Nonnull
         @Override
         public Executor getExecutor() {
             return inner.getExecutor();
         }
 
         @Override
-        public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+        public boolean accept(RecordCursorVisitor visitor) {
             if (visitor.visitEnter(this)) {
                 inner.accept(visitor);
             }
@@ -305,7 +297,7 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
         private ByteString innerContinuation = null;
         private boolean isEnd;
         @Nullable
-        private RecordCursorProto.SelectorPlanContinuation cachedProto;
+        private SelectorPlanContinuation cachedProto;
 
         public SelectorContinuation(byte[] rawBytes) {
             try {
@@ -344,7 +336,6 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
             return cachedProto;
         }
 
-        @Nonnull
         @Override
         public ByteString toByteString() {
             if (isEnd()) {

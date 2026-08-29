@@ -56,8 +56,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -74,20 +74,17 @@ public class RecordQueryFlatMapPlan extends AbstractRelationalExpressionWithChil
     /**
      * The outer plan.
      */
-    @Nonnull
     private final Quantifier.Physical outerQuantifier;
 
     /**
      * The inner plan that is executed per outer row.
      */
-    @Nonnull
     private final Quantifier.Physical innerQuantifier;
 
     /**
      * A value expression that produces the final output tuple. It is evaluated in a context where both the outer and
      * inner quantifier aliases are bound.
      */
-    @Nonnull
     private final Value resultValue;
 
     /**
@@ -95,9 +92,9 @@ public class RecordQueryFlatMapPlan extends AbstractRelationalExpressionWithChil
      */
     private final boolean inheritOuterRecordProperties;
 
-    public RecordQueryFlatMapPlan(@Nonnull final Quantifier.Physical outerQuantifier,
-                                  @Nonnull final Quantifier.Physical innerQuantifier,
-                                  @Nonnull final Value resultValue,
+    public RecordQueryFlatMapPlan(final Quantifier.Physical outerQuantifier,
+                                  final Quantifier.Physical innerQuantifier,
+                                  final Value resultValue,
                                   final boolean inheritOuterRecordProperties) {
         this.outerQuantifier = outerQuantifier;
         this.innerQuantifier = innerQuantifier;
@@ -105,12 +102,10 @@ public class RecordQueryFlatMapPlan extends AbstractRelationalExpressionWithChil
         this.inheritOuterRecordProperties = inheritOuterRecordProperties;
     }
 
-    @Nonnull
     public Quantifier.Physical getOuterQuantifier() {
         return outerQuantifier;
     }
 
-    @Nonnull
     public Quantifier.Physical getInnerQuantifier() {
         return innerQuantifier;
     }
@@ -120,12 +115,11 @@ public class RecordQueryFlatMapPlan extends AbstractRelationalExpressionWithChil
     }
 
     @SuppressWarnings("resource")
-    @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
 
         final var nestedExecuteProperties = executeProperties.clearSkipAndLimit();
         return RecordCursor.flatMapPipelined(
@@ -158,29 +152,25 @@ public class RecordQueryFlatMapPlan extends AbstractRelationalExpressionWithChil
         return true;
     }
 
-    @Nonnull
     @Override
     public List<RecordQueryPlan> getChildren() {
         return ImmutableList.of(outerQuantifier.getRangesOverPlan(), innerQuantifier.getRangesOverPlan());
     }
 
-    @Nonnull
     @Override
     public AvailableFields getAvailableFields() {
         return AvailableFields.NO_FIELDS;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return resultValue.getCorrelatedTo();
     }
 
-    @Nonnull
     @Override
-    public RecordQueryFlatMapPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryFlatMapPlan translateCorrelations(final TranslationMap translationMap,
                                                         final boolean shouldSimplifyValues,
-                                                        @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                        final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 2);
         final Value translatedResultValue =
                 resultValue.translateCorrelations(translationMap, shouldSimplifyValues);
@@ -196,17 +186,15 @@ public class RecordQueryFlatMapPlan extends AbstractRelationalExpressionWithChil
     }
 
     @Override
-    public RecordQueryFlatMapPlan strictlySorted(@Nonnull FinalMemoizer memoizer) {
+    public RecordQueryFlatMapPlan strictlySorted(FinalMemoizer memoizer) {
         return this;
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return resultValue;
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return ExplainPlanVisitor.toStringForDebugging(this);
@@ -214,8 +202,8 @@ public class RecordQueryFlatMapPlan extends AbstractRelationalExpressionWithChil
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap aliasMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap aliasMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -252,7 +240,7 @@ public class RecordQueryFlatMapPlan extends AbstractRelationalExpressionWithChil
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
@@ -262,21 +250,18 @@ public class RecordQueryFlatMapPlan extends AbstractRelationalExpressionWithChil
         }
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(outerQuantifier, innerQuantifier);
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewriteExplainPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewriteExplainPlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return rewritePlannerGraph(childGraphs);
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewriteInternalPlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         final var explainFormatter =
                 WithIndentationsExplainFormatter.forDot(5);
 
@@ -294,9 +279,8 @@ public class RecordQueryFlatMapPlan extends AbstractRelationalExpressionWithChil
                 childGraphs);
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.NESTED_LOOP_JOIN_OPERATOR,
@@ -306,9 +290,8 @@ public class RecordQueryFlatMapPlan extends AbstractRelationalExpressionWithChil
                 getQuantifiers());
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryFlatMapPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryFlatMapPlan toProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryFlatMapPlan.newBuilder()
                 .setOuterQuantifier(outerQuantifier.toProto(serializationContext))
                 .setInnerQuantifier(innerQuantifier.toProto(serializationContext))
@@ -317,15 +300,13 @@ public class RecordQueryFlatMapPlan extends AbstractRelationalExpressionWithChil
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setFlatMapPlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQueryFlatMapPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                   @Nonnull final PRecordQueryFlatMapPlan recordQueryFlatMapPlanProto) {
+    public static RecordQueryFlatMapPlan fromProto(final PlanSerializationContext serializationContext,
+                                                   final PRecordQueryFlatMapPlan recordQueryFlatMapPlanProto) {
         Verify.verifyNotNull(recordQueryFlatMapPlanProto.hasInheritOuterRecordProperties());
         return new RecordQueryFlatMapPlan(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryFlatMapPlanProto.getOuterQuantifier())),
                 Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryFlatMapPlanProto.getInnerQuantifier())),
@@ -338,16 +319,14 @@ public class RecordQueryFlatMapPlan extends AbstractRelationalExpressionWithChil
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryFlatMapPlan, RecordQueryFlatMapPlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryFlatMapPlan> getProtoMessageClass() {
             return PRecordQueryFlatMapPlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryFlatMapPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                @Nonnull final PRecordQueryFlatMapPlan recordQueryFlatMapPlanProto) {
+        public RecordQueryFlatMapPlan fromProto(final PlanSerializationContext serializationContext,
+                                                final PRecordQueryFlatMapPlan recordQueryFlatMapPlanProto) {
             return RecordQueryFlatMapPlan.fromProto(serializationContext, recordQueryFlatMapPlanProto);
         }
     }

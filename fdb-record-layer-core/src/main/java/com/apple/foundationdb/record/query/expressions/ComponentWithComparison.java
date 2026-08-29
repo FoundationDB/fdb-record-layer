@@ -23,23 +23,20 @@ package com.apple.foundationdb.record.query.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 
-import javax.annotation.Nonnull;
 
 /**
  * A {@link QueryComponent} that uses a {@link Comparisons.Comparison} on the record.
  */
 @API(API.Status.UNSTABLE)
 public interface ComponentWithComparison extends ComponentWithNoChildren {
-    @Nonnull
     Comparisons.Comparison getComparison();
 
     QueryComponent withOtherComparison(Comparisons.Comparison comparison);
 
     String getName();
 
-    @Nonnull
     @Override
-    default QueryComponent withParameterRelationshipMap(@Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
+    default QueryComponent withParameterRelationshipMap(ParameterRelationshipGraph parameterRelationshipGraph) {
         return withOtherComparison(getComparison().withParameterRelationshipMap(parameterRelationshipGraph));
     }
 }

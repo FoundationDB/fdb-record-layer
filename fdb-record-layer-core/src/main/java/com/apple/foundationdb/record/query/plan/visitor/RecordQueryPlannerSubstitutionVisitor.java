@@ -34,12 +34,13 @@ import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
@@ -48,22 +49,20 @@ import java.util.Set;
  * Visitor interface for performing substitution-type rules on {@link RecordQueryPlan}s.
  */
 public abstract class RecordQueryPlannerSubstitutionVisitor {
-    @Nonnull
     protected final RecordMetaData recordMetadata;
-    @Nonnull
     private final PlannableIndexTypes indexTypes;
     @Nullable
     private final KeyExpression commonPrimaryKey;
 
-    public RecordQueryPlannerSubstitutionVisitor(@Nonnull RecordMetaData recordMetadata,
-                                                 @Nonnull PlannableIndexTypes indexTypes,
+    public RecordQueryPlannerSubstitutionVisitor(RecordMetaData recordMetadata,
+                                                 PlannableIndexTypes indexTypes,
                                                  @Nullable KeyExpression commonPrimaryKey) {
         this.recordMetadata = recordMetadata;
         this.indexTypes = indexTypes;
         this.commonPrimaryKey = commonPrimaryKey;
     }
 
-    public static RecordQueryPlan applyRegularVisitors(@Nonnull RecordQueryPlannerConfiguration configuration, @Nonnull RecordQueryPlan plan, @Nonnull RecordMetaData recordMetaData, @Nonnull PlannableIndexTypes indexTypes, @Nullable KeyExpression commonPrimaryKey) {
+    public static RecordQueryPlan applyRegularVisitors(RecordQueryPlannerConfiguration configuration, RecordQueryPlan plan, RecordMetaData recordMetaData, PlannableIndexTypes indexTypes, @Nullable KeyExpression commonPrimaryKey) {
         plan = plan
                 .accept(new FilterVisitor(recordMetaData, indexTypes, commonPrimaryKey))
                 .accept(new UnorderedPrimaryKeyDistinctVisitor(recordMetaData, indexTypes, commonPrimaryKey))
@@ -80,20 +79,19 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
                 .accept(new FilterVisitor(recordMetaData, indexTypes, commonPrimaryKey));
     }
 
-    @Nonnull
-    public abstract RecordQueryPlan postVisit(@Nonnull RecordQueryPlan recordQueryPlan);
+    public abstract RecordQueryPlan postVisit(RecordQueryPlan recordQueryPlan);
 
     @Nullable
-    public RecordQueryPlan removeIndexFetch(@Nonnull RecordQueryPlan plan, @Nonnull Set<KeyExpression> requiredFields) {
+    public RecordQueryPlan removeIndexFetch(RecordQueryPlan plan, Set<KeyExpression> requiredFields) {
         return removeIndexFetch(recordMetadata, indexTypes, commonPrimaryKey, plan, requiredFields);
     }
 
     @Nullable
-    public static RecordQueryPlan removeIndexFetch(@Nonnull RecordMetaData recordMetaData,
-                                                   @Nonnull PlannableIndexTypes indexTypes,
+    public static RecordQueryPlan removeIndexFetch(RecordMetaData recordMetaData,
+                                                   PlannableIndexTypes indexTypes,
                                                    @Nullable KeyExpression commonPrimaryKey,
-                                                   @Nonnull RecordQueryPlan plan,
-                                                   @Nonnull Set<KeyExpression> requiredFields) {
+                                                   RecordQueryPlan plan,
+                                                   Set<KeyExpression> requiredFields) {
         if (plan instanceof RecordQueryPlanWithIndex) {
             RecordQueryPlanWithIndex indexPlan = (RecordQueryPlanWithIndex) plan;
             if (!indexPlan.allowedForCoveringIndexPlan()) {
@@ -137,7 +135,7 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
         return null;
     }
 
-    private static void flattenKeys(@Nonnull KeyExpression commonPrimaryKey, @Nonnull Set<KeyExpression> fields) {
+    private static void flattenKeys(KeyExpression commonPrimaryKey, Set<KeyExpression> fields) {
         // Not just normalizeKeyForPositions, because while List doesn't flatten _positions_, that doesn't matter.
         if (commonPrimaryKey instanceof ThenKeyExpression || commonPrimaryKey instanceof ListKeyExpression) {
             for (KeyExpression child : ((KeyExpressionWithChildren)commonPrimaryKey).getChildren()) {
@@ -149,7 +147,7 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
     }
 
     @Nullable
-    public static RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords resolveFetchIndexRecordsFromPlan(@Nonnull final RecordQueryPlan plan) {
+    public static FetchIndexRecords resolveFetchIndexRecordsFromPlan(final RecordQueryPlan plan) {
         if (plan instanceof RecordQueryPlanWithIndex) {
             return ((RecordQueryPlanWithIndex)plan).getFetchIndexRecords();
         } else if (plan instanceof RecordQueryFetchFromPartialRecordPlan) {
@@ -158,16 +156,14 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
         return null;
     }
 
-    @Nonnull
-    public AvailableFields availableFields(@Nonnull RecordQueryPlan plan) {
+    public AvailableFields availableFields(RecordQueryPlan plan) {
         return availableFields(recordMetadata, indexTypes, commonPrimaryKey, plan);
     }
 
-    @Nonnull
-    public static AvailableFields availableFields(@Nonnull RecordMetaData recordMetaData,
-                                                  @Nonnull PlannableIndexTypes indexTypes,
+    public static AvailableFields availableFields(RecordMetaData recordMetaData,
+                                                  PlannableIndexTypes indexTypes,
                                                   @Nullable KeyExpression commonPrimaryKey,
-                                                  @Nonnull RecordQueryPlan plan) {
+                                                  RecordQueryPlan plan) {
         if (plan instanceof RecordQueryPlanWithIndex) {
             RecordQueryPlanWithIndex indexPlan = (RecordQueryPlanWithIndex)plan;
             Index index = recordMetaData.getIndex(indexPlan.getIndexName());

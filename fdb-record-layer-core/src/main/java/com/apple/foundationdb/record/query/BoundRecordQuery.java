@@ -33,7 +33,6 @@ import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -54,39 +53,32 @@ import static com.apple.foundationdb.record.query.expressions.BooleanComponent.g
  * 3. their pre-bound parameter markers use compatible pre-bound values
  */
 public class BoundRecordQuery {
-    @Nonnull
     private final RecordStoreState recordStoreState;
-    @Nonnull
     private final RecordQuery recordQuery;
-    @Nonnull
     private final Supplier<Set<String>> parametersSupplier = Suppliers.memoize(this::computeParameters);
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final ParameterRelationshipGraph parameterRelationshipGraph;
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
-    public BoundRecordQuery(@Nonnull final RecordStoreState recordStoreState, @Nonnull final RecordQuery recordQuery) {
+    public BoundRecordQuery(final RecordStoreState recordStoreState, final RecordQuery recordQuery) {
         this(recordStoreState, recordQuery, ParameterRelationshipGraph.empty());
     }
 
-    public BoundRecordQuery(@Nonnull final RecordStoreState recordStoreState, @Nonnull final RecordQuery recordQuery, @Nonnull Bindings perBoundParameterBindings) {
+    public BoundRecordQuery(final RecordStoreState recordStoreState, final RecordQuery recordQuery, Bindings perBoundParameterBindings) {
         this(recordStoreState, recordQuery, ParameterRelationshipGraph.fromRecordQueryAndBindings(recordQuery, perBoundParameterBindings));
     }
 
-    private BoundRecordQuery(@Nonnull final RecordStoreState recordStoreState, @Nonnull final RecordQuery recordQuery, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
+    private BoundRecordQuery(final RecordStoreState recordStoreState, final RecordQuery recordQuery, ParameterRelationshipGraph parameterRelationshipGraph) {
         this.recordStoreState = recordStoreState;
         this.recordQuery = recordQuery;
         this.parameterRelationshipGraph = parameterRelationshipGraph;
     }
 
-    @Nonnull
     public RecordStoreState getRecordStoreState() {
         return recordStoreState;
     }
 
-    @Nonnull
     public RecordQuery getRecordQuery() {
         return recordQuery;
     }
@@ -95,7 +87,6 @@ public class BoundRecordQuery {
         return parametersSupplier.get();
     }
 
-    @Nonnull
     public ParameterRelationshipGraph getParameterRelationshipGraph() {
         return parameterRelationshipGraph;
     }
@@ -105,8 +96,7 @@ public class BoundRecordQuery {
      * @param store the store to use
      * @return a record query plan for this query
      */
-    @Nonnull
-    public RecordQueryPlan plan(@Nonnull final FDBRecordStore store) {
+    public RecordQueryPlan plan(final FDBRecordStore store) {
         return store.planQuery(getRecordQuery(), parameterRelationshipGraph);
     }
 
@@ -118,8 +108,8 @@ public class BoundRecordQuery {
      * @return {@code true} if the plan, if it were to be executed on the given store and with the given parameter
      *         bindings, is compatible with this bound query; {@code false} otherwise
      */
-    public boolean isCompatible(@Nonnull FDBRecordStore store,
-                                @Nonnull Bindings parameterBindings) {
+    public boolean isCompatible(FDBRecordStore store,
+                                Bindings parameterBindings) {
         if (!store.getRecordStoreState().compatibleWith(recordStoreState)) {
             return false;
         }
@@ -146,7 +136,6 @@ public class BoundRecordQuery {
         return hasher.hash().asInt();
     }
 
-    @Nonnull
     private Set<String> computeParameters() {
         final QueryComponent filter = recordQuery.getFilter();
         if (filter != null) {

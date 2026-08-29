@@ -60,8 +60,8 @@ import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -85,19 +85,16 @@ public abstract class RecordQueryIntersectionPlan extends AbstractRelationalExpr
      * reordered is identical. This is accurate in the current implementation (except that the continuation might no longer
      * be valid); if this ever changes, equals() and hashCode() must be updated.
      */
-    @Nonnull
     private final List<Quantifier.Physical> quantifiers;
-    @Nonnull
     private final ComparisonKeyFunction comparisonKeyFunction;
 
     protected final boolean reverse;
 
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Value> resultValueSupplier = Suppliers.memoize(this::computeResultValue);
 
-    protected RecordQueryIntersectionPlan(@Nonnull final PlanSerializationContext serializationContext,
-                                          @Nonnull final PRecordQueryIntersectionPlan recordQueryIntersectionPlanProto) {
+    protected RecordQueryIntersectionPlan(final PlanSerializationContext serializationContext,
+                                          final PRecordQueryIntersectionPlan recordQueryIntersectionPlanProto) {
         Verify.verify(recordQueryIntersectionPlanProto.hasReverse());
         final ImmutableList.Builder<Quantifier.Physical> quantifiersBuilder = ImmutableList.builder();
         for (int i = 0; i < recordQueryIntersectionPlanProto.getQuantifiersCount(); i ++) {
@@ -109,26 +106,24 @@ public abstract class RecordQueryIntersectionPlan extends AbstractRelationalExpr
     }
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
-    protected RecordQueryIntersectionPlan(@Nonnull List<Quantifier.Physical> quantifiers,
-                                          @Nonnull ComparisonKeyFunction comparisonKeyFunction,
+    protected RecordQueryIntersectionPlan(List<Quantifier.Physical> quantifiers,
+                                          ComparisonKeyFunction comparisonKeyFunction,
                                           boolean reverse) {
         this.quantifiers = ImmutableList.copyOf(quantifiers);
         this.comparisonKeyFunction = comparisonKeyFunction;
         this.reverse = reverse;
     }
 
-    @Nonnull
     public ComparisonKeyFunction getComparisonKeyFunction() {
         return comparisonKeyFunction;
     }
 
     @SuppressWarnings("resource")
-    @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
         final ExecuteProperties childExecuteProperties = executeProperties.clearSkipAndLimit();
         return IntersectionCursor.create(
                         comparisonKeyFunction.apply(store, context),
@@ -149,50 +144,43 @@ public abstract class RecordQueryIntersectionPlan extends AbstractRelationalExpr
         return reverse;
     }
 
-    @Nonnull
     private Stream<RecordQueryPlan> getChildStream() {
         return quantifiers.stream().map(Quantifier.Physical::getRangesOverPlan);
     }
 
-    @Nonnull
     @Override
     public List<RecordQueryPlan> getChildren() {
         return quantifiers.stream().map(Quantifier.Physical::getRangesOverPlan).collect(Collectors.toList());
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return quantifiers;
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return resultValueSupplier.get();
     }
 
-    @Nonnull
     protected Value computeResultValue() {
         return RecordQuerySetPlan.mergeValues(quantifiers);
     }
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -204,7 +192,6 @@ public abstract class RecordQueryIntersectionPlan extends AbstractRelationalExpr
                comparisonKeyFunction.equals(other.comparisonKeyFunction);
     }
 
-    @Nonnull
     @Override
     public AvailableFields getAvailableFields() {
         return AvailableFields.intersection(quantifiers.stream()
@@ -229,7 +216,7 @@ public abstract class RecordQueryIntersectionPlan extends AbstractRelationalExpr
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return PlanHashable.planHash(mode, getQueryPlanChildren()) + comparisonKeyFunction.planHash(mode) + (reverse ? 1 : 0);
@@ -259,7 +246,7 @@ public abstract class RecordQueryIntersectionPlan extends AbstractRelationalExpr
     }
 
     @Override
-    public int maxCardinality(@Nonnull RecordMetaData metaData) {
+    public int maxCardinality(RecordMetaData metaData) {
         return getChildStream().map(p -> p.maxCardinality(metaData)).min(Integer::compare).orElse(UNKNOWN_MAX_CARDINALITY);
     }
 
@@ -268,9 +255,8 @@ public abstract class RecordQueryIntersectionPlan extends AbstractRelationalExpr
         return getChildren().stream().allMatch(RecordQueryPlan::isStrictlySorted);
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.INTERSECTION_OPERATOR,
@@ -279,8 +265,7 @@ public abstract class RecordQueryIntersectionPlan extends AbstractRelationalExpr
                 childGraphs);
     }
 
-    @Nonnull
-    protected PRecordQueryIntersectionPlan toRecordQueryIntersectionPlan(@Nonnull final PlanSerializationContext serializationContext) {
+    protected PRecordQueryIntersectionPlan toRecordQueryIntersectionPlan(final PlanSerializationContext serializationContext) {
         final PRecordQueryIntersectionPlan.Builder builder = PRecordQueryIntersectionPlan.newBuilder();
         for (final Quantifier.Physical quantifier : quantifiers) {
             builder.addQuantifiers(quantifier.toProto(serializationContext));
@@ -290,17 +275,15 @@ public abstract class RecordQueryIntersectionPlan extends AbstractRelationalExpr
         return builder.build();
     }
 
-    @Nonnull
-    public static RecordQueryIntersectionOnKeyExpressionPlan fromQuantifiers(@Nonnull final List<Quantifier.Physical> quantifiers,
-                                                                             @Nonnull final KeyExpression comparisonKey) {
+    public static RecordQueryIntersectionOnKeyExpressionPlan fromQuantifiers(final List<Quantifier.Physical> quantifiers,
+                                                                             final KeyExpression comparisonKey) {
         return new RecordQueryIntersectionOnKeyExpressionPlan(quantifiers,
                 comparisonKey,
                 Quantifiers.isReversed(quantifiers));
     }
 
-    @Nonnull
-    public static RecordQueryIntersectionOnValuesPlan fromQuantifiers(@Nonnull final List<Quantifier.Physical> quantifiers,
-                                                                      @Nonnull final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
+    public static RecordQueryIntersectionOnValuesPlan fromQuantifiers(final List<Quantifier.Physical> quantifiers,
+                                                                      final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
                                                                       final boolean isReverse) {
         return RecordQueryIntersectionOnValuesPlan.intersection(quantifiers,
                 comparisonKeyOrderingParts,
@@ -320,10 +303,9 @@ public abstract class RecordQueryIntersectionPlan extends AbstractRelationalExpr
      * @return a new plan that will return the intersection of all results from both child plans
      */
     @HeuristicPlanner
-    @Nonnull
-    public static RecordQueryIntersectionOnKeyExpressionPlan from(@Nonnull final RecordQueryPlan left,
-                                                                  @Nonnull final RecordQueryPlan right,
-                                                                  @Nonnull final KeyExpression comparisonKey) {
+    public static RecordQueryIntersectionOnKeyExpressionPlan from(final RecordQueryPlan left,
+                                                                  final RecordQueryPlan right,
+                                                                  final KeyExpression comparisonKey) {
         Debugger.verifyHeuristicPlanner();
         if (left.isReverse() != right.isReverse()) {
             throw new RecordCoreArgumentException("left plan and right plan for union do not have same value for reverse field");
@@ -344,9 +326,8 @@ public abstract class RecordQueryIntersectionPlan extends AbstractRelationalExpr
      * @return a new plan that will return the intersection of all results from both child plans
      */
     @HeuristicPlanner
-    @Nonnull
-    public static RecordQueryIntersectionOnKeyExpressionPlan from(@Nonnull final List<? extends RecordQueryPlan> children,
-                                                                  @Nonnull final KeyExpression comparisonKey) {
+    public static RecordQueryIntersectionOnKeyExpressionPlan from(final List<? extends RecordQueryPlan> children,
+                                                                  final KeyExpression comparisonKey) {
         Debugger.verifyHeuristicPlanner();
         if (children.size() < 2) {
             throw new RecordCoreArgumentException("fewer than two children given to union plan");

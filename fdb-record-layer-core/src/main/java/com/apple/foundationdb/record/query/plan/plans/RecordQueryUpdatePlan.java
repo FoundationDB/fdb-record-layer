@@ -59,8 +59,8 @@ import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -78,17 +78,17 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
 
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryUpdatePlan.class);
 
-    protected RecordQueryUpdatePlan(@Nonnull final PlanSerializationContext serializationContext,
-                                    @Nonnull final PRecordQueryUpdatePlan recordQueryUpdatePlanProto) {
+    protected RecordQueryUpdatePlan(final PlanSerializationContext serializationContext,
+                                    final PRecordQueryUpdatePlan recordQueryUpdatePlanProto) {
         super(serializationContext, Objects.requireNonNull(recordQueryUpdatePlanProto.getSuper()));
     }
 
-    private RecordQueryUpdatePlan(@Nonnull final Quantifier.Physical inner,
-                                  @Nonnull final String targetRecordType,
-                                  @Nonnull final Type.Record targetType,
+    private RecordQueryUpdatePlan(final Quantifier.Physical inner,
+                                  final String targetRecordType,
+                                  final Type.Record targetType,
                                   @Nullable final TransformationTrieNode transformationsTrie,
                                   @Nullable final CoercionTrieNode coercionsTrie,
-                                  @Nonnull final Value computationValue) {
+                                  final Value computationValue) {
         super(inner, targetRecordType, targetType, transformationsTrie, coercionsTrie, computationValue, currentModifiedRecordAlias());
     }
 
@@ -98,7 +98,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
     }
 
     @Override
-    public @Nonnull <M extends Message> CompletableFuture<QueryResult> saveRecordAsync(@Nonnull final FDBRecordStoreBase<M> store, final @Nonnull EvaluationContext context, @Nonnull final M message, final boolean isDryRun) {
+    public <M extends Message> CompletableFuture<QueryResult> saveRecordAsync(final FDBRecordStoreBase<M> store, final EvaluationContext context, final M message, final boolean isDryRun) {
         final CompletableFuture<FDBStoredRecord<M>> result;
         if (isDryRun) {
             result = store.dryRunSaveRecordAsync(message, FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED);
@@ -108,11 +108,10 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
         return result.thenApply(fdbStoredRecord -> QueryResult.fromQueriedRecord(getTargetType(), context, FDBQueriedRecord.stored(fdbStoredRecord)));
     }
 
-    @Nonnull
     @Override
-    public RecordQueryUpdatePlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryUpdatePlan translateCorrelations(final TranslationMap translationMap,
                                                        final boolean shouldSimplifyValues,
-                                                       @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                       final List<? extends Quantifier> translatedQuantifiers) {
         final var tranlatedComputationValue =
                 getComputationValue().translateCorrelations(translationMap, shouldSimplifyValues);
         return new RecordQueryUpdatePlan(
@@ -125,7 +124,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
     }
 
     @Nullable
-    private MessageHelpers.TransformationTrieNode translateTransformationsTrie(@Nonnull final TranslationMap translationMap,
+    private TransformationTrieNode translateTransformationsTrie(final TranslationMap translationMap,
                                                                                final boolean shouldSimplifyValues) {
         final var transformationsTrie = getTransformationsTrie();
         if (translationMap.definesOnlyIdentities()) {
@@ -154,9 +153,8 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
         }).orElseThrow(() -> new RecordCoreException("unable to translate correlations"));
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
+    public RecordQueryPlanWithChild withChild(final Reference childRef) {
         return new RecordQueryUpdatePlan(Quantifier.physical(childRef, getInner().getAlias()),
                 getTargetRecordType(),
                 getTargetType(),
@@ -171,11 +169,10 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, super.planHash(mode));
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return ExplainPlanVisitor.toStringForDebugging(this);
@@ -187,9 +184,8 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
      * @return the rewritten planner graph that models the filter as a node that uses the expression attribute
      *         to depict the record types this operator filters.
      */
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(List<? extends PlannerGraph> childGraphs) {
         Verify.verify(childGraphs.size() == 1);
         final var graphForTarget =
                 PlannerGraph.fromNodeAndChildGraphs(
@@ -206,21 +202,18 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                 Iterables.getOnlyElement(childGraphs), graphForTarget);
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryUpdatePlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryUpdatePlan toProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryUpdatePlan.newBuilder().setSuper(toRecordQueryAbstractModificationPlanProto(serializationContext)).build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setUpdatePlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQueryUpdatePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                  @Nonnull final PRecordQueryUpdatePlan recordQueryUpdatePlanProto) {
+    public static RecordQueryUpdatePlan fromProto(final PlanSerializationContext serializationContext,
+                                                  final PRecordQueryUpdatePlan recordQueryUpdatePlanProto) {
         return new RecordQueryUpdatePlan(serializationContext, recordQueryUpdatePlanProto);
     }
 
@@ -248,12 +241,11 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
      *        {@link RecordQueryAbstractDataModificationPlan#currentModifiedRecordAlias()}
      * @return a newly created {@link RecordQueryUpdatePlan}
      */
-    @Nonnull
-    public static RecordQueryUpdatePlan updatePlan(@Nonnull final Quantifier.Physical inner,
-                                                   @Nonnull final String targetRecordType,
-                                                   @Nonnull final Type.Record targetType,
-                                                   @Nonnull final Map<FieldValue.FieldPath, Value> transformMap,
-                                                   @Nonnull final Value computationValue) {
+    public static RecordQueryUpdatePlan updatePlan(final Quantifier.Physical inner,
+                                                   final String targetRecordType,
+                                                   final Type.Record targetType,
+                                                   final Map<FieldValue.FieldPath, Value> transformMap,
+                                                   final Value computationValue) {
         final var transformationsTrie = computeTrieForFieldPaths(checkAndPrepareOrderedFieldPaths(transformMap), transformMap);
         return new RecordQueryUpdatePlan(inner,
                 targetRecordType,
@@ -263,8 +255,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
                 computationValue);
     }
 
-    @Nonnull
-    public static List<FieldValue.FieldPath> checkAndPrepareOrderedFieldPaths(@Nonnull final Map<FieldValue.FieldPath, ? extends Value> transformMap) {
+    public static List<FieldValue.FieldPath> checkAndPrepareOrderedFieldPaths(final Map<FieldValue.FieldPath, ? extends Value> transformMap) {
         // this brings together all paths that share the same prefixes
         final var orderedFieldPaths =
                 transformMap.keySet()
@@ -289,16 +280,14 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
      *
      * @return a {@link TransformationTrieNode}
      */
-    @Nonnull
-    public static TransformationTrieNode computeTrieForFieldPaths(@Nonnull final Collection<FieldValue.FieldPath> orderedFieldPaths,
-                                                                  @Nonnull final Map<FieldValue.FieldPath, ? extends Value> transformMap) {
+    public static TransformationTrieNode computeTrieForFieldPaths(final Collection<FieldValue.FieldPath> orderedFieldPaths,
+                                                                  final Map<FieldValue.FieldPath, ? extends Value> transformMap) {
         return computeTrieForFieldPaths(new FieldValue.FieldPath(ImmutableList.of()), transformMap, Iterators.peekingIterator(orderedFieldPaths.iterator()));
     }
 
-    @Nonnull
-    private static TransformationTrieNode computeTrieForFieldPaths(@Nonnull final FieldValue.FieldPath prefix,
-                                                                   @Nonnull final Map<FieldValue.FieldPath, ? extends Value> transformMap,
-                                                                   @Nonnull final PeekingIterator<FieldValue.FieldPath> orderedFieldPathIterator) {
+    private static TransformationTrieNode computeTrieForFieldPaths(final FieldValue.FieldPath prefix,
+                                                                   final Map<FieldValue.FieldPath, ? extends Value> transformMap,
+                                                                   final PeekingIterator<FieldValue.FieldPath> orderedFieldPathIterator) {
         if (transformMap.containsKey(prefix)) {
             orderedFieldPathIterator.next();
             return new TransformationTrieNode(Verify.verifyNotNull(transformMap.get(prefix)), null);
@@ -329,16 +318,14 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryUpdatePlan, RecordQueryUpdatePlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryUpdatePlan> getProtoMessageClass() {
             return PRecordQueryUpdatePlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryUpdatePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                               @Nonnull final PRecordQueryUpdatePlan recordQueryUpdatePlanProto) {
+        public RecordQueryUpdatePlan fromProto(final PlanSerializationContext serializationContext,
+                                               final PRecordQueryUpdatePlan recordQueryUpdatePlanProto) {
             return RecordQueryUpdatePlan.fromProto(serializationContext, recordQueryUpdatePlanProto);
         }
     }

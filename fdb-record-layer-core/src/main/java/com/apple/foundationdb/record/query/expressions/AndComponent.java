@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -46,12 +45,11 @@ import java.util.function.Supplier;
 public class AndComponent extends AndOrComponent {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("And-Component");
 
-    public AndComponent(@Nonnull List<QueryComponent> operands) {
+    public AndComponent(List<QueryComponent> operands) {
         super(operands);
     }
 
-    @Nonnull
-    public static AndComponent from(@Nonnull List<? extends QueryComponent> operands) {
+    public static AndComponent from(List<? extends QueryComponent> operands) {
         ImmutableList.Builder<QueryComponent> operandRefs = ImmutableList.builder();
         for (QueryComponent operand : operands) {
             operandRefs.add(operand);
@@ -74,11 +72,10 @@ public class AndComponent extends AndOrComponent {
         return AndComponent.from(newChildren);
     }
 
-    @Nonnull
     @Override
-    public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
-                                 @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
-                                 @Nonnull final List<String> fieldNamePrefix) {
+    public GraphExpansion expand(final Quantifier.ForEach baseQuantifier,
+                                 final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
+                                 final List<String> fieldNamePrefix) {
         return GraphExpansion.ofOthers(getChildren().stream()
                 .map(child -> child.expand(baseQuantifier, outerQuantifierSupplier, fieldNamePrefix))
                 .collect(ImmutableList.toImmutableList()));
@@ -102,7 +99,7 @@ public class AndComponent extends AndOrComponent {
     }
 
     @Override
-    public int planHash(@Nonnull PlanHashMode mode) {
+    public int planHash(PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return PlanHashable.planHash(mode, getChildren());

@@ -24,8 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.expressions.OrderFunctionKeyExpression;
 import com.apple.foundationdb.record.util.pair.Pair;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Handle {@link OrderFunctionKeyExpression} in a query.
@@ -33,7 +32,7 @@ import javax.annotation.Nullable;
 @API(API.Status.EXPERIMENTAL)
 public class OrderQueryKeyExpression extends QueryKeyExpression {
 
-    public OrderQueryKeyExpression(@Nonnull OrderFunctionKeyExpression keyExpression) {
+    public OrderQueryKeyExpression(OrderFunctionKeyExpression keyExpression) {
         super(keyExpression);
     }
 
@@ -46,7 +45,7 @@ public class OrderQueryKeyExpression extends QueryKeyExpression {
      * or {@code null} if not supported
      */
     @Nullable
-    public Pair<Comparisons.Comparison, Comparisons.Comparison> adjustComparison(@Nonnull Comparisons.Comparison comparison) {
+    public Pair<Comparisons.Comparison, Comparisons.Comparison> adjustComparison(Comparisons.Comparison comparison) {
         final boolean inverted = ((OrderFunctionKeyExpression)keyExpression).getDirection().isInverted();
         Comparisons.Type type = comparison.getType();
         switch (type) {
@@ -109,8 +108,7 @@ public class OrderQueryKeyExpression extends QueryKeyExpression {
         return Pair.of(adjustedComparison, nullComparison);
     }
 
-    @Nonnull
-    private Comparisons.SimpleComparison adjustedNullComparison(@Nonnull Comparisons.Type type) {
+    private Comparisons.SimpleComparison adjustedNullComparison(Comparisons.Type type) {
         // super.nullComparison doesn't deal with getComparandConversionFunction.
         return new Comparisons.SimpleComparison(type, keyExpression.getComparandConversionFunction().apply(null));
     }

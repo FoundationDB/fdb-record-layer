@@ -33,8 +33,8 @@ import com.apple.foundationdb.record.provider.foundationdb.cursors.MergeCursorSt
 import com.apple.foundationdb.record.provider.foundationdb.indexes.BitmapValueIndexMaintainer;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -50,7 +50,6 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 class ComposedBitmapIndexCursor extends MergeCursor<IndexEntry, IndexEntry, MergeCursorState<IndexEntry>> {
-    @Nonnull
     private final Composer composer;
 
     /**
@@ -65,15 +64,14 @@ class ComposedBitmapIndexCursor extends MergeCursor<IndexEntry, IndexEntry, Merg
          * @return a new bitmap formed from the inputs or {@code null} to represent an empty (all zero) bitmap
          */
         @Nullable
-        byte[] compose(@Nonnull List<byte[]> bitmaps, int size);
+        byte[] compose(List<byte[]> bitmaps, int size);
     }
 
-    protected ComposedBitmapIndexCursor(@Nonnull List<MergeCursorState<IndexEntry>> cursorStates, @Nullable FDBStoreTimer timer, @Nonnull Composer composer) {
+    protected ComposedBitmapIndexCursor(List<MergeCursorState<IndexEntry>> cursorStates, @Nullable FDBStoreTimer timer, Composer composer) {
         super(cursorStates, timer);
         this.composer = composer;
     }
 
-    @Nonnull
     @Override
     protected CompletableFuture<List<MergeCursorState<IndexEntry>>> computeNextResultStates() {
         final List<MergeCursorState<IndexEntry>> cursorStates = getCursorStates();
@@ -113,10 +111,9 @@ class ComposedBitmapIndexCursor extends MergeCursor<IndexEntry, IndexEntry, Merg
         });
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CloseResource")
-    protected IndexEntry getNextResult(@Nonnull List<MergeCursorState<IndexEntry>> resultStates) {
+    protected IndexEntry getNextResult(List<MergeCursorState<IndexEntry>> resultStates) {
         final List<MergeCursorState<IndexEntry>> cursorStates = getCursorStates();
         final IndexEntry firstEntry = resultStates.get(0).getResult().get();
         final int size = firstEntry.getValue().getBytes(0).length;
@@ -136,21 +133,18 @@ class ComposedBitmapIndexCursor extends MergeCursor<IndexEntry, IndexEntry, Merg
         return new IndexEntry(firstEntry.getIndex(), firstEntry.getKey(), Tuple.fromList(Collections.singletonList(composed)));
     }
 
-    @Nonnull
     @Override
     protected NoNextReason mergeNoNextReasons() {
         return getStrongestNoNextReason(getCursorStates());
     }
 
-    @Nonnull
     @Override
     protected RecordCursorContinuation getContinuationObject() {
         return new ComposedBitmapIndexContinuation(getChildContinuations(), null);
     }
 
-    @Nonnull
-    public static ComposedBitmapIndexCursor create(@Nonnull List<Function<byte[], RecordCursor<IndexEntry>>> cursorFunctions,
-                                                   @Nonnull Composer composer,
+    public static ComposedBitmapIndexCursor create(List<Function<byte[], RecordCursor<IndexEntry>>> cursorFunctions,
+                                                   Composer composer,
                                                    @Nullable byte[] byteContinuation,
                                                    @Nullable FDBStoreTimer timer) {
         if (cursorFunctions.size() < 2) {

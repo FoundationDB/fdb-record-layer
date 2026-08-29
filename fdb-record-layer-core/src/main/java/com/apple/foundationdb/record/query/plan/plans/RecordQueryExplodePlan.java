@@ -59,8 +59,8 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -87,7 +87,6 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
     /**
      * The collection value. Must evaluate to an array type.
      */
-    @Nonnull
     private final Value collectionValue;
 
     /**
@@ -98,16 +97,14 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
     /**
      * The element type of the collection value.
      */
-    @Nonnull
     private final Type elementType;
 
     /**
      * The type of the explode result.
      */
-    @Nonnull
     private final Type explodeResultType;
 
-    public RecordQueryExplodePlan(@Nonnull Value collectionValue, boolean withOrdinality) {
+    public RecordQueryExplodePlan(Value collectionValue, boolean withOrdinality) {
         this.collectionValue = collectionValue;
         this.withOrdinality = withOrdinality;
         Verify.verify(collectionValue.getResultType().isArray());
@@ -115,11 +112,10 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
         this.explodeResultType = ExplodeExpression.explodeResultType(elementType, withOrdinality);
     }
 
-    public RecordQueryExplodePlan(@Nonnull Value collectionValue) {
+    public RecordQueryExplodePlan(Value collectionValue) {
         this(collectionValue, false);
     }
 
-    @Nonnull
     public Value getCollectionValue() {
         return collectionValue;
     }
@@ -129,12 +125,11 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
     }
 
     @SuppressWarnings("resource")
-    @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
         final Object result = collectionValue.eval(store, context);
         final List<?> list = (result == null) ? List.of() : (List<?>)result;
 
@@ -168,18 +163,16 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return collectionValue.getCorrelatedTo();
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public RecordQueryExplodePlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryExplodePlan translateCorrelations(final TranslationMap translationMap,
                                                         final boolean shouldSimplifyValues,
-                                                        @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                        final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.isEmpty());
         final Value translatedCollectionValue =
                 collectionValue.translateCorrelations(translationMap, shouldSimplifyValues);
@@ -195,7 +188,7 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
     }
 
     @Override
-    public RecordQueryExplodePlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
+    public RecordQueryExplodePlan strictlySorted(final FinalMemoizer memoizer) {
         return this;
     }
 
@@ -210,11 +203,10 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
     }
 
     @Override
-    public boolean hasIndexScan(@Nonnull final String indexName) {
+    public boolean hasIndexScan(final String indexName) {
         return false;
     }
 
-    @Nonnull
     @Override
     public Set<String> getUsedIndexes() {
         return ImmutableSet.of();
@@ -225,7 +217,6 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
         return false;
     }
 
-    @Nonnull
     @Override
     public AvailableFields getAvailableFields() {
         return AvailableFields.NO_FIELDS;
@@ -234,7 +225,6 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
     /**
      * Returns the element type of the collection value.
      */
-    @Nonnull
     public Type getElementType() {
         return elementType;
     }
@@ -242,18 +232,15 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
     /**
      * Returns the type of the explode result.
      */
-    @Nonnull
     public Type getExplodeResultType() {
         return explodeResultType;
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return new QueriedValue(getExplodeResultType());
     }
 
-    @Nonnull
     @Override
     public Set<Type> getDynamicTypes() {
         return ImmutableSet.<Type>builder()
@@ -262,7 +249,6 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
                 .build();
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return ExplainPlanVisitor.toStringForDebugging(this);
@@ -270,8 +256,8 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -311,7 +297,7 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY, FOR_CONTINUATION -> {
                 // Note: This is written in a way that preserves pre-existing hashes for `withOrdinality=false`.
@@ -323,9 +309,8 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
         }
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         final String label = withOrdinality ? "EXPLODE {{expr}} WITH ORDINALITY"
                                             : "EXPLODE {{expr}}";
         return PlannerGraph.fromNodeAndChildGraphs(
@@ -336,9 +321,8 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
                 childGraphs);
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryExplodePlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryExplodePlan toProto(final PlanSerializationContext serializationContext) {
         final var builder = PRecordQueryExplodePlan.newBuilder();
         builder.setCollectionValue(collectionValue.toValueProto(serializationContext));
         if (withOrdinality) {
@@ -347,15 +331,13 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setExplodePlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQueryExplodePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                   @Nonnull final PRecordQueryExplodePlan proto) {
+    public static RecordQueryExplodePlan fromProto(final PlanSerializationContext serializationContext,
+                                                   final PRecordQueryExplodePlan proto) {
         return new RecordQueryExplodePlan(
                 Value.fromValueProto(serializationContext, Objects.requireNonNull(proto.getCollectionValue())),
                 proto.getWithOrdinality());
@@ -366,16 +348,14 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryExplodePlan, RecordQueryExplodePlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryExplodePlan> getProtoMessageClass() {
             return PRecordQueryExplodePlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryExplodePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                @Nonnull final PRecordQueryExplodePlan proto) {
+        public RecordQueryExplodePlan fromProto(final PlanSerializationContext serializationContext,
+                                                final PRecordQueryExplodePlan proto) {
             return RecordQueryExplodePlan.fromProto(serializationContext, proto);
         }
     }

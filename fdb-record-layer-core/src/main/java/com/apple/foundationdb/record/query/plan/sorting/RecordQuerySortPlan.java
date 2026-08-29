@@ -60,8 +60,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -74,28 +74,25 @@ import java.util.function.Function;
 public class RecordQuerySortPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Sort-Plan");
 
-    @Nonnull
     private final Quantifier.Physical inner;
-    @Nonnull
     private final RecordQuerySortKey key;
 
     @HeuristicPlanner
-    public RecordQuerySortPlan(@Nonnull final RecordQueryPlan plan, @Nonnull final RecordQuerySortKey key) {
+    public RecordQuerySortPlan(final RecordQueryPlan plan, final RecordQuerySortKey key) {
         this(Quantifier.physical(Reference.plannedOf(Debugger.verifyHeuristicPlanner(plan))), key);
     }
 
-    private RecordQuerySortPlan(@Nonnull final Quantifier.Physical inner, @Nonnull final RecordQuerySortKey key) {
+    private RecordQuerySortPlan(final Quantifier.Physical inner, final RecordQuerySortKey key) {
         this.inner = inner;
         this.key = key;
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CloseResource")
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull FDBRecordStoreBase<M> store,
-                                                                     @Nonnull EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(FDBRecordStoreBase<M> store,
+                                                                     EvaluationContext context,
                                                                      @Nullable byte[] continuation,
-                                                                     @Nonnull ExecuteProperties executeProperties) {
+                                                                     ExecuteProperties executeProperties) {
         // Since we are sorting, we need to feed through everything from the inner plan,
         // even just to get the top few.
         final ExecuteProperties executeInner = executeProperties.clearSkipAndLimit();
@@ -117,12 +114,10 @@ public class RecordQuerySortPlan extends AbstractRelationalExpressionWithChildre
     }
 
     @Override
-    @Nonnull
     public RecordQueryPlan getChild() {
         return inner.getRangesOverPlan();
     }
 
-    @Nonnull
     public RecordQuerySortKey getKey() {
         return key;
     }
@@ -132,20 +127,17 @@ public class RecordQuerySortPlan extends AbstractRelationalExpressionWithChildre
         return key.isReverse();
     }
 
-    @Nonnull
     @Override
     @API(API.Status.EXPERIMENTAL)
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return new QueriedValue();
     }
 
-    @Nonnull
     @Override
     public AvailableFields getAvailableFields() {
         return AvailableFields.ALL_FIELDS;
@@ -156,30 +148,27 @@ public class RecordQuerySortPlan extends AbstractRelationalExpressionWithChildre
         return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
-    public RecordQuerySortPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQuerySortPlan translateCorrelations(final TranslationMap translationMap,
                                                      final boolean shouldSimplifyValues,
-                                                     @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                     final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQuerySortPlan((Quantifier.Physical)Iterables.getOnlyElement(translatedQuantifiers), key);
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
+    public RecordQueryPlanWithChild withChild(final Reference childRef) {
         return new RecordQuerySortPlan(Quantifier.physical(childRef, inner.getAlias()), key);
     }
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -207,7 +196,7 @@ public class RecordQuerySortPlan extends AbstractRelationalExpressionWithChildre
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, getChild(), getKey());
     }
 
@@ -223,32 +212,28 @@ public class RecordQuerySortPlan extends AbstractRelationalExpressionWithChildre
         return getChild().getComplexity();
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this, NodeInfo.SORT_OPERATOR),
                 childGraphs);
     }
 
-    @Nonnull
     @Override
-    public PRecordQuerySortPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQuerySortPlan toProto(final PlanSerializationContext serializationContext) {
         return PRecordQuerySortPlan.newBuilder()
                 .setInner(inner.toProto(serializationContext))
                 .setKey(key.toProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setSortPlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQuerySortPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                @Nonnull final PRecordQuerySortPlan recordQuerySortPlanProto) {
+    public static RecordQuerySortPlan fromProto(final PlanSerializationContext serializationContext,
+                                                final PRecordQuerySortPlan recordQuerySortPlanProto) {
         return new RecordQuerySortPlan(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQuerySortPlanProto.getInner())),
                 RecordQuerySortKey.fromProto(serializationContext, Objects.requireNonNull(recordQuerySortPlanProto.getKey())));
     }
@@ -258,16 +243,14 @@ public class RecordQuerySortPlan extends AbstractRelationalExpressionWithChildre
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQuerySortPlan, RecordQuerySortPlan> {
-        @Nonnull
         @Override
         public Class<PRecordQuerySortPlan> getProtoMessageClass() {
             return PRecordQuerySortPlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQuerySortPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                             @Nonnull final PRecordQuerySortPlan recordQuerySortPlanProto) {
+        public RecordQuerySortPlan fromProto(final PlanSerializationContext serializationContext,
+                                             final PRecordQuerySortPlan recordQuerySortPlanProto) {
             return RecordQuerySortPlan.fromProto(serializationContext, recordQuerySortPlanProto);
         }
     }

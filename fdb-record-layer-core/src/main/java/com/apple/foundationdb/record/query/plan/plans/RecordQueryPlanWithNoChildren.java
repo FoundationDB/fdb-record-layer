@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 
-import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
 
@@ -33,12 +32,10 @@ import java.util.List;
 @API(API.Status.EXPERIMENTAL)
 public interface RecordQueryPlanWithNoChildren extends RecordQueryPlan {
     @Override
-    @Nonnull
     default List<RecordQueryPlan> getChildren() {
         return Collections.emptyList();
     }
 
-    @Nonnull
     @Override
     default List<? extends Quantifier> getQuantifiers() {
         return Collections.emptyList();

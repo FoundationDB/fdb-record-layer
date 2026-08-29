@@ -29,8 +29,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -53,11 +53,9 @@ import java.util.Objects;
 public class RecordQuery {
     public static final Collection<String> ALL_TYPES = Collections.emptyList();
 
-    @Nonnull
     private final Collection<String> recordTypes;
     @Nullable
     private final Collection<String> allowedIndexes;
-    @Nonnull
     private final IndexQueryabilityFilter queryabilityFilter;
     @Nullable
     private final QueryComponent filter;
@@ -68,9 +66,9 @@ public class RecordQuery {
     @Nullable
     private final List<KeyExpression> requiredResults;
 
-    private RecordQuery(@Nonnull Collection<String> recordTypes,
+    private RecordQuery(Collection<String> recordTypes,
                         @Nullable Collection<String> allowedIndexes,
-                        @Nonnull IndexQueryabilityFilter queryabilityFilter,
+                        IndexQueryabilityFilter queryabilityFilter,
                         @Nullable QueryComponent filter,
                         @Nullable KeyExpression sort,
                         boolean sortReverse,
@@ -86,7 +84,6 @@ public class RecordQuery {
         this.requiredResults = requiredResults;
     }
 
-    @Nonnull
     public Collection<String> getRecordTypes() {
         return recordTypes;
     }
@@ -101,7 +98,6 @@ public class RecordQuery {
     }
 
     @API(API.Status.EXPERIMENTAL)
-    @Nonnull
     public IndexQueryabilityFilter getIndexQueryabilityFilter() {
         return queryabilityFilter;
     }
@@ -133,7 +129,7 @@ public class RecordQuery {
      * Validates that this record query is valid with the provided metadata.
      * @param metaData the metadata that you want to use with this query
      */
-    public void validate(@Nonnull RecordMetaData metaData) {
+    public void validate(RecordMetaData metaData) {
         for (String recordTypeName : recordTypes) {
             final RecordType recordType = metaData.getQueryableRecordType(recordTypeName);
             final Descriptors.Descriptor descriptor = recordType.getDescriptor();
@@ -193,11 +189,11 @@ public class RecordQuery {
         return Objects.hash(getRecordTypes(), getAllowedIndexes(), queryabilityFilter, getFilter(), getSort(), isSortReverse(), removeDuplicates, getRequiredResults());
     }
 
-    public BoundRecordQuery bind(@Nonnull final FDBRecordStore store, @Nonnull final Bindings preBoundParameters) {
+    public BoundRecordQuery bind(final FDBRecordStore store, final Bindings preBoundParameters) {
         return new BoundRecordQuery(store.getRecordStoreState(), this, preBoundParameters);
     }
 
-    public BoundRecordQuery bind(@Nonnull final FDBRecordStore store) {
+    public BoundRecordQuery bind(final FDBRecordStore store) {
         return new BoundRecordQuery(store.getRecordStoreState(), this);
     }
 
@@ -215,11 +211,9 @@ public class RecordQuery {
      * </code></pre>
      */
     public static class Builder {
-        @Nonnull
         private Collection<String> recordTypes = ALL_TYPES;
         @Nullable
         private Collection<String> allowedIndexes = null;
-        @Nonnull
         private IndexQueryabilityFilter queryabilityFilter = IndexQueryabilityFilter.DEFAULT;
         @Nullable
         private QueryComponent filter = null;
@@ -249,29 +243,28 @@ public class RecordQuery {
                     filter, sort, sortReverse, removeDuplicates, requiredResults);
         }
 
-        public BoundRecordQuery buildAndBind(@Nonnull final FDBRecordStore store, @Nonnull final Bindings preBoundParameters) {
+        public BoundRecordQuery buildAndBind(final FDBRecordStore store, final Bindings preBoundParameters) {
             return new RecordQuery(recordTypes, allowedIndexes, queryabilityFilter,
                     filter, sort, sortReverse, removeDuplicates, requiredResults)
                     .bind(store, preBoundParameters);
         }
 
-        public BoundRecordQuery buildAndBind(@Nonnull final FDBRecordStore store) {
+        public BoundRecordQuery buildAndBind(final FDBRecordStore store) {
             return new RecordQuery(recordTypes, allowedIndexes, queryabilityFilter,
                     filter, sort, sortReverse, removeDuplicates, requiredResults)
                     .bind(store);
         }
 
-        @Nonnull
         public Collection<String> getRecordTypes() {
             return recordTypes;
         }
 
-        public Builder setRecordTypes(@Nonnull Collection<String> recordTypes) {
+        public Builder setRecordTypes(Collection<String> recordTypes) {
             this.recordTypes = recordTypes;
             return this;
         }
 
-        public Builder setRecordType(@Nonnull String recordType) {
+        public Builder setRecordType(String recordType) {
             return setRecordTypes(Collections.singleton(recordType));
         }
 
@@ -302,7 +295,7 @@ public class RecordQuery {
          * @param queryabilityFilter a queryability filter to use
          * @return this builder
          */
-        public Builder setIndexQueryabilityFilter(@Nonnull IndexQueryabilityFilter queryabilityFilter) {
+        public Builder setIndexQueryabilityFilter(IndexQueryabilityFilter queryabilityFilter) {
             this.queryabilityFilter = queryabilityFilter;
             return this;
         }

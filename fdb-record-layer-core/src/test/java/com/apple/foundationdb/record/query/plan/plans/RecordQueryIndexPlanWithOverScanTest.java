@@ -50,8 +50,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Random;
 import java.util.stream.Stream;
@@ -232,11 +232,11 @@ class RecordQueryIndexPlanWithOverScanTest extends FDBRecordStoreQueryTestBase {
     }
 
     // Validates that the index plan and the overscan index plan return identical results, including continuations
-    private static RecordCursorContinuation assertSameResults(@Nonnull FDBRecordStore recordStore,
-                                                              @Nonnull RecordQueryPlan indexPlan,
-                                                              @Nonnull RecordQueryPlan overscanIndexPlan,
-                                                              @Nonnull EvaluationContext evaluationContext,
-                                                              @Nonnull ExecuteProperties executeProperties,
+    private static RecordCursorContinuation assertSameResults(FDBRecordStore recordStore,
+                                                              RecordQueryPlan indexPlan,
+                                                              RecordQueryPlan overscanIndexPlan,
+                                                              EvaluationContext evaluationContext,
+                                                              ExecuteProperties executeProperties,
                                                               @Nullable byte[] continuation) {
         // Ensure the scan properties for each have their own execute state
         ExecuteProperties indexExecuteProperties = executeProperties.setState(new ExecuteState());

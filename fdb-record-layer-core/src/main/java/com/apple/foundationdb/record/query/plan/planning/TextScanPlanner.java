@@ -41,8 +41,8 @@ import com.apple.foundationdb.record.query.plan.TextScan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -70,7 +70,7 @@ public class TextScanPlanner {
      * @param index the index to check if it has a compatible tokenizer
      * @return <code>true</code> if the index uses a tokenizer that the comparison finds acceptable
      */
-    private static boolean matchesTokenizer(@Nonnull Comparisons.TextComparison comparison, @Nonnull Index index) {
+    private static boolean matchesTokenizer(Comparisons.TextComparison comparison, Index index) {
         if (comparison.getTokenizerName() != null) {
             String indexTokenizerName = index.getOption(IndexOptions.TEXT_TOKENIZER_NAME_OPTION);
             if (indexTokenizerName == null) {
@@ -95,12 +95,12 @@ public class TextScanPlanner {
      * @param index the index to check the position option of
      * @return <code>true</code> if the index contains enough position information for the given comparison
      */
-    private static boolean containsPositionsIfNecessary(@Nonnull Comparisons.TextComparison comparison, @Nonnull Index index) {
+    private static boolean containsPositionsIfNecessary(Comparisons.TextComparison comparison, Index index) {
         return COMPARISONS_NOT_REQUIRING_POSITIONS.contains(comparison.getType()) || !index.getBooleanOption(IndexOptions.TEXT_OMIT_POSITIONS_OPTION, false);
     }
 
     @Nullable
-    private static TextScan getScanForField(@Nonnull Index index, @Nonnull FieldKeyExpression textExpression, @Nonnull FieldWithComparison filter,
+    private static TextScan getScanForField(Index index, FieldKeyExpression textExpression, FieldWithComparison filter,
                                             @Nullable ScanComparisons groupingComparisons, boolean hasSort, @Nullable FilterSatisfiedMask filterMask) {
         final Comparisons.TextComparison comparison;
         if (filter.getComparison() instanceof Comparisons.TextComparison) {
@@ -129,7 +129,7 @@ public class TextScanPlanner {
     }
 
     @Nullable
-    private static TextScan getScanForAndFilter(@Nonnull Index index, @Nonnull KeyExpression textExpression, @Nonnull AndComponent filter,
+    private static TextScan getScanForAndFilter(Index index, KeyExpression textExpression, AndComponent filter,
                                                 @Nullable ScanComparisons groupingComparisons, boolean hasSort, @Nullable FilterSatisfiedMask filterMask) {
         // Iterate through each of the filters
         final Iterator<FilterSatisfiedMask> subFilterMasks = filterMask != null ? filterMask.getChildren().iterator() : null;
@@ -147,7 +147,7 @@ public class TextScanPlanner {
     }
 
     @Nullable
-    private static TextScan getScanForNestedField(@Nonnull Index index, @Nonnull NestingKeyExpression textExpression, @Nonnull NestedField filter,
+    private static TextScan getScanForNestedField(Index index, NestingKeyExpression textExpression, NestedField filter,
                                                   @Nullable ScanComparisons groupingComparisons, boolean hasSort, @Nullable FilterSatisfiedMask filterMask) {
         if (textExpression.getParent().getFanType().equals(KeyExpression.FanType.None)
                 && textExpression.getParent().getFieldName().equals(filter.getFieldName())) {
@@ -162,7 +162,7 @@ public class TextScanPlanner {
     }
 
     @Nullable
-    private static TextScan getScanForRepeatedNestedField(@Nonnull Index index, @Nonnull NestingKeyExpression textExpression, @Nonnull OneOfThemWithComponent filter,
+    private static TextScan getScanForRepeatedNestedField(Index index, NestingKeyExpression textExpression, OneOfThemWithComponent filter,
                                                           @Nullable ScanComparisons groupingComparisons, boolean hasSort, @Nullable FilterSatisfiedMask filterMask) {
 
         if (textExpression.getParent().getFanType().equals(KeyExpression.FanType.FanOut)
@@ -182,7 +182,7 @@ public class TextScanPlanner {
     }
 
     @Nullable
-    private static TextScan getScanForFilter(@Nonnull Index index, @Nonnull KeyExpression textExpression, @Nonnull QueryComponent filter,
+    private static TextScan getScanForFilter(Index index, KeyExpression textExpression, QueryComponent filter,
                                              @Nullable ScanComparisons groupingComparisons, boolean hasSort, @Nullable FilterSatisfiedMask filterMask) {
         if (filter instanceof AndComponent) {
             return getScanForAndFilter(index, textExpression, (AndComponent)filter, groupingComparisons, hasSort, filterMask);
@@ -212,7 +212,7 @@ public class TextScanPlanner {
      * @return a text scan or <code>null</code> if none is found
      */
     @Nullable
-    public static TextScan getScanForQuery(@Nonnull Index index, @Nonnull QueryComponent filter, boolean hasSort, @Nonnull FilterSatisfiedMask filterMask) {
+    public static TextScan getScanForQuery(Index index, QueryComponent filter, boolean hasSort, FilterSatisfiedMask filterMask) {
         final KeyExpression indexExpression = index.getRootExpression();
         final KeyExpression groupedKey;
         final FilterSatisfiedMask localMask = FilterSatisfiedMask.of(filter);
@@ -242,8 +242,7 @@ public class TextScanPlanner {
         return null;
     }
 
-    @Nonnull
-    public static KeyExpression getTokenizedField(@Nonnull KeyExpression indexExpression) {
+    public static KeyExpression getTokenizedField(KeyExpression indexExpression) {
         final KeyExpression groupedKey;
 
         if (indexExpression instanceof GroupingKeyExpression) {
@@ -255,8 +254,7 @@ public class TextScanPlanner {
         return groupedKey.getSubKey(0, 1);
     }
 
-    @Nonnull
-    public static List<KeyExpression> getOtherFields(@Nonnull KeyExpression indexExpression) {
+    public static List<KeyExpression> getOtherFields(KeyExpression indexExpression) {
         ImmutableList.Builder<KeyExpression> otherFields = ImmutableList.builder();
         if (indexExpression instanceof GroupingKeyExpression) {
             final GroupingKeyExpression groupingIndexExpression = (GroupingKeyExpression) indexExpression;

@@ -37,4 +37,7 @@
  * and nest them. It is expected that this will change substantially when the planner itself supports joins.
  * </p>
  */
+@NullMarked
 package com.apple.foundationdb.record.query.plan.synthetic;
+
+import org.jspecify.annotations.NullMarked;

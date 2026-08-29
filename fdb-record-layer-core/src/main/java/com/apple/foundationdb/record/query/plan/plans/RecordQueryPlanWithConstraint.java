@@ -22,13 +22,11 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 
-import javax.annotation.Nonnull;
 
 /**
  * Mixin for a {@link RecordQueryPlan} that has a {@link QueryPlanConstraint}.
  */
 public interface RecordQueryPlanWithConstraint {
 
-    @Nonnull
     QueryPlanConstraint getConstraint();
 }

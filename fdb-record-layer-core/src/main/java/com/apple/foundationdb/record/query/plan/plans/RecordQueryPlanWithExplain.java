@@ -22,12 +22,10 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 
-import javax.annotation.Nonnull;
 
 /**
  * Interface for plans in downstream modules to implement explain functionality.
  */
 public interface RecordQueryPlanWithExplain {
-    @Nonnull
     ExplainTokensWithPrecedence explain();
 }

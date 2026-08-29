@@ -31,8 +31,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -47,15 +47,12 @@ import java.util.stream.Collectors;
 class SyntheticRecordConcatPlan implements SyntheticRecordFromStoredRecordPlan  {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Synthetic-Record-Concat-Plan");
 
-    @Nonnull
     private final List<SyntheticRecordFromStoredRecordPlan> subPlans;
     private final boolean needDistinct;
-    @Nonnull
     private final Set<String> storedRecordTypes;
-    @Nonnull
     private final Set<String> syntheticRecordTypes;
 
-    public SyntheticRecordConcatPlan(@Nonnull List<SyntheticRecordFromStoredRecordPlan> subPlans, boolean needDistinct) {
+    public SyntheticRecordConcatPlan(List<SyntheticRecordFromStoredRecordPlan> subPlans, boolean needDistinct) {
         this.subPlans = subPlans;
         this.needDistinct = needDistinct;
 
@@ -67,7 +64,6 @@ class SyntheticRecordConcatPlan implements SyntheticRecordFromStoredRecordPlan  
         }
     }
 
-    @Nonnull
     public List<SyntheticRecordFromStoredRecordPlan> getSubPlans() {
         return subPlans;
     }
@@ -77,24 +73,21 @@ class SyntheticRecordConcatPlan implements SyntheticRecordFromStoredRecordPlan  
     }
 
     @Override
-    @Nonnull
     public Set<String> getStoredRecordTypes() {
         return storedRecordTypes;
     }
 
     @Override
-    @Nonnull
     public Set<String> getSyntheticRecordTypes() {
         return syntheticRecordTypes;
     }
 
     @Override
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    public <M extends Message> RecordCursor<FDBSyntheticRecord> execute(@Nonnull FDBRecordStore store,
-                                                                        @Nonnull FDBStoredRecord<M> record,
+    public <M extends Message> RecordCursor<FDBSyntheticRecord> execute(FDBRecordStore store,
+                                                                        FDBStoredRecord<M> record,
                                                                         @Nullable byte[] continuation,
-                                                                        @Nonnull ExecuteProperties executeProperties) {
+                                                                        ExecuteProperties executeProperties) {
         final ExecuteProperties baseProperties = executeProperties.clearSkipAndLimit();
         RecordCursor<FDBSyntheticRecord> cursor = RecordCursor.flatMapPipelined(
                 outerContinuation -> RecordCursor.fromList(store.getExecutor(), subPlans, outerContinuation),
@@ -137,7 +130,7 @@ class SyntheticRecordConcatPlan implements SyntheticRecordFromStoredRecordPlan  
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return PlanHashable.planHash(mode, subPlans) + (needDistinct ? 1 : 0);

@@ -42,8 +42,8 @@ import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -62,15 +62,15 @@ public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersection
     @Nullable
     private final List<ProvidedOrderingPart> comparisonKeyOrderingParts;
 
-    protected RecordQueryIntersectionOnValuesPlan(@Nonnull final PlanSerializationContext serializationContext,
-                                                  @Nonnull final PRecordQueryIntersectionOnValuesPlan recordQueryIntersectionOnValuesPlanProto) {
+    protected RecordQueryIntersectionOnValuesPlan(final PlanSerializationContext serializationContext,
+                                                  final PRecordQueryIntersectionOnValuesPlan recordQueryIntersectionOnValuesPlanProto) {
         super(serializationContext, Objects.requireNonNull(recordQueryIntersectionOnValuesPlanProto.getSuper()));
         this.comparisonKeyOrderingParts = null;
     }
 
-    private RecordQueryIntersectionOnValuesPlan(@Nonnull final List<Quantifier.Physical> quantifiers,
+    private RecordQueryIntersectionOnValuesPlan(final List<Quantifier.Physical> quantifiers,
                                                 @Nullable final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
-                                                @Nonnull final List<? extends Value> comparisonKeyValues,
+                                                final List<? extends Value> comparisonKeyValues,
                                                 final boolean reverse) {
         super(quantifiers,
                 new ComparisonKeyFunction.OnValues(Quantifier.current(), comparisonKeyValues),
@@ -81,15 +81,13 @@ public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersection
                 : ImmutableList.copyOf(comparisonKeyOrderingParts);
     }
 
-    @Nonnull
     @Override
     public ComparisonKeyFunction.OnValues getComparisonKeyFunction() {
         return (ComparisonKeyFunction.OnValues)super.getComparisonKeyFunction();
     }
 
-    @Nonnull
     @Override
-    public List<? extends Value> getRequiredValues(@Nonnull final CorrelationIdentifier newBaseAlias, @Nonnull final Type inputType) {
+    public List<? extends Value> getRequiredValues(final CorrelationIdentifier newBaseAlias, final Type inputType) {
         final var ruleSet = DefaultValueSimplificationRuleSet.instance();
         return getComparisonKeyValues().stream()
                 .map(comparisonKeyValue ->
@@ -98,43 +96,37 @@ public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersection
                 .collect(ImmutableList.toImmutableList());
     }
 
-    @Nonnull
     @Override
     public Set<KeyExpression> getRequiredFields() {
         throw new RecordCoreException("this plan does not support this getRequiredFields()");
     }
 
-    @Nonnull
     @Override
     public List<ProvidedOrderingPart> getComparisonKeyOrderingParts() {
         return Objects.requireNonNull(comparisonKeyOrderingParts);
     }
 
-    @Nonnull
     @Override
     public List<? extends Value> getComparisonKeyValues() {
         return getComparisonKeyFunction().getComparisonKeyValues();
     }
 
-    @Nonnull
     @Override
     public Set<Type> getDynamicTypes() {
         return getComparisonKeyValues().stream().flatMap(comparisonKeyValue -> comparisonKeyValue.getDynamicTypes().stream()).collect(ImmutableSet.toImmutableSet());
     }
 
-    @Nonnull
     @Override
-    public RecordQueryIntersectionOnValuesPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryIntersectionOnValuesPlan translateCorrelations(final TranslationMap translationMap,
                                                                      final boolean shouldSimplifyValues,
-                                                                     @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                                     final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryIntersectionOnValuesPlan(
                 Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers), comparisonKeyOrderingParts,
                 getComparisonKeyValues(), isReverse());
     }
 
-    @Nonnull
     @Override
-    public RecordQueryIntersectionOnValuesPlan withChildrenReferences(@Nonnull final List<? extends Reference> newChildren) {
+    public RecordQueryIntersectionOnValuesPlan withChildrenReferences(final List<? extends Reference> newChildren) {
         return new RecordQueryIntersectionOnValuesPlan(
                 newChildren.stream()
                         .map(Quantifier::physical)
@@ -145,7 +137,7 @@ public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersection
     }
 
     @Override
-    public RecordQueryIntersectionOnValuesPlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
+    public RecordQueryIntersectionOnValuesPlan strictlySorted(final FinalMemoizer memoizer) {
         final var quantifiers =
                 Quantifiers.fromPlans(getChildren()
                         .stream()
@@ -153,27 +145,23 @@ public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersection
         return new RecordQueryIntersectionOnValuesPlan(quantifiers, comparisonKeyOrderingParts, getComparisonKeyValues(), reverse);
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryIntersectionOnValuesPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryIntersectionOnValuesPlan toProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryIntersectionOnValuesPlan.newBuilder().setSuper(toRecordQueryIntersectionPlan(serializationContext)).build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setIntersectionOnValuesPlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQueryIntersectionOnValuesPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                                @Nonnull final PRecordQueryIntersectionOnValuesPlan recordQueryIntersectionOnValuesPlanProto) {
+    public static RecordQueryIntersectionOnValuesPlan fromProto(final PlanSerializationContext serializationContext,
+                                                                final PRecordQueryIntersectionOnValuesPlan recordQueryIntersectionOnValuesPlanProto) {
         return new RecordQueryIntersectionOnValuesPlan(serializationContext, recordQueryIntersectionOnValuesPlanProto);
     }
 
-    @Nonnull
-    public static RecordQueryIntersectionOnValuesPlan intersection(@Nonnull final List<Quantifier.Physical> quantifiers,
-                                                                   @Nonnull final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
+    public static RecordQueryIntersectionOnValuesPlan intersection(final List<Quantifier.Physical> quantifiers,
+                                                                   final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
                                                                    final boolean isReverse) {
         return new RecordQueryIntersectionOnValuesPlan(quantifiers,
                 comparisonKeyOrderingParts,
@@ -186,16 +174,14 @@ public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersection
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryIntersectionOnValuesPlan, RecordQueryIntersectionOnValuesPlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryIntersectionOnValuesPlan> getProtoMessageClass() {
             return PRecordQueryIntersectionOnValuesPlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryIntersectionOnValuesPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                             @Nonnull final PRecordQueryIntersectionOnValuesPlan recordQueryIntersectionOnValuesPlanProto) {
+        public RecordQueryIntersectionOnValuesPlan fromProto(final PlanSerializationContext serializationContext,
+                                                             final PRecordQueryIntersectionOnValuesPlan recordQueryIntersectionOnValuesPlanProto) {
             return RecordQueryIntersectionOnValuesPlan.fromProto(serializationContext, recordQueryIntersectionOnValuesPlanProto);
         }
     }

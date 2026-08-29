@@ -58,8 +58,8 @@ import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -75,37 +75,31 @@ public class RecordQueryUnorderedDistinctPlan extends AbstractRelationalExpressi
 
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryUnorderedDistinctPlan.class);
 
-    @Nonnull
     private final Quantifier.Physical inner;
-    @Nonnull
     private final KeyExpression comparisonKey;
-    @Nonnull
     private static final Set<StoreTimer.Event> duringEvents = Collections.singleton(FDBStoreTimer.Events.QUERY_DISTINCT);
-    @Nonnull
     private static final Set<StoreTimer.Count> uniqueCounts = Collections.singleton(FDBStoreTimer.Counts.QUERY_DISTINCT_PLAN_UNIQUES);
-    @Nonnull
     private static final Set<StoreTimer.Count> duplicateCounts =
             ImmutableSet.of(FDBStoreTimer.Counts.QUERY_DISTINCT_PLAN_DUPLICATES, FDBStoreTimer.Counts.QUERY_DISCARDED);
 
     @HeuristicPlanner
-    public RecordQueryUnorderedDistinctPlan(@Nonnull final RecordQueryPlan plan,
-                                            @Nonnull final KeyExpression comparisonKey) {
+    public RecordQueryUnorderedDistinctPlan(final RecordQueryPlan plan,
+                                            final KeyExpression comparisonKey) {
         this(Quantifier.physical(Reference.plannedOf(Debugger.verifyHeuristicPlanner(plan))), comparisonKey);
     }
 
-    private RecordQueryUnorderedDistinctPlan(@Nonnull final Quantifier.Physical inner,
-                                             @Nonnull KeyExpression comparisonKey) {
+    private RecordQueryUnorderedDistinctPlan(final Quantifier.Physical inner,
+                                             KeyExpression comparisonKey) {
         this.inner = inner;
         this.comparisonKey = comparisonKey;
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("resource")
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
         final Set<Key.Evaluated> seen = new HashSet<>();
         return getInner().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit())
                 .filterInstrumented(result -> seen.add(getComparisonKey().evaluateMessageSingleton(null, result.getMessage())),
@@ -118,23 +112,19 @@ public class RecordQueryUnorderedDistinctPlan extends AbstractRelationalExpressi
         return getInner().isReverse();
     }
 
-    @Nonnull
     private RecordQueryPlan getInner() {
         return inner.getRangesOverPlan();
     }
 
     @Override
-    @Nonnull
     public RecordQueryPlan getChild() {
         return getInner();
     }
 
-    @Nonnull
     public KeyExpression getComparisonKey() {
         return comparisonKey;
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
@@ -145,28 +135,24 @@ public class RecordQueryUnorderedDistinctPlan extends AbstractRelationalExpressi
         return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
-    public RecordQueryUnorderedDistinctPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryUnorderedDistinctPlan translateCorrelations(final TranslationMap translationMap,
                                                                   final boolean shouldSimplifyValues,
-                                                                  @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                                  final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryUnorderedDistinctPlan(
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class), getComparisonKey());
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
+    public RecordQueryPlanWithChild withChild(final Reference childRef) {
         return new RecordQueryUnorderedDistinctPlan(Quantifier.physical(childRef, inner.getAlias()), getComparisonKey());
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return inner.getFlowedObjectValue();
@@ -174,8 +160,8 @@ public class RecordQueryUnorderedDistinctPlan extends AbstractRelationalExpressi
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -205,7 +191,7 @@ public class RecordQueryUnorderedDistinctPlan extends AbstractRelationalExpressi
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return getInner().planHash(mode) + getComparisonKey().planHash(mode);
@@ -227,9 +213,8 @@ public class RecordQueryUnorderedDistinctPlan extends AbstractRelationalExpressi
         return 1 + getInner().getComplexity();
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this, NodeInfo.UNORDERED_DISTINCT_OPERATOR,
                         ImmutableList.of("comparison key: {{comparisonKey}}"),
@@ -237,24 +222,21 @@ public class RecordQueryUnorderedDistinctPlan extends AbstractRelationalExpressi
                 childGraphs);
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryUnorderedDistinctPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryUnorderedDistinctPlan toProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryUnorderedDistinctPlan.newBuilder()
                 .setInner(inner.toProto(serializationContext))
                 .setComparisonKey(comparisonKey.toKeyExpression())
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setUnorderedDistinctPlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQueryUnorderedDistinctPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                             @Nonnull final PRecordQueryUnorderedDistinctPlan recordQueryUnorderedDistinctPlanProto) {
+    public static RecordQueryUnorderedDistinctPlan fromProto(final PlanSerializationContext serializationContext,
+                                                             final PRecordQueryUnorderedDistinctPlan recordQueryUnorderedDistinctPlanProto) {
         return new RecordQueryUnorderedDistinctPlan(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryUnorderedDistinctPlanProto.getInner())),
                 KeyExpression.fromProto(Objects.requireNonNull(recordQueryUnorderedDistinctPlanProto.getComparisonKey())));
     }
@@ -264,16 +246,14 @@ public class RecordQueryUnorderedDistinctPlan extends AbstractRelationalExpressi
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryUnorderedDistinctPlan, RecordQueryUnorderedDistinctPlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryUnorderedDistinctPlan> getProtoMessageClass() {
             return PRecordQueryUnorderedDistinctPlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryUnorderedDistinctPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                          @Nonnull final PRecordQueryUnorderedDistinctPlan recordQueryUnorderedDistinctPlanProto) {
+        public RecordQueryUnorderedDistinctPlan fromProto(final PlanSerializationContext serializationContext,
+                                                          final PRecordQueryUnorderedDistinctPlan recordQueryUnorderedDistinctPlanProto) {
             return RecordQueryUnorderedDistinctPlan.fromProto(serializationContext, recordQueryUnorderedDistinctPlanProto);
         }
     }

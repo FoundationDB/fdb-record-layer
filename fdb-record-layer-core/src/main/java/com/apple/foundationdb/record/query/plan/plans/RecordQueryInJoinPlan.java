@@ -47,8 +47,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -58,9 +58,7 @@ import java.util.Set;
  */
 @API(API.Status.INTERNAL)
 public abstract class RecordQueryInJoinPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChild {
-    @Nonnull
     protected final Quantifier.Physical inner;
-    @Nonnull
     protected final InSource inSource;
 
     /**
@@ -72,47 +70,42 @@ public abstract class RecordQueryInJoinPlan extends AbstractRelationalExpression
      * The binding internal has to be set to either {@link Bindings.Internal#IN} if the object is created by the old
      * planner of to {@link Bindings.Internal#CORRELATION} if the object is created by the new planner.
      */
-    @Nonnull
     protected final Bindings.Internal internal;
 
-    protected RecordQueryInJoinPlan(@Nonnull final PlanSerializationContext serializationContext,
-                                    @Nonnull final PRecordQueryInJoinPlan inJoinPlanProto) {
+    protected RecordQueryInJoinPlan(final PlanSerializationContext serializationContext,
+                                    final PRecordQueryInJoinPlan inJoinPlanProto) {
         this(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(inJoinPlanProto.getPhysicalQuantifier())),
                 InSource.fromInSourceProto(serializationContext, Objects.requireNonNull(inJoinPlanProto.getInSource())),
                 Bindings.Internal.fromProto(serializationContext, Objects.requireNonNull(inJoinPlanProto.getInternal())));
     }
 
-    protected RecordQueryInJoinPlan(@Nonnull final Quantifier.Physical inner,
-                                    @Nonnull final InSource inSource,
-                                    @Nonnull final Bindings.Internal internal) {
+    protected RecordQueryInJoinPlan(final Quantifier.Physical inner,
+                                    final InSource inSource,
+                                    final Bindings.Internal internal) {
         Verify.verify(internal == Bindings.Internal.IN || internal == Bindings.Internal.CORRELATION);
         this.inner = inner;
         this.inSource = inSource;
         this.internal = internal;
     }
 
-    @Nonnull
     public Quantifier.Physical getInner() {
         return inner;
     }
 
-    @Nonnull
     public InSource getInSource() {
         return inSource;
     }
 
-    @Nonnull
     public CorrelationIdentifier getInAlias() {
         return CorrelationIdentifier.of(internal.identifier(inSource.getBindingName()));
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("resource")
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
         return RecordCursor.flatMapPipelined(
                 outerContinuation -> RecordCursor.fromList(store.getExecutor(), getValues(context), outerContinuation),
                         (outerValue, innerContinuation) -> {
@@ -132,18 +125,15 @@ public abstract class RecordQueryInJoinPlan extends AbstractRelationalExpression
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
-    @Nonnull
     public RecordQueryPlan getInnerPlan() {
         return inner.getRangesOverPlan();
     }
 
     @Override
-    @Nonnull
     public RecordQueryPlan getChild() {
         return getInnerPlan();
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
@@ -158,13 +148,11 @@ public abstract class RecordQueryInJoinPlan extends AbstractRelationalExpression
         }
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return inner.getFlowedObjectValue();
     }
 
-    @Nonnull
     @Override
     public Set<Type> getDynamicTypes() {
         return ImmutableSet.<Type>builder()
@@ -173,7 +161,6 @@ public abstract class RecordQueryInJoinPlan extends AbstractRelationalExpression
                 .build();
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedTo() {
         final ImmutableSet.Builder<CorrelationIdentifier> builder = ImmutableSet.builder();
@@ -188,7 +175,6 @@ public abstract class RecordQueryInJoinPlan extends AbstractRelationalExpression
         return builder.build();
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
@@ -201,8 +187,8 @@ public abstract class RecordQueryInJoinPlan extends AbstractRelationalExpression
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -243,7 +229,7 @@ public abstract class RecordQueryInJoinPlan extends AbstractRelationalExpression
      * @return the plan hash value calculated
      */
     @SuppressWarnings("fallthrough")
-    protected int basePlanHash(@Nonnull final PlanHashMode mode, ObjectPlanHash baseHash, Object... hashables) {
+    protected int basePlanHash(final PlanHashMode mode, ObjectPlanHash baseHash, Object... hashables) {
         switch (mode.getKind()) {
             case LEGACY:
                 if (internal == Bindings.Internal.IN) {
@@ -269,7 +255,6 @@ public abstract class RecordQueryInJoinPlan extends AbstractRelationalExpression
         }
     }
 
-    @Nonnull
     protected List<Object> getValues(EvaluationContext context) {
         return inSource.getValues(context);
     }
@@ -279,8 +264,7 @@ public abstract class RecordQueryInJoinPlan extends AbstractRelationalExpression
         return 1 + getInnerPlan().getComplexity();
     }
 
-    @Nonnull
-    public PRecordQueryInJoinPlan toRecordQueryInJoinPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryInJoinPlan toRecordQueryInJoinPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryInJoinPlan.newBuilder()
                 .setPhysicalQuantifier(inner.toProto(serializationContext))
                 .setInSource(inSource.toInSourceProto(serializationContext))

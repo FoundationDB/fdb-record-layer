@@ -35,7 +35,6 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
@@ -47,23 +46,20 @@ class ComparisonsTestBase {
         // nothing
     }
 
-    @Nonnull
     protected static CorrelationIdentifier q1() {
         return CorrelationIdentifier.of("q1");
     }
 
-    @Nonnull
     protected static CorrelationIdentifier q2() {
         return CorrelationIdentifier.of("q2");
     }
 
-    @Nonnull
     protected static CorrelationIdentifier q3() {
         return CorrelationIdentifier.of("q3");
     }
 
     @SuppressWarnings("unchecked")
-    protected static <T extends Comparisons.Comparison> void protoRoundTripComparison(@Nonnull final T original) {
+    protected static <T extends Comparisons.Comparison> void protoRoundTripComparison(final T original) {
         final PComparison comparisonProto = original.toComparisonProto(PlanSerializationContext.newForCurrentMode());
         final Map<Descriptors.FieldDescriptor, Object> allFields = comparisonProto.getAllFields();
         Assertions.assertThat(allFields).hasSize(1);
@@ -79,8 +75,7 @@ class ComparisonsTestBase {
         assertThat(roundTripped).isEqualTo(original);
     }
 
-    @Nonnull
-    protected static Function<Value, Optional<Value>> replacementFunctionFromTranslationMap(@Nonnull final TranslationMap translationMap) {
+    protected static Function<Value, Optional<Value>> replacementFunctionFromTranslationMap(final TranslationMap translationMap) {
         return value -> {
             if (value instanceof QuantifiedObjectValue) {
                 final CorrelationIdentifier alias = ((QuantifiedObjectValue)value).getAlias();
@@ -92,8 +87,7 @@ class ComparisonsTestBase {
         };
     }
 
-    @Nonnull
-    protected static String renderExplain(@Nonnull final Comparisons.Comparison comparison) {
+    protected static String renderExplain(final Comparisons.Comparison comparison) {
         return comparison.explain()
                 .getExplainTokens()
                 .render(DefaultExplainFormatter.forDebugging())

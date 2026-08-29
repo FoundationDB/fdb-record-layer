@@ -40,6 +40,8 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRel
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
+import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers.CoercionTrieNode;
+import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers.TransformationTrieNode;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
@@ -54,8 +56,8 @@ import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -91,39 +93,31 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryAbstractDataModificationPlan.class);
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Abstract-Data-Modification-Plan");
     private static final UUID CURRENT_MODIFIED_RECORD = UUID.randomUUID();
-    @Nonnull
     private final Quantifier.Physical inner;
-    @Nonnull
     private final Type innerFlowedType;
-    @Nonnull
     private final String targetRecordType;
-    @Nonnull
     private final Type.Record targetType;
 
     /**
      * A trie of transformations that is synthesized to perform a one-pass transformation of the incoming records.
      */
     @Nullable
-    private final MessageHelpers.TransformationTrieNode transformationsTrie;
+    private final TransformationTrieNode transformationsTrie;
 
     @Nullable
-    private final MessageHelpers.CoercionTrieNode coercionTrie;
+    private final CoercionTrieNode coercionTrie;
 
-    @Nonnull
     private final Value computationValue;
 
-    @Nonnull
     private final Value resultValue;
 
-    @Nonnull
     private final CorrelationIdentifier currentModifiedRecordAlias;
 
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Integer> planHashForContinuationSupplier = Suppliers.memoize(this::computePlanHashForContinuation);
 
-    protected RecordQueryAbstractDataModificationPlan(@Nonnull final PlanSerializationContext serializationContext,
-                                                      @Nonnull final PRecordQueryAbstractDataModificationPlan recordQueryAbstractDataModificationPlanProto) {
+    protected RecordQueryAbstractDataModificationPlan(final PlanSerializationContext serializationContext,
+                                                      final PRecordQueryAbstractDataModificationPlan recordQueryAbstractDataModificationPlanProto) {
         this(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryAbstractDataModificationPlanProto.getInner())),
                 Objects.requireNonNull(recordQueryAbstractDataModificationPlanProto.getTargetRecordType()),
                 Type.Record.fromProto(serializationContext, Objects.requireNonNull(recordQueryAbstractDataModificationPlanProto.getTargetType())),
@@ -137,13 +131,13 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
                 CorrelationIdentifier.of(Objects.requireNonNull(recordQueryAbstractDataModificationPlanProto.getCurrentModifiedRecordAlias())));
     }
 
-    protected RecordQueryAbstractDataModificationPlan(@Nonnull final Quantifier.Physical inner,
-                                                      @Nonnull final String targetRecordType,
-                                                      @Nonnull final Type.Record targetType,
-                                                      @Nullable final MessageHelpers.TransformationTrieNode transformationsTrie,
-                                                      @Nullable final MessageHelpers.CoercionTrieNode coercionTrie,
-                                                      @Nonnull final Value computationValue,
-                                                      @Nonnull final CorrelationIdentifier currentModifiedRecordAlias) {
+    protected RecordQueryAbstractDataModificationPlan(final Quantifier.Physical inner,
+                                                      final String targetRecordType,
+                                                      final Type.Record targetType,
+                                                      @Nullable final TransformationTrieNode transformationsTrie,
+                                                      @Nullable final CoercionTrieNode coercionTrie,
+                                                      final Value computationValue,
+                                                      final CorrelationIdentifier currentModifiedRecordAlias) {
         this.inner = inner;
         this.innerFlowedType = inner.getFlowedObjectType();
         this.targetRecordType = targetRecordType;
@@ -155,22 +149,20 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
         this.currentModifiedRecordAlias = currentModifiedRecordAlias;
     }
 
-    @Nonnull
     public Type.Record getTargetType() {
         return targetType;
     }
 
     @Nullable
-    public MessageHelpers.TransformationTrieNode getTransformationsTrie() {
+    public TransformationTrieNode getTransformationsTrie() {
         return transformationsTrie;
     }
 
     @Nullable
-    public MessageHelpers.CoercionTrieNode getCoercionTrie() {
+    public CoercionTrieNode getCoercionTrie() {
         return coercionTrie;
     }
 
-    @Nonnull
     @Override
     public Set<Type> getDynamicTypes() {
         final var dynamicTypesBuilder = ImmutableSet.<Type>builder();
@@ -185,13 +177,12 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
         return dynamicTypesBuilder.build();
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings({"PMD.CloseResource", "resource"})
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
         final RecordCursor<QueryResult> results =
                 getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
         final var targetDescriptor = store.getRecordMetaData().getRecordType(Objects.requireNonNull(targetRecordType)).getDescriptor();
@@ -213,8 +204,8 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
 
     @Nullable
     @SuppressWarnings("unchecked")
-    public <M extends Message> M mutateRecord(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context,
-                                              @Nonnull final QueryResult queryResult, @Nonnull final Descriptors.Descriptor targetDescriptor) {
+    public <M extends Message> M mutateRecord(final FDBRecordStoreBase<M> store, final EvaluationContext context,
+                                              final QueryResult queryResult, final Descriptors.Descriptor targetDescriptor) {
         final var inRecord = (M)Preconditions.checkNotNull(queryResult.getMessage());
         return (M)MessageHelpers.transformMessage(store,
                 context.withBinding(Bindings.Internal.CORRELATION, getInner().getAlias(), queryResult),
@@ -227,23 +218,20 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
                 inRecord);
     }
 
-    @Nonnull
-    public abstract <M extends Message> CompletableFuture<QueryResult> saveRecordAsync(@Nonnull FDBRecordStoreBase<M> store,
-                                                                                       @Nonnull EvaluationContext context,
-                                                                                       @Nonnull M message, boolean isDryRun);
+    public abstract <M extends Message> CompletableFuture<QueryResult> saveRecordAsync(FDBRecordStoreBase<M> store,
+                                                                                       EvaluationContext context,
+                                                                                       M message, boolean isDryRun);
 
     @Override
     public boolean isReverse() {
         return getInnerPlan().isReverse();
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(this.getInner());
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         final var resultValueCorrelatedTo =
@@ -261,12 +249,10 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
         }
     }
 
-    @Nonnull
     public Value getComputationValue() {
         return computationValue;
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return resultValue;
@@ -280,7 +266,7 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression other, @Nonnull final AliasMap equivalences) {
+    public boolean equalsWithoutChildren(final RelationalExpression other, final AliasMap equivalences) {
         if (this == other) {
             return true;
         }
@@ -315,7 +301,7 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
@@ -330,18 +316,15 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
                 targetRecordType, transformationsTrie, coercionTrie);
     }
 
-    @Nonnull
     public RecordQueryPlan getInnerPlan() {
         return getInner().getRangesOverPlan();
     }
 
     @Override
-    @Nonnull
     public RecordQueryPlan getChild() {
         return getInnerPlan();
     }
 
-    @Nonnull
     public String getTargetRecordType() {
         return targetRecordType;
     }
@@ -357,8 +340,7 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
         return 1 + getInnerPlan().getComplexity();
     }
 
-    @Nonnull
-    public PRecordQueryAbstractDataModificationPlan toRecordQueryAbstractModificationPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryAbstractDataModificationPlan toRecordQueryAbstractModificationPlanProto(final PlanSerializationContext serializationContext) {
         final PRecordQueryAbstractDataModificationPlan.Builder builder = PRecordQueryAbstractDataModificationPlan.newBuilder()
                 .setInner(getInner().toProto(serializationContext))
                 .setTargetRecordType(targetRecordType)
@@ -374,17 +356,14 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
         return builder.build();
     }
 
-    @Nonnull
     public static CorrelationIdentifier currentModifiedRecordAlias() {
         return CorrelationIdentifier.uniqueSingletonID(CURRENT_MODIFIED_RECORD, "𝓆");
     }
 
-    @Nonnull
     Quantifier.Physical getInner() {
         return inner;
     }
 
-    @Nonnull
     CorrelationIdentifier getCurrentModifiedRecordAlias() {
         return currentModifiedRecordAlias;
     }

@@ -54,8 +54,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -68,27 +68,25 @@ import java.util.Set;
 public class RecordQueryLoadByKeysPlan extends AbstractRelationalExpressionWithoutChildren implements RecordQueryPlanWithNoChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Load-By-Keys-Plan");
 
-    @Nonnull
     private final KeysSource keysSource;
 
-    public RecordQueryLoadByKeysPlan(@Nonnull KeysSource keysSource) {
+    public RecordQueryLoadByKeysPlan(KeysSource keysSource) {
         this.keysSource = keysSource;
     }
 
-    public RecordQueryLoadByKeysPlan(@Nonnull List<Tuple> primaryKeys) {
+    public RecordQueryLoadByKeysPlan(List<Tuple> primaryKeys) {
         this(new PrimaryKeysKeySource(primaryKeys));
     }
 
-    public RecordQueryLoadByKeysPlan(@Nonnull String parameter) {
+    public RecordQueryLoadByKeysPlan(String parameter) {
         this(new ParameterKeySource(parameter));
     }
                                                                                 
-    @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
         // Cannot pass down limit(s) because we skip keys that don't load.
         RecordScanLimiter recordScanLimiter = executeProperties.getState().getRecordScanLimiter();
         return RecordCursor.fromList(store.getExecutor(), getKeysSource().getPrimaryKeys(context), continuation)
@@ -121,27 +119,24 @@ public class RecordQueryLoadByKeysPlan extends AbstractRelationalExpressionWitho
     }
 
     @Override
-    public boolean hasIndexScan(@Nonnull String indexName) {
+    public boolean hasIndexScan(String indexName) {
         return false;
     }
 
-    @Nonnull
     public KeysSource getKeysSource() {
         return keysSource;
     }
 
-    @Nonnull
     @Override
     public Set<String> getUsedIndexes() {
         return new HashSet<>();
     }
 
     @Override
-    public int maxCardinality(@Nonnull RecordMetaData metaData) {
+    public int maxCardinality(RecordMetaData metaData) {
         return keysSource.maxCardinality();
     }
 
-    @Nonnull
     @Override
     public AvailableFields getAvailableFields() {
         return AvailableFields.ALL_FIELDS;
@@ -152,27 +147,23 @@ public class RecordQueryLoadByKeysPlan extends AbstractRelationalExpressionWitho
         return true;
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
-    public RecordQueryLoadByKeysPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryLoadByKeysPlan translateCorrelations(final TranslationMap translationMap,
                                                            final boolean shouldSimplifyValues,
-                                                           @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                           final List<? extends Quantifier> translatedQuantifiers) {
         return this;
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return new QueriedValue();
@@ -180,8 +171,8 @@ public class RecordQueryLoadByKeysPlan extends AbstractRelationalExpressionWitho
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -209,7 +200,7 @@ public class RecordQueryLoadByKeysPlan extends AbstractRelationalExpressionWitho
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return getKeysSource().planHash(mode);
@@ -230,9 +221,8 @@ public class RecordQueryLoadByKeysPlan extends AbstractRelationalExpressionWitho
         return 1;
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.LOAD_BY_KEYS_OPERATOR,
@@ -241,15 +231,13 @@ public class RecordQueryLoadByKeysPlan extends AbstractRelationalExpressionWitho
                 childGraphs);
     }
 
-    @Nonnull
     @Override
-    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public Message toProto(final PlanSerializationContext serializationContext) {
         throw new RecordCoreException("serialization of this plan is not supported");
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         throw new RecordCoreException("serialization of this plan is not supported");
     }
 
@@ -263,7 +251,7 @@ public class RecordQueryLoadByKeysPlan extends AbstractRelationalExpressionWitho
         }
 
         @Override
-        public List<Tuple> getPrimaryKeys(@Nonnull EvaluationContext context) {
+        public List<Tuple> getPrimaryKeys(EvaluationContext context) {
             return primaryKeys;
         }
 
@@ -295,7 +283,7 @@ public class RecordQueryLoadByKeysPlan extends AbstractRelationalExpressionWitho
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             switch (mode.getKind()) {
                 case LEGACY:
                     return hashCode();
@@ -311,7 +299,7 @@ public class RecordQueryLoadByKeysPlan extends AbstractRelationalExpressionWitho
      * A source for the primary keys for records.
      */
     public interface KeysSource extends PlanHashable {
-        List<Tuple> getPrimaryKeys(@Nonnull EvaluationContext context);
+        List<Tuple> getPrimaryKeys(EvaluationContext context);
 
         int maxCardinality();
     }
@@ -327,7 +315,7 @@ public class RecordQueryLoadByKeysPlan extends AbstractRelationalExpressionWitho
 
         @Override
         @SuppressWarnings("unchecked")
-        public List<Tuple> getPrimaryKeys(@Nonnull EvaluationContext context) {
+        public List<Tuple> getPrimaryKeys(EvaluationContext context) {
             return (List<Tuple>)context.getBinding(parameter);
         }
 
@@ -359,7 +347,7 @@ public class RecordQueryLoadByKeysPlan extends AbstractRelationalExpressionWitho
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             switch (mode.getKind()) {
                 case LEGACY:
                     return hashCode();

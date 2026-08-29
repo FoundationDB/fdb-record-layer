@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.serialization;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
 
 /**
  * Plugin interface to be used by the plan serialization framework to dispatch serialization/deserialiation
@@ -31,12 +30,9 @@ import javax.annotation.Nonnull;
  */
 public interface PlanSerializationRegistry {
 
-    @Nonnull
     String getTypeUrlPrefix();
 
-    @Nonnull
-    <M extends Message> PlanDeserializer<M, ?> lookUpFromProto(@Nonnull Class<M> messageClass);
+    <M extends Message> PlanDeserializer<M, ?> lookUpFromProto(Class<M> messageClass);
 
-    @Nonnull
-    Class<? extends Message> lookUpMessageClass(@Nonnull String typeUrl);
+    Class<? extends Message> lookUpMessageClass(String typeUrl);
 }

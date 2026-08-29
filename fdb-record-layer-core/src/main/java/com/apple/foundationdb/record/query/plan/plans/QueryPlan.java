@@ -33,8 +33,8 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Set;
 
@@ -63,17 +63,15 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
      * @param executeProperties limits on execution
      * @return a cursor of items that match the query criteria
      */
-    @Nonnull
-    RecordCursor<T> execute(@Nonnull FDBRecordStore store, @Nonnull EvaluationContext context,
-                            @Nullable byte[] continuation, @Nonnull ExecuteProperties executeProperties);
+    RecordCursor<T> execute(FDBRecordStore store, EvaluationContext context,
+                            @Nullable byte[] continuation, ExecuteProperties executeProperties);
 
     /**
      * Execute this query plan.
      * @param store record store from which to fetch items
      * @return a cursor of items that match the query criteria
      */
-    @Nonnull
-    default RecordCursor<T> execute(@Nonnull FDBRecordStore store) {
+    default RecordCursor<T> execute(FDBRecordStore store) {
         return execute(store, EvaluationContext.EMPTY);
     }
 
@@ -83,8 +81,7 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
      * @param context evaluation context containing parameter bindings
      * @return a cursor of items that match the query criteria
      */
-    @Nonnull
-    default RecordCursor<T> execute(@Nonnull FDBRecordStore store, @Nonnull EvaluationContext context) {
+    default RecordCursor<T> execute(FDBRecordStore store, EvaluationContext context) {
         return execute(store, context, null, ExecuteProperties.SERIAL_EXECUTE);
     }
 
@@ -122,13 +119,12 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
      * @param indexName the name of the index to check for
      * @return <code>true</code> if this plan (or one of its children) scans the given index
      */
-    boolean hasIndexScan(@Nonnull String indexName);
+    boolean hasIndexScan(String indexName);
 
     /**
      * Returns a set of names of the indexes used by this plan (and its sub-plans).
      * @return a set of indexes used by this plan
      */
-    @Nonnull
     Set<String> getUsedIndexes();
 
     /**
@@ -142,7 +138,7 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
      * @param metaData meta-data to use to determine things like index uniqueness
      * @return the maximum number of records or {@link #UNKNOWN_MAX_CARDINALITY} if not known
      */
-    default int maxCardinality(@Nonnull RecordMetaData metaData) {
+    default int maxCardinality(RecordMetaData metaData) {
         return UNKNOWN_MAX_CARDINALITY;
     }
 
@@ -160,7 +156,7 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
      * @param memoizer a memoizer that is used to memoize/re-reference new expressions references
      * @return a copy of this plan
      */
-    default QueryPlan<T> strictlySorted(@Nonnull final FinalMemoizer memoizer) {
+    default QueryPlan<T> strictlySorted(final FinalMemoizer memoizer) {
         return this;
     }
 

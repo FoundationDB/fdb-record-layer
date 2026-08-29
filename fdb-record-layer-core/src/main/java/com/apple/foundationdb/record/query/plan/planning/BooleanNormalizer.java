@@ -35,8 +35,8 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -87,7 +87,6 @@ public class BooleanNormalizer {
      * @return a normalizer with the default size limit
      */
     @SpotBugsSuppressWarnings(value = "MS_EXPOSE_REP", justification = "Value is not actually mutable")
-    @Nonnull
     public static BooleanNormalizer getDefaultInstance() {
         return DEFAULT;
     }
@@ -98,7 +97,6 @@ public class BooleanNormalizer {
      * @return a normalizer with the given size limit
      */
     @SpotBugsSuppressWarnings(value = "MS_EXPOSE_REP", justification = "Value is not actually mutable")
-    @Nonnull
     public static BooleanNormalizer withLimit(int sizeLimit) {
         if (sizeLimit == DEFAULT_SIZE_LIMIT) {
             return DEFAULT;
@@ -106,7 +104,6 @@ public class BooleanNormalizer {
         return new BooleanNormalizer(sizeLimit, false, false);
     }
 
-    @Nonnull
     public BooleanNormalizer withUpdatedLimit(int sizeLimit) {
         if (sizeLimit == this.sizeLimit) {
             return this;
@@ -202,7 +199,7 @@ public class BooleanNormalizer {
      * @param booleanDepthSoFar the depth of the current {@code predicate} within a larger tree
      * @return whether the depth meets or exceeds the target
      */
-    private boolean depthAtLeast(@Nonnull final QueryComponent predicate, final int target, int booleanDepthSoFar) {
+    private boolean depthAtLeast(final QueryComponent predicate, final int target, int booleanDepthSoFar) {
         if (predicate instanceof BooleanComponent || (normalizeNestedFields && predicate instanceof NestedField)) {
             int newDepth = booleanDepthSoFar + 1;
             if (newDepth >= target) {
@@ -233,7 +230,7 @@ public class BooleanNormalizer {
         return toDNFSize(predicate, false);
     }
 
-    private int toDNFSize(@Nonnull final QueryComponent predicate, final boolean negate) {
+    private int toDNFSize(final QueryComponent predicate, final boolean negate) {
         if (predicate instanceof AndComponent) {
             final List<QueryComponent> children = ((AndComponent)predicate).getChildren();
             return negate ? orToDNFSize(children, true) : andToDNFSize(children, false);
@@ -249,16 +246,15 @@ public class BooleanNormalizer {
         }
     }
 
-    private int orToDNFSize(@Nonnull final List<QueryComponent> children, final boolean negate) {
+    private int orToDNFSize(final List<QueryComponent> children, final boolean negate) {
         return children.stream().mapToInt(p -> toDNFSize(p, negate)).reduce(0, Math::addExact);
     }
 
-    private int andToDNFSize(@Nonnull final List<QueryComponent> children, final boolean negate) {
+    private int andToDNFSize(final List<QueryComponent> children, final boolean negate) {
         return children.stream().mapToInt(child -> toDNFSize(child, negate)).reduce(1, Math::multiplyExact);
     }
 
-    @Nonnull
-    private QueryComponent normalOr(@Nonnull final List<QueryComponent> children) {
+    private QueryComponent normalOr(final List<QueryComponent> children) {
         if (children.size() == 1) {
             return children.get(0);
         } else {
@@ -266,8 +262,7 @@ public class BooleanNormalizer {
         }
     }
 
-    @Nonnull
-    private QueryComponent normalAnd(@Nonnull final List<QueryComponent> children) {
+    private QueryComponent normalAnd(final List<QueryComponent> children) {
         if (children.size() == 1) {
             return children.get(0);
         } else {
@@ -281,8 +276,7 @@ public class BooleanNormalizer {
      * @param negate whether this subtree is negated
      * @return a list (to be Or'ed) of lists (to be And'ed)
      */
-    @Nonnull
-    private List<List<QueryComponent>> toDNF(@Nonnull final QueryComponent predicate, final boolean negate, @Nonnull final Deque<String> parentPath) {
+    private List<List<QueryComponent>> toDNF(final QueryComponent predicate, final boolean negate, final Deque<String> parentPath) {
         if (predicate instanceof AndComponent) {
             final List<QueryComponent> children = ((AndComponent)predicate).getChildren();
             return negate ? orToDNF(children, true, parentPath) : andToDNF(children, false, parentPath);
@@ -309,8 +303,7 @@ public class BooleanNormalizer {
      * @param negate whether the Or is negated
      * @return a list (to be Or'ed) of lists (to be And'ed)
      */
-    @Nonnull
-    private List<List<QueryComponent>> orToDNF(@Nonnull final List<QueryComponent> children, final boolean negate, @Nonnull final Deque<String> parentPath) {
+    private List<List<QueryComponent>> orToDNF(final List<QueryComponent> children, final boolean negate, final Deque<String> parentPath) {
         final List<List<QueryComponent>> result = new ArrayList<>();
         children.stream().map(p -> toDNF(p, negate, parentPath)).forEach(result::addAll);
         return result;
@@ -322,16 +315,14 @@ public class BooleanNormalizer {
      * @param negate whether the And is negated
      * @return a list (to be Or'ed) of lists (to be And'ed)
      */
-    @Nonnull
-    private List<List<QueryComponent>> andToDNF(@Nonnull final List<QueryComponent> children, final boolean negate, @Nonnull final Deque<String> parentPath) {
+    private List<List<QueryComponent>> andToDNF(final List<QueryComponent> children, final boolean negate, final Deque<String> parentPath) {
         return andToDNF(children, 0, negate, parentPath, Collections.singletonList(Collections.emptyList()));
     }
 
-    @Nonnull
-    private List<List<QueryComponent>> andToDNF(@Nonnull final List<QueryComponent> children, int index,
+    private List<List<QueryComponent>> andToDNF(final List<QueryComponent> children, int index,
                                                 final boolean negate,
-                                                @Nonnull final Deque<String> parentPath,
-                                                @Nonnull final List<List<QueryComponent>> crossProductSoFar) {
+                                                final Deque<String> parentPath,
+                                                final List<List<QueryComponent>> crossProductSoFar) {
         if (index >= children.size()) {
             return crossProductSoFar;
         }
@@ -344,8 +335,7 @@ public class BooleanNormalizer {
                 })).collect(Collectors.toList()));
     }
 
-    @Nonnull
-    private List<List<QueryComponent>> nestedFieldToDNF(@Nonnull final NestedField nestedField, final boolean negate, @Nonnull final Deque<String> parentPath) {
+    private List<List<QueryComponent>> nestedFieldToDNF(final NestedField nestedField, final boolean negate, final Deque<String> parentPath) {
         // Add the parent field to the parent path. Pop from the stack after normalizing the children
         final String parentField = nestedField.getFieldName();
         parentPath.addLast(parentField);
@@ -391,7 +381,7 @@ public class BooleanNormalizer {
     class DNFTooLargeException extends RecordCoreException {
         private static final long serialVersionUID = 1L;
 
-        public DNFTooLargeException(@Nonnull final QueryComponent predicate) {
+        public DNFTooLargeException(final QueryComponent predicate) {
             super("tried to normalize to a DNF but the size would have been too big");
             addLogInfo(LogMessageKeys.FILTER, predicate);
             addLogInfo(LogMessageKeys.DNF_SIZE_LIMIT, sizeLimit);

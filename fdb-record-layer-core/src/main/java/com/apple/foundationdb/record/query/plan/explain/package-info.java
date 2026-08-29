@@ -21,4 +21,7 @@
 /**
  * Classes supporting plan explains.
  */
+@NullMarked
 package com.apple.foundationdb.record.query.plan.explain;
+
+import org.jspecify.annotations.NullMarked;

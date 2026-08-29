@@ -52,8 +52,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -69,43 +69,36 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.INTERNAL)
 public class InExtractor {
-    @Nonnull
     private final QueryComponent filter;
-    @Nonnull
     private final List<InClause> inClauses;
-    @Nonnull
     private QueryComponent subFilter;
 
-    public InExtractor(@Nonnull final InExtractor other) {
+    public InExtractor(final InExtractor other) {
         this(other.filter, Lists.newArrayList(other.inClauses), other.subFilter);
     }
 
-    private InExtractor(@Nonnull final QueryComponent filter,
-                        @Nonnull final List<InClause> inClauses,
-                        @Nonnull final QueryComponent subFilter) {
+    private InExtractor(final QueryComponent filter,
+                        final List<InClause> inClauses,
+                        final QueryComponent subFilter) {
         this.filter = filter;
         this.inClauses = inClauses;
         this.subFilter = subFilter;
     }
 
-    @Nonnull
     public QueryComponent getFilter() {
         return filter;
     }
 
-    @Nonnull
     public QueryComponent getSubFilter() {
         return subFilter;
     }
 
-    @Nonnull
     public Set<String> getInBindings() {
         return inClauses.stream()
                 .map(inClause -> inClause.bindingName)
                 .collect(ImmutableSet.toImmutableSet());
     }
 
-    @Nonnull
     @SuppressWarnings("unchecked")
     public QueryComponent asOr() {
         return mapClauses(filter, (withComparison, fields) -> {
@@ -149,7 +142,7 @@ public class InExtractor {
         return subFilter;
     }
 
-    public boolean setSort(@Nonnull KeyExpression key, boolean reverse) {
+    public boolean setSort(KeyExpression key, boolean reverse) {
         if (inClauses.isEmpty()) {
             return true;
         }
@@ -192,7 +185,6 @@ public class InExtractor {
         subFilter = filter;
     }
 
-    @Nonnull
     public RecordQueryPlan wrap(RecordQueryPlan plan) {
         for (int i = inClauses.size() - 1; i >= 0; i--) {
             plan = inClauses.get(i).wrap(plan);
@@ -237,18 +229,16 @@ public class InExtractor {
         return new PlanOrderingKey(keys, prefixSize, primaryKeyStart, keys.size() - primaryKeyTailFromEnd);
     }
 
-    @Nonnull
     public List<InSource> unionSources() {
         return inClauses.stream().map(InClause::unionSource).collect(Collectors.toList());
     }
 
-    public InExtractor filter(@Nonnull final BiPredicate<ComponentWithComparison, String> inBindingFilter) {
+    public InExtractor filter(final BiPredicate<ComponentWithComparison, String> inBindingFilter) {
         return fromFilter(this.filter, inBindingFilter);
     }
 
-    @Nonnull
     @SuppressWarnings("unchecked")
-    public static InExtractor fromFilter(@Nonnull final QueryComponent filter, @Nonnull BiPredicate<ComponentWithComparison, String> inBindingFilter) {
+    public static InExtractor fromFilter(final QueryComponent filter, BiPredicate<ComponentWithComparison, String> inBindingFilter) {
         final AtomicInteger bindingIndex = new AtomicInteger();
         final List<InClause> inClauses = Lists.newArrayList();
         final QueryComponent subFilter = mapClauses(filter, (withComparison, fields) -> {
@@ -285,7 +275,6 @@ public class InExtractor {
         return new InExtractor(filter, inClauses, subFilter);
     }
 
-    @Nonnull
     private static QueryComponent mapClauses(QueryComponent filter, BiFunction<ComponentWithComparison, List<FieldKeyExpression>, QueryComponent> mapper, @Nullable List<FieldKeyExpression> fields) {
         if (filter instanceof ComponentWithComparison) {
             final ComponentWithComparison withComparison = (ComponentWithComparison) filter;
@@ -315,14 +304,13 @@ public class InExtractor {
     }
 
     abstract static class InClause {
-        @Nonnull
         protected final String bindingName;
         @Nullable
         protected final KeyExpression orderingKey;
         protected boolean sortValues;
         protected boolean sortReverse;
 
-        protected InClause(@Nonnull String bindingName, @Nullable KeyExpression orderingKey) {
+        protected InClause(String bindingName, @Nullable KeyExpression orderingKey) {
             this.bindingName = bindingName;
             this.orderingKey = orderingKey;
         }
@@ -336,7 +324,7 @@ public class InExtractor {
         @Nullable
         private final List<Object> values;
 
-        protected InValuesClause(@Nonnull String bindingName, @Nullable List<Object> values, @Nullable KeyExpression orderingKey) {
+        protected InValuesClause(String bindingName, @Nullable List<Object> values, @Nullable KeyExpression orderingKey) {
             super(bindingName, orderingKey);
             this.values = values;
         }
@@ -358,10 +346,9 @@ public class InExtractor {
     }
 
     static class InParameterClause extends InClause {
-        @Nonnull
         private final String parameterName;
 
-        protected InParameterClause(@Nonnull String bindingName, @Nonnull String parameterName, @Nullable KeyExpression orderingKey) {
+        protected InParameterClause(String bindingName, String parameterName, @Nullable KeyExpression orderingKey) {
             super(bindingName, orderingKey);
             this.parameterName = parameterName;
         }
@@ -383,10 +370,9 @@ public class InExtractor {
     }
 
     static class InComparandClause extends InClause {
-        @Nonnull
         private final Comparisons.Comparison comparison;
 
-        protected InComparandClause(@Nonnull String bindingName, @Nonnull Comparisons.Comparison comparison, @Nullable KeyExpression orderingKey) {
+        protected InComparandClause(String bindingName, Comparisons.Comparison comparison, @Nullable KeyExpression orderingKey) {
             super(bindingName, orderingKey);
             this.comparison = comparison;
         }

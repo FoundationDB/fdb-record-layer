@@ -34,8 +34,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -48,21 +48,20 @@ import java.util.function.Supplier;
 public class OneOfThemWithComponent extends BaseRepeatedField implements ComponentWithSingleChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("One-Of-Them-With-Component");
 
-    @Nonnull
     private final QueryComponent child;
 
-    public OneOfThemWithComponent(@Nonnull String fieldName, @Nonnull QueryComponent child) {
+    public OneOfThemWithComponent(String fieldName, QueryComponent child) {
         this(fieldName, Field.OneOfThemEmptyMode.EMPTY_UNKNOWN, child);
     }
 
-    public OneOfThemWithComponent(@Nonnull String fieldName, Field.OneOfThemEmptyMode emptyMode, @Nonnull QueryComponent child) {
+    public OneOfThemWithComponent(String fieldName, Field.OneOfThemEmptyMode emptyMode, QueryComponent child) {
         super(fieldName, emptyMode);
         this.child = child;
     }
 
     @Override
     @Nullable
-    public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+    public <M extends Message> Boolean evalMessage(FDBRecordStoreBase<M> store, EvaluationContext context,
                                                    @Nullable FDBRecord<M> rec, @Nullable Message message) {
         if (message == null) {
             return null;
@@ -86,7 +85,7 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
     }
 
     @Override
-    public void validate(@Nonnull Descriptors.Descriptor descriptor) {
+    public void validate(Descriptors.Descriptor descriptor) {
         final Descriptors.FieldDescriptor field = validateRepeatedField(descriptor);
         final QueryComponent component = getChild();
         requireMessageField(field);
@@ -94,16 +93,14 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
     }
 
     @Override
-    @Nonnull
     public QueryComponent getChild() {
         return child;
     }
 
-    @Nonnull
     @Override
-    public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
-                                 @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
-                                 @Nonnull final List<String> fieldNamePrefix) {
+    public GraphExpansion expand(final Quantifier.ForEach baseQuantifier,
+                                 final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
+                                 final List<String> fieldNamePrefix) {
         List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
@@ -163,7 +160,7 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return super.basePlanHash(mode, BASE_HASH) + getChild().planHash(mode);

@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 
-import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -37,7 +36,6 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public interface RecordQueryPlanWithChild extends RecordQueryPlanWithChildren {
     @Override
-    @Nonnull
     default List<RecordQueryPlan> getChildren() {
         return Collections.singletonList(getChild());
     }
@@ -60,18 +58,17 @@ public interface RecordQueryPlanWithChild extends RecordQueryPlanWithChildren {
     }
 
     @Override
-    default boolean hasIndexScan(@Nonnull String indexName) {
+    default boolean hasIndexScan(String indexName) {
         return getChild().hasIndexScan(indexName);
     }
 
-    @Nonnull
     @Override
     default Set<String> getUsedIndexes() {
         return getChild().getUsedIndexes();
     }
 
     @Override
-    default int maxCardinality(@Nonnull RecordMetaData metaData) {
+    default int maxCardinality(RecordMetaData metaData) {
         return getChild().maxCardinality(metaData);
     }
 
@@ -81,7 +78,7 @@ public interface RecordQueryPlanWithChild extends RecordQueryPlanWithChildren {
     }
 
     @Override
-    default RecordQueryPlanWithChild strictlySorted(@Nonnull final FinalMemoizer memoizer) {
+    default RecordQueryPlanWithChild strictlySorted(final FinalMemoizer memoizer) {
         return withChild(memoizer.memoizePlan(getChild().strictlySorted(memoizer)));
     }
 
@@ -90,12 +87,10 @@ public interface RecordQueryPlanWithChild extends RecordQueryPlanWithChildren {
         return getChild().hasLoadBykeys();
     }
 
-    @Nonnull
     @Override
     default AvailableFields getAvailableFields() {
         return getChild().getAvailableFields();
     }
 
-    @Nonnull
-    RecordQueryPlanWithChild withChild(@Nonnull Reference childRef);
+    RecordQueryPlanWithChild withChild(Reference childRef);
 }

@@ -49,8 +49,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -81,21 +81,19 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
      * @param <M> type used to represent stored records
      * @return a cursor of records that match the query criteria
      */
-    @Nonnull
-    default <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
-                                                                  @Nonnull EvaluationContext context,
+    default <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(FDBRecordStoreBase<M> store,
+                                                                  EvaluationContext context,
                                                                   @Nullable byte[] continuation,
-                                                                  @Nonnull ExecuteProperties executeProperties) {
+                                                                  ExecuteProperties executeProperties) {
         return executePlan(store, context, continuation, executeProperties)
                 .map(QueryResult::getQueriedRecord);
     }
 
-    @Nonnull
     @Override
-    default RecordCursor<FDBQueriedRecord<Message>> execute(@Nonnull FDBRecordStore store,
-                                                            @Nonnull EvaluationContext context,
+    default RecordCursor<FDBQueriedRecord<Message>> execute(FDBRecordStore store,
+                                                            EvaluationContext context,
                                                             @Nullable byte[] continuation,
-                                                            @Nonnull ExecuteProperties executeProperties) {
+                                                            ExecuteProperties executeProperties) {
         return execute((FDBRecordStoreBase<Message>)store, context, continuation, executeProperties);
     }
 
@@ -105,8 +103,7 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
      * @param <M> type used to represent stored records
      * @return a cursor of records that match the query criteria
      */
-    @Nonnull
-    default <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store) {
+    default <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(FDBRecordStoreBase<M> store) {
         return execute(store, EvaluationContext.EMPTY);
     }
 
@@ -117,8 +114,7 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
      * @param <M> type used to represent stored records
      * @return a cursor of records that match the query criteria
      */
-    @Nonnull
-    default <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
+    default <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(FDBRecordStoreBase<M> store, EvaluationContext context) {
         return execute(store, context, null, ExecuteProperties.SERIAL_EXECUTE);
     }
 
@@ -132,11 +128,10 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
      * @return a cursor of {@link QueryResult} that match the query criteria
      */
     @API(API.Status.EXPERIMENTAL)
-    @Nonnull
-    <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull FDBRecordStoreBase<M> store,
-                                                              @Nonnull EvaluationContext context,
+    <M extends Message> RecordCursor<QueryResult> executePlan(FDBRecordStoreBase<M> store,
+                                                              EvaluationContext context,
                                                               @Nullable byte[] continuation,
-                                                              @Nonnull ExecuteProperties executeProperties);
+                                                              ExecuteProperties executeProperties);
 
     /**
      * Returns the (zero or more) {@code RecordQueryPlan} children of this plan.
@@ -152,20 +147,17 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
      * @return the child plans
      */
     @API(API.Status.UNSTABLE)
-    @Nonnull
     List<RecordQueryPlan> getChildren();
 
-    @Nonnull
     @Override
     default List<? extends QueryPlan<?>> getQueryPlanChildren() {
         return getChildren();
     }
 
-    @Nonnull
     AvailableFields getAvailableFields();
 
     @Override
-    default RecordQueryPlan strictlySorted(@Nonnull FinalMemoizer memoizer) {
+    default RecordQueryPlan strictlySorted(FinalMemoizer memoizer) {
         return this;
     }
 
@@ -183,7 +175,6 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
      * plan.
      * @return a minimized plan
      */
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     default RecordQueryPlan minimize() {
         //
@@ -218,14 +209,12 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
         return minimizePlanOverMinimizedReferences(minimizationCache, this);
     }
 
-    @Nonnull
-    default RecordQueryPlan minimize(@Nonnull final List<Quantifier.Physical> newQuantifiers) {
+    default RecordQueryPlan minimize(final List<Quantifier.Physical> newQuantifiers) {
         throw new UnsupportedOperationException("RecordQueryPlan by default cannot be minimized");
     }
 
-    @Nonnull
-    private static RecordQueryPlan minimizePlanOverMinimizedReferences(@Nonnull final Map<Reference, Reference> minimizationCache,
-                                                                       @Nonnull final RecordQueryPlan plan) {
+    private static RecordQueryPlan minimizePlanOverMinimizedReferences(final Map<Reference, Reference> minimizationCache,
+                                                                       final RecordQueryPlan plan) {
         var allMinimizedChildrenSame = true;
         final var newQuantifiersBuilder = ImmutableList.<Quantifier.Physical>builder();
         for (final var quantifier : plan.getQuantifiers()) {
@@ -252,9 +241,8 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
 
     // we know the type of the group, even though the compiler doesn't, intentional use of reference equality
     @HeuristicPlanner
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    default RecordQueryPlan accept(@Nonnull RecordQueryPlannerSubstitutionVisitor visitor) {
+    default RecordQueryPlan accept(RecordQueryPlannerSubstitutionVisitor visitor) {
         // Using a quantifier here is a bit of a hack since quantifiers only make conceptual sense in the data model
         // of the experimental planner. However, they provide access to the underlying groups, which allow us to
         // substitute children without adding additional mutable access to the children of a query plan.
@@ -314,7 +302,7 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
     @API(API.Status.EXPERIMENTAL)
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     default boolean structuralEquals(@Nullable final Object other,
-                                     @Nonnull final AliasMap equivalenceMap) {
+                                     final AliasMap equivalenceMap) {
         if (this == other) {
             return true;
         }
@@ -373,16 +361,13 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
         return false;
     }
 
-    @Nonnull
     @Override
-    Message toProto(@Nonnull PlanSerializationContext serializationContext);
+    Message toProto(PlanSerializationContext serializationContext);
 
-    @Nonnull
-    PRecordQueryPlan toRecordQueryPlanProto(@Nonnull PlanSerializationContext serializationContext);
+    PRecordQueryPlan toRecordQueryPlanProto(PlanSerializationContext serializationContext);
 
-    @Nonnull
-    static RecordQueryPlan fromRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                    @Nonnull final PRecordQueryPlan recordQueryPlanProto) {
+    static RecordQueryPlan fromRecordQueryPlanProto(final PlanSerializationContext serializationContext,
+                                                    final PRecordQueryPlan recordQueryPlanProto) {
         return (RecordQueryPlan)PlanSerialization.dispatchFromProtoContainer(serializationContext, recordQueryPlanProto);
     }
 }

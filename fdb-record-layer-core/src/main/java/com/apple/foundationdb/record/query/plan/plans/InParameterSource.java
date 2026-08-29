@@ -36,8 +36,8 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -50,24 +50,21 @@ import java.util.Objects;
  */
 @API(API.Status.INTERNAL)
 public class InParameterSource extends InSource {
-    @Nonnull
     private static final ObjectPlanHash OBJECT_PLAN_HASH_IN_PARAMETER_SOURCE = new ObjectPlanHash("In-Parameter");
 
-    @Nonnull
     private final String parameterName;
 
-    protected InParameterSource(@Nonnull final PlanSerializationContext serializationContext,
-                                @Nonnull final PInParameterSource inParameterSourceProto) {
+    protected InParameterSource(final PlanSerializationContext serializationContext,
+                                final PInParameterSource inParameterSourceProto) {
         super(serializationContext, Objects.requireNonNull(inParameterSourceProto.getSuper()));
         this.parameterName = Objects.requireNonNull(inParameterSourceProto.getParameterName());
     }
 
-    public InParameterSource(@Nonnull final String bindingName, @Nonnull final String parameterName) {
+    public InParameterSource(final String bindingName, final String parameterName) {
         super(bindingName);
         this.parameterName = parameterName;
     }
 
-    @Nonnull
     public String getParameterName() {
         return parameterName;
     }
@@ -82,7 +79,6 @@ public class InParameterSource extends InSource {
         return false;
     }
 
-    @Nonnull
     @Override
     public ExplainTokensWithPrecedence explain() {
         return ExplainTokensWithPrecedence.of(
@@ -90,36 +86,32 @@ public class InParameterSource extends InSource {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, baseHash(mode, OBJECT_PLAN_HASH_IN_PARAMETER_SOURCE), parameterName);
     }
 
     @Override
-    protected int size(@Nonnull final EvaluationContext context) {
+    protected int size(final EvaluationContext context) {
         return getValues(context).size();
     }
 
-    @Nonnull
     @Override
     @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
     protected List<Object> getValues(@Nullable final EvaluationContext context) {
         return getBoundValues(Objects.requireNonNull(context));
     }
 
-    @Nonnull
     @SuppressWarnings("unchecked")
-    protected List<Object> getBoundValues(@Nonnull final EvaluationContext context) {
+    protected List<Object> getBoundValues(final EvaluationContext context) {
         final List<Object> binding = (List<Object>)context.getBinding(getParameterName());
         return Objects.requireNonNullElse(binding, Collections.emptyList());
     }
 
-    @Nonnull
     @Override
-    public RecordQueryInJoinPlan toInJoinPlan(@Nonnull final Quantifier.Physical innerQuantifier) {
+    public RecordQueryInJoinPlan toInJoinPlan(final Quantifier.Physical innerQuantifier) {
         return new RecordQueryInParameterJoinPlan(innerQuantifier, this, Bindings.Internal.CORRELATION);
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return getBindingName() + " IN $" + parameterName;
@@ -146,29 +138,25 @@ public class InParameterSource extends InSource {
         return parameterName.hashCode();
     }
 
-    @Nonnull
     @Override
-    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public Message toProto(final PlanSerializationContext serializationContext) {
         return toInParameterSourceProto(serializationContext);
     }
 
-    @Nonnull
-    protected PInParameterSource toInParameterSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
+    protected PInParameterSource toInParameterSourceProto(final PlanSerializationContext serializationContext) {
         return PInParameterSource.newBuilder()
                 .setSuper(toInSourceSuperProto(serializationContext))
                 .setParameterName(parameterName)
                 .build();
     }
 
-    @Nonnull
     @Override
-    protected PInSource toInSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
+    protected PInSource toInSourceProto(final PlanSerializationContext serializationContext) {
         return PInSource.newBuilder().setInParameterSource(toInParameterSourceProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static InParameterSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                              @Nonnull final PInParameterSource inParameterSourceProto) {
+    public static InParameterSource fromProto(final PlanSerializationContext serializationContext,
+                                              final PInParameterSource inParameterSourceProto) {
         return new InParameterSource(serializationContext, inParameterSourceProto);
     }
 
@@ -177,16 +165,14 @@ public class InParameterSource extends InSource {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PInParameterSource, InParameterSource> {
-        @Nonnull
         @Override
         public Class<PInParameterSource> getProtoMessageClass() {
             return PInParameterSource.class;
         }
 
-        @Nonnull
         @Override
-        public InParameterSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                           @Nonnull final PInParameterSource inParameterSourceProto) {
+        public InParameterSource fromProto(final PlanSerializationContext serializationContext,
+                                           final PInParameterSource inParameterSourceProto) {
             return InParameterSource.fromProto(serializationContext, inParameterSourceProto);
         }
     }

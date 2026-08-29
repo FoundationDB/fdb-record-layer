@@ -37,6 +37,7 @@ dependencies {
     implementation(libs.slf4j.api)
     implementation(libs.guava)
     compileOnly(libs.jsr305)
+    compileOnly(libs.jspecify)
     compileOnly(libs.autoService)
     annotationProcessor(libs.autoService)
 
@@ -48,6 +49,7 @@ dependencies {
     testImplementation(libs.bundles.test.impl)
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)
+    testCompileOnly(libs.jspecify)
     testImplementation(libs.jcommander)
     testImplementation(libs.apache.commonsMath3)
     testImplementation(libs.junit.platform)

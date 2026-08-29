@@ -28,8 +28,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.MessageOrBuilder;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 
 /**
@@ -38,15 +38,13 @@ import java.util.Objects;
  */
 @API(API.Status.INTERNAL)
 public abstract class BaseField implements PlanHashable, QueryComponent {
-    @Nonnull
     private final String fieldName;
 
-    protected BaseField(@Nonnull String fieldName) {
+    protected BaseField(String fieldName) {
         this.fieldName = fieldName;
     }
 
-    @Nonnull
-    protected Descriptors.FieldDescriptor findFieldDescriptor(@Nonnull MessageOrBuilder message) {
+    protected Descriptors.FieldDescriptor findFieldDescriptor(MessageOrBuilder message) {
         return MessageHelpers.findFieldDescriptorOnMessage(message, fieldName);
     }
 
@@ -58,8 +56,7 @@ public abstract class BaseField implements PlanHashable, QueryComponent {
         return MessageHelpers.getFieldOnMessage(message, fieldName);
     }
 
-    @Nonnull
-    protected Descriptors.FieldDescriptor validateFieldExistence(@Nonnull Descriptors.Descriptor descriptor) {
+    protected Descriptors.FieldDescriptor validateFieldExistence(Descriptors.Descriptor descriptor) {
         Descriptors.FieldDescriptor field = descriptor.findFieldByName(fieldName);
         if (field == null) {
             throw new Query.InvalidExpressionException("Missing field " + fieldName);
@@ -67,30 +64,28 @@ public abstract class BaseField implements PlanHashable, QueryComponent {
         return field;
     }
 
-    protected void requirePrimitiveField(@Nonnull Descriptors.FieldDescriptor field) {
+    protected void requirePrimitiveField(Descriptors.FieldDescriptor field) {
         if (field.getType() == Descriptors.FieldDescriptor.Type.MESSAGE && !TupleFieldsHelper.isTupleField(field.getMessageType())) {
             throw new Query.InvalidExpressionException("Required primitive field, but got message " + fieldName);
         }
     }
 
-    protected void requireMessageField(@Nonnull Descriptors.FieldDescriptor field) {
+    protected void requireMessageField(Descriptors.FieldDescriptor field) {
         if (field.getType() != Descriptors.FieldDescriptor.Type.MESSAGE || TupleFieldsHelper.isTupleField(field.getMessageType())) {
             throw new Query.InvalidExpressionException("Required nested field, but got primitive field " + fieldName);
         }
     }
 
-    protected void requireScalarField(@Nonnull Descriptors.FieldDescriptor field) {
+    protected void requireScalarField(Descriptors.FieldDescriptor field) {
         if (field.isRepeated()) {
             throw new Query.InvalidExpressionException("Required scalar field, but got repeated field " + fieldName);
         }
     }
 
-    @Nonnull
     public String getName() {
         return getFieldName();
     }
 
-    @Nonnull
     public String getFieldName() {
         return fieldName;
     }
@@ -122,7 +117,7 @@ public abstract class BaseField implements PlanHashable, QueryComponent {
      * @param hashables the rest of the subclass' hashable parameters (if any)
      * @return the plan hash value calculated
      */
-    protected int basePlanHash(@Nonnull final PlanHashMode mode, ObjectPlanHash baseHash, Object... hashables) {
+    protected int basePlanHash(final PlanHashMode mode, ObjectPlanHash baseHash, Object... hashables) {
         switch (mode.getKind()) {
             case LEGACY:
                 return fieldName.hashCode();

@@ -30,7 +30,6 @@ import com.google.common.graph.ImmutableNetwork;
 import com.google.common.graph.Network;
 import com.google.common.graph.NetworkBuilder;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.StreamSupport;
@@ -59,10 +58,9 @@ public class ParameterRelationshipGraph {
      * This graph should not really grow beyond a manageable limit.  Relationships are always computed based on a set
      * of pre-bound parameters.
      */
-    @Nonnull
     private final ImmutableNetwork<String, Relationship> network;
 
-    private ParameterRelationshipGraph(@Nonnull final Network<String, Relationship> network) {
+    private ParameterRelationshipGraph(final Network<String, Relationship> network) {
         this.network = ImmutableNetwork.copyOf(network);
     }
 
@@ -124,9 +122,8 @@ public class ParameterRelationshipGraph {
      * @param preBoundParameterBindings parameter bindings already known at planning time
      * @return a new {@link ParameterRelationshipGraph}
      */
-    @Nonnull
-    public static ParameterRelationshipGraph fromRecordQueryAndBindings(@Nonnull final RecordQuery recordQuery,
-                                                                        @Nonnull final Bindings preBoundParameterBindings) {
+    public static ParameterRelationshipGraph fromRecordQueryAndBindings(final RecordQuery recordQuery,
+                                                                        final Bindings preBoundParameterBindings) {
         final QueryComponent filter = recordQuery.getFilter();
         final ImmutableNetwork.Builder<String, Relationship> networkBuilder =
                 NetworkBuilder.directed()
@@ -160,7 +157,6 @@ public class ParameterRelationshipGraph {
         return new ParameterRelationshipGraph(networkBuilder.build());
     }
 
-    @Nonnull
     public static ParameterRelationshipGraph empty() {
         return new ParameterRelationshipGraph(NetworkBuilder.directed().allowsSelfLoops(true).allowsParallelEdges(true).<String, Relationship>immutable().build());
     }
@@ -173,8 +169,7 @@ public class ParameterRelationshipGraph {
         return UNBOUND;
     }
 
-    @Nonnull
-    public Set<String> getRelatedParameters(@Nonnull final String parameter, @Nonnull final RelationshipType relationshipType) {
+    public Set<String> getRelatedParameters(final String parameter, final RelationshipType relationshipType) {
         return network.outEdges(parameter)
                 .stream()
                 .filter(relationship -> relationship.getRelationshipKind() == relationshipType)
@@ -182,11 +177,11 @@ public class ParameterRelationshipGraph {
                 .collect(ImmutableSet.toImmutableSet());
     }
 
-    public boolean containsParameter(@Nonnull final String parameter) {
+    public boolean containsParameter(final String parameter) {
         return network.nodes().contains(parameter);
     }
 
-    public boolean isCompatible(@Nonnull final Bindings parameterBindings) {
+    public boolean isCompatible(final Bindings parameterBindings) {
         return network.edges()
                 .stream()
                 .allMatch(edge -> {
@@ -216,30 +211,24 @@ public class ParameterRelationshipGraph {
      * A relationship between two parameter values.
      */
     public static class Relationship {
-        @Nonnull
         private final RelationshipType relationshipType;
-        @Nonnull
         private final String parameter1;
-        @Nonnull
         private final String parameter2;
 
-        public Relationship(@Nonnull final RelationshipType relationshipType, @Nonnull final String parameter1, @Nonnull final String parameter2) {
+        public Relationship(final RelationshipType relationshipType, final String parameter1, final String parameter2) {
             this.relationshipType = relationshipType;
             this.parameter1 = parameter1;
             this.parameter2 = parameter2;
         }
 
-        @Nonnull
         public RelationshipType getRelationshipKind() {
             return relationshipType;
         }
 
-        @Nonnull
         public String getParameter1() {
             return parameter1;
         }
 
-        @Nonnull
         public String getParameter2() {
             return parameter2;
         }
@@ -262,10 +251,10 @@ public class ParameterRelationshipGraph {
         }
 
         @SuppressWarnings("SameParameterValue")
-        private static void addEdge(@Nonnull ImmutableNetwork.Builder<String, Relationship> networkBuilder,
-                                    @Nonnull final RelationshipType relationshipType,
-                                    @Nonnull final String parameter1,
-                                    @Nonnull final String parameter2) {
+        private static void addEdge(ImmutableNetwork.Builder<String, Relationship> networkBuilder,
+                                    final RelationshipType relationshipType,
+                                    final String parameter1,
+                                    final String parameter2) {
             networkBuilder.addEdge(parameter1, parameter2, new Relationship(relationshipType, parameter1, parameter2));
         }
 

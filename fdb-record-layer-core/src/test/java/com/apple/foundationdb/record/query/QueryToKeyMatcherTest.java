@@ -43,8 +43,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
@@ -671,7 +671,7 @@ public class QueryToKeyMatcherTest {
      */
     @ParameterizedTest(name = "testTemporarilyNoMatch[query = {0}, key = {1}")
     @MethodSource
-    void testTemporarilyNoMatch(@Nonnull QueryComponent query, @Nonnull KeyExpression key) {
+    void testTemporarilyNoMatch(QueryComponent query, KeyExpression key) {
         assertNoMatch(query, key);
     }
 
@@ -747,7 +747,6 @@ public class QueryToKeyMatcherTest {
      */
     @AutoService(FunctionKeyExpression.Factory.class)
     public static class TestFunctionRegistry implements FunctionKeyExpression.Factory {
-        @Nonnull
         @Override
         public List<FunctionKeyExpression.Builder> getBuilders() {
             return Collections.singletonList(new FunctionKeyExpression.BiFunctionBuilder("nada",
@@ -758,7 +757,7 @@ public class QueryToKeyMatcherTest {
     private static class DoNothingFunction extends FunctionKeyExpression implements QueryableKeyExpression {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("DoNothing-Function");
 
-        public DoNothingFunction(@Nonnull String name, @Nonnull KeyExpression arguments) {
+        public DoNothingFunction(String name, KeyExpression arguments) {
             super(name, arguments);
         }
 
@@ -772,11 +771,10 @@ public class QueryToKeyMatcherTest {
             return Integer.MAX_VALUE;
         }
 
-        @Nonnull
         @Override
         public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record,
                                                                         @Nullable Message message,
-                                                                        @Nonnull Key.Evaluated arguments) {
+                                                                        Key.Evaluated arguments) {
             return Collections.singletonList(arguments);
         }
 
@@ -790,20 +788,18 @@ public class QueryToKeyMatcherTest {
             return getArguments().getColumnSize();
         }
 
-        @Nonnull
         @Override
-        public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+        public <S extends KeyExpressionVisitor.State, R> R expand(final KeyExpressionVisitor<S, R> visitor) {
             return visitor.visitExpression(this);
         }
 
-        @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+        public Value toValue(final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
+        public int planHash(final PlanHashable.PlanHashMode mode) {
             return super.basePlanHash(mode, BASE_HASH);
         }
 

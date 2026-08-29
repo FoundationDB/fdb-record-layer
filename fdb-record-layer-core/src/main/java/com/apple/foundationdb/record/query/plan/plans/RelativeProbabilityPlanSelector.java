@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.google.common.annotations.VisibleForTesting;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
@@ -40,21 +39,19 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public class RelativeProbabilityPlanSelector implements PlanSelector {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Relative-Probability-Plan-Selector");
-    @Nonnull
     List<Integer> probabilities;
-    @Nonnull
     Random random;
 
     /**
      * Create a new probability selector with the given probabilities list.
      * @param probabilities the list of probabilities. These should all add up to 100.
      */
-    public RelativeProbabilityPlanSelector(@Nonnull final List<Integer> probabilities) {
+    public RelativeProbabilityPlanSelector(final List<Integer> probabilities) {
         this(probabilities, ThreadLocalRandom.current());
     }
 
     @VisibleForTesting
-    RelativeProbabilityPlanSelector(@Nonnull final List<Integer> probabilities, @Nonnull final Random random) {
+    RelativeProbabilityPlanSelector(final List<Integer> probabilities, final Random random) {
         if (probabilities.isEmpty()) {
             throw new RecordCoreArgumentException("Probability selector should have at least one probability");
         }
@@ -67,7 +64,7 @@ public class RelativeProbabilityPlanSelector implements PlanSelector {
     }
 
     @Override
-    public int selectPlan(@Nonnull final List<RecordQueryPlan> plans) {
+    public int selectPlan(final List<RecordQueryPlan> plans) {
         int rand = random.nextInt(100) + 1;
         int sum = probabilities.get(0);
         int index = 0;
@@ -78,7 +75,7 @@ public class RelativeProbabilityPlanSelector implements PlanSelector {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, probabilities);
     }
 

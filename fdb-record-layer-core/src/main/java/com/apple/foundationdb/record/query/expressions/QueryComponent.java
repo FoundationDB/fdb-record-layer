@@ -31,8 +31,8 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -69,7 +69,7 @@ public interface QueryComponent extends PlanHashable {
      * null if this component cannot determine whether it should be included or not
      */
     @Nullable
-    default <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+    default <M extends Message> Boolean eval(FDBRecordStoreBase<M> store, EvaluationContext context,
                                              @Nullable FDBRecord<M> rec) {
         return evalMessage(store, context, rec, rec == null ? null : rec.getRecord());
     }
@@ -95,7 +95,7 @@ public interface QueryComponent extends PlanHashable {
      * null if this component cannot determine whether it should be included or not
      */
     @Nullable
-    <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+    <M extends Message> Boolean evalMessage(FDBRecordStoreBase<M> store, EvaluationContext context,
                                             @Nullable FDBRecord<M> rec, @Nullable Message message);
 
     /**
@@ -107,8 +107,7 @@ public interface QueryComponent extends PlanHashable {
      * @return a future that completes with whether the record should be included in the query result
      * @see #eval
      */
-    @Nonnull
-    default <M extends Message> CompletableFuture<Boolean> evalAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+    default <M extends Message> CompletableFuture<Boolean> evalAsync(FDBRecordStoreBase<M> store, EvaluationContext context,
                                                                      @Nullable FDBRecord<M> rec) {
         return evalMessageAsync(store, context, rec, rec == null ? null : rec.getRecord());
     }
@@ -123,8 +122,7 @@ public interface QueryComponent extends PlanHashable {
      * @param message the Protobuf message to evaluate against
      * @return a future that completes with whether the record should be included in the query result
      */
-    @Nonnull
-    default <M extends Message> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+    default <M extends Message> CompletableFuture<Boolean> evalMessageAsync(FDBRecordStoreBase<M> store, EvaluationContext context,
                                                                             @Nullable FDBRecord<M> rec, @Nullable Message message) {
         return CompletableFuture.completedFuture(evalMessage(store, context, rec, message));
     }
@@ -143,7 +141,7 @@ public interface QueryComponent extends PlanHashable {
      * @param descriptor a record type descriptor, or a submessage descriptor
      * @throws Query.InvalidExpressionException if the descriptor is not consistent with this component
      */
-    void validate(@Nonnull Descriptors.Descriptor descriptor);
+    void validate(Descriptors.Descriptor descriptor);
 
     /**
      * Expand this query component into a data flow graph. The returned graph represents an adequate representation
@@ -155,7 +153,7 @@ public interface QueryComponent extends PlanHashable {
      * @see com.apple.foundationdb.record.metadata.expressions.KeyExpression#expand
      */
     @API(API.Status.EXPERIMENTAL)
-    default GraphExpansion expand(@Nonnull Quantifier.ForEach baseQuantifier, @Nonnull Supplier<Quantifier.ForEach> outerQuantifierSupplier) {
+    default GraphExpansion expand(Quantifier.ForEach baseQuantifier, Supplier<Quantifier.ForEach> outerQuantifierSupplier) {
         return expand(baseQuantifier, outerQuantifierSupplier, Collections.emptyList());
     }
 
@@ -170,11 +168,9 @@ public interface QueryComponent extends PlanHashable {
      * @see com.apple.foundationdb.record.metadata.expressions.KeyExpression#expand
      */
     @API(API.Status.EXPERIMENTAL)
-    @Nonnull
-    GraphExpansion expand(@Nonnull Quantifier.ForEach baseQuantifier, @Nonnull Supplier<Quantifier.ForEach> outerQuantifierSupplier, @Nonnull List<String> fieldNamePrefix);
+    GraphExpansion expand(Quantifier.ForEach baseQuantifier, Supplier<Quantifier.ForEach> outerQuantifierSupplier, List<String> fieldNamePrefix);
 
-    @Nonnull
-    default QueryComponent withParameterRelationshipMap(@Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
+    default QueryComponent withParameterRelationshipMap(ParameterRelationshipGraph parameterRelationshipGraph) {
         return this;
     }
 }

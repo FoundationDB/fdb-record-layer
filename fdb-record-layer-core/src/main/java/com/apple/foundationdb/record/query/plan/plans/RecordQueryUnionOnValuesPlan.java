@@ -41,8 +41,8 @@ import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -60,15 +60,15 @@ public class RecordQueryUnionOnValuesPlan extends RecordQueryUnionPlan  implemen
     @Nullable
     private final List<ProvidedOrderingPart> comparisonKeyOrderingParts;
 
-    protected RecordQueryUnionOnValuesPlan(@Nonnull final PlanSerializationContext serializationContext,
-                                           @Nonnull final PRecordQueryUnionOnValuesPlan recordQueryUnionOnValuesPlanProto) {
+    protected RecordQueryUnionOnValuesPlan(final PlanSerializationContext serializationContext,
+                                           final PRecordQueryUnionOnValuesPlan recordQueryUnionOnValuesPlanProto) {
         super(serializationContext, Objects.requireNonNull(recordQueryUnionOnValuesPlanProto.getSuper()));
         this.comparisonKeyOrderingParts = null;
     }
 
-    public RecordQueryUnionOnValuesPlan(@Nonnull final List<Quantifier.Physical> quantifiers,
+    public RecordQueryUnionOnValuesPlan(final List<Quantifier.Physical> quantifiers,
                                         @Nullable final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
-                                        @Nonnull final List<? extends Value> comparisonKeyValues,
+                                        final List<? extends Value> comparisonKeyValues,
                                         final boolean isReverse,
                                         final boolean showComparisonKey) {
         super(quantifiers,
@@ -81,15 +81,13 @@ public class RecordQueryUnionOnValuesPlan extends RecordQueryUnionPlan  implemen
                 : ImmutableList.copyOf(comparisonKeyOrderingParts);
     }
 
-    @Nonnull
     @Override
     public ComparisonKeyFunction.OnValues getComparisonKeyFunction() {
         return (ComparisonKeyFunction.OnValues)super.getComparisonKeyFunction();
     }
 
-    @Nonnull
     @Override
-    public List<? extends Value> getRequiredValues(@Nonnull final CorrelationIdentifier newBaseAlias, @Nonnull final Type inputType) {
+    public List<? extends Value> getRequiredValues(final CorrelationIdentifier newBaseAlias, final Type inputType) {
         final var ruleSet = DefaultValueSimplificationRuleSet.instance();
         return getComparisonKeyValues().stream()
                 .map(comparisonKeyValue -> comparisonKeyValue.rebase(AliasMap.ofAliases(Quantifier.current(), newBaseAlias))
@@ -97,35 +95,30 @@ public class RecordQueryUnionOnValuesPlan extends RecordQueryUnionPlan  implemen
                 .collect(ImmutableList.toImmutableList());
     }
 
-    @Nonnull
     @Override
     public Set<KeyExpression> getRequiredFields() {
         throw new RecordCoreException("this plan does not support this getRequiredFields()");
     }
 
-    @Nonnull
     @Override
     public List<ProvidedOrderingPart> getComparisonKeyOrderingParts() {
         return Objects.requireNonNull(comparisonKeyOrderingParts);
     }
 
-    @Nonnull
     @Override
     public List<? extends Value> getComparisonKeyValues() {
         return getComparisonKeyFunction().getComparisonKeyValues();
     }
 
-    @Nonnull
     @Override
     public Set<Type> getDynamicTypes() {
         return getComparisonKeyValues().stream().flatMap(comparisonKeyValue -> comparisonKeyValue.getDynamicTypes().stream()).collect(ImmutableSet.toImmutableSet());
     }
 
-    @Nonnull
     @Override
-    public RecordQueryUnionOnValuesPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryUnionOnValuesPlan translateCorrelations(final TranslationMap translationMap,
                                                               final boolean shouldSimplifyValues,
-                                                              @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                              final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryUnionOnValuesPlan(Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers),
                 comparisonKeyOrderingParts,
                 getComparisonKeyValues(),
@@ -133,9 +126,8 @@ public class RecordQueryUnionOnValuesPlan extends RecordQueryUnionPlan  implemen
                 showComparisonKey);
     }
 
-    @Nonnull
     @Override
-    public RecordQueryUnionOnValuesPlan withChildrenReferences(@Nonnull final List<? extends Reference> newChildren) {
+    public RecordQueryUnionOnValuesPlan withChildrenReferences(final List<? extends Reference> newChildren) {
         return new RecordQueryUnionOnValuesPlan(
                 newChildren.stream()
                         .map(Quantifier::physical)
@@ -146,29 +138,25 @@ public class RecordQueryUnionOnValuesPlan extends RecordQueryUnionPlan  implemen
                 showComparisonKey);
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryUnionOnValuesPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryUnionOnValuesPlan toProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryUnionOnValuesPlan.newBuilder()
                 .setSuper(toRecordQueryUnionPlanProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setUnionOnValuesPlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQueryUnionOnValuesPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                         @Nonnull final PRecordQueryUnionOnValuesPlan recordQueryUnionOnValuesPlanProto) {
+    public static RecordQueryUnionOnValuesPlan fromProto(final PlanSerializationContext serializationContext,
+                                                         final PRecordQueryUnionOnValuesPlan recordQueryUnionOnValuesPlanProto) {
         return new RecordQueryUnionOnValuesPlan(serializationContext, recordQueryUnionOnValuesPlanProto);
     }
 
-    @Nonnull
-    public static RecordQueryUnionOnValuesPlan union(@Nonnull final List<Quantifier.Physical> quantifiers,
-                                                     @Nonnull final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
+    public static RecordQueryUnionOnValuesPlan union(final List<Quantifier.Physical> quantifiers,
+                                                     final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
                                                      final boolean isReverse,
                                                      final boolean showComparisonKey) {
         return new RecordQueryUnionOnValuesPlan(quantifiers,
@@ -183,16 +171,14 @@ public class RecordQueryUnionOnValuesPlan extends RecordQueryUnionPlan  implemen
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryUnionOnValuesPlan, RecordQueryUnionOnValuesPlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryUnionOnValuesPlan> getProtoMessageClass() {
             return PRecordQueryUnionOnValuesPlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryUnionOnValuesPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                      @Nonnull final PRecordQueryUnionOnValuesPlan recordQueryUnionOnValuesPlanProto) {
+        public RecordQueryUnionOnValuesPlan fromProto(final PlanSerializationContext serializationContext,
+                                                      final PRecordQueryUnionOnValuesPlan recordQueryUnionOnValuesPlanProto) {
             return RecordQueryUnionOnValuesPlan.fromProto(serializationContext, recordQueryUnionOnValuesPlanProto);
         }
     }

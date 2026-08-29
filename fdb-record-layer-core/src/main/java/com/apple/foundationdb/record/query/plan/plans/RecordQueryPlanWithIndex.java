@@ -39,8 +39,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -59,51 +59,44 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan, RecordQueryPl
      *
      * @return the name of the index used by this plan
      */
-    @Nonnull
     String getIndexName();
 
-    @Nonnull
     IndexScanType getScanType();
 
-    @Nonnull
     @Override
-    RecordQueryPlanWithIndex translateCorrelations(@Nonnull TranslationMap translationMap,
+    RecordQueryPlanWithIndex translateCorrelations(TranslationMap translationMap,
                                                    boolean shouldSimplifyValues,
-                                                   @Nonnull List<? extends Quantifier> translatedQuantifiers);
+                                                   List<? extends Quantifier> translatedQuantifiers);
 
-    @Nonnull
-    <M extends Message> RecordCursor<IndexEntry> executeEntries(@Nonnull FDBRecordStoreBase<M> store,
-                                                                @Nonnull EvaluationContext context,
+    <M extends Message> RecordCursor<IndexEntry> executeEntries(FDBRecordStoreBase<M> store,
+                                                                EvaluationContext context,
                                                                 @Nullable byte[] continuation,
-                                                                @Nonnull ExecuteProperties executeProperties);
+                                                                ExecuteProperties executeProperties);
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CloseResource")
-    default <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull FDBRecordStoreBase<M> store,
-                                                                      @Nonnull EvaluationContext evaluationContext,
+    default <M extends Message> RecordCursor<QueryResult> executePlan(FDBRecordStoreBase<M> store,
+                                                                      EvaluationContext evaluationContext,
                                                                       @Nullable byte[] continuation,
-                                                                      @Nonnull ExecuteProperties executeProperties) {
+                                                                      ExecuteProperties executeProperties) {
         final Function<byte[], RecordCursor<IndexEntry>> entryCursorFunction =
                 nestedContinuation -> executeEntries(store, evaluationContext, nestedContinuation, executeProperties);
         return fetchIndexRecords(store, evaluationContext, entryCursorFunction, continuation, executeProperties)
                 .map(queriedRecord -> QueryResult.fromQueriedRecord(getResultValue().getResultType(), evaluationContext, queriedRecord));
     }
 
-    @Nonnull
-    default <M extends Message> RecordCursor<FDBQueriedRecord<M>> fetchIndexRecords(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                                    @Nonnull final EvaluationContext evaluationContext,
-                                                                                    @Nonnull final Function<byte[], RecordCursor<IndexEntry>> entryCursorFunction,
+    default <M extends Message> RecordCursor<FDBQueriedRecord<M>> fetchIndexRecords(final FDBRecordStoreBase<M> store,
+                                                                                    final EvaluationContext evaluationContext,
+                                                                                    final Function<byte[], RecordCursor<IndexEntry>> entryCursorFunction,
                                                                                     @Nullable byte[] continuation,
-                                                                                    @Nonnull final ExecuteProperties executeProperties) {
+                                                                                    final ExecuteProperties executeProperties) {
         return getFetchIndexRecords().fetchIndexRecords(store, entryCursorFunction.apply(continuation), executeProperties);
     }
 
-    @Nonnull
     RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords getFetchIndexRecords();
 
     @Override
-    default RecordQueryPlanWithIndex strictlySorted(@Nonnull FinalMemoizer memoizer) {
+    default RecordQueryPlanWithIndex strictlySorted(FinalMemoizer memoizer) {
         return this;
     }
 
@@ -113,9 +106,8 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan, RecordQueryPl
      * @return the rewritten planner graph that models the index as a separate node that is connected to the
      *         actual index scan plan node.
      */
-    @Nonnull
     @Override
-    default PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    default PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         Verify.verify(childGraphs.isEmpty());
         return createIndexPlannerGraph(this,
                 NodeInfo.INDEX_SCAN_OPERATOR,
@@ -134,11 +126,10 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan, RecordQueryPl
      * @param additionalAttributeMap additional attributes to be kept with the index scan node
      * @return a new planner graph representing the index scan
      */
-    @Nonnull
-    PlannerGraph createIndexPlannerGraph(@Nonnull RecordQueryPlan identity,
-                                         @Nonnull NodeInfo nodeInfo,
-                                         @Nonnull List<String> additionalDetails,
-                                         @Nonnull Map<String, Attribute> additionalAttributeMap);
+    PlannerGraph createIndexPlannerGraph(RecordQueryPlan identity,
+                                         NodeInfo nodeInfo,
+                                         List<String> additionalDetails,
+                                         Map<String, Attribute> additionalAttributeMap);
 
     /**
      * Whether this plan is appropriate for being applied with optimization by {@link RecordQueryCoveringIndexPlan},

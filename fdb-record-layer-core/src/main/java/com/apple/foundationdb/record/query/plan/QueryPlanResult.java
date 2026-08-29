@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 
-import javax.annotation.Nonnull;
 
 /**
  * The result of planning a query.
@@ -34,27 +33,23 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.UNSTABLE)
 public class QueryPlanResult implements PlanHashable {
-    @Nonnull
     private final RecordQueryPlan plan;
-    @Nonnull
     private final QueryPlanInfo planInfo;
 
-    public QueryPlanResult(@Nonnull final RecordQueryPlan plan) {
+    public QueryPlanResult(final RecordQueryPlan plan) {
         this.plan = plan;
         planInfo = QueryPlanInfo.empty();
     }
 
-    public QueryPlanResult(@Nonnull final RecordQueryPlan plan, @Nonnull final QueryPlanInfo planInfo) {
+    public QueryPlanResult(final RecordQueryPlan plan, final QueryPlanInfo planInfo) {
         this.plan = plan;
         this.planInfo = planInfo;
     }
 
-    @Nonnull
     public RecordQueryPlan getPlan() {
         return plan;
     }
 
-    @Nonnull
     public QueryPlanInfo getPlanInfo() {
         return planInfo;
     }
@@ -65,7 +60,7 @@ public class QueryPlanResult implements PlanHashable {
      * @return plan hash for the underlying plan.
      */
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return plan.planHash(mode);
     }
 

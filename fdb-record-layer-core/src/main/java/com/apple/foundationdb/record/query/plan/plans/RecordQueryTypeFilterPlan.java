@@ -59,8 +59,8 @@ import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -78,39 +78,31 @@ public class RecordQueryTypeFilterPlan extends AbstractRelationalExpressionWithC
 
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryTypeFilterPlan.class);
 
-    @Nonnull
     private final Quantifier.Physical inner;
-    @Nonnull
     private final Collection<String> recordTypes;
-    @Nonnull
     private final Type resultType;
-    @Nonnull
     private static final Set<StoreTimer.Count> inCounts = ImmutableSet.of(FDBStoreTimer.Counts.QUERY_FILTER_GIVEN, FDBStoreTimer.Counts.QUERY_TYPE_FILTER_PLAN_GIVEN);
-    @Nonnull
     private static final Set<StoreTimer.Event> duringEvents = Collections.singleton(FDBStoreTimer.Events.QUERY_TYPE_FILTER);
-    @Nonnull
     private static final Set<StoreTimer.Count> successCounts = ImmutableSet.of(FDBStoreTimer.Counts.QUERY_FILTER_PASSED, FDBStoreTimer.Counts.QUERY_TYPE_FILTER_PLAN_PASSED);
-    @Nonnull
     private static final Set<StoreTimer.Count> failureCounts = Collections.singleton(FDBStoreTimer.Counts.QUERY_DISCARDED);
 
     @HeuristicPlanner
-    public RecordQueryTypeFilterPlan(@Nonnull RecordQueryPlan inner, @Nonnull Collection<String> recordTypes) {
+    public RecordQueryTypeFilterPlan(RecordQueryPlan inner, Collection<String> recordTypes) {
         this(Quantifier.physical(Reference.plannedOf(Debugger.verifyHeuristicPlanner(inner))), recordTypes, new Type.Any());
     }
 
-    public RecordQueryTypeFilterPlan(@Nonnull Quantifier.Physical inner, @Nonnull Collection<String> recordTypes, @Nonnull Type resultType) {
+    public RecordQueryTypeFilterPlan(Quantifier.Physical inner, Collection<String> recordTypes, Type resultType) {
         this.inner = inner;
         this.recordTypes = recordTypes;
         this.resultType = resultType;
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings({"PMD.CloseResource", "resource"})
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
         final RecordCursor<QueryResult> results =
                 getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
 
@@ -134,42 +126,36 @@ public class RecordQueryTypeFilterPlan extends AbstractRelationalExpressionWithC
         return getInnerPlan().isReverse();
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(this.inner);
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
-    public RecordQueryTypeFilterPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryTypeFilterPlan translateCorrelations(final TranslationMap translationMap,
                                                            final boolean shouldSimplifyValues,
-                                                           @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                           final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryTypeFilterPlan(
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 getRecordTypes(),
                 resultType);
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
+    public RecordQueryPlanWithChild withChild(final Reference childRef) {
         return new RecordQueryTypeFilterPlan(Quantifier.physical(childRef, inner.getAlias()), getRecordTypes(), resultType);
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return QuantifiedObjectValue.of(inner.getAlias(), resultType);
@@ -192,7 +178,7 @@ public class RecordQueryTypeFilterPlan extends AbstractRelationalExpressionWithC
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return getInnerPlan().planHash(mode) + stringHashUnordered(recordTypes);
@@ -203,19 +189,16 @@ public class RecordQueryTypeFilterPlan extends AbstractRelationalExpressionWithC
         }
     }
 
-    @Nonnull
     public RecordQueryPlan getInnerPlan() {
         return inner.getRangesOverPlan();
     }
 
     @Override
-    @Nonnull
     public RecordQueryPlan getChild() {
         return getInnerPlan();
     }
 
     @Override
-    @Nonnull
     public Collection<String> getRecordTypes() {
         return recordTypes;
     }
@@ -237,9 +220,8 @@ public class RecordQueryTypeFilterPlan extends AbstractRelationalExpressionWithC
      * @return the rewritten planner graph that models the filter as a node that uses the expression attribute
      *         to depict the record types this operator filters.
      */
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.TYPE_FILTER_OPERATOR,
@@ -251,9 +233,8 @@ public class RecordQueryTypeFilterPlan extends AbstractRelationalExpressionWithC
                 childGraphs);
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryTypeFilterPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryTypeFilterPlan toProto(final PlanSerializationContext serializationContext) {
         final var builder = PRecordQueryTypeFilterPlan.newBuilder()
                 .setInner(inner.toProto(serializationContext));
         for (final String recordType : recordTypes) {
@@ -263,15 +244,13 @@ public class RecordQueryTypeFilterPlan extends AbstractRelationalExpressionWithC
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setTypeFilterPlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQueryTypeFilterPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                      @Nonnull final PRecordQueryTypeFilterPlan recordQueryTypeFilterPlanProto) {
+    public static RecordQueryTypeFilterPlan fromProto(final PlanSerializationContext serializationContext,
+                                                      final PRecordQueryTypeFilterPlan recordQueryTypeFilterPlanProto) {
         final Quantifier.Physical q =
                 Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryTypeFilterPlanProto.getInner()));
         final ImmutableSet.Builder<String> recordTypesBuilder = ImmutableSet.builder();
@@ -281,7 +260,7 @@ public class RecordQueryTypeFilterPlan extends AbstractRelationalExpressionWithC
         return new RecordQueryTypeFilterPlan(q, recordTypesBuilder.build(), Type.fromTypeProto(serializationContext, Objects.requireNonNull(recordQueryTypeFilterPlanProto.getResultType())));
     }
 
-    private static int stringHashUnordered(@Nonnull Iterable<String> strings) {
+    private static int stringHashUnordered(Iterable<String> strings) {
         // TODO just use AbstractSet.hashCode() instead which prevents the sorting. We need plan hash rolling for that.
         final ArrayList<Integer> hashes = new ArrayList<>();
         for (String str : strings) {
@@ -296,16 +275,14 @@ public class RecordQueryTypeFilterPlan extends AbstractRelationalExpressionWithC
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryTypeFilterPlan, RecordQueryTypeFilterPlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryTypeFilterPlan> getProtoMessageClass() {
             return PRecordQueryTypeFilterPlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryTypeFilterPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                   @Nonnull final PRecordQueryTypeFilterPlan recordQueryTypeFilterPlanProto) {
+        public RecordQueryTypeFilterPlan fromProto(final PlanSerializationContext serializationContext,
+                                                   final PRecordQueryTypeFilterPlan recordQueryTypeFilterPlanProto) {
             return RecordQueryTypeFilterPlan.fromProto(serializationContext, recordQueryTypeFilterPlanProto);
         }
     }
