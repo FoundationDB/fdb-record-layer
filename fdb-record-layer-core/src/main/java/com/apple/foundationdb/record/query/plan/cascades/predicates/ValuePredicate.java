@@ -46,8 +46,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -60,43 +59,37 @@ import java.util.function.Supplier;
  */
 @API(API.Status.EXPERIMENTAL)
 public class ValuePredicate extends AbstractQueryPredicate implements PredicateWithValue, PredicateWithComparisons {
-    @Nonnull
     private final Value value;
-    @Nonnull
     private final Comparison comparison;
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Boolean> isIndexOnlySupplier = Suppliers.memoize(() -> getValue().isIndexOnly());
 
-    private ValuePredicate(@Nonnull final PlanSerializationContext serializationContext,
-                           @Nonnull final PValuePredicate valuePredicate) {
+    private ValuePredicate(final PlanSerializationContext serializationContext,
+                           final PValuePredicate valuePredicate) {
         super(serializationContext, Objects.requireNonNull(valuePredicate.getSuper()));
         this.value = Value.fromValueProto(serializationContext, Objects.requireNonNull(valuePredicate.getValue()));
         this.comparison = Comparison.fromComparisonProto(serializationContext, Objects.requireNonNull(valuePredicate.getComparison()));
     }
 
-    public ValuePredicate(@Nonnull final Value value, @Nonnull final Comparison comparison) {
+    public ValuePredicate(final Value value, final Comparison comparison) {
         super(false);
         this.value = value;
         this.comparison = comparison;
     }
 
-    @Nonnull
     public Comparison getComparison() {
         return comparison;
     }
 
-    @Nonnull
     @Override
     public List<Comparison> getComparisons() {
         return ImmutableList.of(getComparison());
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public Optional<PredicateWithValue> translateValueAndComparisonsMaybe(@Nonnull final Function<Value, Optional<Value>> valueTranslator,
-                                                                          @Nonnull final Function<Comparison, Optional<Comparison>> comparisonTranslator) {
+    public Optional<PredicateWithValue> translateValueAndComparisonsMaybe(final Function<Value, Optional<Value>> valueTranslator,
+                                                                          final Function<Comparison, Optional<Comparison>> comparisonTranslator) {
         final var newValueOptional = Verify.verifyNotNull(valueTranslator.apply(this.getValue()));
         if (newValueOptional.isEmpty()) {
             return Optional.empty();
@@ -111,21 +104,19 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
                 });
     }
 
-    @Nonnull
     @Override
     public Value getValue() {
         return value;
     }
 
-    @Nonnull
     @Override
-    public ValuePredicate withValue(@Nonnull final Value value) {
+    public ValuePredicate withValue(final Value value) {
         return new ValuePredicate(value, comparison);
     }
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Boolean eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         return comparison.eval(store, context, value.eval(store, context));
     }
 
@@ -134,7 +125,6 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
         return isIndexOnlySupplier.get();
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         final var builder = ImmutableSet.<CorrelationIdentifier>builder();
@@ -143,10 +133,9 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
         return builder.build();
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public QueryPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap, final boolean shouldSimplifyValues) {
+    public QueryPredicate translateLeafPredicate(final TranslationMap translationMap, final boolean shouldSimplifyValues) {
         final var translatedValue = value.translateCorrelations(translationMap, shouldSimplifyValues);
         final Comparison newComparison;
         if (comparison.getCorrelatedTo().stream().anyMatch(translationMap::containsSourceAlias)) {
@@ -182,9 +171,8 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
         return Objects.hash(value.semanticHashCode(), comparison.semanticHashCode());
     }
 
-    @Nonnull
     @Override
-    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final ValueEquivalence valueEquivalence) {
+    public ConstrainedBoolean equalsWithoutChildren(final QueryPredicate other, final ValueEquivalence valueEquivalence) {
         return PredicateWithValue.super.equalsWithoutChildren(other, valueEquivalence)
                 .compose(ignored -> {
                     final ValuePredicate that = (ValuePredicate)other;
@@ -197,33 +185,30 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, value, comparison);
     }
 
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         Verify.verify(Iterables.isEmpty(explainSuppliers));
         return ExplainTokensWithPrecedence.of(Precedence.COMPARISONS,
                 Precedence.COMPARISONS.parenthesizeChild(value.explain()).addWhitespace()
                         .addNested(Precedence.COMPARISONS.parenthesizeChild(comparison.explain())));
     }
 
-    @Nonnull
     @Override
-    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public Message toProto(final PlanSerializationContext serializationContext) {
         return toValuePredicateProto(serializationContext);
     }
 
-    @Nonnull
     @Override
-    public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PQueryPredicate toQueryPredicateProto(final PlanSerializationContext serializationContext) {
         return PQueryPredicate.newBuilder().setValuePredicate(toValuePredicateProto(serializationContext)).build();
     }
 
-    public PValuePredicate toValuePredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValuePredicate toValuePredicateProto(final PlanSerializationContext serializationContext) {
         return PValuePredicate.newBuilder()
                 .setSuper(toAbstractQueryPredicateProto(serializationContext))
                 .setValue(value.toValueProto(serializationContext))
@@ -231,8 +216,7 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
                 .build();
     }
 
-    @Nonnull
-    public static ValuePredicate fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PValuePredicate valuePredicateProto) {
+    public static ValuePredicate fromProto(final PlanSerializationContext serializationContext, final PValuePredicate valuePredicateProto) {
         return new ValuePredicate(serializationContext, valuePredicateProto);
     }
 
@@ -241,16 +225,14 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PValuePredicate, ValuePredicate> {
-        @Nonnull
         @Override
         public Class<PValuePredicate> getProtoMessageClass() {
             return PValuePredicate.class;
         }
 
-        @Nonnull
         @Override
-        public ValuePredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                        @Nonnull final PValuePredicate valuePredicateProto) {
+        public ValuePredicate fromProto(final PlanSerializationContext serializationContext,
+                                        final PValuePredicate valuePredicateProto) {
             return ValuePredicate.fromProto(serializationContext, valuePredicateProto);
         }
     }

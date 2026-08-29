@@ -78,8 +78,7 @@ import com.google.common.collect.Streams;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -94,7 +93,6 @@ import java.util.function.Supplier;
 @API(API.Status.EXPERIMENTAL)
 public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEquivalence<Value>, PlanHashable, Typed, Narrowable<Value>, PlanSerializable {
 
-    @Nonnull
     @Override
     default Value getThis() {
         return this;
@@ -104,7 +102,6 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * Returns the {@link Type} of the scalar value output.
      * @return The {@link Type} of the scalar value output.
      */
-    @Nonnull
     @Override
     default Type getResultType() {
         return Type.primitiveType(Type.TypeCode.UNKNOWN);
@@ -120,7 +117,6 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * @return A set of dynamically-generated {@link Type} by this {@link Value} and all of its children.
      */
     @SuppressWarnings("java:S4738")
-    @Nonnull
     default Set<Type> getDynamicTypes() {
         return fold(p -> {
             final Type resultType = p.getResultType();
@@ -143,7 +139,6 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      *
      * @return a human-friendly textual representation of this {@link Value}.
      */
-    @Nonnull
     default ExplainTokensWithPrecedence explain() {
         final var explainFunctions =
                 Streams.stream(getChildren())
@@ -152,8 +147,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
         return explain(explainFunctions);
     }
 
-    @Nonnull
-    ExplainTokensWithPrecedence explain(@Nonnull Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers);
+    ExplainTokensWithPrecedence explain(Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers);
 
     /**
      * Checks whether this {@link Value} is compile-time constant.
@@ -187,12 +181,12 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      */
     @Nullable
     @SuppressWarnings({"java:S2637", "ConstantConditions"})
-    default Object evalWithoutStore(@Nonnull final EvaluationContext context) {
+    default Object evalWithoutStore(final EvaluationContext context) {
         return eval(null, context);
     }
 
     @Nullable
-    <M extends Message> Object eval(@Nullable FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context);
+    <M extends Message> Object eval(@Nullable FDBRecordStoreBase<M> store, EvaluationContext context);
 
     /**
      * Method to create a {@link QueryPredicate} that is based on this value and a
@@ -201,8 +195,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * @param comparison comparison to relate this value to
      * @return a new {@link ValuePredicate} using the passed in {@code comparison}
      */
-    @Nonnull
-    default ValuePredicate withComparison(@Nonnull Comparisons.Comparison comparison) {
+    default ValuePredicate withComparison(Comparisons.Comparison comparison) {
         return new ValuePredicate(this, comparison);
     }
 
@@ -213,8 +206,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      *        {@link com.apple.foundationdb.record.query.plan.cascades.MatchCandidate} this placeholder will be a part of.
      * @return a new {@link PredicateWithValueAndRanges} that has {@code parameterAlias} alias.
      */
-    @Nonnull
-    default Placeholder asPlaceholder(@Nonnull final CorrelationIdentifier parameterAlias) {
+    default Placeholder asPlaceholder(final CorrelationIdentifier parameterAlias) {
         return Placeholder.newInstanceWithoutRanges(this, parameterAlias);
     }
 
@@ -275,7 +267,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * @param otherValue other value to check if this value is functionally dependent on it
      * @return {@code true} if this value is definitely dependent on {@code otherValue}
      */
-    default boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
+    default boolean isFunctionallyDependentOn(final Value otherValue) {
         if (!(otherValue instanceof QuantifiedValue)) {
             return false;
         }
@@ -320,31 +312,26 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      *
      * @see RowNumberValue#transformComparisonMaybe(Comparisons.Type, Value) for the primary implementation example
      */
-    @Nonnull
-    default Optional<QueryPredicate> transformComparisonMaybe(@Nonnull final Comparisons.Type comparisonType,
-                                                              @Nonnull final Value comparand) {
+    default Optional<QueryPredicate> transformComparisonMaybe(final Comparisons.Type comparisonType,
+                                                              final Value comparand) {
         return Optional.empty();
     }
 
-    @Nonnull
     Set<CorrelationIdentifier> getCorrelatedToWithoutChildren();
 
-    @Nonnull
     @Override
-    default Value rebase(@Nonnull final AliasMap aliasMap) {
+    default Value rebase(final AliasMap aliasMap) {
         return translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap));
     }
 
-    @Nonnull
-    default Value translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean shouldSimplify) {
+    default Value translateCorrelations(final TranslationMap translationMap, final boolean shouldSimplify) {
         final var newValue = translateCorrelations(translationMap);
         return shouldSimplify ? newValue.simplify(EvaluationContext.empty(), AliasMap.emptyMap(),
                 newValue.getCorrelatedTo()) : newValue;
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    default Value translateCorrelations(@Nonnull final TranslationMap translationMap) {
+    default Value translateCorrelations(final TranslationMap translationMap) {
         if (translationMap.definesOnlyIdentities()) {
             return this;
         }
@@ -367,8 +354,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
         }, false).orElseThrow(() -> new RecordCoreException("unable to map tree"));
     }
 
-    @Nonnull
-    default <V extends Value> V narrow(@Nonnull Class<V> narrowedClass) {
+    default <V extends Value> V narrow(Class<V> narrowedClass) {
         return narrowedClass.cast(this);
     }
 
@@ -382,7 +368,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     default boolean semanticEquals(@Nullable final Object other,
-                                   @Nonnull final AliasMap aliasMap) {
+                                   final AliasMap aliasMap) {
         if (other == null) {
             return false;
         }
@@ -406,11 +392,10 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * @return a boolean monad {@link ConstrainedBoolean} that is either effectively {@code false} or {@code true}
      *         under the assumption that a contained query plan constraint is satisfied
      */
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     default ConstrainedBoolean semanticEquals(@Nullable final Object other,
-                                              @Nonnull final ValueEquivalence valueEquivalence) {
+                                              final ValueEquivalence valueEquivalence) {
         if (this == other) {
             return ConstrainedBoolean.alwaysTrue();
         }
@@ -440,10 +425,9 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
         return thisOther;
     }
 
-    @Nonnull
     @Override
-    default ConstrainedBoolean semanticEqualsTyped(@Nonnull final Value other,
-                                                   @Nonnull final ValueEquivalence valueEquivalence) {
+    default ConstrainedBoolean semanticEqualsTyped(final Value other,
+                                                   final ValueEquivalence valueEquivalence) {
         final var equalsWithoutChildren = equalsWithoutChildren(other);
         if (equalsWithoutChildren.isFalse()) {
             return ConstrainedBoolean.falseValue();
@@ -475,9 +459,8 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
         return constraint;
     }
 
-    @Nonnull
     @SuppressWarnings({"unused", "PMD.CompareObjectsWithEquals"})
-    default ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
+    default ConstrainedBoolean equalsWithoutChildren(final Value other) {
         if (this == other) {
             return ConstrainedBoolean.alwaysTrue();
         }
@@ -485,17 +468,15 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
         return other.getClass() == getClass() ? ConstrainedBoolean.alwaysTrue() : ConstrainedBoolean.falseValue();
     }
 
-    default boolean canResultInType(@Nonnull final Type type) {
+    default boolean canResultInType(final Type type) {
         return false;
     }
 
-    @Nonnull
-    default Value with(@Nonnull final Type type) {
+    default Value with(final Type type) {
         throw new RecordCoreException("cannot promote to type"); // TODO coerce type here
     }
 
-    @Nonnull
-    default Optional<Value> overrideTypeMaybe(@Nonnull final Type type) {
+    default Optional<Value> overrideTypeMaybe(final Type type) {
         if (canResultInType(type)) {
             return Optional.of(with(type));
         }
@@ -510,11 +491,10 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * @param constantAliases a set of aliases that are considered to be constant
      * @return a new (simplified) value
      */
-    @Nonnull
-    default Value simplify(@Nonnull final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> ruleSet,
-                           @Nonnull final EvaluationContext evaluationContext,
-                           @Nonnull final AliasMap aliasMap,
-                           @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+    default Value simplify(final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> ruleSet,
+                           final EvaluationContext evaluationContext,
+                           final AliasMap aliasMap,
+                           final Set<CorrelationIdentifier> constantAliases) {
         return Simplification.simplify(this, evaluationContext, aliasMap, constantAliases, ruleSet)
                 .getUnconstrained();
     }
@@ -526,10 +506,9 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * @param constantAliases a set of aliases that are considered to be constant
      * @return a new (simplified) value
      */
-    @Nonnull
-    default Value simplify(@Nonnull final EvaluationContext evaluationContext,
-                           @Nonnull final AliasMap aliasMap,
-                           @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+    default Value simplify(final EvaluationContext evaluationContext,
+                           final AliasMap aliasMap,
+                           final Set<CorrelationIdentifier> constantAliases) {
         return simplify(evaluationContext, aliasMap, constantAliases, DefaultValueSimplificationRuleSet.instance());
     }
 
@@ -541,11 +520,10 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * @param ruleSet the rule set used to simplify the {@link Value} that is passed in
      * @return a new (simplified) value
      */
-    @Nonnull
-    default Value simplify(@Nonnull final EvaluationContext evaluationContext,
-                           @Nonnull final AliasMap aliasMap,
-                           @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                           @Nonnull final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> ruleSet) {
+    default Value simplify(final EvaluationContext evaluationContext,
+                           final AliasMap aliasMap,
+                           final Set<CorrelationIdentifier> constantAliases,
+                           final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> ruleSet) {
         return Simplification.simplify(this, evaluationContext, aliasMap, constantAliases,
                 ruleSet).getUnconstrained();
     }
@@ -565,12 +543,11 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * @return a map from {@link Value} to {@link Value} that related the values that the called passed in with the
      *         resulting values of the pull-up logic
      */
-    @Nonnull
-    default Multimap<Value, Value> pullUp(@Nonnull final Iterable<? extends Value> toBePulledUpValues,
-                                          @Nonnull final EvaluationContext evaluationContext,
-                                          @Nonnull final AliasMap aliasMap,
-                                          @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                          @Nonnull final CorrelationIdentifier upperBaseAlias) {
+    default Multimap<Value, Value> pullUp(final Iterable<? extends Value> toBePulledUpValues,
+                                          final EvaluationContext evaluationContext,
+                                          final AliasMap aliasMap,
+                                          final Set<CorrelationIdentifier> constantAliases,
+                                          final CorrelationIdentifier upperBaseAlias) {
         final var resultPair =
                 Simplification.compute(this, evaluationContext, toBePulledUpValues, aliasMap, constantAliases,
                         PullUpValueRuleSet.ofPullUpValueRules());
@@ -604,13 +581,12 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * @param upperBaseAlias an alias to be treated as <em>current</em> alias
      * @return a list of resulting {@link Value}s of the push-down logic
      */
-    @Nonnull
-    default List<Value> pushDown(@Nonnull final Iterable<? extends Value> toBePushedDownValues,
-                                 @Nonnull final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> simplificationRuleSet,
-                                 @Nonnull final EvaluationContext evaluationContext,
-                                 @Nonnull final AliasMap aliasMap,
-                                 @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                 @Nonnull final CorrelationIdentifier upperBaseAlias) {
+    default List<Value> pushDown(final Iterable<? extends Value> toBePushedDownValues,
+                                 final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> simplificationRuleSet,
+                                 final EvaluationContext evaluationContext,
+                                 final AliasMap aliasMap,
+                                 final Set<CorrelationIdentifier> constantAliases,
+                                 final CorrelationIdentifier upperBaseAlias) {
         return Streams.stream(toBePushedDownValues)
                 .map(toBePushedDownValue ->
                         toBePushedDownValue.replaceLeavesMaybe(value -> {
@@ -663,13 +639,12 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      *         that represents the proper value tree that extracts and transforms the index data to be inserted into
      *         a partial record.
      */
-    @Nonnull
-    default Optional<NonnullPair<FieldValue, Value>> extractFromIndexEntryMaybe(@Nonnull final Value baseValue,
-                                                                                @Nonnull final EvaluationContext evaluationContext,
-                                                                                @Nonnull final AliasMap aliasMap,
-                                                                                @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                                                                @Nonnull final IndexKeyValueToPartialRecord.TupleSource source,
-                                                                                @Nonnull final ImmutableIntArray ordinalPath) {
+    default Optional<NonnullPair<FieldValue, Value>> extractFromIndexEntryMaybe(final Value baseValue,
+                                                                                final EvaluationContext evaluationContext,
+                                                                                final AliasMap aliasMap,
+                                                                                final Set<CorrelationIdentifier> constantAliases,
+                                                                                final IndexKeyValueToPartialRecord.TupleSource source,
+                                                                                final ImmutableIntArray ordinalPath) {
         final var resultPair =
                 Simplification.compute(this, evaluationContext, baseValue, aliasMap, constantAliases,
                         ExtractFromIndexKeyValueRuleSet.ofIndexKeyToPartialRecordValueRules());
@@ -725,12 +700,11 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * @param <P> the type variable for ordering parts (extends {@link OrderingPart})
      * @return a new {@link OrderingPart} of type {@code P}
      */
-    @Nonnull
-    default <O extends SortOrder, P extends OrderingPart<O>> P deriveOrderingPart(@Nonnull final EvaluationContext evaluationContext,
-                                                                                  @Nonnull final AliasMap aliasMap,
-                                                                                  @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                                                                  @Nonnull final OrderingPartCreator<O, P> orderingPartCreator,
-                                                                                  @Nonnull final OrderingValueComputationRuleSet<O, P> ruleSet) {
+    default <O extends SortOrder, P extends OrderingPart<O>> P deriveOrderingPart(final EvaluationContext evaluationContext,
+                                                                                  final AliasMap aliasMap,
+                                                                                  final Set<CorrelationIdentifier> constantAliases,
+                                                                                  final OrderingPartCreator<O, P> orderingPartCreator,
+                                                                                  final OrderingValueComputationRuleSet<O, P> ruleSet) {
         final var resultPair =
                 Objects.requireNonNull(
                         Simplification.compute(this, evaluationContext, orderingPartCreator, aliasMap,
@@ -759,9 +733,8 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * @return an optional, if not empty, containing a {@link ComparisonCompensation} that can be used to transform
      *         the right hand side of the query predicate (the comparison) accordingly.
      */
-    @Nonnull
-    default Optional<NonnullPair<ComparisonCompensation, QueryPlanConstraint>> matchAndCompensateComparisonMaybe(@Nonnull final Value candidateValue,
-                                                                                                                 @Nonnull final ValueEquivalence valueEquivalence) {
+    default Optional<NonnullPair<ComparisonCompensation, QueryPlanConstraint>> matchAndCompensateComparisonMaybe(final Value candidateValue,
+                                                                                                                 final ValueEquivalence valueEquivalence) {
         return Optional.ofNullable(
                 candidateValue.foldNullable(Functions.identity(),
                         (otherCurrent, childrenResults) -> {
@@ -784,27 +757,25 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
                         }));
     }
 
-    @Nonnull
-    PValue toValueProto(@Nonnull PlanSerializationContext serializationContext);
+    PValue toValueProto(PlanSerializationContext serializationContext);
 
-    @Nonnull
-    static Value fromValueProto(@Nonnull final PlanSerializationContext serializationContext,
-                                @Nonnull final PValue valueProto) {
+    static Value fromValueProto(final PlanSerializationContext serializationContext,
+                                final PValue valueProto) {
         return (Value)PlanSerialization.dispatchFromProtoContainer(serializationContext, valueProto);
     }
 
-    static List<Value> fromKeyExpressions(@Nonnull final Collection<? extends KeyExpression> expressions, @Nonnull final Quantifier quantifier) {
+    static List<Value> fromKeyExpressions(final Collection<? extends KeyExpression> expressions, final Quantifier quantifier) {
         return fromKeyExpressions(expressions, quantifier.getAlias(), quantifier.getFlowedObjectType());
     }
 
-    static List<Value> fromKeyExpressions(@Nonnull final Collection<? extends KeyExpression> expressions, @Nonnull final CorrelationIdentifier alias, @Nonnull final Type inputType) {
+    static List<Value> fromKeyExpressions(final Collection<? extends KeyExpression> expressions, final CorrelationIdentifier alias, final Type inputType) {
         return expressions
                 .stream()
                 .map(keyExpression -> new ScalarTranslationVisitor(keyExpression).toResultValue(alias, inputType))
                 .collect(ImmutableList.toImmutableList());
     }
 
-    static ExplainTokens explainFunctionArguments(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    static ExplainTokens explainFunctionArguments(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return new ExplainTokens().addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
                 () -> Streams.stream(explainSuppliers)
                         .map(explainSupplier -> explainSupplier.get().getExplainTokens())
@@ -819,7 +790,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
         @Nullable
         @Override
         default <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
-                                                @Nonnull final EvaluationContext context) {
+                                                final EvaluationContext context) {
             throw new RecordCoreException("value cannot be evaluated");
         }
     }
@@ -833,14 +804,14 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
         @Nullable
         @Override
         default <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
-                                                @Nonnull final EvaluationContext context) {
+                                                final EvaluationContext context) {
             throw new RecordCoreException("compile-time value can not be evaluated at runtime");
         }
 
         @Nullable
         @Override
         @SuppressWarnings({"java:S2637", "ConstantConditions"})
-        Object evalWithoutStore(@Nonnull EvaluationContext context);
+        Object evalWithoutStore(EvaluationContext context);
     }
 
     /**
@@ -879,7 +850,6 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      */
     @API(API.Status.EXPERIMENTAL)
     interface HighOrderValue extends CompileTimeOnlyValue {
-        @Nonnull
         @Override
         default Type getResultType() {
             return Type.FUNCTION;
@@ -887,7 +857,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
 
         @Nullable
         @Override
-        BuiltInFunction<? extends Value> evalWithoutStore(@Nonnull EvaluationContext context);
+        BuiltInFunction<? extends Value> evalWithoutStore(EvaluationContext context);
     }
 
     /**
@@ -908,7 +878,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
          * @return an optional containing the inverse value over the child value handed in, empty, if it cannot be
          *         constructed.
          */
-        Optional<V> createInverseValueMaybe(@Nonnull Value newChildValue);
+        Optional<V> createInverseValueMaybe(Value newChildValue);
     }
 
     /**
@@ -929,7 +899,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
         @Nullable
         @Override
         default <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
-                                                @Nonnull final EvaluationContext context) {
+                                                final EvaluationContext context) {
             throw new RecordCoreException("value is index-only and cannot be evaluated");
         }
     }

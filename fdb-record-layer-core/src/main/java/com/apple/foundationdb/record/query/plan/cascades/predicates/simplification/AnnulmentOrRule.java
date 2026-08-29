@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPred
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
@@ -41,24 +40,21 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class AnnulmentOrRule extends QueryPredicateSimplificationRule<OrPredicate> {
-    @Nonnull
     private static final BindingMatcher<QueryPredicate> orTermMatcher = anyPredicate();
 
-    @Nonnull
     private static final BindingMatcher<OrPredicate> rootMatcher = QueryPredicateMatchers.orPredicate(all(orTermMatcher));
 
     public AnnulmentOrRule() {
         super(rootMatcher);
     }
 
-    @Nonnull
     @Override
     public Optional<Class<?>> getRootOperator() {
         return Optional.of(OrPredicate.class);
     }
 
     @Override
-    public void onMatch(@Nonnull final QueryPredicateSimplificationRuleCall call) {
+    public void onMatch(final QueryPredicateSimplificationRuleCall call) {
         final var bindings = call.getBindings();
         final var orTerms = bindings.getAll(orTermMatcher);
 

@@ -39,8 +39,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -159,10 +158,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.values.DistanceV
  */
 public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValue {
 
-    @Nonnull
     private static final String NAME = "ROW_NUMBER";
 
-    @Nonnull
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash(NAME + "-Value");
 
     @Nullable
@@ -171,15 +168,15 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
     @Nullable
     private final Boolean isReturningVectors;
 
-    public RowNumberValue(@Nonnull final PlanSerializationContext serializationContext,
-                          @Nonnull final PRowNumberValue rowNumberValueProto) {
+    public RowNumberValue(final PlanSerializationContext serializationContext,
+                          final PRowNumberValue rowNumberValueProto) {
         super(serializationContext, Objects.requireNonNull(rowNumberValueProto.getSuper()));
         this.efSearch = rowNumberValueProto.hasEfSearch() ? rowNumberValueProto.getEfSearch() : null;
         this.isReturningVectors = rowNumberValueProto.hasIsReturningVectors() ? rowNumberValueProto.getIsReturningVectors() : null;
     }
 
-    public RowNumberValue(@Nonnull Iterable<? extends Value> partitioningValues,
-                          @Nonnull Iterable<? extends Value> argumentValues,
+    public RowNumberValue(Iterable<? extends Value> partitioningValues,
+                          Iterable<? extends Value> argumentValues,
                           @Nullable final Integer efSearch,
                           @Nullable final Boolean isReturningVectors) {
         super(partitioningValues, argumentValues);
@@ -187,24 +184,21 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
         this.isReturningVectors = isReturningVectors;
     }
 
-    @Nonnull
     @Override
     public String getName() {
         return NAME;
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return basePlanHash(mode, BASE_HASH, efSearch, isReturningVectors);
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return Type.primitiveType(Type.TypeCode.LONG);
     }
 
-    @Nonnull
     @Override
     public Value withChildren(final Iterable<? extends Value> newChildren) {
         final var childrenPair = splitNewChildren(newChildren);
@@ -305,9 +299,8 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
      * @return an {@link Optional} containing the transformed {@link QueryPredicate} if the pattern matches and
      *         transformation is applicable, or {@link Optional#empty()} if the transformation cannot be applied
      */
-    @Nonnull
     @Override
-    public Optional<QueryPredicate> transformComparisonMaybe(@Nonnull final Comparisons.Type comparisonType, @Nonnull final Value comparand) {
+    public Optional<QueryPredicate> transformComparisonMaybe(final Comparisons.Type comparisonType, final Value comparand) {
         if (getArgumentValues().size() > 1) {
             // window definition is too complicated for adjustment, bailout.
             return Optional.empty();
@@ -362,9 +355,8 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
         return Optional.of(new ValuePredicate(windowedValue, distanceRankComparison));
     }
 
-    @Nonnull
     @Override
-    public PRowNumberValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRowNumberValue toProto(final PlanSerializationContext serializationContext) {
         final var rowNumberValueProtoBuilder = PRowNumberValue.newBuilder()
                 .setSuper(toWindowedValueProto(serializationContext));
         if (efSearch != null) {
@@ -376,15 +368,13 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
         return rowNumberValueProtoBuilder.build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setRowNumberValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RowNumberValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                      @Nonnull final PRowNumberValue rowNumberValueProto) {
+    public static RowNumberValue fromProto(final PlanSerializationContext serializationContext,
+                                      final PRowNumberValue rowNumberValueProto) {
         return new RowNumberValue(serializationContext, rowNumberValueProto);
     }
 
@@ -393,16 +383,14 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRowNumberValue, RowNumberValue> {
-        @Nonnull
         @Override
         public Class<PRowNumberValue> getProtoMessageClass() {
             return PRowNumberValue.class;
         }
 
-        @Nonnull
         @Override
-        public RowNumberValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                   @Nonnull final PRowNumberValue rowNumberValueProto) {
+        public RowNumberValue fromProto(final PlanSerializationContext serializationContext,
+                                   final PRowNumberValue rowNumberValueProto) {
             return RowNumberValue.fromProto(serializationContext, rowNumberValueProto);
         }
     }
@@ -424,7 +412,6 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
          * The HNSW search-quality option. Its name is the one the corresponding scan option is stored under, since this
          * call-site option exists to feed {@link VectorIndexScanOptions#HNSW_EF_SEARCH}.
          */
-        @Nonnull
         public static final CallSiteArguments.Option<Integer> EF_SEARCH =
                 CallSiteArguments.Option.ofInteger(VectorIndexScanOptions.HNSW_EF_SEARCH.getOptionName());
 
@@ -432,11 +419,9 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
          * The option controlling whether the index scan returns the vectors themselves. Named after
          * {@link VectorIndexScanOptions#VECTOR_RETURN_VECTORS}, which it feeds.
          */
-        @Nonnull
         public static final CallSiteArguments.Option<Boolean> RETURN_VECTORS =
                 CallSiteArguments.Option.ofBoolean(VectorIndexScanOptions.VECTOR_RETURN_VECTORS.getOptionName());
 
-        @Nonnull
         private static final Set<CallSiteArguments.Option<?>> SUPPORTED_OPTIONS =
                 ImmutableSet.of(EF_SEARCH, RETURN_VECTORS);
 
@@ -444,15 +429,13 @@ public class RowNumberValue extends WindowedValue implements Value.IndexOnlyValu
             super("row_number", ImmutableList.of(), RowNumberFn::encapsulateInternal);
         }
 
-        @Nonnull
         @Override
         public Set<CallSiteArguments.Option<?>> getSupportedOptions() {
             return SUPPORTED_OPTIONS;
         }
 
-        @Nonnull
-        private static RowNumberValue encapsulateInternal(@Nonnull final BuiltInFunction<RowNumberValue> ignored,
-                                                          @Nonnull final CallSiteArguments callSiteArguments) {
+        private static RowNumberValue encapsulateInternal(final BuiltInFunction<RowNumberValue> ignored,
+                                                          final CallSiteArguments callSiteArguments) {
             final var windowSpecification = callSiteArguments.getWindowSpecification();
             final var partitioningValues = windowSpecification.partitioningValues();
             final var argumentValues = windowSpecification.orderingParts().stream()

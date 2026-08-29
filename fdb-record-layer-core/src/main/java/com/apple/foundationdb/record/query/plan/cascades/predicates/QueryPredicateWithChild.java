@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
@@ -37,7 +36,6 @@ public interface QueryPredicateWithChild extends QueryPredicate {
      * Method to retrieve a list of children values.
      * @return a list of children
      */
-    @Nonnull
     @Override
     default List<? extends QueryPredicate> getChildren() {
         return ImmutableList.of(getChild());
@@ -47,15 +45,12 @@ public interface QueryPredicateWithChild extends QueryPredicate {
      * Method to retrieve the only child predicate.
      * @return this child {@link QueryPredicate}
      */
-    @Nonnull
     QueryPredicate getChild();
 
-    @Nonnull
     @Override
-    default QueryPredicateWithChild withChildren(@Nonnull final Iterable<? extends QueryPredicate> newChildren) {
+    default QueryPredicateWithChild withChildren(final Iterable<? extends QueryPredicate> newChildren) {
         return withChild(Iterables.getOnlyElement(newChildren));
     }
 
-    @Nonnull
-    QueryPredicateWithChild withChild(@Nonnull QueryPredicate rebasedChild);
+    QueryPredicateWithChild withChild(QueryPredicate rebasedChild);
 }

@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
@@ -44,8 +43,7 @@ public class JavaCallFunction extends BuiltInFunction<Value> {
         super("java_call", List.of(Type.primitiveType(Type.TypeCode.STRING)), new Type.Any(), JavaCallFunction::findFunction);
     }
 
-    @Nonnull
-    private static Value findFunction(@Nonnull final BuiltInFunction<Value> ignored, @Nonnull final CallSiteArguments callSiteArguments) {
+    private static Value findFunction(final BuiltInFunction<Value> ignored, final CallSiteArguments callSiteArguments) {
         Verify.verify(callSiteArguments.isSimplePositional());
         final List<Value> arguments = callSiteArguments.getArgumentsList();
         Verify.verify(!arguments.isEmpty());

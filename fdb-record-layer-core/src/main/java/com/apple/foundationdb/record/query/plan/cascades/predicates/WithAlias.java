@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 
-import javax.annotation.Nonnull;
 
 /**
  * Trait for providing alias information.
@@ -33,6 +32,5 @@ public interface WithAlias {
      * Returns the alias.
      * @return The alias.
      */
-    @Nonnull
     CorrelationIdentifier getParameterAlias();
 }

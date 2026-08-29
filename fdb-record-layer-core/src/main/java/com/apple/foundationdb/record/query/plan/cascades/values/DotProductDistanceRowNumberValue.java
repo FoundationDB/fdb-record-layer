@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.auto.service.AutoService;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
@@ -67,55 +66,49 @@ public class DotProductDistanceRowNumberValue extends WindowedValue implements V
     private static final String NAME = "DotProductDistanceRowNumber";
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash(NAME + "-Value");
 
-    public DotProductDistanceRowNumberValue(@Nonnull final PlanSerializationContext serializationContext,
-                                            @Nonnull final PDotProductDistanceRowNumberValue dotProductDistanceRowNumberValueProto) {
+    public DotProductDistanceRowNumberValue(final PlanSerializationContext serializationContext,
+                                            final PDotProductDistanceRowNumberValue dotProductDistanceRowNumberValueProto) {
         super(serializationContext, Objects.requireNonNull(dotProductDistanceRowNumberValueProto.getSuper()));
     }
 
-    public DotProductDistanceRowNumberValue(@Nonnull Iterable<? extends Value> partitioningValues,
-                                            @Nonnull Iterable<? extends Value> argumentValues) {
+    public DotProductDistanceRowNumberValue(Iterable<? extends Value> partitioningValues,
+                                            Iterable<? extends Value> argumentValues) {
         super(partitioningValues, argumentValues);
     }
 
-    @Nonnull
     @Override
     public String getName() {
         return NAME;
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return basePlanHash(mode, BASE_HASH);
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return Type.primitiveType(Type.TypeCode.LONG);
     }
 
-    @Nonnull
     @Override
     public DotProductDistanceRowNumberValue withChildren(final Iterable<? extends Value> newChildren) {
         final var childrenPair = splitNewChildren(newChildren);
         return new DotProductDistanceRowNumberValue(childrenPair.getKey(), childrenPair.getValue());
     }
 
-    @Nonnull
     @Override
-    public PDotProductDistanceRowNumberValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PDotProductDistanceRowNumberValue toProto(final PlanSerializationContext serializationContext) {
         return PDotProductDistanceRowNumberValue.newBuilder().setSuper(toWindowedValueProto(serializationContext)).build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setDotProductDistanceRowNumberValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static DotProductDistanceRowNumberValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                             @Nonnull final PDotProductDistanceRowNumberValue rankValueProto) {
+    public static DotProductDistanceRowNumberValue fromProto(final PlanSerializationContext serializationContext,
+                                                             final PDotProductDistanceRowNumberValue rankValueProto) {
         return new DotProductDistanceRowNumberValue(serializationContext, rankValueProto);
     }
 
@@ -124,16 +117,14 @@ public class DotProductDistanceRowNumberValue extends WindowedValue implements V
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PDotProductDistanceRowNumberValue, DotProductDistanceRowNumberValue> {
-        @Nonnull
         @Override
         public Class<PDotProductDistanceRowNumberValue> getProtoMessageClass() {
             return PDotProductDistanceRowNumberValue.class;
         }
 
-        @Nonnull
         @Override
-        public DotProductDistanceRowNumberValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                          @Nonnull final PDotProductDistanceRowNumberValue dotProductDistanceRowNumberValueProto) {
+        public DotProductDistanceRowNumberValue fromProto(final PlanSerializationContext serializationContext,
+                                                          final PDotProductDistanceRowNumberValue dotProductDistanceRowNumberValueProto) {
             return DotProductDistanceRowNumberValue.fromProto(serializationContext, dotProductDistanceRowNumberValueProto);
         }
     }

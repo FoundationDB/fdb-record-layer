@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyPromoteValue;
 
@@ -44,7 +43,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 public class EvaluateConstantPromotionRule extends ValueSimplificationRule<PromoteValue> {
 
-    @Nonnull
     private static final BindingMatcher<PromoteValue> rootMatcher = anyPromoteValue();
 
     public EvaluateConstantPromotionRule() {
@@ -52,7 +50,7 @@ public class EvaluateConstantPromotionRule extends ValueSimplificationRule<Promo
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueSimplificationRuleCall call) {
+    public void onMatch(final ValueSimplificationRuleCall call) {
         final PromoteValue promoteValue = call.getBindings().get(rootMatcher);
         final Type promoteType = promoteValue.getResultType();
         final Value value = promoteValue.getChild();

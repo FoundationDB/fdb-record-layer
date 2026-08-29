@@ -53,8 +53,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -76,11 +75,8 @@ import java.util.function.Supplier;
 public class DistanceValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Distance-Value");
 
-    @Nonnull
     private final DistanceOperator operator;
-    @Nonnull
     private final Value leftChild;
-    @Nonnull
     private final Value rightChild;
 
     /**
@@ -89,9 +85,9 @@ public class DistanceValue extends AbstractValue {
      * @param leftChild The left child (typically a vector field).
      * @param rightChild The right child (typically a query vector).
      */
-    private DistanceValue(@Nonnull DistanceOperator operator,
-                          @Nonnull Value leftChild,
-                          @Nonnull Value rightChild) {
+    private DistanceValue(DistanceOperator operator,
+                          Value leftChild,
+                          Value rightChild) {
         this.operator = operator;
         this.leftChild = leftChild;
         this.rightChild = rightChild;
@@ -99,7 +95,7 @@ public class DistanceValue extends AbstractValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         final RealVector left = (RealVector)leftChild.eval(store, context);
         final RealVector right = (RealVector)rightChild.eval(store, context);
         if (left == null || right == null) {
@@ -108,9 +104,8 @@ public class DistanceValue extends AbstractValue {
         return operator.eval((RealVector)leftChild.eval(store, context), (RealVector)rightChild.eval(store, context));
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSupplier) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSupplier) {
         final var left = Iterables.get(explainSupplier, 0).get();
         final var right = Iterables.get(explainSupplier, 1).get();
         final var precedence = operator.getPrecedence();
@@ -120,19 +115,16 @@ public class DistanceValue extends AbstractValue {
                         .addNested(precedence.parenthesizeChild(right)));
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return Type.primitiveType(TypeCode.DOUBLE);
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of(leftChild, rightChild);
     }
 
-    @Nonnull
     @Override
     public DistanceValue withChildren(final Iterable<? extends Value> newChildren) {
         Verify.verify(Iterables.size(newChildren) == 2);
@@ -147,18 +139,16 @@ public class DistanceValue extends AbstractValue {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, operator, leftChild, rightChild);
     }
 
-    @Nonnull
     public DistanceOperator getOperator() {
         return operator;
     }
 
-    @Nonnull
     @Override
-    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(final Value other) {
         return super.equalsWithoutChildren(other).filter(ignored -> {
             DistanceValue otherDistance = (DistanceValue)other;
             return operator.equals(otherDistance.operator);
@@ -177,9 +167,8 @@ public class DistanceValue extends AbstractValue {
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public PDistanceValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PDistanceValue toProto(final PlanSerializationContext serializationContext) {
         return PDistanceValue.newBuilder()
                 .setOperator(operator.toProto(serializationContext))
                 .setLeftChild(leftChild.toValueProto(serializationContext))
@@ -187,29 +176,25 @@ public class DistanceValue extends AbstractValue {
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setDistanceValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static DistanceValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                          @Nonnull final PDistanceValue distanceValueProto) {
+    public static DistanceValue fromProto(final PlanSerializationContext serializationContext,
+                                          final PDistanceValue distanceValueProto) {
         return new DistanceValue(DistanceOperator.fromProto(serializationContext, Objects.requireNonNull(distanceValueProto.getOperator())),
                 Value.fromValueProto(serializationContext, Objects.requireNonNull(distanceValueProto.getLeftChild())),
                 Value.fromValueProto(serializationContext, Objects.requireNonNull(distanceValueProto.getRightChild())));
     }
 
-    @Nonnull
-    private static Value encapsulateInternal(@Nonnull BuiltInFunction<Value> builtInFunction,
-                                             @Nonnull final CallSiteArguments callSiteArguments) {
+    private static Value encapsulateInternal(BuiltInFunction<Value> builtInFunction,
+                                             final CallSiteArguments callSiteArguments) {
         final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
         return encapsulate(builtInFunction.getFunctionName(), arguments);
     }
 
-    @Nonnull
-    private static Value encapsulate(@Nonnull final String functionName, @Nonnull final List<? extends Typed> arguments) {
+    private static Value encapsulate(final String functionName, final List<? extends Typed> arguments) {
         Verify.verify(arguments.size() == 2);
         final Typed arg0 = arguments.get(0);
         final Type type0 = arg0.getResultType();
@@ -237,31 +222,25 @@ public class DistanceValue extends AbstractValue {
         DOT_PRODUCT_DISTANCE("dot_product_distance", Precedence.NEVER_PARENS, ((l, r) -> new Metric.DotProductMetric().distance(l.getData(), r.getData())))
         ;
 
-        @Nonnull
         private static final Supplier<BiMap<DistanceOperator, PDistanceValue.PDistanceOperator>> protoEnumBiMapSupplier =
                 Suppliers.memoize(() -> PlanSerialization.protoEnumBiMap(DistanceOperator.class,
                         PDistanceValue.PDistanceOperator.class));
 
-        @Nonnull
         private final String infixNotation;
-        @Nonnull
         private final Precedence precedence;
-        @Nonnull
         private final BiFunction<RealVector, RealVector, Double> evaluateFunction;
 
-        DistanceOperator(@Nonnull final String infixNotation, @Nonnull final Precedence precedence,
-                         @Nonnull final BiFunction<RealVector, RealVector, Double> evaluateFunction) {
+        DistanceOperator(final String infixNotation, final Precedence precedence,
+                         final BiFunction<RealVector, RealVector, Double> evaluateFunction) {
             this.infixNotation = infixNotation;
             this.precedence = precedence;
             this.evaluateFunction = evaluateFunction;
         }
 
-        @Nonnull
         public String getInfixNotation() {
             return infixNotation;
         }
 
-        @Nonnull
         public Precedence getPrecedence() {
             return precedence;
         }
@@ -271,21 +250,18 @@ public class DistanceValue extends AbstractValue {
             return evaluateFunction.apply(arg1, arg2);
         }
 
-        @Nonnull
         private static BiMap<DistanceOperator, PDistanceValue.PDistanceOperator> getProtoEnumBiMap() {
             return protoEnumBiMapSupplier.get();
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
-        public PDistanceValue.PDistanceOperator toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PDistanceValue.PDistanceOperator toProto(final PlanSerializationContext serializationContext) {
             return Objects.requireNonNull(getProtoEnumBiMap().get(this));
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
-        public static DistanceOperator fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                 @Nonnull final PDistanceValue.PDistanceOperator physicalOperatorProto) {
+        public static DistanceOperator fromProto(final PlanSerializationContext serializationContext,
+                                                 final PDistanceValue.PDistanceOperator physicalOperatorProto) {
             return Objects.requireNonNull(getProtoEnumBiMap().inverse().get(physicalOperatorProto));
         }
     }
@@ -295,16 +271,14 @@ public class DistanceValue extends AbstractValue {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PDistanceValue, DistanceValue> {
-        @Nonnull
         @Override
         public Class<PDistanceValue> getProtoMessageClass() {
             return PDistanceValue.class;
         }
 
-        @Nonnull
         @Override
-        public DistanceValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                       @Nonnull final PDistanceValue distanceValueProto) {
+        public DistanceValue fromProto(final PlanSerializationContext serializationContext,
+                                       final PDistanceValue distanceValueProto) {
             return DistanceValue.fromProto(serializationContext, distanceValueProto);
         }
     }

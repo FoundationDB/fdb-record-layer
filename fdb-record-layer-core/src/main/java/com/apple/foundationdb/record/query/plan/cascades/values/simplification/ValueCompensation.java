@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
-import javax.annotation.Nonnull;
 
 /**
  * Functional interface to perform compensation for partially matched {@link Value}-trees.
@@ -31,10 +30,8 @@ import javax.annotation.Nonnull;
 public interface ValueCompensation {
     ValueCompensation NO_COMPENSATION = (value) -> value;
 
-    @Nonnull
-    Value compensate(@Nonnull Value value);
+    Value compensate(Value value);
 
-    @Nonnull
     static ValueCompensation noCompensation() {
         return NO_COMPENSATION;
     }

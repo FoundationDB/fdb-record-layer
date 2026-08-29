@@ -48,8 +48,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -68,56 +67,48 @@ public class ToOrderedBytesValue extends AbstractValue implements ValueWithChild
     /**
      * The child expression.
      */
-    @Nonnull
     private final Value child;
 
-    @Nonnull
     private final Direction direction;
 
     /**
      * Constructs a new {@link ToOrderedBytesValue} instance.
      * @param child The child expression.
      */
-    public ToOrderedBytesValue(@Nonnull final Value child, @Nonnull final Direction direction) {
+    public ToOrderedBytesValue(final Value child, final Direction direction) {
         this.child = child;
         this.direction = direction;
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of(getChild());
     }
 
-    @Nonnull
     @Override
     public Value getChild() {
         return child;
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return Type.primitiveType(Type.TypeCode.BYTES);
     }
 
-    @Nonnull
     public Direction getDirection() {
         return direction;
     }
 
-    @Nonnull
     @Override
-    public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
+    public ValueWithChild withNewChild(final Value rebasedChild) {
         return new ToOrderedBytesValue(rebasedChild, direction);
     }
 
     @Override
-    public Optional<FromOrderedBytesValue> createInverseValueMaybe(@Nonnull final Value newChildValue) {
+    public Optional<FromOrderedBytesValue> createInverseValueMaybe(final Value newChildValue) {
         return Optional.of(new FromOrderedBytesValue(newChildValue, getDirection(), child.getResultType()));
     }
 
-    @Nonnull
     @Override
     public Ordering.OrderPreservingKind getOrderPreservingKind() {
         switch (getDirection()) {
@@ -135,7 +126,7 @@ public class ToOrderedBytesValue extends AbstractValue implements ValueWithChild
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
-                                           @Nonnull final EvaluationContext context) {
+                                           final EvaluationContext context) {
         final Object result = child.eval(store, context);
         return ZeroCopyByteString.wrap(TupleOrdering.pack(Key.Evaluated.scalar(result).toTuple(), direction));
     }
@@ -146,13 +137,12 @@ public class ToOrderedBytesValue extends AbstractValue implements ValueWithChild
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, child, direction);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("to_ordered_bytes",
                 Value.explainFunctionArguments(explainSuppliers).addCommaAndWhiteSpace()
                         .addToString(getDirection())));
@@ -170,31 +160,27 @@ public class ToOrderedBytesValue extends AbstractValue implements ValueWithChild
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(final Value other) {
         return super.equalsWithoutChildren(other)
                 .filter(ignored -> direction == ((ToOrderedBytesValue)other).getDirection());
     }
 
-    @Nonnull
     @Override
-    public PToOrderedBytesValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PToOrderedBytesValue toProto(final PlanSerializationContext serializationContext) {
         return PToOrderedBytesValue.newBuilder()
                 .setChild(child.toValueProto(serializationContext))
                 .setDirection(OrderedBytesHelpers.toDirectionProto(direction))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setToOrderedBytesValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static ToOrderedBytesValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                @Nonnull final PToOrderedBytesValue toOrderedBytesValueProto) {
+    public static ToOrderedBytesValue fromProto(final PlanSerializationContext serializationContext,
+                                                final PToOrderedBytesValue toOrderedBytesValueProto) {
         return new ToOrderedBytesValue(
                 Value.fromValueProto(serializationContext, Objects.requireNonNull(toOrderedBytesValueProto.getChild())),
                 OrderedBytesHelpers.fromDirectionProto(Objects.requireNonNull(toOrderedBytesValueProto.getDirection())));
@@ -253,16 +239,14 @@ public class ToOrderedBytesValue extends AbstractValue implements ValueWithChild
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PToOrderedBytesValue, ToOrderedBytesValue> {
-        @Nonnull
         @Override
         public Class<PToOrderedBytesValue> getProtoMessageClass() {
             return PToOrderedBytesValue.class;
         }
 
-        @Nonnull
         @Override
-        public ToOrderedBytesValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                             @Nonnull final PToOrderedBytesValue toOrderedBytesValueProto) {
+        public ToOrderedBytesValue fromProto(final PlanSerializationContext serializationContext,
+                                             final PToOrderedBytesValue toOrderedBytesValueProto) {
             return ToOrderedBytesValue.fromProto(serializationContext, toOrderedBytesValueProto);
         }
     }

@@ -63,8 +63,7 @@ import com.google.common.collect.Streams;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -83,22 +82,17 @@ import java.util.stream.StreamSupport;
 public abstract class RelOpValue extends AbstractValue implements BooleanValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Rel-Op-Value");
 
-    @Nonnull
     private final String functionName;
-    @Nonnull
     private final Comparisons.Type comparisonType;
-    @Nonnull
     private final Iterable<? extends Value> children;
 
-    @Nonnull
     private static final Supplier<Map<UnaryComparisonSignature, UnaryPhysicalOperator>> unaryOperatorMapSupplier =
             Suppliers.memoize(RelOpValue::computeUnaryOperatorMap);
 
-    @Nonnull
     private static final Supplier<Map<BinaryComparisonSignature, BinaryPhysicalOperator>> binaryOperatorMapSupplier =
             Suppliers.memoize(RelOpValue::computeBinaryOperatorMap);
 
-    protected RelOpValue(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PRelOpValue relOpValueProto) {
+    protected RelOpValue(final PlanSerializationContext serializationContext, final PRelOpValue relOpValueProto) {
         this(Objects.requireNonNull(relOpValueProto.getFunctionName()),
                 Comparisons.Type.fromProto(serializationContext, Objects.requireNonNull(relOpValueProto.getComparisonType())),
                 relOpValueProto.getChildrenList().stream().map(valueProto -> Value.fromValueProto(serializationContext, valueProto))
@@ -111,27 +105,24 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
      * @param comparisonType The comparison type.
      * @param children The child expression(s).
      */
-    protected RelOpValue(@Nonnull final String functionName,
-                         @Nonnull final Comparisons.Type comparisonType,
-                         @Nonnull final Iterable<? extends Value> children) {
+    protected RelOpValue(final String functionName,
+                         final Comparisons.Type comparisonType,
+                         final Iterable<? extends Value> children) {
         Verify.verify(!Iterables.isEmpty(children));
         this.functionName = functionName;
         this.comparisonType = comparisonType;
         this.children = children;
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return children;
     }
 
-    @Nonnull
     public String getFunctionName() {
         return functionName;
     }
 
-    @Nonnull
     public Comparisons.Type getComparisonType() {
         return comparisonType;
     }
@@ -139,7 +130,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
     @SuppressWarnings("java:S3776")
     @Override
     public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
-                                                     @Nonnull final Set<CorrelationIdentifier> localAliases) {
+                                                     final Set<CorrelationIdentifier> localAliases) {
         final Iterator<? extends Value> it = children.iterator();
         int childrenCount = Iterables.size(children);
         if (childrenCount == 1) {
@@ -203,8 +194,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
      * @throws SemanticException if the two types are incompatible, i.e., their maximum type is undefined.
      * @see Type#maximumType(Type, Type)
      */
-    @Nonnull
-    private static NonnullPair<Value, Value> promoteOperands(@Nonnull Value lhs, @Nonnull Value rhs) {
+    private static NonnullPair<Value, Value> promoteOperands(Value lhs, Value rhs) {
         final Type leftType = lhs.getResultType();
         final Type rightType = rhs.getResultType();
         final Type maximumType = Type.maximumType(leftType, rightType);
@@ -220,11 +210,10 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         return NonnullPair.of(lhs, rhs);
     }
 
-    @Nonnull
     private static Optional<QueryPredicate> promoteOperandsAndCreatePredicate(@Nullable final TypeRepository typeRepository,
-                                                                              @Nonnull Value leftChild,
-                                                                              @Nonnull Value rightChild,
-                                                                              @Nonnull final Comparisons.Type comparisonType) {
+                                                                              Value leftChild,
+                                                                              Value rightChild,
+                                                                              final Comparisons.Type comparisonType) {
         // Promote the operands if necessary (or throw `SemanticException` if they are incompatible).
         NonnullPair<Value, Value> promotedOperands = promoteOperands(leftChild, rightChild);
         leftChild = promotedOperands.getLeft();
@@ -254,8 +243,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
      * @param typeRepository The type repository, used to create an {@link EvaluationContext}.
      * @return if successful, a constant {@link QueryPredicate}, otherwise an empty {@link Optional}.
      */
-    @Nonnull
-    private Optional<QueryPredicate> tryBoxSelfAsConstantPredicate(@Nonnull TypeRepository typeRepository) {
+    private Optional<QueryPredicate> tryBoxSelfAsConstantPredicate(TypeRepository typeRepository) {
         final Object constantValue = evalWithoutStore(EvaluationContext.forTypeRepository(typeRepository));
         if (constantValue instanceof Boolean) {
             if ((boolean)constantValue) {
@@ -281,8 +269,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
-    public PRelOpValue toRelOpValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRelOpValue toRelOpValueProto(final PlanSerializationContext serializationContext) {
         final PRelOpValue.Builder builder = PRelOpValue.newBuilder();
         builder.setFunctionName(functionName);
         builder.setComparisonType(comparisonType.toProto(serializationContext));
@@ -292,8 +279,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         return builder.build();
     }
 
-    @Nonnull
-    private static Comparisons.Type swapBinaryComparisonOperator(@Nonnull Comparisons.Type type) {
+    private static Comparisons.Type swapBinaryComparisonOperator(Comparisons.Type type) {
         switch (type) {
             case EQUALS:
             case NOT_EQUALS:
@@ -320,10 +306,9 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         return type.isPrimitive() || type.isEnum() || type.isUuid() || type.isArray() || type.isNone();
     }
 
-    @Nonnull
-    private static Value encapsulate(@Nonnull final String functionName,
-                                     @Nonnull final Comparisons.Type comparisonType,
-                                     @Nonnull final List<? extends Typed> arguments) {
+    private static Value encapsulate(final String functionName,
+                                     final Comparisons.Type comparisonType,
+                                     final List<? extends Typed> arguments) {
         Verify.verify(arguments.size() == 1 || arguments.size() == 2);
         if (arguments.size() == 1) {
             Verify.verify(arguments.get(0) instanceof Value);
@@ -379,7 +364,6 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         }
     }
 
-    @Nonnull
     private static Map<UnaryComparisonSignature, UnaryPhysicalOperator> computeUnaryOperatorMap() {
         final ImmutableMap.Builder<UnaryComparisonSignature, UnaryPhysicalOperator> mapBuilder = ImmutableMap.builder();
         for (final UnaryPhysicalOperator operator : UnaryPhysicalOperator.values()) {
@@ -388,7 +372,6 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         return mapBuilder.build();
     }
 
-    @Nonnull
     private static Map<UnaryComparisonSignature, UnaryPhysicalOperator> getUnaryOperatorMap() {
         return unaryOperatorMapSupplier.get();
     }
@@ -401,7 +384,6 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         return mapBuilder.build();
     }
 
-    @Nonnull
     private static Map<BinaryComparisonSignature, BinaryPhysicalOperator> getBinaryOperatorMap() {
         return binaryOperatorMapSupplier.get();
     }
@@ -416,7 +398,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), EqualsFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final CallSiteArguments callSiteArguments) {
+        private static Value encapsulate(BuiltInFunction<Value> builtInFunction, final CallSiteArguments callSiteArguments) {
             final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.EQUALS, arguments);
         }
@@ -432,7 +414,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), NotEqualsFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final CallSiteArguments callSiteArguments) {
+        private static Value encapsulate(BuiltInFunction<Value> builtInFunction, final CallSiteArguments callSiteArguments) {
             final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.NOT_EQUALS, arguments);
         }
@@ -448,7 +430,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), LtFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final CallSiteArguments callSiteArguments) {
+        private static Value encapsulate(BuiltInFunction<Value> builtInFunction, final CallSiteArguments callSiteArguments) {
             final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.LESS_THAN, arguments);
         }
@@ -464,7 +446,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), LteFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final CallSiteArguments callSiteArguments) {
+        private static Value encapsulate(BuiltInFunction<Value> builtInFunction, final CallSiteArguments callSiteArguments) {
             final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.LESS_THAN_OR_EQUALS, arguments);
         }
@@ -480,7 +462,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), GtFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final CallSiteArguments callSiteArguments) {
+        private static Value encapsulate(BuiltInFunction<Value> builtInFunction, final CallSiteArguments callSiteArguments) {
             final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.GREATER_THAN, arguments);
         }
@@ -496,7 +478,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), GteFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final CallSiteArguments callSiteArguments) {
+        private static Value encapsulate(BuiltInFunction<Value> builtInFunction, final CallSiteArguments callSiteArguments) {
             final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.GREATER_THAN_OR_EQUALS, arguments);
         }
@@ -512,7 +494,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                     List.of(new Type.Any()), IsNullFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final CallSiteArguments callSiteArguments) {
+        private static Value encapsulate(BuiltInFunction<Value> builtInFunction, final CallSiteArguments callSiteArguments) {
             final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.IS_NULL, arguments);
         }
@@ -528,7 +510,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                     List.of(new Type.Any()), NotNullFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final CallSiteArguments callSiteArguments) {
+        private static Value encapsulate(BuiltInFunction<Value> builtInFunction, final CallSiteArguments callSiteArguments) {
             final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.NOT_NULL, arguments);
         }
@@ -544,7 +526,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), IsDistinctFromFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final CallSiteArguments callSiteArguments) {
+        private static Value encapsulate(BuiltInFunction<Value> builtInFunction, final CallSiteArguments callSiteArguments) {
             final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.IS_DISTINCT_FROM, arguments);
         }
@@ -560,7 +542,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Any()), NotDistinctFromFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final CallSiteArguments callSiteArguments) {
+        private static Value encapsulate(BuiltInFunction<Value> builtInFunction, final CallSiteArguments callSiteArguments) {
             final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.NOT_DISTINCT_FROM, arguments);
         }
@@ -1177,27 +1159,22 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         NOT_DISTINCT_FROM_NONE_NONE(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.NONE, Type.TypeCode.NONE, Objects::equals),
         ;
 
-        @Nonnull
         private static final Supplier<BiMap<BinaryPhysicalOperator, PBinaryPhysicalOperator>> protoEnumBiMapSupplier =
                 Suppliers.memoize(() -> PlanSerialization.protoEnumBiMap(BinaryPhysicalOperator.class,
                         PBinaryPhysicalOperator.class));
 
-        @Nonnull
         private final Comparisons.Type type;
 
-        @Nonnull
         private final Type.TypeCode leftArgType;
 
-        @Nonnull
         private final Type.TypeCode rightArgType;
 
-        @Nonnull
         private final BinaryOperator<Object> evaluateFunction;
 
-        BinaryPhysicalOperator(@Nonnull Comparisons.Type type,
-                               @Nonnull Type.TypeCode leftArgType,
-                               @Nonnull Type.TypeCode rightArgType,
-                               @Nonnull BinaryOperator<Object> evaluateFunction) {
+        BinaryPhysicalOperator(Comparisons.Type type,
+                               Type.TypeCode leftArgType,
+                               Type.TypeCode rightArgType,
+                               BinaryOperator<Object> evaluateFunction) {
             this.type = type;
             this.leftArgType = leftArgType;
             this.rightArgType = rightArgType;
@@ -1219,35 +1196,29 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
             return evaluateFunction.apply(arg1, arg2);
         }
 
-        @Nonnull
         public Comparisons.Type getType() {
             return type;
         }
 
-        @Nonnull
         public Type.TypeCode getLeftArgType() {
             return leftArgType;
         }
 
-        @Nonnull
         public Type.TypeCode getRightArgType() {
             return rightArgType;
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
-        public PBinaryPhysicalOperator toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PBinaryPhysicalOperator toProto(final PlanSerializationContext serializationContext) {
             return Objects.requireNonNull(getProtoEnumBiMap().get(this));
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
-        public static BinaryPhysicalOperator fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                       @Nonnull final PBinaryPhysicalOperator binaryPhysicalOperatorProto) {
+        public static BinaryPhysicalOperator fromProto(final PlanSerializationContext serializationContext,
+                                                       final PBinaryPhysicalOperator binaryPhysicalOperatorProto) {
             return Objects.requireNonNull(getProtoEnumBiMap().inverse().get(binaryPhysicalOperatorProto));
         }
 
-        @Nonnull
         private static BiMap<BinaryPhysicalOperator, PBinaryPhysicalOperator> getProtoEnumBiMap() {
             return protoEnumBiMapSupplier.get();
         }
@@ -1298,21 +1269,17 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         IS_NULL_NONE(Comparisons.Type.IS_NULL, Type.TypeCode.NONE, Objects::isNull),
         IS_NOT_NULL_NONE(Comparisons.Type.NOT_NULL, Type.TypeCode.NONE, Objects::nonNull);
 
-        @Nonnull
         private static final Supplier<BiMap<UnaryPhysicalOperator, PUnaryPhysicalOperator>> protoEnumBiMapSupplier =
                 Suppliers.memoize(() -> PlanSerialization.protoEnumBiMap(UnaryPhysicalOperator.class,
                         PUnaryPhysicalOperator.class));
 
-        @Nonnull
         private final Comparisons.Type type;
 
-        @Nonnull
         private final Type.TypeCode argType;
 
-        @Nonnull
         private final UnaryOperator<Object> evaluateFunction;
 
-        UnaryPhysicalOperator(@Nonnull Comparisons.Type type, @Nonnull Type.TypeCode argType, @Nonnull UnaryOperator<Object> evaluateFunction) {
+        UnaryPhysicalOperator(Comparisons.Type type, Type.TypeCode argType, UnaryOperator<Object> evaluateFunction) {
             this.type = type;
             this.argType = argType;
             this.evaluateFunction = evaluateFunction;
@@ -1323,30 +1290,25 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
             return evaluateFunction.apply(arg1);
         }
 
-        @Nonnull
         public Comparisons.Type getType() {
             return type;
         }
 
-        @Nonnull
         public Type.TypeCode getArgType() {
             return argType;
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
-        public PUnaryPhysicalOperator toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PUnaryPhysicalOperator toProto(final PlanSerializationContext serializationContext) {
             return Objects.requireNonNull(getProtoEnumBiMap().get(this));
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
-        public static UnaryPhysicalOperator fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                      @Nonnull final PUnaryPhysicalOperator unaryPhysicalOperator) {
+        public static UnaryPhysicalOperator fromProto(final PlanSerializationContext serializationContext,
+                                                      final PUnaryPhysicalOperator unaryPhysicalOperator) {
             return Objects.requireNonNull(getProtoEnumBiMap().inverse().get(unaryPhysicalOperator));
         }
 
-        @Nonnull
         private static BiMap<UnaryPhysicalOperator, PUnaryPhysicalOperator> getProtoEnumBiMap() {
             return protoEnumBiMapSupplier.get();
         }
@@ -1356,24 +1318,22 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
      * Binary rel ops.
      */
     public static class BinaryRelOpValue extends RelOpValue {
-        @Nonnull
         private final BinaryPhysicalOperator operator;
 
-        private BinaryRelOpValue(@Nonnull final PlanSerializationContext serializationContext,
-                                 @Nonnull final PBinaryRelOpValue binaryRelOpValueProto) {
+        private BinaryRelOpValue(final PlanSerializationContext serializationContext,
+                                 final PBinaryRelOpValue binaryRelOpValueProto) {
             super(serializationContext, Objects.requireNonNull(binaryRelOpValueProto.getSuper()));
             this.operator = BinaryPhysicalOperator.fromProto(serializationContext, Objects.requireNonNull(binaryRelOpValueProto.getOperator()));
         }
 
-        private BinaryRelOpValue(@Nonnull final String functionName,
-                                 @Nonnull final Comparisons.Type comparisonType,
-                                 @Nonnull final Iterable<? extends Value> children,
-                                 @Nonnull final BinaryPhysicalOperator operator) {
+        private BinaryRelOpValue(final String functionName,
+                                 final Comparisons.Type comparisonType,
+                                 final Iterable<? extends Value> children,
+                                 final BinaryPhysicalOperator operator) {
             super(functionName, comparisonType, children);
             this.operator = operator;
         }
 
-        @Nonnull
         @Override
         public RelOpValue withChildren(final Iterable<? extends Value> newChildren) {
             Verify.verify(Iterables.size(newChildren) == 2);
@@ -1389,7 +1349,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             // TODO incorporate the physical operator into a new plan hash mode
             return PlanHashable.objectsPlanHash(mode, BASE_HASH, getComparisonType(),
                     StreamSupport.stream(getChildren().spliterator(), false).toArray(Value[]::new));
@@ -1397,7 +1357,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
         @Nullable
         @Override
-        public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+        public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
             final var evaluatedChildrenIterator =
                     Streams.stream(getChildren())
                             .map(child -> child.eval(store, context))
@@ -1406,9 +1366,8 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
             return operator.eval(evaluatedChildrenIterator.next(), evaluatedChildrenIterator.next());
         }
 
-        @Nonnull
         @Override
-        public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
             final var left = Iterables.get(explainSuppliers, 0).get();
             final var right = Iterables.get(explainSuppliers, 1).get();
             return ExplainTokensWithPrecedence.of(Precedence.COMPARISONS,
@@ -1416,25 +1375,22 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                             .addWhitespace().addNested(Precedence.COMPARISONS.parenthesizeChild(right)));
         }
 
-        @Nonnull
         @Override
-        public PBinaryRelOpValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PBinaryRelOpValue toProto(final PlanSerializationContext serializationContext) {
             return PBinaryRelOpValue.newBuilder()
                     .setSuper(toRelOpValueProto(serializationContext))
                     .setOperator(operator.toProto(serializationContext))
                     .build();
         }
 
-        @Nonnull
         @Override
-        public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PValue toValueProto(final PlanSerializationContext serializationContext) {
             return PValue.newBuilder().setBinaryRelOpValue(toProto(serializationContext)).build();
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
-        public static BinaryRelOpValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                 @Nonnull final PBinaryRelOpValue binaryRelOpValueProto) {
+        public static BinaryRelOpValue fromProto(final PlanSerializationContext serializationContext,
+                                                 final PBinaryRelOpValue binaryRelOpValueProto) {
             return new BinaryRelOpValue(serializationContext, binaryRelOpValueProto);
         }
 
@@ -1443,16 +1399,14 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
          */
         @AutoService(PlanDeserializer.class)
         public static class Deserializer implements PlanDeserializer<PBinaryRelOpValue, BinaryRelOpValue> {
-            @Nonnull
             @Override
             public Class<PBinaryRelOpValue> getProtoMessageClass() {
                 return PBinaryRelOpValue.class;
             }
 
-            @Nonnull
             @Override
-            public BinaryRelOpValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                              @Nonnull final PBinaryRelOpValue binaryRelOpValueProto) {
+            public BinaryRelOpValue fromProto(final PlanSerializationContext serializationContext,
+                                              final PBinaryRelOpValue binaryRelOpValueProto) {
                 return BinaryRelOpValue.fromProto(serializationContext, binaryRelOpValueProto);
             }
         }
@@ -1462,24 +1416,22 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
      * Unary rel ops.
      */
     public static class UnaryRelOpValue extends RelOpValue {
-        @Nonnull
         private final UnaryPhysicalOperator operator;
 
-        private UnaryRelOpValue(@Nonnull final PlanSerializationContext serializationContext,
-                                @Nonnull final PUnaryRelOpValue unaryRelOpValueProto) {
+        private UnaryRelOpValue(final PlanSerializationContext serializationContext,
+                                final PUnaryRelOpValue unaryRelOpValueProto) {
             super(serializationContext, Objects.requireNonNull(unaryRelOpValueProto.getSuper()));
             this.operator = UnaryPhysicalOperator.fromProto(serializationContext, Objects.requireNonNull(unaryRelOpValueProto.getOperator()));
         }
 
-        private UnaryRelOpValue(@Nonnull final String functionName,
-                                @Nonnull final Comparisons.Type comparisonType,
-                                @Nonnull final Iterable<? extends Value> children,
-                                @Nonnull final UnaryPhysicalOperator operator) {
+        private UnaryRelOpValue(final String functionName,
+                                final Comparisons.Type comparisonType,
+                                final Iterable<? extends Value> children,
+                                final UnaryPhysicalOperator operator) {
             super(functionName, comparisonType, children);
             this.operator = operator;
         }
 
-        @Nonnull
         @Override
         public RelOpValue withChildren(final Iterable<? extends Value> newChildren) {
             Verify.verify(Iterables.size(newChildren) == 1);
@@ -1495,7 +1447,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             // TODO incorporate the physical operator into a new plan hash mode
             return PlanHashable.objectsPlanHash(mode, BASE_HASH, getComparisonType(),
                     StreamSupport.stream(getChildren().spliterator(), false).toArray(Value[]::new));
@@ -1503,7 +1455,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
         @Nullable
         @Override
-        public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+        public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
             final var evaluatedChildrenIterator =
                     Streams.stream(getChildren())
                             .map(child -> child.eval(store, context))
@@ -1512,34 +1464,30 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
             return operator.eval(evaluatedChildrenIterator.next());
         }
 
-        @Nonnull
         @Override
-        public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
             final var onlyChild = Iterables.getOnlyElement(explainSuppliers).get();
             return ExplainTokensWithPrecedence.of(Precedence.UNARY_MINUS_BITWISE_NOT,
                     new ExplainTokens().addToString(getFunctionName())
                             .addNested(Precedence.UNARY_MINUS_BITWISE_NOT.parenthesizeChild(onlyChild)));
         }
 
-        @Nonnull
         @Override
-        public PUnaryRelOpValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PUnaryRelOpValue toProto(final PlanSerializationContext serializationContext) {
             return PUnaryRelOpValue.newBuilder()
                     .setSuper(toRelOpValueProto(serializationContext))
                     .setOperator(operator.toProto(serializationContext))
                     .build();
         }
 
-        @Nonnull
         @Override
-        public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PValue toValueProto(final PlanSerializationContext serializationContext) {
             return PValue.newBuilder().setUnaryRelOpValue(toProto(serializationContext)).build();
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
-        public static UnaryRelOpValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                @Nonnull final PUnaryRelOpValue unaryRelOpValueProto) {
+        public static UnaryRelOpValue fromProto(final PlanSerializationContext serializationContext,
+                                                final PUnaryRelOpValue unaryRelOpValueProto) {
             return new UnaryRelOpValue(serializationContext, unaryRelOpValueProto);
         }
 
@@ -1548,16 +1496,14 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
          */
         @AutoService(PlanDeserializer.class)
         public static class Deserializer implements PlanDeserializer<PUnaryRelOpValue, UnaryRelOpValue> {
-            @Nonnull
             @Override
             public Class<PUnaryRelOpValue> getProtoMessageClass() {
                 return PUnaryRelOpValue.class;
             }
 
-            @Nonnull
             @Override
-            public UnaryRelOpValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                             @Nonnull final PUnaryRelOpValue unaryRelOpValueProto) {
+            public UnaryRelOpValue fromProto(final PlanSerializationContext serializationContext,
+                                             final PUnaryRelOpValue unaryRelOpValueProto) {
                 return UnaryRelOpValue.fromProto(serializationContext, unaryRelOpValueProto);
             }
         }
@@ -1565,22 +1511,18 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
     static final class UnaryComparisonSignature {
 
-        @Nonnull
         private final Comparisons.Type comparisonType;
-        @Nonnull
         private final Type.TypeCode argumentType;
 
-        UnaryComparisonSignature(@Nonnull Comparisons.Type comparisonType, @Nonnull Type.TypeCode argumentType) {
+        UnaryComparisonSignature(Comparisons.Type comparisonType, Type.TypeCode argumentType) {
             this.comparisonType = comparisonType;
             this.argumentType = argumentType;
         }
 
-        @Nonnull
         public Comparisons.Type getComparisonType() {
             return comparisonType;
         }
 
-        @Nonnull
         public Type.TypeCode getArgumentType() {
             return argumentType;
         }
@@ -1609,30 +1551,24 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
     }
 
     static final class BinaryComparisonSignature {
-        @Nonnull
         private final Comparisons.Type comparisonType;
-        @Nonnull
         private final Type.TypeCode leftType;
-        @Nonnull
         private final Type.TypeCode rightType;
 
-        BinaryComparisonSignature(@Nonnull Comparisons.Type comparisonType, @Nonnull Type.TypeCode leftType, @Nonnull Type.TypeCode rightType) {
+        BinaryComparisonSignature(Comparisons.Type comparisonType, Type.TypeCode leftType, Type.TypeCode rightType) {
             this.comparisonType = comparisonType;
             this.leftType = leftType;
             this.rightType = rightType;
         }
 
-        @Nonnull
         public Comparisons.Type getComparisonType() {
             return comparisonType;
         }
 
-        @Nonnull
         public Type.TypeCode getLeftType() {
             return leftType;
         }
 
-        @Nonnull
         public Type.TypeCode getRightType() {
             return rightType;
         }

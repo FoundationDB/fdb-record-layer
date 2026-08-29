@@ -48,8 +48,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -68,19 +67,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @SuppressWarnings("SimplifiableAssertion")
 public class QueryPredicateTest {
-    private Boolean evaluate(@Nonnull QueryPredicate predicate) {
+    private Boolean evaluate(QueryPredicate predicate) {
         return evaluate(predicate, Bindings.EMPTY_BINDINGS);
     }
 
-    private Boolean evaluate(@Nonnull QueryPredicate predicate, @Nonnull Bindings bindings) {
+    private Boolean evaluate(QueryPredicate predicate, Bindings bindings) {
         return predicate.eval(null, EvaluationContext.forBindings(bindings));
     }
 
-    private QueryPredicate and(@Nonnull QueryPredicate... predicates) {
+    private QueryPredicate and(QueryPredicate... predicates) {
         return AndPredicate.and(ImmutableList.copyOf(predicates));
     }
 
-    private QueryPredicate or(@Nonnull QueryPredicate... predicates) {
+    private QueryPredicate or(QueryPredicate... predicates) {
         return OrPredicate.or(ImmutableList.copyOf(predicates));
     }
 
@@ -90,7 +89,7 @@ public class QueryPredicateTest {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             return 0;
         }
 
@@ -100,7 +99,7 @@ public class QueryPredicateTest {
         }
 
         @Override
-        public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
+        public boolean semanticEquals(@Nullable final Object other, final AliasMap aliasMap) {
             return this == other;
         }
 
@@ -122,50 +121,44 @@ public class QueryPredicateTest {
 
     private static final QueryPredicate TRUE = new TestPredicate() {
         @Override
-        public <M extends Message> Boolean eval(@Nullable FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
+        public <M extends Message> Boolean eval(@Nullable FDBRecordStoreBase<M> store, EvaluationContext context) {
             return Boolean.TRUE;
         }
 
-        @Nonnull
         @Override
-        public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public Message toProto(final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("unsupported");
         }
 
-        @Nonnull
         @Override
-        public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PQueryPredicate toQueryPredicateProto(final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("unsupported");
         }
 
-        @Nonnull
         @Override
-        public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
             return ExplainTokensWithPrecedence.of(new ExplainTokens());
         }
     };
 
     private static final QueryPredicate FALSE = new TestPredicate() {
         @Override
-        public <M extends Message> Boolean eval(@Nullable FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
+        public <M extends Message> Boolean eval(@Nullable FDBRecordStoreBase<M> store, EvaluationContext context) {
             return Boolean.FALSE;
         }
 
-        @Nonnull
         @Override
-        public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public Message toProto(final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("unsupported");
         }
 
-        @Nonnull
         @Override
-        public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PQueryPredicate toQueryPredicateProto(final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("unsupported");
         }
 
-        @Nonnull
         @Override
-        public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
             return ExplainTokensWithPrecedence.of(new ExplainTokens());
         }
     };
@@ -173,25 +166,22 @@ public class QueryPredicateTest {
     private static final QueryPredicate NULL = new TestPredicate() {
         @Nullable
         @Override
-        public <M extends Message> Boolean eval(@Nullable FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
+        public <M extends Message> Boolean eval(@Nullable FDBRecordStoreBase<M> store, EvaluationContext context) {
             return null;
         }
 
-        @Nonnull
         @Override
-        public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public Message toProto(final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("unsupported");
         }
 
-        @Nonnull
         @Override
-        public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PQueryPredicate toQueryPredicateProto(final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("unsupported");
         }
 
-        @Nonnull
         @Override
-        public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
             return ExplainTokensWithPrecedence.of(new ExplainTokens());
         }
     };

@@ -44,8 +44,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -67,12 +66,11 @@ public class Simplification {
      * @param ruleSet the rule set used to simplify the {@link Value} that is passed in
      * @return a new simplified {@link Constrained} {@link Value} of {@code root}
      */
-    @Nonnull
-    public static Constrained<Value> simplify(@Nonnull final Value root,
-                                              @Nonnull final EvaluationContext evaluationContext,
-                                              @Nonnull final AliasMap aliasMap,
-                                              @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                              @Nonnull final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> ruleSet) {
+    public static Constrained<Value> simplify(final Value root,
+                                              final EvaluationContext evaluationContext,
+                                              final AliasMap aliasMap,
+                                              final Set<CorrelationIdentifier> constantAliases,
+                                              final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> ruleSet) {
         //
         // The general strategy is to invoke the rule engine bottom up in post-fix order of the values in the value tree.
         // For each node, all rules are iteratively applied until no rules can make progress anymore. We avoid creating
@@ -116,9 +114,8 @@ public class Simplification {
         return Constrained.ofConstrainedObject(simplifiedValue, collectAndComposeConstraints(simplifiedValue, constraintsMap));
     }
 
-    @Nonnull
-    private static <BASE extends TreeLike<BASE>> QueryPlanConstraint collectAndComposeConstraints(@Nonnull final BASE root,
-                                                                                                  @Nonnull final Map<BASE, QueryPlanConstraint> constraintMap) {
+    private static <BASE extends TreeLike<BASE>> QueryPlanConstraint collectAndComposeConstraints(final BASE root,
+                                                                                                  final Map<BASE, QueryPlanConstraint> constraintMap) {
         return root.postOrderStream()
                 .flatMap(current -> {
                     final var constraint = constraintMap.get(current);
@@ -138,12 +135,11 @@ public class Simplification {
      * @param ruleSet the rule set used to simplify the {@link Value} that is passed in
      * @return a new simplified list of {@link Constrained} {@link Value}s
      */
-    @Nonnull
-    public static List<Constrained<Value>> simplifyCurrent(@Nonnull final Value current,
-                                                           @Nonnull final EvaluationContext evaluationContext,
-                                                           @Nonnull final AliasMap aliasMap,
-                                                           @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                                           @Nonnull final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> ruleSet) {
+    public static List<Constrained<Value>> simplifyCurrent(final Value current,
+                                                           final EvaluationContext evaluationContext,
+                                                           final AliasMap aliasMap,
+                                                           final Set<CorrelationIdentifier> constantAliases,
+                                                           final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> ruleSet) {
         final var constraintsMap =
                 Maps.<Value, QueryPlanConstraint>newLinkedHashMap();
 
@@ -187,13 +183,12 @@ public class Simplification {
      *                          function is trivial for simplifications.
      * @return all resulting {@link ExecutionResult}s after all rules in the rule set have been applied to {@code current}
      */
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private static <RESULT, CALL extends AbstractRuleCall<RESULT, CALL, BASE>, BASE> List<ExecutionResult<BASE>> executeRuleSet(@Nonnull final BASE root,
-                                                                                                                                @Nonnull BASE current,
-                                                                                                                                @Nonnull final AbstractRuleSet<CALL, BASE> ruleSet,
-                                                                                                                                @Nonnull final RuleCallCreator<RESULT, CALL, BASE> ruleCallCreator,
-                                                                                                                                @Nonnull final BiFunction<Collection<RESULT>, QueryPlanConstraint, BASE> onResultsFunction) {
+    private static <RESULT, CALL extends AbstractRuleCall<RESULT, CALL, BASE>, BASE> List<ExecutionResult<BASE>> executeRuleSet(final BASE root,
+                                                                                                                                BASE current,
+                                                                                                                                final AbstractRuleSet<CALL, BASE> ruleSet,
+                                                                                                                                final RuleCallCreator<RESULT, CALL, BASE> ruleCallCreator,
+                                                                                                                                final BiFunction<Collection<RESULT>, QueryPlanConstraint, BASE> onResultsFunction) {
         final boolean isRoot = current == root;
 
         final var resultsBuilder = ImmutableList.<ExecutionResult<BASE>>builder();
@@ -252,12 +247,12 @@ public class Simplification {
      *         {@code root}.
      */
     @Nullable
-    public static <ARGUMENT, RESULT> NonnullPair<Constrained<Value>, RESULT> compute(@Nonnull final Value root,
-                                                                                     @Nonnull final EvaluationContext evaluationContext,
-                                                                                     @Nonnull final ARGUMENT argument,
-                                                                                     @Nonnull final AliasMap aliasMap,
-                                                                                     @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                                                                     @Nonnull final ValueComputationRuleSet<ARGUMENT, RESULT> ruleSet) {
+    public static <ARGUMENT, RESULT> NonnullPair<Constrained<Value>, RESULT> compute(final Value root,
+                                                                                     final EvaluationContext evaluationContext,
+                                                                                     final ARGUMENT argument,
+                                                                                     final AliasMap aliasMap,
+                                                                                     final Set<CorrelationIdentifier> constantAliases,
+                                                                                     final ValueComputationRuleSet<ARGUMENT, RESULT> ruleSet) {
         //
         // The general strategy is to invoke the rule engine bottom up in post-fix order of the values in the value tree.
         // For each node, all rules are exhaustively applied until no rules can make progress anymore. We avoid creating
@@ -316,9 +311,8 @@ public class Simplification {
      *         children of the current value or a new current value that was creating by calling
      *         {@link Value#withChildren(Iterable)}
      */
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private static <BASE extends TreeLike<BASE>> BASE computeCurrent(@Nonnull final BASE current, @Nonnull final Iterable<? extends BASE> mappedChildren) {
+    private static <BASE extends TreeLike<BASE>> BASE computeCurrent(final BASE current, final Iterable<? extends BASE> mappedChildren) {
         final var children = current.getChildren();
         final var childrenIterator = children.iterator();
         final var mappedChildrenIterator = mappedChildren.iterator();
@@ -336,21 +330,19 @@ public class Simplification {
         return isSame ? current : current.withChildren(mappedChildren);
     }
 
-    @Nonnull
-    private static <BASE> BASE onResultsFunctionForSimplification(@Nonnull final Map<BASE, QueryPlanConstraint> constrainstsMap,
-                                                                  @Nonnull final Collection<BASE> results,
-                                                                  @Nonnull final QueryPlanConstraint queryPlanConstraint) {
+    private static <BASE> BASE onResultsFunctionForSimplification(final Map<BASE, QueryPlanConstraint> constrainstsMap,
+                                                                  final Collection<BASE> results,
+                                                                  final QueryPlanConstraint queryPlanConstraint) {
         Verify.verify(results.size() <= 1);
         final var result = Iterables.getOnlyElement(results);
         constrainstsMap.put(result, queryPlanConstraint);
         return result;
     }
 
-    @Nonnull
-    private static <BASE, R> BASE onResultsFunctionForComputation(@Nonnull final Map<BASE, QueryPlanConstraint> constrainstsMap,
-                                                                  @Nonnull final Map<BASE, NonnullPair<BASE, R>> resultsMap,
-                                                                  @Nonnull final Collection<NonnullPair<BASE, R>> results,
-                                                                  @Nonnull final QueryPlanConstraint queryPlanConstraint) {
+    private static <BASE, R> BASE onResultsFunctionForComputation(final Map<BASE, QueryPlanConstraint> constrainstsMap,
+                                                                  final Map<BASE, NonnullPair<BASE, R>> resultsMap,
+                                                                  final Collection<NonnullPair<BASE, R>> results,
+                                                                  final QueryPlanConstraint queryPlanConstraint) {
         Verify.verify(results.size() <= 1);
 
         final var resultPair = Iterables.getOnlyElement(results);
@@ -381,13 +373,12 @@ public class Simplification {
      *                          function is trivial for simplifications.
      * @return a resulting {@link Value} after all rules in the rule set have been exhaustively applied
      */
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private static <RESULT, CALL extends AbstractRuleCall<RESULT, CALL, BASE>, BASE> ExecutionResult<BASE> executeRuleSetIteratively(@Nonnull final BASE root,
-                                                                                                                                     @Nonnull BASE current,
-                                                                                                                                     @Nonnull final AbstractRuleSet<CALL, BASE> ruleSet,
-                                                                                                                                     @Nonnull final RuleCallCreator<RESULT, CALL, BASE> ruleCallCreator,
-                                                                                                                                     @Nonnull final BiFunction<Collection<RESULT>, QueryPlanConstraint, BASE> onResultsFunction) {
+    private static <RESULT, CALL extends AbstractRuleCall<RESULT, CALL, BASE>, BASE> ExecutionResult<BASE> executeRuleSetIteratively(final BASE root,
+                                                                                                                                     BASE current,
+                                                                                                                                     final AbstractRuleSet<CALL, BASE> ruleSet,
+                                                                                                                                     final RuleCallCreator<RESULT, CALL, BASE> ruleCallCreator,
+                                                                                                                                     final BiFunction<Collection<RESULT>, QueryPlanConstraint, BASE> onResultsFunction) {
         final boolean isRoot = current == root;
         BASE newCurrent = current;
         do {
@@ -455,12 +446,11 @@ public class Simplification {
      * @param ruleSet the computation rule set used to simplify the {@link Value} that is passed in
      * @return a new simplified {@link Constrained} {@link QueryPredicate}
      */
-    @Nonnull
-    public static Constrained<QueryPredicate> optimize(@Nonnull final QueryPredicate root,
-                                                       @Nonnull final EvaluationContext evaluationContext,
-                                                       @Nonnull final AliasMap aliasMap,
-                                                       @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                                       @Nonnull final AbstractRuleSet<QueryPredicateSimplificationRuleCall, QueryPredicate> ruleSet) {
+    public static Constrained<QueryPredicate> optimize(final QueryPredicate root,
+                                                       final EvaluationContext evaluationContext,
+                                                       final AliasMap aliasMap,
+                                                       final Set<CorrelationIdentifier> constantAliases,
+                                                       final AbstractRuleSet<QueryPredicateSimplificationRuleCall, QueryPredicate> ruleSet) {
         final var constraintsMap = Maps.<QueryPredicate, QueryPlanConstraint>newLinkedHashMap();
         final var simplifiedPredicate =
                 simplifyWithReExploration(root,
@@ -488,13 +478,12 @@ public class Simplification {
      *        {@link AbstractValueRuleCall}.
      * @return a resulting {@link Value} after all rules in the rule set have been exhaustively applied
      */
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private static <CALL extends AbstractRuleCall<BASE, CALL, BASE>, BASE extends TreeLike<BASE>> BASE simplifyWithReExploration(@Nonnull final BASE root,
-                                                                                                                                 @Nonnull BASE current,
-                                                                                                                                 @Nonnull final Map<BASE, QueryPlanConstraint> constraintsMap,
-                                                                                                                                 @Nonnull final AbstractRuleSet<CALL, BASE> ruleSet,
-                                                                                                                                 @Nonnull final RuleCallCreator<BASE, CALL, BASE> ruleCallCreator) {
+    private static <CALL extends AbstractRuleCall<BASE, CALL, BASE>, BASE extends TreeLike<BASE>> BASE simplifyWithReExploration(final BASE root,
+                                                                                                                                 BASE current,
+                                                                                                                                 final Map<BASE, QueryPlanConstraint> constraintsMap,
+                                                                                                                                 final AbstractRuleSet<CALL, BASE> ruleSet,
+                                                                                                                                 final RuleCallCreator<BASE, CALL, BASE> ruleCallCreator) {
         final var isRoot = root == current;
         ExecutionResult<BASE> executionResult;
         do {
@@ -522,17 +511,15 @@ public class Simplification {
     }
 
     private static class ExecutionResult<BASE> {
-        @Nonnull
         private final BASE base;
 
         private final boolean shouldReExplore;
 
-        public ExecutionResult(@Nonnull final BASE base, final boolean shouldReExplore) {
+        public ExecutionResult(final BASE base, final boolean shouldReExplore) {
             this.base = base;
             this.shouldReExplore = shouldReExplore;
         }
 
-        @Nonnull
         public BASE getBase() {
             return base;
         }
@@ -550,9 +537,9 @@ public class Simplification {
      */
     @FunctionalInterface
     public interface RuleCallCreator<RESULT, CALL extends AbstractRuleCall<RESULT, CALL, BASE>, BASE> {
-        CALL create(@Nonnull PlannerRule<CALL, ? extends BASE> rule,
-                    @Nonnull BASE root,
-                    @Nonnull BASE current,
-                    @Nonnull PlannerBindings plannerBindings);
+        CALL create(PlannerRule<CALL, ? extends BASE> rule,
+                    BASE root,
+                    BASE current,
+                    PlannerBindings plannerBindings);
     }
 }

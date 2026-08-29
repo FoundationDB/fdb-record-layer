@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.planprotos.PDirection;
 import com.apple.foundationdb.tuple.TupleOrdering.Direction;
 
-import javax.annotation.Nonnull;
 
 /**
  * A value that produces a binary encoding that is comparable according to certain modes gives by
@@ -37,8 +36,7 @@ public class OrderedBytesHelpers {
         // do nothing and prevent instantiation
     }
 
-    @Nonnull
-    public static PDirection toDirectionProto(@Nonnull final Direction direction) {
+    public static PDirection toDirectionProto(final Direction direction) {
         switch (direction) {
             case ASC_NULLS_FIRST:
                 return PDirection.ASC_NULLS_FIRST;
@@ -53,8 +51,7 @@ public class OrderedBytesHelpers {
         }
     }
 
-    @Nonnull
-    public static Direction fromDirectionProto(@Nonnull final PDirection directionProto) {
+    public static Direction fromDirectionProto(final PDirection directionProto) {
         switch (directionProto) {
             case ASC_NULLS_FIRST:
                 return Direction.ASC_NULLS_FIRST;

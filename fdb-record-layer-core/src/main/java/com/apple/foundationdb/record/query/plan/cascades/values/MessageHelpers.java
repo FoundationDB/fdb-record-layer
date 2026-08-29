@@ -43,12 +43,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.Descriptors.GenericDescriptor;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 import com.google.protobuf.MessageOrBuilder;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -73,7 +73,7 @@ public class MessageHelpers {
      * @return the value at the end of the path
      */
     @Nullable
-    public static Object getFieldValueForFieldNames(@Nonnull MessageOrBuilder message, @Nonnull List<String> fieldNames) {
+    public static Object getFieldValueForFieldNames(MessageOrBuilder message, List<String> fieldNames) {
         if (fieldNames.isEmpty()) {
             throw new RecordCoreException("empty list of field names");
         }
@@ -90,7 +90,7 @@ public class MessageHelpers {
     }
 
     @Nullable
-    public static Object getFieldValueForFieldOrdinals(@Nonnull MessageOrBuilder message, @Nonnull ImmutableIntArray fieldOrdinals) {
+    public static Object getFieldValueForFieldOrdinals(MessageOrBuilder message, ImmutableIntArray fieldOrdinals) {
         if (fieldOrdinals.isEmpty()) {
             throw new RecordCoreException("empty list of fields");
         }
@@ -115,13 +115,13 @@ public class MessageHelpers {
      * @return the value of the field as described above
      */
     @Nullable
-    public static Object getFieldOnMessage(@Nonnull MessageOrBuilder message, @Nonnull String fieldName) {
+    public static Object getFieldOnMessage(MessageOrBuilder message, String fieldName) {
         final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessage(message, fieldName);
         return getFieldOnMessage(message, field);
     }
 
     @Nullable
-    public static Object getFieldOnMessage(@Nonnull MessageOrBuilder message, @Nonnull Descriptors.FieldDescriptor field) {
+    public static Object getFieldOnMessage(MessageOrBuilder message, Descriptors.FieldDescriptor field) {
         if (field.isRepeated()) {
             int count = message.getRepeatedFieldCount(field);
             List<Object> list = new ArrayList<>(count);
@@ -143,13 +143,12 @@ public class MessageHelpers {
     }
 
     @Nullable
-    public static Object getFieldOnMessageByOrdinal(@Nonnull MessageOrBuilder message, int fieldOrdinal) {
+    public static Object getFieldOnMessageByOrdinal(MessageOrBuilder message, int fieldOrdinal) {
         final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessageByOrdinal(message, fieldOrdinal);
         return getFieldOnMessage(message, field);
     }
 
-    @Nonnull
-    public static Descriptors.FieldDescriptor findFieldDescriptorOnMessage(@Nonnull MessageOrBuilder message, @Nonnull String fieldName) {
+    public static Descriptors.FieldDescriptor findFieldDescriptorOnMessage(MessageOrBuilder message, String fieldName) {
         final Descriptors.FieldDescriptor field = message.getDescriptorForType().findFieldByName(fieldName);
         if (field == null) {
             throw new Query.InvalidExpressionException("Missing field " + fieldName);
@@ -157,8 +156,7 @@ public class MessageHelpers {
         return field;
     }
 
-    @Nonnull
-    public static Descriptors.FieldDescriptor findFieldDescriptorOnMessage(@Nonnull MessageOrBuilder message, int fieldNumber) {
+    public static Descriptors.FieldDescriptor findFieldDescriptorOnMessage(MessageOrBuilder message, int fieldNumber) {
         final Descriptors.FieldDescriptor field = message.getDescriptorForType().findFieldByNumber(fieldNumber);
         if (field == null) {
             throw new Query.InvalidExpressionException("Missing field " + fieldNumber);
@@ -166,8 +164,7 @@ public class MessageHelpers {
         return field;
     }
 
-    @Nonnull
-    public static Descriptors.FieldDescriptor findFieldDescriptorOnMessageByOrdinal(@Nonnull MessageOrBuilder message, int fieldOrdinal) {
+    public static Descriptors.FieldDescriptor findFieldDescriptorOnMessageByOrdinal(MessageOrBuilder message, int fieldOrdinal) {
         if (fieldOrdinal < 0 || fieldOrdinal >= message.getDescriptorForType().getFields().size()) {
             throw new Query.InvalidExpressionException("Missing field (#ord=" + fieldOrdinal + ")");
         }
@@ -175,7 +172,7 @@ public class MessageHelpers {
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public static boolean compareMessageEquals(@Nonnull Object o1, @Nonnull Object o2) {
+    public static boolean compareMessageEquals(Object o1, Object o2) {
         if (!(o1 instanceof Message) || !(o2 instanceof Message)) {
             return false;
         }
@@ -208,13 +205,13 @@ public class MessageHelpers {
     }
 
     @Nullable
-    private static Message getFieldMessageOnMessage(@Nonnull MessageOrBuilder message, @Nonnull String fieldName) {
+    private static Message getFieldMessageOnMessage(MessageOrBuilder message, String fieldName) {
         final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessage(message, fieldName);
         return getFieldMessageOnMessage(message, field);
     }
 
     @Nullable
-    private static Message getFieldMessageOnMessage(@Nonnull MessageOrBuilder message, final Descriptors.FieldDescriptor field) {
+    private static Message getFieldMessageOnMessage(MessageOrBuilder message, final Descriptors.FieldDescriptor field) {
         if (!field.isRepeated() &&
                 (field.hasDefaultValue() || message.hasField(field)) &&
                 field.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
@@ -224,7 +221,7 @@ public class MessageHelpers {
     }
 
     @Nullable
-    private static Message getFieldMessageOnMessageByOrdinal(@Nonnull MessageOrBuilder message, int fieldOrdinal) {
+    private static Message getFieldMessageOnMessageByOrdinal(MessageOrBuilder message, int fieldOrdinal) {
         final Descriptors.FieldDescriptor field = findFieldDescriptorOnMessageByOrdinal(message, fieldOrdinal);
         return getFieldMessageOnMessage(message, field);
     }
@@ -242,9 +239,8 @@ public class MessageHelpers {
      * @param message a message
      * @return a new message of {@code targetDescriptor} which is a copy of the message passed in
      */
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public static Message deepCopyMessageIfNeeded(@Nonnull final Descriptors.Descriptor targetDescriptor, @Nonnull final Message message) {
+    public static Message deepCopyMessageIfNeeded(final Descriptors.Descriptor targetDescriptor, final Message message) {
         if (targetDescriptor == message.getDescriptorForType()) {
             return message;
         }
@@ -255,7 +251,7 @@ public class MessageHelpers {
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public static void deepCopyMessage(@Nonnull final Message.Builder builder, @Nonnull final Message message) {
+    public static void deepCopyMessage(final Message.Builder builder, final Message message) {
         for (final var entry : message.getAllFields().entrySet()) {
             final Descriptors.FieldDescriptor field = entry.getKey();
 
@@ -295,16 +291,15 @@ public class MessageHelpers {
         builder.mergeUnknownFields(message.getUnknownFields());
     }
 
-    @Nonnull
     @SuppressWarnings("unchecked")
-    public static <M extends Message> Object transformMessage(@Nonnull final FDBRecordStoreBase<M> store,
-                                                              @Nonnull final EvaluationContext context,
+    public static <M extends Message> Object transformMessage(final FDBRecordStoreBase<M> store,
+                                                              final EvaluationContext context,
                                                               @Nullable final TransformationTrieNode transformationsTrie,
                                                               @Nullable final CoercionTrieNode coercionsTrie,
-                                                              @Nonnull final Type targetType,
-                                                              @Nonnull Descriptors.Descriptor targetDescriptor,
-                                                              @Nonnull final Type currentType,
-                                                              @Nonnull Descriptors.Descriptor currentDescriptor,
+                                                              final Type targetType,
+                                                              Descriptors.Descriptor targetDescriptor,
+                                                              final Type currentType,
+                                                              Descriptors.Descriptor currentDescriptor,
                                                               @Nullable final Object current) {
         final var value = transformationsTrie == null ? null : transformationsTrie.getValue();
         Verify.verify(value == null);
@@ -394,9 +389,9 @@ public class MessageHelpers {
      */
     @Nullable
     public static Object coerceObject(@Nullable final CoercionTrieNode coercionsTrie,
-                                      @Nonnull final Type targetType,
-                                      @Nullable final Descriptors.GenericDescriptor targetDescriptor,
-                                      @Nonnull final Type currentType,
+                                      final Type targetType,
+                                      @Nullable final GenericDescriptor targetDescriptor,
+                                      final Type currentType,
                                       @Nullable final Object current) {
         SemanticException.check(current != null || targetType.isNullable(), SemanticException.ErrorCode.NULL_ASSIGNMENT);
 
@@ -479,12 +474,11 @@ public class MessageHelpers {
      * @param current the current object
      * @return a coerced array adjusted for nullability-differences of current versus target
      */
-    @Nonnull
-    public static Object coerceArray(@Nonnull final Type.Array targetArrayType,
-                                     @Nonnull final Type.Array currentArrayType,
-                                     @Nullable Descriptors.GenericDescriptor targetDescriptor,
+    public static Object coerceArray(final Type.Array targetArrayType,
+                                     final Type.Array currentArrayType,
+                                     @Nullable GenericDescriptor targetDescriptor,
                                      @Nullable final CoercionTrieNode elementsTrie,
-                                     @Nonnull final Object current) {
+                                     final Object current) {
         final var targetElementType = Verify.verifyNotNull(targetArrayType.getElementType());
         final var currentElementType = Verify.verifyNotNull(currentArrayType.getElementType());
 
@@ -530,10 +524,9 @@ public class MessageHelpers {
      *
      * @param targetDescriptor Descriptor for the wrapper message holding the array.
      */
-    @Nonnull
-    static DynamicMessage wrapNullableArray(@Nonnull final Descriptors.Descriptor targetDescriptor,
-                                            @Nonnull final Descriptors.FieldDescriptor targetElementFieldDescriptor,
-                                            @Nonnull final List<?> array) {
+    static DynamicMessage wrapNullableArray(final Descriptors.Descriptor targetDescriptor,
+                                            final Descriptors.FieldDescriptor targetElementFieldDescriptor,
+                                            final List<?> array) {
         final var builder = DynamicMessage.newBuilder(targetDescriptor);
         builder.setField(targetElementFieldDescriptor, array);
         return builder.build();
@@ -546,9 +539,8 @@ public class MessageHelpers {
      * @param targetDescriptor Descriptor for the wrapper message holding the array.
      * @param array the array to wrap, which must be a {@link List}
      */
-    @Nonnull
-    static DynamicMessage wrapNullableArray(@Nonnull final Descriptors.Descriptor targetDescriptor,
-                                            @Nonnull final Object array) {
+    static DynamicMessage wrapNullableArray(final Descriptors.Descriptor targetDescriptor,
+                                            final Object array) {
         Verify.verify(array instanceof List);
         final var valuesField =
                 Verify.verifyNotNull(targetDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()));
@@ -566,21 +558,19 @@ public class MessageHelpers {
      * @return the wrapped {@code fieldValue}, if {@code fieldType} is a nullable array, or the unchanged
      *         {@code fieldValue} otherwise
      */
-    @Nonnull
-    static Object wrapIfNullableArray(@Nonnull final Type fieldType, @Nonnull final Descriptors.FieldDescriptor fieldDescriptor,
-                                      @Nonnull final Object fieldValue) {
+    static Object wrapIfNullableArray(final Type fieldType, final Descriptors.FieldDescriptor fieldDescriptor,
+                                      final Object fieldValue) {
         if (!fieldType.isArray() || !fieldType.isNullable()) {
             return fieldValue;
         }
         return wrapNullableArray(fieldDescriptor.getMessageType(), fieldValue);
     }
 
-    @Nonnull
     public static Message coerceMessage(@Nullable final CoercionTrieNode coercionsTrie,
-                                        @Nonnull final Type targetType,
-                                        @Nonnull Descriptors.Descriptor targetDescriptor,
-                                        @Nonnull final Type currentType,
-                                        @Nonnull final Message currentMessage) {
+                                        final Type targetType,
+                                        Descriptors.Descriptor targetDescriptor,
+                                        final Type currentType,
+                                        final Message currentMessage) {
         targetDescriptor = Verify.verifyNotNull(targetDescriptor);
         final var promotionsChildrenMap = coercionsTrie == null ? null : coercionsTrie.getChildrenMap();
         final var targetRecordType = (Type.Record)targetType;
@@ -619,7 +609,7 @@ public class MessageHelpers {
         return resultMessageBuilder.build();
     }
 
-    private static boolean hasAnySuchField(@Nonnull final Message message, Descriptors.FieldDescriptor fieldDescriptor) {
+    private static boolean hasAnySuchField(final Message message, Descriptors.FieldDescriptor fieldDescriptor) {
         // A repeated field represents an array and must be treated as always present by `coerceMessage()`, even when
         // `fieldDescriptor.getRepeatedFieldCount()` is 0 (which is a valid state that represents the empty array []).
         // (Note: A nullable array that is NULL is represented by the absence of the optional wrapper message field;
@@ -640,14 +630,13 @@ public class MessageHelpers {
             super(value, childrenMap);
         }
 
-        @Nonnull
         @Override
         public TransformationTrieNode getThis() {
             return this;
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             if (getChildrenMap() == null) {
                 return PlanHashable.objectPlanHash(mode, getValue());
             }
@@ -655,7 +644,7 @@ public class MessageHelpers {
         }
 
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public boolean semanticEquals(final Object other, @Nonnull final AliasMap equivalencesMap) {
+        public boolean semanticEquals(final Object other, final AliasMap equivalencesMap) {
             if (this == other) {
                 return true;
             }
@@ -668,9 +657,9 @@ public class MessageHelpers {
                    equalsNullable(getChildrenMap(), otherTransformationTrieNode.getChildrenMap(), (t, o) -> semanticEqualsForChildrenMap(t, o, equivalencesMap));
         }
 
-        private static boolean semanticEqualsForChildrenMap(@Nonnull final Map<Integer, TransformationTrieNode> self,
-                                                            @Nonnull final Map<Integer, TransformationTrieNode> other,
-                                                            @Nonnull final AliasMap equivalencesMap) {
+        private static boolean semanticEqualsForChildrenMap(final Map<Integer, TransformationTrieNode> self,
+                                                            final Map<Integer, TransformationTrieNode> other,
+                                                            final AliasMap equivalencesMap) {
             if (self.size() != other.size()) {
                 return false;
             }
@@ -688,7 +677,7 @@ public class MessageHelpers {
 
         private static <T> boolean equalsNullable(@Nullable final T self,
                                                   @Nullable final T other,
-                                                  @Nonnull final BiFunction<T, T, Boolean> nonNullableTest) {
+                                                  final BiFunction<T, T, Boolean> nonNullableTest) {
             if (self == null && other == null) {
                 return true;
             }
@@ -698,9 +687,8 @@ public class MessageHelpers {
             return nonNullableTest.apply(self, other);
         }
 
-        @Nonnull
         @Override
-        public PTransformationTrieNode toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PTransformationTrieNode toProto(final PlanSerializationContext serializationContext) {
             final PTransformationTrieNode.Builder builder = PTransformationTrieNode.newBuilder();
 
             if (getValue() != null) {
@@ -717,9 +705,8 @@ public class MessageHelpers {
             return builder.build();
         }
 
-        @Nonnull
-        public static TransformationTrieNode fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                       @Nonnull final PTransformationTrieNode transformationTrieNodeProto) {
+        public static TransformationTrieNode fromProto(final PlanSerializationContext serializationContext,
+                                                       final PTransformationTrieNode transformationTrieNodeProto) {
             final Value value;
             if (transformationTrieNodeProto.hasValue()) {
                 value =
@@ -758,23 +745,21 @@ public class MessageHelpers {
             super(value, childrenMap);
         }
 
-        @Nonnull
         @Override
         public CoercionTrieNode getThis() {
             return this;
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             if (getChildrenMap() == null) {
                 return PlanHashable.objectPlanHash(mode, getValue());
             }
             return PlanHashable.objectPlanHash(mode, getChildrenMap());
         }
 
-        @Nonnull
         @Override
-        public PCoercionTrieNode toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PCoercionTrieNode toProto(final PlanSerializationContext serializationContext) {
             final PCoercionTrieNode.Builder builder = PCoercionTrieNode.newBuilder();
 
             if (getValue() != null) {
@@ -791,9 +776,8 @@ public class MessageHelpers {
             return builder.build();
         }
 
-        @Nonnull
-        public static CoercionTrieNode fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                 @Nonnull final PCoercionTrieNode coercionTrieNodeProto) {
+        public static CoercionTrieNode fromProto(final PlanSerializationContext serializationContext,
+                                                 final PCoercionTrieNode coercionTrieNodeProto) {
             final CoercionBiFunction value;
             if (coercionTrieNodeProto.hasValue()) {
                 value =
@@ -828,13 +812,11 @@ public class MessageHelpers {
      * Coercion (bi)-function which also is plan hashable.
      */
     public interface CoercionBiFunction extends BiFunction<Descriptors.GenericDescriptor, Object, Object>, PlanHashable, PlanSerializable {
-        @Nonnull
         @SuppressWarnings("unused")
-        PCoercionBiFunction toCoercionBiFunctionProto(@Nonnull PlanSerializationContext serializationContext);
+        PCoercionBiFunction toCoercionBiFunctionProto(PlanSerializationContext serializationContext);
 
-        @Nonnull
-        static CoercionBiFunction fromCoercionBiFunctionProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                              @Nonnull final PCoercionBiFunction coercionBiFunctionProto) {
+        static CoercionBiFunction fromCoercionBiFunctionProto(final PlanSerializationContext serializationContext,
+                                                              final PCoercionBiFunction coercionBiFunctionProto) {
             return (CoercionBiFunction)PlanSerialization.dispatchFromProtoContainer(serializationContext, coercionBiFunctionProto);
         }
     }

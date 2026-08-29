@@ -43,8 +43,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -56,22 +55,19 @@ import java.util.function.Supplier;
 public class CardinalityValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Cardinality-Value");
 
-    @Nonnull
     private final Value childValue;
 
-    public CardinalityValue(@Nonnull final Value childValue) {
+    public CardinalityValue(final Value childValue) {
         SemanticException.check(childValue.getResultType().isArray(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE, "The argument of CARDINALITY() must be an array expression.");
 
         this.childValue = childValue;
     }
 
-    @Nonnull
     @Override
     public List<? extends Value> computeChildren() {
         return List.of(childValue);
     }
 
-    @Nonnull
     @Override
     public Value withChildren(final Iterable<? extends Value> newChildren) {
         final var newChildrenList = ImmutableList.copyOf(newChildren);
@@ -79,7 +75,6 @@ public class CardinalityValue extends AbstractValue {
         return new CardinalityValue(newChildrenList.get(0));
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         // Array indexes and sizes are 32-bit integers.
@@ -87,7 +82,7 @@ public class CardinalityValue extends AbstractValue {
     }
 
     @Override
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         final Object childResult = childValue.eval(store, context);
         if (childResult == null) {
             return null;
@@ -101,13 +96,12 @@ public class CardinalityValue extends AbstractValue {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, childValue);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall(FunctionNames.CARDINALITY,
                 Value.explainFunctionArguments(explainSuppliers)));
     }
@@ -124,22 +118,19 @@ public class CardinalityValue extends AbstractValue {
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public PCardinalityValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PCardinalityValue toProto(final PlanSerializationContext serializationContext) {
         return PCardinalityValue.newBuilder()
                 .setChildValue(childValue.toValueProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull PlanSerializationContext serializationContext) {
+    public PValue toValueProto(PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setCardinalityValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static CardinalityValue fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PCardinalityValue cardinalityValueProto) {
+    public static CardinalityValue fromProto(final PlanSerializationContext serializationContext, final PCardinalityValue cardinalityValueProto) {
         return new CardinalityValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(cardinalityValueProto.getChildValue())));
     }
 
@@ -153,7 +144,7 @@ public class CardinalityValue extends AbstractValue {
                     List.of(Type.any()), (builtInFunction, arguments) -> encapsulateInternal(arguments.getArgumentsList()));
         }
 
-        private static Value encapsulateInternal(@Nonnull final List<? extends Typed> arguments) {
+        private static Value encapsulateInternal(final List<? extends Typed> arguments) {
             Verify.verify(arguments.size() == 1);
             return new CardinalityValue((Value)arguments.get(0));
         }
@@ -164,16 +155,14 @@ public class CardinalityValue extends AbstractValue {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PCardinalityValue, CardinalityValue> {
-        @Nonnull
         @Override
         public Class<PCardinalityValue> getProtoMessageClass() {
             return PCardinalityValue.class;
         }
 
-        @Nonnull
         @Override
-        public CardinalityValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                          @Nonnull final PCardinalityValue cardinalityValueProto) {
+        public CardinalityValue fromProto(final PlanSerializationContext serializationContext,
+                                          final PCardinalityValue cardinalityValueProto) {
             return CardinalityValue.fromProto(serializationContext, cardinalityValueProto);
         }
     }

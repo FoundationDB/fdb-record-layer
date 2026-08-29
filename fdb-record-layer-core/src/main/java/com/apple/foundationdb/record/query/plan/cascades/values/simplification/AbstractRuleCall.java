@@ -35,7 +35,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -59,36 +58,26 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL, BASE>, BASE> implements PlannerRuleCall {
-    @Nonnull
     private final PlannerRule<CALL, ? extends BASE> rule;
-    @Nonnull
     private final BASE root;
-    @Nonnull
     private final BASE current;
-    @Nonnull
     private final EvaluationContext evaluationContext;
-    @Nonnull
     private final PlannerBindings bindings;
-    @Nonnull
     private final AliasMap equivalenceMap;
-    @Nonnull
     private final Set<CorrelationIdentifier> constantAliases;
-    @Nonnull
     private QueryPlanConstraint resultQueryPlanConstraint;
-    @Nonnull
     private final LinkedIdentitySet<RESULT> results;
     private boolean shouldReExplore;
-    @Nonnull
     private final Function<BASE, QueryPlanConstraint> retrieveQueryPlanConstraintFunction;
 
-    public AbstractRuleCall(@Nonnull final PlannerRule<CALL, ? extends BASE> rule,
-                            @Nonnull final BASE root,
-                            @Nonnull final BASE current,
-                            @Nonnull final EvaluationContext evaluationContext,
-                            @Nonnull final PlannerBindings bindings,
-                            @Nonnull final AliasMap equivalenceMap,
-                            @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                            @Nonnull final Function<BASE, QueryPlanConstraint> retrieveQueryPlanConstraintFunction) {
+    public AbstractRuleCall(final PlannerRule<CALL, ? extends BASE> rule,
+                            final BASE root,
+                            final BASE current,
+                            final EvaluationContext evaluationContext,
+                            final PlannerBindings bindings,
+                            final AliasMap equivalenceMap,
+                            final Set<CorrelationIdentifier> constantAliases,
+                            final Function<BASE, QueryPlanConstraint> retrieveQueryPlanConstraintFunction) {
         this.rule = rule;
         this.root = root;
         this.current = current;
@@ -102,29 +91,24 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
         this.retrieveQueryPlanConstraintFunction = retrieveQueryPlanConstraintFunction;
     }
 
-    @Nonnull
     public BASE getRoot() {
         return root;
     }
 
-    @Nonnull
     public BASE getCurrent() {
         return current;
     }
 
-    @Nonnull
     @Override
     public EvaluationContext getEvaluationContext() {
         return evaluationContext;
     }
 
-    @Nonnull
     protected Function<BASE, QueryPlanConstraint> getRetrieveQueryPlanConstraintFunction() {
         return retrieveQueryPlanConstraintFunction;
     }
 
-    @Nonnull
-    public QueryPlanConstraint getQueryPlanConstraint(@Nonnull final BASE base) {
+    public QueryPlanConstraint getQueryPlanConstraint(final BASE base) {
         final var constraintFromFunction = retrieveQueryPlanConstraintFunction.apply(base);
         return constraintFromFunction == null ? QueryPlanConstraint.noConstraint() : constraintFromFunction;
     }
@@ -134,34 +118,30 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
         return root == current;
     }
 
-    @Nonnull
     public PlannerRule<CALL, ? extends BASE> getRule() {
         return rule;
     }
 
     @Override
-    @Nonnull
     public PlannerBindings getBindings() {
         return bindings;
     }
 
-    @Nonnull
     public AliasMap getEquivalenceMap() {
         return equivalenceMap;
     }
 
-    @Nonnull
     public Set<CorrelationIdentifier> getConstantAliases() {
         return constantAliases;
     }
 
-    public void yieldResult(@Nonnull final RESULT value) {
+    public void yieldResult(final RESULT value) {
         yieldResult(value, QueryPlanConstraint.noConstraint());
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals") // deliberate use of == equality check for short-circuit condition
-    public void yieldResult(@Nonnull final RESULT value,
-                            @Nonnull final QueryPlanConstraint additionalQueryPlanConstraint) {
+    public void yieldResult(final RESULT value,
+                            final QueryPlanConstraint additionalQueryPlanConstraint) {
         if (value == current) {
             return;
         }
@@ -169,32 +149,30 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
         results.add(value);
     }
 
-    protected void composeAdditionalConstraint(final @Nonnull QueryPlanConstraint additionalQueryPlanConstraint) {
+    protected void composeAdditionalConstraint(final QueryPlanConstraint additionalQueryPlanConstraint) {
         if (resultQueryPlanConstraint.isConstrained()) {
             this.resultQueryPlanConstraint = resultQueryPlanConstraint.compose(additionalQueryPlanConstraint);
         }
     }
 
-    public void yieldResultAndReExplore(@Nonnull final RESULT value) {
+    public void yieldResultAndReExplore(final RESULT value) {
         yieldResultAndReExplore(value, QueryPlanConstraint.noConstraint());
     }
 
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public void yieldResultAndReExplore(@Nonnull RESULT value,
-                                        @Nonnull final QueryPlanConstraint additionalQueryPlanConstraint) {
+    public void yieldResultAndReExplore(RESULT value,
+                                        final QueryPlanConstraint additionalQueryPlanConstraint) {
         Verify.verify(value != current);
         composeAdditionalConstraint(additionalQueryPlanConstraint);
         results.add(value);
         shouldReExplore = true;
     }
 
-    @Nonnull
     public QueryPlanConstraint getResultQueryPlanConstraint() {
         return resultQueryPlanConstraint;
     }
 
-    @Nonnull
     public Collection<RESULT> getResults() {
         return Collections.unmodifiableCollection(results);
     }
@@ -203,13 +181,11 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
         return shouldReExplore;
     }
 
-    @Nonnull
     public YieldResultBuilder yieldResultBuilder() {
         return new YieldResultBuilder();
     }
 
     public final class YieldResultBuilder {
-        @Nonnull
         private final List<BASE> bases;
 
         public YieldResultBuilder() {
@@ -218,27 +194,26 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
 
         @SuppressWarnings({"UseBulkOperation", "ManualArrayToCollectionCopy"}) // due to varargs warning when using bulk operations
         @SafeVarargs
-        public final YieldResultBuilder addConstraintsFrom(@Nonnull final BASE... additionalBases) {
+        public final YieldResultBuilder addConstraintsFrom(final BASE... additionalBases) {
             for (final var additionalBase : additionalBases) {
                 bases.add(additionalBase);
             }
             return this;
         }
 
-        public YieldResultBuilder addConstraintsFrom(@Nonnull Iterable<? extends BASE> additionalBases) {
+        public YieldResultBuilder addConstraintsFrom(Iterable<? extends BASE> additionalBases) {
             Streams.stream(additionalBases).forEach(bases::add);
             return this;
         }
 
-        public void yieldResult(@Nonnull final RESULT value) {
+        public void yieldResult(final RESULT value) {
             AbstractRuleCall.this.yieldResult(value, computeConstraintFromBases());
         }
 
-        public void yieldResultAndReExplore(@Nonnull final RESULT value) {
+        public void yieldResultAndReExplore(final RESULT value) {
             AbstractRuleCall.this.yieldResultAndReExplore(value, computeConstraintFromBases());
         }
 
-        @Nonnull
         private QueryPlanConstraint computeConstraintFromBases() {
             return bases.stream()
                     .map(AbstractRuleCall.this::getQueryPlanConstraint)

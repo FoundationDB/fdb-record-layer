@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 /**
@@ -33,7 +32,6 @@ import java.util.Optional;
  */
 public class ValueTestHelpers {
 
-    @Nonnull
     public static RecordConstructorValue rcv() {
         final ImmutableList<Column<? extends Value>> columns =
                 ImmutableList.of(
@@ -52,7 +50,6 @@ public class ValueTestHelpers {
         return RecordConstructorValue.ofColumns(columns);
     }
 
-    @Nonnull
     public static RecordConstructorValue rcv2() {
         final ImmutableList<Column<? extends Value>> columns =
                 ImmutableList.of(
@@ -63,14 +60,12 @@ public class ValueTestHelpers {
         return RecordConstructorValue.ofColumns(columns);
     }
 
-    @Nonnull
     public static QuantifiedObjectValue qov() {
         final var resultType = rcv().getResultType();
         return QuantifiedObjectValue.of(Quantifier.current(), resultType);
     }
 
-    @Nonnull
-    public static Value field(@Nonnull final Value value, @Nonnull final String fieldName) {
+    public static Value field(final Value value, final String fieldName) {
         return FieldValue.ofFieldName(value, fieldName);
     }
 }

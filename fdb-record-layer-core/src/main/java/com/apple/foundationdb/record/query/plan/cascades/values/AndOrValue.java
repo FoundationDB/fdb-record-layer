@@ -51,8 +51,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -65,42 +64,33 @@ import java.util.function.Supplier;
 @API(API.Status.EXPERIMENTAL)
 public class AndOrValue extends AbstractValue implements BooleanValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("And-Or-Value");
-    @Nonnull
     private final String functionName;
-    @Nonnull
     private final Value leftChild;
-    @Nonnull
     private final Value rightChild;
-    @Nonnull
     private final Operator operator;
 
     private enum Operator {
         AND("AND", Precedence.AND),
         OR("OR", Precedence.OR);
 
-        @Nonnull
         private final String infixRepresentation;
-        @Nonnull
         private final Precedence precedence;
 
-        Operator(@Nonnull final String infixRepresentation, @Nonnull final Precedence precedence) {
+        Operator(final String infixRepresentation, final Precedence precedence) {
             this.infixRepresentation = infixRepresentation;
             this.precedence = precedence;
         }
 
-        @Nonnull
         private String getInfixRepresentation() {
             return infixRepresentation;
         }
 
-        @Nonnull
         public Precedence getPrecedence() {
             return precedence;
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
-        private POperator toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        private POperator toProto(final PlanSerializationContext serializationContext) {
             switch (this) {
                 case AND:
                     return POperator.AND;
@@ -111,10 +101,9 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
             }
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
-        private static Operator fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                          @Nonnull final POperator operatorProto) {
+        private static Operator fromProto(final PlanSerializationContext serializationContext,
+                                          final POperator operatorProto) {
             switch (operatorProto) {
                 case AND:
                     return AND;
@@ -134,19 +123,18 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
      * @param rightChild The right child.
      * @param operator The actual comparison operator.
      */
-    private AndOrValue(@Nonnull final String functionName,
-                       @Nonnull final Value leftChild,
-                       @Nonnull final Value rightChild,
-                       @Nonnull final Operator operator) {
+    private AndOrValue(final String functionName,
+                       final Value leftChild,
+                       final Value rightChild,
+                       final Operator operator) {
         this.functionName = functionName;
         this.leftChild = leftChild;
         this.rightChild = rightChild;
         this.operator = operator;
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         final var left = Iterables.get(explainSuppliers, 0).get();
         final var right = Iterables.get(explainSuppliers, 1).get();
         final var precedence = operator.getPrecedence();
@@ -156,7 +144,6 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
                         .addNested(precedence.parenthesizeChild(right)));
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of(leftChild, rightChild);
@@ -168,7 +155,7 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, functionName, leftChild, rightChild);
     }
 
@@ -187,7 +174,7 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
-                                           @Nonnull final EvaluationContext context) {
+                                           final EvaluationContext context) {
         final Object leftResult = leftChild.eval(store, context);
         if (operator == Operator.AND && Boolean.FALSE.equals(leftResult)) {
             return false;
@@ -214,7 +201,7 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
     @SuppressWarnings("java:S3776")
     @Override
     public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
-                                                     @Nonnull final Set<CorrelationIdentifier> localAliases) {
+                                                     final Set<CorrelationIdentifier> localAliases) {
         Verify.verify(leftChild instanceof BooleanValue);
         Verify.verify(rightChild instanceof BooleanValue);
         final Optional<QueryPredicate> leftPredicateOptional = ((BooleanValue)leftChild).toQueryPredicate(typeRepository, localAliases);
@@ -255,7 +242,6 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
         return Optional.empty();
     }
 
-    @Nonnull
     @Override
     public AndOrValue withChildren(final Iterable<? extends Value> newChildren) {
         Verify.verify(Iterables.size(newChildren) == 2);
@@ -265,9 +251,8 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
                 operator);
     }
 
-    @Nonnull
     @Override
-    public PAndOrValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PAndOrValue toProto(final PlanSerializationContext serializationContext) {
         return PAndOrValue.newBuilder()
                 .setFunctionName(functionName)
                 .setLeftChild(leftChild.toValueProto(serializationContext))
@@ -276,15 +261,13 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setAndOrValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static AndOrValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                       @Nonnull final PAndOrValue andOrValueProto) {
+    public static AndOrValue fromProto(final PlanSerializationContext serializationContext,
+                                       final PAndOrValue andOrValueProto) {
         return new AndOrValue(Objects.requireNonNull(andOrValueProto.getFunctionName()),
                 Value.fromValueProto(serializationContext, Objects.requireNonNull(andOrValueProto.getLeftChild())),
                 Value.fromValueProto(serializationContext, Objects.requireNonNull(andOrValueProto.getRightChild())),
@@ -302,7 +285,7 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
                     AndFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final CallSiteArguments callSiteArguments) {
+        private static Value encapsulate(BuiltInFunction<Value> builtInFunction, final CallSiteArguments callSiteArguments) {
             final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             Verify.verify(Iterables.size(arguments) == 2);
             return new AndOrValue(builtInFunction.getFunctionName(), (Value)arguments.get(0), (Value)arguments.get(1), Operator.AND);
@@ -320,7 +303,7 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
                     OrFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final CallSiteArguments callSiteArguments) {
+        private static Value encapsulate(BuiltInFunction<Value> builtInFunction, final CallSiteArguments callSiteArguments) {
             final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             Verify.verify(Iterables.size(arguments) == 2);
             return new AndOrValue(builtInFunction.getFunctionName(), (Value)arguments.get(0), (Value)arguments.get(1), Operator.OR);
@@ -332,15 +315,13 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PAndOrValue, AndOrValue> {
-        @Nonnull
         @Override
         public Class<PAndOrValue> getProtoMessageClass() {
             return PAndOrValue.class;
         }
 
-        @Nonnull
         @Override
-        public AndOrValue fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final PAndOrValue andOrValueProto) {
+        public AndOrValue fromProto(final PlanSerializationContext serializationContext, final PAndOrValue andOrValueProto) {
             return AndOrValue.fromProto(serializationContext, andOrValueProto);
         }
     }

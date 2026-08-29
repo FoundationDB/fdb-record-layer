@@ -22,13 +22,11 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
 
 /**
  * Tag interface for {@link AggregateValue} that are backed by an aggregate index.
  */
 @API(API.Status.EXPERIMENTAL)
 public interface IndexableAggregateValue extends Value {
-    @Nonnull
     String getIndexTypeName();
 }

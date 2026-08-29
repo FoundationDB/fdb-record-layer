@@ -50,8 +50,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -65,9 +64,7 @@ import java.util.function.Supplier;
 public class InOpValue extends AbstractValue implements BooleanValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("In-Op-Value");
 
-    @Nonnull
     private final Value probeValue;
-    @Nonnull
     private final Value inArrayValue;
 
     /**
@@ -75,19 +72,17 @@ public class InOpValue extends AbstractValue implements BooleanValue {
      * @param probeValue The left child in `IN` operator
      * @param inArrayValue The right child in `IN` operator
      */
-    private InOpValue(@Nonnull final Value probeValue,
-                      @Nonnull final Value inArrayValue) {
+    private InOpValue(final Value probeValue,
+                      final Value inArrayValue) {
         this.probeValue = probeValue;
         this.inArrayValue = inArrayValue;
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of(probeValue, inArrayValue);
     }
 
-    @Nonnull
     @Override
     public InOpValue withChildren(final Iterable<? extends Value> newChildren) {
         Verify.verify(Iterables.size(newChildren) == 2);
@@ -96,7 +91,7 @@ public class InOpValue extends AbstractValue implements BooleanValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         final var probeResult = probeValue.eval(store, context);
         final var inArrayResult = inArrayValue.eval(store, context);
         Verify.verify(inArrayResult instanceof List<?>);
@@ -112,7 +107,7 @@ public class InOpValue extends AbstractValue implements BooleanValue {
     @SuppressWarnings("java:S3776")
     @Override
     public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
-                                                     @Nonnull final Set<CorrelationIdentifier> localAliases) {
+                                                     final Set<CorrelationIdentifier> localAliases) {
         // we fail if the right side is not evaluable as we cannot create the comparison
 
         final var leftChildCorrelatedTo = probeValue.getCorrelatedTo();
@@ -128,8 +123,7 @@ public class InOpValue extends AbstractValue implements BooleanValue {
         }
     }
 
-    @Nonnull
-    private Optional<QueryPredicate> compileTimeEvalMaybe(@Nonnull TypeRepository typeRepository) {
+    private Optional<QueryPredicate> compileTimeEvalMaybe(TypeRepository typeRepository) {
         Object constantValue = this.evalWithoutStore(EvaluationContext.forTypeRepository(typeRepository));
         if (constantValue instanceof Boolean) {
             if ((boolean) constantValue) {
@@ -149,13 +143,12 @@ public class InOpValue extends AbstractValue implements BooleanValue {
     }
     
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, probeValue, inArrayValue);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         final var probe = Iterables.get(explainSuppliers, 0).get();
         final var inArray = Iterables.get(explainSuppliers, 1).get();
 
@@ -177,24 +170,21 @@ public class InOpValue extends AbstractValue implements BooleanValue {
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public PInOpValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PInOpValue toProto(final PlanSerializationContext serializationContext) {
         return PInOpValue.newBuilder()
                 .setProbeValue(probeValue.toValueProto(serializationContext))
                 .setInArrayValue(inArrayValue.toValueProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setInOpValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static InOpValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                      @Nonnull final PInOpValue inOpValueProto) {
+    public static InOpValue fromProto(final PlanSerializationContext serializationContext,
+                                      final PInOpValue inOpValueProto) {
         return new InOpValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(inOpValueProto.getProbeValue())),
                 Value.fromValueProto(serializationContext, Objects.requireNonNull(inOpValueProto.getInArrayValue())));
     }
@@ -209,9 +199,8 @@ public class InOpValue extends AbstractValue implements BooleanValue {
                     List.of(new Type.Any(), new Type.Array()), (builtInFunc, args) -> encapsulateInternal(args.getArgumentsList()));
         }
 
-        @Nonnull
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        private static Value encapsulateInternal(@Nonnull final List<? extends Typed> arguments) {
+        private static Value encapsulateInternal(final List<? extends Typed> arguments) {
             final Typed arg0 = arguments.get(0);
             final Type res0 = arg0.getResultType();
 
@@ -261,16 +250,14 @@ public class InOpValue extends AbstractValue implements BooleanValue {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PInOpValue, InOpValue> {
-        @Nonnull
         @Override
         public Class<PInOpValue> getProtoMessageClass() {
             return PInOpValue.class;
         }
 
-        @Nonnull
         @Override
-        public InOpValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                   @Nonnull final PInOpValue inOpValueProto) {
+        public InOpValue fromProto(final PlanSerializationContext serializationContext,
+                                   final PInOpValue inOpValueProto) {
             return InOpValue.fromProto(serializationContext, inOpValueProto);
         }
     }

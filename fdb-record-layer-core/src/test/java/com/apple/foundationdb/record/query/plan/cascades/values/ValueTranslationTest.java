@@ -37,7 +37,6 @@ import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -51,7 +50,6 @@ import java.util.Random;
  */
 public class ValueTranslationTest {
     @SuppressWarnings("checkstyle:MethodName")
-    @Nonnull
     private Type.Record getTType() {
         return r(
                 f("a", r("q", "r")),
@@ -61,17 +59,14 @@ public class ValueTranslationTest {
     }
 
     @SuppressWarnings("checkstyle:MethodName")
-    @Nonnull
     private Type getSType() {
         return Type.primitiveType(Type.TypeCode.INT);
     }
 
-    @Nonnull
     private Type getUType() {
         return Type.primitiveType(Type.TypeCode.INT);
     }
 
-    @Nonnull
     private Type getDeeplyNestedType() {
         return r(
                 f("pk", Type.primitiveType(Type.TypeCode.LONG)),
@@ -85,13 +80,11 @@ public class ValueTranslationTest {
     }
 
     @SuppressWarnings("checkstyle:MethodName")
-    @Nonnull
-    private QuantifiedObjectValue qov(@Nonnull final CorrelationIdentifier name, @Nonnull final Type type) {
+    private QuantifiedObjectValue qov(final CorrelationIdentifier name, final Type type) {
         return QuantifiedObjectValue.of(name, type);
     }
 
     @SuppressWarnings("checkstyle:MethodName")
-    @Nonnull
     private Type.Record r(String... fieldNames) {
         return Type.Record
                 .fromFields(false, Arrays.stream(fieldNames)
@@ -100,7 +93,6 @@ public class ValueTranslationTest {
     }
 
     @SuppressWarnings("checkstyle:MethodName")
-    @Nonnull
     private Type.Record r(Type.Record.Field... fields) {
         return Type.Record
                 .fromFields(false, Arrays.stream(fields)
@@ -108,23 +100,19 @@ public class ValueTranslationTest {
     }
 
     @SuppressWarnings("checkstyle:MethodName")
-    @Nonnull
     private Type.Record.Field f(String name) {
         return Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of(name));
     }
 
     @SuppressWarnings("checkstyle:MethodName")
-    @Nonnull
-    private Type.Record.Field f(String name, @Nonnull final Type type) {
+    private Type.Record.Field f(String name, final Type type) {
         return Type.Record.Field.of(type, Optional.of(name));
     }
 
-    @Nonnull
     private Value rcv(Value... values) {
         return RecordConstructorValue.ofUnnamed(Arrays.stream(values).collect(ImmutableList.toImmutableList()));
     }
 
-    @Nonnull
     private Value rcv(boolean isNullable, Object... valuesAndNames) {
         final var columnsBuilder = ImmutableList.<Column<? extends Value>>builder();
         for (int i = 0; i < valuesAndNames.length - 1; i += 2) {
@@ -137,13 +125,11 @@ public class ValueTranslationTest {
     }
 
     @SuppressWarnings("checkstyle:MethodName")
-    @Nonnull
-    private FieldValue fv(@Nonnull final Value base, String... name) {
+    private FieldValue fv(final Value base, String... name) {
         return fvInternal(base, name.length - 1, name);
     }
 
-    @Nonnull
-    private FieldValue fv(@Nonnull final Value base, Integer... indexes) {
+    private FieldValue fv(final Value base, Integer... indexes) {
         return fvInternal(base, indexes.length - 1, indexes);
     }
 
@@ -207,7 +193,6 @@ public class ValueTranslationTest {
     @SuppressWarnings("checkstyle:MemberName")
     final QuantifiedObjectValue u_ = qov(u_Alias, getUType());
 
-    @Nonnull
     private FieldValue fvInternal(Value value, int index, String... name) {
         if (index == 0) {
             return FieldValue.ofFieldNameAndFuseIfPossible(value, name[0]);
@@ -215,7 +200,6 @@ public class ValueTranslationTest {
         return FieldValue.ofFieldNameAndFuseIfPossible(fvInternal(value, index - 1, name), name[index]);
     }
 
-    @Nonnull
     private FieldValue fvInternal(Value value, int index, Integer... indexes) {
         if (index == 0) {
             return FieldValue.ofOrdinalNumber(value, indexes[0]);
@@ -223,7 +207,6 @@ public class ValueTranslationTest {
         return FieldValue.ofOrdinalNumberAndFuseIfPossible(fvInternal(value, index - 1, indexes), indexes[index]);
     }
 
-    @Nonnull
     private Value add(Value... values) {
         Verify.verify(values.length == 2);
         return new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_II, values[0], values[1]);
@@ -577,7 +560,6 @@ public class ValueTranslationTest {
     }
 
     @SuppressWarnings("checkstyle:MethodName")
-    @Nonnull
     private Type.Record getMType() {
         return r(
                 f("m1", r("m11", "m12")),
@@ -586,7 +568,6 @@ public class ValueTranslationTest {
         );
     }
 
-    @Nonnull
     private Type.Record getNType() {
         return r(
                 f("n1", r("n11", "n12")),
@@ -1236,15 +1217,13 @@ public class ValueTranslationTest {
         Assertions.assertEquals(expectedMap, computedMap);
     }
 
-    @Nonnull
-    private static MaxMatchMap calculate(@Nonnull final Value queryResultValue, @Nonnull final Value candidateResultValue) {
+    private static MaxMatchMap calculate(final Value queryResultValue, final Value candidateResultValue) {
         return MaxMatchMap.compute(queryResultValue, candidateResultValue, candidateResultValue.getCorrelatedTo());
     }
 
-    @Nonnull
-    private static RegularTranslationMap pullUp(@Nonnull MaxMatchMap maxMatchMap,
-                                                @Nonnull final CorrelationIdentifier queryAlias,
-                                                @Nonnull final CorrelationIdentifier candidateAlias) {
+    private static RegularTranslationMap pullUp(MaxMatchMap maxMatchMap,
+                                                final CorrelationIdentifier queryAlias,
+                                                final CorrelationIdentifier candidateAlias) {
         final var translatedQueryValueOptional = maxMatchMap.translateQueryValueMaybe(candidateAlias);
         final var translationMapOptional = translatedQueryValueOptional.map(translatedQueryValue ->
                 TranslationMap.regularBuilder()

@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue.Field
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyFieldValue;
 import static com.apple.foundationdb.record.query.plan.cascades.values.FieldValue.ofFields;
@@ -46,7 +45,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.values.FieldValu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ExpandFusedFieldValueRule extends ValueSimplificationRule<FieldValue> {
-    @Nonnull
     private static final BindingMatcher<FieldValue> rootMatcher = anyFieldValue();
 
     public ExpandFusedFieldValueRule() {
@@ -54,7 +52,7 @@ public class ExpandFusedFieldValueRule extends ValueSimplificationRule<FieldValu
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueSimplificationRuleCall call) {
+    public void onMatch(final ValueSimplificationRuleCall call) {
         Verify.verify(call.isRoot());
 
         final var bindings = call.getBindings();

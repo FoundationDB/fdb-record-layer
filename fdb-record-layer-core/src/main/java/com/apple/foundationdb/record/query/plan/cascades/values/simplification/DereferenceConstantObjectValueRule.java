@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyConstantObjectValue;
 
@@ -43,7 +42,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 public class DereferenceConstantObjectValueRule extends ValueSimplificationRule<ConstantObjectValue> {
 
-    @Nonnull
     private static final BindingMatcher<ConstantObjectValue> rootMatcher = anyConstantObjectValue();
 
     public DereferenceConstantObjectValueRule() {
@@ -51,7 +49,7 @@ public class DereferenceConstantObjectValueRule extends ValueSimplificationRule<
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueSimplificationRuleCall call) {
+    public void onMatch(final ValueSimplificationRuleCall call) {
         final var constantObjectValue = call.getBindings().get(rootMatcher);
         final var evaluationContext = call.getEvaluationContext();
         if (!evaluationContext.containsConstantBinding(constantObjectValue.getAlias(), constantObjectValue.getConstantId())) {

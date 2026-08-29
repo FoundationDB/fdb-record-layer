@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.SortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -44,25 +43,22 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class DefaultOrderingPartRule<O extends SortOrder, P extends OrderingPart<O>> extends ValueComputationRule<OrderingPartCreator<O, P>, P, Value> {
-    @Nonnull
     private static final BindingMatcher<Value> rootMatcher = anyValue();
 
-    @Nonnull
     private final O sortOrder;
 
-    public DefaultOrderingPartRule(@Nonnull final O sortOrder) {
+    public DefaultOrderingPartRule(final O sortOrder) {
         super(rootMatcher);
         this.sortOrder = sortOrder;
     }
 
-    @Nonnull
     @Override
     public Optional<Class<?>> getRootOperator() {
         return Optional.empty();
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<OrderingPartCreator<O, P>, P> call) {
+    public void onMatch(final ValueComputationRuleCall<OrderingPartCreator<O, P>, P> call) {
         final var bindings = call.getBindings();
         final var value = bindings.get(rootMatcher);
         final var orderingPartCreator = Objects.requireNonNull(call.getArgument());

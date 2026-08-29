@@ -41,8 +41,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -55,31 +54,26 @@ public class ConstantValue extends AbstractValue implements LeafValue {
 
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Constant-Value");
 
-    @Nonnull
     private final Value value;
 
-    public ConstantValue(@Nonnull final Value value) {
+    public ConstantValue(final Value value) {
         this.value = value;
     }
 
-    @Nonnull
     public Value getValue() {
         return value;
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return getValue().getResultType();
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return value.getCorrelatedTo();
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of();
@@ -87,18 +81,17 @@ public class ConstantValue extends AbstractValue implements LeafValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         return value.eval(store, context);
     }
 
     @Override
-    public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
+    public boolean isFunctionallyDependentOn(final Value otherValue) {
         return false;
     }
 
-    @Nonnull
     @Override
-    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(final Value other) {
         return LeafValue.super.equalsWithoutChildren(other)
                 .filter(ignored -> value.equals(((ConstantValue)other).value));
     }
@@ -109,7 +102,7 @@ public class ConstantValue extends AbstractValue implements LeafValue {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
@@ -119,9 +112,8 @@ public class ConstantValue extends AbstractValue implements LeafValue {
         }
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("const",
                 Iterables.getOnlyElement(explainSuppliers).get().getExplainTokens()));
     }
@@ -138,23 +130,20 @@ public class ConstantValue extends AbstractValue implements LeafValue {
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public PConstantValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PConstantValue toProto(final PlanSerializationContext serializationContext) {
         return PConstantValue.newBuilder()
                 .setValue(value.toValueProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setConstantValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static ConstantValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                          @Nonnull final PConstantValue constantValueProto) {
+    public static ConstantValue fromProto(final PlanSerializationContext serializationContext,
+                                          final PConstantValue constantValueProto) {
         return new ConstantValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(constantValueProto.getValue())));
     }
 
@@ -163,16 +152,14 @@ public class ConstantValue extends AbstractValue implements LeafValue {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PConstantValue, ConstantValue> {
-        @Nonnull
         @Override
         public Class<PConstantValue> getProtoMessageClass() {
             return PConstantValue.class;
         }
 
-        @Nonnull
         @Override
-        public ConstantValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                       @Nonnull final PConstantValue constantValueProto) {
+        public ConstantValue fromProto(final PlanSerializationContext serializationContext,
+                                       final PConstantValue constantValueProto) {
             return ConstantValue.fromProto(serializationContext, constantValueProto);
         }
     }

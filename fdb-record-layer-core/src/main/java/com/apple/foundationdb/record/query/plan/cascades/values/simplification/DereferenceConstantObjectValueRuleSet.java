@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 
 /**
@@ -38,13 +37,10 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
 public class DereferenceConstantObjectValueRuleSet extends AbstractValueRuleSet<Value, ValueSimplificationRuleCall> {
-    @Nonnull
     protected static final ValueSimplificationRule<? extends Value> dereferenceConstantObjectValueRule = new DereferenceConstantObjectValueRule();
 
-    @Nonnull
     protected static final ValueSimplificationRule<? extends Value> evaluateConstantPromotionRule = new EvaluateConstantPromotionRule();
 
-    @Nonnull
     protected static final ValueSimplificationRule<? extends Value> evaluateConstantCoalesceRule = new EvaluateConstantCoalesceRule();
 
     private static final Set<ValueSimplificationRule<? extends Value>> DEREFERENCE_CONSTANT_OBJECT_VALUE_RULES =
@@ -74,7 +70,6 @@ public class DereferenceConstantObjectValueRuleSet extends AbstractValueRuleSet<
         super(DEREFERENCE_CONSTANT_OBJECT_VALUE_RULES, DEREFERENCE_CONSTANT_OBJECT_VALUE_DEPENDS_ON);
     }
 
-    @Nonnull
     public static DereferenceConstantObjectValueRuleSet instance() {
         return new DereferenceConstantObjectValueRuleSet();
     }

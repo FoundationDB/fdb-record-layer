@@ -33,7 +33,6 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimaps;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -43,7 +42,6 @@ import java.util.Optional;
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class MatchConstantValueRule extends ValueComputationRule<Iterable<? extends Value>, ListMultimap<Value, ValueCompensation>, Value> {
-    @Nonnull
     private static final BindingMatcher<Value> rootMatcher =
             ValueMatchers.anyValue();
 
@@ -51,14 +49,13 @@ public class MatchConstantValueRule extends ValueComputationRule<Iterable<? exte
         super(rootMatcher);
     }
 
-    @Nonnull
     @Override
     public Optional<Class<?>> getRootOperator() {
         return Optional.empty(); // this is an always-rule
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<Iterable<? extends Value>, ListMultimap<Value, ValueCompensation>> call) {
+    public void onMatch(final ValueComputationRuleCall<Iterable<? extends Value>, ListMultimap<Value, ValueCompensation>> call) {
         if (!call.isRoot()) {
             return;
         }

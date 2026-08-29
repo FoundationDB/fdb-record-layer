@@ -25,15 +25,12 @@ import com.google.common.collect.ImmutableList;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Random;
 
 public class TreeDiameterTest {
 
-    @Nonnull
     private static final Random random = new Random();
 
-    @Nonnull
     private static Value valueOfDepth(int depth) {
         if (depth == 0) {
             return LiteralValue.ofScalar(random.nextInt(1000));
@@ -51,7 +48,6 @@ public class TreeDiameterTest {
         return RecordConstructorValue.ofUnnamed(childrenValuesBuilder.build());
     }
 
-    @Nonnull
     private static Value valueOfDiameter(int leftDepth, int rightDepth) {
         Verify.verify(leftDepth + rightDepth > 2);
         final var left = valueOfDepth(leftDepth);

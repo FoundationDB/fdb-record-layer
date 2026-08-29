@@ -31,7 +31,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
@@ -80,13 +79,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ConstantFoldingMultiConstraintPredicateRule extends QueryPredicateSimplificationRule<PredicateWithValueAndRanges> {
 
-    @Nonnull
     private static final BindingMatcher<RangeConstraints> rangeMatcher = rangeConstraint(atLeastTwo(anyComparison()));
 
-    @Nonnull
     private static final BindingMatcher<Value> comparandMatcher = anyValue();
 
-    @Nonnull
     private static final BindingMatcher<PredicateWithValueAndRanges> rootMatcher = predicateWithValueAndRanges(comparandMatcher, exactly(rangeMatcher));
 
     public ConstantFoldingMultiConstraintPredicateRule() {
@@ -94,14 +90,13 @@ public class ConstantFoldingMultiConstraintPredicateRule extends QueryPredicateS
     }
 
     @Override
-    public void onMatch(@Nonnull final QueryPredicateSimplificationRuleCall call) {
+    public void onMatch(final QueryPredicateSimplificationRuleCall call) {
         final var multiConstraintRange = call.getBindings().get(rangeMatcher);
         final var lhs = call.getBindings().get(comparandMatcher);
         foldConjunctionRangesMaybe(lhs, multiConstraintRange).ifPresent(call::yieldResult);
     }
 
-    @Nonnull
-    private Optional<ConstantPredicate> foldConjunctionRangesMaybe(final Value lhs, @Nonnull final RangeConstraints rangeConstraints) {
+    private Optional<ConstantPredicate> foldConjunctionRangesMaybe(final Value lhs, final RangeConstraints rangeConstraints) {
         // degenerate case, give up.
         if (rangeConstraints.getComparisons().isEmpty()) {
             return Optional.empty();

@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -42,14 +41,14 @@ import java.util.function.Function;
 @API(API.Status.EXPERIMENTAL)
 public class QueryPredicateSimplificationRuleCall extends AbstractQueryPredicateRuleCall<QueryPredicate, QueryPredicateSimplificationRuleCall> {
 
-    public QueryPredicateSimplificationRuleCall(@Nonnull final PlannerRule<QueryPredicateSimplificationRuleCall, ? extends QueryPredicate> rule,
-                                                @Nonnull final QueryPredicate root,
-                                                @Nonnull final QueryPredicate current,
-                                                @Nonnull final EvaluationContext evaluationContext,
-                                                @Nonnull final PlannerBindings bindings,
-                                                @Nonnull final AliasMap aliasMap,
-                                                @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                                @Nonnull final Function<QueryPredicate, QueryPlanConstraint> retrieveQueryPlanConstraintFunction) {
+    public QueryPredicateSimplificationRuleCall(final PlannerRule<QueryPredicateSimplificationRuleCall, ? extends QueryPredicate> rule,
+                                                final QueryPredicate root,
+                                                final QueryPredicate current,
+                                                final EvaluationContext evaluationContext,
+                                                final PlannerBindings bindings,
+                                                final AliasMap aliasMap,
+                                                final Set<CorrelationIdentifier> constantAliases,
+                                                final Function<QueryPredicate, QueryPlanConstraint> retrieveQueryPlanConstraintFunction) {
         super(rule, root, current, evaluationContext, bindings, aliasMap, constantAliases,
                 retrieveQueryPlanConstraintFunction);
     }

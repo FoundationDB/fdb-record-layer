@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.WithValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -45,7 +44,6 @@ public interface PredicateWithValue extends LeafQueryPredicate, WithValue<Predic
      *
      * @return potentially a new instance of {@code PredicateWithValue} with translated {@code Value}(s).
      */
-    @Nonnull
-    Optional<? extends PredicateWithValue> translateValueAndComparisonsMaybe(@Nonnull Function<Value, Optional<Value>> valueTranslator,
-                                                                             @Nonnull Function<Comparisons.Comparison, Optional<Comparisons.Comparison>> comparisonTranslator);
+    Optional<? extends PredicateWithValue> translateValueAndComparisonsMaybe(Function<Value, Optional<Value>> valueTranslator,
+                                                                             Function<Comparisons.Comparison, Optional<Comparisons.Comparison>> comparisonTranslator);
 }

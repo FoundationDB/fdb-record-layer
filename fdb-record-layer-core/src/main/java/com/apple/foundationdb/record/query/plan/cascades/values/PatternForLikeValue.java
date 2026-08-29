@@ -46,8 +46,7 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -88,15 +87,12 @@ public class PatternForLikeValue extends AbstractValue {
      * simple struct with that information. Fields should be accessed by number using the
      * {@link #PATTERN_FIELD_NUMBER} and {@link #ESCAPE_FIELD_NUMBER} constants.
      */
-    @Nonnull
     public static final Type TYPE = Type.Record.fromFields(false, ImmutableList.of(
             Type.Record.Field.of(Type.primitiveType(TypeCode.STRING, true), Optional.empty(), Optional.of(PATTERN_FIELD_NUMBER)),
             Type.Record.Field.of(Type.primitiveType(TypeCode.STRING, true), Optional.empty(), Optional.of(ESCAPE_FIELD_NUMBER)))
     );
 
-    @Nonnull
     private final Value patternChild;
-    @Nonnull
     private final Value escapeChild;
 
     /**
@@ -104,7 +100,7 @@ public class PatternForLikeValue extends AbstractValue {
      * @param patternChild the pattern
      * @param escapeChild the escape character
      */
-    public PatternForLikeValue(@Nonnull final Value patternChild, @Nonnull final Value escapeChild) {
+    public PatternForLikeValue(final Value patternChild, final Value escapeChild) {
         this.patternChild = patternChild;
         this.escapeChild = escapeChild;
     }
@@ -112,7 +108,7 @@ public class PatternForLikeValue extends AbstractValue {
     @Nullable
     @Override
     @SuppressWarnings("java:S6213")
-    public <M extends Message> Message eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Message eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         final Descriptors.Descriptor typeDescriptor = Objects.requireNonNull(context.getTypeRepository().getMessageDescriptor(TYPE));
         String patternStr = (String)patternChild.eval(store, context);
         final DynamicMessage.Builder resultBuilder = DynamicMessage.newBuilder(typeDescriptor);
@@ -130,7 +126,7 @@ public class PatternForLikeValue extends AbstractValue {
         return resultBuilder.build();
     }
 
-    static char validateEscapeChar(@Nonnull String escape) {
+    static char validateEscapeChar(String escape) {
         SemanticException.check(escape.length() == 1, SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR);
         char escapeChar = escape.charAt(0);
         SemanticException.check(!Character.isSurrogate(escapeChar), SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR);
@@ -138,7 +134,7 @@ public class PatternForLikeValue extends AbstractValue {
         return escapeChar;
     }
 
-    static void validatePattern(@Nonnull String pattern, char escapeChar) {
+    static void validatePattern(String pattern, char escapeChar) {
         int i = 0;
         while (i < pattern.length()) {
             if (pattern.charAt(i) == escapeChar) {
@@ -152,13 +148,11 @@ public class PatternForLikeValue extends AbstractValue {
         }
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return  ImmutableList.of(patternChild, escapeChild);
     }
 
-    @Nonnull
     @Override
     public PatternForLikeValue withChildren(final Iterable<? extends Value> newChildren) {
         Verify.verify(Iterables.size(newChildren) == 2);
@@ -173,13 +167,12 @@ public class PatternForLikeValue extends AbstractValue {
     }
     
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, patternChild, escapeChild);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         final var pattern = Iterables.get(explainSuppliers, 0).get();
         final var escape = Iterables.get(explainSuppliers, 1).get();
 
@@ -199,36 +192,31 @@ public class PatternForLikeValue extends AbstractValue {
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return TYPE;
     }
 
-    @Nonnull
     @Override
-    public PPatternForLikeValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PPatternForLikeValue toProto(final PlanSerializationContext serializationContext) {
         return PPatternForLikeValue.newBuilder()
                 .setPatternChild(patternChild.toValueProto(serializationContext))
                 .setEscapeChild(escapeChild.toValueProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setPatternForLikeValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static PatternForLikeValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                @Nonnull final PPatternForLikeValue patternForLikeValueProto) {
+    public static PatternForLikeValue fromProto(final PlanSerializationContext serializationContext,
+                                                final PPatternForLikeValue patternForLikeValueProto) {
         return new PatternForLikeValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(patternForLikeValueProto.getPatternChild())),
                 Value.fromValueProto(serializationContext, Objects.requireNonNull(patternForLikeValueProto.getEscapeChild())));
     }
 
-    @Nonnull
-    private static Value encapsulate(@Nonnull final List<? extends Typed> arguments) {
+    private static Value encapsulate(final List<? extends Typed> arguments) {
         Verify.verify(arguments.size() == 2);
         Type patternType = arguments.get(0).getResultType();
         Type escapeType = arguments.get(1).getResultType();
@@ -255,16 +243,14 @@ public class PatternForLikeValue extends AbstractValue {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PPatternForLikeValue, PatternForLikeValue> {
-        @Nonnull
         @Override
         public Class<PPatternForLikeValue> getProtoMessageClass() {
             return PPatternForLikeValue.class;
         }
 
-        @Nonnull
         @Override
-        public PatternForLikeValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                             @Nonnull final PPatternForLikeValue patternForLikeValueProto) {
+        public PatternForLikeValue fromProto(final PlanSerializationContext serializationContext,
+                                             final PPatternForLikeValue patternForLikeValueProto) {
             return PatternForLikeValue.fromProto(serializationContext, patternForLikeValueProto);
         }
     }

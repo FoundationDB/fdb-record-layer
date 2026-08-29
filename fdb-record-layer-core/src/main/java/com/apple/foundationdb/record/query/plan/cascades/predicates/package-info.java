@@ -21,4 +21,7 @@
 /**
  * A package for all implementations of the {@link com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate}.
  */
+@NullMarked
 package com.apple.foundationdb.record.query.plan.cascades.predicates;
+
+import org.jspecify.annotations.NullMarked;

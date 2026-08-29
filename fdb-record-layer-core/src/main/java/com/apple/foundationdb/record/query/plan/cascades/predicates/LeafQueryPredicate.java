@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.translation.Pull
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 
@@ -40,13 +39,11 @@ import java.util.Map;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface LeafQueryPredicate extends QueryPredicate {
-    @Nonnull
     @Override
     default Iterable<? extends QueryPredicate> getChildren() {
         return ImmutableList.of();
     }
 
-    @Nonnull
     @Override
     default QueryPredicate withChildren(final Iterable<? extends QueryPredicate> newChildren) {
         return this;
@@ -60,25 +57,22 @@ public interface LeafQueryPredicate extends QueryPredicate {
         return hashCodeWithoutChildren();
     }
 
-    @Nonnull
     @Override
     default QueryPredicate withAtomicity(boolean isAtomic) {
         return this;
     }
 
-    @Nonnull
     @Override
-    default PredicateMultiMap.PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
-                                                                                        @Nonnull final QueryPredicate originalQueryPredicate,
-                                                                                        @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                                        @Nonnull final List<PredicateMultiMap.PredicateCompensationFunction> childrenResults,
-                                                                                        @Nonnull final PullUp pullUp) {
+    default PredicateMultiMap.PredicateCompensationFunction computeCompensationFunction(final PartialMatch partialMatch,
+                                                                                        final QueryPredicate originalQueryPredicate,
+                                                                                        final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                                        final List<PredicateMultiMap.PredicateCompensationFunction> childrenResults,
+                                                                                        final PullUp pullUp) {
         Verify.verify(childrenResults.isEmpty());
         return computeCompensationFunctionForLeaf(pullUp);
     }
 
-    @Nonnull
-    default PredicateMultiMap.PredicateCompensationFunction computeCompensationFunctionForLeaf(@Nonnull final PullUp pullUp) {
+    default PredicateMultiMap.PredicateCompensationFunction computeCompensationFunctionForLeaf(final PullUp pullUp) {
         return toResidualPredicate()
                 .replaceValuesMaybe(pullUp::pullUpValueMaybe)
                 .map(PredicateMultiMap.PredicateCompensationFunction::ofPredicate)

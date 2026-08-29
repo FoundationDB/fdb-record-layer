@@ -39,8 +39,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -53,48 +52,42 @@ import java.util.function.Supplier;
 public class ArrayDistinctValue extends AbstractValue implements ValueWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Array-Distinct-Value");
 
-    @Nonnull
     private final Value childValue;
-    @Nonnull
     private final Type resultType;
 
-    public ArrayDistinctValue(@Nonnull final Value childValue) {
+    public ArrayDistinctValue(final Value childValue) {
         final var innerResultType = Objects.requireNonNull(childValue.getResultType());
         Verify.verify(innerResultType.isArray());
         this.childValue = childValue;
         this.resultType = innerResultType;
     }
 
-    @Nonnull
     @Override
     public List<? extends Value> computeChildren() {
         return ImmutableList.of(childValue);
     }
 
-    @Nonnull
     @Override
     public Value getChild() {
         return childValue;
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
+    public ValueWithChild withNewChild(final Value rebasedChild) {
         if (getChild() == rebasedChild) {
             return this;
         }
         return new ArrayDistinctValue(rebasedChild);
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return resultType;
     }
 
     @Override
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         final var childResult = childValue.eval(store, context);
         if (childResult == null) {
             return null;
@@ -108,13 +101,12 @@ public class ArrayDistinctValue extends AbstractValue implements ValueWithChild 
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, childValue);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("arrayDistinct",
                 Value.explainFunctionArguments(explainSuppliers)));
     }
@@ -131,23 +123,20 @@ public class ArrayDistinctValue extends AbstractValue implements ValueWithChild 
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public PArrayDistinctValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PArrayDistinctValue toProto(final PlanSerializationContext serializationContext) {
         return PArrayDistinctValue.newBuilder()
                 .setChildValue(childValue.toValueProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull PlanSerializationContext serializationContext) {
+    public PValue toValueProto(PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setArrayDistinctValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static ArrayDistinctValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                               @Nonnull final PArrayDistinctValue arrayDistinctValueProto) {
+    public static ArrayDistinctValue fromProto(final PlanSerializationContext serializationContext,
+                                               final PArrayDistinctValue arrayDistinctValueProto) {
         return new ArrayDistinctValue(
                 Value.fromValueProto(serializationContext, Objects.requireNonNull(arrayDistinctValueProto.getChildValue()))
         );
@@ -158,16 +147,14 @@ public class ArrayDistinctValue extends AbstractValue implements ValueWithChild 
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PArrayDistinctValue, ArrayDistinctValue> {
-        @Nonnull
         @Override
         public Class<PArrayDistinctValue> getProtoMessageClass() {
             return PArrayDistinctValue.class;
         }
 
-        @Nonnull
         @Override
-        public ArrayDistinctValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                            @Nonnull final PArrayDistinctValue arrayDistinctValueProto) {
+        public ArrayDistinctValue fromProto(final PlanSerializationContext serializationContext,
+                                            final PArrayDistinctValue arrayDistinctValueProto) {
             return ArrayDistinctValue.fromProto(serializationContext, arrayDistinctValueProto);
         }
     }

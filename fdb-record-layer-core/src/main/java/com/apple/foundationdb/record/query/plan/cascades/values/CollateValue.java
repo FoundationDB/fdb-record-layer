@@ -52,8 +52,7 @@ import com.google.common.collect.Iterables;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Supplier;
@@ -65,9 +64,7 @@ import java.util.function.Supplier;
 public class CollateValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Collate-Value");
 
-    @Nonnull
     private final TextCollatorRegistry collatorRegistry;
-    @Nonnull
     private final Value stringChild;
     @Nullable
     private final Value localeChild;
@@ -76,8 +73,8 @@ public class CollateValue extends AbstractValue {
     @Nullable
     private final TextCollator invariableCollator;
 
-    public CollateValue(@Nonnull final TextCollatorRegistry collatorRegistry,
-                        @Nonnull final Value stringChild, @Nullable final Value localeChild, @Nullable final Value strengthChild) {
+    public CollateValue(final TextCollatorRegistry collatorRegistry,
+                        final Value stringChild, @Nullable final Value localeChild, @Nullable final Value strengthChild) {
         this.collatorRegistry = collatorRegistry;
         this.stringChild = stringChild;
         this.localeChild = localeChild;
@@ -85,22 +82,20 @@ public class CollateValue extends AbstractValue {
         this.invariableCollator = getInvariableCollator(collatorRegistry, localeChild, strengthChild);
     }
 
-    @Nonnull
     public TextCollatorRegistry getCollatorRegistry() {
         return collatorRegistry;
     }
     
     @Nullable
     @Override
-    public <M extends Message> ByteString eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> ByteString eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         final String str = (String)stringChild.eval(store, context);
         final TextCollator collator = getTextCollator(store, context);
         return collator.getKey(str); //TODO str may be null?
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         final var stringExplainTokens =
                 Iterables.get(explainSuppliers, 0).get().getExplainTokens();
         final var localeExplainTokens =
@@ -119,13 +114,11 @@ public class CollateValue extends AbstractValue {
                         new ExplainTokens().addKeyword("STRENGTH").addWhitespace().addNested(strengthExplainTokens))));
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return Type.primitiveType(TypeCode.BYTES);
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         ImmutableList.Builder<Value> list = ImmutableList.builder();
@@ -139,7 +132,6 @@ public class CollateValue extends AbstractValue {
         return list.build();
     }
 
-    @Nonnull
     @Override
     public CollateValue withChildren(final Iterable<? extends Value> newChildren) {
         final Iterator<? extends Value> iter = newChildren.iterator();
@@ -167,14 +159,13 @@ public class CollateValue extends AbstractValue {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, collatorRegistry.getName(),
                                             stringChild, localeChild, strengthChild);
     }
 
-    @Nonnull
     @Override
-    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(final Value other) {
         return super.equalsWithoutChildren(other).filter(ignored -> {
             CollateValue otherCollate = (CollateValue)other;
             return collatorRegistry.equals(otherCollate.collatorRegistry);
@@ -193,9 +184,8 @@ public class CollateValue extends AbstractValue {
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public PCollateValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PCollateValue toProto(final PlanSerializationContext serializationContext) {
         PCollateValue.Builder builder = PCollateValue.newBuilder();
         builder.setCollatorRegistry(collatorRegistry.getName());
         builder.setStringChild(stringChild.toValueProto(serializationContext));
@@ -208,15 +198,13 @@ public class CollateValue extends AbstractValue {
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setCollateValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static CollateValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                         @Nonnull final PCollateValue collateValueProto) {
+    public static CollateValue fromProto(final PlanSerializationContext serializationContext,
+                                         final PCollateValue collateValueProto) {
         final TextCollatorRegistry collatorRegistry = getCollatorRegistryFromProto(collateValueProto.getCollatorRegistry());
         final Value stringChild = Value.fromValueProto(serializationContext, collateValueProto.getStringChild());
         final Value localeChild;
@@ -239,23 +227,21 @@ public class CollateValue extends AbstractValue {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PCollateValue, CollateValue> {
-        @Nonnull
         @Override
         public Class<PCollateValue> getProtoMessageClass() {
             return PCollateValue.class;
         }
 
-        @Nonnull
         @Override
-        public CollateValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                      @Nonnull final PCollateValue collateValueProto) {
+        public CollateValue fromProto(final PlanSerializationContext serializationContext,
+                                      final PCollateValue collateValueProto) {
             return CollateValue.fromProto(serializationContext, collateValueProto);
         }
     }
 
     @Nullable
     @SuppressWarnings("unchecked")
-    protected static TextCollator getInvariableCollator(@Nonnull final TextCollatorRegistry collatorRegistry,
+    protected static TextCollator getInvariableCollator(final TextCollatorRegistry collatorRegistry,
                                                         @Nullable final Value localeChild, @Nullable final Value strengthChild) {
         if (localeChild == null) {
             if (strengthChild == null) {
@@ -288,9 +274,8 @@ public class CollateValue extends AbstractValue {
         return null;
     }
 
-    @Nonnull
     private <M extends Message> TextCollator getTextCollator(@Nullable final FDBRecordStoreBase<M> store,
-                                                             @Nonnull final EvaluationContext context) {
+                                                             final EvaluationContext context) {
         if (invariableCollator != null) {
             return invariableCollator;
         }
@@ -309,7 +294,7 @@ public class CollateValue extends AbstractValue {
         }
     }
 
-    private static TextCollatorRegistry getCollatorRegistryFromProto(@Nonnull final String name) {
+    private static TextCollatorRegistry getCollatorRegistryFromProto(final String name) {
         CollateFunctionKeyExpression keyExpression = (CollateFunctionKeyExpression)
                 Key.Expressions.function("collate_" + name,
                         Key.Expressions.concatenateFields("_string", "_locale", "_strength"));
@@ -320,17 +305,16 @@ public class CollateValue extends AbstractValue {
      * Base class for defining collation built-in function.
      */
     public static class CollateFunction extends BuiltInFunction<Value> {
-        public CollateFunction(@Nonnull final String functionName,
-                               @Nonnull final TextCollatorRegistry collatorRegistry) {
+        public CollateFunction(final String functionName,
+                               final TextCollatorRegistry collatorRegistry) {
             super(functionName,
                     ImmutableList.of(Type.primitiveType(Type.TypeCode.STRING)), Type.any(),
                     (builtInFunction, arguments) -> CollateValue.encapsulate(collatorRegistry, arguments.getArgumentsList()));
         }
     }
 
-    @Nonnull
-    private static Value encapsulate(@Nonnull final TextCollatorRegistry collatorRegistry,
-                                     @Nonnull final List<? extends Typed> arguments) {
+    private static Value encapsulate(final TextCollatorRegistry collatorRegistry,
+                                     final List<? extends Typed> arguments) {
         final int nargs = arguments.size();
         Verify.verify(nargs >= 1 && nargs <= 3);
         final Typed stringArg = arguments.get(0);

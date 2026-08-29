@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Optional;
 
@@ -41,23 +40,20 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class MatchFieldValueOverFieldValueRule extends ValueComputationRule<Value, Map<Value, ValueCompensation>, FieldValue> {
-    @Nonnull
     private static final BindingMatcher<FieldValue> childFieldMatcher = anyFieldValue();
-    @Nonnull
     private static final BindingMatcher<FieldValue> rootMatcher = fieldValue(childFieldMatcher);
 
     public MatchFieldValueOverFieldValueRule() {
         super(rootMatcher);
     }
 
-    @Nonnull
     @Override
     public Optional<Class<?>> getRootOperator() {
         return Optional.of(FieldValue.class);
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<Value, Map<Value, ValueCompensation>> call) {
+    public void onMatch(final ValueComputationRuleCall<Value, Map<Value, ValueCompensation>> call) {
         final var bindings = call.getBindings();
         final var rootValue = bindings.get(rootMatcher);
         final var childValue = bindings.get(childFieldMatcher);

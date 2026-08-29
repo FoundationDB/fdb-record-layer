@@ -23,40 +23,35 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
-import javax.annotation.Nonnull;
 
 /**
  * A compensation that utilizes a field access.
  */
 public class FieldValueCompensation implements ValueCompensation {
-    @Nonnull
     private final FieldValue.FieldPath fieldPath;
 
-    @Nonnull
     private final ValueCompensation downstreamCompensation;
 
-    public FieldValueCompensation(@Nonnull final FieldValue.FieldPath fieldPath) {
+    public FieldValueCompensation(final FieldValue.FieldPath fieldPath) {
         this(fieldPath, ValueCompensation.noCompensation());
     }
 
-    public FieldValueCompensation(@Nonnull final FieldValue.FieldPath fieldPath, @Nonnull final ValueCompensation downstreamCompensation) {
+    public FieldValueCompensation(final FieldValue.FieldPath fieldPath, final ValueCompensation downstreamCompensation) {
         this.fieldPath = fieldPath;
         this.downstreamCompensation = downstreamCompensation;
     }
 
 
-    @Nonnull
     public FieldValue.FieldPath getFieldPath() {
         return fieldPath;
     }
 
-    @Nonnull
     @Override
-    public Value compensate(@Nonnull final Value value) {
+    public Value compensate(final Value value) {
         return downstreamCompensation.compensate(FieldValue.ofFieldsAndFuseIfPossible(value, fieldPath));
     }
 
-    public ValueCompensation withSuffix(@Nonnull final FieldValue.FieldPath suffixFieldPath) {
+    public ValueCompensation withSuffix(final FieldValue.FieldPath suffixFieldPath) {
         if (suffixFieldPath.isEmpty()) {
             return downstreamCompensation;
         }

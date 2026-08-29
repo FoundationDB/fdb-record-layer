@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 /**
@@ -61,10 +60,9 @@ import java.util.Optional;
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class AbstractRule<RESULT, CALL extends AbstractRuleCall<RESULT, CALL, BASE>, BASE, TYPE extends BASE> implements PlannerRule<CALL, TYPE> {
-    @Nonnull
     private final BindingMatcher<TYPE> matcher;
 
-    public AbstractRule(@Nonnull BindingMatcher<TYPE> matcher) {
+    public AbstractRule(BindingMatcher<TYPE> matcher) {
         this.matcher = matcher;
     }
 
@@ -74,19 +72,16 @@ public abstract class AbstractRule<RESULT, CALL extends AbstractRuleCall<RESULT,
      * @return the class of the root of this rule's binding, or <code>Optional.empty()</code> if the rule matches anything
      * @see PlanningRuleSet
      */
-    @Nonnull
     @Override
     public Optional<Class<?>> getRootOperator() {
         return Optional.of(matcher.getRootClass());
     }
 
-    @Nonnull
     @Override
     public BindingMatcher<TYPE> getMatcher() {
         return matcher;
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return getClass().getSimpleName();

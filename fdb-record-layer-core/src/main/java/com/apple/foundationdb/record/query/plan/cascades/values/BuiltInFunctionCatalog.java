@@ -31,7 +31,6 @@ import com.google.common.collect.Range;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -76,19 +75,16 @@ public class BuiltInFunctionCatalog {
         return catalogBuilder.build();
     }
 
-    @Nonnull
     @SuppressWarnings("java:S1066")
-    public static Optional<BuiltInFunction<? extends Typed>> resolve(@Nonnull final String functionName, int numberOfArguments) {
+    public static Optional<BuiltInFunction<? extends Typed>> resolve(final String functionName, int numberOfArguments) {
         BuiltInFunction<? extends Typed> builtInFunction = getFunctionCatalog().get(FunctionKey.invocation(functionName, numberOfArguments));
         return Optional.ofNullable(builtInFunction);
     }
 
-    @Nonnull
     private static Map<Class<BuiltInFunction<? extends Typed>>, BuiltInFunction<? extends Typed>> getFunctionsByClass() {
         return functionsByClassSupplier.get();
     }
 
-    @Nonnull
     @SuppressWarnings("unchecked")
     private static Map<Class<BuiltInFunction<? extends Typed>>, BuiltInFunction<? extends Typed>> computeFunctionsByClass() {
         final var functionCatalog = getFunctionCatalog();
@@ -104,8 +100,7 @@ public class BuiltInFunctionCatalog {
      * @param clazz the class to look up
      * @return an {@link Optional} containing the function singleton or {@code Optional.empty()}
      */
-    @Nonnull
-    public static Optional<BuiltInFunction<? extends Typed>> getFunctionSingleton(@Nonnull final Class<? extends BuiltInFunction<? extends Typed>> clazz) {
+    public static Optional<BuiltInFunction<? extends Typed>> getFunctionSingleton(final Class<? extends BuiltInFunction<? extends Typed>> clazz) {
         return Optional.ofNullable(getFunctionsByClass().get(clazz));
     }
 
@@ -173,22 +168,19 @@ public class BuiltInFunctionCatalog {
      */
     @VisibleForTesting
     public static final class FunctionKey {
-        @Nonnull
         private final String functionName;
 
-        @Nonnull
         private final Range<Integer> requiredArgParamRange;
 
         private final boolean isInvocation;
 
-        private FunctionKey(@Nonnull final String functionName, @Nonnull final Range<Integer> requiredArgParamRange,
+        private FunctionKey(final String functionName, final Range<Integer> requiredArgParamRange,
                             final boolean isInvocation) {
             this.functionName = functionName;
             this.requiredArgParamRange = requiredArgParamRange;
             this.isInvocation = isInvocation;
         }
 
-        @Nonnull
         public String getFunctionName() {
             return functionName;
         }
@@ -223,15 +215,13 @@ public class BuiltInFunctionCatalog {
             return Objects.hash(getFunctionName());
         }
 
-        @Nonnull
-        public static FunctionKey invocation(@Nonnull final String functionName, final int numArguments) {
+        public static FunctionKey invocation(final String functionName, final int numArguments) {
             Verify.verify(numArguments >= 0);
             final Range<Integer> argRange = Range.singleton(numArguments);
             return new FunctionKey(functionName, argRange, true);
         }
 
-        @Nonnull
-        public static FunctionKey entry(@Nonnull final String functionName, final int numParameters,
+        public static FunctionKey entry(final String functionName, final int numParameters,
                                         int numParametersWithDefaultValues, final boolean isVariadic) {
             Verify.verify(numParametersWithDefaultValues >= 0);
             Verify.verify(numParameters >= numParametersWithDefaultValues);

@@ -47,8 +47,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -61,17 +60,16 @@ import java.util.function.Supplier;
 @API(API.Status.EXPERIMENTAL)
 public class ExistsValue extends AbstractValue implements BooleanValue, ValueWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Exists-Value");
-    @Nonnull
     private final Value value;
 
-    public ExistsValue(@Nonnull Value value) {
+    public ExistsValue(Value value) {
         this.value = value;
     }
 
     @Override
     @SuppressWarnings({"java:S2637", "ConstantConditions"}) // TODO the alternative component should not be null
     public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
-                                                     @Nonnull final Set<CorrelationIdentifier> localAliases) {
+                                                     final Set<CorrelationIdentifier> localAliases) {
         return Optional.of(new ExistentialValuePredicate(value, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)));
     }
 
@@ -81,20 +79,19 @@ public class ExistsValue extends AbstractValue implements BooleanValue, ValueWit
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, value);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("exists",
                 getChild().explain().getExplainTokens()));
     }
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         return getChild().eval(store, context) != null;
     }
 
@@ -110,43 +107,37 @@ public class ExistsValue extends AbstractValue implements BooleanValue, ValueWit
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public PExistsValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PExistsValue toProto(final PlanSerializationContext serializationContext) {
         return PExistsValue.newBuilder()
                 .setValue(getChild().toValueProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setExistsValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static ExistsValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                        @Nonnull final PExistsValue existsValueProto) {
+    public static ExistsValue fromProto(final PlanSerializationContext serializationContext,
+                                        final PExistsValue existsValueProto) {
         return existsValueProto.hasChild() ?
                new ExistsValue(QuantifiedObjectValue.fromProto(serializationContext, Objects.requireNonNull(existsValueProto.getChild()))) :
                new ExistsValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(existsValueProto.getValue())));
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of(getChild());
     }
 
-    @Nonnull
     @Override
     public Value getChild() {
         return value;
     }
 
-    @Nonnull
     @Override
-    public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
+    public ValueWithChild withNewChild(final Value rebasedChild) {
         return new ExistsValue(rebasedChild);
     }
 
@@ -161,7 +152,7 @@ public class ExistsValue extends AbstractValue implements BooleanValue, ValueWit
         }
 
         // TODO this is sus
-        private static Value encapsulateInternal(@Nonnull final List<? extends Typed> arguments) {
+        private static Value encapsulateInternal(final List<? extends Typed> arguments) {
             // the call is already validated against the resolved function
             Verify.verify(arguments.size() == 1);
             final Typed in = arguments.get(0);
@@ -174,16 +165,14 @@ public class ExistsValue extends AbstractValue implements BooleanValue, ValueWit
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PExistsValue, ExistsValue> {
-        @Nonnull
         @Override
         public Class<PExistsValue> getProtoMessageClass() {
             return PExistsValue.class;
         }
 
-        @Nonnull
         @Override
-        public ExistsValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                     @Nonnull final PExistsValue existsValueProto) {
+        public ExistsValue fromProto(final PlanSerializationContext serializationContext,
+                                     final PExistsValue existsValueProto) {
             return ExistsValue.fromProto(serializationContext, existsValueProto);
         }
     }
