@@ -25,6 +25,7 @@ import de.undercouch.gradle.tasks.download.Verify
 plugins {
     id 'java-test-fixtures'
     alias(libs.plugins.shadow)
+    alias(libs.plugins.errorprone)
 }
 apply from: rootProject.file('gradle/proto.gradle')
 apply from: rootProject.file('gradle/publishing.gradle')
@@ -40,6 +41,9 @@ dependencies {
     compileOnly(libs.jspecify)
     compileOnly(libs.autoService)
     annotationProcessor(libs.autoService)
+
+    errorprone(libs.errorprone.core)
+    errorprone(libs.nullaway)
 
     testImplementation project(':fdb-test-utils')
     // Guardiann structural-invariant assertions + SIFT dataset loaders/paths live in fdb-extensions' testFixtures
@@ -76,6 +80,32 @@ dependencies {
 sourceSets {
     main {
         java.srcDir ".out/generated/sources/annotationProcessor/java/main/"
+    }
+}
+
+// jspecify + NullAway, scoped to this module. See @NullMarked package-info.java files under
+// com.apple.foundationdb.record (this module's single root package). Protobuf-generated
+// metadata/plan-serialization code that lives in its own dedicated generated-only subpackage is
+// carved out via UnannotatedSubPackages. A handful of generated proto outer classes are instead
+// emitted directly into packages that also contain hand-annotated source
+// (com.apple.foundationdb.record and com.apple.foundationdb.record.provider.foundationdb.keyspace),
+// so package-level exclusion would also blind NullAway to the hand-written classes they share a
+// package with; those are carved out individually via ExcludedClasses instead (this list is tied
+// 1:1 to record_metadata.proto, record_cursor.proto, index_build.proto,
+// record_metadata_options.proto, record_planner_config.proto, pending_writes_queue.proto,
+// time_window_leaderboard.proto, resolver_state.proto, record_sorting.proto,
+// string_interning_data.proto, tuple_fields.proto, and keyspace.proto -- revisit if those
+// java_outer_classname values change).
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs += ['-Xmaxerrs', '100000']
+    options.errorprone {
+        disableAllChecks = true
+        error("NullAway")
+        option("NullAway:AnnotatedPackages", "com.apple.foundationdb.record")
+        option("NullAway:UnannotatedSubPackages", "com.apple.foundationdb.record.planprotos,com.apple.foundationdb.record.expressions,com.apple.foundationdb.record.query.plan.cascades.events.eventprotos")
+        option("NullAway:ExcludedClasses", "com.apple.foundationdb.record.RecordMetaDataProto,com.apple.foundationdb.record.RecordCursorProto,com.apple.foundationdb.record.IndexBuildProto,com.apple.foundationdb.record.RecordMetaDataOptionsProto,com.apple.foundationdb.record.RecordPlannerConfigurationProto,com.apple.foundationdb.record.PendingWritesQueueProto,com.apple.foundationdb.record.TimeWindowLeaderboardProto,com.apple.foundationdb.record.ResolverStateProto,com.apple.foundationdb.record.RecordSortingProto,com.apple.foundationdb.record.StringInterningProto,com.apple.foundationdb.record.TupleFieldsProto,com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceProto")
+        option("NullAway:JSpecifyMode", "true")
+        option("NullAway:AcknowledgeRestrictiveAnnotations", "true")
     }
 }
 
