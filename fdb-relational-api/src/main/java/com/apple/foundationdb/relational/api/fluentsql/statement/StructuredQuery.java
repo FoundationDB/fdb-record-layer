@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.api.fluentsql.statement;
 
-import javax.annotation.Nonnull;
 import javax.annotation.concurrent.Immutable;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -34,22 +33,18 @@ public interface StructuredQuery {
         DRY_RUN("DRY RUN"),
         PLAN_RIGHT_DEEP("PLAN RIGHT DEEP");
 
-        @Nonnull
         private final String name;
 
-        QueryOptions(@Nonnull final String name) {
+        QueryOptions(final String name) {
             this.name = name;
         }
 
-        @Nonnull
         public String getName() {
             return name;
         }
     }
 
-    @Nonnull
     PreparedStatement getPreparedStatement() throws SQLException;
 
-    @Nonnull
     String getSqlQuery();
 }

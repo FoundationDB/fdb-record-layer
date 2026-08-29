@@ -25,8 +25,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.fluentsql.FluentVisitor;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 
 /**
@@ -47,21 +47,19 @@ import java.util.Objects;
  */
 @API(API.Status.EXPERIMENTAL)
 public class ParsingFragment<T extends DataType> implements ExpressionFragment<T> {
-    @Nonnull
     private final String fragment;
 
-    @Nonnull
     private final T dataType;
 
-    public ParsingFragment(@Nonnull final T dataType,
-                           @Nonnull final String fragment) {
+    public ParsingFragment(final T dataType,
+                           final String fragment) {
         this.dataType = dataType;
         this.fragment = fragment;
     }
 
     @Nullable
     @Override
-    public <R, C> R accept(@Nonnull FluentVisitor<R, C> visitor, @Nonnull C context) {
+    public <R, C> R accept(FluentVisitor<R, C> visitor, C context) {
         return visitor.visit(this, context);
     }
 
@@ -70,7 +68,6 @@ public class ParsingFragment<T extends DataType> implements ExpressionFragment<T
         return dataType;
     }
 
-    @Nonnull
     @Override
     public String getFragment() {
         return fragment;

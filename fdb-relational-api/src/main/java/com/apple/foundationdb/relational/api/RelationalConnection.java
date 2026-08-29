@@ -25,7 +25,8 @@ import com.apple.foundationdb.relational.api.fluentsql.expression.ExpressionFact
 import com.apple.foundationdb.relational.api.fluentsql.statement.StatementBuilderFactory;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
+
 import java.net.URI;
 import java.sql.Blob;
 import java.sql.CallableStatement;
@@ -89,11 +90,11 @@ public interface RelationalConnection extends java.sql.Connection {
     @Override
     RelationalPreparedStatement prepareStatement(String sql) throws SQLException;
 
-    @Nonnull
     Options getOptions();
 
     void setOption(Options.Name name, Object value) throws SQLException;
 
+    @Nullable
     URI getPath();
 
     /* Unsupported SQL features*/
@@ -208,6 +209,7 @@ public interface RelationalConnection extends java.sql.Connection {
 
     @Override
     @ExcludeFromJacocoGeneratedReport
+    @Nullable
     default SQLWarning getWarnings() throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
@@ -337,12 +339,10 @@ public interface RelationalConnection extends java.sql.Connection {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
-    @Nonnull
     default StatementBuilderFactory createStatementBuilderFactory() throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
-    @Nonnull
     default ExpressionFactory createExpressionBuilderFactory() throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }

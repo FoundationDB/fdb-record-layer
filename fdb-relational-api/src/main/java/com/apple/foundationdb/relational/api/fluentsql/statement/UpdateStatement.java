@@ -26,8 +26,8 @@ import com.apple.foundationdb.relational.api.fluentsql.expression.Expression;
 import com.apple.foundationdb.relational.api.fluentsql.expression.ExpressionFactory;
 import com.apple.foundationdb.relational.api.fluentsql.expression.Field;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Map;
@@ -35,68 +35,49 @@ import java.util.Set;
 
 @Immutable
 public interface UpdateStatement extends StructuredQuery {
-    @Nonnull
     Map<Field<?>, Expression<?>> getSetClauses();
 
-    @Nonnull
     List<Expression<?>> getReturning();
 
     @Nullable
     BooleanExpressionTrait getWhereClause();
 
-    @Nonnull
     Set<QueryOptions> getOptions();
 
-    @Nonnull
     String getTable();
 
     interface Builder {
-        @Nonnull
         Map<Field<?>, Expression<?>> getSetClauses();
 
-        @Nonnull
-        Builder addSetClause(@Nonnull Field<?> field, @Nonnull Expression<?> newValue);
+        Builder addSetClause(Field<?> field, Expression<?> newValue);
 
-        @Nonnull
         Builder clearSetClauses();
 
-        @Nonnull
-        Builder removeSetClause(@Nonnull Field<?> field);
+        Builder removeSetClause(Field<?> field);
 
-        @Nonnull
         List<Expression<?>> getReturning();
 
-        @Nonnull
-        Builder addReturning(@Nonnull Expression<?> expression);
+        Builder addReturning(Expression<?> expression);
 
-        @Nonnull
         Builder clearReturning();
 
         @Nullable
         BooleanExpressionTrait getWhereClause();
 
-        @Nonnull
-        Builder addWhereClause(@Nonnull BooleanExpressionTrait expression);
+        Builder addWhereClause(BooleanExpressionTrait expression);
 
-        @Nonnull
         Builder clearWhereClause();
 
-        @Nonnull
-        Builder withOption(@Nonnull QueryOptions... options);
+        Builder withOption(QueryOptions... options);
 
-        @Nonnull
         Set<QueryOptions> getOptions();
 
-        @Nonnull
         String getTable();
 
-        @Nonnull
-        Builder setTable(@Nonnull String table);
+        Builder setTable(String table);
 
-        @Nonnull
-        Builder resolveSetFields(@Nonnull ExpressionFactory expressionFactory);
+        Builder resolveSetFields(ExpressionFactory expressionFactory);
 
-        @Nonnull
         UpdateStatement build() throws RelationalException;
 
     }

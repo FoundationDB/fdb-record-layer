@@ -64,6 +64,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.BiFunction;
 
@@ -459,15 +460,15 @@ public class TypeConversion {
         return builder.build();
     }
 
-    private static Column toColumn(DataType.StructType.Field field, Object value, boolean wasNull) throws SQLException {
+    private static Column toColumn(DataType.StructType.Field field, @Nullable Object value, boolean wasNull) throws SQLException {
         Column column;
         switch (field.getType().getCode()) {
             case STRUCT:
-                column = toColumn(wasNull ? null : toStruct((RelationalStruct) value),
+                column = toColumn(wasNull ? null : toStruct((RelationalStruct) Objects.requireNonNull(value)),
                         (a, b) -> a == null ? b.clearStruct() : b.setStruct(a));
                 break;
             case ARRAY:
-                column = toColumn(wasNull ? null : toArray((RelationalArray) value),
+                column = toColumn(wasNull ? null : toArray((RelationalArray) Objects.requireNonNull(value)),
                         (a, b) -> a == null ? b.clearArray() : b.setArray(a));
                 break;
             case LONG:

@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.api;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
-import javax.annotation.Nonnull;
 import java.sql.SQLException;
 
 @API(API.Status.EXPERIMENTAL)
@@ -71,7 +70,6 @@ public class StructResultSetMetaData implements RelationalResultSetMetaData {
         return metaData.getArrayMetaData(oneBasedColumn);
     }
 
-    @Nonnull
     @Override
     public DataType.StructType getRelationalDataType() throws SQLException {
         return metaData.getRelationalDataType();

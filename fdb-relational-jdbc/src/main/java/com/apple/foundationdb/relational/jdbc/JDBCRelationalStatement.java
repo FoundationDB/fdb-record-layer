@@ -247,8 +247,7 @@ class JDBCRelationalStatement implements RelationalStatement {
     }
 
     @Override
-    @SuppressWarnings("NullAway") // returns null, violating the @Nonnull contract of RelationalDirectAccessStatement#executeGet. Temporary until implemented; see the SpotBugsSuppressWarnings below.
-    @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "Temporary until implemented.")
+    @SuppressWarnings("NullAway") // returns null, violating the @Nonnull contract of RelationalDirectAccessStatement#executeGet. Temporary until implemented.
     public RelationalResultSet executeGet(String tableName, KeySet keySet, Options options) throws SQLException {
         checkOpen();
         GetResponse getResponse;
@@ -272,8 +271,7 @@ class JDBCRelationalStatement implements RelationalStatement {
     }
 
     @Override
-    @SuppressWarnings("NullAway") // returns null, violating the @Nonnull contract of RelationalDirectAccessStatement#executeScan. Temporary until implemented; see the SpotBugsSuppressWarnings below.
-    @SpotBugsSuppressWarnings(value = "NP_NONNULL_RETURN_VIOLATION", justification = "Temporary until implemented.")
+    @SuppressWarnings("NullAway") // returns null, violating the @Nonnull contract of RelationalDirectAccessStatement#executeScan. Temporary until implemented.
     public RelationalResultSet executeScan(String tableName, KeySet keySet, Options options)
             throws SQLException {
         checkOpen();

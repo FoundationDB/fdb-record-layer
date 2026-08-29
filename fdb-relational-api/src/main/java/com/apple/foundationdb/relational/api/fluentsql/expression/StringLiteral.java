@@ -25,9 +25,9 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.fluentsql.FluentVisitor;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 
 /**
@@ -40,21 +40,19 @@ public class StringLiteral implements Literal<String, DataType.StringType> {
     @Nullable
     private final String literal;
 
-    @Nonnull
     private final DataType.StringType type;
 
-    public StringLiteral(@Nonnull final DataType.StringType type, @Nullable String literal) {
+    public StringLiteral(final DataType.StringType type, @Nullable String literal) {
         this.type = type;
         this.literal = literal;
     }
 
     @Nullable
     @Override
-    public <R, C> R accept(@Nonnull FluentVisitor<R, C> visitor, @Nonnull C context) {
+    public <R, C> R accept(FluentVisitor<R, C> visitor, C context) {
         return visitor.visit(this, context);
     }
 
-    @Nonnull
     @Override
     public DataType.StringType getType() {
         return type;

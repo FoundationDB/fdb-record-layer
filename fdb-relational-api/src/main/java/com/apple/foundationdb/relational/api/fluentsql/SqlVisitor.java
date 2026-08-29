@@ -38,8 +38,8 @@ import com.apple.foundationdb.relational.api.fluentsql.expression.UserDefinedFie
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import javax.annotation.concurrent.Immutable;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -75,25 +75,25 @@ public class SqlVisitor implements FluentVisitor<Void, StringBuilder> {
 
     @Nullable
     @Override
-    public Void visit(@Nonnull final BooleanFunction booleanFunction, @Nonnull final StringBuilder context) {
+    public Void visit(final BooleanFunction booleanFunction, final StringBuilder context) {
         return visit((FunctionLike<?>) booleanFunction, context);
     }
 
     @Nullable
     @Override
-    public Void visit(@Nonnull final NumericFunction<?> numericFunction, @Nonnull final StringBuilder context) {
+    public Void visit(final NumericFunction<?> numericFunction, final StringBuilder context) {
         return visit((FunctionLike<?>) numericFunction, context);
     }
 
     @Nullable
     @Override
-    public Void visit(@Nonnull final ComparableFunction<?, ?> comparableFunction, @Nonnull final StringBuilder context) {
+    public Void visit(final ComparableFunction<?, ?> comparableFunction, final StringBuilder context) {
         return visit((FunctionLike<?>) comparableFunction, context);
     }
 
     @Nullable
     @Override
-    public Void visit(@Nonnull final FunctionLike<?> function, @Nonnull final StringBuilder context) {
+    public Void visit(final FunctionLike<?> function, final StringBuilder context) {
         switch (function.getName()) {
             case JAVA_CALL: // fallthrough
             case GREATEST: {
@@ -149,14 +149,14 @@ public class SqlVisitor implements FluentVisitor<Void, StringBuilder> {
 
     @Nullable
     @Override
-    public Void visit(@Nonnull final BooleanLiteral booleanLiteral, @Nonnull final StringBuilder context) {
+    public Void visit(final BooleanLiteral booleanLiteral, final StringBuilder context) {
         context.append(booleanLiteral.getValue());
         return null;
     }
 
     @Nullable
     @Override
-    public Void visit(@Nonnull NestedBooleanExpression expression, @Nonnull StringBuilder context) {
+    public Void visit(NestedBooleanExpression expression, StringBuilder context) {
         context.append("( ");
         expression.getValue().accept(this, context);
         context.append(" )");
@@ -165,35 +165,35 @@ public class SqlVisitor implements FluentVisitor<Void, StringBuilder> {
 
     @Nullable
     @Override
-    public Void visit(@Nonnull final NumericLiteral<?, ?> numericLiteral, @Nonnull final StringBuilder context) {
+    public Void visit(final NumericLiteral<?, ?> numericLiteral, final StringBuilder context) {
         context.append(numericLiteral.getValue());
         return null;
     }
 
     @Nullable
     @Override
-    public Void visit(@Nonnull final StringLiteral stringLiteral, @Nonnull final StringBuilder context) {
+    public Void visit(final StringLiteral stringLiteral, final StringBuilder context) {
         context.append('\'').append(stringLiteral.getValue()).append('\'');
         return null;
     }
 
     @Nullable
     @Override
-    public Void visit(@Nonnull final ExpressionFragment<?> expression, @Nonnull final StringBuilder context) {
+    public Void visit(final ExpressionFragment<?> expression, final StringBuilder context) {
         context.append(expression.getFragment());
         return null;
     }
 
     @Nullable
     @Override
-    public Void visit(@Nonnull final Field<?> field, @Nonnull final StringBuilder context) {
+    public Void visit(final Field<?> field, final StringBuilder context) {
         context.append(StreamSupport.stream(field.getParts().spliterator(), false).map(f -> "\"" + f + "\"").collect(Collectors.joining(".")));
         return null;
     }
 
     @Nullable
     @Override
-    public Void visit(@Nonnull final UserDefinedField<?> userDefinedField, @Nonnull final StringBuilder context) {
+    public Void visit(final UserDefinedField<?> userDefinedField, final StringBuilder context) {
         context.append(StreamSupport.stream(userDefinedField.getParts().spliterator(), false).collect(Collectors.joining(".")));
         return null;
     }

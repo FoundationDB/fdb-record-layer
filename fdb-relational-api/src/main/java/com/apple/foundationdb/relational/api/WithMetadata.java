@@ -22,12 +22,10 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
-import javax.annotation.Nonnull;
 import java.sql.SQLException;
 
 public interface WithMetadata {
 
-    @Nonnull
     DataType getRelationalMetaData() throws SQLException;
 
 }

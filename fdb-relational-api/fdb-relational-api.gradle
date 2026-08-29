@@ -22,6 +22,7 @@ import java.time.Instant
 
 plugins {
     alias(libs.plugins.gitversion)
+    alias(libs.plugins.errorprone)
     id 'java-test-fixtures'
 }
 
@@ -64,14 +65,34 @@ dependencies {
         exclude(group: "com.squareup", module: "javapoet")
     }
     api(libs.protobuf)
+    // jsr305 is still needed for javax.annotation.concurrent.Immutable/NotThreadSafe usages
+    // in this module; jspecify only covers null-checking (see @NullMarked package-info.java
+    // files in com.apple.foundationdb.relational.api / .util).
     compileOnly(libs.jsr305)
+    compileOnly(libs.jspecify)
     implementation(libs.guava)
+
+    errorprone(libs.errorprone.core)
+    errorprone(libs.nullaway)
 
     testImplementation(libs.bundles.test.impl)
     testImplementation(libs.bundles.test.runtime)
-    testCompileOnly(libs.jsr305)
 
     testFixturesImplementation(libs.assertj)
+}
+
+// jspecify + NullAway null-checking, scoped to this module only. See @NullMarked
+// package-info.java files in com.apple.foundationdb.relational.api (and sub-packages) and
+// com.apple.foundationdb.relational.util. Companion change to the fdb-relational-grpc and
+// fdb-relational-jdbc null-checking adoptions.
+tasks.withType(JavaCompile).configureEach {
+    options.errorprone {
+        disableAllChecks = true
+        error("NullAway")
+        option("NullAway:AnnotatedPackages", "com.apple.foundationdb.relational.api,com.apple.foundationdb.relational.util")
+        option("NullAway:JSpecifyMode", "true")
+        option("NullAway:AcknowledgeRestrictiveAnnotations", "true")
+    }
 }
 
 sourceSets {

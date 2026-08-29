@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.api.fluentsql.statement;
 
 import com.apple.foundationdb.relational.api.ParseTreeInfo;
 
-import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
 import java.util.List;
 import java.util.Map;
@@ -30,11 +29,9 @@ import java.util.Map;
 @NotThreadSafe
 public interface StatementBuilderFactory {
 
-    @Nonnull
     UpdateStatement.Builder updateStatementBuilder();
 
-    @Nonnull
-    UpdateStatement.Builder updateStatementBuilder(@Nonnull String updateQuery);
+    UpdateStatement.Builder updateStatementBuilder(String updateQuery);
 
     /**
      * Generates an {@link UpdateStatement.Builder} from a given SQL statement using the provided map of column synonyms.
@@ -46,11 +43,9 @@ public interface StatementBuilderFactory {
      * @apiNote this method should not exist, instead the metadata itself should hold the synonym information.
      * TODO: remove once (TODO ([POST] Synonym support in Relational Metadata) is implemented.
      */
-    @Nonnull
-    UpdateStatement.Builder updateStatementBuilder(@Nonnull String updateQuery, @Nonnull Map<String, List<String>> columnSynonyms);
+    UpdateStatement.Builder updateStatementBuilder(String updateQuery, Map<String, List<String>> columnSynonyms);
 
-    @Nonnull
-    UpdateStatement.Builder updateStatementBuilder(@Nonnull ParseTreeInfo parseTree);
+    UpdateStatement.Builder updateStatementBuilder(ParseTreeInfo parseTree);
 
     /**
      * Generates an {@link UpdateStatement.Builder} from a given update parse tree using the provided map of column synonyms.
@@ -62,6 +57,5 @@ public interface StatementBuilderFactory {
      * @apiNote this method should not exist, instead the metadata itself should hold the synonym information.
      * TODO: remove once (TODO ([POST] Synonym support in Relational Metadata) is implemented.
      */
-    @Nonnull
-    UpdateStatement.Builder updateStatementBuilder(@Nonnull ParseTreeInfo parseTree, @Nonnull Map<String, List<String>> columnSynonyms);
+    UpdateStatement.Builder updateStatementBuilder(ParseTreeInfo parseTree, Map<String, List<String>> columnSynonyms);
 }

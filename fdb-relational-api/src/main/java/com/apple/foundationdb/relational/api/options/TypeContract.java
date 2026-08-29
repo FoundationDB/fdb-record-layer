@@ -24,44 +24,37 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.sql.SQLException;
 import java.util.function.Function;
 
 @API(API.Status.EXPERIMENTAL)
 public class TypeContract<T> implements OptionContract, OptionContractWithConversion<T> {
 
-    @Nonnull
     private static final TypeContract<Boolean> BOOLEAN_TYPE = new TypeContract<>(Boolean.class, Boolean::parseBoolean, false);
 
-    @Nonnull
     private static final TypeContract<Integer> INTEGER_TYPE = new TypeContract<>(Integer.class, Integer::parseInt, false);
 
-    @Nonnull
     private static final TypeContract<Long> LONG_TYPE = new TypeContract<>(Long.class, Long::parseLong, false);
 
-    @Nonnull
     private static final TypeContract<String> STRING_TYPE = new TypeContract<>(String.class, Function.identity(), false);
 
-    @Nonnull
     private static final TypeContract<String> NULLABLE_STRING_TYPE = new TypeContract<>(String.class, Function.identity(), true);
 
-    @Nonnull
     private final Class<T> clazz;
 
-    @Nonnull
     private final Function<String, T> fromStringFunction;
     private final boolean nullable;
 
-    private TypeContract(@Nonnull Class<T> clazz, @Nonnull Function<String, T> fromStringFunction, boolean nullable) {
+    private TypeContract(Class<T> clazz, Function<String, T> fromStringFunction, boolean nullable) {
         this.clazz = clazz;
         this.fromStringFunction = fromStringFunction;
         this.nullable = nullable;
     }
 
     @Override
-    public void validate(Options.Name name, Object value) throws SQLException {
+    public void validate(Options.Name name, @Nullable Object value) throws SQLException {
         if (value == null) {
             if (nullable) {
                 return;
@@ -79,32 +72,26 @@ public class TypeContract<T> implements OptionContract, OptionContractWithConver
         return fromStringFunction.apply(valueAsString);
     }
 
-    @Nonnull
-    public static <T> TypeContract<T> of(@Nonnull final Class<T> clazz, @Nonnull Function<String, T> fromStringFunction) {
+    public static <T> TypeContract<T> of(final Class<T> clazz, Function<String, T> fromStringFunction) {
         return new TypeContract<>(clazz, fromStringFunction, false);
     }
 
-    @Nonnull
     public static TypeContract<Boolean> booleanType() {
         return BOOLEAN_TYPE;
     }
 
-    @Nonnull
     public static TypeContract<String> stringType() {
         return STRING_TYPE;
     }
 
-    @Nonnull
     public static TypeContract<String> nullableStringType() {
         return NULLABLE_STRING_TYPE;
     }
 
-    @Nonnull
     public static TypeContract<Integer> intType() {
         return INTEGER_TYPE;
     }
 
-    @Nonnull
     public static TypeContract<Long> longType() {
         return LONG_TYPE;
     }

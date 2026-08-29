@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.api.metadata;
 
-import javax.annotation.Nonnull;
-
 /**
  * An {@code Index} metadata that contains information an underlying index data structure of a {@link Table}.
  *
@@ -37,7 +35,6 @@ public interface Index extends Metadata {
      *
      * @return The name of the {@link Table} that owns the {@code index}.
      */
-    @Nonnull
     String getTableName();
 
     /**
@@ -50,7 +47,6 @@ public interface Index extends Metadata {
      *           instead we should an {@code enum} structure.
      * TODO (yhatem) return {@code enum} instead.
      */
-    @Nonnull
     String getIndexType();
 
     /**
@@ -68,7 +64,7 @@ public interface Index extends Metadata {
     boolean isSparse();
 
     @Override
-    default void accept(@Nonnull final Visitor visitor) {
+    default void accept(final Visitor visitor) {
         visitor.visit(this);
     }
 }

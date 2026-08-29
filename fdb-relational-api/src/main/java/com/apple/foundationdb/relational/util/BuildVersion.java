@@ -25,6 +25,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
+import org.jspecify.annotations.Nullable;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
@@ -47,6 +49,7 @@ import java.util.Properties;
  */
 @API(API.Status.EXPERIMENTAL)
 public final class BuildVersion {
+    @Nullable
     private static BuildVersion instance;
     private static final String VERSIONS_PROPERTIES_FILENAME = "version.properties";
     private final Properties versionProperties = new Properties();

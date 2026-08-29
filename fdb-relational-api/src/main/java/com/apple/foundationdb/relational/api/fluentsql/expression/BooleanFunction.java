@@ -25,7 +25,8 @@ import com.apple.foundationdb.relational.api.fluentsql.FluentVisitor;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
+
 import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Objects;
@@ -38,35 +39,31 @@ import java.util.stream.Collectors;
 @API(API.Status.EXPERIMENTAL)
 public class BooleanFunction implements BooleanExpressionTrait, FunctionLike<DataType.BooleanType> {
 
-    @Nonnull
     private final Operation operator;
-    @Nonnull
     private final List<Expression<?>> args;
 
-    public BooleanFunction(@Nonnull final Operation operator,
-                           @Nonnull final List<Expression<?>> args) {
+    public BooleanFunction(final Operation operator,
+                           final List<Expression<?>> args) {
         this.operator = operator;
         this.args = ImmutableList.copyOf(args);
     }
 
     @Override
-    public <R, C> R accept(@Nonnull final FluentVisitor<R, C> visitor, @Nonnull final C context) {
+    @Nullable
+    public <R, C> R accept(final FluentVisitor<R, C> visitor, final C context) {
         return visitor.visit(this, context);
     }
 
-    @Nonnull
     @Override
     public Iterable<Expression<?>> getArguments() {
         return args;
     }
 
-    @Nonnull
     @Override
     public Operation getName() {
         return operator;
     }
 
-    @Nonnull
     @Override
     public DataType getType() {
         return DataType.BooleanType.nullable();

@@ -23,6 +23,8 @@ package com.apple.foundationdb.relational.api;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
+import org.jspecify.annotations.Nullable;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
@@ -119,6 +121,7 @@ public interface RelationalStatement extends java.sql.Statement, RelationalDirec
     }
 
     @Override
+    @Nullable
     default SQLWarning getWarnings() throws SQLException {
         // Return null warnings for now until implemented.
         // Throwing an exception stops all processing.

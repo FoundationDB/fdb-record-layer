@@ -22,11 +22,13 @@ package com.apple.foundationdb.relational.api.exceptions;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
+
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 @API(API.Status.EXPERIMENTAL)
 public class RelationalException extends Exception {
@@ -40,6 +42,7 @@ public class RelationalException extends Exception {
      * of logging and tooling is built around these assumptions. Therefore, we maintain this same
      * mapping structure.
      */
+    @Nullable
     private transient Map<String, Object> errorContext;
 
     public RelationalException(String message, ErrorCode errorCode) {
@@ -71,7 +74,7 @@ public class RelationalException extends Exception {
         if (getCause() instanceof SQLException) {
             return (SQLException) getCause();
         }
-        return new ContextualSQLException(getMessage(), getErrorCode().getErrorCode(), this, errorContext);
+        return new ContextualSQLException(Objects.requireNonNullElse(getMessage(), ""), getErrorCode().getErrorCode(), this, errorContext);
     }
 
     /**
@@ -112,7 +115,7 @@ public class RelationalException extends Exception {
      * @param context additional context as a map.
      * @return an exception holding the context.
      */
-    public RelationalException withContext(@Nonnull Map<String, Object> context) {
+    public RelationalException withContext(Map<String, Object> context) {
         if (errorContext == null) {
             errorContext = new HashMap<>();
         }

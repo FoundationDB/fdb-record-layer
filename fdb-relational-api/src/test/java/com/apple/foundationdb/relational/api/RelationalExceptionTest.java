@@ -24,6 +24,7 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
+import java.util.Objects;
 
 class RelationalExceptionTest {
     RelationalException relationalException = new RelationalException("message", ErrorCode.INTERNAL_ERROR);
@@ -84,7 +85,7 @@ class RelationalExceptionTest {
         if (re instanceof RelationalException) {
             return (RelationalException) re;
         } else if (re instanceof SQLException) {
-            return new RelationalException(re.getMessage(), ErrorCode.get(((SQLException) re).getSQLState()), re);
+            return new RelationalException(Objects.requireNonNullElse(re.getMessage(), ""), ErrorCode.get(((SQLException) re).getSQLState()), re);
         }
         return new RelationalException(ErrorCode.UNKNOWN, re);
     }

@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.api.fluentsql.expression;
 
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
-import javax.annotation.Nonnull;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -31,9 +30,7 @@ import javax.annotation.concurrent.Immutable;
  */
 @Immutable
 public interface FunctionLike<T extends DataType> extends Expression<T> {
-    @Nonnull
     Iterable<Expression<?>> getArguments();
 
-    @Nonnull
     Operation getName();
 }

@@ -23,6 +23,8 @@ package com.apple.foundationdb.relational.api;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
+import org.jspecify.annotations.Nullable;
+
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -505,6 +507,7 @@ public interface RelationalPreparedStatement extends java.sql.PreparedStatement 
     }
 
     @Override
+    @Nullable
     default SQLWarning getWarnings() throws SQLException {
         // For now, return null until warnings are implemented.
         // Throwing an exception stops all processing. See TODO (Implement JDBC Warnings in Relational embedded Driver)

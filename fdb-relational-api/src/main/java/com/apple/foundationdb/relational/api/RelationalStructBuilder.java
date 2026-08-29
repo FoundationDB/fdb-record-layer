@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.relational.api;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.sql.SQLException;
 import java.util.UUID;
 
@@ -55,9 +55,9 @@ public interface RelationalStructBuilder {
 
     RelationalStructBuilder addObject(String fieldName, @Nullable Object obj) throws SQLException;
 
-    RelationalStructBuilder addStruct(String fieldName, @Nonnull RelationalStruct struct) throws SQLException;
+    RelationalStructBuilder addStruct(String fieldName, RelationalStruct struct) throws SQLException;
 
-    RelationalStructBuilder addArray(String fieldName, @Nonnull RelationalArray array) throws SQLException;
+    RelationalStructBuilder addArray(String fieldName, RelationalArray array) throws SQLException;
 
     RelationalStructBuilder addInt(String fieldName, int i) throws SQLException;
 }

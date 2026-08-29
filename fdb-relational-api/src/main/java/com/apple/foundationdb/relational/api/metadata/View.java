@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.api.metadata;
 
-import javax.annotation.Nonnull;
-
 /**
  * Metadata for a non-materialized view, which represents a virtual table defined by a SQL query.
  * <p>
@@ -39,7 +37,6 @@ public interface View extends Metadata {
      *
      * @return The SQL query string that defines this view.
      */
-    @Nonnull
     String getDescription();
 
     /**
@@ -52,7 +49,7 @@ public interface View extends Metadata {
     boolean isTemporary();
 
     @Override
-    default void accept(@Nonnull final Visitor visitor) {
+    default void accept(final Visitor visitor) {
         visitor.visit(this);
     }
 }

@@ -22,8 +22,10 @@ package com.apple.foundationdb.relational.api.options;
 
 import com.apple.foundationdb.relational.api.Options;
 
+import org.jspecify.annotations.Nullable;
+
 import java.sql.SQLException;
 
 public interface OptionContract {
-    void validate(Options.Name name, Object value) throws SQLException;
+    void validate(Options.Name name, @Nullable Object value) throws SQLException;
 }

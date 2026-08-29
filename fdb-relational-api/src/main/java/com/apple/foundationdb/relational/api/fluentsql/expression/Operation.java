@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.api.fluentsql.expression;
 
-import javax.annotation.Nonnull;
-
 /**
  * This is a placeholder of all supported operations.
  */
@@ -46,14 +44,12 @@ public enum Operation {
     GREATEST(Comparable.class),
     JAVA_CALL(Object.class);
 
-    @Nonnull
     private final Class<?> type;
 
-    Operation(@Nonnull Class<?> type) {
+    Operation(Class<?> type) {
         this.type = type;
     }
 
-    @Nonnull
     public Class<?> getType() {
         return type;
     }

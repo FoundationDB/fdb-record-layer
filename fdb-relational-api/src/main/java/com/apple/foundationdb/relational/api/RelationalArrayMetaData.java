@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.google.common.base.Suppliers;
 
-import javax.annotation.Nonnull;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.util.Objects;
@@ -42,13 +41,12 @@ public final class RelationalArrayMetaData implements ArrayMetaData {
 
     private final Supplier<Integer> hashCodeSupplier;
 
-    private RelationalArrayMetaData(@Nonnull DataType.ArrayType type) {
+    private RelationalArrayMetaData(DataType.ArrayType type) {
         this.type = type;
         this.hashCodeSupplier = Suppliers.memoize(this::calculateHashCode);
     }
 
-    @Nonnull
-    public static RelationalArrayMetaData of(@Nonnull DataType.ArrayType type) {
+    public static RelationalArrayMetaData of(DataType.ArrayType type) {
         return new RelationalArrayMetaData(type);
     }
 
@@ -108,13 +106,11 @@ public final class RelationalArrayMetaData implements ArrayMetaData {
         return RelationalArrayMetaData.of((DataType.ArrayType) type.getElementType());
     }
 
-    @Nonnull
     @Override
     public DataType.ArrayType asRelationalType() throws SQLException {
         return type;
     }
 
-    @Nonnull
     public DataType getElementDataType() {
         return type.getElementType();
     }

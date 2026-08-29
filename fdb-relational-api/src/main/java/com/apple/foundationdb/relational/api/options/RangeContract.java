@@ -25,7 +25,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
+
 import java.sql.SQLException;
 
 /**
@@ -53,15 +54,17 @@ public final class RangeContract<T extends Comparable<T>> implements OptionContr
 
     @Override
     @SuppressWarnings("unchecked")
-    public void validate(Options.Name name, Object value) throws SQLException {
+    public void validate(Options.Name name, @Nullable Object value) throws SQLException {
+        if (value == null) {
+            throw new SQLException("Option " + name + " should not be null", ErrorCode.INVALID_PARAMETER.getErrorCode());
+        }
         T val = (T) value;
         if (min.compareTo(val) > 0 || max.compareTo(val) < 0) {
             throw new SQLException("Option " + name + " should be in range [" + min + ", " + max + "] but is " + value, ErrorCode.INVALID_PARAMETER.getErrorCode());
         }
     }
 
-    @Nonnull
-    public static <T extends Comparable<T>> RangeContract<T> of(@Nonnull final T min, @Nonnull final T max) {
+    public static <T extends Comparable<T>> RangeContract<T> of(final T min, final T max) {
         return new RangeContract<>(min, max);
     }
 }

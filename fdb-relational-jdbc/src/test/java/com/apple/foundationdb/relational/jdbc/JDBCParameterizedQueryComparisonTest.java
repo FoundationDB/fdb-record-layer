@@ -52,6 +52,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -235,7 +236,7 @@ public class JDBCParameterizedQueryComparisonTest {
             @Override
             Object getTyped(ResultSet resultSet, int columnIndex) throws SQLException {
                 RelationalResultSet rrs = resultSet.unwrap(RelationalResultSet.class);
-                return rrs.getStruct(columnIndex);
+                return Objects.requireNonNull(rrs.getStruct(columnIndex));
             }
 
             @Override

@@ -23,7 +23,8 @@ package com.apple.foundationdb.relational.api;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.BuildVersion;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
+
 import java.net.URI;
 import java.sql.Driver;
 import java.sql.DriverPropertyInfo;
@@ -37,11 +38,13 @@ import java.util.logging.Logger;
  */
 public interface RelationalDriver extends Driver {
 
-    default RelationalConnection connect(@Nonnull URI url) throws SQLException {
+    @Nullable
+    default RelationalConnection connect(URI url) throws SQLException {
         return connect(url, Options.NONE);
     }
 
-    RelationalConnection connect(@Nonnull URI url, @Nonnull Options connectionOptions) throws SQLException;
+    @Nullable
+    RelationalConnection connect(URI url, Options connectionOptions) throws SQLException;
 
     @Override
     default int getMajorVersion() {
