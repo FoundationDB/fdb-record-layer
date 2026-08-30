@@ -187,20 +187,21 @@ public class SemanticAnalyzer {
         }
         final StringBuilder builder = new StringBuilder();
         for (final TerminalNode part : parts) {
-            builder.append(unquoteSingleQuoted(part.getText()));
+            builder.append(normalizeStringLiteral(part.getText()));
         }
         return builder.toString();
     }
 
     /**
      * Removes the delimiters from one {@code STRING_LITERAL} token and decodes its doubled-quote
-     * escapes.
+     * escapes. The grammar spells some literals as a bare token rather than through the
+     * {@code stringLiteral} rule, among them enum values and the {@code LIKE} escape character.
      *
      * @param token the raw token text, including its delimiters
      * @return the decoded characters the token denotes
      */
     @Nonnull
-    private static String unquoteSingleQuoted(@Nonnull final String token) {
+    public static String normalizeStringLiteral(@Nonnull final String token) {
         if (!isQuoted(token, "'") || token.length() < 2) {
             return token;
         }

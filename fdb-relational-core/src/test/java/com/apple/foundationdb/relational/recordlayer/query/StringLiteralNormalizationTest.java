@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import org.antlr.v4.runtime.CharStreams;
@@ -36,9 +37,9 @@ import java.util.stream.Stream;
  * Tests for the decoding of string literals, which the lexer defines: {@code SQUOTA_STRING} admits a
  * doubled quote as one unit inside a single-quoted string, denoting a single quote character.
  *
- * <p>The cases are supplied as {@link Arguments} rather than through {@code @CsvSource} on purpose —
- * the CSV parser uses the single quote as its own quote character and would strip the delimiters off
- * every literal here before the test ever saw them.
+ * <p>The cases are supplied as {@link Arguments} rather than through {@code @CsvSource} on purpose,
+ * because the CSV parser uses the single quote as its own quote character and would strip the
+ * delimiters off every literal here before the test ever saw them.
  */
 public class StringLiteralNormalizationTest {
 
@@ -72,6 +73,18 @@ public class StringLiteralNormalizationTest {
     @MethodSource("literals")
     void decodesTheDoubledQuoteEscape(final String literal, final String expected) {
         Assertions.assertEquals(expected, SemanticAnalyzer.normalizeStringLiteral(parseStringLiteral(literal)));
+    }
+
+    /**
+     * The token overload has to agree with the rule on every single-token input, otherwise the same
+     * literal denotes one string in a projection and another in an enum definition.
+     */
+    @ParameterizedTest(name = "token {0} decodes to {1}")
+    @MethodSource("literals")
+    void theTokenOverloadDecodesAsTheRuleDoes(final String literal, final String expected) {
+        Assertions.assertEquals(expected, SemanticAnalyzer.normalizeStringLiteral(literal));
+        Assertions.assertEquals(SemanticAnalyzer.normalizeStringLiteral(parseStringLiteral(literal)),
+                SemanticAnalyzer.normalizeStringLiteral(literal));
     }
 
     /**
@@ -147,5 +160,23 @@ public class StringLiteralNormalizationTest {
         Assertions.assertNotNull(ctx.STRING_CHARSET_NAME(), "fixture no longer parses as a decorated literal");
         Assertions.assertEquals(SemanticAnalyzer.normalizeString(ctx.getText(), false),
                 SemanticAnalyzer.normalizeStringLiteral(ctx));
+    }
+
+    /**
+     * The decoding cannot change what an enum value means: the name becomes a protobuf enum value
+     * identifier, and neither {@code it's} nor {@code it''s} matches {@code [A-Za-z_][A-Za-z0-9_]*}.
+     * This pins the guard that makes it unobservable, so admitting a quote there does not silently
+     * arm the decoding.
+     */
+    @Test
+    void anEnumValueCarryingTheEscapeIsRejectedWhicheverWayItDecodes() {
+        Assertions.assertThrows(ProtoUtils.InvalidNameException.class,
+                () -> ProtoUtils.toProtoBufCompliantName(SemanticAnalyzer.normalizeStringLiteral("'it''s'")));
+        Assertions.assertThrows(ProtoUtils.InvalidNameException.class,
+                () -> ProtoUtils.toProtoBufCompliantName("it''s"));
+
+        // Control: without it, a method rejecting everything passes.
+        Assertions.assertEquals("plain", ProtoUtils.toProtoBufCompliantName(
+                SemanticAnalyzer.normalizeStringLiteral("'plain'")));
     }
 }
