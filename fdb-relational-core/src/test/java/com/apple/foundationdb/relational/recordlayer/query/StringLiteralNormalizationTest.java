@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.util.ProtoUtils;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import org.antlr.v4.runtime.CharStreams;
@@ -160,6 +161,39 @@ public class StringLiteralNormalizationTest {
         Assertions.assertNotNull(ctx.STRING_CHARSET_NAME(), "fixture no longer parses as a decorated literal");
         Assertions.assertEquals(SemanticAnalyzer.normalizeString(ctx.getText(), false),
                 SemanticAnalyzer.normalizeStringLiteral(ctx));
+    }
+
+    /**
+     * A single-quoted input is a caller that routed a literal into the identifier path. Nothing in
+     * the grammar reaches here that way, since {@code uid : simpleId | DOUBLE_QUOTE_ID}.
+     */
+    @Test
+    void theIdentifierNormalizationRefusesAStringLiteral() {
+        Assertions.assertThrows(UncheckedRelationalException.class,
+                () -> SemanticAnalyzer.normalizeString("'it''s'", false));
+        Assertions.assertThrows(UncheckedRelationalException.class,
+                () -> SemanticAnalyzer.normalizeString("'plain'", true));
+
+        // Controls: what the method is for still works.
+        Assertions.assertEquals("Mixed", SemanticAnalyzer.normalizeString("\"Mixed\"", false));
+        Assertions.assertEquals("MIXED", SemanticAnalyzer.normalizeString("Mixed", false));
+        Assertions.assertEquals("Mixed", SemanticAnalyzer.normalizeString("Mixed", true));
+        Assertions.assertNull(SemanticAnalyzer.normalizeString(null, false));
+    }
+
+    /**
+     * {@code collationName : uid | STRING_LITERAL}, so a collated literal can render as text that
+     * both starts and ends with a quote. The query is refused upstream with
+     * {@code UNSUPPORTED_QUERY}; the extraction running before that must not pre-empt it with an
+     * internal error.
+     */
+    @Test
+    void collatedLiteralIsNotMistakenForAnIdentifier() {
+        final var ctx = parseStringLiteral("'a' COLLATE 'utf8'");
+        Assertions.assertNotNull(ctx.COLLATE(), "fixture no longer parses as a collated literal");
+        Assertions.assertTrue(ctx.getText().startsWith("'") && ctx.getText().endsWith("'"),
+                "fixture no longer renders as text a refusal would catch: " + ctx.getText());
+        Assertions.assertDoesNotThrow(() -> SemanticAnalyzer.normalizeStringLiteral(ctx));
     }
 
     /**

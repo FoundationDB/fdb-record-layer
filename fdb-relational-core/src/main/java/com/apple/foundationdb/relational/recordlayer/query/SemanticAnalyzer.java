@@ -130,7 +130,11 @@ public class SemanticAnalyzer {
     }
 
     /**
-     * If a string is single- or double-quoted, removes the quotation, otherwise, upper-case it.
+     * If a string is double-quoted, removes the quotation, otherwise, upper-case it.
+     * <p>
+     * Refuses a single-quoted input. That is a string literal, and stripping its delimiters leaves the
+     * doubled-quote escape in the value; literals go through {@link #normalizeStringLiteral(String)}.
+     * No identifier can arrive here in single quotes, since {@code uid : simpleId | DOUBLE_QUOTE_ID}.
      *
      * @param string The input string
      * @param caseSensitive if {@code true}, the input string is taken as-is, upper-cased otherwise
@@ -141,6 +145,22 @@ public class SemanticAnalyzer {
         if (string == null) {
             return null;
         }
+        Assert.thatUnchecked(!isQuoted(string, "'"), ErrorCode.INTERNAL_ERROR,
+                () -> string + " is a string literal, it cannot be normalized as an identifier");
+        return unquoteOrUpperCase(string, caseSensitive);
+    }
+
+    /**
+     * {@link #normalizeString} without the refusal. A decorated literal needs this:
+     * {@code 'a' COLLATE 'utf8'} renders as {@code 'a'COLLATE'utf8'}, which the refusal would catch,
+     * and it has to keep producing what it produced before.
+     *
+     * @param string the input string, known not to be a string literal
+     * @param caseSensitive if {@code true}, the input string is taken as-is, upper-cased otherwise
+     * @return the normalized string
+     */
+    @Nonnull
+    private static String unquoteOrUpperCase(@Nonnull final String string, boolean caseSensitive) {
         if (isQuoted(string, "'") || isQuoted(string, "\"")) {
             return string.substring(1, string.length() - 1);
         } else if (caseSensitive) {
@@ -167,8 +187,8 @@ public class SemanticAnalyzer {
      * only reading that is correct for both, and it also gives the adjacent-literal run the
      * concatenation the grammar's {@code STRING_LITERAL+} implies.
      * <p>
-     * Charset-prefixed, national and {@code COLLATE}-decorated literals are deliberately left to
-     * {@link #normalizeString}: they are rejected upstream of the value path and this method must not
+     * Charset-prefixed, national and {@code COLLATE}-decorated literals deliberately keep the
+     * normalization they had: they are rejected upstream of the value path and this method must not
      * change what they produce.
      *
      * @param stringLiteral the {@code stringLiteral} context to decode
@@ -179,11 +199,11 @@ public class SemanticAnalyzer {
         if (stringLiteral.STRING_CHARSET_NAME() != null
                 || stringLiteral.START_NATIONAL_STRING_LITERAL() != null
                 || stringLiteral.COLLATE() != null) {
-            return normalizeString(stringLiteral.getText(), false);
+            return unquoteOrUpperCase(stringLiteral.getText(), false);
         }
         final List<TerminalNode> parts = stringLiteral.STRING_LITERAL();
         if (parts.isEmpty()) {
-            return normalizeString(stringLiteral.getText(), false);
+            return unquoteOrUpperCase(stringLiteral.getText(), false);
         }
         final StringBuilder builder = new StringBuilder();
         for (final TerminalNode part : parts) {
