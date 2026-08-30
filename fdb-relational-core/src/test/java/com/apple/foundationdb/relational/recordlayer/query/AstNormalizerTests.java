@@ -592,6 +592,30 @@ public class AstNormalizerTests {
                         constantId(9), List.of("foo", "bar")));
     }
 
+    /**
+     * The stripped literal is the constant the plan cache is keyed on and later bound with, so it has
+     * to decode the way {@code ExpressionVisitor.visitStringLiteral} does. A literal that caches
+     * differently from the way it evaluates is a cache that answers with the wrong constant.
+     */
+    @Test
+    void stripStringLiteralWithEscapedQuote() throws RelationalException {
+        validate("select 'it''s', '''' from t1",
+                "SELECT ? , ? FROM \"T1\" ",
+                Map.of(constantId(1), "it's",
+                        constantId(3), "'"));
+    }
+
+    /**
+     * Adjacent literals are separate tokens and concatenate. {@code getText()} renders this run
+     * identically to {@code 'a''b'}, which is why the stripping works from the tokens.
+     */
+    @Test
+    void stripAdjacentStringLiterals() throws RelationalException {
+        validate("select 'a' 'b' from t1",
+                "SELECT ? FROM \"T1\" ",
+                Map.of(constantId(1), "ab"));
+    }
+
     @Test
     void stripDecimalLiteral() throws RelationalException {
         validate("select 1, 2.3, 4.5f, -8, -9.1, -2.3f from t1",
