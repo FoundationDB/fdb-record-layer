@@ -173,6 +173,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void deprecatedGenerationsTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("deprecated-generations.yamsql");
+    }
+
+    @TestTemplate
     public void disabledIndexWithProto(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("disabled-index-tests-proto.yamsql");
     }

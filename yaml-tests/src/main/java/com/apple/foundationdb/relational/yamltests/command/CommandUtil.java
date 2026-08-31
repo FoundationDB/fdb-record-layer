@@ -31,7 +31,10 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.util.JsonFormat;
 import org.junit.jupiter.api.Assertions;
 
@@ -44,6 +47,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -105,6 +109,7 @@ public class CommandUtil {
         RecordMetaDataProto.MetaData.Builder builder = RecordMetaDataProto.MetaData.newBuilder();
         Set<String> neededDependencies = new LinkedHashSet<>();
         Set<String> includedDependencies = new HashSet<>();
+        JsonObject obj = null;
 
         // These dependencies are automatically added, so we can treat them like they are bundled with the file dependencies
         includedDependencies.add("record_metadata.proto");
@@ -118,7 +123,7 @@ public class CommandUtil {
             JsonFormat.parser().ignoringUnknownFields().merge(jsonStr, builder);
 
             // Find the list of dependencies of the top-level file
-            JsonObject obj = JsonParser.parseString(jsonStr).getAsJsonObject();
+            obj = JsonParser.parseString(jsonStr).getAsJsonObject();
             JsonArray dependencyArray = obj.getAsJsonObject("records").getAsJsonArray("dependency");
             for (JsonElement element : dependencyArray) {
                 String curDep = element.getAsString();
@@ -158,10 +163,138 @@ public class CommandUtil {
             }
         }
 
+        // JsonFormat cannot parse proto2 extensions (e.g. the "com.apple.ckrecdb.field" FieldOptions
+        // extension carrying type_id/type_generation_number that distinguish deprecated RecordTypeUnion
+        // generations): it silently discards them. Recover them from the raw JSON now that the extension's
+        // defining file has been resolved to a FileDescriptor above.
+        restoreFieldOptionExtensions(obj.getAsJsonObject("records"), builder.getRecordsBuilder(), fileDescriptors);
+
         return RecordMetaData.newBuilder()
                 .addDependencies(fileDescriptors.toArray(new Descriptors.FileDescriptor[0]))
                 .setRecords(builder.build())
                 .getRecordMetaData();
+    }
+
+    /**
+     * {@code JsonFormat} discards proto2 extensions when parsing JSON (this is a fundamental limitation of
+     * {@link JsonFormat}, not a missing registry: it has no way to resolve extension field numbers/names from
+     * JSON). This walks the raw JSON representation of a {@code FileDescriptorProto} alongside the
+     * already-parsed builder, and for every {@code FieldOptions} extension declared by one of the resolved
+     * dependency files, copies its value from the JSON into the builder using protobuf's reflective API
+     * ({@link DynamicMessage}), which (unlike {@link JsonFormat}) does support extensions.
+     */
+    private static void restoreFieldOptionExtensions(@Nonnull JsonObject fileJson,
+                                                       @Nonnull DescriptorProtos.FileDescriptorProto.Builder fileBuilder,
+                                                       @Nonnull List<Descriptors.FileDescriptor> dependencyFileDescriptors) {
+        Map<String, Descriptors.FieldDescriptor> fieldOptionExtensionsByJsonKey = new HashMap<>();
+        for (Descriptors.FileDescriptor dependency : dependencyFileDescriptors) {
+            for (Descriptors.FieldDescriptor extension : dependency.getExtensions()) {
+                if (extension.getContainingType().equals(DescriptorProtos.FieldOptions.getDescriptor())) {
+                    fieldOptionExtensionsByJsonKey.put(extension.getFullName(), extension);
+                }
+            }
+        }
+        if (fieldOptionExtensionsByJsonKey.isEmpty()) {
+            return;
+        }
+        JsonArray messageTypes = fileJson.getAsJsonArray("message_type");
+        if (messageTypes == null) {
+            return;
+        }
+        for (int i = 0; i < messageTypes.size(); i++) {
+            restoreFieldOptionExtensionsInMessage(messageTypes.get(i).getAsJsonObject(), fileBuilder.getMessageTypeBuilder(i),
+                    fieldOptionExtensionsByJsonKey);
+        }
+    }
+
+    private static void restoreFieldOptionExtensionsInMessage(@Nonnull JsonObject messageJson,
+                                                                @Nonnull DescriptorProtos.DescriptorProto.Builder messageBuilder,
+                                                                @Nonnull Map<String, Descriptors.FieldDescriptor> fieldOptionExtensionsByJsonKey) {
+        JsonArray fields = messageJson.getAsJsonArray("field");
+        if (fields != null) {
+            for (JsonElement fieldElement : fields) {
+                JsonObject fieldJson = fieldElement.getAsJsonObject();
+                JsonObject optionsJson = fieldJson.getAsJsonObject("options");
+                if (optionsJson == null) {
+                    continue;
+                }
+                int number = fieldJson.get("number").getAsInt();
+                messageBuilder.getFieldBuilderList().stream()
+                        .filter(fieldBuilder -> fieldBuilder.getNumber() == number)
+                        .findFirst()
+                        .ifPresent(fieldBuilder -> {
+                            for (Map.Entry<String, JsonElement> entry : optionsJson.entrySet()) {
+                                Descriptors.FieldDescriptor extension = fieldOptionExtensionsByJsonKey.get(entry.getKey());
+                                if (extension != null && entry.getValue().isJsonObject()) {
+                                    fieldBuilder.getOptionsBuilder()
+                                            .setField(extension, toDynamicMessage(extension.getMessageType(), entry.getValue().getAsJsonObject()));
+                                }
+                            }
+                        });
+            }
+        }
+        JsonArray nestedTypes = messageJson.getAsJsonArray("nested_type");
+        if (nestedTypes != null) {
+            for (int i = 0; i < nestedTypes.size(); i++) {
+                restoreFieldOptionExtensionsInMessage(nestedTypes.get(i).getAsJsonObject(), messageBuilder.getNestedTypeBuilder(i),
+                        fieldOptionExtensionsByJsonKey);
+            }
+        }
+    }
+
+    @Nonnull
+    private static DynamicMessage toDynamicMessage(@Nonnull Descriptors.Descriptor descriptor, @Nonnull JsonObject json) {
+        DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
+        for (Map.Entry<String, JsonElement> entry : json.entrySet()) {
+            Descriptors.FieldDescriptor field = descriptor.findFieldByName(entry.getKey());
+            if (field == null) {
+                continue;
+            }
+            JsonElement value = entry.getValue();
+            if (field.isRepeated() && value.isJsonArray()) {
+                for (JsonElement element : value.getAsJsonArray()) {
+                    builder.addRepeatedField(field, toFieldValue(field, element));
+                }
+            } else {
+                builder.setField(field, toFieldValue(field, value));
+            }
+        }
+        return builder.build();
+    }
+
+    @Nonnull
+    private static Object toFieldValue(@Nonnull Descriptors.FieldDescriptor field, @Nonnull JsonElement value) {
+        switch (field.getType()) {
+            case STRING:
+                return value.getAsString();
+            case BOOL:
+                return value.getAsBoolean();
+            case INT32:
+            case SINT32:
+            case SFIXED32:
+            case UINT32:
+            case FIXED32:
+                return value.getAsInt();
+            case INT64:
+            case SINT64:
+            case SFIXED64:
+            case UINT64:
+            case FIXED64:
+                return value.getAsLong();
+            case FLOAT:
+                return value.getAsFloat();
+            case DOUBLE:
+                return value.getAsDouble();
+            case ENUM:
+                return field.getEnumType().findValueByName(value.getAsString());
+            case MESSAGE:
+            case GROUP:
+                return toDynamicMessage(field.getMessageType(), value.getAsJsonObject());
+            case BYTES:
+                return ByteString.copyFrom(Base64.getDecoder().decode(value.getAsString()));
+            default:
+                throw new IllegalArgumentException("Unsupported field type " + field.getType() + " for field " + field.getFullName());
+        }
     }
 
     private static Pair<String, String> parseLoadTemplateString(String loadCommandString) {
