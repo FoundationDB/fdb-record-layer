@@ -237,7 +237,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                 .orElseGet(() ->
                         new RecordQueryIndexPlan(index.getName(),
                                 primaryKey,
-                                IndexScanComparisons.byValue(toScanComparisons(comparisonRanges)),
+                                IndexScanComparisons.byValue(ScanComparisons.fromComparisonRanges(comparisonRanges)),
                                 planContext.getPlannerConfiguration().getIndexFetchMethod(),
                                 RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
                                 reverseScanOrder,
@@ -260,7 +260,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
         }
         final var indexEntryToLogicalRecord = indexEntryToLogicalRecordOptional.get();
         final var scanParameters =
-                IndexScanComparisons.byValue(toScanComparisons(comparisonRanges));
+                IndexScanComparisons.byValue(ScanComparisons.fromComparisonRanges(comparisonRanges));
         final var indexPlan =
                 new RecordQueryIndexPlan(index.getName(),
                         primaryKey,
@@ -301,14 +301,5 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     @Override
     public boolean isScopedToSingleType() {
         return queriedRecordTypes.size() == 1 || hasAndOrderedByRecordTypeKey();
-    }
-
-    @Nonnull
-    private static ScanComparisons toScanComparisons(@Nonnull final List<ComparisonRange> comparisonRanges) {
-        ScanComparisons.Builder builder = new ScanComparisons.Builder();
-        for (ComparisonRange comparisonRange : comparisonRanges) {
-            builder.addComparisonRange(comparisonRange);
-        }
-        return builder.build();
     }
 }

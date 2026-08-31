@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.planprotos.PDoubleValueOrParameter;
 import com.apple.foundationdb.record.planprotos.PGeospatialRTreeScanComparisons;
 import com.apple.foundationdb.record.planprotos.PIndexScanParameters;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -47,6 +48,10 @@ import java.util.concurrent.ThreadLocalRandom;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class GeospatialRTreeScanComparisonsTest {
+
+    @Nonnull
+    private static final Type DOUBLE_TYPE = Type.primitiveType(Type.TypeCode.DOUBLE, false);
+
     @Test
     void translateCorrelationsTest() {
         final ScanComparisons originalPrefixScanComparisons = randomScanComparisons();
@@ -193,6 +198,129 @@ class GeospatialRTreeScanComparisonsTest {
         }
     }
 
+    @Test
+    void valueBackedCenterAndRadiusReportCorrelations() {
+        final DoubleValueOrParameter centerLatitude =
+                DoubleValueOrParameter.valueExpression(QuantifiedObjectValue.of(q1(), DOUBLE_TYPE));
+        final DoubleValueOrParameter centerLongitude =
+                DoubleValueOrParameter.valueExpression(QuantifiedObjectValue.of(q2(), DOUBLE_TYPE));
+        final DoubleValueOrParameter radius =
+                DoubleValueOrParameter.valueExpression(QuantifiedObjectValue.of(q3(), DOUBLE_TYPE));
+
+        final GeospatialRTreeScanComparisons comparisons = GeospatialRTreeScanComparisons.byCenterAndRadius(
+                ScanComparisons.EMPTY, centerLatitude, centerLongitude, radius, ScanComparisons.EMPTY);
+
+        assertThat(comparisons.getCorrelatedTo()).containsExactlyInAnyOrder(q1(), q2(), q3());
+    }
+
+    @Test
+    void literalCenterAndRadiusHaveNoCorrelations() {
+        final GeospatialRTreeScanComparisons comparisons = GeospatialRTreeScanComparisons.byCenterAndRadius(
+                ScanComparisons.EMPTY,
+                DoubleValueOrParameter.value(37.7749),
+                DoubleValueOrParameter.value(-122.4194),
+                DoubleValueOrParameter.value(1000.0),
+                ScanComparisons.EMPTY);
+
+        assertThat(comparisons.getCorrelatedTo()).isEmpty();
+    }
+
+    @Test
+    void parameterCenterAndRadiusHaveNoCorrelations() {
+        final GeospatialRTreeScanComparisons comparisons = GeospatialRTreeScanComparisons.byCenterAndRadius(
+                ScanComparisons.EMPTY,
+                DoubleValueOrParameter.parameter("lat"),
+                DoubleValueOrParameter.parameter("lon"),
+                DoubleValueOrParameter.parameter("r"),
+                ScanComparisons.EMPTY);
+
+        assertThat(comparisons.getCorrelatedTo()).isEmpty();
+    }
+
+    @Test
+    void translateCorrelationsTranslatesValueBackedFields() {
+        final ScanComparisons originalPrefix = correlatedPrefixScanComparisons();
+        final GeospatialRTreeScanComparisons original = GeospatialRTreeScanComparisons.byCenterAndRadius(
+                originalPrefix,
+                DoubleValueOrParameter.valueExpression(QuantifiedObjectValue.of(q1(), DOUBLE_TYPE)),
+                DoubleValueOrParameter.valueExpression(QuantifiedObjectValue.of(q2(), DOUBLE_TYPE)),
+                DoubleValueOrParameter.valueExpression(QuantifiedObjectValue.of(q3(), DOUBLE_TYPE)),
+                ScanComparisons.EMPTY);
+
+        final TranslationMap translationMap =
+                TranslationMap.regularBuilder()
+                        .when(q1()).then(((sourceAlias, leafValue) -> QuantifiedObjectValue.of(q5(), DOUBLE_TYPE)))
+                        .when(q2()).then(((sourceAlias, leafValue) -> QuantifiedObjectValue.of(q6(), DOUBLE_TYPE)))
+                        .when(q3()).then(((sourceAlias, leafValue) -> QuantifiedObjectValue.of(q7(), DOUBLE_TYPE)))
+                        .build();
+
+        final IndexScanParameters translated = original.translateCorrelations(translationMap, false);
+        assertThat(translated).isNotSameAs(original);
+        assertThat(translated.getCorrelatedTo()).containsExactlyInAnyOrder(q5(), q6(), q7());
+    }
+
+    @Test
+    void rebaseRewritesValueBackedFields() {
+        final GeospatialRTreeScanComparisons original = GeospatialRTreeScanComparisons.byCenterAndRadius(
+                ScanComparisons.EMPTY,
+                DoubleValueOrParameter.valueExpression(QuantifiedObjectValue.of(q1(), DOUBLE_TYPE)),
+                DoubleValueOrParameter.valueExpression(QuantifiedObjectValue.of(q2(), DOUBLE_TYPE)),
+                DoubleValueOrParameter.valueExpression(QuantifiedObjectValue.of(q3(), DOUBLE_TYPE)),
+                ScanComparisons.EMPTY);
+
+        final AliasMap aliasMap =
+                AliasMap.builder()
+                        .put(q1(), q5())
+                        .put(q2(), q6())
+                        .put(q3(), q7())
+                        .build();
+
+        final IndexScanParameters rebased = original.rebase(aliasMap);
+        assertThat(rebased.getCorrelatedTo()).containsExactlyInAnyOrder(q5(), q6(), q7());
+        assertThat(rebased.rebase(aliasMap.inverse())).isEqualTo(original);
+    }
+
+    @Test
+    void valueExpressionFactoryReturnsCorrelatedInstance() {
+        final DoubleValueOrParameter latitude =
+                DoubleValueOrParameter.valueExpression(QuantifiedObjectValue.of(q1(), DOUBLE_TYPE));
+        assertThat(latitude.getCorrelatedTo()).containsExactly(q1());
+    }
+
+    @Test
+    void literalDoubleValueOrParameterHasNoCorrelations() {
+        assertThat(DoubleValueOrParameter.value(1.0).getCorrelatedTo()).isEmpty();
+        assertThat(DoubleValueOrParameter.parameter("x").getCorrelatedTo()).isEmpty();
+    }
+
+    @Test
+    void valueExpressionProtoRoundTrip() {
+        final DoubleValueOrParameter original =
+                DoubleValueOrParameter.valueExpression(new LiteralValue<>(42.0));
+        final PDoubleValueOrParameter proto = original.toProto(PlanSerializationContext.newForCurrentMode());
+        final DoubleValueOrParameter roundTripped =
+                DoubleValueOrParameter.fromProto(PlanSerializationContext.newForCurrentMode(), proto);
+        assertThat(roundTripped).isEqualTo(original);
+    }
+
+    @Test
+    void literalDoubleValueProtoRoundTripUnchanged() {
+        final DoubleValueOrParameter original = DoubleValueOrParameter.value(3.14);
+        final PDoubleValueOrParameter proto = original.toProto(PlanSerializationContext.newForCurrentMode());
+        final DoubleValueOrParameter roundTripped =
+                DoubleValueOrParameter.fromProto(PlanSerializationContext.newForCurrentMode(), proto);
+        assertThat(roundTripped).isEqualTo(original);
+    }
+
+    @Test
+    void parameterDoubleValueProtoRoundTripUnchanged() {
+        final DoubleValueOrParameter original = DoubleValueOrParameter.parameter("radius");
+        final PDoubleValueOrParameter proto = original.toProto(PlanSerializationContext.newForCurrentMode());
+        final DoubleValueOrParameter roundTripped =
+                DoubleValueOrParameter.fromProto(PlanSerializationContext.newForCurrentMode(), proto);
+        assertThat(roundTripped).isEqualTo(original);
+    }
+
     @Nonnull
     private static GeospatialRTreeScanComparisons byCenterAndRadius(@Nonnull final ScanComparisons prefixScanComparisons,
                                                                     @Nonnull final ScanComparisons suffixScanComparisons) {
@@ -243,6 +371,14 @@ class GeospatialRTreeScanComparisonsTest {
                 .addInequalityComparison(
                         new Comparisons.ValueComparison(Comparisons.Type.LESS_THAN,
                                 QuantifiedObjectValue.of(inequalityAlias, Type.primitiveType(Type.TypeCode.INT))))
+                .build();
+    }
+
+    @Nonnull
+    private static ScanComparisons correlatedPrefixScanComparisons() {
+        return new ScanComparisons.Builder()
+                .addEqualityComparison(new Comparisons.ValueComparison(Comparisons.Type.EQUALS,
+                        new LiteralValue<>(42)))
                 .build();
     }
 
