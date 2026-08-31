@@ -172,6 +172,7 @@ indexDefinition
     : (UNIQUE)? INDEX indexName=uid AS queryTerm indexAttributes?                                                                  #indexAsSelectDefinition
     | (UNIQUE)? INDEX indexName=uid ON source=fullId indexColumnList includeClause? indexOptions?                                  #indexOnSourceDefinition
     | VECTOR INDEX indexName=uid USING engine=vectorEngine ON source=fullId indexColumnList includeClause? indexPartitionClause? vectorIndexOptions?   #vectorIndexDefinition
+    | GEOSPATIAL INDEX indexName=uid ON source=fullId indexColumnList indexGroupingClause? geospatialIndexOptions?                 #geospatialIndexDefinition
     ;
 
 indexColumnList
@@ -192,6 +193,10 @@ indexType
 
 indexPartitionClause
     : PARTITION BY '(' indexColumnSpec (',' indexColumnSpec)* ')'
+    ;
+
+indexGroupingClause
+    : GROUP BY '(' indexColumnSpec (',' indexColumnSpec)* ')'
     ;
 
 indexOptions
@@ -220,6 +225,20 @@ vectorIndexOptionValue
     | REAL_LITERAL
     | booleanLiteral
     | hnswMetric
+    ;
+
+geospatialIndexOptions
+    : OPTIONS '(' geospatialIndexOption (COMMA geospatialIndexOption)* ')'
+    ;
+
+geospatialIndexOption
+    : optionName=simpleId '=' optionValue=geospatialIndexOptionValue
+    ;
+
+geospatialIndexOptionValue
+    : DECIMAL_LITERAL
+    | booleanLiteral
+    | simpleId
     ;
 
 hnswMetric

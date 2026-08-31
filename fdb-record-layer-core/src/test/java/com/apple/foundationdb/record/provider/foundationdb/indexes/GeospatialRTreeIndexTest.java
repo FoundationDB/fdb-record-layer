@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.GeospatialRTreeScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.GeospatialRTreeScanComparisons;
+import com.apple.foundationdb.record.provider.foundationdb.query.DualPlannerTest;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.DoubleValueOrParameter;
@@ -263,7 +264,7 @@ class GeospatialRTreeIndexTest extends FDBRecordStoreQueryTestBase {
                 plan.execute(recordStore).map(rec -> rec.getPrimaryKey().getLong(0)).asList());
     }
 
-    @Test
+    @DualPlannerTest
     void plannerChoosesUngroupedIndexForWithinDistance() throws Exception {
         saveCities(UNGROUPED_HOOK, ImmutableList.of(
                 city(1, "X", 0.0, 0.0),
@@ -284,7 +285,7 @@ class GeospatialRTreeIndexTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @Test
+    @DualPlannerTest
     void plannerChoosesGroupedIndexWhenGroupingIsEqualityBound() throws Exception {
         saveCities(GROUPED_HOOK, ImmutableList.of(
                 city(1, "A", 0.0, 0.0),

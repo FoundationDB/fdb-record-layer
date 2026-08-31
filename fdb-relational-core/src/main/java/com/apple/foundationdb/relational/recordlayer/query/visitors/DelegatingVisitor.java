@@ -289,6 +289,32 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
+    public RecordLayerIndex visitGeospatialIndexDefinition(final RelationalParser.GeospatialIndexDefinitionContext ctx) {
+        return getDelegate().visitGeospatialIndexDefinition(ctx);
+    }
+
+    @Override
+    public Object visitIndexGroupingClause(final RelationalParser.IndexGroupingClauseContext ctx) {
+        return getDelegate().visitIndexGroupingClause(ctx);
+    }
+
+    @Override
+    public Object visitGeospatialIndexOptions(final RelationalParser.GeospatialIndexOptionsContext ctx) {
+        return getDelegate().visitGeospatialIndexOptions(ctx);
+    }
+
+    @Override
+    public Object visitGeospatialIndexOption(final RelationalParser.GeospatialIndexOptionContext ctx) {
+        return getDelegate().visitGeospatialIndexOption(ctx);
+    }
+
+    @Override
+    public Object visitGeospatialIndexOptionValue(final RelationalParser.GeospatialIndexOptionValueContext ctx) {
+        return getDelegate().visitGeospatialIndexOptionValue(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Object visitIndexAttributes(@Nonnull RelationalParser.IndexAttributesContext ctx) {
         return getDelegate().visitIndexAttributes(ctx);
     }
