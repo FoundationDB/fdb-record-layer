@@ -163,9 +163,7 @@ public class CommandUtil {
             }
         }
 
-        // JsonFormat cannot parse proto2 extensions (e.g. the "com.apple.ckrecdb.field" FieldOptions
-        // extension carrying type_id/type_generation_number that distinguish deprecated RecordTypeUnion
-        // generations): it silently discards them. Recover them from the raw JSON now that the extension's
+        // JsonFormat cannot parse proto2 extensions, it silently discards them. Recover them from the raw JSON now that the extension's
         // defining file has been resolved to a FileDescriptor above.
         restoreFieldOptionExtensions(obj.getAsJsonObject("records"), builder.getRecordsBuilder(), fileDescriptors);
 

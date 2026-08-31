@@ -173,11 +173,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    public void deprecatedGenerationsTest(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("deprecated-generations.yamsql");
-    }
-
-    @TestTemplate
     public void disabledIndexWithProto(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("disabled-index-tests-proto.yamsql");
     }
@@ -200,6 +195,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void fieldIndexTestsProto(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("field-index-tests-proto.yamsql");
+    }
+
+    @TestTemplate
+    public void fieldOptionsExtensionTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("field-options-extension.yamsql");
     }
 
     @TestTemplate
