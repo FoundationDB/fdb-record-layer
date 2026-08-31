@@ -1,0 +1,41 @@
+geospatial-within-distance:
+-   query: EXPLAIN select id, name from places where geo_distance(lat, lon, 37.5,
+        -122.0) <= 100000.0
+    ref: geospatial-search.yamsql:57
+    explain: ISCAN(PLACES_GEO_IDX <,>:{WITHIN @c20 OF (promote(@c13 AS DOUBLE), promote(@c15
+        AS DOUBLE))}:<,> BY_DISTANCE) | MAP (_.ID AS ID, _.NAME AS NAME)
+    task_count: 287
+    task_total_time_ms: 139
+    transform_count: 85
+    transform_time_ms: 94
+    transform_yield_count: 30
+    insert_time_ms: 9
+    insert_new_count: 27
+    insert_reused_count: 2
+-   query: EXPLAIN select id, name from places where geo_distance(lat, lon, 37.5,
+        -122.0) < 100000.0
+    ref: geospatial-search.yamsql:69
+    explain: SCAN([IS PLACES]) | FILTER HaversineDistance(_.LAT, _.LON, @c13, @c15)
+        LESS_THAN @c19 | MAP (_.ID AS ID, _.NAME AS NAME)
+    task_count: 238
+    task_total_time_ms: 27
+    transform_count: 70
+    transform_time_ms: 15
+    transform_yield_count: 27
+    insert_time_ms: 1
+    insert_new_count: 22
+    insert_reused_count: 2
+-   query: EXPLAIN select id, name from places where zone = 'west' and geo_distance(lat,
+        lon, 37.5, -122.0) <= 100000.0
+    ref: geospatial-search.yamsql:79
+    explain: ISCAN(PLACES_GEO_BY_ZONE_IDX [EQUALS promote(@c9 AS STRING)]:{WITHIN
+        @c24 OF (promote(@c17 AS DOUBLE), promote(@c19 AS DOUBLE))}:<,> BY_DISTANCE)
+        | MAP (_.ID AS ID, _.NAME AS NAME)
+    task_count: 376
+    task_total_time_ms: 43
+    transform_count: 107
+    transform_time_ms: 19
+    transform_yield_count: 36
+    insert_time_ms: 2
+    insert_new_count: 37
+    insert_reused_count: 1
