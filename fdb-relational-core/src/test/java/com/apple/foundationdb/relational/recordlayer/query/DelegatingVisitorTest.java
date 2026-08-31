@@ -371,6 +371,86 @@ public class DelegatingVisitorTest {
     }
 
     @Test
+    void visitGeospatialIndexDefinitionTest() {
+        final var query = "GEOSPATIAL INDEX myIndex ON table1 (lat, lon) GROUP BY (zone) OPTIONS (precision_digits = 10)";
+        testVisitor(query,
+                RelationalParser::indexDefinition,
+                (visitor, ctx) -> {
+                    Assertions.assertThat(ctx).isInstanceOf(RelationalParser.GeospatialIndexDefinitionContext.class);
+                    visitor.visitGeospatialIndexDefinition((RelationalParser.GeospatialIndexDefinitionContext) ctx);
+                },
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    @SuppressWarnings({"NullableProblems", "DataFlowIssue"})
+                    public RecordLayerIndex visitGeospatialIndexDefinition(@Nonnull RelationalParser.GeospatialIndexDefinitionContext ctx) {
+                        called.set(true);
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitIndexGroupingClauseTest() {
+        testSimple("GROUP BY (col1)",
+                RelationalParser::indexGroupingClause,
+                DelegatingVisitor::visitIndexGroupingClause,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitIndexGroupingClause(@Nonnull RelationalParser.IndexGroupingClauseContext ctx) {
+                        called.set(true);
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitGeospatialIndexOptionsTest() {
+        testSimple("OPTIONS (precision_digits = 10)",
+                RelationalParser::geospatialIndexOptions,
+                DelegatingVisitor::visitGeospatialIndexOptions,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitGeospatialIndexOptions(@Nonnull RelationalParser.GeospatialIndexOptionsContext ctx) {
+                        called.set(true);
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitGeospatialIndexOptionTest() {
+        testSimple("precision_digits = 10",
+                RelationalParser::geospatialIndexOption,
+                DelegatingVisitor::visitGeospatialIndexOption,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitGeospatialIndexOption(@Nonnull RelationalParser.GeospatialIndexOptionContext ctx) {
+                        called.set(true);
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitGeospatialIndexOptionValueTest() {
+        testSimple("10",
+                RelationalParser::geospatialIndexOptionValue,
+                DelegatingVisitor::visitGeospatialIndexOptionValue,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitGeospatialIndexOptionValue(@Nonnull RelationalParser.GeospatialIndexOptionValueContext ctx) {
+                        called.set(true);
+                        return null;
+                    }
+                });
+    }
+
+    @Test
     void visitPartitionClauseTest() {
         final var query = "PARTITION BY (col1)";
         testVisitor(query,

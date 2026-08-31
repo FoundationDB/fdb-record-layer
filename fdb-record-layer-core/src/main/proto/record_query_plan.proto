@@ -286,6 +286,7 @@ message PValue {
     PIncarnationValue incarnation_value = 62;
     PCardinalityValue cardinality_value = 63;
     PArrayAggValue array_agg_value = 64;
+    PHaversineDistanceValue haversine_distance_value = 65;
   }
   // Removed types that are no longer supported
   reserved 38;
@@ -462,6 +463,18 @@ message PDistanceValue {
   optional PDistanceOperator operator = 1;
   optional PValue left_child = 2;
   optional PValue right_child = 3;
+}
+
+// Great-circle distance between an index-side (latitude, longitude) pair and, in the fully-populated
+// form, a query-side (center_latitude, center_longitude) pair. The two center fields are absent when
+// this value is used as the reduced placeholder produced by
+// HaversineDistanceValue.transformComparisonMaybe (the query-side coordinates are then carried in the
+// paired PWithinDistanceComparison).
+message PHaversineDistanceValue {
+  optional PValue latitude_value = 1;
+  optional PValue longitude_value = 2;
+  optional PValue center_latitude_value = 3;
+  optional PValue center_longitude_value = 4;
 }
 
 message PConditionSelectorValue {
@@ -1506,6 +1519,7 @@ message PComparison {
     DISTANCE_RANK_EQUALS = 22;
     DISTANCE_RANK_LESS_THAN = 23;
     DISTANCE_RANK_LESS_THAN_OR_EQUAL = 24;
+    WITHIN_DISTANCE = 25;
   }
 
   extensions 5000 to max;
@@ -1523,6 +1537,7 @@ message PComparison {
     PConversionSimpleComparison conversion_simple_comparison = 11;
     PConversionParameterComparison conversion_parameter_comparison = 12;
     PDistanceRankValueComparison distance_rank_value_comparison = 13;
+    PWithinDistanceComparison within_distance_comparison = 14;
   }
 }
 
@@ -1594,6 +1609,12 @@ message PDistanceRankValueComparison {
   optional PValue limitValue = 2;
   optional int32 efSearch = 3;
   optional bool isReturningVectors = 4;
+}
+
+message PWithinDistanceComparison {
+  optional PValueComparison super = 1;
+  optional PValue centerLongitudeValue = 2;
+  optional PValue radiusMetersValue = 3;
 }
 
 //
@@ -1967,12 +1988,13 @@ message PMultidimensionalIndexScanComparisons {
   optional PScanComparisons suffix_scan_comparisons = 3;
 }
 
-// A double-valued scalar that is either a literal or the name of a query parameter, resolved against the
-// evaluation context at execution time.
+// A double-valued scalar that is either a literal, the name of a query parameter, or an arbitrary Cascades value
+// expression, resolved against the evaluation context (and record store, when a value expression) at execution time.
 message PDoubleValueOrParameter {
   oneof kind {
     double value = 1;
     string parameter = 2;
+    PValue value_expression = 3;
   }
 }
 

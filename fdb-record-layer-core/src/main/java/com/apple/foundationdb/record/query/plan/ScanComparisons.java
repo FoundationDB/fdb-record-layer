@@ -162,6 +162,7 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
             case SORT:
             case DISTANCE_RANK_LESS_THAN:
             case DISTANCE_RANK_LESS_THAN_OR_EQUAL:
+            case WITHIN_DISTANCE:
                 return ComparisonType.INEQUALITY;
             case NOT_EQUALS:
             default:
@@ -181,6 +182,20 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
             default:
                 return null;
         }
+    }
+
+    /**
+     * Build a {@link ScanComparisons} from a flat list of {@link ComparisonRange}s, in order. Shared entry point used
+     * by every {@link com.apple.foundationdb.record.query.plan.cascades.MatchCandidate}'s {@code toEquivalentPlan}
+     * path so the ordinary equality-prefix-plus-inequality contract is enforced in one place.
+     */
+    @Nonnull
+    public static ScanComparisons fromComparisonRanges(@Nonnull final List<ComparisonRange> comparisonRanges) {
+        final Builder builder = new Builder();
+        for (final ComparisonRange comparisonRange : comparisonRanges) {
+            builder.addComparisonRange(comparisonRange);
+        }
+        return builder.build();
     }
 
     @Nullable

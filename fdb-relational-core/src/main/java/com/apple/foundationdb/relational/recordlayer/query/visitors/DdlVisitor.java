@@ -21,8 +21,13 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.rtree.RTree;
 import com.apple.foundationdb.linear.Metric;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexEngineKind;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexOptionKeys;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorOptionKey;
@@ -140,6 +145,29 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                             GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
                     .put("collapse_min_duplicates", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_COLLAPSE_MIN_DUPLICATES,
                             GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .build();
+
+    // Curated SQL surface for GEOSPATIAL_RTREE index options. All entries are optional; record-layer defaults apply when
+    // omitted. Adding or removing an option here is the only change needed to update the SQL surface — no grammar edit.
+    // Each entry pairs the record-layer index option key with a coercion function that validates and canonicalises the
+    // SQL grammar value before it is written into the option map; a malformed value is rejected at DDL parse time rather
+    // than surfacing later as a raw NumberFormatException/IllegalArgumentException at index registration.
+    private static final Map<String, GeospatialSqlOption> SUPPORTED_GEOSPATIAL_OPTIONS =
+            ImmutableMap.<String, GeospatialSqlOption>builder()
+                    .put("precision_digits", new GeospatialSqlOption(IndexOptions.GEOSPATIAL_RTREE_PRECISION_DIGITS,
+                            DdlVisitor::parseGeospatialOptionInt))
+                    .put("min_m", new GeospatialSqlOption(IndexOptions.RTREE_MIN_M,
+                            DdlVisitor::parseGeospatialOptionInt))
+                    .put("max_m", new GeospatialSqlOption(IndexOptions.RTREE_MAX_M,
+                            DdlVisitor::parseGeospatialOptionInt))
+                    .put("split_s", new GeospatialSqlOption(IndexOptions.RTREE_SPLIT_S,
+                            DdlVisitor::parseGeospatialOptionInt))
+                    .put("storage", new GeospatialSqlOption(IndexOptions.RTREE_STORAGE,
+                            DdlVisitor::parseGeospatialOptionStorage))
+                    .put("store_hilbert_values", new GeospatialSqlOption(IndexOptions.RTREE_STORE_HILBERT_VALUES,
+                            DdlVisitor::parseGeospatialOptionBoolean))
+                    .put("use_node_slot_index", new GeospatialSqlOption(IndexOptions.RTREE_USE_NODE_SLOT_INDEX,
+                            DdlVisitor::parseGeospatialOptionBoolean))
                     .build();
 
     @Nonnull
@@ -358,6 +386,148 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
         getDelegate().popPlanFragment();
         return indexGeneratorBuilder.build().generate().setIndexType(IndexTypes.VECTOR).build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordLayerIndex visitGeospatialIndexDefinition(final RelationalParser.GeospatialIndexDefinitionContext indexDefinitionContext) {
+        final var ddlCatalog = metadataBuilder.build();
+        getDelegate().replaceSchemaTemplate(ddlCatalog);
+        getDelegate().pushPlanFragment();
+        final var sourceIdentifier = visitFullId(indexDefinitionContext.source);
+        var logicalOperator = generateSourceAccessForIndex(sourceIdentifier);
+        getDelegate().getCurrentPlanFragment().setOperator(logicalOperator);
+
+        final Identifier indexId = visitUid(indexDefinitionContext.indexName);
+        final var indexOptions = parseGeospatialOptions(indexDefinitionContext.geospatialIndexOptions());
+        final var indexGeneratorBuilder = OnSourceIndexGenerator.newBuilder()
+                .setIndexName(indexId)
+                .setIndexSource(getDelegate().getCurrentPlanFragment())
+                .setSemanticAnalyzer(getDelegate().getSemanticAnalyzer())
+                .addAllIndexOptions(indexOptions)
+                .setMetadataBuilder(metadataBuilder)
+                .setGenerateKeyValueExpressionWithEmptyKey(true)
+                .setUseNullableArrays(containsNullableArray);
+
+        final var coordinateSpecs = indexDefinitionContext.indexColumnList().indexColumnSpec();
+        Assert.thatUnchecked(coordinateSpecs.size() == 2, ErrorCode.UNSUPPORTED_OPERATION,
+                () -> "geospatial index requires exactly two coordinate columns, found " + coordinateSpecs.size());
+
+        final List<Identifier> groupingIdentifiers = new ArrayList<>();
+        if (indexDefinitionContext.indexGroupingClause() != null) {
+            indexDefinitionContext.indexGroupingClause().indexColumnSpec().forEach(colSpec -> {
+                final var col = OnSourceIndexGenerator.IndexedColumn
+                        .parseColSpec(colSpec, getDelegate().getIdentifierVisitor());
+                indexGeneratorBuilder.addKeyColumn(col);
+                groupingIdentifiers.add(col.getIdentifier());
+            });
+        }
+
+        // Coordinate columns are threaded through as key columns purely to satisfy the generator's requirement that
+        // non-aggregate indexes have an ORDER BY when they project more than one field. The generator's key expression
+        // is discarded below; only its column-existence validation, options pass-through, and record-type resolution
+        // are consumed here.
+        final List<Identifier> coordinateIdentifiers = new ArrayList<>();
+        coordinateSpecs.forEach(colSpec -> {
+            final var col = OnSourceIndexGenerator.IndexedColumn
+                    .parseColSpec(colSpec, getDelegate().getIdentifierVisitor());
+            indexGeneratorBuilder.addKeyColumn(col);
+            coordinateIdentifiers.add(col.getIdentifier());
+        });
+
+        for (final var coordinateId : coordinateIdentifiers) {
+            final var type = getDelegate().getSemanticAnalyzer()
+                    .resolveIdentifier(coordinateId, getDelegate().getCurrentPlanFragment())
+                    .getDataType();
+            Assert.thatUnchecked(type.getCode() == DataType.Code.DOUBLE, ErrorCode.SYNTAX_ERROR,
+                    () -> "geospatial coordinate column must be of DOUBLE type, found '" + type.getCode() + "' instead");
+        }
+
+        getDelegate().popPlanFragment();
+
+        final var indexBuilder = indexGeneratorBuilder.build().generate();
+
+        // The R-tree maintainer requires exactly {grouping columns..., latitude, longitude} — a GroupingKeyExpression
+        // when grouped, a bare ThenKeyExpression otherwise. OnSourceIndexGenerator's non-aggregate path never emits a
+        // GroupingKeyExpression, so replace whatever it produced.
+        final var latField = Key.Expressions.field(coordinateIdentifiers.get(0).getName());
+        final var lonField = Key.Expressions.field(coordinateIdentifiers.get(1).getName());
+        final ThenKeyExpression coordinates = Key.Expressions.concat(latField, lonField);
+        final KeyExpression keyExpression;
+        if (groupingIdentifiers.isEmpty()) {
+            keyExpression = coordinates;
+        } else {
+            final var groupingFields = groupingIdentifiers.stream()
+                    .map(id -> Key.Expressions.field(id.getName()))
+                    .collect(ImmutableList.toImmutableList());
+            keyExpression = coordinates.groupBy(groupingFields.get(0),
+                    groupingFields.subList(1, groupingFields.size()).toArray(new KeyExpression[0]));
+        }
+        indexBuilder.setKeyExpression(keyExpression);
+        return indexBuilder.setIndexType(IndexTypes.GEOSPATIAL_RTREE).build();
+    }
+
+    @Nonnull
+    private Map<String, String> parseGeospatialOptions(@Nullable final RelationalParser.GeospatialIndexOptionsContext optionsContext) {
+        if (optionsContext == null) {
+            return ImmutableMap.of();
+        }
+        final var builder = ImmutableMap.<String, String>builder();
+        final Set<String> seen = new HashSet<>();
+        for (final var option : optionsContext.geospatialIndexOption()) {
+            final String name = option.optionName.getText().toLowerCase(Locale.ROOT);
+            final GeospatialSqlOption spec = SUPPORTED_GEOSPATIAL_OPTIONS.get(name);
+            if (spec == null) {
+                throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION,
+                        "unsupported geospatial index option '" + name + "'");
+            }
+            Assert.thatUnchecked(seen.add(name), ErrorCode.SYNTAX_ERROR,
+                    () -> "duplicate geospatial index option '" + name + "'");
+            try {
+                builder.put(spec.indexOptionKey(), spec.coerce().apply(option.optionValue));
+            } catch (final IllegalArgumentException e) {
+                // Covers NumberFormatException (int coercion) and RTree.Storage.valueOf / strict boolean rejections.
+                throw Assert.failUnchecked(ErrorCode.SYNTAX_ERROR,
+                        "invalid value '" + option.optionValue.getText() + "' for geospatial index option '" + name + "'", e);
+            }
+        }
+        return builder.build();
+    }
+
+    /**
+     * SQL-facing binding of a single geospatial index option: the record-layer {@link IndexOptions} key it maps to, and
+     * the coercion that validates and canonicalises the grammar value before it is stored. Coercers throw
+     * {@link IllegalArgumentException} (or its {@link NumberFormatException} subclass) on malformed input; the caller
+     * converts that into a {@link ErrorCode#SYNTAX_ERROR} at DDL parse time.
+     */
+    private record GeospatialSqlOption(@Nonnull String indexOptionKey,
+                                       @Nonnull Function<RelationalParser.GeospatialIndexOptionValueContext, String> coerce) {
+    }
+
+    @Nonnull
+    private static String parseGeospatialOptionInt(@Nonnull final RelationalParser.GeospatialIndexOptionValueContext value) {
+        return Integer.toString(Integer.parseInt(value.getText()));
+    }
+
+    @Nonnull
+    private static String parseGeospatialOptionStorage(@Nonnull final RelationalParser.GeospatialIndexOptionValueContext value) {
+        // RTree.Storage.valueOf throws IllegalArgumentException for unrecognised names; canonicalise to uppercase so the
+        // stored option text round-trips through RTree.Storage.valueOf at maintainer time.
+        return RTree.Storage.valueOf(value.getText().toUpperCase(Locale.ROOT)).name();
+    }
+
+    @Nonnull
+    private static String parseGeospatialOptionBoolean(@Nonnull final RelationalParser.GeospatialIndexOptionValueContext value) {
+        // Boolean.parseBoolean silently maps anything non-"true" to false; require an exact literal here so garbage such
+        // as store_hilbert_values = 5 or use_node_slot_index = maybe fails at parse time.
+        final String text = value.getText();
+        if ("true".equalsIgnoreCase(text)) {
+            return "true";
+        }
+        if ("false".equalsIgnoreCase(text)) {
+            return "false";
+        }
+        throw new IllegalArgumentException("expected true or false, got '" + text + "'");
     }
 
     @Nonnull

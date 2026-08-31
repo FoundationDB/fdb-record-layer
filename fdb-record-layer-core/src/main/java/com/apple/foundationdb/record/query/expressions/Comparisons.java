@@ -48,6 +48,7 @@ import com.apple.foundationdb.record.planprotos.POpaqueEqualityComparison;
 import com.apple.foundationdb.record.planprotos.PParameterComparison;
 import com.apple.foundationdb.record.planprotos.PSimpleComparison;
 import com.apple.foundationdb.record.planprotos.PValueComparison;
+import com.apple.foundationdb.record.planprotos.PWithinDistanceComparison;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistry;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistryImpl;
@@ -647,7 +648,9 @@ public class Comparisons {
         @API(API.Status.EXPERIMENTAL)
         DISTANCE_RANK_LESS_THAN,
         @API(API.Status.EXPERIMENTAL)
-        DISTANCE_RANK_LESS_THAN_OR_EQUAL;
+        DISTANCE_RANK_LESS_THAN_OR_EQUAL,
+        @API(API.Status.EXPERIMENTAL)
+        WITHIN_DISTANCE;
 
         @Nonnull
         private static final Supplier<BiMap<Type, PComparisonType>> protoEnumBiMapSupplier =
@@ -2017,6 +2020,256 @@ public class Comparisons {
             public DistanceRankValueComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                          @Nonnull final PDistanceRankValueComparison distanceRankValueComparisonProto) {
                 return DistanceRankValueComparison.fromProto(serializationContext, distanceRankValueComparisonProto);
+            }
+        }
+    }
+
+    /**
+     * A comparison that matches points falling within a geodesic distance of a given center. The inherited
+     * {@link ValueComparison#getComparandValue()} carries the center-latitude {@link Value}; the longitude and radius
+     * are held as sibling {@link Value}s so that all three can be correlated through {@link #getCorrelatedTo()} and
+     * {@link #translateCorrelations(TranslationMap, boolean)}. Terminal evaluation is delegated to the R-tree index
+     * scan; direct {@link #eval(FDBRecordStoreBase, EvaluationContext, Object)} is not supported.
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @SpotBugsSuppressWarnings("EQ_DOESNT_OVERRIDE_EQUALS")
+    public static class WithinDistanceComparison extends ValueComparison {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Within-Distance-Comparison");
+
+        @Nonnull
+        private final Value centerLongitudeValue;
+
+        @Nonnull
+        private final Value radiusMetersValue;
+
+        protected WithinDistanceComparison(@Nonnull PlanSerializationContext serializationContext,
+                                           @Nonnull final PWithinDistanceComparison withinDistanceComparisonProto) {
+            super(serializationContext, withinDistanceComparisonProto.getSuper());
+            this.centerLongitudeValue = Value.fromValueProto(serializationContext,
+                    Objects.requireNonNull(withinDistanceComparisonProto.getCenterLongitudeValue()));
+            this.radiusMetersValue = Value.fromValueProto(serializationContext,
+                    Objects.requireNonNull(withinDistanceComparisonProto.getRadiusMetersValue()));
+        }
+
+        public WithinDistanceComparison(@Nonnull final Value centerLatitudeValue,
+                                        @Nonnull final Value centerLongitudeValue,
+                                        @Nonnull final Value radiusMetersValue) {
+            this(centerLatitudeValue, ParameterRelationshipGraph.unbound(), centerLongitudeValue, radiusMetersValue);
+        }
+
+        public WithinDistanceComparison(@Nonnull final Value centerLatitudeValue,
+                                        @Nonnull final ParameterRelationshipGraph parameterRelationshipGraph,
+                                        @Nonnull final Value centerLongitudeValue,
+                                        @Nonnull final Value radiusMetersValue) {
+            super(Type.WITHIN_DISTANCE, centerLatitudeValue, parameterRelationshipGraph);
+            this.centerLongitudeValue = centerLongitudeValue;
+            this.radiusMetersValue = radiusMetersValue;
+        }
+
+        @Nonnull
+        public Value getCenterLatitudeValue() {
+            return getComparandValue();
+        }
+
+        @Nonnull
+        public Value getCenterLongitudeValue() {
+            return centerLongitudeValue;
+        }
+
+        @Nonnull
+        public Value getRadiusMetersValue() {
+            return radiusMetersValue;
+        }
+
+        @Nonnull
+        @Override
+        public WithinDistanceComparison withType(@Nonnull final Type newType) {
+            Verify.verify(newType == Type.WITHIN_DISTANCE);
+            return this;
+        }
+
+        @Nonnull
+        @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
+        public WithinDistanceComparison withValue(@Nonnull final Value value) {
+            if (getComparandValue() == value) {
+                return this;
+            }
+            return new WithinDistanceComparison(value, parameterRelationshipGraph, centerLongitudeValue,
+                    radiusMetersValue);
+        }
+
+        @Nonnull
+        @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
+        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+            final var replacedCenterLatitudeMaybe = replacementFunction.apply(getComparandValue());
+            if (replacedCenterLatitudeMaybe.isEmpty()) {
+                return Optional.empty();
+            }
+            final var replacedCenterLongitudeMaybe = replacementFunction.apply(centerLongitudeValue);
+            if (replacedCenterLongitudeMaybe.isEmpty()) {
+                return Optional.empty();
+            }
+            final var replacedRadiusMaybe = replacementFunction.apply(radiusMetersValue);
+            if (replacedRadiusMaybe.isEmpty()) {
+                return Optional.empty();
+            }
+
+            if (replacedCenterLatitudeMaybe.get() == getComparandValue() &&
+                    replacedCenterLongitudeMaybe.get() == centerLongitudeValue &&
+                    replacedRadiusMaybe.get() == radiusMetersValue) {
+                return Optional.of(this);
+            }
+            return Optional.of(new WithinDistanceComparison(replacedCenterLatitudeMaybe.get(),
+                    parameterRelationshipGraph, replacedCenterLongitudeMaybe.get(), replacedRadiusMaybe.get()));
+        }
+
+        @Nonnull
+        @Override
+        public WithinDistanceComparison translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                              final boolean shouldSimplifyValues) {
+            if (getComparandValue().getCorrelatedTo()
+                    .stream()
+                    .noneMatch(translationMap::containsSourceAlias) &&
+                    centerLongitudeValue.getCorrelatedTo()
+                            .stream()
+                            .noneMatch(translationMap::containsSourceAlias) &&
+                    radiusMetersValue.getCorrelatedTo()
+                            .stream()
+                            .noneMatch(translationMap::containsSourceAlias)) {
+                return this;
+            }
+
+            return new WithinDistanceComparison(
+                    getComparandValue().translateCorrelations(translationMap, shouldSimplifyValues),
+                    parameterRelationshipGraph,
+                    centerLongitudeValue.translateCorrelations(translationMap, shouldSimplifyValues),
+                    radiusMetersValue.translateCorrelations(translationMap, shouldSimplifyValues));
+        }
+
+        @Nonnull
+        @Override
+        public Set<CorrelationIdentifier> getCorrelatedTo() {
+            return ImmutableSet.<CorrelationIdentifier>builder()
+                    .addAll(getComparandValue().getCorrelatedTo())
+                    .addAll(centerLongitudeValue.getCorrelatedTo())
+                    .addAll(radiusMetersValue.getCorrelatedTo())
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public ConstrainedBoolean semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
+            if (!(other instanceof WithinDistanceComparison)) {
+                return ConstrainedBoolean.falseValue();
+            }
+            final WithinDistanceComparison that = (WithinDistanceComparison) other;
+            return super.semanticEqualsTyped(other, valueEquivalence)
+                    .compose(ignored -> centerLongitudeValue.semanticEquals(that.centerLongitudeValue, valueEquivalence))
+                    .compose(ignored -> radiusMetersValue.semanticEquals(that.radiusMetersValue, valueEquivalence));
+        }
+
+        @Nullable
+        @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
+        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object v) {
+            throw new IllegalStateException("this comparison can only be evaluated using an index");
+        }
+
+        @Nonnull
+        @Override
+        public String typelessString() {
+            return typelessExplain().render(DefaultExplainFormatter.forDebugging()).toString();
+        }
+
+        @Override
+        public String toString() {
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokensWithPrecedence explain() {
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(getType().name())
+                    .addWhitespace().addNested(typelessExplain()));
+        }
+
+        @Nonnull
+        private ExplainTokens typelessExplain() {
+            return new ExplainTokens().addOpeningParen()
+                    .addNested(getComparandValue().explain().getExplainTokens())
+                    .addKeyword(",").addWhitespace()
+                    .addNested(centerLongitudeValue.explain().getExplainTokens())
+                    .addKeyword(",").addWhitespace()
+                    .addNested(radiusMetersValue.explain().getExplainTokens())
+                    .addClosingParen();
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            switch (mode.getKind()) {
+                case LEGACY:
+                case FOR_CONTINUATION:
+                    return PlanHashable.objectsPlanHash(mode, BASE_HASH, getType(), getComparandValue(),
+                            centerLongitudeValue, radiusMetersValue);
+                default:
+                    throw new UnsupportedOperationException("Hash Kind " + mode.name() + " is not supported");
+            }
+        }
+
+        @Override
+        public int computeHashCode() {
+            return Objects.hash(super.computeHashCode(), getType().name(), getComparandValue(),
+                    centerLongitudeValue, radiusMetersValue);
+        }
+
+        @Nonnull
+        @Override
+        public WithinDistanceComparison withParameterRelationshipMap(@Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
+            Verify.verify(this.parameterRelationshipGraph.isUnbound());
+            return new WithinDistanceComparison(getComparandValue(), parameterRelationshipGraph,
+                    centerLongitudeValue, radiusMetersValue);
+        }
+
+        @Nonnull
+        @Override
+        public PWithinDistanceComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PWithinDistanceComparison.newBuilder()
+                    .setSuper(super.toValueComparisonProto(serializationContext))
+                    .setCenterLongitudeValue(centerLongitudeValue.toValueProto(serializationContext))
+                    .setRadiusMetersValue(radiusMetersValue.toValueProto(serializationContext))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PComparison.newBuilder().setWithinDistanceComparison(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        public static WithinDistanceComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                         @Nonnull final PWithinDistanceComparison withinDistanceComparisonProto) {
+            return new WithinDistanceComparison(serializationContext, withinDistanceComparisonProto);
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PWithinDistanceComparison, WithinDistanceComparison> {
+            @Nonnull
+            @Override
+            public Class<PWithinDistanceComparison> getProtoMessageClass() {
+                return PWithinDistanceComparison.class;
+            }
+
+            @Nonnull
+            @Override
+            public WithinDistanceComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                      @Nonnull final PWithinDistanceComparison withinDistanceComparisonProto) {
+                return WithinDistanceComparison.fromProto(serializationContext, withinDistanceComparisonProto);
             }
         }
     }

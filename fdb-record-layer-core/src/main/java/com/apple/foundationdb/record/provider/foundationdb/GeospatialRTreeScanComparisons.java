@@ -53,11 +53,13 @@ import java.util.Set;
 
 /**
  * {@link IndexScanParameters} for a within-distance ({@link IndexScanType#BY_DISTANCE}) scan of a geospatial R-tree
- * index. Holds the prefix (grouping) comparisons, the center latitude/longitude and radius (each a literal or a query
- * parameter), and the suffix comparisons; {@link #bind} resolves them against the evaluation context into a
- * {@link GeospatialRTreeScanBounds}.
+ * index. Holds the prefix (grouping) comparisons, the center latitude/longitude and radius (each a
+ * {@link DoubleValueOrParameter}), and the suffix comparisons; {@link #bind} resolves them against the evaluation
+ * context (and record store, for {@link com.apple.foundationdb.record.query.plan.cascades.values.Value}-backed sources)
+ * into a {@link GeospatialRTreeScanBounds}.
  *
  * @see GeospatialRTreeScanBounds
+ * @see DoubleValueOrParameter
  */
 @API(API.Status.EXPERIMENTAL)
 public class GeospatialRTreeScanComparisons implements IndexScanParameters {
@@ -111,6 +113,17 @@ public class GeospatialRTreeScanComparisons implements IndexScanParameters {
         return IndexScanType.BY_DISTANCE;
     }
 
+    @Override
+    public boolean hasScanComparisons() {
+        return true;
+    }
+
+    @Nonnull
+    @Override
+    public ScanComparisons getScanComparisons() {
+        return prefixScanComparisons;
+    }
+
     @Nonnull
     public ScanComparisons getPrefixScanComparisons() {
         return prefixScanComparisons;
@@ -125,9 +138,9 @@ public class GeospatialRTreeScanComparisons implements IndexScanParameters {
     @Override
     public GeospatialRTreeScanBounds bind(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final Index index,
                                           @Nonnull final EvaluationContext context) {
-        final Double latitude = centerLatitude.getValue(context);
-        final Double longitude = centerLongitude.getValue(context);
-        final Double radius = radiusMeters.getValue(context);
+        final Double latitude = centerLatitude.getValue(store, context);
+        final Double longitude = centerLongitude.getValue(store, context);
+        final Double radius = radiusMeters.getValue(store, context);
         if (latitude == null || longitude == null || radius == null) {
             throw new RecordCoreException("geospatial scan requires non-null center and radius");
         }
@@ -202,6 +215,9 @@ public class GeospatialRTreeScanComparisons implements IndexScanParameters {
     public Set<CorrelationIdentifier> getCorrelatedTo() {
         final ImmutableSet.Builder<CorrelationIdentifier> correlatedToBuilder = ImmutableSet.builder();
         correlatedToBuilder.addAll(prefixScanComparisons.getCorrelatedTo());
+        correlatedToBuilder.addAll(centerLatitude.getCorrelatedTo());
+        correlatedToBuilder.addAll(centerLongitude.getCorrelatedTo());
+        correlatedToBuilder.addAll(radiusMeters.getCorrelatedTo());
         correlatedToBuilder.addAll(suffixScanComparisons.getCorrelatedTo());
         return correlatedToBuilder.build();
     }
@@ -223,18 +239,18 @@ public class GeospatialRTreeScanComparisons implements IndexScanParameters {
         }
         final GeospatialRTreeScanComparisons that = (GeospatialRTreeScanComparisons)other;
         return prefixScanComparisons.semanticEquals(that.prefixScanComparisons, aliasMap) &&
-               centerLatitude.equals(that.centerLatitude) &&
-               centerLongitude.equals(that.centerLongitude) &&
-               radiusMeters.equals(that.radiusMeters) &&
+               centerLatitude.semanticEquals(that.centerLatitude, aliasMap) &&
+               centerLongitude.semanticEquals(that.centerLongitude, aliasMap) &&
+               radiusMeters.semanticEquals(that.radiusMeters, aliasMap) &&
                suffixScanComparisons.semanticEquals(that.suffixScanComparisons, aliasMap);
     }
 
     @Override
     public int semanticHashCode() {
         int hashCode = prefixScanComparisons.semanticHashCode();
-        hashCode = 31 * hashCode + centerLatitude.hashCode();
-        hashCode = 31 * hashCode + centerLongitude.hashCode();
-        hashCode = 31 * hashCode + radiusMeters.hashCode();
+        hashCode = 31 * hashCode + centerLatitude.semanticHashCode();
+        hashCode = 31 * hashCode + centerLongitude.semanticHashCode();
+        hashCode = 31 * hashCode + radiusMeters.semanticHashCode();
         return 31 * hashCode + suffixScanComparisons.semanticHashCode();
     }
 
@@ -247,10 +263,19 @@ public class GeospatialRTreeScanComparisons implements IndexScanParameters {
                 prefixScanComparisons.translateCorrelations(translationMap, shouldSimplifyValues);
         final ScanComparisons translatedSuffixScanComparisons =
                 suffixScanComparisons.translateCorrelations(translationMap, shouldSimplifyValues);
+        final DoubleValueOrParameter translatedCenterLatitude =
+                centerLatitude.translateCorrelations(translationMap, shouldSimplifyValues);
+        final DoubleValueOrParameter translatedCenterLongitude =
+                centerLongitude.translateCorrelations(translationMap, shouldSimplifyValues);
+        final DoubleValueOrParameter translatedRadiusMeters =
+                radiusMeters.translateCorrelations(translationMap, shouldSimplifyValues);
         if (translatedPrefixScanComparisons != prefixScanComparisons ||
-                translatedSuffixScanComparisons != suffixScanComparisons) {
-            return new GeospatialRTreeScanComparisons(translatedPrefixScanComparisons, centerLatitude, centerLongitude,
-                    radiusMeters, translatedSuffixScanComparisons);
+                translatedSuffixScanComparisons != suffixScanComparisons ||
+                translatedCenterLatitude != centerLatitude ||
+                translatedCenterLongitude != centerLongitude ||
+                translatedRadiusMeters != radiusMeters) {
+            return new GeospatialRTreeScanComparisons(translatedPrefixScanComparisons, translatedCenterLatitude,
+                    translatedCenterLongitude, translatedRadiusMeters, translatedSuffixScanComparisons);
         }
         return this;
     }

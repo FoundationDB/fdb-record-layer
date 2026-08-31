@@ -450,6 +450,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return ddlVisitor.visitVectorIndexDefinition(ctx);
     }
 
+    @Nonnull
+    @Override
+    public RecordLayerIndex visitGeospatialIndexDefinition(final RelationalParser.GeospatialIndexDefinitionContext ctx) {
+        return ddlVisitor.visitGeospatialIndexDefinition(ctx);
+    }
+
     @Override
     public Object visitIndexAttributes(RelationalParser.IndexAttributesContext ctx) {
         return visitChildren(ctx);

@@ -179,7 +179,8 @@ public class PlanOrderingKey {
             }
             final int prefixSize;
             if (indexPlan instanceof RecordQueryIndexPlan) {
-                if (IndexTypes.MULTIDIMENSIONAL.equals(index.getType())) {
+                if (IndexTypes.MULTIDIMENSIONAL.equals(index.getType()) || IndexTypes.GEOSPATIAL_RTREE.equals(index.getType())) {
+                    // R-tree scans return rows in Hilbert-curve order, not index-key order.
                     return null;
                 }
                 if (!((RecordQueryIndexPlan)indexPlan).hasScanComparisons()) {

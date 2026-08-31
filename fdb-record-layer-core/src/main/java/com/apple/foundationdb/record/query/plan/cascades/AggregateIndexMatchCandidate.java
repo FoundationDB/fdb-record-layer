@@ -413,7 +413,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         final var indexEntryConverter = createIndexEntryConverter(messageDescriptor);
         final var aggregateIndexScan = new RecordQueryIndexPlan(index.getName(),
                 null,
-                new IndexScanComparisons(IndexScanType.BY_GROUP, toScanComparisons(comparisonRanges)),
+                new IndexScanComparisons(IndexScanType.BY_GROUP, ScanComparisons.fromComparisonRanges(comparisonRanges)),
                 planContext.getPlannerConfiguration().getIndexFetchMethod(),
                 RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
                 reverseScanOrder,
@@ -623,15 +623,6 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         if (!builder.hasField(fieldName)) {
             builder.addField(fieldName, extractValue);
         }
-    }
-
-    @Nonnull
-    private static ScanComparisons toScanComparisons(@Nonnull final List<ComparisonRange> comparisonRanges) {
-        final ScanComparisons.Builder builder = new ScanComparisons.Builder();
-        for (ComparisonRange comparisonRange : comparisonRanges) {
-            builder.addComparisonRange(comparisonRange);
-        }
-        return builder.build();
     }
 
     @Nonnull

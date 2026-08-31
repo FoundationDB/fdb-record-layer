@@ -1519,4 +1519,142 @@ public class IndexTest {
                 "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) INCLUDE (c) PARTITION BY (p) OPTIONS (CONNECTIVITY = 16)";
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "INCLUDE clause is not supported for vector indexes");
     }
+
+    @Test
+    void createGeospatialIndexUngroupedWorksCorrectly() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, lat double, lon double, primary key(p))" +
+                "CREATE GEOSPATIAL INDEX MV1 ON T(lat, lon)";
+        indexIs(stmt, concat(field("LAT"), field("LON")), IndexTypes.GEOSPATIAL_RTREE);
+    }
+
+    @Test
+    void createGeospatialIndexGroupedWorksCorrectly() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, lat double, lon double, zone string, primary key(p))" +
+                "CREATE GEOSPATIAL INDEX MV1 ON T(lat, lon) GROUP BY (zone)";
+        indexIs(stmt, concat(field("LAT"), field("LON")).groupBy(field("ZONE")), IndexTypes.GEOSPATIAL_RTREE);
+    }
+
+    @Test
+    void createGeospatialIndexWithMultipleGroupingColumnsWorksCorrectly() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, lat double, lon double, zone string, category string, primary key(p))" +
+                "CREATE GEOSPATIAL INDEX MV1 ON T(lat, lon) GROUP BY (zone, category)";
+        indexIs(stmt, concat(field("LAT"), field("LON")).groupBy(field("ZONE"), field("CATEGORY")),
+                IndexTypes.GEOSPATIAL_RTREE);
+    }
+
+    @Test
+    void createGeospatialIndexWithOptionsWorksCorrectly() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, lat double, lon double, primary key(p))" +
+                "CREATE GEOSPATIAL INDEX MV1 ON T(lat, lon) " +
+                "OPTIONS (precision_digits = 10, min_m = 4, max_m = 16, split_s = 2, " +
+                "storage = BY_SLOT, store_hilbert_values = true, use_node_slot_index = false)";
+        indexIs(stmt, concat(field("LAT"), field("LON")), IndexTypes.GEOSPATIAL_RTREE,
+                idx -> {
+                    final var options = idx.getOptions();
+                    Assertions.assertEquals("10", options.get(IndexOptions.GEOSPATIAL_RTREE_PRECISION_DIGITS));
+                    Assertions.assertEquals("4", options.get(IndexOptions.RTREE_MIN_M));
+                    Assertions.assertEquals("16", options.get(IndexOptions.RTREE_MAX_M));
+                    Assertions.assertEquals("2", options.get(IndexOptions.RTREE_SPLIT_S));
+                    Assertions.assertEquals("BY_SLOT", options.get(IndexOptions.RTREE_STORAGE));
+                    Assertions.assertEquals("true", options.get(IndexOptions.RTREE_STORE_HILBERT_VALUES));
+                    Assertions.assertEquals("false", options.get(IndexOptions.RTREE_USE_NODE_SLOT_INDEX));
+                });
+    }
+
+    @Test
+    void createGeospatialIndexWithWrongColumnCountIsRejected() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, lat double, primary key(p))" +
+                "CREATE GEOSPATIAL INDEX MV1 ON T(lat)";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION,
+                "geospatial index requires exactly two coordinate columns");
+    }
+
+    @Test
+    void createGeospatialIndexWithThreeColumnsIsRejected() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, lat double, lon double, alt double, primary key(p))" +
+                "CREATE GEOSPATIAL INDEX MV1 ON T(lat, lon, alt)";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION,
+                "geospatial index requires exactly two coordinate columns");
+    }
+
+    @Test
+    void createGeospatialIndexOnNonDoubleColumnIsRejected() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, lat bigint, lon double, primary key(p))" +
+                "CREATE GEOSPATIAL INDEX MV1 ON T(lat, lon)";
+        shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR,
+                "geospatial coordinate column must be of DOUBLE type");
+    }
+
+    @Test
+    void createGeospatialIndexWithUnknownOptionIsRejected() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, lat double, lon double, primary key(p))" +
+                "CREATE GEOSPATIAL INDEX MV1 ON T(lat, lon) OPTIONS (bogus_option = 5)";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION,
+                "unsupported geospatial index option 'bogus_option'");
+    }
+
+    @Test
+    void createGeospatialIndexWithDuplicateOptionIsRejected() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, lat double, lon double, primary key(p))" +
+                "CREATE GEOSPATIAL INDEX MV1 ON T(lat, lon) OPTIONS (precision_digits = 7, precision_digits = 10)";
+        shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR,
+                "duplicate geospatial index option 'precision_digits'");
+    }
+
+    @Test
+    void createGeospatialIndexWithNonNumericIntOptionIsRejected() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, lat double, lon double, primary key(p))" +
+                "CREATE GEOSPATIAL INDEX MV1 ON T(lat, lon) OPTIONS (min_m = BY_SLOT)";
+        shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR,
+                "invalid value 'BY_SLOT' for geospatial index option 'min_m'");
+    }
+
+    @Test
+    void createGeospatialIndexWithUnknownStorageValueIsRejected() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, lat double, lon double, primary key(p))" +
+                "CREATE GEOSPATIAL INDEX MV1 ON T(lat, lon) OPTIONS (storage = NOT_A_STORAGE_TYPE)";
+        shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR,
+                "invalid value 'NOT_A_STORAGE_TYPE' for geospatial index option 'storage'");
+    }
+
+    @Test
+    void createGeospatialIndexWithNumericStorageValueIsRejected() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, lat double, lon double, primary key(p))" +
+                "CREATE GEOSPATIAL INDEX MV1 ON T(lat, lon) OPTIONS (storage = 5)";
+        shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR,
+                "invalid value '5' for geospatial index option 'storage'");
+    }
+
+    @Test
+    void createGeospatialIndexWithNonBooleanBooleanOptionIsRejected() throws Exception {
+        // The grammar's geospatialIndexOptionValue admits DECIMAL_LITERAL/simpleId in addition to booleanLiteral, so a
+        // stray integer or identifier reaches option parsing intact; without strict coercion Boolean.parseBoolean would
+        // silently coerce it to false.
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, lat double, lon double, primary key(p))" +
+                "CREATE GEOSPATIAL INDEX MV1 ON T(lat, lon) OPTIONS (store_hilbert_values = 5)";
+        shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR,
+                "invalid value '5' for geospatial index option 'store_hilbert_values'");
+    }
+
+    @Test
+    void createGeospatialIndexWithIdentifierBooleanOptionIsRejected() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, lat double, lon double, primary key(p))" +
+                "CREATE GEOSPATIAL INDEX MV1 ON T(lat, lon) OPTIONS (use_node_slot_index = maybe)";
+        shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR,
+                "invalid value 'maybe' for geospatial index option 'use_node_slot_index'");
+    }
 }

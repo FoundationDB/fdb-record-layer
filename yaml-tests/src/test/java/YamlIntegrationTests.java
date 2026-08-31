@@ -203,6 +203,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void geospatialSearchTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("geospatial-search.yamsql");
+    }
+
+    @TestTemplate
     public void groupByTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("groupby-tests.yamsql");
     }

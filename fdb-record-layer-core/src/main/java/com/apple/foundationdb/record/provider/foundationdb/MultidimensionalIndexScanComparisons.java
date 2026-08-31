@@ -76,6 +76,21 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
         return IndexScanType.BY_VALUE;
     }
 
+    @Override
+    public boolean hasScanComparisons() {
+        return true;
+    }
+
+    @Nonnull
+    @Override
+    public ScanComparisons getScanComparisons() {
+        // Expose the equality-bound prefix as the single-tuple-range summary used by planner properties
+        // (CardinalitiesProperty, ordering derivation, plan-graph attributes). Dimension ranges are
+        // consumed by MultidimensionalIndexScanBounds during scan-time bind() and do not participate in
+        // this flat summary. Mirrors GeospatialRTreeScanComparisons / VectorIndexScanComparisons.
+        return prefixScanComparisons;
+    }
+
     @Nonnull
     public ScanComparisons getPrefixScanComparisons() {
         return prefixScanComparisons;
