@@ -1,0 +1,39 @@
+¥
+x
+geospatial-within-distanceZEXPLAIN select id, name from places where geo_distance(lat, lon, 37.5, -122.0) <= 100000.0∑
+ü¶Ç™BU èÀ¸,(0¿¨≠8@êISCAN(PLACES_GEO_IDX <,>:{WITHIN @c20 OF (promote(@c13 AS DOUBLE), promote(@c15 AS DOUBLE))}:<,> BY_DISTANCE) | MAP (_.ID AS ID, _.NAME AS NAME)Ödigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.ID AS ID, q2.NAME AS NAME)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ID, STRING AS NAME)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">prefix: &lt;-‚àû, ‚àû&gt;</td></tr><tr><td align="left">center latitude: promote(@c13 AS DOUBLE)</td></tr><tr><td align="left">center longitude: promote(@c15 AS DOUBLE)</td></tr><tr><td align="left">radius (meters): @c20</td></tr><tr><td align="left">suffix: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS ID, DOUBLE AS LAT, DOUBLE AS LON, STRING AS NAME)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">PLACES_GEO_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS ID, DOUBLE AS LAT, DOUBLE AS LON, STRING AS NAME)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ë
+w
+geospatial-within-distanceYEXPLAIN select id, name from places where geo_distance(lat, lon, 37.5, -122.0) < 100000.0Ï
+Ó¸ªïF ∏§®(0ë÷U8@xSCAN([IS PLACES]) | FILTER HaversineDistance(_.LAT, _.LON, @c13, @c15) LESS_THAN @c19 | MAP (_.ID AS ID, _.NAME AS NAME)‘digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q33.ID AS ID, q33.NAME AS NAME)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ID, STRING AS NAME)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE HaversineDistance(q2.LAT, q2.LON, @c13, @c15) LESS_THAN @c19</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS ID, DOUBLE AS LAT, DOUBLE AS LON, STRING AS NAME)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS PLACES]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS ID, DOUBLE AS LAT, DOUBLE AS LON, STRING AS NAME)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [PLACES]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS ID, DOUBLE AS LAT, DOUBLE AS LON, STRING AS NAME)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q33> label="q33" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ç
+ä
+geospatial-within-distancelEXPLAIN select id, name from places where zone = 'west' and geo_distance(lat, lon, 37.5, -122.0) <= 100000.0˝
+¯÷ÃÒk ˚˘¨	($0Ωìá8%@¥ISCAN(PLACES_GEO_BY_ZONE_IDX [EQUALS promote(@c9 AS STRING)]:{WITHIN @c24 OF (promote(@c17 AS DOUBLE), promote(@c19 AS DOUBLE))}:<,> BY_DISTANCE) | MAP (_.ID AS ID, _.NAME AS NAME)ßdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.ID AS ID, q2.NAME AS NAME)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ID, STRING AS NAME)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">prefix comparisons: [EQUALS promote(@c9 AS STRING)]</td></tr><tr><td align="left">center latitude: promote(@c17 AS DOUBLE)</td></tr><tr><td align="left">center longitude: promote(@c19 AS DOUBLE)</td></tr><tr><td align="left">radius (meters): @c24</td></tr><tr><td align="left">suffix: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS ID, DOUBLE AS LAT, DOUBLE AS LON, STRING AS NAME)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">PLACES_GEO_BY_ZONE_IDX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ZONE, STRING AS ID, DOUBLE AS LAT, DOUBLE AS LON, STRING AS NAME)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}

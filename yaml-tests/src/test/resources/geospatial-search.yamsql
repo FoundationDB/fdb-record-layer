@@ -1,0 +1,116 @@
+#
+# geospatial-search.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# End-to-end SQL coverage for the GEOSPATIAL_RTREE index and the geo_distance() scalar. Two indexes are declared on the
+# same table so both the ungrouped and single-grouped shapes get exercised. The centerpiece is HaversineDistanceValue's
+# <=-only pushdown: geo_distance(lat, lon, ...) <= radius must match into an R-tree ISCAN, while < must not (it falls
+# back to a residual filter). Result rows are identical between the two because real coordinates never sit exactly on
+# the boundary — the plan shape is what differs.
+#
+# supported_version is !current_version because GEOSPATIAL INDEX DDL and the geo_distance built-in did not exist in any
+# released server, so this file only runs against the current build (and is skipped in mixed-version mode).
+---
+options:
+  supported_version: !current_version
+---
+schema_template:
+    create table places(zone string, id string, lat double, lon double, name string, primary key (zone, id))
+    create geospatial index places_geo_idx on places(lat, lon)
+    create geospatial index places_geo_by_zone_idx on places(lat, lon) group by (zone)
+---
+setup:
+  steps:
+    # A cluster of Bay Area points within ~50 km of the query center (37.5, -122.0) and outlier points elsewhere.
+    - query: insert into places values
+          ('west', 'p1', 37.7749, -122.4194, 'San Francisco'),
+          ('west', 'p2', 37.4419, -122.1430, 'Palo Alto'),
+          ('west', 'p3', 37.3382, -121.8863, 'San Jose'),
+          ('west', 'p4', 34.0522, -118.2437, 'Los Angeles'),
+          ('west', 'p5', 47.6062, -122.3321, 'Seattle'),
+          ('east', 'e1', 40.7128, -74.0060, 'New York'),
+          ('east', 'e2', 42.3601, -71.0589, 'Boston')
+---
+test_block:
+  name: geospatial-within-distance
+  preset: single_repetition_ordered
+  tests:
+    # <= radius must push down into a GEOSPATIAL_RTREE ISCAN on the ungrouped index.
+    -
+      - query: select id, name from places
+               where geo_distance(lat, lon, 37.5, -122.0) <= 100000.0
+      - explain: "ISCAN(PLACES_GEO_IDX <,>:{WITHIN @c20 OF (promote(@c13 AS DOUBLE), promote(@c15 AS DOUBLE))}:<,> BY_DISTANCE) | MAP (_.ID AS ID, _.NAME AS NAME)"
+      - unorderedResult: [
+          {id: 'p1', name: 'San Francisco'},
+          {id: 'p2', name: 'Palo Alto'},
+          {id: 'p3', name: 'San Jose'}
+        ]
+    # < radius must NOT push down — HaversineDistanceValue.transformComparisonMaybe only fires for <=, so the planner
+    # falls back to a full SCAN with a residual FILTER. The result set is identical because no coordinate lies exactly
+    # on the boundary.
+    -
+      - query: select id, name from places
+               where geo_distance(lat, lon, 37.5, -122.0) < 100000.0
+      - explain: "SCAN([IS PLACES]) | FILTER HaversineDistance(_.LAT, _.LON, @c13, @c15) LESS_THAN @c19 | MAP (_.ID AS ID, _.NAME AS NAME)"
+      - unorderedResult: [
+          {id: 'p1', name: 'San Francisco'},
+          {id: 'p2', name: 'Palo Alto'},
+          {id: 'p3', name: 'San Jose'}
+        ]
+    # zone = ... equality-binds the prefix of the grouped index, so <= must push down into the grouped R-tree.
+    -
+      - query: select id, name from places
+               where zone = 'west' and geo_distance(lat, lon, 37.5, -122.0) <= 100000.0
+      - explain: "ISCAN(PLACES_GEO_BY_ZONE_IDX [EQUALS promote(@c9 AS STRING)]:{WITHIN @c24 OF (promote(@c17 AS DOUBLE), promote(@c19 AS DOUBLE))}:<,> BY_DISTANCE) | MAP (_.ID AS ID, _.NAME AS NAME)"
+      - unorderedResult: [
+          {id: 'p1', name: 'San Francisco'},
+          {id: 'p2', name: 'Palo Alto'},
+          {id: 'p3', name: 'San Jose'}
+        ]
+    # Zero-radius edge case: a query center that coincides with a stored point should return that one point.
+    -
+      - query: select id from places
+               where geo_distance(lat, lon, 37.7749, -122.4194) <= 100.0
+      - unorderedResult: [{id: 'p1'}]
+---
+# Negative DDL coverage — reaches the same coordinate-arity and coordinate-type guards that
+# IndexTest#createGeospatialIndexWithWrongColumnCountIsRejected and
+# IndexTest#createGeospatialIndexOnNonDoubleColumnIsRejected assert at the JUnit layer, but here
+# routed end-to-end through the SQL parser and DdlVisitor.
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists geospatial_negative_template
+---
+test_block:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  preset: single_repetition_ordered
+  tests:
+    -
+      # Single coordinate column is rejected by the DdlVisitor arity guard.
+      - query: create schema template geospatial_negative_template
+               create table places(zone string, id string, lat double, lon double, primary key (zone, id))
+               create geospatial index places_bad_idx on places(lat)
+      - error: UNSUPPORTED_OPERATION
+    -
+      # Non-DOUBLE coordinate column is rejected by the DdlVisitor column-type guard.
+      - query: create schema template geospatial_negative_template
+               create table places(zone string, id string, lat bigint, lon double, primary key (zone, id))
+               create geospatial index places_bad_idx on places(lat, lon)
+      - error: SYNTAX_ERROR
+...

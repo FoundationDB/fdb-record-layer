@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
@@ -31,6 +32,9 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.GeospatialRTreeScanBounds;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.values.HaversineDistanceValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -139,7 +143,24 @@ public class GeospatialWithinDistanceComponent implements ComponentWithNoChildre
     public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
                                  @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
                                  @Nonnull final List<String> fieldNamePrefix) {
-        throw new UnsupportedOperationException("not yet implemented");
+        final List<KeyExpression> coordinateColumns = coordinatesExpression.normalizeKeyForPositions();
+        if (coordinateColumns.size() != 2) {
+            throw new RecordCoreException("coordinates expression must resolve to exactly two columns");
+        }
+        final Value latitudeValue = new ScalarTranslationVisitor(coordinateColumns.get(0))
+                .toResultValue(baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType(), fieldNamePrefix);
+        final Value longitudeValue = new ScalarTranslationVisitor(coordinateColumns.get(1))
+                .toResultValue(baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType(), fieldNamePrefix);
+        // Build the full four-argument HaversineDistanceValue, then invoke its transformComparisonMaybe hook directly
+        // to produce the reduced two-argument placeholder shape paired with a WithinDistanceComparison. This mirrors
+        // what RelOpValue.toQueryPredicate would produce for an equivalent SQL-shaped LESS_THAN_OR_EQUALS comparison,
+        // and is the exact predicate shape the R-tree match candidate's coordinates placeholder binds against.
+        final HaversineDistanceValue haversineValue = new HaversineDistanceValue(latitudeValue, longitudeValue,
+                centerLatitude.toValue(), centerLongitude.toValue());
+        final var transformed = haversineValue.transformComparisonMaybe(
+                Comparisons.Type.LESS_THAN_OR_EQUALS, radiusMeters.toValue());
+        return GraphExpansion.ofPredicate(transformed.orElseThrow(
+                () -> new RecordCoreException("HaversineDistanceValue failed to produce WithinDistanceComparison")));
     }
 
     @Override
