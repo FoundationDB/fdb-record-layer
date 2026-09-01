@@ -23,9 +23,7 @@ package com.apple.foundationdb.async.guardiann;
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.async.common.BaseTest;
 import com.apple.foundationdb.async.common.PrimaryKeyAndVector;
-import com.apple.foundationdb.async.common.RandomHelpers;
 import com.apple.foundationdb.async.common.ResultEntry;
-import com.apple.foundationdb.async.common.StorageTransform;
 import com.apple.foundationdb.async.hnsw.HNSW;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.Metric;
@@ -455,33 +453,25 @@ public class SiftTest implements BaseTest {
         final StructureSnapshot snap = GuardiannStructureAsserts.snapshotStructure(getDb(), guardiann);
         // Confirm the deletes actually happened: any reference still in the structure must be an orphan (its vector's
         // metadata is gone), not a live vector that escaped deletion. This isolates a genuine delete miss from a mere
-        // failure to reap the (already-deleted) reference.
+        // failure to reap the (already-deleted) reference, and reports it with a sharper message than the bare
+        // counts below.
         GuardiannStructureAsserts.assertAllReferencesAreOrphaned(getDb(), guardiann, snap);
-        // A delete can leave an orphaned primary *reference* behind in a cluster it never revisited (the vector's
-        // metadata is already gone, per the orphan check above). Directly drive a REASSIGN over every surviving
-        // cluster: a reassign's cleanUpVectorReferences drops references whose metadata is gone, and
-        // computeTargetClusterDelta then deletes those now-unassigned references, so this reaps every orphan and the
-        // primary count must fall to zero. We call reassign() directly rather than enqueue a deferred task, because a
-        // deferred REASSIGN is a no-op unless the cluster's metadata carries the REASSIGN state
-        // (ReassignTask.runTask), which idle leftover clusters do not. Note this does NOT remove the emptied clusters:
-        // reassign rewrites the target cluster's metadata with zero primaries and only enqueues a merge/split for
-        // *neighbor* clusters, never the emptied target -- so empty cluster shells can remain; we log the surviving
-        // cluster count rather than require it to be zero.
-        if (snap != null && snap.totalPrimaries() > 0) {
-            logger.info("before reassign sweep: totalPrimaries={}, numClusters={}",
-                    snap.totalPrimaries(), snap.numClusters());
-            reassignEveryCluster(guardiann, snap);
-            GuardiannStructureAsserts.runToQuiescence(getDb(), guardiann);
-        }
 
-        final StructureSnapshot afterSweep = GuardiannStructureAsserts.snapshotStructure(getDb(), guardiann);
-        final int remainingPrimaries = afterSweep == null ? 0 : afterSweep.totalPrimaries();
-        final int remainingClusters = afterSweep == null ? 0 : afterSweep.numClusters();
-        logger.info("after reassign sweep: totalPrimaries={}, numClusters={}", remainingPrimaries, remainingClusters);
+        final int remainingPrimaries = snap == null ? 0 : snap.totalPrimaries();
+        final int remainingClusters = snap == null ? 0 : snap.numClusters();
+        logger.info("fully drained: totalPrimaries={}, numClusters={}", remainingPrimaries, remainingClusters);
+        // No test-side reconciliation sweep here on purpose: reaching the empty state must be the *production*
+        // maintenance path's job (the hysteresis merge trigger plus the merge enqueued after a reassign), since
+        // nothing sweeps idle clusters in a real deployment. A merge dissolves the target into a neighbor, and the
+        // reassign it drives drops references whose per-vector metadata is gone, so the orphans a delete left behind
+        // in clusters it never revisited are reaped as the structure consolidates.
         assertThat(remainingPrimaries)
-                .as("after deleting every record, a reassign sweep must reap all orphaned primary references "
-                        + "(cleanUpVectorReferences drops references whose metadata is gone), leaving no primaries")
+                .as("deleting every record must leave no primaries once deferred maintenance has quiesced")
                 .isZero();
+        assertThat(remainingClusters)
+                .as("a fully drained structure bottoms out at exactly one (empty) cluster: a merge needs a mergeable "
+                        + "neighbor (centroid cardinality MULTIPLE), so the final cluster is never merged away")
+                .isEqualTo(1);
     }
 
     // ---------------------------------------------------------------------------------------------------------
@@ -495,45 +485,6 @@ public class SiftTest implements BaseTest {
                 buildConfig(),
                 new TestHelpers.TestOnWriteListener(),
                 new TestHelpers.TestOnReadListener());
-    }
-
-    /**
-     * Directly drives a {@link ReassignTask} over every cluster in {@code snapshot}, each in its own transaction and
-     * with no follow-up tasks (mirroring {@code CollapseScenarioTest.reassignCluster}). Driving {@code reassign()}
-     * directly bypasses the {@code ReassignTask.runTask} state gate — a deferred REASSIGN only runs when the cluster
-     * is marked {@code REASSIGN} — so the reassign logic (and its {@code cleanUpVectorReferences} pass, which reaps
-     * references whose per-vector metadata is gone) actually runs on each idle leftover cluster.
-     */
-    private void reassignEveryCluster(@Nonnull final Guardiann guardiann,
-                                      @Nonnull final StructureSnapshot snapshot) {
-        final Locator locator = guardiann.getLocator();
-        final Primitives primitives = locator.primitives();
-        final int numNearestClusters = 1 + guardiann.getConfig().reassignNumNeighboringClusters();
-        for (final ClusterView cluster : snapshot.clusters().values()) {
-            final var clusterId = cluster.clusterId();
-            final var transformedCentroid = cluster.transformedCentroid();
-            getDb().run(transaction -> {
-                final AccessInfo accessInfo = Objects.requireNonNull(primitives.fetchAccessInfo(transaction).join());
-                final ClusterMetadata clusterMetadata =
-                        primitives.fetchClusterMetadata(transaction, clusterId).join();
-                if (clusterMetadata == null) {
-                    return null; // cluster already gone
-                }
-                final StorageTransform storageTransform = primitives.storageTransform(accessInfo);
-                final RealVector untransformedCentroid = storageTransform.untransform(transformedCentroid);
-                final List<ClusterMetadataWithDistance> nearestClusterMetadata =
-                        primitives.findNearestClustersMetadata(transaction, clusterMetadata,
-                                untransformedCentroid, storageTransform, numNearestClusters,
-                                guardiann.getConfig().reassignConcurrency()).join();
-                final List<ClusterReference> neighboringClusters =
-                        ClusterReference.fromClusterMetadataAndDistances(nearestClusterMetadata);
-                final ReassignTask reassignTask = ReassignTask.of(locator, accessInfo,
-                        RandomHelpers.randomUuid(clusterId, true), clusterId, transformedCentroid,
-                        ImmutableSet.of(), neighboringClusters);
-                reassignTask.reassign(transaction, clusterMetadata, untransformedCentroid, false).join();
-                return null;
-            });
-        }
     }
 
     /** Insert all of {@code dataset} in batches, then drain deferred tasks to quiescence. */
