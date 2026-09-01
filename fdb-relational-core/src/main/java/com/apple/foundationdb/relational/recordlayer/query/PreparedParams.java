@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
 
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
 
@@ -30,6 +31,7 @@ import com.google.common.collect.ImmutableMap;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Warn: this class is stateful.
@@ -47,20 +49,31 @@ public final class PreparedParams {
     @Nonnull
     private final Map<String, Object> namedParams;
 
+    /**
+     * Declared types for named parameters that carry a type but <em>no</em> value. Populated during value-free
+     * stored-query warm-up from the query's signature: when a named parameter {@code ?name} has an entry here but no
+     * value in {@link #namedParams}, it is planned as a value-free typed {@link
+     * com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue}. Empty for ordinary
+     * (value-bound) execution.
+     */
+    @Nonnull
+    private final Map<String, Type> declaredTypes;
+
     private int nextParam = 1;
 
     private PreparedParams(@Nonnull Map<Integer, Object> unnamedParams,
                            @Nonnull Map<String, Object> namedParameters) {
-        this.unnamedParams = unnamedParams;
-        this.namedParams = namedParameters;
+        this(unnamedParams, namedParameters, 1, Map.of());
     }
 
     private PreparedParams(@Nonnull Map<Integer, Object> unnamedParams,
                            @Nonnull Map<String, Object> namedParameters,
-                           int nextParam) {
+                           int nextParam,
+                           @Nonnull Map<String, Type> declaredTypes) {
         this.unnamedParams = unnamedParams;
         this.namedParams = namedParameters;
         this.nextParam = nextParam;
+        this.declaredTypes = declaredTypes;
     }
 
     public int currentUnnamedParamIndex() {
@@ -81,6 +94,28 @@ public final class PreparedParams {
                 ErrorCode.UNDEFINED_PARAMETER, "No value found for parameter " + name
         );
         return namedParams.get(name);
+    }
+
+    public boolean hasNamedParamValue(@Nonnull String name) {
+        return namedParams.containsKey(name);
+    }
+
+    /**
+     * The declared type for a named parameter that carries a type but no value (value-free warm-up), or empty when
+     * the parameter is value-bound or unknown.
+     */
+    @Nonnull
+    public Optional<Type> declaredTypeMaybe(@Nonnull String name) {
+        return Optional.ofNullable(declaredTypes.get(name));
+    }
+
+    /**
+     * Returns a copy of these parameters with {@code declaredTypes} attached (value-free warm-up types). Existing
+     * value maps are preserved.
+     */
+    @Nonnull
+    public PreparedParams withDeclaredTypes(@Nonnull Map<String, Type> declaredTypes) {
+        return new PreparedParams(unnamedParams, namedParams, nextParam, ImmutableMap.copyOf(declaredTypes));
     }
 
     public boolean isEmpty() {
@@ -116,9 +151,9 @@ public final class PreparedParams {
     @Nonnull
     public static PreparedParams copyOf(@Nonnull PreparedParams other, boolean withCurrentUnnamedParamIndex) {
         if (withCurrentUnnamedParamIndex) {
-            return new PreparedParams(other.unnamedParams, other.namedParams, other.currentUnnamedParamIndex());
+            return new PreparedParams(other.unnamedParams, other.namedParams, other.currentUnnamedParamIndex(), other.declaredTypes);
         } else {
-            return new PreparedParams(other.unnamedParams, other.namedParams);
+            return new PreparedParams(other.unnamedParams, other.namedParams, 1, other.declaredTypes);
         }
     }
 }
