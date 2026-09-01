@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -500,5 +501,46 @@ class ExpressionTests {
 
         Assertions.assertThat(expressions.toCallSiteArguments(true).getArgumentsList())
                 .containsExactly(multiItemRecord);
+    }
+
+    /**
+     * {@link Expression#dereferenced} substitutes a constant's value so that expressions can be compared structurally,
+     * which is how {@code GROUP BY} validation decides whether an output expression is composable from the grouping
+     * expressions. A value-free constant has no value to substitute, and folding it anyway would collapse every
+     * value-free parameter of a given type onto the same {@code NULL} literal — at which point an output expression
+     * referencing one parameter would look composable from a grouping expression referencing a different one, and an
+     * invalid query would be accepted.
+     */
+    @Test
+    void dereferencedLeavesValueFreeConstantsUnfolded() {
+        final var longType = Type.primitiveType(Type.TypeCode.LONG, false);
+        final var builder = Literals.newBuilder();
+        final var valueFreeA = builder.addValueFreeLiteral(longType, "param_a", 1);
+        final var valueFreeB = builder.addValueFreeLiteral(longType, "param_b", 2);
+        final var bound = builder.addLiteral(longType, 42L, null, "param_c", 3);
+        final var literals = builder.build();
+
+        final var dereferencedA = dereference(valueFreeA.getConstantId(), longType, literals);
+        final var dereferencedB = dereference(valueFreeB.getConstantId(), longType, literals);
+
+        // Both stay constant references, so the two parameters remain distinguishable from each other.
+        Assertions.assertThat(dereferencedA).isInstanceOf(ConstantObjectValue.class);
+        Assertions.assertThat(dereferencedB).isInstanceOf(ConstantObjectValue.class);
+        Assertions.assertThat(((ConstantObjectValue)dereferencedA).getConstantId())
+                .isEqualTo(valueFreeA.getConstantId());
+        Assertions.assertThat(((ConstantObjectValue)dereferencedB).getConstantId())
+                .isNotEqualTo(((ConstantObjectValue)dereferencedA).getConstantId());
+
+        // A constant that does have a value still folds to it, which is what the method exists to do.
+        final var dereferencedBound = dereference(bound.getConstantId(), longType, literals);
+        Assertions.assertThat(dereferencedBound).isInstanceOf(LiteralValue.class);
+        Assertions.assertThat(((LiteralValue<?>)dereferencedBound).getLiteralValue()).isEqualTo(42L);
+    }
+
+    @Nonnull
+    private static Value dereference(@Nonnull final String constantId, @Nonnull final Type type,
+                                     @Nonnull final Literals literals) {
+        final var constant = ConstantObjectValue.of(Quantifier.constant(), constantId, type);
+        return Expression.ofUnnamed(constant).dereferenced(literals).getSingleItem().getUnderlying();
     }
 }

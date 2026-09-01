@@ -39,12 +39,7 @@ public interface QueryExecutionContext {
     @Nonnull
     default EvaluationContext getEvaluationContext(@Nonnull TypeRepository typeRepository) {
         final var builder = EvaluationContext.newBuilder();
-        final var constantsMap = new LinkedHashMap<String, Object>();
-
-        final var literals = getLiterals();
-        if (!literals.isEmpty()) {
-            constantsMap.putAll(literals.asMap());
-        }
+        final var constantsMap = new LinkedHashMap<String, Object>(getLiterals().asBindings());
 
         final var evaluationConstantsMap = getEvaluationConstants().asMapByConstantId();
         Assert.thatUnchecked(
