@@ -23,7 +23,9 @@ package com.apple.foundationdb.relational.recordlayer.query.functions;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.recordlayer.query.Literals;
+import com.apple.foundationdb.relational.recordlayer.query.OrderedLiteral;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -44,6 +46,38 @@ class CompilableSqlFunctionTest {
 
         Assertions.assertNotNull(exception);
         Assertions.assertEquals("attempt to serialize compiled SQL function", exception.getMessage());
+    }
+
+    @Test
+    void auxiliaryLiteralsCarryValueFreeLiterals() {
+        // A typed signature parameter warmed with no value rides in the function's literal table as a value-free
+        // literal: it reserves the constant id and declares the type, but contributes no binding.
+        final var function = new CompiledSqlFunction("testFunction", ImmutableList.of(), ImmutableList.of(),
+                ImmutableList.of(), Optional.empty(), createDummyBody(), literalsWithValueFreeParameter());
+
+        final var carried = function.getAuxiliaryLiterals();
+        final var valueFree = carried.getOrderedLiterals().stream()
+                .filter(OrderedLiteral::isValueFree)
+                .collect(ImmutableList.toImmutableList());
+        Assertions.assertEquals(1, valueFree.size());
+        Assertions.assertEquals("param_b", valueFree.get(0).getParameterName());
+        final var valueFreeConstantId = valueFree.get(0).getConstantId();
+        Assertions.assertTrue(carried.isValueFree(valueFreeConstantId));
+        // The value-free literal contributes no binding, so it is absent from the constant map, while the
+        // value-bearing literal beside it does bind.
+        Assertions.assertFalse(carried.asBindings().containsKey(valueFreeConstantId));
+        Assertions.assertEquals(1, carried.asBindings().size());
+    }
+
+    /**
+     * Creates a literal table holding one value-bearing named parameter and one value-free one.
+     */
+    @Nonnull
+    private static Literals literalsWithValueFreeParameter() {
+        final var builder = Literals.newBuilder();
+        builder.addLiteral(Type.primitiveType(Type.TypeCode.STRING), "bound", null, "param_a", 1);
+        builder.addValueFreeLiteral(Type.primitiveType(Type.TypeCode.LONG, false), "param_b", 2);
+        return builder.build();
     }
 
     /**
