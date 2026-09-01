@@ -109,7 +109,7 @@ public class CommandUtil {
         RecordMetaDataProto.MetaData.Builder builder = RecordMetaDataProto.MetaData.newBuilder();
         Set<String> neededDependencies = new LinkedHashSet<>();
         Set<String> includedDependencies = new HashSet<>();
-        JsonObject obj = null;
+        JsonObject obj;
 
         // These dependencies are automatically added, so we can treat them like they are bundled with the file dependencies
         includedDependencies.add("record_metadata.proto");
