@@ -68,7 +68,6 @@ import com.apple.foundationdb.record.UnknownStoreLockStateException;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.record.cursors.DedupCursor;
 import com.apple.foundationdb.record.cursors.ListCursor;
-import com.apple.foundationdb.record.locking.LockIdentifier;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.FormerIndex;
@@ -650,8 +649,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // This would in turn require care with the type parameters to updateSecondaryIndexes.
         // In no case is an index maintainer called with incompatible record type, so its signature should still be valid.
         //
-        // This also calls the "Impl" variant directly, which means we skip grabbing an AsyncLock. This is a deliberate,
-        // as this is designed for calls that take place within save and delete. Those methods already grab writes locks
+        // This also calls the "Impl" variant directly, which means we skip grabbing an AsyncLock. This is deliberate,
+        // as this is designed for calls that take place within save and delete. Those methods already grab write locks
         // over the record, and so attempting to grab a second lock would cause a deadlock (as the locks are not re-entrant).
         return loadTypedRecordImpl(typedSerializer, primaryKey, ExecuteState.NO_LIMITS, false);
     }

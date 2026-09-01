@@ -156,7 +156,7 @@ public final class SlidingWindowTestHelpers {
         final HalfRealVector queryVector = makeVector(0.5f, 0.5f, 0.5f, 0.5f);
 
         final double actualDistance = new Metric.EuclideanMetric().distance(queryVector.getData(), sampleVector().getData());
-        final int limit = (int)(3 /*safety*/ + actualDistance); // overestimate limit to guarantee retrieval of all vectors.
+        final int limit = (int)(100 + actualDistance); // overestimate limit to guarantee retrieval of all vectors.
 
         final TupleRange range = groupingKey == null ? TupleRange.ALL : TupleRange.allOf(groupingKey);
         final VectorIndexScanBounds bounds = new VectorIndexScanBounds(

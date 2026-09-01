@@ -27,9 +27,9 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreKeyspac
 import com.apple.foundationdb.record.provider.foundationdb.SubspaceProvider;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
@@ -43,8 +43,8 @@ public final class FDBRecordStoreConcurrencyManager implements StoreConcurrencyM
     private final SubspaceProvider subspaceProvider;
     @Nonnull
     private final FDBRecordContext context;
-    @Nonnull
-    private final Supplier<CompletableFuture<Subspace>> recordSubspaceFutureSupplier = Suppliers.memoize(this::computeRecordsSubspaceAsync);
+    @Nullable
+    private volatile Subspace recordSubspace;
 
     public FDBRecordStoreConcurrencyManager(@Nonnull SubspaceProvider subspaceProvider, @Nonnull FDBRecordContext context) {
         this.subspaceProvider = subspaceProvider;
@@ -52,14 +52,27 @@ public final class FDBRecordStoreConcurrencyManager implements StoreConcurrencyM
     }
 
     @Nonnull
-    private CompletableFuture<Subspace> computeRecordsSubspaceAsync() {
-        return subspaceProvider.getSubspaceAsync(context)
-                .thenApply(baseSubspace -> baseSubspace.subspace(Tuple.from(FDBRecordStoreKeyspace.RECORD.key())));
+    private CompletableFuture<Subspace> getRecordsSubspaceAsync() {
+        Subspace cached = recordSubspace;
+        if (cached == null) {
+            // If we don't have a cached subspace, re-create it. We prefer this over using Suppliers::memoize
+            // so that subspace resolution throws a transient error, we don't memoize that future.
+            // It is possible that there are multiple subspace resolutions happening at the same time, but that's
+            // fine as they will all compute equivalent values, so it doesn't matter which one(s) win the race
+            // to set the cached subspace
+            return subspaceProvider.getSubspaceAsync(context).thenApply(storeSubspace -> {
+                final Subspace newRecordsSubspace = storeSubspace.subspace(Tuple.from(FDBRecordStoreKeyspace.RECORD.key()));
+                recordSubspace = newRecordsSubspace;
+                return newRecordsSubspace;
+            });
+        } else {
+            return CompletableFuture.completedFuture(cached);
+        }
     }
 
     @Nonnull
     private CompletableFuture<LockIdentifier> lockIdentifierForRecord(@Nonnull Tuple primaryKey) {
-        return recordSubspaceFutureSupplier.get()
+        return getRecordsSubspaceAsync()
                 .thenApply(recordsSubspace -> recordsSubspace.subspace(primaryKey))
                 .thenApply(LockIdentifier::new);
     }
