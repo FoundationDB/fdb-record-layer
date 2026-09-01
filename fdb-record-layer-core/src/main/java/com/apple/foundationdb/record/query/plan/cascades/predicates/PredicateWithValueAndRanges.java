@@ -22,10 +22,12 @@ package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.planprotos.PPredicateWithValueAndRanges;
 import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -346,10 +348,23 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
             }
 
             final var candidateRanges = candidatePredicateWithValuesAndRanges.getRanges();
-            if (compensatedQueryPredicate.getRanges()
-                    .stream()
-                    .allMatch(range -> candidateRanges.stream()
-                            .anyMatch(candidateRange -> candidateRange.encloses(range, evaluationContext)))) {
+            final boolean candidateEnclosesQuery;
+            try {
+                candidateEnclosesQuery = compensatedQueryPredicate.getRanges()
+                        .stream()
+                        .allMatch(range -> candidateRanges.stream()
+                                .anyMatch(candidateRange -> candidateRange.encloses(range, evaluationContext)));
+            } catch (final Bindings.MissingBindingException e) {
+                // Past the check above the candidate IS filtered, so matching it means proving its predicate covers the
+                // query range, which dereferences the query comparand. A value-free parameter (a stored query warmed
+                // from its declared types) has no value to dereference. Failing is deliberate: falling back to a scan
+                // would cache a plan that satisfies the parameter's IS_NOT_NULL constraint and so gets reused at
+                // runtime in place of the index plan, leaving the query worse off than if it were never warmed. Warm-up
+                // logs this and skips the stored query.
+                throw new RecordCoreException("cannot match a filtered index against a value-free parameter", e)
+                        .addLogInfo(LogMessageKeys.VALUE, compensatedQueryPredicate);
+            }
+            if (candidateEnclosesQuery) {
                 if (candidatePredicateWithValuesAndRanges instanceof Placeholder) {
                     return Optional.of(mapPredicateToPlaceholder(originalQueryPredicate, compensatedQueryPredicate, (Placeholder) candidatePredicateWithValuesAndRanges,
                             constraint.compose(captureConstraint(candidatePredicateWithValuesAndRanges))));
