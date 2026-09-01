@@ -9,6 +9,7 @@ This section documents the system-defined **aggregate functions**. These functio
 .. toctree::
     :maxdepth: 1
 
+    Functions/aggregate_functions/array_agg
     Functions/aggregate_functions/avg
     Functions/aggregate_functions/bitmap_construct_agg
     Functions/aggregate_functions/count

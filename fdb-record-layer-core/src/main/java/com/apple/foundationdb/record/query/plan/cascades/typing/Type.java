@@ -3253,7 +3253,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             final var typeName = ProtoUtils.uniqueTypeName();
             typeRepositoryBuilder.registerTypeToTypeNameMapping(this, typeName);
             if (isNullable && elementType.getTypeCode() != TypeCode.UNKNOWN) {
-                Type wrapperType = Record.fromFields(List.of(Record.Field.of(new Array(elementType), Optional.of(NullableArrayTypeUtils.getRepeatedFieldName()))));
+                Type wrapperType = NullableArrayTypeUtils.wrapperTypeFor(elementType);
                 typeRepositoryBuilder.defineAndResolveType(wrapperType);
             } else {
                 typeRepositoryBuilder.defineAndResolveType(elementType);
@@ -3272,7 +3272,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                                   @Nonnull final FieldDescriptorProto.Label label) {
             Objects.requireNonNull(elementType);
             if (isNullable && elementType.getTypeCode() != TypeCode.UNKNOWN) {
-                Type wrapperType = Record.fromFields(List.of(Record.Field.of(new Array(elementType), Optional.of(NullableArrayTypeUtils.getRepeatedFieldName()))));
+                Type wrapperType = NullableArrayTypeUtils.wrapperTypeFor(elementType);
                 wrapperType.addProtoField(typeRepositoryBuilder,
                         descriptorBuilder,
                         fieldNumber,

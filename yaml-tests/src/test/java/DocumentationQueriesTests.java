@@ -35,6 +35,11 @@ class DocumentationQueriesTests {
     }
 
     @TestTemplate
+    void arrayAggDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/array-agg-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
     void betweenOperatorQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/between-operator-queries.yamsql");
     }
