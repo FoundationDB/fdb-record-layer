@@ -34,6 +34,9 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.INTERNAL)
 public class AsyncLock {
+    @Nonnull
+    public static final AsyncLock READY = new AsyncLock(null, AsyncUtil.DONE, AsyncUtil.DONE, AsyncUtil.DONE, AsyncUtil.DONE);
+
     // All the read tasks that are pending up till the current lock instance.
     @Nonnull
     private final CompletableFuture<Void> pendingReads;
@@ -46,6 +49,8 @@ public class AsyncLock {
     // waiting tasks that the current lock instance is waiting upon.
     @Nonnull
     private final CompletableFuture<Void> waitFuture;
+    @Nonnull
+    private final CompletableFuture<Void> allWorkFuture;
     @Nullable
     private final StoreTimer timer;
 
@@ -57,6 +62,7 @@ public class AsyncLock {
         this.pendingWrites = pendingWrites;
         this.taskFuture = taskFuture;
         this.waitFuture = waitFuture;
+        this.allWorkFuture = CompletableFuture.allOf(pendingReads, pendingWrites, taskFuture);
         if (timer != null) {
             timer.increment(FDBStoreTimer.Counts.LOCKS_ATTEMPTED);
         }
@@ -84,6 +90,14 @@ public class AsyncLock {
         final CompletableFuture<Void> taskFuture = new CompletableFuture<>();
         final CompletableFuture<Void> newPendingWrites = waitFuture.thenCompose(ignore -> taskFuture);
         return new AsyncLock(timer, AsyncUtil.DONE, newPendingWrites, taskFuture, waitFuture);
+    }
+
+    /**
+     * Schedule a task to run as clean up. This will run after the lock has been released, and after
+     * all pending reads or writes have completed.
+     */
+    void runAsCleanUp(@Nonnull Runnable runnable) {
+        allWorkFuture.whenComplete((r, e) -> runnable.run());
     }
 
     /**

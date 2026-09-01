@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.locking;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 
@@ -90,7 +89,7 @@ import java.util.function.UnaryOperator;
 public class LockRegistry {
 
     @Nonnull
-    private final Map<LockIdentifier, AtomicReference<AsyncLock>> heldLocks = new ConcurrentHashMap<>();
+    private final Map<LockIdentifier, AsyncLock> heldLocks = new ConcurrentHashMap<>();
     @Nullable
     private final StoreTimer timer;
 
@@ -105,6 +104,7 @@ public class LockRegistry {
      * @param id the {@link LockIdentifier} for the resource.
      * @return the {@link CompletableFuture} of T that will be produced after the lock access has been granted.
      */
+    @Nonnull
     public CompletableFuture<AsyncLock> acquireReadLock(@Nonnull final LockIdentifier id) {
         return acquire(id, AsyncLock::withNewRead);
     }
@@ -116,16 +116,19 @@ public class LockRegistry {
      * @param id the {@link LockIdentifier} for the resource.
      * @return the {@link CompletableFuture} of T that will be produced after the lock access has been granted.
      */
+    @Nonnull
     public CompletableFuture<AsyncLock> acquireWriteLock(@Nonnull final LockIdentifier id) {
         return acquire(id, AsyncLock::withNewWrite);
     }
 
+    @Nonnull
     private CompletableFuture<AsyncLock> acquire(@Nonnull final LockIdentifier id, @Nonnull final UnaryOperator<AsyncLock> getNewLock) {
-        final AsyncLock lock = updateRefAndGetNewLock(id, getNewLock);
+        final AsyncLock lock = updateHeldLock(id, getNewLock);
+        CompletableFuture<Void> future = lock.onAcquired();
         if (timer != null) {
-            timer.instrument(FDBStoreTimer.DetailEvents.LOCKS_ACQUIRED, lock.onAcquired()).thenApply(ignore -> lock);
+            future = timer.instrument(FDBStoreTimer.DetailEvents.LOCKS_ACQUIRED, future);
         }
-        return lock.onAcquired().thenApply(ignore -> lock);
+        return future.thenApply(ignore -> lock);
     }
 
     /**
@@ -137,6 +140,7 @@ public class LockRegistry {
      * @param operation to be called after the access is granted.
      * @return the {@link CompletableFuture} of T which is the result of the operation.
      */
+    @Nonnull
     public <T> CompletableFuture<T> doWithReadLock(@Nonnull final LockIdentifier id, @Nonnull final Supplier<CompletableFuture<T>> operation) {
         return doOp(id, operation, AsyncLock::withNewRead);
     }
@@ -150,10 +154,12 @@ public class LockRegistry {
      * @param operation to be called after the access is granted.
      * @return the {@link CompletableFuture} of T which is the result of the operation.
      */
+    @Nonnull
     public <T> CompletableFuture<T> doWithWriteLock(@Nonnull final LockIdentifier id, @Nonnull final Supplier<CompletableFuture<T>> operation) {
         return doOp(id, operation, AsyncLock::withNewWrite);
     }
 
+    @Nonnull
     private <T> CompletableFuture<T> doOp(@Nonnull final LockIdentifier id, @Nonnull final Supplier<CompletableFuture<T>> operation,
                                           @Nonnull final UnaryOperator<AsyncLock> getNewLock) {
         final AtomicReference<AsyncLock> lockRef = new AtomicReference<>();
@@ -163,11 +169,24 @@ public class LockRegistry {
         }).whenComplete((ignore, err) -> lockRef.get().release());
     }
 
-    private AsyncLock updateRefAndGetNewLock(@Nonnull final LockIdentifier identifier, @Nonnull final UnaryOperator<AsyncLock> getNewLock) {
+    @Nonnull
+    private AsyncLock updateHeldLock(@Nonnull final LockIdentifier identifier, @Nonnull final UnaryOperator<AsyncLock> getNewLock) {
         final long startTime = System.nanoTime();
-        final AtomicReference<AsyncLock> parentLockRef = heldLocks.computeIfAbsent(identifier, ignore ->
-                new AtomicReference<>(new AsyncLock(timer, AsyncUtil.DONE, AsyncUtil.DONE, AsyncUtil.DONE, AsyncUtil.DONE)));
-        final AsyncLock newLock = parentLockRef.updateAndGet(getNewLock);
+        final AsyncLock newLock = heldLocks.compute(identifier, (ignore, parent) -> {
+            // Chain the new lock off of the latest lock for this ID (or a default "ready lock" that allows the new
+            // lock to be ready immediately)
+            if (parent == null) {
+                parent = AsyncLock.READY;
+            }
+            return getNewLock.apply(parent);
+        });
+        // Clean up: remove this item from the heldLocks map if it is still the most recently registered lock for this key in the map.
+        // This can only be done when no future task needs to wait on this lock, so all of its pending writes and pending reads must
+        // have finished, and it must be released.
+        // Note that it is not enough for the lock to have been released, as if newLock is a read lock, its parent lock may still
+        // be ongoing when newLock is released. If we cleaned up the entry from the map at that point, then we could end up scheduling
+        // a write operation concurrently with the parent lock.
+        newLock.runAsCleanUp(() -> heldLocks.compute(identifier, (ignore, current) -> current == newLock ? null : current));
         if (timer != null) {
             timer.record(FDBStoreTimer.DetailEvents.LOCKS_REGISTERED, System.nanoTime() - startTime);
         }
