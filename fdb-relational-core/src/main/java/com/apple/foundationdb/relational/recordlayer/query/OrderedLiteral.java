@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.continuation.TypedQueryArgument;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.annotations.VisibleForTesting;
@@ -75,16 +76,32 @@ public class OrderedLiteral {
     @Nonnull
     private final Optional<String> scope;
 
+    /**
+     * Whether this literal carries no value at all, as opposed to carrying the value {@code NULL}. A value-free
+     * literal reserves its constant id and declares its {@link #type}, but contributes no binding to the evaluation
+     * context (see {@link Literals#asBindings()}), which is what leaves the constant id unbound. This is how a typed
+     * parameter is planned when no value is known yet, e.g. a stored query signature parameter at warm-up.
+     */
+    private final boolean valueFree;
+
     OrderedLiteral(@Nonnull final Type type, @Nullable final Object literalObject,
                    @Nullable final Integer unnamedParameterIndex, @Nullable final String parameterName,
                    final int tokenIndex, @Nonnull Optional<String> scope) {
+        this(type, literalObject, unnamedParameterIndex, parameterName, tokenIndex, scope, false);
+    }
+
+    private OrderedLiteral(@Nonnull final Type type, @Nullable final Object literalObject,
+                           @Nullable final Integer unnamedParameterIndex, @Nullable final String parameterName,
+                           final int tokenIndex, @Nonnull Optional<String> scope, final boolean valueFree) {
         Verify.verify(unnamedParameterIndex == null || parameterName == null);
+        Verify.verify(!valueFree || literalObject == null);
         this.type = type;
         this.literalObject = literalObject;
         this.unnamedParameterIndex = unnamedParameterIndex;
         this.parameterName = parameterName;
         this.tokenIndex = tokenIndex;
         this.scope = scope;
+        this.valueFree = valueFree;
     }
 
     @Nonnull
@@ -137,6 +154,14 @@ public class OrderedLiteral {
         return parameterName != null;
     }
 
+    /**
+     * Returns whether this literal carries no value, as opposed to carrying the value {@code NULL}.
+     * @return {@code true} if this literal is value-free.
+     */
+    public boolean isValueFree() {
+        return valueFree;
+    }
+
     @Override
     public boolean equals(final Object o) {
         if (this == o) {
@@ -157,15 +182,32 @@ public class OrderedLiteral {
         return Objects.hash(tokenIndex);
     }
 
+    /**
+     * Returns whether this literal is the identical literal to {@code other}, i.e. the same constant id filled the
+     * same way. This is <em>not</em> a comparison of values for the purpose of deduplication — that is keyed on the
+     * literal object itself, see {@link Literals.Builder#getFirstValueDuplicateMaybe}. It is used when importing a
+     * literal table into another one, to assert that a literal landing on an already-occupied constant id is the one
+     * already there and can therefore be skipped. Two value-free literals at the same constant id are identical;
+     * a value-free literal and one bound to {@code NULL} are not, even though both have a null literal object.
+     *
+     * @param other the literal to compare against
+     * @return {@code true} if the two are the identical literal
+     */
     public boolean deepEquals(@Nonnull final OrderedLiteral other) {
         return this.equals(other)
                 && Objects.equals(parameterName, other.parameterName)
                 && Objects.equals(unnamedParameterIndex, other.unnamedParameterIndex)
+                && valueFree == other.valueFree
                 && Objects.equals(literalObject, other.literalObject);
     }
 
     @Override
     public String toString() {
+        if (valueFree) {
+            // No value to show, so show the declared type in its place, e.g. "?param_a:{LONG}@c12". The constant id is
+            // rendered rather than the bare token index, since that is what a Missing binding message reports.
+            return "?" + parameterName + ":{" + type + "}@" + getConstantId();
+        }
         return parameterName != null ?
                "?" + parameterName :
                (unnamedParameterIndex != null ?
@@ -175,6 +217,10 @@ public class OrderedLiteral {
 
     @Nonnull
     TypedQueryArgument toProto(@Nonnull final PlanSerializationContext serializationContext, int literalTableIndex) {
+        // A value-free literal cannot be serialized: the wire format encodes a missing value as an unset (or empty)
+        // LiteralObject, which fromProto() reconstructs as a literal bound to NULL. Reaching here means a warm-up
+        // context leaked into execution, since only warm-up produces value-free literals and it never continues a query.
+        Assert.thatUnchecked(!isValueFree(), ErrorCode.INTERNAL_ERROR, "attempt to serialize a value-free literal");
         final var type = getType();
         final var argumentBuilder = TypedQueryArgument.newBuilder()
                 .setType(type.toTypeProto(serializationContext))
@@ -212,6 +258,23 @@ public class OrderedLiteral {
                                                     @Nonnull final String parameterName, final int tokenIndex,
                                                     @Nonnull final Optional<String> scope) {
         return new OrderedLiteral(type, literalObject, null, parameterName, tokenIndex, scope);
+    }
+
+    /**
+     * Creates a value-free literal for a named parameter: it reserves the constant id and declares the type, but
+     * carries no value and therefore contributes no binding. Only named parameters can be value-free today, since the
+     * sole producer is a stored query signature parameter warmed with no value.
+     *
+     * @param type the declared type of the parameter
+     * @param parameterName the name of the parameter
+     * @param tokenIndex the token position of the parameter in the query
+     * @param scope the scope the literal is defined within
+     * @return a value-free {@link OrderedLiteral}
+     */
+    @Nonnull
+    static OrderedLiteral forValueFreeNamedParameter(@Nonnull final Type type, @Nonnull final String parameterName,
+                                                     final int tokenIndex, @Nonnull final Optional<String> scope) {
+        return new OrderedLiteral(type, null, null, parameterName, tokenIndex, scope, true);
     }
 
     @Nonnull

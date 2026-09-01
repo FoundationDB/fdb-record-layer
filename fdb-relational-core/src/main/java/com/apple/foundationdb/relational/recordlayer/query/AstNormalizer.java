@@ -416,23 +416,40 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             //      select * from t1 where col1 = ?P2 and col2 = ?P1
             final var namedParameterContext = ctx.NAMED_PARAMETER();
             final var parameterName = namedParameterContext.getText().substring(1);
-            param = preparedStatementParameters.namedParamValue(parameterName);
-            if (param instanceof Array || param instanceof Struct) {
-                allowLiteralAddition = false;
-            }
-            processNamedParameter(param, parameterName, namedParameterContext.getSymbol().getTokenIndex());
-            if (param instanceof Array || param instanceof Struct) {
-                allowLiteralAddition = true;
-            }
+            if (!preparedStatementParameters.hasNamedParamValue(parameterName)
+                    && preparedStatementParameters.declaredTypeMaybe(parameterName).isPresent()) {
+                // Value-free planning: the named parameter is declared (via a stored-query signature) with a type but no
+                // value. Canonicalize it to ?name so the canonical query string — and therefore the plan-cache key —
+                // matches what a runtime client sends. No value is pulled, and nothing is added to the normalizer's
+                // literal table; planning registers a value-free literal for it instead, reserving the constant id
+                // without binding it (see MutablePlanGenerationContext.processNamedPreparedParam, which also applies
+                // the declared type). The parameter hash necessarily omits the value there is none of; that is safe
+                // because it feeds continuation binding validation rather than the cache key.
+                if (allowTokenAddition) {
+                    final var canonicalName = "?" + parameterName;
+                    sqlCanonicalizer.append(canonicalName).append(" ");
+                    parameterHash.putInt(Objects.hash(canonicalName));
+                }
+                param = null;
+            } else {
+                param = preparedStatementParameters.namedParamValue(parameterName);
+                if (param instanceof Array || param instanceof Struct) {
+                    allowLiteralAddition = false;
+                }
+                processNamedParameter(param, parameterName, namedParameterContext.getSymbol().getTokenIndex());
+                if (param instanceof Array || param instanceof Struct) {
+                    allowLiteralAddition = true;
+                }
 
-            if (param instanceof Array) {
-                allowTokenAddition = false;
-                processArrayParameter((Array) param, null, parameterName, ctx.getStart().getTokenIndex());
-                allowTokenAddition = true;
-            } else if (param instanceof Struct) {
-                allowTokenAddition = false;
-                processStructParameter((Struct) param, null, parameterName, ctx.getStart().getTokenIndex());
-                allowTokenAddition = true;
+                if (param instanceof Array) {
+                    allowTokenAddition = false;
+                    processArrayParameter((Array) param, null, parameterName, ctx.getStart().getTokenIndex());
+                    allowTokenAddition = true;
+                } else if (param instanceof Struct) {
+                    allowTokenAddition = false;
+                    processStructParameter((Struct) param, null, parameterName, ctx.getStart().getTokenIndex());
+                    allowTokenAddition = true;
+                }
             }
         }
 
