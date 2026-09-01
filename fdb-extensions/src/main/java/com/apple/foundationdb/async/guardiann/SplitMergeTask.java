@@ -1169,18 +1169,20 @@ class SplitMergeTask extends AbstractDeferredTask {
     /**
      * Returns the {@link PartitionEvaluator.Parameters} appropriate for the given transition. The
      * generalized {@link PartitionEvaluator.Parameters} record has a single {@code minSmallestFrac}
-     * / {@code maxLargestFrac} pair, so the caller picks values per transition kind. These are tuned
-     * (experimentally) to bias splits toward balance. Note that of these knobs only {@code minSmallestFrac}
-     * (the sole {@code INVALID_CANDIDATE} reject) and the {@code scoreGain} weights (here
-     * {@code gammaImbalancePenalty}) actually influence the outcome today: {@code selectBestCandidateMaybe}
-     * keeps {@code KEEP_CURRENT} candidates, so {@code maxLargestFrac} (and the separation / margin / SSE-gain
-     * gates) are currently inert. {@code minSmallestFrac} is therefore kept low (a high value makes a cluster
-     * with no balanced split reject all candidates and throw in {@code split()}); balance is instead biased
-     * through a raised {@code gammaImbalancePenalty}.
+     * / {@code maxLargestFrac} pair, so the caller picks values per transition kind.
+     * <p>
+     * Splits are biased toward balance through a raised {@code gammaImbalancePenalty}, which docks the
+     * {@code scoreGain} of the more lopsided candidate so the more balanced one wins. The hard floor
+     * {@code minSmallestFrac} is deliberately left low: it is the only gate that yields
+     * {@link PartitionEvaluator.Decision#INVALID_CANDIDATE}, and {@code split()} throws when every candidate is
+     * rejected — so a floor high enough to guarantee a balanced child would fail outright on data that admits no
+     * balanced k-means split. Bounding a child's size from below is not this method's job anyway: an undersized
+     * child is kept from immediately re-merging by the hysteresis merge threshold ({@link Config#mergeThreshold}),
+     * which measures a cluster against its own lifetime peak rather than an absolute floor.
      * <ul>
-     *   <li>{@code 1 → 2}: {@code minSmallestFrac=0.03}, {@code maxLargestFrac=0.75} (documents intent; inert),
+     *   <li>{@code 1 → 2}: {@code minSmallestFrac=0.03}, no upper bound on the largest cluster,
      *       {@code gammaImbalancePenalty=3.0}.
-     *   <li>{@code 2 → 3}: {@code minSmallestFrac=0.015}, {@code maxLargestFrac=0.45} (documents intent; inert),
+     *   <li>{@code 2 → 3}: {@code minSmallestFrac=0.015}, {@code maxLargestFrac=0.55},
      *       {@code gammaImbalancePenalty=3.0}.
      *   <li>{@code 2 → 1} / {@code 3 → 2} merges: permissive (fractional caps cannot express a "merged result
      *       stays under {@code primaryClusterMax}" constraint anyway).
@@ -1201,20 +1203,12 @@ class SplitMergeTask extends AbstractDeferredTask {
         final double maxLargestFrac;
         final double gammaImbalancePenalty;
         if (currentK == 1 && candidateK == 2) {
-            // EXPERIMENT: keep minSmallestFrac low. It is the ONLY hard reject (INVALID_CANDIDATE), so setting it
-            // too high makes a cluster with no balanced k-means split reject all candidates -> the orElseThrow in
-            // split(). Bias toward balance instead through a raised gammaImbalancePenalty, which lowers the
-            // scoreGain of the more lopsided candidate so the more balanced one wins. NOTE: maxLargestFrac is
-            // currently inert -- selectBestCandidateMaybe keeps KEEP_CURRENT candidates and only drops INVALID ones
-            // -- so it is set here to document intent; it will only bite once selection respects the verdict.
             minSmallestFrac = 0.03d;
-            maxLargestFrac = 0.75d;
+            maxLargestFrac = 1.0d;
             gammaImbalancePenalty = 3.0d;
         } else if (currentK == 2 && candidateK == 3) {
-            // 2->3 partitions n ~ target + neighbor points. Same reasoning: low hard floor, high imbalance penalty.
-            // maxLargestFrac below 1/(k-1)=0.5 would also floor the smallest -- once it is no longer inert.
             minSmallestFrac = 0.015d;
-            maxLargestFrac = 0.45d;
+            maxLargestFrac = 0.55d;
             gammaImbalancePenalty = 3.0d;
         } else {
             // merges (2 -> 1, 3 -> 2): permissive on shape. Fractional caps cannot express the constraint that
