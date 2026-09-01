@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan;
 
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
@@ -54,7 +55,18 @@ public class QueryPlanConstraint implements PlanHashable, PlanSerializable {
     }
 
     public boolean compileTimeEval(@Nonnull final EvaluationContext context) {
-        return Boolean.TRUE.equals(predicate.compileTimeEval(context));
+        try {
+            return Boolean.TRUE.equals(predicate.compileTimeEval(context));
+        } catch (final Bindings.MissingBindingException e) {
+            // Used for compile-time constraint matching (e.g. plan-cache lookup). A constraint that references a
+            // constant the context does not bind (for instance a value-free warm-up context) cannot be shown to hold,
+            // so it does not match. Dereferencing the absent constant throws MissingBindingException; treating that as
+            // unsatisfied is safe — a non-match merely (re)generates the plan and never yields wrong results. Catching
+            // only this subtype avoids swallowing other RecordCoreExceptions (e.g. a type-promotion SemanticException).
+            // Deliberately not logged: every lookup that considers a cached value-free plan reaches this, so it is
+            // ordinary control flow rather than a fault, and a log here could not distinguish the two.
+            return false;
+        }
     }
 
     @Nonnull
