@@ -79,6 +79,7 @@ import static com.apple.foundationdb.relational.recordlayer.query.OrderedLiteral
  *     metadata of the normalized result of any subsequent SQL statement</li>
  *     <li>documentation of handling compilable, temporary SQL functions, and how literal stripping is scoped to the
  *     name of the function</li>
+ *     <li>documentation of comment handling, though a broader suite of tests appears in {@link QueryParserTests}</li>
  * </ul>
  */
 public class AstNormalizerTests {
@@ -542,6 +543,95 @@ public class AstNormalizerTests {
         // Without quoting, a keyword in an identifier position is still lexed as that keyword, so it cannot name a
         // table -- this is a syntax error, not a silently-accepted identifier.
         shouldFail("select col from select", "syntax error");
+    }
+
+    @Test
+    void commentsAreExcludedFromCanonicalQueryString() throws Exception {
+        // Comments are skipped by the lexer and never reach the parse tree, so block, line, multi-line, and
+        // leading/trailing comments are all absent from the canonical query string. Every variant below therefore
+        // normalizes to exactly the same comment-free canonical string and, consequently, shares the same cache
+        // key and hash (asserted by the multi-query validate helper).
+        validate(List.of(
+                        "select * from t1 where col1 = col2",
+                        "select /* pick everything */ * from t1 where col1 = col2",
+                        "select * from t1 where col1 = col2 -- trailing comment\n",
+                        "select * from t1 where col1 = col2 --no space after the dashes\n",
+                        "-- a leading comment\nselect * from t1 where col1 = col2",
+                        "select *\n/* this comment\n   spans multiple\n   lines */\nfrom t1 where col1 = col2",
+                        "select * from t1 /* comment text that looks like SQL: drop table t1 */ where col1 = col2"),
+                "SELECT * FROM \"T1\" WHERE \"COL1\" = \"COL2\" ");
+    }
+
+    @Test
+    void commentedQuerySharesCanonicalStringAndCacheKeyWithBareQuery() throws RelationalException {
+        // Even when a stripped literal is present, a query peppered with comments must normalize to exactly the
+        // same canonical string and cache key as the bare query. The cache key derives from the canonical string
+        // (not from token positions), so comments cannot influence caching.
+        final var bareQuery = "select * from t1 where col1 = 42";
+        final var commentedQuery = "select /* cols */ * from t1 /* SELECT ... DROP */ where col1 = 42 -- trailing\n";
+
+        final var bareResult = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(bareQuery),
+                PreparedParams.empty(), plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, bareQuery);
+        final var commentedResult = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(commentedQuery),
+                PreparedParams.empty(), plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, commentedQuery);
+
+        Assertions.assertThat(commentedResult.getQueryCacheKey().getCanonicalQueryString())
+                .as("canonical query string must be comment-free")
+                .isEqualTo("SELECT * FROM \"T1\" WHERE \"COL1\" = ? ")
+                .isEqualTo(bareResult.getQueryCacheKey().getCanonicalQueryString());
+        Assertions.assertThat(commentedResult.getQueryCacheKey())
+                .as("commented and bare queries must share the same cache key")
+                .isEqualTo(bareResult.getQueryCacheKey());
+        Assertions.assertThat(commentedResult.getQueryCacheKey().hashCode())
+                .as("commented and bare queries must share the same cache key hash")
+                .hasSameHashCodeAs(bareResult.getQueryCacheKey());
+    }
+
+    @Test
+    void commentsDoNotShiftConstantIds() throws Exception {
+        //
+        // Constant ids are derived from the token index of the literal (see OrderedLiteral.constantId), so anything
+        // the lexer emits ahead of a literal shifts the id of that literal and of every literal after it. Comments
+        // must therefore be skipped outright rather than routed to a hidden channel: a hidden-channel token is still
+        // emitted and still advances the token index, which would leave a commented query with the same cache key as
+        // the bare query but with its constants bound under different ids. A plan cached for one would then look up
+        // constants the other never bound, so the ids are pinned here alongside the key.
+        //
+        // Comments are placed before, between, and after the literals to make sure no position shifts anything.
+        //
+        validate(List.of(
+                        "select * from t1 where col1 = 42 and col2 = 43",
+                        "select /* leading */ * from t1 where col1 = 42 /* between */ and col2 = 43",
+                        "-- leading line comment\nselect * from t1 where col1 = 42 and col2 = 43 -- trailing\n",
+                        "select *\n/* multi\n   line */\nfrom t1 where col1 = 42 and col2 = 43"),
+                "SELECT * FROM \"T1\" WHERE \"COL1\" = ? AND \"COL2\" = ? ",
+                List.of(Map.of(constantId(7), 42, constantId(11), 43),
+                        Map.of(constantId(7), 42, constantId(11), 43),
+                        Map.of(constantId(7), 42, constantId(11), 43),
+                        Map.of(constantId(7), 42, constantId(11), 43)));
+    }
+
+    @Test
+    void lineCommentMarkersInsideStringLiteralAreNotStripped() throws Exception {
+        //
+        // A '--' or '#' inside a string literal is literal content, not a comment: the whole string, comment
+        // markers and all, must survive verbatim as the stripped constant rather than being truncated.
+        //
+        validate("select '-- not a comment' from t1 where col1 = 'trailing # not a comment'",
+                "SELECT ? FROM \"T1\" WHERE \"COL1\" = ? ",
+                Map.of(constantId(1), "-- not a comment",
+                        constantId(7), "trailing # not a comment"));
+    }
+
+    @Test
+    void blockCommentMarkersInsideStringLiteralAreNotStripped() throws Exception {
+        //
+        // Likewise, a '/* ... */' sequence inside a string literal is data, not a comment; the embedded closing
+        // '*/' must not terminate anything and the literal must be preserved in full.
+        //
+        validate("select 'a /* still */ here' from t1",
+                "SELECT ? FROM \"T1\" ",
+                Map.of(constantId(1), "a /* still */ here"));
     }
 
     @Test
