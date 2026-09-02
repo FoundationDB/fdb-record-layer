@@ -37,6 +37,7 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 public class IndexDeferredMaintenanceControl {
+    @Nullable
     private Set<Index> mergeRequiredIndexes = null;
     private boolean autoMergeDuringCommit = false;
     private boolean explicitMergePath = false;
@@ -68,6 +69,7 @@ public class IndexDeferredMaintenanceControl {
      * caller, to check which index maintainer requested a deferred merge.
      * @return set of indexes to be merged, null if no merge was requested.
      */
+    @Nullable
     public synchronized Set<Index> getMergeRequiredIndexes() {
         return mergeRequiredIndexes;
     }

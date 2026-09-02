@@ -167,7 +167,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
      * @return a future of the last cursor result obtained
      */
     private CompletableFuture<RecordCursorResult<T>> iterateOneRange(FDBRecordStore.Builder userStoreBuilder,
-                                                                     RecordCursorResult<T> cursorStartPoint,
+                                                                     @Nullable RecordCursorResult<T> cursorStartPoint,
                                                                      QuotaManager singleIterationQuotaManager) {
         AtomicReference<RecordCursorResult<T>> cont = new AtomicReference<>();
 
@@ -406,15 +406,17 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
      */
     public static class Builder<T> {
         // Fields constructed during build()
-        private TransactionalRunner transactionalRunner;
-        private Executor executor;
-        private ScheduledExecutorService scheduledExecutor;
+        private final TransactionalRunner transactionalRunner;
+        private final Executor executor;
+        private final ScheduledExecutorService scheduledExecutor;
         // Fields initialized by setters/constructor
         private FDBDatabase database;
         private FDBRecordContextConfig.Builder contextConfigBuilder;
         private final CursorFactory<T> cursorCreator;
         private final ItemHandler<T> singleItemHandler;
+        @Nullable
         private Consumer<QuotaManager> transactionSuccessNotification;
+        @Nullable
         private Consumer<QuotaManager> transactionInitNotification;
         private int transactionTimeQuotaMillis;
         private int maxRecordDeletesPerTransaction;
@@ -429,6 +431,12 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
             this.contextConfigBuilder = contextConfigBuilder;
             this.cursorCreator = cursorCreator;
             this.singleItemHandler = singleItemHandler;
+            // transactionalRunner/executor/scheduledExecutor are derived entirely from database/contextConfigBuilder,
+            // which are both mandatory and never reassigned after construction, so it is safe (and avoids leaving
+            // these fields uninitialized until build()) to compute them here.
+            this.transactionalRunner = new TransactionalRunner(database, contextConfigBuilder);
+            this.executor = database.newContextExecutor(contextConfigBuilder.getMdcContext());
+            this.scheduledExecutor = database.getScheduledExecutor();
             // set defaults
             this.transactionTimeQuotaMillis = (int)TimeUnit.SECONDS.toMillis(4);
             this.maxRecordDeletesPerTransaction = 0;
@@ -556,9 +564,6 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
          * @return the newly minted iterator
          */
         public ThrottledRetryingIterator<T> build() {
-            this.transactionalRunner = new TransactionalRunner(database, contextConfigBuilder);
-            this.executor = database.newContextExecutor(contextConfigBuilder.getMdcContext());
-            this.scheduledExecutor = database.getScheduledExecutor();
             return new ThrottledRetryingIterator<>(this);
         }
     }

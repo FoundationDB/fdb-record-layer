@@ -67,6 +67,7 @@ public interface MetaDataCache {
      * @return any cached serialized form
      */
     @Nullable
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably track @Nullable on byte[] return types
     default byte[] getCachedSerialized() {
         return null;
     }

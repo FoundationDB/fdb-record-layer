@@ -35,6 +35,7 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -126,8 +127,9 @@ public abstract class IndexAggregateGroupKeys {
             if (context == null) {
                 throw Comparisons.EvaluationContextRequiredException.instance();
             }
-            final FDBQueriedRecord<?> record = (FDBQueriedRecord<?>) context.getBinding(recordKey);
-            final IndexEntry indexEntry = record.getIndexEntry();
+            final FDBQueriedRecord<?> record = (FDBQueriedRecord<?>) Objects.requireNonNull(context.getBinding(recordKey));
+            final IndexEntry indexEntry = Objects.requireNonNull(record.getIndexEntry(),
+                    "record bound to " + recordKey + " was not produced by an index scan");
             return Key.Evaluated.fromTuple(TupleHelpers.subTuple(indexEntry.getKey(), 0, prefixSize));
         }
 

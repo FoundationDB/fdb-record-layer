@@ -186,8 +186,11 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                 //  This code can be removed when we are confident all callers have been converted.
                 IndexScanRange scanRange = (IndexScanRange)scanBounds;
                 TupleRange rankRange = scanRange.getScanRange();
-                final Tuple lowRank = rankRange.getLow();
-                final Tuple highRank = rankRange.getHigh();
+                // This legacy compatibility path is only reached for rank scans, which are always bounded on both
+                // ends (the type and timestamp are always prepended as equality bounds), so getLow()/getHigh() are
+                // never null here.
+                final Tuple lowRank = Objects.requireNonNull(rankRange.getLow());
+                final Tuple highRank = Objects.requireNonNull(rankRange.getHigh());
                 type = (int)lowRank.getLong(0);
                 timestamp = lowRank.getLong(1);
                 leaderboardRange = new TupleRange(
@@ -248,10 +251,20 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                     } else {
                         return RecordCursor.flatMapPipelined(ignore2 -> RecordCursor.fromFuture(getExecutor(), highStoreFirstFuture),
                                 (highScoreFirst, ignore2) -> scanLeaderboard(leaderboard, highScoreFirst, scoreRange,
-                                        continuation, scanProperties), null, 1);
+                                        continuation, scanProperties), noInnerContinuation(), 1);
                     }
-                }, null, 1)
+                }, noInnerContinuation(), 1)
                 .mapPipelined(kv -> getIndexEntry(kv, groupPrefixSize, state.context.joinNow(leaderboardFuture).getDirectory()), 1);
+    }
+
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] types: the continuation parameter of
+    // RecordCursor#flatMapPipelined above is correctly declared @Nullable byte[], but NullAway still flags a
+    // null literal (or an explicitly @Nullable byte[]-typed local) passed there as a mismatch. This is a known
+    // tooling gap, not a real bug; isolating it in this helper keeps the suppression narrowly scoped.
+    @SuppressWarnings("NullAway")
+    @Nullable
+    private static byte[] noInnerContinuation() {
+        return null;
     }
 
     protected RecordCursor<IndexEntry> scanLeaderboard(TimeWindowLeaderboard leaderboard,
@@ -497,7 +510,8 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
 
     private CompletableFuture<Tuple> evaluateEqualRange(TupleRange range,
                                                         EvaluateEqualRange function) {
-        final Tuple tuple = range.getLow();
+        // All callers only invoke this after checking range.isEquals(), which guarantees getLow() is non-null.
+        final Tuple tuple = Objects.requireNonNull(range.getLow());
         final int type = (int) tuple.getLong(0);
         final long timestamp = tuple.getLong(1);
         final int groupingCount = getGroupingCount();
@@ -684,6 +698,12 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
         return result;
     }
 
+    // NullAway.Init is suppressed here because `directory` follows a deliberate two-phase-initialization
+    // contract: it is left unset by the constructor and is always populated by setDirectory() (which also
+    // handles reverting it to null internally before re-populating) before any other method on this class is
+    // invoked -- see performOperation()'s TimeWindowLeaderboardWindowUpdate handling, which always calls
+    // setDirectory() immediately after construction, before update()/checkOverlappingChanged()/save() run.
+    @SuppressWarnings("NullAway.Init")
     protected class UpdateState {
         private final TimeWindowLeaderboardWindowUpdate update;
         private TimeWindowLeaderboardDirectory directory;
@@ -710,17 +730,17 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
         }
 
         public void setDirectory(@Nullable TimeWindowLeaderboardDirectory existingDirectory) {
-            directory = existingDirectory;
+            @Nullable TimeWindowLeaderboardDirectory newDirectory = existingDirectory;
 
-            if (directory != null && directory.isHighScoreFirst() != update.isHighScoreFirst()) {
+            if (newDirectory != null && newDirectory.isHighScoreFirst() != update.isHighScoreFirst()) {
                 if (update.getRebuild() == TimeWindowLeaderboardWindowUpdate.Rebuild.NEVER) {
                     throw new RecordCoreException("cannot change highScoreFirst without a rebuild");
                 }
-                directory = null;
+                newDirectory = null;
             }
 
-            if (directory == null) {
-                directory = new TimeWindowLeaderboardDirectory(update.isHighScoreFirst());
+            if (newDirectory == null) {
+                newDirectory = new TimeWindowLeaderboardDirectory(update.isHighScoreFirst());
                 if (isRebuildConditional()) {
                     rebuild = true;
                 }
@@ -731,6 +751,9 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                             LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(state.indexSubspace.pack())));
                 }
             }
+            // newDirectory is proven non-null at this point (the block above always assigns a new directory
+            // when it is null), so this is the only assignment to the (always-non-null-after-setDirectory) field.
+            directory = newDirectory;
         }
 
         public void update() {
@@ -894,7 +917,10 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                     scoreKey = TupleHelpers.subTuple(scoreKey, groupPrefixSize, scoreKey.size());
                 }
 
-                if (includesGroup ? groupDirections.get(groupKey).join() : directory.isHighScoreFirst()) {
+                // groupKey was already inserted into groupDirections above (both loops iterate the same
+                // indexEntries and derive groupKey identically) whenever includesGroup is true, so get() here
+                // is never null.
+                if (includesGroup ? Objects.requireNonNull(groupDirections.get(groupKey)).join() : directory.isHighScoreFirst()) {
                     scoreKey = negateScoreForHighScoreFirst(scoreKey, 0);
                 }
 

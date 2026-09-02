@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
 import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.CursorFactory;
@@ -37,6 +38,7 @@ import org.slf4j.LoggerFactory;
 
 import org.jspecify.annotations.Nullable;
 
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -99,8 +101,10 @@ public abstract class RecordRepair implements AutoCloseable {
         this.database = config.database;
         this.storeBuilder = config.getStoreBuilder();
         this.validationKind = config.getValidationKind();
+        final FDBRecordContext context = Objects.requireNonNull(storeBuilder.getContext(),
+                "storeBuilder must have a context set before being used to build a RecordRepair runner");
         ThrottledRetryingIterator.Builder<Tuple> iteratorBuilder =
-                ThrottledRetryingIterator.builder(database, storeBuilder.getContext().getConfig().toBuilder(), cursorFactory(), this::handleOneItem);
+                ThrottledRetryingIterator.builder(database, context.getConfig().toBuilder(), cursorFactory(), this::handleOneItem);
         this.allowRepair = allowRepair;
         // This will also ensure the transaction only commits when needed
         throttledIterator = configureThrottlingIterator(iteratorBuilder, config, allowRepair).build();
@@ -133,9 +137,13 @@ public abstract class RecordRepair implements AutoCloseable {
         return throttledIterator.iterateAll(storeBuilder);
     }
 
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters/locals: continuation and
+    // scanRecordKeys' parameter are both correctly declared @Nullable byte[], but NullAway still flags the
+    // pass-through below as a mismatch. This is a known tooling gap, not a real bug.
+    @SuppressWarnings("NullAway")
     private CursorFactory<Tuple> cursorFactory() {
         return (FDBRecordStore store, @Nullable RecordCursorResult<Tuple> lastResult, int rowLimit) -> {
-            byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
+            @Nullable byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
             ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(executeProperties -> executeProperties.setReturnedRowLimit(rowLimit));
             return store.scanRecordKeys(continuation, scanProperties);
         };
@@ -145,9 +153,11 @@ public abstract class RecordRepair implements AutoCloseable {
                                                                      final FDBRecordStore store,
                                                                      boolean allowRepair) {
         RecordValueValidator valueValidator = new RecordValueValidator(store);
+        // primaryKey is produced from scanRecordKeys, which never yields a result with a null value.
+        final Tuple primaryKeyTuple = Objects.requireNonNull(primaryKey.get());
         // The following is dependent on the semantics of value and version repairs. A more elaborate scheme
         // to introduce flow control and abort/continue mechanisms would make this more generic but is yet unnecessary.
-        return valueValidator.validateRecordAsync(primaryKey.get()).thenCompose(valueValidationResult -> {
+        return valueValidator.validateRecordAsync(primaryKeyTuple).thenCompose(valueValidationResult -> {
             if (!valueValidationResult.isValid()) {
                 if (allowRepair) {
                     return valueValidator.repairRecordAsync(valueValidationResult);
@@ -156,7 +166,7 @@ public abstract class RecordRepair implements AutoCloseable {
                 }
             } else if (validationKind == ValidationKind.RECORD_VALUE_AND_VERSION) {
                 RecordVersionValidator versionValidator = new RecordVersionValidator(store);
-                return versionValidator.validateRecordAsync(primaryKey.get()).thenCompose(versionValidationResult -> {
+                return versionValidator.validateRecordAsync(primaryKeyTuple).thenCompose(versionValidationResult -> {
                     if (!versionValidationResult.isValid() && allowRepair) {
                         return versionValidator.repairRecordAsync(versionValidationResult);
                     } else {

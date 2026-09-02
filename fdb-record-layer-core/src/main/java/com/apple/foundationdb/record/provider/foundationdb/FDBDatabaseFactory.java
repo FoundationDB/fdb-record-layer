@@ -81,6 +81,7 @@ public abstract class FDBDatabaseFactory {
     private Supplier<ScheduledExecutorService> scheduledExecutorSupplier = MoreAsyncUtil::getDefaultScheduledExecutor;
     private int directoryCacheSize = DEFAULT_DIRECTORY_CACHE_SIZE;
     private boolean trackLastSeenVersion;
+    @Nullable
     private String datacenterId;
     private int maxAttempts = 10;
     private long maxDelayMillis = 1000;
@@ -199,6 +200,7 @@ public abstract class FDBDatabaseFactory {
         return trackLastSeenVersion;
     }
 
+    @Nullable
     public synchronized String getDatacenterId() {
         return datacenterId;
     }
@@ -785,9 +787,9 @@ public abstract class FDBDatabaseFactory {
     /**
      * Return a {@link Database} object from the factory.
      *
-     * @param clusterFile Cluster file.
+     * @param clusterFile Cluster file, or {@code null} to use the default cluster file.
      *
      * @return FDB Database object.
      */
-    public abstract Database open(String clusterFile);
+    public abstract Database open(@Nullable String clusterFile);
 }

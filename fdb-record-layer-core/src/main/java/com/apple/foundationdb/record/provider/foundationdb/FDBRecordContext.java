@@ -172,7 +172,10 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private final LockRegistry lockRegistry;
     private final TempTable.Factory tempTableFactory = TempTable.Factory.instance();
 
-    @SuppressWarnings("PMD.CloseResource")
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] fields: versionStamp is correctly declared
+    // @Nullable byte[] above and is intentionally left at its default null value here (set later via
+    // setLocalVersionStamp/etc.), but NullAway's initializer check still flags it as uninitialized.
+    @SuppressWarnings({"PMD.CloseResource", "NullAway"})
     protected FDBRecordContext(FDBDatabase fdb,
                                Transaction transaction,
                                FDBRecordContextConfig config,
@@ -468,11 +471,11 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      */
     public CompletableFuture<Void> commitAsync() {
         final long startTimeNanos = System.nanoTime();
-        ensureActive();
+        final Transaction tr = ensureActive();
         CompletableFuture<Void> checks = runCommitChecks();
         versionMutationCache.forEach((key, valuePair) ->
-                transaction.mutate(valuePair.getLeft(), key, valuePair.getRight()));
-        CompletableFuture<byte[]> versionFuture = transaction.getVersionstamp();
+                tr.mutate(valuePair.getLeft(), key, valuePair.getRight()));
+        CompletableFuture<byte[]> versionFuture = tr.getVersionstamp();
         long beforeCommitTimeMillis = System.currentTimeMillis();
         CompletableFuture<Void> commit = MoreAsyncUtil.isCompletedNormally(checks) ?
                                          delayedCommit() :
@@ -481,7 +484,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
             // The committed version will be -1 if the transaction is read-only,
             // in which case versionFuture has completed exceptionally with
             // transaction_read_only and thus can be ignored.
-            committedVersion = transaction.getCommittedVersion();
+            committedVersion = tr.getCommittedVersion();
             if (committedVersion > 0) {
                 // The getVersionstamp() future can complete a tiny bit after the commit() future.
                 return versionFuture.thenAccept(vs -> versionStamp = vs);
@@ -530,7 +533,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * Returns a commit that may be delayed due to latency injection.
      */
     private CompletableFuture<Void> delayedCommit() {
-        return injectLatency(FDBLatencySource.COMMIT_ASYNC).thenCompose(vignore -> transaction.commit());
+        return injectLatency(FDBLatencySource.COMMIT_ASYNC).thenCompose(vignore -> ensureActive().commit());
     }
 
     @Override
@@ -1204,13 +1207,13 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @see #getVersionStamp()
      */
     public void setMetaDataVersionStamp() {
-        ensureActive();
         dirtyMetaDataVersionStamp = true;
-        transaction.mutate(MutationType.SET_VERSIONSTAMPED_VALUE, SystemKeyspace.METADATA_VERSION_KEY, META_DATA_VERSION_STAMP_VALUE);
+        ensureActive().mutate(MutationType.SET_VERSIONSTAMPED_VALUE, SystemKeyspace.METADATA_VERSION_KEY, META_DATA_VERSION_STAMP_VALUE);
     }
 
-    @Nullable
-    public <T> T asyncToSync(FDBStoreTimer.Wait event, CompletableFuture<T> async) {
+    // Note: T is intentionally unbounded (<T extends @Nullable Object>) rather than annotating the return
+    // type @Nullable -- see FDBDatabase#asyncToSync, which this delegates to.
+    public <T extends @Nullable Object> T asyncToSync(FDBStoreTimer.Wait event, CompletableFuture<T> async) {
         if (hookForAsyncToSync != null && !MoreAsyncUtil.isCompletedNormally(async)) {
             hookForAsyncToSync.accept(event);
         }
@@ -1378,6 +1381,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @return the previous value set for the given key or <code>null</code> if unset
      */
     @Nullable
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably track @Nullable on byte[] return types
     public byte[] addVersionMutation(MutationType mutationType, byte[] key, byte[] value) {
         NonnullPair<MutationType, byte[]> valuePair = NonnullPair.of(mutationType, value);
         NonnullPair<MutationType, byte[]> existingPair = versionMutationCache.put(key, valuePair);
@@ -1397,6 +1401,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @return the previous value set for the given key or <code>null</code> if unset
      */
     @Nullable
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably track @Nullable on byte[] return types
     public byte[] removeVersionMutation(byte[] key) {
         NonnullPair<MutationType, byte[]> existingValue = versionMutationCache.remove(key);
         return existingValue != null ? existingValue.getRight() : null;

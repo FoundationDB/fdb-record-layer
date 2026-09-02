@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -62,7 +63,9 @@ public class SubspaceProviderBySubspace implements SubspaceProvider {
 
     @Override
     public String toString() {
-        return ByteArrayUtil2.loggable(subspace.pack());
+        // subspace is always non-null, so pack() (and hence loggable()) never actually returns null here;
+        // ByteArrayUtil2.loggable is only @Nullable to accommodate its @Nullable byte[] parameter.
+        return Objects.requireNonNull(ByteArrayUtil2.loggable(subspace.pack()));
     }
 
     @Override

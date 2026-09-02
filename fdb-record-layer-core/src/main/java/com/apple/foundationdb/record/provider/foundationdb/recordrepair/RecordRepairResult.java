@@ -75,7 +75,7 @@ public class RecordRepairResult {
         this(primaryKey, isValid, errorCode, message, false, null);
     }
 
-    private RecordRepairResult(final Tuple primaryKey, final boolean isValid, final String errorCode, @Nullable final String message, boolean isRepaired, String repairCode) {
+    private RecordRepairResult(final Tuple primaryKey, final boolean isValid, final String errorCode, @Nullable final String message, boolean isRepaired, @Nullable String repairCode) {
         this.primaryKey = primaryKey;
         this.isValid = isValid;
         this.errorCode = errorCode;
