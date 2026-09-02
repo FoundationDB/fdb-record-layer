@@ -40,6 +40,8 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.jspecify.annotations.Nullable;
+
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.Serial;
 import java.util.Objects;
@@ -97,6 +99,10 @@ public final class IndexingPendingWriteQueue {
                 });
     }
 
+    // NullAway does not reliably track @Nullable on byte[] parameters, and PendingWritesQueue#getQueueCursor
+    // (in the .queue subpackage) still declares its continuation parameter with the legacy javax.annotation
+    // @Nullable rather than jspecify's, which additionally confuses NullAway's generic-array nullability check.
+    @SuppressWarnings("NullAway")
     private CursorFactory<PendingWritesQueueEntry<IndexBuildProto.PendingWritesQueueEntry>> cursorFactory(
             final Function<FDBRecordStore, CompletableFuture<Void>> heartbeatUpdater) {
         return (store, lastResult, rowLimit) -> {
@@ -104,7 +110,7 @@ public final class IndexingPendingWriteQueue {
             // heartbeat update once per such transaction, to be written just before that transaction is committed.
             store.getContext().getOrCreateCommitCheck(HEARTBEAT_COMMIT_HOOK + index.getName(),
                     name -> () -> heartbeatUpdater.apply(store));
-            final byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
+            @Nullable final byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
             final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(props -> props.setReturnedRowLimit(rowLimit));
             return getIndexingQueue(store).getQueueCursor(store.getContext(), scanProperties, continuation);
         };

@@ -40,9 +40,12 @@ import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -160,7 +163,10 @@ public class IndexScrubbing extends IndexingBase {
 
             return iterateRangeOnly(store, cursor, (recordStore, result) -> handleOneItem(recordStore, result, tools, issueList),
                     lastResult, hasMore, recordsScanned, isIdempotent)
-                    .thenApply(vignore -> hasMore.get() ? tools.getKeyFromCursorResult(lastResult.get()) : rangeEnd)
+                    .thenApply(vignore -> hasMore.get()
+                                          ? tools.getKeyFromCursorResult(Objects.requireNonNull(lastResult.get(),
+                                                  "lastResult must be set when hasMore is true"))
+                                          : rangeEnd)
                     .thenCompose(continuation -> updateRangeAndCheckIfExhausted(rangeSet, rangeStart, rangeEnd, continuation))
                     .thenApply(ret -> checkScanLimit(ret, recordsScanned, scanLimit))
                     .whenComplete((ignore, err) -> reportIssues(issueList, err));
@@ -194,7 +200,7 @@ public class IndexScrubbing extends IndexingBase {
      * @return a future yielding {@code true} when more ranges remain to be scrubbed, or {@code false} when the
      *         entire range has been covered and the range set has been cleared
      */
-    private CompletableFuture<Boolean> updateRangeAndCheckIfExhausted(final IndexingRangeSet rangeSet, final Tuple rangeStart, final Tuple rangeEnd, final Tuple continuation) {
+    private CompletableFuture<Boolean> updateRangeAndCheckIfExhausted(final IndexingRangeSet rangeSet, @Nullable final Tuple rangeStart, @Nullable final Tuple rangeEnd, final Tuple continuation) {
         if (allRangesAreExhausted(continuation, rangeEnd)) {
             // Last missing range just got covered. Clear so the next scrubbing session starts fresh.
             logScrubberRangeReset("range exhausted at iteration end");

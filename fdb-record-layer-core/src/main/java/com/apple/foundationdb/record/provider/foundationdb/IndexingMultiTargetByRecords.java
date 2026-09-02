@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.KeyRange;
 import com.apple.foundationdb.record.RecordCursor;
@@ -47,12 +46,15 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import static com.apple.foundationdb.record.IndexBuildProto.IndexBuildIndexingStamp;
+
 /**
  * This indexer scans records to build multiple indexes.
  */
 @API(API.Status.INTERNAL)
 public class IndexingMultiTargetByRecords extends IndexingBase {
-    private IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp = null;
+    @Nullable
+    private IndexBuildIndexingStamp myIndexingTypeStamp = null;
 
     IndexingMultiTargetByRecords(IndexingCommon common,
                                  OnlineIndexer.IndexingPolicy policy) {
@@ -60,14 +62,14 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
     }
 
     @Override
-    IndexBuildProto.IndexBuildIndexingStamp getIndexingTypeStamp(FDBRecordStore store) {
+    IndexBuildIndexingStamp getIndexingTypeStamp(FDBRecordStore store) {
         if (myIndexingTypeStamp == null) {
             myIndexingTypeStamp = compileIndexingTypeStamp(common.getTargetIndexesNames());
         }
         return myIndexingTypeStamp;
     }
 
-    private static IndexBuildProto.IndexBuildIndexingStamp compileIndexingTypeStamp(List<String> targetIndexes) {
+    private static IndexBuildIndexingStamp compileIndexingTypeStamp(List<String> targetIndexes) {
 
         if (targetIndexes.isEmpty()) {
             throw new ValidationException("No target index was set");
@@ -76,16 +78,16 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
             // backward compatibility
             return compileSingleTargetLegacyIndexingTypeStamp();
         }
-        return IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
-                .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS)
+        return IndexBuildIndexingStamp.newBuilder()
+                .setMethod(IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS)
                 .addAllTargetIndex(targetIndexes)
                 .build();
     }
 
-    protected static IndexBuildProto.IndexBuildIndexingStamp compileSingleTargetLegacyIndexingTypeStamp() {
+    protected static IndexBuildIndexingStamp compileSingleTargetLegacyIndexingTypeStamp() {
         return
-                IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
-                        .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS)
+                IndexBuildIndexingStamp.newBuilder()
+                        .setMethod(IndexBuildIndexingStamp.Method.BY_RECORDS)
                         .build();
     }
 
@@ -116,6 +118,9 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
                         iterateAllRanges(additionalLogMessageKeyValues, this::buildRangeOnly));
     }
 
+    // NullAway does not reliably track @Nullable on byte[] parameters, so it flags the (legitimate) null
+    // continuation argument to scanRecords below even though that method declares it @Nullable.
+    @SuppressWarnings("NullAway")
     private CompletableFuture<Boolean> buildRangeOnly(FDBRecordStore store, AtomicLong recordsScanned) {
         // return false when done
         /* Multi target consistency:
@@ -158,11 +163,11 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
                                                             AtomicReference<RecordCursorResult<FDBStoredRecord<Message>>> lastResult,
                                                             byte[] rangeStart, byte[] rangeEnd, boolean isReverse) {
         if (isReverse) {
-            byte[] continuation = hasMore ? lastResult.get().get().getPrimaryKey().pack() : rangeStart;
+            byte[] continuation = hasMore ? requireLastResultValue(lastResult).getPrimaryKey().pack() : rangeStart;
             return insertRanges(targetRangeSets, continuation, rangeEnd)
                     .thenApply(ignore -> rangesAreNotExhausted(hasMore, rangeStart));
         } else {
-            byte[] continuation = hasMore ? lastResult.get().get().getPrimaryKey().pack() : rangeEnd;
+            byte[] continuation = hasMore ? requireLastResultValue(lastResult).getPrimaryKey().pack() : rangeEnd;
             return insertRanges(targetRangeSets, rangeStart, continuation)
                     .thenApply(ignore -> rangesAreNotExhausted(hasMore, rangeEnd));
         }
@@ -197,8 +202,8 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
                 }), store.getExecutor());
     }
 
-    @SuppressWarnings("PMD.CloseResource")
-    private CompletableFuture<Tuple> rebuildRangeOnly(FDBRecordStore store, Tuple cont, AtomicLong recordsScanned, @Nullable Tuple rangeEndInclusive) {
+    @SuppressWarnings({"PMD.CloseResource", "NullAway"}) // NullAway: byte[] nullability of scanRecords' continuation isn't tracked reliably; see buildRangeOnly.
+    private CompletableFuture<Tuple> rebuildRangeOnly(FDBRecordStore store, @Nullable Tuple cont, AtomicLong recordsScanned, @Nullable Tuple rangeEndInclusive) {
         validateSameMetadataOrThrow(store);
         final boolean isIdempotent = areTheyAllIdempotent(store, common.getTargetIndexes());
 
@@ -222,7 +227,7 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
                 this::getRecordIfTypeMatch,
                 lastResult, hasMore, recordsScanned, isIdempotent
         ).thenApply(vignore -> hasMore.get() ?
-                               lastResult.get().get().getPrimaryKey() :
+                               requireLastResultValue(lastResult).getPrimaryKey() :
                                null );
     }
 }

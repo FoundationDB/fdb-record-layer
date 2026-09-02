@@ -99,6 +99,9 @@ public class IndexingRangeSet {
      * @see #firstMissingRangeAsync(byte[], byte[])
      * @see RangeSet#missingRanges(ReadTransaction)
      */
+    // NullAway does not reliably track @Nullable on byte[] parameters, so it flags these
+    // (legitimate) null begin/end arguments even though the 2-arg overload declares them @Nullable.
+    @SuppressWarnings("NullAway")
     public CompletableFuture<Range> firstMissingRangeAsync() {
         return firstMissingRangeAsync(null, null);
     }
@@ -136,6 +139,9 @@ public class IndexingRangeSet {
      *
      * @see #listMissingRangesAsync(byte[], byte[])
      */
+    // NullAway does not reliably track @Nullable on byte[] parameters, so it flags these
+    // (legitimate) null begin/end arguments even though the 2-arg overload declares them @Nullable.
+    @SuppressWarnings("NullAway")
     public CompletableFuture<List<Range>> listMissingRangesAsync() {
         return listMissingRangesAsync(null, null);
     }

@@ -66,6 +66,7 @@ import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -94,10 +95,13 @@ public abstract class IndexingBase {
     private final boolean isScrubber;
 
     private long timeOfLastProgressLogMillis = 0;
+    @Nullable
     private StoreTimerSnapshot lastProgressSnapshot = null;
     private boolean forceStampOverwrite = false;
     private final long startingTimeMillis;
+    @Nullable
     private Map<String, IndexingMerger> indexingMergerMap = null;
+    @Nullable
     private Map<String, IndexingPendingWriteQueue> indexingDrainerMap = null;
     @Nullable
     private IndexingHeartbeat heartbeat = null; // this will stay null for index scrubbing
@@ -129,12 +133,14 @@ public abstract class IndexingBase {
     }
 
     // Turn a (possibly null) tuple into a (possibly null) byte array.
+    // NullAway does not reliably track @Nullable on byte[] return types, hence the suppression below.
     @Nullable
+    @SuppressWarnings("NullAway")
     protected static byte[] packOrNull(@Nullable Tuple tuple) {
         return (tuple == null) ? null : tuple.pack();
     }
 
-    protected CompletableFuture<FDBStoredRecord<Message>> recordIfInIndexedTypes(FDBStoredRecord<Message> rec) {
+    protected CompletableFuture<FDBStoredRecord<Message>> recordIfInIndexedTypes(@Nullable FDBStoredRecord<Message> rec) {
         return CompletableFuture.completedFuture( rec != null && common.getAllRecordTypes().contains(rec.getRecordType()) ? rec : null);
     }
 
@@ -680,6 +686,9 @@ public abstract class IndexingBase {
      * during the build. If the whole records space is relevant, there is nothing to preset.
      * @return a future that completes once the out-of-range key ranges (if any) have been marked as indexed
      */
+    // NullAway does not reliably track @Nullable on byte[] parameters, so it flags the (legitimate) null
+    // start/end arguments to insertRanges below even though that method declares them @Nullable.
+    @SuppressWarnings("NullAway")
     protected CompletableFuture<Void> maybePresetRecordsRangeAsync() {
         final TupleRange tupleRange = common.computeRecordsRange();
         if (tupleRange == null) {
@@ -733,6 +742,21 @@ public abstract class IndexingBase {
      *
      * @return hasMore, nextResultCont, and recordsScanned.
      */
+
+    /**
+     * Extract the value held by the last cursor result recorded by {@link #iterateRangeOnly}. Callers only invoke
+     * this when {@code hasMore} is {@code true}, which is an invariant of {@code iterateRangeOnly} guaranteeing
+     * that a value was actually recorded; this is not something NullAway's type-based analysis can verify given
+     * the generic {@link AtomicReference} and {@link RecordCursorResult} APIs, so the invariant is asserted here.
+     * @param lastResult the holder populated by {@link #iterateRangeOnly}
+     * @param <T> cursor result's type
+     * @return the non-null value of the last recorded result
+     */
+    protected static <T> T requireLastResultValue(AtomicReference<RecordCursorResult<T>> lastResult) {
+        final RecordCursorResult<T> result = Objects.requireNonNull(lastResult.get(),
+                "lastResult must be set when hasMore is true");
+        return Objects.requireNonNull(result.get(), "lastResult's value must be present when hasMore is true");
+    }
 
     @SuppressWarnings("PMD.CloseResource")
     protected  <T> CompletableFuture<Void> iterateRangeOnly(FDBRecordStore store,
@@ -1035,7 +1059,7 @@ public abstract class IndexingBase {
 
     protected CompletableFuture<Void> iterateAllRanges(List<Object> additionalLogMessageKeyValues,
                                                        BiFunction<FDBRecordStore, AtomicLong,  CompletableFuture<Boolean>> iterateRange,
-                                                       @Nullable Function<FDBException, Optional<Boolean>> shouldReturnQuietly) {
+                                                       @Nullable Function<@Nullable FDBException, Optional<Boolean>> shouldReturnQuietly) {
 
         return AsyncUtil.whileTrue(() ->
                     throttle.buildCommitRetryAsync(iterateRange, shouldReturnQuietly, additionalLogMessageKeyValues, true)
@@ -1104,7 +1128,7 @@ public abstract class IndexingBase {
         store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
     }
 
-    protected static boolean allRangesAreExhausted(Tuple cont, Tuple end) {
+    protected static boolean allRangesAreExhausted(@Nullable Tuple cont, @Nullable Tuple end) {
         // if cont isn't null, it means that the cursor was not exhausted
         // if end isn't null, it means that the range is a segment (i.e. closed or half-open interval) - the rangeSet may contain more unbuilt ranges
         return end == null && cont == null;
@@ -1128,6 +1152,9 @@ public abstract class IndexingBase {
     }
 
     // rebuildIndexAsync - builds the whole index inline (without committing)
+    // NullAway does not reliably track @Nullable on byte[] parameters, so it flags the (legitimate) null
+    // begin/end arguments to insertRangeAsync below even though that method declares them @Nullable.
+    @SuppressWarnings("NullAway")
     public CompletableFuture<Void> rebuildIndexAsync(FDBRecordStore store) {
         validateOrThrowEx(!policy.isReverseScanOrder(), "rebuild do not support reverse scan order");
         return forEachTargetIndex(index -> store.clearAndMarkIndexWriteOnly(index).thenCompose(bignore -> {
@@ -1329,6 +1356,7 @@ public abstract class IndexingBase {
         }
     }
 
+    @Nullable
     public static PartlyBuiltException getAPartlyBuiltExceptionIfApplicable(@Nullable Throwable ex) {
         return findException(ex, PartlyBuiltException.class);
     }
@@ -1357,11 +1385,13 @@ public abstract class IndexingBase {
         }
     }
 
+    @Nullable
     public static UnexpectedReadableException getUnexpectedReadableIfApplicable(@Nullable Throwable ex) {
         return findException(ex, UnexpectedReadableException.class);
     }
 
-    protected static <T> T findException(@Nullable Throwable ex, Class<T> classT) {
+    @Nullable
+    protected static <T extends @Nullable Object> T findException(@Nullable Throwable ex, Class<T> classT) {
         Set<Throwable> seenSet = Collections.newSetFromMap(new IdentityHashMap<>());
         for (Throwable current = ex;
                 current != null && !seenSet.contains(current);
