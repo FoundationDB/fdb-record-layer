@@ -20,8 +20,11 @@
 
 package com.apple.foundationdb.util;
 
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -60,7 +63,8 @@ class CloseableUtilsTest {
     void closeAllSingleFailure() {
         SimpleCloseable c1 = new SimpleCloseable(true, "c1");
         final CloseException exception = assertThrows(CloseException.class, () -> CloseableUtils.closeAll(c1));
-        Assertions.assertEquals("c1", exception.getCause().getMessage());
+        // Throwable.getCause() is nullable in general, but this test's own setup guarantees a cause is present.
+        Assertions.assertEquals("c1", Objects.requireNonNull(exception.getCause()).getMessage());
         Assertions.assertEquals(0, exception.getSuppressed().length);
         Assertions.assertTrue(c1.isClosed());
     }
@@ -85,7 +89,8 @@ class CloseableUtilsTest {
         SimpleCloseable c3 = new SimpleCloseable(false, null);
         final CloseException exception = assertThrows(CloseException.class,
                 () -> CloseableUtils.closeAll(c1, c2, c3));
-        Assertions.assertEquals("c1", exception.getCause().getMessage());
+        // Throwable.getCause() is nullable in general, but this test's own setup guarantees a cause is present.
+        Assertions.assertEquals("c1", Objects.requireNonNull(exception.getCause()).getMessage());
         Assertions.assertEquals(1, exception.getSuppressed().length);
         Assertions.assertInstanceOf(InterruptedException.class, exception.getSuppressed()[0]);
         Assertions.assertTrue(c1.isClosed());
@@ -102,7 +107,8 @@ class CloseableUtilsTest {
 
         final CloseException exception = assertThrows(CloseException.class, () -> CloseableUtils.closeAll(c1, c2, c3));
 
-        Assertions.assertEquals("c1", exception.getCause().getMessage());
+        // Throwable.getCause() is nullable in general, but this test's own setup guarantees a cause is present.
+        Assertions.assertEquals("c1", Objects.requireNonNull(exception.getCause()).getMessage());
         final Throwable[] suppressed = exception.getSuppressed();
         Assertions.assertEquals(2, suppressed.length);
         Assertions.assertEquals("c2", suppressed[0].getMessage());
@@ -121,7 +127,8 @@ class CloseableUtilsTest {
 
         final CloseException exception = assertThrows(CloseException.class, () -> CloseableUtils.closeAll(c1, c2, c3));
 
-        Assertions.assertEquals("c1", exception.getCause().getMessage());
+        // Throwable.getCause() is nullable in general, but this test's own setup guarantees a cause is present.
+        Assertions.assertEquals("c1", Objects.requireNonNull(exception.getCause()).getMessage());
         final Throwable[] suppressed = exception.getSuppressed();
         Assertions.assertEquals(1, suppressed.length);
         Assertions.assertEquals("c3", suppressed[0].getMessage());
@@ -133,10 +140,11 @@ class CloseableUtilsTest {
 
     private static class SimpleCloseable implements AutoCloseable {
         private final boolean fail;
+        @Nullable
         private final String message;
         private boolean closed = false;
 
-        public SimpleCloseable(boolean fail, String message) {
+        public SimpleCloseable(boolean fail, @Nullable String message) {
             this.fail = fail;
             this.message = message;
         }

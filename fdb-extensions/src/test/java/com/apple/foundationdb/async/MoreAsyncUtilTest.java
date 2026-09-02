@@ -24,6 +24,7 @@ import com.apple.foundationdb.test.TestExecutors;
 import com.apple.test.ParameterizedTestUtils;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.hamcrest.Matcher;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -33,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -239,7 +241,8 @@ public class MoreAsyncUtilTest {
         } else if (behavior1.fails || behavior2.fails) {
             final ExecutionException executionException = assertThrows(ExecutionException.class,
                     () -> future.get(getTimeoutSeconds, TimeUnit.SECONDS));
-            assertEquals(RuntimeException.class, executionException.getCause().getClass());
+            // Throwable.getCause() is nullable in general, but this test's own setup guarantees a cause is present.
+            assertEquals(RuntimeException.class, Objects.requireNonNull(executionException.getCause()).getClass());
         } else {
             assertThrows(TimeoutException.class, () -> future.get(getTimeoutSeconds, TimeUnit.SECONDS));
         }
@@ -565,14 +568,18 @@ public class MoreAsyncUtilTest {
     void dedupIterableEmitsLeadingNullAndDoesNotCollapseAdjacentNulls() {
         // The dedup filter seeds its "previous" marker with null, so the leading null passes through; and because a
         // null previous element never compares equal, a second adjacent null is not collapsed. This pins that quirk.
-        final List<String> result = AsyncUtil.collect(
-                MoreAsyncUtil.dedupIterable(EXECUTOR, iterableOf(null, null, "a", "a")), EXECUTOR).join();
+        // dedupIterable()'s <T> is (deliberately, to avoid a wider ripple) not declared <T extends @Nullable
+        // Object>, even though its implementation already tolerates a null element correctly; this test exercises
+        // exactly that internal tolerance, so the mismatch against the public signature is suppressed here.
+        @SuppressWarnings("NullAway")
+        final AsyncIterable<String> dedupedWithNulls = MoreAsyncUtil.dedupIterable(EXECUTOR, iterableOf(null, null, "a", "a"));
+        final List<String> result = AsyncUtil.collect(dedupedWithNulls, EXECUTOR).join();
         assertEquals(Arrays.asList(null, null, "a"), result);
     }
 
     @SafeVarargs
     @SuppressWarnings("varargs") // reading the non-reifiable T[] in the body trips -Xlint:varargs; the helper is safe
-    private static <T> AsyncIterable<T> iterableOf(final T... items) {
+    private static <T extends @Nullable Object> AsyncIterable<T> iterableOf(final T... items) {
         return MoreAsyncUtil.iterableFromCollection(CompletableFuture.completedFuture(Arrays.asList(items)), EXECUTOR);
     }
 
