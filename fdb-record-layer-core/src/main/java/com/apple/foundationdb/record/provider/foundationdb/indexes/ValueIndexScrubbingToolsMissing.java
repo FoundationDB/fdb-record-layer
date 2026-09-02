@@ -58,7 +58,9 @@ import java.util.concurrent.CompletableFuture;
  * have had generated index entries, but these index entries cannot be found.
  */
 public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBStoredRecord<Message>> {
-    private Collection<RecordType> recordTypes = null;
+    @Nullable
+    private Collection<RecordType> recordTypes;
+    @Nullable
     private Index index;
     private boolean allowRepair;
     private boolean isSynthetic;
@@ -75,6 +77,9 @@ public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBS
     }
 
     @Override
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters of
+                                   // FDBRecordStoreBase#scanRecords (out of scope to fix here); null intentionally means
+                                   // "start from the beginning".
     public RecordCursor<FDBStoredRecord<Message>> getCursor(final TupleRange tupleRange, final FDBRecordStore store, int limit) {
         final IsolationLevel isolationLevel = IsolationLevel.SNAPSHOT;
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
@@ -86,13 +91,15 @@ public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBS
     }
 
     @Override
+    @Nullable
+    @SuppressWarnings("NullAway") // IndexScrubbingTools#getKeyFromCursorResult (out of scope to fix here) is not annotated
+                                   // @Nullable even though a missing stored record genuinely yields a null key here.
     public Tuple getKeyFromCursorResult(final RecordCursorResult<FDBStoredRecord<Message>> result) {
         final FDBStoredRecord<Message> storedRecord = result.get();
         return storedRecord == null ? null : storedRecord.getPrimaryKey();
     }
 
     @Override
-    @Nullable
     public CompletableFuture<Issue> handleOneItem(FDBRecordStore store,  final RecordCursorResult<FDBStoredRecord<Message>> result) {
         if (recordTypes == null || index == null) {
             throw new IllegalStateException("presetParams was not called appropriately for this scrubbing tool");
@@ -115,12 +122,21 @@ public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBS
                                     LogMessageKeys.KEY, rec.getPrimaryKey().toString(),
                                     LogMessageKeys.INDEX_KEY, missingIndexesKeys.toString()),
                             FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES,
-                            allowRepair ? rec : null);
+                            // Issue#recordToIndex is documented as nullable ("if non-null, let the indexer index this
+                            // record"), but its constructor parameter is not itself annotated @Nullable.
+                            allowRepairOrNull(rec));
                 });
     }
 
+    @SuppressWarnings("NullAway") // Issue#recordToIndex's constructor parameter is not annotated @Nullable even though it is
+                                   // documented as accepting null; see the comment at the call site above.
+    private FDBStoredRecord<Message> allowRepairOrNull(final FDBStoredRecord<Message> rec) {
+        return allowRepair ? rec : null;
+    }
+
     private CompletableFuture<List<Tuple>> getMissingIndexKeys(FDBRecordStore store, FDBStoredRecord<Message> rec) {
-        final IndexMaintainer maintainer = store.getIndexMaintainer(index);
+        final Index nonNullIndex = Objects.requireNonNull(index, "presetParams was not called appropriately for this scrubbing tool");
+        final IndexMaintainer maintainer = store.getIndexMaintainer(nonNullIndex);
         return indexEntriesForRecord(store, rec)
                 .mapPipelined(indexEntry -> {
                     final Tuple valueKey = indexEntry.getKey();
@@ -131,13 +147,17 @@ public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBS
                 .asList();
     }
 
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters of
+                                   // RecordCursor#flatMapPipelined (out of scope to fix here); null intentionally means
+                                   // "start from the beginning".
     protected RecordCursor<IndexEntry> indexEntriesForRecord(FDBRecordStore store, FDBStoredRecord<Message> rec) {
-        final IndexMaintainer maintainer = store.getIndexMaintainer(index);
+        final Index nonNullIndex = Objects.requireNonNull(index, "presetParams was not called appropriately for this scrubbing tool");
+        final IndexMaintainer maintainer = store.getIndexMaintainer(nonNullIndex);
         if (isSynthetic) {
             final RecordQueryPlanner queryPlanner =
-                    new RecordQueryPlanner(store.getRecordMetaData(), store.getRecordStoreState().withWriteOnlyIndexes(Collections.singletonList(index.getName())));
+                    new RecordQueryPlanner(store.getRecordMetaData(), store.getRecordStoreState().withWriteOnlyIndexes(Collections.singletonList(nonNullIndex.getName())));
             final SyntheticRecordPlanner syntheticPlanner = new SyntheticRecordPlanner(store, queryPlanner);
-            SyntheticRecordFromStoredRecordPlan syntheticPlan = syntheticPlanner.forIndex(index);
+            SyntheticRecordFromStoredRecordPlan syntheticPlan = syntheticPlanner.forIndex(nonNullIndex);
 
             return RecordCursor.flatMapPipelined(
                     outerContinuation -> syntheticPlan.execute(store, rec),
