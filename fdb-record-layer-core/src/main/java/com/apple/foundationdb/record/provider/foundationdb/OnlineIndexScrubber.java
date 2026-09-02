@@ -31,6 +31,7 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.UnaryOperator;
@@ -50,8 +51,8 @@ public class OnlineIndexScrubber implements AutoCloseable {
     OnlineIndexScrubber(FDBDatabaseRunner runner,
                         FDBRecordStore.Builder recordStoreBuilder,
                         Index index,
-                        Collection<RecordType> recordTypes,
-                        UnaryOperator<OnlineIndexOperationConfig> configLoader,
+                        @Nullable Collection<RecordType> recordTypes,
+                        @Nullable UnaryOperator<OnlineIndexOperationConfig> configLoader,
                         OnlineIndexOperationConfig config,
                         boolean trackProgress,
                         OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy) {
@@ -275,8 +276,13 @@ public class OnlineIndexScrubber implements AutoCloseable {
         @Nullable
         protected Collection<RecordType> recordTypes;
 
+        @Nullable
         ScrubbingPolicy scrubbingPolicy = null;
-        ScrubbingPolicy.Builder scrubbingPolicyBuilder = null;
+        // Outer.@Nullable Inner form used here (rather than a leading @Nullable) because ScrubbingPolicy.Builder
+        // is a qualified/nested type reference; a plain leading @Nullable on such a reference is rejected by
+        // javac as "scoping construct cannot be annotated with type-use annotation". A plain import of Builder
+        // isn't viable either since this class is itself named Builder, which shadows any such import.
+        ScrubbingPolicy.@Nullable Builder scrubbingPolicyBuilder = null;
 
         @SuppressWarnings("this-escape")
         protected Builder() {
@@ -359,8 +365,16 @@ public class OnlineIndexScrubber implements AutoCloseable {
             if (scrubbingPolicy == null) {
                 scrubbingPolicy = ScrubbingPolicy.DEFAULT;
             }
-            return new OnlineIndexScrubber(getRunner(), getRecordStoreBuilder(), index, recordTypes,
-                    getConfigLoader(), conf, isTrackProgress(), scrubbingPolicy);
+            // runner and recordStoreBuilder are only null before setDatabase/setRecordStore(Builder) has been
+            // called; validate() does not currently check for that, so assert it here with a clear message
+            // rather than let a confusing NPE surface deeper in IndexingCommon's constructor. index is
+            // already guaranteed non-null by validateIndex() above, but that invariant isn't visible here
+            // without an explicit check either.
+            return new OnlineIndexScrubber(
+                    Objects.requireNonNull(getRunner(), "runner must be set before calling build()"),
+                    Objects.requireNonNull(getRecordStoreBuilder(), "record store builder must be set before calling build()"),
+                    Objects.requireNonNull(index, "index must be set before calling build()"),
+                    recordTypes, getConfigLoader(), conf, isTrackProgress(), scrubbingPolicy);
         }
 
         protected void validate() {

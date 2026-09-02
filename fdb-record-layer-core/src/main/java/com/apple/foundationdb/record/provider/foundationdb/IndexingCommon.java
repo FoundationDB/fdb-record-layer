@@ -39,6 +39,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
@@ -109,12 +110,8 @@ public class IndexingCommon {
     }
 
     private void fillTargetIndexers(List<Index> targetIndexes, @Nullable Collection<RecordType> recordTypes) {
-        boolean presetTypes = false;
-        if (recordTypes != null) {
-            if (targetIndexes.size() > 1) {
-                throw new IndexingBase.ValidationException("Can't use preset record types with multi target indexing");
-            }
-            presetTypes = true;
+        if (recordTypes != null && targetIndexes.size() > 1) {
+            throw new IndexingBase.ValidationException("Can't use preset record types with multi target indexing");
         }
         if (recordStoreBuilder.getMetaDataProvider() == null) {
             throw new MetaDataException("record store builder must include metadata");
@@ -122,7 +119,7 @@ public class IndexingCommon {
         final RecordMetaData metaData = recordStoreBuilder.getMetaDataProvider().getRecordMetaData();
         for (Index targetIndex: targetIndexes) {
             Collection<RecordType> types;
-            if (presetTypes) {
+            if (recordTypes != null) {
                 types = recordTypes;
             } else {
                 types = metaData.recordTypesForIndex(targetIndex);
@@ -174,7 +171,7 @@ public class IndexingCommon {
     }
 
     @SuppressWarnings("varargs")
-    private void logIf(boolean condition, List<Object> list, Object... a) {
+    private void logIf(boolean condition, List<Object> list, @Nullable Object... a) {
         if (condition) {
             list.addAll(Arrays.asList(a));
         }
@@ -219,7 +216,7 @@ public class IndexingCommon {
                 low = high = prefix;
             } else if (low.compareTo(prefix) > 0) {
                 low = prefix;
-            } else if (high.compareTo(prefix) < 0) {
+            } else if (Objects.requireNonNull(high, "high is always set together with low").compareTo(prefix) < 0) {
                 high = prefix;
             }
         }

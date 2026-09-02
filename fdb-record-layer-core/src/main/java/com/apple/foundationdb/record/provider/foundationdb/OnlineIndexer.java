@@ -49,6 +49,7 @@ import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -415,7 +416,9 @@ public class OnlineIndexer implements AutoCloseable {
      * @return <code>true</code> if the index is being built and <code>false</code> otherwise
      */
     public boolean checkAnyOngoingOnlineIndexBuilds() {
-        return runner.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_ONGOING_ONLINE_INDEX_BUILD, checkAnyOngoingOnlineIndexBuildsAsync());
+        return Objects.requireNonNull(
+                runner.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_ONGOING_ONLINE_INDEX_BUILD, checkAnyOngoingOnlineIndexBuildsAsync()),
+                "checkAnyOngoingOnlineIndexBuildsAsync always completes with a non-null Boolean");
     }
 
     /**
@@ -552,8 +555,9 @@ public class OnlineIndexer implements AutoCloseable {
 
     private Map<String, IndexBuildProto.IndexBuildIndexingStamp> indexingStamp(@Nullable IndexingStampOperation op, @Nullable String id, @Nullable Long ttlSeconds) {
         // any indexer will do
-        return asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_TYPESTAMP_OPERATION,
-                getIndexer().performIndexingStampOperation(op, id, ttlSeconds));
+        return Objects.requireNonNull(asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_TYPESTAMP_OPERATION,
+                getIndexer().performIndexingStampOperation(op, id, ttlSeconds)),
+                "performIndexingStampOperation always completes with a non-null map");
     }
 
     /**
@@ -570,8 +574,9 @@ public class OnlineIndexer implements AutoCloseable {
      */
     @API(API.Status.EXPERIMENTAL)
     public Map<UUID, IndexBuildProto.IndexBuildHeartbeat> getIndexingHeartbeats(int maxCount) {
-        return asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_READ_HEARTBEATS,
-                getIndexer().getIndexingHeartbeats(maxCount));
+        return Objects.requireNonNull(asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_READ_HEARTBEATS,
+                getIndexer().getIndexingHeartbeats(maxCount)),
+                "getIndexingHeartbeats always completes with a non-null map");
     }
 
     /**
@@ -584,8 +589,9 @@ public class OnlineIndexer implements AutoCloseable {
      */
     @API(API.Status.EXPERIMENTAL)
     public int clearIndexingHeartbeats(long minAgeMilliseconds, int maxIteration) {
-        return asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_CLEAR_HEARTBEATS,
-                getIndexer().clearIndexingHeartbeats(minAgeMilliseconds, maxIteration));
+        return Objects.requireNonNull(asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_CLEAR_HEARTBEATS,
+                getIndexer().clearIndexingHeartbeats(minAgeMilliseconds, maxIteration)),
+                "clearIndexingHeartbeats always completes with a non-null Integer");
     }
 
     /**
@@ -599,7 +605,7 @@ public class OnlineIndexer implements AutoCloseable {
      *
      */
     @API(API.Status.INTERNAL)
-    public <T> T asyncToSync(StoreTimer.Wait event, CompletableFuture<T> async) {
+    public <T extends @Nullable Object> @Nullable T asyncToSync(StoreTimer.Wait event, CompletableFuture<T> async) {
         return getRunner().asyncToSync(event, async);
     }
 
@@ -632,8 +638,14 @@ public class OnlineIndexer implements AutoCloseable {
         @Nullable
         private Collection<RecordType> recordTypes;
 
+        @Nullable
         private IndexingPolicy indexingPolicy = null;
-        private IndexingPolicy.Builder indexingPolicyBuilder = null;
+        // Outer.@Nullable Inner form used here (rather than a leading @Nullable) because IndexingPolicy.Builder
+        // is a qualified/nested type reference; a plain leading @Nullable on such a reference is rejected by
+        // javac as "scoping construct cannot be annotated with type-use annotation". A plain import of Builder
+        // isn't viable either since this class is itself named Builder, which shadows any such import.
+        private IndexingPolicy.@Nullable Builder indexingPolicyBuilder = null;
+        @Nullable
         private IndexStatePrecondition indexStatePrecondition = null;
 
         protected Builder() {
@@ -804,8 +816,14 @@ public class OnlineIndexer implements AutoCloseable {
             determineIndexingPolicy();
             validate();
             OnlineIndexOperationConfig conf = getConfig();
-            return new OnlineIndexer(getRunner(), getRecordStoreBuilder(), targetIndexes, recordTypes,
-                    getConfigLoader(), conf, isTrackProgress(), indexingPolicy);
+            // runner and recordStoreBuilder are only null before setDatabase/setRecordStore(Builder) has been
+            // called; validate() does not currently check for that, so assert it here with a clear message
+            // rather than let a confusing NPE surface deeper in IndexingCommon's constructor.
+            return new OnlineIndexer(
+                    Objects.requireNonNull(getRunner(), "runner must be set before calling build()"),
+                    Objects.requireNonNull(getRecordStoreBuilder(), "record store builder must be set before calling build()"),
+                    targetIndexes, recordTypes, getConfigLoader(), conf, isTrackProgress(),
+                    Objects.requireNonNull(indexingPolicy, "indexingPolicy is always resolved by determineIndexingPolicy()"));
         }
 
         private void determineIndexingPolicy() {
@@ -842,12 +860,16 @@ public class OnlineIndexer implements AutoCloseable {
 
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         private void validateIndexSetting(RecordMetaData metaData) {
+            // determineIndexingPolicy() is always called (from build()) before validate(), and it guarantees
+            // indexingPolicy is resolved to a non-null value by the time validate() runs.
+            final IndexingPolicy policy = Objects.requireNonNull(indexingPolicy,
+                    "indexingPolicy is always resolved by determineIndexingPolicy() before validate() runs");
             if (this.targetIndexes.isEmpty()) {
                 throw new MetaDataException("index must be set");
             }
             // Remove duplications (if any)
             if (targetIndexes.size() > 1) {
-                if (indexingPolicy.isByIndex()) {
+                if (policy.isByIndex()) {
                     // TODO: support multi target indexing by index
                     throw new IndexingBase.ValidationException("Indexing multi targets by a source index is not supported (yet)");
                 }
@@ -856,7 +878,7 @@ public class OnlineIndexer implements AutoCloseable {
                     targetIndexes = new ArrayList<>(set);
                 }
             }
-            if (indexingPolicy.isMutual() && indexingPolicy.isByIndex()) {
+            if (policy.isMutual() && policy.isByIndex()) {
                 throw new IndexingBase.ValidationException("Indexing mutually by a source index is not supported (yet)");
             }
             targetIndexes.sort(Comparator.comparing(Index::getName));
@@ -894,10 +916,13 @@ public class OnlineIndexer implements AutoCloseable {
         private final DesiredAction ifMismatchPrevious;
         private final DesiredAction ifReadable;
         private final boolean allowUniquePendingState;
+        @Nullable
         private final Set<TakeoverTypes> allowedTakeoverSet;
         private final boolean mutualIndexing;
+        @Nullable
         private final List<Tuple> mutualIndexingBoundaries;
         private final boolean allowUnblock;
+        @Nullable
         private final String allowUnblockId;
         private final long initialMergesCountLimit;
         private final boolean reverseScanOrder;
@@ -956,9 +981,9 @@ public class OnlineIndexer implements AutoCloseable {
         @SuppressWarnings("squid:S00107") // too many parameters
         private IndexingPolicy(@Nullable String sourceIndex, @Nullable Object sourceIndexSubspaceKey, boolean forbidRecordScan,
                                DesiredAction ifDisabled, DesiredAction ifWriteOnly, DesiredAction ifMismatchPrevious, DesiredAction ifReadable,
-                               boolean allowUniquePendingState, Set<TakeoverTypes> allowedTakeoverSet,
-                               boolean mutualIndexing, List<Tuple> mutualIndexingBoundaries,
-                               boolean allowUnblock, String allowUnblockId,
+                               boolean allowUniquePendingState, @Nullable Set<TakeoverTypes> allowedTakeoverSet,
+                               boolean mutualIndexing, @Nullable List<Tuple> mutualIndexingBoundaries,
+                               boolean allowUnblock, @Nullable String allowUnblockId,
                                long initialMergesCountLimit,
                                boolean reverseScanOrder,
                                Set<Index> pendingWriteQueueIndexes,
@@ -1226,17 +1251,22 @@ public class OnlineIndexer implements AutoCloseable {
         @API(API.Status.UNSTABLE)
         public static class Builder {
             boolean forbidRecordScan = false;
+            @Nullable
             String sourceIndex = null;
+            @Nullable
             private Object sourceIndexSubspaceKey = null;
             private DesiredAction ifDisabled = DesiredAction.REBUILD;
             private DesiredAction ifWriteOnly = DesiredAction.CONTINUE;
             private DesiredAction ifMismatchPrevious = DesiredAction.CONTINUE;
             private DesiredAction ifReadable = DesiredAction.CONTINUE;
             private boolean doAllowUniquePendingState = false;
+            @Nullable
             private Set<TakeoverTypes> allowedTakeoverSet = null;
             private boolean useMutualIndexing = false;
+            @Nullable
             private List<Tuple> useMutualIndexingBoundaries = null;
             private boolean allowUnblock = false;
+            @Nullable
             private String allowUnblockId = null;
             private long initialMergesCountLimit = 0;
             private boolean reverseScanOrder = false;
@@ -1261,7 +1291,7 @@ public class OnlineIndexer implements AutoCloseable {
              * @param sourceIndex an existing, readable, index.
              * @return this builder
              */
-            public Builder setSourceIndex(final String sourceIndex) {
+            public Builder setSourceIndex(@Nullable final String sourceIndex) {
                 this.sourceIndex = sourceIndex;
                 return this;
             }
@@ -1458,7 +1488,7 @@ public class OnlineIndexer implements AutoCloseable {
              * @return this builder
              */
             @API(API.Status.EXPERIMENTAL)
-            public Builder setMutualIndexingBoundaries(final List<Tuple> primaryKeysBoundaries) {
+            public Builder setMutualIndexingBoundaries(@Nullable final List<Tuple> primaryKeysBoundaries) {
                 if (primaryKeysBoundaries == null || primaryKeysBoundaries.isEmpty()) {
                     this.useMutualIndexingBoundaries = null;
                 } else {

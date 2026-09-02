@@ -92,6 +92,7 @@ public class IndexingThrottle {
         private long forcedDelayTimestampMilliSeconds = 0;
         private long recordsScannedSinceForcedDelayMilliSeconds = 0;
         private long consecutiveFailureCount = 0;
+        @Nullable
         private StoreTimerSnapshot storeTimerSnapshot = null;
 
         Booker(IndexingCommon common) {
@@ -147,7 +148,7 @@ public class IndexingThrottle {
                                                @Nullable List<Object> additionalLogMessageKeyValues,
                                                int currTries,
                                                final boolean adjustLimits) {
-            if (currTries >= common.config.getMaxRetries() || !shouldLessenWork(fdbException)) {
+            if (currTries >= common.config.getMaxRetries() || fdbException == null || !shouldLessenWork(fdbException)) {
                 // Here: should not retry or no more retries. There is no real need to handle limits.
                 return false;
             }
@@ -329,7 +330,7 @@ public class IndexingThrottle {
 
     @SuppressWarnings("squid:S3776") // cognitive complexity is high, candidate for refactoring
     public <R> CompletableFuture<R> buildCommitRetryAsync(final BiFunction<FDBRecordStore, AtomicLong, CompletableFuture<R>> buildFunction,
-                                                          @Nullable final Function<FDBException, Optional<R>> shouldReturnQuietly,
+                                                          @Nullable final Function<@Nullable FDBException, Optional<R>> shouldReturnQuietly,
                                                           @Nullable final List<Object> additionalLogMessageKeyValues,
                                                           final boolean adjustLimits) {
         List<Object> onlineIndexerLogMessageKeyValues = new ArrayList<>(common.indexLogMessageKeyValues());
