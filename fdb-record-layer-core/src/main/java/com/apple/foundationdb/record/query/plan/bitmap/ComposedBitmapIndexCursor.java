@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.MergeCursor;
@@ -38,6 +39,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
@@ -78,9 +80,11 @@ class ComposedBitmapIndexCursor extends MergeCursor<IndexEntry, IndexEntry, Merg
         return whenAll(cursorStates).thenApply(vignore -> {
             boolean anyHasNext = false;
             for (MergeCursorState<IndexEntry> cursorState : cursorStates) {
-                if (cursorState.getResult().hasNext()) {
+                // whenAll() guarantees every cursorState's onNext future has completed, so getResult() is non-null here.
+                final RecordCursorResult<IndexEntry> result = Objects.requireNonNull(cursorState.getResult());
+                if (result.hasNext()) {
                     anyHasNext = true;
-                } else if (cursorState.getResult().getNoNextReason().isLimitReached()) {
+                } else if (result.getNoNextReason().isLimitReached()) {
                     // Stop if any has reached limit.
                     return Collections.emptyList();
                 }
@@ -91,8 +95,10 @@ class ComposedBitmapIndexCursor extends MergeCursor<IndexEntry, IndexEntry, Merg
                 final List<MergeCursorState<IndexEntry>> resultStates = new ArrayList<>();
                 long nextPosition = Long.MAX_VALUE;
                 for (MergeCursorState<IndexEntry> cursorState : cursorStates) {
-                    if (cursorState.getResult().hasNext()) {
-                        final IndexEntry indexEntry = cursorState.getResult().get();
+                    final RecordCursorResult<IndexEntry> result = Objects.requireNonNull(cursorState.getResult());
+                    if (result.hasNext()) {
+                        // hasNext() being true guarantees get() is non-null here.
+                        final IndexEntry indexEntry = Objects.requireNonNull(result.get());
                         final Tuple indexKey = indexEntry.getKey();
                         final long position = indexKey.getLong(indexKey.size() - 1);
                         if (nextPosition > position) {
@@ -115,12 +121,14 @@ class ComposedBitmapIndexCursor extends MergeCursor<IndexEntry, IndexEntry, Merg
     @SuppressWarnings("PMD.CloseResource")
     protected IndexEntry getNextResult(List<MergeCursorState<IndexEntry>> resultStates) {
         final List<MergeCursorState<IndexEntry>> cursorStates = getCursorStates();
-        final IndexEntry firstEntry = resultStates.get(0).getResult().get();
+        // Every state in resultStates was selected in computeNextResultStates() precisely because its
+        // getResult() was non-null and had a next value, so both calls below are safe.
+        final IndexEntry firstEntry = Objects.requireNonNull(Objects.requireNonNull(resultStates.get(0).getResult()).get());
         final int size = firstEntry.getValue().getBytes(0).length;
         final List<byte[]> bitmaps = new ArrayList<>(cursorStates.size());
         for (MergeCursorState<IndexEntry> cursorState : cursorStates) {
             if (resultStates.contains(cursorState)) {
-                byte[] bitmap = cursorState.getResult().get().getValue().getBytes(0);
+                byte[] bitmap = Objects.requireNonNull(Objects.requireNonNull(cursorState.getResult()).get()).getValue().getBytes(0);
                 if (bitmap.length != size) {
                     throw new RecordCoreException("Index bitmaps are not all the same size");
                 }
@@ -129,7 +137,7 @@ class ComposedBitmapIndexCursor extends MergeCursor<IndexEntry, IndexEntry, Merg
                 bitmaps.add(null);
             }
         }
-        final byte[] composed = composer.compose(bitmaps, size);
+        @Nullable final byte[] composed = composer.compose(bitmaps, size);
         return new IndexEntry(firstEntry.getIndex(), firstEntry.getKey(), Tuple.fromList(Collections.singletonList(composed)));
     }
 
