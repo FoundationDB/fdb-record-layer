@@ -912,7 +912,16 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      */
     default CompletableFuture<Integer> countRecords(@Nullable Tuple low, @Nullable Tuple high,
                                                     EndpointType lowEndpoint, EndpointType highEndpoint) {
-        return countRecords(low, high, lowEndpoint, highEndpoint, null, ScanProperties.FORWARD_SCAN);
+        return countRecords(low, high, lowEndpoint, highEndpoint, noContinuation(), ScanProperties.FORWARD_SCAN);
+    }
+
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[] continuation
+    // parameter at call sites in this file; centralizing the (well-understood) suppression here, rather than
+    // repeating it at every "no continuation" call site, keeps things readable.
+    @Nullable
+    @SuppressWarnings("NullAway")
+    private static byte[] noContinuation() {
+        return null;
     }
 
     /**
@@ -974,7 +983,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a cursor that return records pointed to by the index
      */
     default RecordCursor<FDBIndexedRecord<M>> scanIndexRecords(final String indexName, IsolationLevel isolationLevel) {
-        return scanIndexRecords(indexName, IndexScanType.BY_VALUE, TupleRange.ALL, null,
+        return scanIndexRecords(indexName, IndexScanType.BY_VALUE, TupleRange.ALL, noContinuation(),
                 new ScanProperties(ExecuteProperties.newBuilder().setIsolationLevel(isolationLevel).build()));
     }
 
@@ -1289,7 +1298,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     default RecordCursor<FDBIndexedRecord<M>> scanIndexRecordsEqual(final String indexName, final Object... values) {
         final Tuple tuple = Tuple.from(values);
         final TupleRange range = TupleRange.allOf(tuple);
-        return scanIndexRecords(indexName, IndexScanType.BY_VALUE, range, null, ScanProperties.FORWARD_SCAN);
+        return scanIndexRecords(indexName, IndexScanType.BY_VALUE, range, noContinuation(), ScanProperties.FORWARD_SCAN);
     }
 
     /**
@@ -1303,7 +1312,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         final Tuple tuple = Tuple.from(values);
         final TupleRange range = TupleRange.allOf(tuple);
         final IndexScanBounds bounds = new IndexScanRange(IndexScanType.BY_VALUE, range);
-        return scanIndexRemoteFetch(indexName, bounds, null, ScanProperties.FORWARD_SCAN, IndexOrphanBehavior.ERROR);
+        return scanIndexRemoteFetch(indexName, bounds, noContinuation(), ScanProperties.FORWARD_SCAN, IndexOrphanBehavior.ERROR);
     }
 
     /**
@@ -1319,7 +1328,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         final Tuple highTuple = Tuple.from(high);
         final TupleRange range = new TupleRange(lowTuple, highTuple,
                 EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE);
-        return scanIndexRecords(indexName, IndexScanType.BY_VALUE, range, null, ScanProperties.FORWARD_SCAN);
+        return scanIndexRecords(indexName, IndexScanType.BY_VALUE, range, noContinuation(), ScanProperties.FORWARD_SCAN);
     }
 
     /**
@@ -1366,11 +1375,18 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                         if (getTimer() != null) {
                             getTimer().increment(FDBStoreTimer.Counts.BAD_INDEX_ENTRY);
                         }
-                        throw new RecordCoreStorageException("record not found from index entry").addLogInfo(
-                                LogMessageKeys.INDEX_NAME, entry.getIndex().getName(),
-                                LogMessageKeys.PRIMARY_KEY, primaryKey,
-                                LogMessageKeys.INDEX_KEY, entry.getKey(),
-                                getSubspaceProvider().logKey(), getSubspaceProvider().toString(getContext()));
+                        {
+                            final RecordCoreStorageException ex = new RecordCoreStorageException("record not found from index entry");
+                            ex.addLogInfo(
+                                    LogMessageKeys.INDEX_NAME, entry.getIndex().getName(),
+                                    LogMessageKeys.PRIMARY_KEY, primaryKey,
+                                    LogMessageKeys.INDEX_KEY, entry.getKey());
+                            final SubspaceProvider subspaceProvider = getSubspaceProvider();
+                            if (subspaceProvider != null) {
+                                ex.addLogInfo(subspaceProvider.logKey(), subspaceProvider.toString(getContext()));
+                            }
+                            throw ex;
+                        }
                     default:
                         throw new RecordCoreException("Unexpected index orphan behavior: " + orphanBehavior);
                 }
@@ -1440,7 +1456,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a cursor that will return uniqueness violations stored for the given index in the given store
      */
     default RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(Index index, Tuple valueKey) {
-        return scanUniquenessViolations(index, valueKey, null, ScanProperties.FORWARD_SCAN);
+        return scanUniquenessViolations(index, valueKey, noContinuation(), ScanProperties.FORWARD_SCAN);
     }
 
     /**
@@ -1455,7 +1471,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a cursor that will return uniqueness violations stored for the given index in the given store
      */
     default RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(Index index, Key.Evaluated indexKey) {
-        return scanUniquenessViolations(index, indexKey, null, ScanProperties.FORWARD_SCAN);
+        return scanUniquenessViolations(index, indexKey, noContinuation(), ScanProperties.FORWARD_SCAN);
     }
 
     /**
@@ -1484,7 +1500,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a cursor that will return uniqueness violations stored for the given index in the given store
      */
     default RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(Index index, int limit) {
-        return scanUniquenessViolations(index, null, new ScanProperties(ExecuteProperties.newBuilder()
+        return scanUniquenessViolations(index, noContinuation(), new ScanProperties(ExecuteProperties.newBuilder()
                 .setReturnedRowLimit(limit)
                 .setIsolationLevel(IsolationLevel.SERIALIZABLE)
                 .build()));
@@ -2199,6 +2215,16 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         FDBRecordContext getContext();
 
         /**
+         * Get the record context (transaction) to use for the record store, requiring that it has been set.
+         * The various build/open/create methods below require a context, so calling any of them without first
+         * calling {@link #setContext} is a usage error.
+         * @return the (non-null) record context / transaction to use
+         */
+        default FDBRecordContext requireContext() {
+            return Objects.requireNonNull(getContext(), "record context must be supplied before building/opening a store");
+        }
+
+        /**
          * Set the record context (transaction) to use for the record store.
          * @param context the record context / transaction to use
          * @return this builder
@@ -2388,7 +2414,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @return a store with the appropriate parameters set
          */
         default R uncheckedOpen() {
-            return getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD_STORE_STATE, uncheckedOpenAsync());
+            return requireContext().asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD_STORE_STATE, uncheckedOpenAsync());
         }
 
         /**
@@ -2396,7 +2422,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @return a store with the appropriate parameters set
          */
         default R create() {
-            return getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, createAsync());
+            return requireContext().asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, createAsync());
         }
 
         /**
@@ -2404,7 +2430,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @return a store with the appropriate parameters set
          */
         default R open() {
-            return getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, openAsync());
+            return requireContext().asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, openAsync());
         }
 
         /**
@@ -2412,7 +2438,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @return a store with the appropriate parameters set
          */
         default R createOrOpen() {
-            return getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, createOrOpenAsync());
+            return requireContext().asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, createOrOpenAsync());
         }
 
         /**
@@ -2421,7 +2447,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @return an open record store
          */
         default R createOrOpen(FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
-            return getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, createOrOpenAsync(existenceCheck));
+            return requireContext().asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, createOrOpenAsync(existenceCheck));
         }
 
         /**
@@ -2469,7 +2495,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     default RecordCursor<FDBIndexedRecord<M>> remoteFetchFallbackFrom(final Index index,
                                                                       final IndexScanType scanType,
                                                                       final TupleRange scanRange,
-                                                                      final byte[] continuation,
+                                                                      @Nullable final byte[] continuation,
                                                                       final IndexOrphanBehavior orphanBehavior,
                                                                       final ScanProperties scanProperties,
                                                                       final RecordCursorResult<FDBIndexedRecord<M>> lastSuccessfulResult) {
