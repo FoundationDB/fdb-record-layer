@@ -31,6 +31,7 @@ import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.index.SegmentInfo;
 
 import java.io.IOException;
+import java.util.Objects;
 
 class PrimaryKeyAndStoredFieldsWriter extends LuceneOptimizedStoredFieldsWriter {
     private final LucenePrimaryKeySegmentIndex lucenePrimaryKeySegmentIndex;
@@ -42,7 +43,9 @@ class PrimaryKeyAndStoredFieldsWriter extends LuceneOptimizedStoredFieldsWriter 
                                     final FDBDirectory directory) throws IOException {
         super(directory, segmentInfo);
         this.segmentId = directory.primaryKeySegmentId(segmentInfo.name, true);
-        this.lucenePrimaryKeySegmentIndex = directory.getPrimaryKeySegmentIndex();
+        // This class is only constructed when PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED is set, in which case
+        // getPrimaryKeySegmentIndex() always returns a non-null LucenePrimaryKeySegmentIndexV2.
+        this.lucenePrimaryKeySegmentIndex = Objects.requireNonNull(directory.getPrimaryKeySegmentIndex());
     }
 
     @Override

@@ -127,6 +127,7 @@ public class FDBDirectorySharedCacheManager {
      * Builder for {@code FDBDirectorySharedCacheManager}.
      */
     public static class Builder {
+        @Nullable
         private Subspace subspace;
         private int maximumSize = 1024;
         private int concurrencyLevel = 16;
@@ -135,7 +136,7 @@ public class FDBDirectorySharedCacheManager {
         protected Builder() {
         }
 
-        public Builder setSubspace(final Subspace subspace) {
+        public Builder setSubspace(@Nullable final Subspace subspace) {
             this.subspace = subspace;
             return this;
         }

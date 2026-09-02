@@ -87,7 +87,9 @@ public class LuceneScanSpellCheckParameters extends LuceneScanParameters impleme
     @Override
     public LuceneScanSpellCheck bind(FDBRecordStoreBase<?> store, Index index, EvaluationContext context) {
         List<String> fields = indexTextFields(index, store.getRecordMetaData());
-        String wordToSpellCheck = isParameter ? (String)context.getBinding(key) : key;
+        String wordToSpellCheck = isParameter
+                ? Objects.requireNonNull((String)context.getBinding(key), () -> "No binding found for spellcheck parameter " + key)
+                : key;
         // TODO: Probably want more obvious syntax for this.
         if (wordToSpellCheck.contains(":")) {
             String[] fieldAndWord = wordToSpellCheck.split(":", 2);
@@ -142,7 +144,7 @@ public class LuceneScanSpellCheckParameters extends LuceneScanParameters impleme
         if (this == other) {
             return true;
         }
-        if (!super.equals(other)) {
+        if (other == null || !super.equals(other)) {
             return false;
         }
 

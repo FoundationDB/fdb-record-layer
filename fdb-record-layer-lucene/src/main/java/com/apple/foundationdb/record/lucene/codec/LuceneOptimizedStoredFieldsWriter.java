@@ -63,6 +63,9 @@ public class LuceneOptimizedStoredFieldsWriter extends StoredFieldsWriter {
         this.directory = directory;
         this.docId = 0;
         this.segmentName = si.name;
+        // startDocument() always replaces this with a fresh builder before any document is actually written;
+        // initialize eagerly here just so the field is never null.
+        this.storedFields = LuceneStoredFieldsProto.LuceneStoredFields.newBuilder();
     }
 
     @Override

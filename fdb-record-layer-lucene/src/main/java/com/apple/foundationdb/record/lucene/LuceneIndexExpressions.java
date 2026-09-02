@@ -171,6 +171,7 @@ public class LuceneIndexExpressions {
          *
          * @return the PointsConfig for this field.
          */
+        @Nullable
         public PointsConfig getPointsConfig() {
             switch (type) {
                 case INT:

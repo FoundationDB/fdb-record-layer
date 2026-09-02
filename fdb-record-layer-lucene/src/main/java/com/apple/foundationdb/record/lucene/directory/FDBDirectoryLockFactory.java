@@ -89,6 +89,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
          * When closing this lock, we set this to the current context, so that when the pre-commit hook runs we won't
          * fail to heartbeat, as it will expect the lock to be deleted.
          */
+        @Nullable
         private FDBRecordContext closingContext = null;
         private final Object fileLockSetLock = new Object();
 
@@ -131,12 +132,13 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             return Tuple.from(selfStampUuid, timeStampMillis).pack();
         }
 
-        private static long fileLockValueToTimestamp(byte[] value) {
+        private static long fileLockValueToTimestamp(@Nullable byte[] value) {
             return value == null ? 0 :
                    Tuple.fromBytes(value).getLong(1);
         }
 
-        private static UUID fileLockValueToUuid(byte[] value) {
+        @Nullable
+        private static UUID fileLockValueToUuid(@Nullable byte[] value) {
             return value == null ? null :
                    Tuple.fromBytes(value).getUUID(0);
         }
@@ -173,7 +175,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
                     });
         }
 
-        private void fileLockCheckHeartBeat(byte[] val) {
+        private void fileLockCheckHeartBeat(@Nullable byte[] val) {
             long existingTimeStamp = fileLockValueToTimestamp(val);
             UUID existingUuid = fileLockValueToUuid(val);
             if (existingTimeStamp == 0 || existingUuid == null) {
@@ -184,7 +186,7 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             }
         }
 
-        private void fileLockCheckNewLock(byte[] val, long nowMillis) {
+        private void fileLockCheckNewLock(@Nullable byte[] val, long nowMillis) {
             long existingTimeStamp = fileLockValueToTimestamp(val);
             UUID existingUuid = fileLockValueToUuid(val);
             if (existingUuid == null || existingTimeStamp <= 0) {

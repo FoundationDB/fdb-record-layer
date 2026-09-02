@@ -110,7 +110,8 @@ public abstract class LuceneScanParameters implements IndexScanParameters {
         if (!tupleRange.isEquals()) {
             throw new RecordCoreException("group comparisons did not result in equality");
         }
-        return tupleRange.getLow();
+        // An equality TupleRange always has a non-null low bound.
+        return Objects.requireNonNull(tupleRange.getLow());
     }
 
     @Nullable

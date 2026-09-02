@@ -217,7 +217,7 @@ public class LuceneIndexKeySerializer {
     }
 
     @SuppressWarnings("java:S3776")
-    private @Nullable byte[] applyFormat(final RecordIdFormat.FormatElementType formatElement, final Object tupleElement) {
+    private byte @Nullable [] applyFormat(final RecordIdFormat.FormatElementType formatElement, final Object tupleElement) {
         byte[] value;
         switch (formatElement) {
             case NONE:

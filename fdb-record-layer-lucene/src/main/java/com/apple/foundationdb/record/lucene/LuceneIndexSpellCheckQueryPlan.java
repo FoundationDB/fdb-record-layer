@@ -64,7 +64,7 @@ public class LuceneIndexSpellCheckQueryPlan extends LuceneIndexQueryPlan {
     public <M extends Message> RecordCursor<FDBQueriedRecord<M>> fetchIndexRecords(final FDBRecordStoreBase<M> store,
                                                                                    final EvaluationContext evaluationContext,
                                                                                    final Function<byte[], RecordCursor<IndexEntry>> entryCursorFunction,
-                                                                                   @Nullable final byte[] continuation,
+                                                                                   final byte @Nullable [] continuation,
                                                                                    final ExecuteProperties executeProperties) {
         final RecordMetaData metaData = store.getRecordMetaData();
         final Index index = metaData.getIndex(indexName);
@@ -72,7 +72,11 @@ public class LuceneIndexSpellCheckQueryPlan extends LuceneIndexQueryPlan {
         final IndexScanType scanType = getScanType();
 
         final RecordType recordType = Iterables.getOnlyElement(recordTypes);
-        return entryCursorFunction.apply(continuation)
+        // entryCursorFunction's type is fixed by RecordQueryPlanWithIndex (unannotated core), whose own default
+        // implementation likewise applies a @Nullable continuation to this same Function<byte[], ...> type.
+        @SuppressWarnings("NullAway")
+        final RecordCursor<IndexEntry> entryCursor = entryCursorFunction.apply(continuation);
+        return entryCursor
                 .map(QueryPlanUtils.getCoveringIndexEntryToPartialRecordFunction(store, recordType.getName(), indexName,
                         LuceneIndexKeyValueToPartialRecordUtils.getToPartialRecord(index, recordType, scanType), false));
     }

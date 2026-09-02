@@ -116,6 +116,9 @@ public interface ConfigAwareQueryParser {
         }
 
         final var cfg = Objects.requireNonNull(getPointsConfig()).get(field);
+        if (cfg == null) {
+            throw new ParseException("No points config found for field " + field);
+        }
         if (!Long.class.equals(cfg.getType())) {
             throw new ParseException("Cannot parse a BITSET_CONTAINS on a non-long data type");
         }

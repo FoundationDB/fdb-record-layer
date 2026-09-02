@@ -456,7 +456,8 @@ public class PendingWriteQueue {
                     if (size == null) {
                         return null;
                     } else {
-                        final Long actualSize = decodeQueueSize(size);
+                        // decodeQueueSize() only returns null when given null bytes; size is non-null here.
+                        final Long actualSize = Objects.requireNonNull(decodeQueueSize(size));
                         context.recordSize(LuceneEvents.SizeEvents.LUCENE_QUEUE_SIZE, actualSize);
                         return actualSize;
                     }
