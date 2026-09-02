@@ -47,6 +47,7 @@ import org.apache.lucene.search.TermRangeQuery;
 
 import org.jspecify.annotations.Nullable;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Query clause using a {@link Comparisons.Comparison} against a document field.
@@ -182,11 +183,12 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
         }
     }
 
-    protected String applyFieldNameConversion(final boolean fieldNameOverride, final String field, final String namedFieldSuffix, final Object comparand) {
+    protected String applyFieldNameConversion(final boolean fieldNameOverride, final String field, @Nullable final String namedFieldSuffix, final Object comparand) {
         if ( ! fieldNameOverride) {
             return field;
         }
-        int location = field.lastIndexOf(namedFieldSuffix);
+        // If fieldNameOverride is true, the caller is required to supply a non-null suffix to convert.
+        int location = field.lastIndexOf(Objects.requireNonNull(namedFieldSuffix, "namedFieldSuffix must be set when fieldNameOverride is true"));
         if (location == -1) {
             throw new RecordCoreArgumentException("Cannot find the replacement suffix in Lucene field name")
                     .addLogInfo("fieldName", field)
@@ -313,10 +315,11 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
 
     static class IntQuery extends LuceneQueryFieldComparisonClause {
         private final boolean fieldNameOverride;
+        @Nullable
         private final String namedFieldSuffix;
 
         public IntQuery(final LuceneQueryType queryType, String field, LuceneIndexExpressions.DocumentFieldType fieldType, Comparisons.Comparison comparison,
-                        final boolean fieldNameOverride, final String namedFieldSuffix) {
+                        final boolean fieldNameOverride, @Nullable final String namedFieldSuffix) {
             super(queryType, field, fieldType, comparison);
             this.fieldNameOverride = fieldNameOverride;
             this.namedFieldSuffix = namedFieldSuffix;
@@ -361,10 +364,11 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
 
     static class LongQuery extends LuceneQueryFieldComparisonClause {
         private final boolean fieldNameOverride;
+        @Nullable
         private final String namedFieldSuffix;
 
         public LongQuery(final LuceneQueryType queryType, String field, LuceneIndexExpressions.DocumentFieldType fieldType, Comparisons.Comparison comparison,
-                         final boolean fieldNameOverride, final String namedFieldSuffix) {
+                         final boolean fieldNameOverride, @Nullable final String namedFieldSuffix) {
             super(queryType, field, fieldType, comparison);
             this.fieldNameOverride = fieldNameOverride;
             this.namedFieldSuffix = namedFieldSuffix;
@@ -433,10 +437,11 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
 
     static class DoubleQuery extends LuceneQueryFieldComparisonClause {
         private final boolean fieldNameOverride;
+        @Nullable
         private final String namedFieldSuffix;
 
         public DoubleQuery(final LuceneQueryType queryType, String field, LuceneIndexExpressions.DocumentFieldType fieldType, Comparisons.Comparison comparison,
-                           final boolean fieldNameOverride, final String namedFieldSuffix) {
+                           final boolean fieldNameOverride, @Nullable final String namedFieldSuffix) {
             super(queryType, field, fieldType, comparison);
             this.fieldNameOverride = fieldNameOverride;
             this.namedFieldSuffix = namedFieldSuffix;

@@ -29,6 +29,7 @@ import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.spans.SpanNearQuery;
 
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -51,6 +52,7 @@ public class LuceneOptimizedMultiFieldQueryParser extends MultiFieldQueryParser 
     }
 
     @Override
+    @Nullable
     protected Query getFieldQuery(String field, String queryText, int slop) throws ParseException {
         if (field == null) {
             List<Query> clauses = new ArrayList<>();

@@ -40,6 +40,7 @@ public class LuceneComparisonQuery extends Query {
     private final Query query;
     private final String fieldName;
     private final Comparisons.Type comparisonType;
+    @Nullable
     private final Object comparand;
 
     public LuceneComparisonQuery(final Query query,
@@ -75,6 +76,7 @@ public class LuceneComparisonQuery extends Query {
         return comparisonType;
     }
 
+    @Nullable
     public Object getComparand() {
         return comparand;
     }
