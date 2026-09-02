@@ -382,7 +382,8 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
             final var bestMatch = bestMatchWithIndex.getElement();
 
             final var compensatedSingleAccessExpressionOptional =
-                    applyCompensationForSingleDataAccessMaybe(call, bestMatch, bestMatchToPlanMap.get(bestMatch.getPartialMatch()));
+                    applyCompensationForSingleDataAccessMaybe(call, bestMatch,
+                            Objects.requireNonNull(bestMatchToPlanMap.get(bestMatch.getPartialMatch())));
 
             addToIntersectionInfoMap(intersectionInfoMap, bestMatchWithIndex, compensatedSingleAccessExpressionOptional);
         }

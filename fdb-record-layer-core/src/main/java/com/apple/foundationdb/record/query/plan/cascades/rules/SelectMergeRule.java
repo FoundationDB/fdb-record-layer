@@ -51,6 +51,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.expressionPartitions;
@@ -121,7 +122,7 @@ public class SelectMergeRule extends AbstractCascadesRule<SelectExpression> impl
         final var newPredicates = ImmutableList.<QueryPredicate>builder();
         final var nextExpressionTranslationBuilder = TranslationMap.regularBuilder();
         for (final var alias: correlationPermutation.orElseThrow()) {
-            final var oldQun = aliasToQuantifierMap.get(alias);
+            final var oldQun = Objects.requireNonNull(aliasToQuantifierMap.get(alias));
             final var childSelectExpression = quantifierToChildSelectExpressionMap.get(alias);
             if (childSelectExpression != null) {
                 AliasMap.Builder childAliasMapBuilder = AliasMap.builder();
@@ -156,7 +157,7 @@ public class SelectMergeRule extends AbstractCascadesRule<SelectExpression> impl
             } else {
                 // non-SelectExpression
                 Verify.verify(newQunAliases.add(alias), "alias %s duplicated in pulled up children", alias);
-                final var childReference = aliasToQuantifierMap.get(alias).getRangesOver();
+                final var childReference = Objects.requireNonNull(aliasToQuantifierMap.get(alias)).getRangesOver();
                 Reference newChildReference = call.memoizeFinalExpressionsFromOther(childReference, childReference.getFinalExpressions());
                 if (!correlationOrder.getDependencyMap().get(alias).isEmpty()) {
                     // This might possibly prove wasteful as we first create and memoize a new ref of final expressions,

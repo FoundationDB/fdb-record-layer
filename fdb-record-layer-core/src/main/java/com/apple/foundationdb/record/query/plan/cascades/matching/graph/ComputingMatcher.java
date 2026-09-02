@@ -33,6 +33,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -142,6 +144,7 @@ public class ComputingMatcher<T, M, R> extends BaseMatcher<T> implements Generic
         final int size = otherPermutation.size();
 
         return new AbstractIterator<BoundMatch<R>>() {
+            @Nullable
             @Override
             protected BoundMatch<R> computeNext() {
                 while (iterator.hasNext()) {

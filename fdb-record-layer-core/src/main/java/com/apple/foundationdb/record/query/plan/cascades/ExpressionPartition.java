@@ -70,7 +70,7 @@ public class ExpressionPartition<E extends RelationalExpression> {
 
     public <A> A getNonPartitioningPropertyValue(final E expression,
                                                  final ExpressionProperty<A> expressionProperty) {
-        final var propertyMapForExpression = nonPartitioningPropertiesMap.get(expression);
+        final var propertyMapForExpression = Objects.requireNonNull(nonPartitioningPropertiesMap.get(expression));
         return expressionProperty.narrowAttribute(Objects.requireNonNull(propertyMapForExpression.get(expressionProperty)));
     }
 

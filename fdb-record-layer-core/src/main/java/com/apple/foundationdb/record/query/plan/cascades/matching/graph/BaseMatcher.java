@@ -33,6 +33,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -306,6 +308,7 @@ public class BaseMatcher<T> {
                                     .iterator();
 
                     final Iterator<Set<CorrelationIdentifier>> filteredCombinationsIterator = new AbstractIterator<>() {
+                        @Nullable
                         @Override
                         protected Set<CorrelationIdentifier> computeNext() {
                             while (combinationsIterator.hasNext()) {

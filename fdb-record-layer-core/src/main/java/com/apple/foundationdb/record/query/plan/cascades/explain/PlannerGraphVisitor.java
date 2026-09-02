@@ -314,7 +314,8 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
         return clusterMap.entrySet()
                 .stream()
                 .map(entry -> {
-                    final String label = Debugger.mapDebugger(debugger -> debugger.nameForObject(entry.getKey().getIdentity()))
+                    final String label = Debugger.mapDebugger(debugger -> Optional.ofNullable(debugger.nameForObject(entry.getKey().getIdentity())))
+                            .flatMap(Function.identity())
                             .orElse("group");
                     return new GroupCluster(label, entry.getValue());
                 })
@@ -510,10 +511,10 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
                                             if (root instanceof PlannerGraph.WithExpression) {
                                                 final PlannerGraph.WithExpression withExpression = (PlannerGraph.WithExpression)root;
                                                 @Nullable final RelationalExpression expression = withExpression.getExpression();
-                                                return expression == null ? null : debugger.nameForObject(expression);
+                                                return expression == null ? Optional.<String>empty() : Optional.ofNullable(debugger.nameForObject(expression));
                                             }
-                                            return null;
-                                        });
+                                            return Optional.<String>empty();
+                                        }).flatMap(Function.identity());
 
                                 final Node member =
                                         debugNameOptional.map(PlannerGraph.ReferenceMemberNode::new)

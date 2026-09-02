@@ -59,6 +59,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -220,7 +221,7 @@ public class PredicateToLogicalUnionRule extends AbstractCascadesRule<MatchParti
 
         final var aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(quantifiers);
         // there is definitely exactly one quantifier in the needed list
-        final var onlyNeededForEachQuantifier = aliasToQuantifierMap.get(Iterables.getOnlyElement(ownedForEachAliases));
+        final var onlyNeededForEachQuantifier = Objects.requireNonNull(aliasToQuantifierMap.get(Iterables.getOnlyElement(ownedForEachAliases)));
         final Value lowerResultValue = onlyNeededForEachQuantifier.getFlowedObjectValue();
         final var fixedPredicatesCorrelatedTo = fixedPredicates.stream().flatMap(p -> p.getCorrelatedTo().stream()).collect(ImmutableSet.toImmutableSet());
         final var fixedAtomicPredicates =
@@ -247,11 +248,11 @@ public class PredicateToLogicalUnionRule extends AbstractCascadesRule<MatchParti
                             .filter(quantifier -> quantifier instanceof Quantifier.Existential &&
                                                   (orTermCorrelatedTo.contains(quantifier.getAlias()) ||
                                                    fixedPredicatesCorrelatedTo.contains(quantifier.getAlias())))
-                            .map(quantifier -> Quantifier.existentialBuilder().withAlias(quantifier.getAlias()).build(aliasToQuantifierMap.get(quantifier.getAlias()).getRangesOver()))
+                            .map(quantifier -> Quantifier.existentialBuilder().withAlias(quantifier.getAlias()).build(Objects.requireNonNull(aliasToQuantifierMap.get(quantifier.getAlias())).getRangesOver()))
                             .collect(ImmutableList.toImmutableList());
 
             final var neededForEachQuantifiers =
-                    ownedForEachAliases.stream().map(alias -> Quantifier.forEachBuilder().withAlias(alias).build(aliasToQuantifierMap.get(alias).getRangesOver())).collect(ImmutableList.toImmutableList());
+                    ownedForEachAliases.stream().map(alias -> Quantifier.forEachBuilder().withAlias(alias).build(Objects.requireNonNull(aliasToQuantifierMap.get(alias)).getRangesOver())).collect(ImmutableList.toImmutableList());
 
             final var selectExpressionLeg =
                     new SelectExpression(lowerResultValue,

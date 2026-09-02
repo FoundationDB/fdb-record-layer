@@ -72,7 +72,7 @@ public class TransitiveClosure {
         final Set<T> processed = Sets.newHashSetWithExpectedSize(partiallyOrderedSet.size());
         final Deque<T> deque = new ArrayDeque<>(partiallyOrderedSet.size());
         for (final T current : set) {
-            if (inDegreeMap.get(current) == 0) {
+            if (Objects.requireNonNull(inDegreeMap.get(current)) == 0) {
                 deque.add(current);
             }
         }

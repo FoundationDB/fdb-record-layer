@@ -36,7 +36,6 @@ import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
 /**
@@ -211,7 +210,7 @@ public interface TreeLike<T extends TreeLike<T>> {
      * @return an {@link Optional} of a tree-like object that is the result of the tree-map operation if the fold of the
      *         tree rooted at {@code this} exists, {@code Optional.empty()} otherwise
      */
-    default Optional<T> replaceLeavesMaybe(final UnaryOperator<T> replaceOperator) {
+    default Optional<T> replaceLeavesMaybe(final Function<T, @Nullable T> replaceOperator) {
         return replaceLeavesMaybe(replaceOperator, false);
     }
 
@@ -226,9 +225,9 @@ public interface TreeLike<T extends TreeLike<T>> {
      *         tree rooted at {@code this} exists, {@code Optional.empty()} otherwise
      */
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    default Optional<T> replaceLeavesMaybe(final UnaryOperator<T> replaceOperator, boolean visitNewLeaves) {
+    default Optional<T> replaceLeavesMaybe(final Function<T, @Nullable T> replaceOperator, boolean visitNewLeaves) {
         if (visitNewLeaves) {
-            return Optional.ofNullable(replace(node -> {
+            return Optional.ofNullable(replace((Function<T, @Nullable T>)node -> {
                 if (Iterables.isEmpty(node.getChildren())) {
                     return replaceOperator.apply(node);
                 }
@@ -236,7 +235,7 @@ public interface TreeLike<T extends TreeLike<T>> {
             }));
         } else {
             final Set<T> newLeaves = Sets.newIdentityHashSet();
-            return Optional.ofNullable(replace(node -> {
+            return Optional.ofNullable(replace((Function<T, @Nullable T>)node -> {
                 if (!newLeaves.contains(node) && Iterables.isEmpty(node.getChildren())) {
                     final var result = replaceOperator.apply(node);
                     if (result != null) {
@@ -265,7 +264,7 @@ public interface TreeLike<T extends TreeLike<T>> {
      */
     @SuppressWarnings("PMD.CompareObjectsWithEquals") // intentional for performance.
     @Nullable
-    default T replace(final UnaryOperator<T> replacementOperator) {
+    default T replace(final Function<T, @Nullable T> replacementOperator) {
         final var self = getThis();
         final var maybeReplaced = replacementOperator.apply(self);
         if (maybeReplaced == null) {

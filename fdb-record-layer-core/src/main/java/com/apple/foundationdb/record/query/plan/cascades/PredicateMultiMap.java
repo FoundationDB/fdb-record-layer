@@ -37,6 +37,8 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +46,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 
 /**
  * Map that maps from a {@link QueryPredicate} of a query to a {@link QueryPredicate} of a {@link MatchCandidate}.
@@ -64,7 +67,7 @@ public class PredicateMultiMap {
     private static Value replaceNewlyMatchedValues(final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
                                                    final Map<Value, Value> amendedMatchedAggregateMap,
                                                    final Value rootValue) {
-        return Objects.requireNonNull(rootValue.replace(currentValue -> {
+        return Objects.requireNonNull(rootValue.replace((Function<Value, @Nullable Value>)currentValue -> {
             if (currentValue instanceof GroupByExpression.UnmatchedAggregateValue) {
                 final var unmatchedId =
                         ((GroupByExpression.UnmatchedAggregateValue)currentValue).getUnmatchedId();
@@ -209,7 +212,9 @@ public class PredicateMultiMap {
                 final var comparisons = ((PredicateWithComparisons)pulledUpPredicate).getComparisons();
                 for (final var comparison : comparisons) {
                     if (comparison instanceof Comparisons.ValueComparison) {
-                        final var comparisonValue = comparison.getValue();
+                        // ValueComparison.getValue() always returns non-null, unlike the @Nullable default on the
+                        // Comparison interface; cast to pick up the non-null override.
+                        final var comparisonValue = ((Comparisons.ValueComparison)comparison).getValue();
                         if (comparisonValue.preOrderStream()
                                 .anyMatch(v -> v instanceof GroupByExpression.UnmatchedAggregateValue || v instanceof Value.IndexOnlyValue)) {
                             return true;

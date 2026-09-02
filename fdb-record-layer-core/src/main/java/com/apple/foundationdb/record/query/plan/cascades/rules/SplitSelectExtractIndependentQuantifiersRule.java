@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -135,8 +136,9 @@ public class SplitSelectExtractIndependentQuantifiersRule extends AbstractCascad
                                         explodeAliases.contains(quantifier.getAlias()) && eligibleAliases.contains(quantifier.getAlias()),
                                 ImmutableList.toImmutableList()));
 
-        final var lowerQuantifiers = partitionedQuantifiers.get(false);
-        final var upperQuantifiers = partitionedQuantifiers.get(true);
+        // Collectors.partitioningBy() is documented to always populate both the false and true keys.
+        final var lowerQuantifiers = Objects.requireNonNull(partitionedQuantifiers.get(false));
+        final var upperQuantifiers = Objects.requireNonNull(partitionedQuantifiers.get(true));
 
         // we need a proper partitioning
         if (lowerQuantifiers.isEmpty() || upperQuantifiers.isEmpty()) {

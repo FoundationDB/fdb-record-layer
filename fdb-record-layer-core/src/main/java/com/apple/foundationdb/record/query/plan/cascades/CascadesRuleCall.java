@@ -331,8 +331,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
             final Set<CorrelationIdentifier> requiredCorrelations = correlatedTo(expressions);
 
             // Pick a candidate expression from the expressions collection. This will be used to do the topological check
-            final RelationalExpression expression = Iterables.getFirst(expressions, null);
-            Verify.verify(expression != null, "should not get null from first element of non-empty expressions collection");
+            final RelationalExpression expression = expressions.iterator().next();
 
             // For each child quantifier of this expression, look up the set of parent nodes in the
             // memo structure that point to the (already memoized) child

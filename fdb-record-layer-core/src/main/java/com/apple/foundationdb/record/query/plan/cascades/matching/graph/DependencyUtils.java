@@ -29,6 +29,7 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.StreamSupport;
@@ -91,7 +92,7 @@ public class DependencyUtils {
                                                                                                              final Function<T, ? extends Collection<T>> dependsOnFn) {
         final ImmutableSetMultimap.Builder<CorrelationIdentifier, CorrelationIdentifier> builder = ImmutableSetMultimap.builder();
         for (final CorrelationIdentifier alias : aliases) {
-            final Collection<T> dependsOn = dependsOnFn.apply(aliasToElementMap.get(alias));
+            final Collection<T> dependsOn = dependsOnFn.apply(Objects.requireNonNull(aliasToElementMap.get(alias)));
             for (final T dependsOnElement : dependsOn) {
                 @Nullable final CorrelationIdentifier dependsOnAlias = elementToAliasFn.apply(dependsOnElement);
                 if (dependsOnAlias != null && aliases.contains(dependsOnAlias)) {
@@ -120,7 +121,7 @@ public class DependencyUtils {
                                                                                                                         final Function<T, Set<CorrelationIdentifier>> dependsOnFn) {
         final ImmutableSetMultimap.Builder<CorrelationIdentifier, CorrelationIdentifier> builder = ImmutableSetMultimap.builder();
         for (final CorrelationIdentifier alias : aliases) {
-            final Set<CorrelationIdentifier> dependsOn = dependsOnFn.apply(aliasToElementMap.get(alias));
+            final Set<CorrelationIdentifier> dependsOn = dependsOnFn.apply(Objects.requireNonNull(aliasToElementMap.get(alias)));
             for (final CorrelationIdentifier dependsOnAlias : dependsOn) {
                 if (dependsOnAlias != null && aliases.contains(dependsOnAlias)) {
                     builder.put(alias, dependsOnAlias);

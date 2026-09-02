@@ -109,6 +109,10 @@ public final class LinkedIdentityMap<K, V> extends AbstractMap<K, V> {
     }
 
     @Override
+    @SuppressWarnings("NullAway") // Map.get() is modeled as @Nullable-returning; this override's non-null V return
+                                   // type is this class's existing (and widely relied-upon) contract that callers
+                                   // only ever look up keys known to be present. Changing it to @Nullable would
+                                   // ripple out to many call sites outside this task's scope.
     public V get(final Object key) {
         return map.get(identity.wrap(key));
     }

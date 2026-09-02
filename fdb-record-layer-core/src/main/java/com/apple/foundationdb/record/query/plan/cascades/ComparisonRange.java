@@ -279,16 +279,17 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
 
     @SuppressWarnings({"ConstantConditions", "java:S2447"})
     @SpotBugsSuppressWarnings("NP_BOOLEAN_RETURN_NULL")
+    @Nullable
     public <M extends Message> Boolean eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context, @Nullable final Object value) {
         if (value == null) {
             return null;
         }
 
         if (isEquality()) {
-            return equalityComparison.eval(store, context, value);
+            return Objects.requireNonNull(equalityComparison).eval(store, context, value);
         }
         if (isInequality()) {
-            for (final Comparison inequalityComparison : inequalityComparisons) {
+            for (final Comparison inequalityComparison : Objects.requireNonNull(inequalityComparisons)) {
                 final Boolean comparisonResult = inequalityComparison.eval(store, context, value);
                 if (comparisonResult == null) {
                     return null;
@@ -304,6 +305,9 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
     }
 
     @Override
+    @SuppressWarnings("NullAway") // objectsPlanHash's vararg elements safely tolerate null (see PlanHashable#objectPlanHash,
+                                   // which explicitly hashes a null element as 0); equalityComparison/inequalityComparisons
+                                   // are mutually exclusive and one of them is always null for any given range.
     public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, equalityComparison, inequalityComparisons);
     }

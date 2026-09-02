@@ -225,7 +225,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
             Optional.ofNullable(getDetails())
                     .ifPresent(details -> builder.put("details",
                             Attribute.invisible(
-                                    getDetails().stream()
+                                    details.stream()
                                             .map(Attribute::common)
                                             .collect(Collectors.toList()))));
             builder.putAll(additionalAttributes);

@@ -555,6 +555,7 @@ public class TopologicalSort {
         }
 
         return () -> new AbstractIterator<>() {
+            @Nullable
             @Override
             protected List<T> computeNext() {
                 while (enumeratingIterator.hasNext()) {

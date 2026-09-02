@@ -57,6 +57,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.IntUnaryOperator;
 import java.util.stream.Collectors;
 
@@ -75,6 +76,7 @@ public class DebuggerWithSymbolTables implements Debugger {
 
     private final boolean isSane;
     private final boolean isRecordEvents;
+    @Nullable
     private final Iterable<PPlannerEvent> prerecordedEventProtoIterable;
     private final Deque<RegisteredEntities> registeredEntitiesStack;
 
@@ -368,7 +370,9 @@ public class DebuggerWithSymbolTables implements Debugger {
     public static void printForEachExpression(final Reference root) {
         forEachExpression(root, expression -> {
             System.out.println("expression: " +
-                    Debugger.mapDebugger(debugger -> debugger.nameForObject(expression)).orElseThrow() + "; " +
+                    Debugger.mapDebugger(debugger -> Optional.ofNullable(debugger.nameForObject(expression)))
+                            .flatMap(Function.identity())
+                            .orElseThrow() + "; " +
                     "hashCodeWithoutChildren: " + expression.hashCodeWithoutChildren() + "explain: " + expression);
         });
     }

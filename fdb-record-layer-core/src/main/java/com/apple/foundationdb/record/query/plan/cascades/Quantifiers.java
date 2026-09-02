@@ -52,6 +52,8 @@ import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -421,6 +423,7 @@ public class Quantifiers {
             final EnumeratingIterator<AliasMap> iterator = enumeratingIterable.iterator();
 
             return new AbstractIterator<AliasMap>() {
+                @Nullable
                 @Override
                 protected AliasMap computeNext() {
                     while (iterator.hasNext()) {

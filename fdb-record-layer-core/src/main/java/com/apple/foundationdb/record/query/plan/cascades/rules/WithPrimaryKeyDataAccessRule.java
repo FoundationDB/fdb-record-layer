@@ -219,7 +219,7 @@ public class WithPrimaryKeyDataAccessRule extends AbstractDataAccessRule {
             if (first) {
                 common = key;
                 first = false;
-            } else if (!common.equals(key)) {
+            } else if (!Objects.requireNonNull(common).equals(key)) {
                 return Optional.empty();
             }
         }

@@ -126,7 +126,11 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
      * @return the corresponding Java {@link Class} of the {@link Type} instance.
      */
     default Class<?> getJavaClass() {
-        return getTypeCode().getJavaClass();
+        // Only TypeCode.RELATION and TypeCode.NONE map to a null Java class, and both concrete Type
+        // implementations for those type codes (Relation, None) override this method rather than relying on
+        // the default, so this is never actually null for any Type that reaches this default implementation.
+        return Objects.requireNonNull(getTypeCode().getJavaClass(),
+                "no corresponding Java class for type code " + getTypeCode());
     }
 
     /**
@@ -1371,6 +1375,17 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             return TypeCode.NONE;
         }
 
+        /**
+         * {@inheritDoc}
+         *
+         * <p>{@link TypeCode#NONE} has no corresponding Java {@link Class}; mirrors {@link Relation#getJavaClass()}
+         * rather than silently falling back to the default implementation, which would return {@code null}.
+         */
+        @Override
+        public Class<?> getJavaClass() {
+            throw new UnsupportedOperationException("should not have been asked");
+        }
+
         @Override
         public boolean isNullable() {
             return false;
@@ -2231,6 +2246,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         }
 
         public Type.Record addPseudoFields() {
+            Objects.requireNonNull(fields);
             final List<Type.Record.Field> newFields = new ArrayList<>(fields.size() + 1);
             newFields.addAll(fields);
             for (PseudoField pseudoField : PseudoField.values()) {
@@ -2939,7 +2955,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         public static Type scalarOf(final Type relationType) {
             Verify.verify(relationType.getTypeCode() == TypeCode.RELATION && relationType instanceof Relation);
-            return ((Relation)relationType).getInnerType();
+            return Objects.requireNonNull(((Relation)relationType).getInnerType(),
+                    "relation type has no inner (scalar) type");
         }
 
         /**

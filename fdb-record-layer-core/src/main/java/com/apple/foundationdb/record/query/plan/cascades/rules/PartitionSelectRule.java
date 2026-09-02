@@ -46,8 +46,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher.combinations;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
@@ -307,7 +310,7 @@ public class PartitionSelectRule extends AbstractCascadesRule<SelectExpression> 
             final var newUpperPredicates =
                     upperPredicates.stream()
                             .map(upperPredicate ->
-                                    upperPredicate.replaceLeavesMaybe(leafPredicate -> leafPredicate.translateLeafPredicate(translationMap, false))
+                                    upperPredicate.replaceLeavesMaybe((Function<QueryPredicate, @Nullable QueryPredicate>)leafPredicate -> leafPredicate.translateLeafPredicate(translationMap, false))
                                     .orElseThrow(() -> new RecordCoreException("unable to map leaf predicate")))
                             .collect(ImmutableList.toImmutableList());
 
