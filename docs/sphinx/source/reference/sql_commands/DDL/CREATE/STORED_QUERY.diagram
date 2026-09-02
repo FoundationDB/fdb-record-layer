@@ -1,13 +1,36 @@
 Diagram(
-    Sequence(
-        Terminal('CREATE'),
-        Terminal('STORED'),
-        Terminal('QUERY'),
-        NonTerminal('queryName'),
-        Optional(
-            NonTerminal('declareBlock')
+    Stack(
+        Sequence(
+            Terminal('CREATE'),
+            Terminal('STORED'),
+            Terminal('QUERY'),
+            NonTerminal('queryName'),
         ),
-        Terminal('AS'),
-        NonTerminal('query')
+        Optional(
+            Sequence(
+                Terminal('('),
+                OneOrMore(
+                    Sequence(
+                        NonTerminal('parameterName'),
+                        NonTerminal('dataType'),
+                        Optional(
+                            Sequence(
+                                Terminal('NOT'),
+                                Terminal('NULL')
+                            )
+                        )
+                    ),
+                    Terminal(',')
+                ),
+                Terminal(')')
+            )
+        ),
+        Sequence(
+            Optional(
+                NonTerminal('declareBlock')
+            ),
+            Terminal('AS'),
+            NonTerminal('query')
+        )
     )
 )
