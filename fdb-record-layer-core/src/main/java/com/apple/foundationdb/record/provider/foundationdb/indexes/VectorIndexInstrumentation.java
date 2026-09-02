@@ -42,7 +42,7 @@ final class VectorIndexInstrumentation {
      * @param value the value that was read, or {@code null} if absent
      */
     static void recordKeyValueRead(final FDBStoreTimer timer, final byte[] key,
-                                   @Nullable final byte[] value) {
+                                   final byte @Nullable [] value) {
         final int keyLength = key.length;
         final int valueLength = value == null ? 0 : value.length;
 

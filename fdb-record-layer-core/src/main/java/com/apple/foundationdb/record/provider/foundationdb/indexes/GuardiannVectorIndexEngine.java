@@ -452,7 +452,7 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
         }
 
         @Override
-        public void onKeyValueRead(final byte[] key, @Nullable final byte[] value) {
+        public void onKeyValueRead(final byte[] key, final byte @Nullable [] value) {
             VectorIndexInstrumentation.recordKeyValueRead(timer, key, value);
         }
 

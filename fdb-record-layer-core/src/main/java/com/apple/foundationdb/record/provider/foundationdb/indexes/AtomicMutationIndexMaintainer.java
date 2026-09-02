@@ -120,6 +120,8 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) locals, even after an explicit
+                                   // null check (param/compareAndClear are confirmed non-null by the checks/continue above their use).
     protected <M extends Message> CompletableFuture<Void> updateIndexKeys(final FDBIndexableRecord<M> savedRecord,
                                                                           final boolean remove,
                                                                           final List<IndexEntry> indexEntries) {
@@ -139,7 +141,7 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
                 groupKey = TupleHelpers.subTuple(indexEntry.getKey(), 0, groupPrefixSize);
                 groupedValue = indexEntry.subKey(groupPrefixSize, indexEntry.getKeySize());
             }
-            final byte[] param = mutation.getMutationParam(groupedValue, remove);
+            final @Nullable byte[] param = mutation.getMutationParam(groupedValue, remove);
             if (param == null) {
                 continue;
             }
@@ -168,7 +170,7 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
                 }
             } else {
                 state.transaction.mutate(mutationType, key, param);
-                final byte[] compareAndClear = mutation.getCompareAndClearParam();
+                final @Nullable byte[] compareAndClear = mutation.getCompareAndClearParam();
                 if (compareAndClear != null) {
                     state.transaction.mutate(MutationType.COMPARE_AND_CLEAR, key, compareAndClear);
                 }
@@ -202,7 +204,11 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    @SuppressWarnings("PMD.CloseResource")
+    @SuppressWarnings({"PMD.CloseResource", "NullAway"}) // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters
+                                                          // (passing null to mean "start from the beginning"); and RecordCursor#reduce's
+                                                          // generic <U> is declared without "extends @Nullable Object", so NullAway treats
+                                                          // its identity parameter and return value as non-null even though this mutation's
+                                                          // identity/aggregate values are genuinely @Nullable Tuples.
     public CompletableFuture<Tuple> evaluateAggregateFunction(IndexAggregateFunction function,
                                                               TupleRange range,
                                                               IsolationLevel isolationveLevel) {

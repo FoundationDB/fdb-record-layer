@@ -144,7 +144,7 @@ public interface AtomicMutation {
 
         @Override
         @Nullable
-        @SuppressWarnings("fallthrough")
+        @SuppressWarnings({"fallthrough", "NullAway"}) // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return types.
         public byte[] getMutationParam(IndexEntry entry, boolean remove) {
             // Not quite sure how to handle the case where an index entry has a value. One possibility might be
             // to pack the key and the value together into a single tuple.  For now, though, just check that it
@@ -346,6 +346,7 @@ public interface AtomicMutation {
 
         @Override
         @Nullable
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return types.
         public byte[] getCompareAndClearParam() {
             switch (this) {
                 case COUNT_NOT_NULL_CLEAR_WHEN_ZERO:

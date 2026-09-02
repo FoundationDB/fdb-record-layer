@@ -194,7 +194,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
      * @param scanProperties the scan properties for this scan
      * @return a {@link RecordCursor} returning the index entries for this scan
      */
-    @SuppressWarnings("resource")
+    @SuppressWarnings({"resource", "NullAway"}) // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even across explicit null checks.
     private RecordCursor<IndexEntry> scanSinglePartition(@Nullable final Tuple prefixTuple,
                                                          @Nullable final byte[] continuation,
                                                          final Subspace partitionSubspace,
@@ -291,7 +291,9 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         };
     }
 
-    @SuppressWarnings({"resource", "PMD.CloseResource"})
+    @SuppressWarnings({"resource", "PMD.CloseResource", "NullAway"}) // NullAway/JSpecify does not currently track @Nullable on array (byte[])
+                                                                      // parameters of KeyValueCursorBase.Builder#setContinuation (out of scope
+                                                                      // to fix here); passing null intentionally means "start from the beginning".
     private CompletableFuture<Optional<Tuple>> nextPrefixTuple(final TupleRange prefixRange,
                                                                final int prefixSize,
                                                                @Nullable final Tuple lastPrefixTuple,
@@ -427,12 +429,12 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         final List<IndexEntry> oldEntries = filteredIndexEntries(oldRecord);
         if (oldEntries != null) {
             Verify.verify(oldEntries.size() == 1);
-            builder.addOldEntries(toProto(oldEntries.get(0), oldRecord.getPrimaryKey()));
+            builder.addOldEntries(toProto(oldEntries.get(0), Objects.requireNonNull(oldRecord).getPrimaryKey()));
         }
         final List<IndexEntry> newEntries = filteredIndexEntries(newRecord);
         if (newEntries != null) {
             Verify.verify(newEntries.size() == 1);
-            builder.addNewEntries(toProto(newEntries.get(0), newRecord.getPrimaryKey()));
+            builder.addNewEntries(toProto(newEntries.get(0), Objects.requireNonNull(newRecord).getPrimaryKey()));
         }
         return Any.pack(builder.build());
     }
@@ -721,6 +723,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         @Nullable
         private byte[] cachedBytes;
 
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields; cachedBytes is correctly left uninitialized (lazily computed).
         private Continuation(final List<IndexEntry> indexEntries,
                              final RecordCursorContinuation innerContinuation) {
             this.indexEntries = ImmutableList.copyOf(indexEntries);
@@ -761,6 +764,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
 
         @Nullable
         @Override
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return types.
         public byte[] toBytes() {
             if (isEnd()) {
                 return null;
@@ -781,7 +785,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                 return RecordCursorProto.VectorIndexScanContinuation.parseFrom(continuationBytes);
             } catch (InvalidProtocolBufferException ex) {
                 throw new RecordCoreException("error parsing continuation", ex)
-                        .addLogInfo("raw_bytes", ByteArrayUtil2.loggable(continuationBytes));
+                        .addLogInfo("raw_bytes", Objects.requireNonNull(ByteArrayUtil2.loggable(continuationBytes)));
             }
         }
     }
