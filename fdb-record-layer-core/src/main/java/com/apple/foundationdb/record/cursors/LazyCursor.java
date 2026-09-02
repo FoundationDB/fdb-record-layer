@@ -49,6 +49,7 @@ import java.util.concurrent.Executor;
 @API(API.Status.UNSTABLE)
 public class LazyCursor<T> implements RecordCursor<T> {
     private final CompletableFuture<RecordCursor<T>> futureCursor;
+    @Nullable
     private final Executor executor;
     @Nullable
     private RecordCursor<T> inner;

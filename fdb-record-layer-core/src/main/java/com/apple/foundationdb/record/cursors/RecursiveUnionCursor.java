@@ -38,6 +38,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import org.jspecify.annotations.Nullable;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -211,7 +212,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
                 parsedTempTable = PTempTable.parseFrom(message.getTempTable().toByteString());
             } catch (InvalidProtocolBufferException ex) {
                 throw new RecordCoreException("invalid continuation", ex)
-                        .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(message.toByteArray()));
+                        .addLogInfo(LogMessageKeys.RAW_BYTES, Objects.requireNonNull(ByteArrayUtil2.loggable(message.toByteArray())));
             }
             return new Continuation(message.getIsInitialState(), childContinuation, tempTableDeserializer.apply(parsedTempTable));
         }
@@ -230,7 +231,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
                 return from(parsed, tempTableDeserializer);
             } catch (InvalidProtocolBufferException ex) {
                 throw new RecordCoreException("invalid continuation", ex)
-                        .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(unparsedContinuationBytes));
+                        .addLogInfo(LogMessageKeys.RAW_BYTES, Objects.requireNonNull(ByteArrayUtil2.loggable(unparsedContinuationBytes)));
             }
         }
 

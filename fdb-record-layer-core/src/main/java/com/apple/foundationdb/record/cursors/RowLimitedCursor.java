@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.cursors;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
 import org.jspecify.annotations.Nullable;
@@ -56,9 +57,15 @@ public class RowLimitedCursor<T> implements RecordCursor<T> {
         }
         if (limitReached()) {
             inner.close();
-            NoNextReason reason = (!nextResult.hasNext() && nextResult.getContinuation().isEnd())
-                                  ? nextResult.getNoNextReason() : NoNextReason.RETURN_LIMIT_REACHED;
-            nextResult = RecordCursorResult.withoutNextValue(nextResult.getContinuation(), reason);
+            if (nextResult == null) {
+                // The limit was already reached before any record was ever returned (e.g. a limit of 0), so there
+                // is no prior result to derive a continuation from; fall back to the start continuation.
+                nextResult = RecordCursorResult.withoutNextValue(RecordCursorStartContinuation.START, NoNextReason.RETURN_LIMIT_REACHED);
+            } else {
+                NoNextReason reason = (!nextResult.hasNext() && nextResult.getContinuation().isEnd())
+                                      ? nextResult.getNoNextReason() : NoNextReason.RETURN_LIMIT_REACHED;
+                nextResult = RecordCursorResult.withoutNextValue(nextResult.getContinuation(), reason);
+            }
             return CompletableFuture.completedFuture(nextResult);
         } else {
             return inner.onNext().thenApply(result -> {

@@ -174,7 +174,7 @@ public abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implement
                 // as the current one. This guarantees that it will choose an
                 // out of band reason if there is one and will only return
                 // SOURCE_EXHAUSTED if every child ended with SOURCE_EXHAUSTED.
-                NoNextReason childReason = cursorState.getResult().getNoNextReason();
+                NoNextReason childReason = childResult.getNoNextReason();
                 if (reason == null || childReason.isOutOfBand() || reason.isSourceExhausted()) {
                     reason = childReason;
                 }
@@ -248,6 +248,7 @@ public abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implement
      * @param resultStates the list of cursors to be included in the result
      * @return a result somehow combining the results of the input cursors
      */
+    @Nullable
     protected abstract U getNextResult(List<S> resultStates);
 
     /**

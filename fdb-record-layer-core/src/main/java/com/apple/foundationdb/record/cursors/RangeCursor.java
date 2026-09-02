@@ -44,7 +44,7 @@ public class RangeCursor implements RecordCursor<Integer> {
     private int nextPosition; // position of the next value to return
     private boolean closed = false;
 
-    public RangeCursor(Executor executor, final int exclusiveLimit, byte[] continuation) {
+    public RangeCursor(Executor executor, final int exclusiveLimit, @Nullable byte[] continuation) {
         this(executor, exclusiveLimit, continuation != null ? ByteBuffer.wrap(continuation).getInt() : 0);
     }
 
@@ -120,6 +120,7 @@ public class RangeCursor implements RecordCursor<Integer> {
 
         @Nullable
         @Override
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return types.
         public byte[] toBytes() {
             if (isEnd()) {
                 return null;

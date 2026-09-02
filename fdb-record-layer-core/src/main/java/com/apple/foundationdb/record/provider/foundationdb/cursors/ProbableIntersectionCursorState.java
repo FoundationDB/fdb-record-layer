@@ -36,6 +36,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -74,7 +75,9 @@ class ProbableIntersectionCursorState<T> extends KeyedMergeCursorState<T> {
     @Override
     public void consume() {
         // When consuming, insert the key of the most recent thing returned by this cursor.
-        bloomFilter.put(getComparisonKey());
+        // getComparisonKey() is set by handleNextCursorResult() whenever the associated result has a next
+        // value, which is guaranteed to have happened before consume() is called.
+        bloomFilter.put(Objects.requireNonNull(getComparisonKey()));
         seenSet.add(getComparisonKey());
         super.consume();
     }
@@ -152,6 +155,8 @@ class ProbableIntersectionCursorState<T> extends KeyedMergeCursorState<T> {
         }
     }
 
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters (a null continuation
+                                   // intentionally means "start from the beginning").
     static <T> ProbableIntersectionCursorState<T> from(
             Function<byte[], RecordCursor<T>> cursorFunction,
             BloomFilterCursorContinuation continuation,

@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.RecordCursorVisitor;
 import org.jspecify.annotations.Nullable;
 import java.util.ArrayDeque;
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -189,7 +190,8 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
         Iterator<CompletableFuture<RecordCursorResult<V>>> iter = pipeline.iterator();
         // The earliest continuation we could need to start with is the one from the last returned result.
         // We may, however, return more results if they are already completed.
-        RecordCursorContinuation continuation = nextResult.getContinuation();
+        // This is only called when nextResult != null (see the check at the sole call site above).
+        RecordCursorContinuation continuation = Objects.requireNonNull(nextResult, "nextResult should be set before cancelling pending futures").getContinuation();
         while (iter.hasNext()) {
             CompletableFuture<RecordCursorResult<V>> pendingEntry = iter.next();
             if (!pendingEntry.isDone()) {

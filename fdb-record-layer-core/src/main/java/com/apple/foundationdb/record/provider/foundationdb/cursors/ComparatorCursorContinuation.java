@@ -35,6 +35,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 import static com.apple.foundationdb.record.RecordCursorProto.ComparatorContinuation;
 
@@ -104,6 +105,7 @@ class ComparatorCursorContinuation extends MergeCursorContinuation<ComparatorCon
         return new ComparatorCursorContinuation(cursor.getChildContinuations(), cursor.getReferencePlanIndex());
     }
 
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even across explicit null checks.
     static ComparatorCursorContinuation from(@Nullable byte[] bytes, int numberOfChildren, int referencePlanIndex) {
         if (bytes == null) {
             return new ComparatorCursorContinuation(Collections.nCopies(numberOfChildren, RecordCursorStartContinuation.START), referencePlanIndex);
@@ -112,7 +114,7 @@ class ComparatorCursorContinuation extends MergeCursorContinuation<ComparatorCon
             return ComparatorCursorContinuation.from(ComparatorContinuation.parseFrom(bytes), numberOfChildren, referencePlanIndex);
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("invalid continuation", ex)
-                    .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes));
+                    .addLogInfo(LogMessageKeys.RAW_BYTES, Objects.requireNonNull(ByteArrayUtil2.loggable(bytes)));
         }
     }
 

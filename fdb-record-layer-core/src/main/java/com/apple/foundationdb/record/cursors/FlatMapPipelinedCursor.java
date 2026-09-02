@@ -37,6 +37,7 @@ import com.google.protobuf.ZeroCopyByteString;
 import org.jspecify.annotations.Nullable;
 import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -167,6 +168,8 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
      * Take items from inner cursor and put in pipeline until no more or a mapped cursor item is available.
      * @return a future that will complete with {@code false} if an item is available or none will ever be, or with {@code true} if this method should be called to try again
      */
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+                                   // PipelineQueueEntry's outerCheckValue parameter is annotated @Nullable.
     protected CompletableFuture<Boolean> tryToFillPipeline() {
         if (closed) {
             return ALREADY_CANCELLED;
@@ -197,9 +200,9 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
 
             if (outerResult.hasNext()) {
                 final RecordCursorContinuation priorOuterContinuation = outerContinuation;
-                final T outerValue = outerResult.get();
-                final byte[] outerCheckValue = checkValueFunction == null ? null : checkValueFunction.apply(outerValue);
-                byte[] innerContinuation = null;
+                final T outerValue = Objects.requireNonNull(outerResult.get(), "outerResult.get() should be non-null since outerResult.hasNext() is true");
+                @Nullable final byte[] outerCheckValue = checkValueFunction == null ? null : checkValueFunction.apply(outerValue);
+                @Nullable byte[] innerContinuation = null;
                 if (initialInnerContinuation != null) {
                     // Check if the outer cursor is positioned to the same place as before, by comparing the outer
                     // check value to the initial check value used to build the cursor. If they match (or one is missing),
@@ -207,7 +210,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
                     // so we should start the inner cursor from the beginning.
                     if (initialCheckValue == null || outerCheckValue == null || Arrays.equals(initialCheckValue, outerCheckValue)) {
                         innerContinuation = initialInnerContinuation;
-                        initialInnerContinuation = null;
+                        clearInitialInnerContinuation();
                     }
                 }
                 final RecordCursor<V> innerCursor = innerCursorFunction.apply(outerValue, innerContinuation);
@@ -242,6 +245,12 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         while (!pipeline.isEmpty() && pipeline.peek().doesNotHaveReturnableResult()) {
             pipeline.remove().close();
         }
+    }
+
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields; initialInnerContinuation
+                                   // is only ever meant to be used once, so clearing it back to null here is intentional.
+    private void clearInitialInnerContinuation() {
+        initialInnerContinuation = null;
     }
 
     @Nullable
@@ -279,14 +288,16 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         final RecordCursor<V> innerCursor;
         final RecordCursorContinuation priorOuterContinuation;
         final RecordCursorResult<T> outerResult;
+        @Nullable
         final byte[] outerCheckValue;
 
+        @Nullable
         private volatile CompletableFuture<RecordCursorResult<V>> innerFuture;
 
         public PipelineQueueEntry(@Nullable RecordCursor<V> innerCursor,
                                   RecordCursorContinuation priorOuterContinuation,
                                   RecordCursorResult<T> outerResult,
-                                  byte[] outerCheckValue) {
+                                  @Nullable byte[] outerCheckValue) {
             this.innerCursor = innerCursor;
             this.priorOuterContinuation = priorOuterContinuation;
             this.outerResult = outerResult;
@@ -339,7 +350,8 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
 
         public RecordCursorResult<V> nextResult() {
             // Only called after the future from getNextInnerPipelineFuture() has completed, so this join() is non-blocking.
-            final RecordCursorResult<V> innerResult = innerFuture.join();
+            final RecordCursorResult<V> innerResult = Objects.requireNonNull(innerFuture,
+                    "innerFuture should have been started by getNextInnerPipelineFuture() before nextResult() is called").join();
             final RecordCursorResult<V> result;
             if (innerResult.hasNext()) {
                 result = RecordCursorResult.withNextValue(innerResult.get(), toContinuation());
@@ -360,7 +372,8 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         }
 
         private Continuation<T, V> toContinuation() {
-            return new Continuation<>(priorOuterContinuation, outerResult, outerCheckValue, innerFuture.join());
+            return new Continuation<>(priorOuterContinuation, outerResult, outerCheckValue,
+                    Objects.requireNonNull(innerFuture, "innerFuture should have been started by getNextInnerPipelineFuture() before toContinuation() is called").join());
         }
     }
 
@@ -375,6 +388,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         @Nullable
         private byte[] cachedBytes;
 
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields; cachedBytes is correctly left uninitialized (lazily computed).
         public Continuation(RecordCursorContinuation priorOuterContinuation,
                             RecordCursorResult<T> outerResult,
                             @Nullable byte[] outerCheckValue,
@@ -420,6 +434,7 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
 
         @Nullable
         @Override
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return types.
         public byte[] toBytes() {
             if (isEnd()) {
                 return null;

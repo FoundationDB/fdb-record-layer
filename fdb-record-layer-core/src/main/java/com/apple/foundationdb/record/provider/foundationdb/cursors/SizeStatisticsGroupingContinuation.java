@@ -45,6 +45,7 @@ class SizeStatisticsGroupingContinuation implements RecordCursorContinuation {
     private RecordCursorContinuation innerContinuation;
     @Nullable
     private SizeStatisticsResults partialResults;
+    @Nullable
     private Tuple currentGroupingKey;
     @Nullable
     private byte[] cachedBytes;
@@ -54,6 +55,7 @@ class SizeStatisticsGroupingContinuation implements RecordCursorContinuation {
     /**
      * The inner cursor is done, and we sent the last result, cannot continue afterward.
      */
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields; cachedBytes is correctly left uninitialized (lazily computed).
     private SizeStatisticsGroupingContinuation() {
         lastResultContinuation = true;
     }
@@ -61,9 +63,10 @@ class SizeStatisticsGroupingContinuation implements RecordCursorContinuation {
     /**
      * The inner cursor still has results, we can continue (e.g. group break).
      */
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields; cachedBytes is correctly left uninitialized (lazily computed).
     SizeStatisticsGroupingContinuation(RecordCursorResult<KeyValue> currentKvResult,
                                        SizeStatisticsResults partialResults,
-                                       Tuple currentGroupingKey) {
+                                       @Nullable Tuple currentGroupingKey) {
         lastResultContinuation = false;
         this.innerContinuation = currentKvResult.getContinuation();
         this.partialResults = partialResults.copy(); //cache an immutable snapshot of the partial aggregate state

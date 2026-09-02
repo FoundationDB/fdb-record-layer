@@ -40,6 +40,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -55,7 +56,7 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
 
     private final ChildCursorFunction<T> childCursorFunction;
     @Nullable
-    private final Function<T, byte[]> checkValueFunction;
+    private final Function<@Nullable T, byte[]> checkValueFunction;
     private final List<RecursiveNode<T>> nodes;
 
     private int currentDepth;
@@ -66,7 +67,7 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
     private final boolean isPreorder;
 
     private RecursiveCursor(ChildCursorFunction<T> childCursorFunction,
-                            @Nullable Function<T, byte[]> checkValueFunction,
+                            @Nullable Function<@Nullable T, byte[]> checkValueFunction,
                             List<RecursiveNode<T>> nodes,
                             final boolean isPreorder) {
         this.childCursorFunction = childCursorFunction;
@@ -84,9 +85,10 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
      * @param <T> the type of elements of the cursors
      * @return a cursor over the recursive tree determined by the cursor functions
      */
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even across explicit null checks.
     public static <T> RecursiveCursor<T> create(Function<byte[], ? extends RecordCursor<T>> rootCursorFunction,
                                                 ChildCursorFunction<T> childCursorFunction,
-                                                @Nullable Function<T, byte[]> checkValueFunction,
+                                                @Nullable Function<@Nullable T, byte[]> checkValueFunction,
                                                 @Nullable byte[] continuation,
                                                 final boolean isPreorder) {
         final List<RecursiveNode<T>> nodes = new ArrayList<>();
@@ -98,7 +100,7 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
                 parsed = RecordCursorProto.RecursiveContinuation.parseFrom(continuation);
             } catch (InvalidProtocolBufferException ex) {
                 throw new RecordCoreException("error parsing continuation", ex)
-                        .addLogInfo("raw_bytes", ByteArrayUtil2.loggable(continuation));
+                        .addLogInfo("raw_bytes", Objects.requireNonNull(ByteArrayUtil2.loggable(continuation)));
             }
             final int totalDepth = parsed.getLevelsCount();
             byte[] checkValueFromPrior = null;
@@ -163,7 +165,10 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
 
     @Override
     public Executor getExecutor() {
-        return nodes.get(0).childCursor.getExecutor();  // Take from the root cursor.
+        // Take from the root cursor. The root node (nodes.get(0)) always has a non-null childCursor: it is created via
+        // RecursiveNode.forRoot() with a non-null cursor, and addChildNode() (the only place that replaces node entries
+        // with a possibly-null-cursor node) never touches index 0 since currentDepth is incremented before it is used.
+        return Objects.requireNonNull(nodes.get(0).childCursor, "root node should always have a non-null childCursor").getExecutor();
     }
 
     @Override
@@ -268,11 +273,13 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
             this.childCursor = childCursor;
         }
 
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters.
         static <T> RecursiveNode<T> forRoot(RecordCursorContinuation childContinuationBefore,
                                             RecordCursor<T> childCursor) {
             return new RecursiveNode<>(null, null, false, childContinuationBefore, childCursor);
         }
 
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters.
         static <T> RecursiveNode<T> forValue(@Nullable T value) {
             return new RecursiveNode<>(value, null, true, RecordCursorStartContinuation.START, null);
         }
@@ -282,6 +289,7 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
             return new RecursiveNode<>(null, checkValue, false, childContinuationBefore, null);
         }
 
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters.
         public RecursiveNode<T> withCheckedValue(@Nullable T value, boolean emitPending) {
             return new RecursiveNode<>(value, null, emitPending, childContinuationBefore, null);
         }
@@ -389,7 +397,9 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
         for (int i = 0; i < depth; i++) {
             continuations.add(nodes.get(i).childContinuationBefore);
             if (checkValues != null && i < depth - 1) {
-                checkValues.add(checkValueFunction.apply(nodes.get(i + 1).value));
+                // checkValues is only non-null when checkValueFunction is non-null (see the ternary above).
+                final Function<@Nullable T, byte[]> nonNullCheckValueFunction = Objects.requireNonNull(checkValueFunction);
+                checkValues.add(nonNullCheckValueFunction.apply(nodes.get(i + 1).value));
             }
         }
         return new Continuation(continuations, checkValues);
@@ -404,6 +414,7 @@ public final class RecursiveCursor<T> implements RecordCursor<RecursiveCursor.Re
         @Nullable
         private byte[] cachedBytes;
 
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields; cachedBytes is correctly left uninitialized (lazily computed).
         private Continuation(List<RecordCursorContinuation> continuations, @Nullable List<byte[]> checkValues) {
             this.continuations = continuations;
             this.checkValues = checkValues;

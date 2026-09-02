@@ -32,6 +32,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import org.jspecify.annotations.Nullable;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
@@ -52,6 +53,7 @@ public final class OrElseCursor<T> implements RecordCursor<T> {
     private RecordCursorResult<T> nextResult;
 
     @API(API.Status.INTERNAL)
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even across explicit null checks.
     public OrElseCursor(Function<byte[], ? extends RecordCursor<T>> innerFunc,
                         BiFunction<Executor, byte[], ? extends RecordCursor<T>> elseFunc,
                         @Nullable byte[] continuation) {
@@ -67,7 +69,7 @@ public final class OrElseCursor<T> implements RecordCursor<T> {
                 parsed = RecordCursorProto.OrElseContinuation.parseFrom(continuation);
             } catch (InvalidProtocolBufferException ex) {
                 throw new RecordCoreException("error parsing continuation", ex)
-                        .addLogInfo("raw_bytes", ByteArrayUtil2.loggable(continuation));
+                        .addLogInfo("raw_bytes", Objects.requireNonNull(ByteArrayUtil2.loggable(continuation)));
             }
             this.state = parsed.getState();
 
@@ -100,7 +102,7 @@ public final class OrElseCursor<T> implements RecordCursor<T> {
                 innerFuture = inner.onNext();
                 break;
             case USE_OTHER:
-                innerFuture = other.onNext();
+                innerFuture = Objects.requireNonNull(other, "other cursor should be set when state is USE_OTHER").onNext();
                 break;
             case UNDECIDED:
                 innerFuture = inner.onNext().thenCompose(result -> {
@@ -196,6 +198,7 @@ public final class OrElseCursor<T> implements RecordCursor<T> {
 
         @Nullable
         @Override
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return types.
         public byte[] toBytes() {
             ByteString byteString = toByteString();
             return byteString.isEmpty() ? null : byteString.toByteArray();

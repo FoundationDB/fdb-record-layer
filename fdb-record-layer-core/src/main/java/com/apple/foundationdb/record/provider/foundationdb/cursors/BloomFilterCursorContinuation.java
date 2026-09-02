@@ -38,6 +38,7 @@ class BloomFilterCursorContinuation implements RecordCursorContinuation {
     @Nullable
     private ByteString cachedByteString;
 
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields; cachedBytes is correctly left uninitialized (lazily computed).
     BloomFilterCursorContinuation(RecordCursorContinuation childContinuation, @Nullable ByteString bloomBytes) {
         this.childContinuation = childContinuation;
         this.bloomBytes = bloomBytes;

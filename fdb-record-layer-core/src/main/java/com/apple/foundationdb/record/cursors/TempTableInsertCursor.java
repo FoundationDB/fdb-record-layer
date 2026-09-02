@@ -108,9 +108,11 @@ public class TempTableInsertCursor implements RecordCursor<QueryResult> {
      * @return a new {@link TempTableInsertCursor} that either resumes the execution according to the given continuation,
      *         or starts from the beginning.
      */
-    @SuppressWarnings("PMD.CloseResource")
+    @SuppressWarnings({"PMD.CloseResource", "NullAway"}) // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters,
+                                                          // even across explicit null checks; a null child continuation intentionally means
+                                                          // "start from the beginning".
     public static TempTableInsertCursor from(@Nullable byte[] unparsed,
-                                             Function<PTempTable, TempTable> tempTableDeserializer,
+                                             Function<@Nullable PTempTable, TempTable> tempTableDeserializer,
                                              Function<byte[], RecordCursor<QueryResult>> childCursorCreator) {
         final var continuation = Continuation.from(unparsed, tempTableDeserializer);
         final var childCursor = childCursorCreator.apply(continuation.getChildContinuation().toBytes());
@@ -154,6 +156,7 @@ public class TempTableInsertCursor implements RecordCursor<QueryResult> {
 
         @Nullable
         @Override
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return types.
         public byte[] toBytes() {
             if (isEnd()) {
                 return null;
@@ -168,7 +171,7 @@ public class TempTableInsertCursor implements RecordCursor<QueryResult> {
 
         private static  Continuation from(final RecordCursorProto.TempTableInsertContinuation parsed,
                                           @Nullable final PTempTable parsedTempTable,
-                                          final Function<PTempTable, TempTable> tempTableDeserializer) {
+                                          final Function<@Nullable PTempTable, TempTable> tempTableDeserializer) {
             final var tempTable = tempTableDeserializer.apply(parsedTempTable);
             final var childContinuation = parsed.hasChildContinuation()
                                           ? ByteArrayContinuation.fromNullable(parsed.getChildContinuation().toByteArray())
@@ -176,8 +179,9 @@ public class TempTableInsertCursor implements RecordCursor<QueryResult> {
             return new Continuation(tempTable, childContinuation);
         }
 
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even across explicit null checks.
         private static Continuation from(@Nullable final byte[] unparsed,
-                                         final Function<PTempTable, TempTable> tempTableDeserializer) {
+                                         final Function<@Nullable PTempTable, TempTable> tempTableDeserializer) {
             if (unparsed == null) {
                 return new Continuation(tempTableDeserializer.apply(null), RecordCursorStartContinuation.START);
             } else {
@@ -187,7 +191,7 @@ public class TempTableInsertCursor implements RecordCursor<QueryResult> {
                     return Continuation.from(parsed, parsedTempTable, tempTableDeserializer);
                 } catch (InvalidProtocolBufferException ex) {
                     throw new RecordCoreException("invalid continuation", ex)
-                            .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(unparsed));
+                            .addLogInfo(LogMessageKeys.RAW_BYTES, Objects.requireNonNull(ByteArrayUtil2.loggable(unparsed)));
                 }
             }
         }

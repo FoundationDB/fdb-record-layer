@@ -34,6 +34,7 @@ import com.google.protobuf.Message;
 import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.RecordCursorProto.ProbableIntersectionContinuation;
@@ -88,6 +89,7 @@ class ProbableIntersectionCursorContinuation extends MergeCursorContinuation<Pro
         return new ProbableIntersectionCursorContinuation(childContinuations);
     }
 
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even across explicit null checks.
     static ProbableIntersectionCursorContinuation from(@Nullable byte[] bytes, int numberOfChildren) {
         if (bytes == null) {
             return new ProbableIntersectionCursorContinuation(Collections.nCopies(numberOfChildren,
@@ -97,7 +99,7 @@ class ProbableIntersectionCursorContinuation extends MergeCursorContinuation<Pro
             return ProbableIntersectionCursorContinuation.from(ProbableIntersectionContinuation.parseFrom(bytes), numberOfChildren);
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("invalid continuation", ex)
-                    .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes));
+                    .addLogInfo(LogMessageKeys.RAW_BYTES, Objects.requireNonNull(ByteArrayUtil2.loggable(bytes)));
         }
     }
 

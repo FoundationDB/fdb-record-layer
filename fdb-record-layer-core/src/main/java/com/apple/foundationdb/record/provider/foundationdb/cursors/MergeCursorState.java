@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordCursorEndContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 
 import org.jspecify.annotations.Nullable;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -73,7 +74,7 @@ public class MergeCursorState<T> implements AutoCloseable {
         // after consuming a element from a cursor, we should never need to query it again,
         // so we update its continuation information now
         onNextFuture = null;
-        continuation = result.getContinuation();
+        continuation = Objects.requireNonNull(result, "result should be set before consume() is called").getContinuation();
     }
 
     /**
@@ -111,6 +112,8 @@ public class MergeCursorState<T> implements AutoCloseable {
         return continuation;
     }
 
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters (a null continuation
+                                   // intentionally means "start from the beginning").
     public static <T> MergeCursorState<T> from(
             Function<byte[], RecordCursor<T>> cursorFunction,
             RecordCursorContinuation continuation) {
