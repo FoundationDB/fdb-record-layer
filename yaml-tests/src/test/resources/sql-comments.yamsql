@@ -25,7 +25,7 @@
 
 ---
 options:
-  supported_version: !current_version
+  supported_version: 4.13.4.0
   connection_options:
     CASE_SENSITIVE_IDENTIFIERS: true
 ---

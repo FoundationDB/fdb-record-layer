@@ -18,7 +18,7 @@
 # limitations under the License.
 ---
 options:
-  supported_version: !current_version
+  supported_version: 4.13.4.0
 ---
 # The `sales` table and its `product_idx` index are the ones shown in the ARRAY_AGG() documentation page. The index is
 # what allows the GROUP BY query below to be planned, since a streaming aggregation needs its input sorted on the
