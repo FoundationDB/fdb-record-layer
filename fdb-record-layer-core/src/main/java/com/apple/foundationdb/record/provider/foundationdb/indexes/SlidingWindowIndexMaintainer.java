@@ -68,6 +68,7 @@ import com.google.protobuf.Message;
 import org.jspecify.annotations.Nullable;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
@@ -359,11 +360,11 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         return state.context.doWithWriteLock(new LockIdentifier(swSubspace), () -> {
             CompletableFuture<Void> future = AsyncUtil.DONE;
 
-            if (shouldMaintain(oldRecord)) {
+            if (oldRecord != null && shouldMaintain(oldRecord)) {
                 future = future.thenCompose(vignore ->
                         handleDelete(entryKeyOf(oldRecord), () -> delegate.update(oldRecord, null)));
             }
-            if (shouldMaintain(newRecord)) {
+            if (newRecord != null && shouldMaintain(newRecord)) {
                 future = future.thenCompose(vignore ->
                         handleInsert(entryKeyOf(newRecord), () -> delegate.update(null, newRecord)));
             }
@@ -392,8 +393,8 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         //
         // The net effect is that after this method completes, newRecord is indexed exactly
         // once with its current values, and the counter accurately reflects the window size.
-        final EntryKey oldKey = shouldMaintain(oldRecord) ? entryKeyOf(oldRecord) : null;
-        final EntryKey newKey = shouldMaintain(newRecord) ? entryKeyOf(newRecord) : null;
+        final EntryKey oldKey = oldRecord != null && shouldMaintain(oldRecord) ? entryKeyOf(oldRecord) : null;
+        final EntryKey newKey = newRecord != null && shouldMaintain(newRecord) ? entryKeyOf(newRecord) : null;
         return updateWindowWhileWriteOnly(oldKey, newKey,
                 () -> delegate.updateWhileWriteOnly(oldRecord, null),
                 () -> delegate.updateWhileWriteOnly(null, newRecord));
@@ -426,11 +427,11 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         // deferred onto the queue and updateFromQueue does not need the record to re-check it.
         final IndexBuildProto.SlidingWindowQueueEntry.Builder builder =
                 IndexBuildProto.SlidingWindowQueueEntry.newBuilder();
-        if (shouldMaintain(oldRecord)) {
+        if (oldRecord != null && shouldMaintain(oldRecord)) {
             builder.setOldEntryKey(entryKeyOf(oldRecord).pack());
             builder.setDelegatedDelete(delegate.serializePendingWriteQueue(oldRecord, null));
         }
-        if (shouldMaintain(newRecord)) {
+        if (newRecord != null && shouldMaintain(newRecord)) {
             builder.setNewEntryKey(entryKeyOf(newRecord).pack());
             builder.setDelegatedInsert(delegate.serializePendingWriteQueue(null, newRecord));
         }
@@ -466,8 +467,8 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         validateOrThrowEx(oldKey == null || delegateDelete != null, "old record key without delegate delete");
         validateOrThrowEx(newKey == null || delegateInsert != null, "new record key without delegate insert");
         return updateWindowWhileWriteOnly(oldKey, newKey,
-                () -> delegate.updateFromQueue(delegateDelete),
-                () -> delegate.updateFromQueue(delegateInsert));
+                () -> delegate.updateFromQueue(Objects.requireNonNull(delegateDelete, "old record key without delegate delete")),
+                () -> delegate.updateFromQueue(Objects.requireNonNull(delegateInsert, "new record key without delegate insert")));
     }
 
     private void validateOrThrowEx(boolean isValid, String msg) {
@@ -726,7 +727,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     private CompletableFuture<Void> reElectFromOverflow(
             Subspace entriesSubspace,
             Transaction tr,
-            @Nullable byte[] currentBoundaryPacked,
+            byte @Nullable [] currentBoundaryPacked,
             byte[] boundaryMetaKey,
             byte[] counterKey,
             long newCount) {
