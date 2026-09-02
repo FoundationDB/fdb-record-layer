@@ -188,7 +188,9 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
         final var targetDescriptor = store.getRecordMetaData().getRecordType(Objects.requireNonNull(targetRecordType)).getDescriptor();
         return results
                 .map(queryResult -> Pair.of(queryResult, mutateRecord(store, context, queryResult, targetDescriptor)))
-                .mapPipelined(pair -> saveRecordAsync(store, context, pair.getRight(), executeProperties.isDryRun())
+                // Pair.getRight() is unconditionally declared @Nullable regardless of how the pair was
+                // constructed; mutateRecord() (used to build the right element above) never returns null.
+                .mapPipelined(pair -> saveRecordAsync(store, context, Objects.requireNonNull(pair.getRight()), executeProperties.isDryRun())
                                 .thenApply(queryResult -> {
                                     final var nestedContext = context.childBuilder()
                                             .setBinding(getInner().getAlias(), pair.getLeft()) // pre-mutation
@@ -202,7 +204,6 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
 
     public abstract PipelineOperation getPipelineOperation();
 
-    @Nullable
     @SuppressWarnings("unchecked")
     public <M extends Message> M mutateRecord(final FDBRecordStoreBase<M> store, final EvaluationContext context,
                                               final QueryResult queryResult, final Descriptors.Descriptor targetDescriptor) {
@@ -311,6 +312,8 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
         }
     }
 
+    @SuppressWarnings("NullAway") // PlanHashable.objectsPlanHash's varargs aren't annotated @Nullable, but each
+                                   // element is hashed via objectPlanHash, which is explicitly null-safe.
     private int computePlanHashForContinuation() {
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, getInnerPlan(),
                 targetRecordType, transformationsTrie, coercionTrie);

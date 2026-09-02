@@ -85,6 +85,7 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan, RecordQueryPl
                 .map(queriedRecord -> QueryResult.fromQueriedRecord(getResultValue().getResultType(), evaluationContext, queriedRecord));
     }
 
+    @SuppressWarnings("NullAway") // NullAway doesn't reliably track @Nullable on byte[] type arguments; continuation is declared @Nullable above.
     default <M extends Message> RecordCursor<FDBQueriedRecord<M>> fetchIndexRecords(final FDBRecordStoreBase<M> store,
                                                                                     final EvaluationContext evaluationContext,
                                                                                     final Function<byte[], RecordCursor<IndexEntry>> entryCursorFunction,

@@ -127,7 +127,7 @@ public class InExtractor {
     }
 
     @Nullable
-    private static KeyExpression getOrderingKey(List<FieldKeyExpression> fields) {
+    private static KeyExpression getOrderingKey(@Nullable List<FieldKeyExpression> fields) {
         if (fields == null || fields.isEmpty()) {
             return null;
         }

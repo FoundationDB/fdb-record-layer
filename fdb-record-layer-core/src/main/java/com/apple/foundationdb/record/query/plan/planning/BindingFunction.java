@@ -63,9 +63,9 @@ public enum BindingFunction {
     }),
     TUPLE(tuple -> tuple.get(0));
 
-    private Function<Tuple, Object> function;
+    private Function<Tuple, @Nullable Object> function;
 
-    BindingFunction(final Function<Tuple, Object> function) {
+    BindingFunction(final Function<Tuple, @Nullable Object> function) {
         this.function = function;
     }
 

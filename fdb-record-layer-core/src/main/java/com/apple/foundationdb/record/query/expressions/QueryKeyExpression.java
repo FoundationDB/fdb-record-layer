@@ -248,7 +248,8 @@ public class QueryKeyExpression {
 
         public ConversionSimpleComparison(Comparisons.Type type, Object comparand,
                                           QueryableKeyExpression keyExpression) {
-            super(type, keyExpression.getComparandConversionFunction().apply(comparand));
+            // Only ever constructed by call sites that have already checked getComparandConversionFunction() != null.
+            super(type, Objects.requireNonNull(keyExpression.getComparandConversionFunction()).apply(comparand));
             this.keyExpression = keyExpression;
             this.unconvertedComparand = comparand;
         }
@@ -368,9 +369,11 @@ public class QueryKeyExpression {
             this(type, param, ParameterRelationshipGraph.unbound(), keyExpression);
         }
 
+        @Nullable
         @Override
-        public Object getComparand(FDBRecordStoreBase<?> store, EvaluationContext context) {
-            return conversion.apply(super.getComparand(store, context));
+        public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
+            final Object comparand = super.getComparand(store, context);
+            return comparand == null ? null : conversion.apply(comparand);
         }
 
         @Nullable

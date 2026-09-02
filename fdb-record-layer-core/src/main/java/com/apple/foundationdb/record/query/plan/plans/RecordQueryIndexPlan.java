@@ -366,7 +366,8 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
             }
             // Check if the result is in the range the user actually cares about. If so, return it. Otherwise,
             // terminate the scan.
-            IndexEntry entry = result.get();
+            // hasNext() was checked true above, so get() is guaranteed non-null here.
+            IndexEntry entry = Objects.requireNonNull(result.get());
             byte[] keyBytes = entry.getKey().pack();
             if ((isReverse() && ByteArrayUtil.compareUnsigned(originalKeyRange.begin, keyBytes) <= 0) || (!isReverse() && ByteArrayUtil.compareUnsigned(originalKeyRange.end, keyBytes) > 0)) {
                 RecordCursorContinuation wrappedContinuation = continuationConvertor.wrapContinuation(result.getContinuation());
@@ -677,7 +678,7 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
      */
     private <M extends Message> RecordCursor<QueryResult> fallBackContinueFrom(final FDBRecordStoreBase<M> store,
                                                                                final EvaluationContext context,
-                                                                               final byte[] continuation,
+                                                                               @Nullable final byte[] continuation,
                                                                                final ExecuteProperties executeProperties,
                                                                                final RecordCursorResult<QueryResult> lastSuccessfulResult) {
         if (lastSuccessfulResult == null) {
@@ -748,6 +749,8 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
 
         @Nullable
         @Override
+        @SuppressWarnings("NullAway") // NullAway doesn't reliably track @Nullable on byte[] return types; this
+                                       // method is correctly annotated @Nullable above.
         public byte[] unwrapContinuation(@Nullable final byte[] continuation) {
             if (continuation == null) {
                 return null;
@@ -783,6 +786,10 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
             private volatile byte[] bytes;
             private final KeyValueCursorBase.SerializationMode serializationMode;
 
+            @SuppressWarnings({"squid:S3077", "NullAway"}) // array immutable once initialized, so AtomicByteArray not
+                                                            // necessary; NullAway doesn't reliably track that this
+                                                            // field is already declared @Nullable, so it doesn't
+                                                            // need constructor initialization.
             private PrefixRemovingContinuation(RecordCursorContinuation baseContinuation, int prefixLength, KeyValueCursorBase.SerializationMode serializationMode) {
                 this.baseContinuation = baseContinuation;
                 this.prefixLength = prefixLength;
@@ -804,7 +811,7 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
 
             @Override
             public ByteString toByteString() {
-                byte[] bytes1 = toBytes();
+                @Nullable byte[] bytes1 = toBytes();
                 return bytes1 == null ? ByteString.EMPTY : ByteString.copyFrom(bytes1);
             }
 

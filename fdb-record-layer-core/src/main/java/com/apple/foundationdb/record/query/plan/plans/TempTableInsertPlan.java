@@ -127,9 +127,10 @@ public class TempTableInsertPlan extends AbstractRelationalExpressionWithChildre
     @Nullable
     private Descriptor getInnerTypeDescriptor(final EvaluationContext context) {
         final Descriptors.Descriptor typeDescriptor;
-        if (tempTableReferenceValue.getResultType().isRelation() && ((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType().isRecord()) {
-            final var type = (Type.Record)((Type.Relation)tempTableReferenceValue.getResultType()).getInnerType();
-            typeDescriptor = context.getTypeRepository().getMessageDescriptor(type);
+        final var resultType = tempTableReferenceValue.getResultType();
+        final var innerType = resultType.isRelation() ? ((Type.Relation)resultType).getInnerType() : null;
+        if (innerType != null && innerType.isRecord()) {
+            typeDescriptor = context.getTypeRepository().getMessageDescriptor((Type.Record)innerType);
         } else {
             typeDescriptor = null;
         }

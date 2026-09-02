@@ -47,6 +47,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -151,7 +152,8 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
             List<Key.Evaluated> evaluatedList = nesting.getNestingExpression().evaluate(storedRecord);
             for (int i = 0; i < evaluatedList.size(); i++) {
                 Key.Evaluated evaluated = evaluatedList.get(i);
-                Message childMessage = evaluated.getObject(0, Message.class);
+                Message childMessage = Objects.requireNonNull(evaluated.getObject(0, Message.class),
+                        () -> "nested constituent " + nesting.getName() + " is missing its message value");
                 FDBStoredRecord<?> childRecord = FDBStoredRecord.newBuilder(childMessage)
                         .setRecordType(nesting.getRecordType())
                         .setPrimaryKey(Tuple.from(i))
@@ -226,8 +228,10 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
             // for that constituent. If all of the child constituents have been exhausted,
             // we are done here
             for (String key : getKeys()) {
-                int pos = state.get(key);
-                List<NestingNode> keyChildren = children.get(key);
+                // getKeys() is derived from children's key set, and state is populated with the same key set in
+                // initializeState(), so both maps are guaranteed to have an entry for key.
+                int pos = Objects.requireNonNull(state.get(key));
+                List<NestingNode> keyChildren = Objects.requireNonNull(children.get(key));
                 NestingNode child = keyChildren.get(pos);
                 if (child.incrementState()) {
                     // We have not exhausted this child's sub-tree
@@ -257,9 +261,11 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
             mapBuilder.put(constituent.getName(), storedRecord);
             if (children != null) {
                 initializeState();
+                // initializeState() guarantees state is non-null (and populated for every key) whenever children is non-null.
+                final Map<String, Integer> currentState = Objects.requireNonNull(state);
                 for (String key : getKeys()) {
-                    int childPos = state.get(key);
-                    NestingNode child = children.get(key).get(childPos);
+                    int childPos = Objects.requireNonNull(currentState.get(key));
+                    NestingNode child = Objects.requireNonNull(children.get(key)).get(childPos);
                     child.collectConstituents(mapBuilder);
                 }
             }

@@ -97,7 +97,9 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
                     previousPushedValue = pushedValueOptional.get();
                     equivalencesMap = AliasMap.emptyMap();
                 } else {
-                    if (!previousPushedValue.semanticEquals(pushedValueOptional.get(), equivalencesMap)) {
+                    // previousPushedValue and equivalencesMap are always set together above, so
+                    // equivalencesMap is non-null here too.
+                    if (!previousPushedValue.semanticEquals(pushedValueOptional.get(), Objects.requireNonNull(equivalencesMap))) {
                         return Optional.empty();
                     }
                 }

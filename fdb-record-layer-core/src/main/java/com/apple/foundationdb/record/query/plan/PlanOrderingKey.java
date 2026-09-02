@@ -159,7 +159,7 @@ public class PlanOrderingKey {
             int pkeyStart = keys.size();
             int pKeyTail = pkeyStart;
             // Primary keys come after index value keys, unless they were already part of it.
-            int[] primaryKeyComponentPositions = index.getPrimaryKeyComponentPositions();
+            @Nullable int[] primaryKeyComponentPositions = index.getPrimaryKeyComponentPositions();
             final List<KeyExpression> primaryKeyComponents = primaryKey.normalizeKeyForPositions();
             if (primaryKeyComponentPositions == null) {
                 keys.addAll(primaryKeyComponents);
@@ -263,7 +263,7 @@ public class PlanOrderingKey {
             // only need to match a subset of the ordering keys of the longest one (if the missing elements are
             // equality bound within the plans with shorter suffixes)
             List<RecordQueryPlanner.ScoredPlan> plansDescendingBySuffixSize = plans.stream()
-                    .sorted((p1, p2) -> -1 * Integer.compare(p1.planOrderingKey.getSuffixSize(), p2.planOrderingKey.getSuffixSize()))
+                    .sorted((p1, p2) -> -1 * Integer.compare(Objects.requireNonNull(p1.planOrderingKey).getSuffixSize(), Objects.requireNonNull(p2.planOrderingKey).getSuffixSize()))
                     .collect(Collectors.toList());
             for (RecordQueryPlanner.ScoredPlan plan : plansDescendingBySuffixSize) {
                 KeyExpression planKey = orderingCompatiblePlanKey(Objects.requireNonNull(plan.planOrderingKey), candidateKey);
@@ -372,7 +372,7 @@ public class PlanOrderingKey {
     public static KeyExpression candidateContainingPrimaryKey(Collection<RecordQueryPlanner.ScoredPlan> plans, KeyExpression primaryKey) {
         KeyExpression candidateKey = primaryKey;
         for (RecordQueryPlanner.ScoredPlan scoredPlan : plans) {
-            PlanOrderingKey planOrderingKey = scoredPlan.planOrderingKey;
+            PlanOrderingKey planOrderingKey = Objects.requireNonNull(scoredPlan.planOrderingKey);
             if (!isOrderingCompatible(planOrderingKey, candidateKey)) {
                 // Widen the plan to include all non-equality bound fields in the plan
                 List<KeyExpression> newKeys = planOrderingKey.getKeys().subList(

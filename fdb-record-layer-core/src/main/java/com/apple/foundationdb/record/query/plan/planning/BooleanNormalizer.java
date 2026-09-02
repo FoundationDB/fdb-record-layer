@@ -45,6 +45,7 @@ import java.util.Deque;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -169,12 +170,14 @@ public class BooleanNormalizer {
             return predicate;
         } else if (!shouldNormalize(predicate)) {
             if (failIfTooLarge) {
-                throw new DNFTooLargeException(predicate);
+                // needsNormalize() returning true above guarantees predicate is non-null.
+                throw new DNFTooLargeException(Objects.requireNonNull(predicate));
             } else {
                 return predicate;
             }
         } else {
-            final List<List<QueryComponent>> orOfAnd = toDNF(predicate, false, new ArrayDeque<>());
+            // needsNormalize() returning true above guarantees predicate is non-null.
+            final List<List<QueryComponent>> orOfAnd = toDNF(Objects.requireNonNull(predicate), false, new ArrayDeque<>());
             if (checkForDuplicateConditions) {
                 removeDuplicateConditions(orOfAnd);
             }

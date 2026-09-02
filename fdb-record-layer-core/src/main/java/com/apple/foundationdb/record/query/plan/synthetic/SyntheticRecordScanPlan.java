@@ -71,7 +71,9 @@ class SyntheticRecordScanPlan implements SyntheticRecordPlan  {
         final ExecuteProperties baseProperties = executeProperties.clearSkipAndLimit();
         RecordCursor<FDBSyntheticRecord> cursor = RecordCursor.flatMapPipelined(
                 outerContinuation -> store.executeQuery(seedPlan, outerContinuation, baseProperties),
-                (queriedRecord, innerContinuation) -> fromSeedPlan.execute(store, queriedRecord.getStoredRecord(), innerContinuation, baseProperties),
+                // getStoredRecord() is @Nullable in general (some FDBQueriedRecord variants wrap purely computed
+                // values with no underlying stored record), but results from scanning seedPlan always have one.
+                (queriedRecord, innerContinuation) -> fromSeedPlan.execute(store, Objects.requireNonNull(queriedRecord.getStoredRecord()), innerContinuation, baseProperties),
                 continuation,
                 store.getPipelineSize(PipelineOperation.SYNTHETIC_RECORD_JOIN));
         if (needDistinct) {

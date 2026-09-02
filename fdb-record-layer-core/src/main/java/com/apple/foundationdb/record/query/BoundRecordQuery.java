@@ -33,6 +33,7 @@ import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -139,8 +140,10 @@ public class BoundRecordQuery {
     private Set<String> computeParameters() {
         final QueryComponent filter = recordQuery.getFilter();
         if (filter != null) {
+            // Pair.getRight() is unconditionally declared @Nullable regardless of how the pair was constructed;
+            // groupedComparisons() always populates the right element with a real (possibly empty) list.
             return groupedComparisons(filter)
-                    .flatMap(pair -> pair.getRight().stream())
+                    .flatMap(pair -> Objects.requireNonNull(pair.getRight()).stream())
                     .map(ComparisonWithParameter::getParameter)
                     .collect(ImmutableSet.toImmutableSet());
         }

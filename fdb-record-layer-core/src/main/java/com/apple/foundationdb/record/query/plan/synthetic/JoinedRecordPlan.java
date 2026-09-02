@@ -128,6 +128,7 @@ class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
             this.singleton = singleton;
         }
 
+        @Nullable
         public <M extends Message> Object evaluate(@Nullable FDBStoredRecord<M> record) {
             if (singleton) {
                 return toValue(expression.evaluateSingleton(record));
@@ -136,6 +137,7 @@ class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
             }
         }
 
+        @Nullable
         protected static Object toValue(Key.Evaluated evaluated) {
             if (evaluated.size() != 1) {
                 throw new RecordCoreException("binding expression should evaluate to scalar values");

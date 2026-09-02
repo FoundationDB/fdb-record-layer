@@ -247,7 +247,7 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
         @Nullable
         private final String invertibleFunctionName;
         @Nullable
-        private Function<Object, Object> invertibleFunction;
+        private Function<@Nullable Object, @Nullable Object> invertibleFunction;
 
         private FieldCopier(final String field,
                             final TupleSource source,
@@ -302,7 +302,7 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
             return true;
         }
 
-        public Function<Object, Object> getInvertibleFunction() {
+        public Function<@Nullable Object, @Nullable Object> getInvertibleFunction() {
             if (invertibleFunction == null) {
                 final InvertibleFunctionKeyExpression keyExpression = (InvertibleFunctionKeyExpression)
                         Key.Expressions.function(Objects.requireNonNull(invertibleFunctionName), Key.Expressions.field(field));

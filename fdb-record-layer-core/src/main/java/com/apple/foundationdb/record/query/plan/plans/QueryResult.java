@@ -123,6 +123,7 @@ public class QueryResult implements ProtoSerializable {
      * @param clazz class object for target type
      * @return the object narrowed to the requested class
      */
+    @Nullable
     public <T> T get(final Class<? extends T> clazz) {
         return clazz.cast(datum);
     }
@@ -135,7 +136,7 @@ public class QueryResult implements ProtoSerializable {
      */
     public <T> Optional<T> getMaybe(final Class<? extends T> clazz) {
         if (clazz.isInstance(datum)) {
-            return Optional.of(get(clazz));
+            return Optional.ofNullable(get(clazz));
         }
         return Optional.empty();
     }
@@ -193,8 +194,9 @@ public class QueryResult implements ProtoSerializable {
                 return QueryResult.ofComputed(DynamicMessage.parseFrom(Verify.verifyNotNull(descriptor), parsed.getComplex()));
             }
         } catch (InvalidProtocolBufferException ex) {
+            // toByteArray() never returns null, so loggable() (only null for a null array) can't either.
             throw new RecordCoreException("invalid bytes", ex)
-                    .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(parsed.toByteArray()));
+                    .addLogInfo(LogMessageKeys.RAW_BYTES, Objects.requireNonNull(ByteArrayUtil2.loggable(parsed.toByteArray())));
         }
     }
 
@@ -203,8 +205,9 @@ public class QueryResult implements ProtoSerializable {
         try {
             return from(descriptor, PQueryResult.parseFrom(byteString));
         } catch (InvalidProtocolBufferException ex) {
+            // toByteArray() never returns null, so loggable() (only null for a null array) can't either.
             throw new RecordCoreException("invalid bytes", ex)
-                    .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(byteString.toByteArray()));
+                    .addLogInfo(LogMessageKeys.RAW_BYTES, Objects.requireNonNull(ByteArrayUtil2.loggable(byteString.toByteArray())));
         }
     }
 

@@ -299,7 +299,9 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
         @Nullable
         private SelectorPlanContinuation cachedProto;
 
-        public SelectorContinuation(byte[] rawBytes) {
+        @SuppressWarnings("NullAway") // NullAway doesn't reliably narrow @Nullable byte[] via the enclosing
+                                       // `rawBytes != null` check below; parseFrom's parameter is genuinely non-null here.
+        public SelectorContinuation(@Nullable byte[] rawBytes) {
             try {
                 if (rawBytes != null) {
                     RecordCursorProto.SelectorPlanContinuation continuation = RecordCursorProto.SelectorPlanContinuation.parseFrom(rawBytes);
@@ -311,8 +313,10 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
                     }
                 }
             } catch (InvalidProtocolBufferException ex) {
+                // rawBytes is guaranteed non-null here: parseFrom (the only statement that can throw this) is only
+                // reached inside the rawBytes != null branch above.
                 throw new RecordCoreException("error parsing continuation", ex)
-                        .addLogInfo("raw_bytes", ByteArrayUtil2.loggable(rawBytes));
+                        .addLogInfo("raw_bytes", Objects.requireNonNull(ByteArrayUtil2.loggable(rawBytes)));
             }
         }
 
@@ -328,10 +332,12 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
 
         private RecordCursorProto.SelectorPlanContinuation toProto() {
             if (cachedProto == null) {
-                cachedProto = RecordCursorProto.SelectorPlanContinuation.newBuilder()
-                        .setSelectedPlan(selectedPlanIndex)
-                        .setInnerContinuation(innerContinuation)
-                        .build();
+                final var builder = RecordCursorProto.SelectorPlanContinuation.newBuilder()
+                        .setSelectedPlan(selectedPlanIndex);
+                if (innerContinuation != null) {
+                    builder.setInnerContinuation(innerContinuation);
+                }
+                cachedProto = builder.build();
             }
             return cachedProto;
         }
@@ -347,6 +353,8 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
 
         @Nullable
         @Override
+        @SuppressWarnings("NullAway") // NullAway doesn't reliably track @Nullable on byte[] return types; this
+                                       // method is correctly annotated @Nullable above.
         public byte[] toBytes() {
             if (isEnd()) {
                 return null;
@@ -369,6 +377,8 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
         }
 
         @Nullable
+        @SuppressWarnings("NullAway") // NullAway doesn't reliably track @Nullable on byte[] return types; this
+                                       // method is correctly annotated @Nullable above.
         public byte[] getInnerContinuation() {
             return (innerContinuation == null) ? null : innerContinuation.toByteArray();
         }

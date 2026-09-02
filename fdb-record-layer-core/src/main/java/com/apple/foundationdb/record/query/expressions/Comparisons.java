@@ -195,10 +195,8 @@ public class Comparisons {
     }
 
     @SuppressWarnings("rawtypes")
-    private static Comparable toComparable(@Nullable Object obj) {
-        if (obj == null) {
-            return null;
-        } else if (obj instanceof ByteString) {
+    private static Comparable toComparable(Object obj) {
+        if (obj instanceof ByteString) {
             return new UnsignedBytes(((ByteString) obj).toByteArray());
         } else if (obj instanceof byte[]) {
             return new UnsignedBytes((byte[])obj);
@@ -903,7 +901,8 @@ public class Comparisons {
         if (value instanceof ByteString) {
             return toPrintable(((ByteString)value).toByteArray());
         } else if (value instanceof byte[]) {
-            return ByteArrayUtil2.loggable((byte[])value);
+            // loggable() only returns null when given a null array; value is non-null here.
+            return Objects.requireNonNull(ByteArrayUtil2.loggable((byte[])value));
         } else {
             return Objects.toString(value);
         }
@@ -987,7 +986,10 @@ public class Comparisons {
         @Nullable
         @Override
         public Value getValue() {
-            return LiteralValue.ofScalar(getComparand());
+            // Use the 2-arg overload directly: this class's override of it is statically known to be
+            // non-null (it just returns the non-null comparand field), unlike the inherited no-arg
+            // default which is declared @Nullable for implementors whose comparand can be absent.
+            return LiteralValue.ofScalar(getComparand(null, null));
         }
 
         @Override
@@ -1124,6 +1126,10 @@ public class Comparisons {
         private static final Supplier<EvaluationContextRequiredException> INSTANCE_SUPPLIER =
                 Suppliers.memoize(() -> new EvaluationContextRequiredException("unable to evaluate comparison without context and/or store"));
 
+        // RecordCoreException(String, Throwable, boolean, boolean) mirrors Throwable's own
+        // constructor, which legitimately allows a null cause; that 4-arg constructor just
+        // isn't annotated @Nullable yet (owned outside this change's scope).
+        @SuppressWarnings("NullAway")
         private EvaluationContextRequiredException(String msg) {
             super(msg, null, false, false);
         }
@@ -1964,7 +1970,15 @@ public class Comparisons {
                 }
             }
             this.comparand = comparand;
-            this.comparandListWithEqualsSupplier = Suppliers.memoize(() -> Lists.transform(comparand, obj -> obj != null ? toClassWithRealEquals(obj) : null));
+            this.comparandListWithEqualsSupplier = Suppliers.memoize(this::computeComparandListWithRealEquals);
+        }
+
+        // Guava's Function<F, T> is not nullness-aware, so T is inferred @NonNull from the raw
+        // List target type even though a comparand element (and thus the transformed element) is
+        // allowed to be null for non-IN comparisons; the transform itself is null-safe.
+        @SuppressWarnings({"rawtypes", "unchecked", "NullAway"})
+        private List computeComparandListWithRealEquals() {
+            return Lists.transform(comparand, obj -> obj != null ? toClassWithRealEquals(obj) : null);
         }
 
         private static JavaType getJavaType(Object o) {
@@ -2085,6 +2099,8 @@ public class Comparisons {
         }
 
         @Override
+        @SuppressWarnings("NullAway") // PlanHashable.objectsPlanHash's varargs aren't annotated @Nullable, but each
+                                       // element is hashed via objectPlanHash, which is explicitly null-safe.
         public int planHash(final PlanHashMode mode) {
             switch (mode.getKind()) {
                 case LEGACY:
@@ -2568,6 +2584,8 @@ public class Comparisons {
         }
 
         @Override
+        @SuppressWarnings("NullAway") // PlanHashable.objectsPlanHash's varargs aren't annotated @Nullable, but each
+                                       // element is hashed via objectPlanHash, which is explicitly null-safe.
         public int planHash(final PlanHashMode mode) {
             switch (mode.getKind()) {
                 case LEGACY:
@@ -2613,6 +2631,7 @@ public class Comparisons {
             this.maxDistance = maxDistance;
         }
 
+        @Nullable
         @Override
         Boolean evalComparison(Iterator<? extends CharSequence> textIterator, List<String> comparand) {
             if (getType() != Type.TEXT_CONTAINS_ALL_WITHIN) {
@@ -3055,18 +3074,27 @@ public class Comparisons {
                 for (Object obj : underlyingList) {
                     Key.Evaluated evaluated = Key.Evaluated.scalar(obj);
                     List<Key.Evaluated> inverse = function.evaluateInverse(evaluated);
-                    inverse.stream()
+                    // getSingletonPreImage legitimately returns @Nullable, but java.util.function.Function
+                    // (the target type of the method-reference here) isn't nullness-aware, so its R is
+                    // inferred @NonNull regardless; this Stream.map cannot be annotated around that.
+                    @SuppressWarnings("NullAway")
+                    final List<Object> mapped = inverse.stream()
                             .map(this::getSingletonPreImage)
-                            .forEach(finalValues::add);
+                            .collect(Collectors.toList());
+                    finalValues.addAll(mapped);
                 }
                 return finalValues;
             } else {
                 Key.Evaluated evaluated = Key.Evaluated.scalar(originalComparandValue);
                 List<Key.Evaluated> inverse = function.evaluateInverse(evaluated);
                 if (getType() == Type.IN) {
-                    return inverse.stream()
+                    // See the @SuppressWarnings comment above: same Function<T, R> nullability-inference
+                    // limitation applies to this method reference.
+                    @SuppressWarnings("NullAway")
+                    final List<Object> mapped = inverse.stream()
                             .map(this::getSingletonPreImage)
                             .collect(Collectors.toList());
+                    return mapped;
                 } else {
                     Key.Evaluated preImage = inverse.get(0);
                     return getSingletonPreImage(preImage);
@@ -3074,6 +3102,7 @@ public class Comparisons {
             }
         }
 
+        @Nullable
         private Object getSingletonPreImage(Key.Evaluated preImage) {
             if (preImage.size() != 1) {
                 throw new RecordCoreException("unable to get singleton pre-image for function")
