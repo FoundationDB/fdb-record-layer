@@ -377,7 +377,8 @@ public class QueryToKeyMatcher {
             if (Objects.equals(query.getFieldName(), key.getParent().getFieldName())) {
                 FilterSatisfiedMask childMask = filterMask != null ? filterMask.getChild(query.getChild()) : null;
                 Match childMatch = matches(query.getChild(), key.getChild(), matchingMode, childMask);
-                if (childMask != null && childMask.isSatisfied() && filterMask.getExpression() == null) {
+                // childMask is only non-null when filterMask is (see the ternary above).
+                if (childMask != null && childMask.isSatisfied() && Objects.requireNonNull(filterMask).getExpression() == null) {
                     filterMask.setExpression(key);
                 }
                 return childMatch;
@@ -395,7 +396,8 @@ public class QueryToKeyMatcher {
             if (Objects.equals(query.getFieldName(), key.getParent().getFieldName())) {
                 FilterSatisfiedMask childMask = filterMask != null ? filterMask.getChild(query.getChild()) : null;
                 Match childMatch = matches(query.getChild(), key.getChild(), matchingMode, childMask);
-                if (childMask != null && childMask.isSatisfied() && filterMask.getExpression() == null) {
+                // childMask is only non-null when filterMask is (see the ternary above).
+                if (childMask != null && childMask.isSatisfied() && Objects.requireNonNull(filterMask).getExpression() == null) {
                     filterMask.setExpression(key);
                 }
                 return childMatch;
@@ -472,6 +474,7 @@ public class QueryToKeyMatcher {
         throw new KeyExpression.InvalidExpressionException("Unexpected Key Expression type " + key.getClass());
     }
 
+    @Nullable
     private KeyExpression extractGroupingKey(GroupingKeyExpression grouping, MatchingMode matchingMode) {
         try {
             return grouping.getGroupingSubKey();
@@ -483,6 +486,7 @@ public class QueryToKeyMatcher {
         return null;
     }
 
+    @Nullable
     private KeyExpression extractPrefixKey(DimensionsKeyExpression dimensionsKeyExpression, MatchingMode matchingMode) {
         try {
             return dimensionsKeyExpression.getPrefixSubKey();
