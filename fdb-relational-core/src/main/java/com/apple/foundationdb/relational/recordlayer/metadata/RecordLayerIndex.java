@@ -119,7 +119,9 @@ public final class RecordLayerIndex implements Index  {
                 .setTableName(tableName)
                 .setTableStorageName(tableStorageName)
                 .setKeyExpression(index.getRootExpression())
-                .setPredicate(index.hasPredicate() ? index.getPredicate().toProto() : null)
+                // index.hasPredicate() guarantees getPredicate() is non-null; NullAway can't see
+                // that contract across the two separate method calls.
+                .setPredicate(index.hasPredicate() ? Objects.requireNonNull(index.getPredicate()).toProto() : null)
                 .setOptions(index.getOptions())
                 .build();
     }
@@ -157,6 +159,13 @@ public final class RecordLayerIndex implements Index  {
         @Nullable
         private Predicate predicate;
 
+        // tableName, tableStorageName, indexType, name, and keyExpression are populated by the
+        // fluent setters below and validated in build(), so NullAway cannot see that they are
+        // always set before use.
+        @SuppressWarnings("NullAway.Init")
+        private Builder() {
+        }
+
         public Builder setTableName(String tableName) {
             this.tableName = tableName;
             return this;
@@ -168,8 +177,10 @@ public final class RecordLayerIndex implements Index  {
         }
 
         public Builder setTableType(Type.Record tableType) {
-            return setTableName(tableType.getName())
-                    .setTableStorageName(tableType.getStorageName());
+            // tableType is always derived from a named table (never an anonymous nested record),
+            // so name and storageName are always present.
+            return setTableName(Objects.requireNonNull(tableType.getName(), "table type name is not set"))
+                    .setTableStorageName(Objects.requireNonNull(tableType.getStorageName(), "table type storage name is not set"));
         }
 
         public Builder setIndexType(String indexType) {

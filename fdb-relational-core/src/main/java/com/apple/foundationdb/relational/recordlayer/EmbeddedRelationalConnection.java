@@ -62,6 +62,7 @@ import java.sql.SQLWarning;
 import java.sql.Struct;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -95,6 +96,9 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     @Nullable
     private Transaction transaction;
     ExecuteProperties executeProperties;
+    // No schema has been selected yet until setSchema()/setSchema(schema, ...) is called; getSchema() below
+    // legitimately returns null in that state, matching java.sql.Connection#getSchema()'s contract.
+    @Nullable
     private String currentSchemaLabel;
     private boolean autoCommit = true;
     private final boolean usingAnExternalTransaction;
@@ -113,7 +117,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         this.txnManager = frl.getTransactionManager();
         this.transaction = transaction;
         this.usingAnExternalTransaction = transaction != null;
-        if (usingAnExternalTransaction) {
+        if (transaction != null) {
             this.metricCollector = StoreTimerMetricCollector.fromFDBRecordContext(transaction.unwrap(RecordContextTransaction.class).getContext());
         }
         this.backingCatalog = backingCatalog;
@@ -258,13 +262,19 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
             if (!this.backingCatalog.doesSchemaExist(getTransaction(), getRecordLayerDatabase().getURI(), schema)) {
                 throw new RelationalException(String.format(Locale.ROOT, "Schema %s does not exist in %s", schema, getPath()), ErrorCode.UNDEFINED_SCHEMA);
             }
-            return null;
+            // Return value is unused by this caller; runIsolatedInTransactionIfPossible's Supplier<T> requires a
+            // non-null result.
+            return Boolean.TRUE;
         });
     }
 
     public SchemaTemplate getSchemaTemplate() throws RelationalException {
         try {
-            return backingCatalog.loadSchema(getTransaction(), getPath(), getSchema()).getSchemaTemplate();
+            final String schema = getSchema();
+            if (schema == null) {
+                throw new RelationalException("No Schema specified", ErrorCode.UNDEFINED_SCHEMA);
+            }
+            return backingCatalog.loadSchema(getTransaction(), getPath(), schema).getSchemaTemplate();
         } catch (SQLException sqle) {
             throw new RelationalException(sqle);
         }
@@ -276,6 +286,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     }
 
     @Override
+    @Nullable
     public String getSchema() throws SQLException {
         checkOpen();
         return currentSchemaLabel;
@@ -347,6 +358,10 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     }
 
     @Override
+    // RelationalConnection#getWarnings() (default method in the not-yet-migrated fdb-relational-api module) has no
+    // explicit @Nullable annotation, so NullAway treats it as @NonNull; this override genuinely returns null
+    // (warnings are not implemented yet), matching java.sql.Connection#getWarnings()'s real, nullable contract.
+    @SuppressWarnings("NullAway")
     public SQLWarning getWarnings() throws SQLException {
         // Return null for now until we implement Warnings. Returning an exception breaks processing.
         return null;
@@ -447,7 +462,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     }
 
     void addCloseListener(Runnable closeListener) throws RelationalException {
-        this.transaction.unwrap(RecordContextTransaction.class).addTerminationListener(closeListener);
+        getTransaction().unwrap(RecordContextTransaction.class).addTerminationListener(closeListener);
     }
 
     public AbstractDatabase getRecordLayerDatabase() {
@@ -572,7 +587,10 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         if (exception != null) {
             throw exception;
         } else {
-            return result;
+            // If we reach here, the try block above completed without catching a RelationalException, so
+            // operation.get() ran to completion and assigned a real result; NullAway can't correlate that with
+            // the null-check on the unrelated `exception` variable.
+            return Objects.requireNonNull(result, "operation completed without an exception, so it must have produced a result");
         }
     }
 }

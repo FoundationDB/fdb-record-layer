@@ -44,6 +44,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.protobuf.Descriptors;
 
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
@@ -75,7 +76,9 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
     }
 
     @Override
-    public RelationalResultSet getSchemas(String catalogStr, String schemaPattern) throws SQLException {
+    // Both params mirror java.sql.DatabaseMetaData#getSchemas(String, String), which documents both as
+    // nullable ("null means..."); catalogStr is already null-checked below, and schemaPattern isn't used.
+    public RelationalResultSet getSchemas(@Nullable String catalogStr, @Nullable String schemaPattern) throws SQLException {
         if (catalogStr == null) {
             throw new OperationUnsupportedException("Must use a non-null catalog name currently").toSqlException();
         }
@@ -153,12 +156,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                         RecordKeyExpressionProto.KeyExpression ke = type.getPrimaryKey();
                         return new AbstractMap.SimpleEntry<>(type.getName(), keyExpressionToPrimaryKey(ke));
                     }).flatMap(pks -> IntStream.range(0, pks.getValue().length)
-                    .mapToObj(pos -> new ArrayRow(database,
-                            schema,
-                            pks.getKey(),
-                            pks.getValue()[pos],
-                            pos + 1,
-                            null)));
+                    .mapToObj(pos -> newPrimaryKeyRow(database, schema, pks.getKey(), pks.getValue()[pos], pos + 1)));
 
             final var primaryKeysStructType = DataType.StructType.from("PRIMARY_KEYS", List.of(
                     DataType.StructType.Field.from("TABLE_CAT", DataType.Primitives.NULLABLE_STRING.type(), 0),
@@ -332,6 +330,14 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
             ), true);
             return new IteratorResultSet(RelationalStructMetaData.of(indexInfoStructType), indexDefs.iterator(), 0);
         });
+    }
+
+    // ArrayRow's vararg parameter type isn't @Nullable (NullAway/JSpecify doesn't reliably track element
+    // nullability for array/vararg-typed parameters); PK_NAME (the last column) is genuinely null here,
+    // matching java.sql.DatabaseMetaData#getPrimaryKeys()'s documented, always-nullable PK_NAME column.
+    @SuppressWarnings("NullAway")
+    private static ArrayRow newPrimaryKeyRow(String database, String schema, String tableName, String columnName, int keySeq) {
+        return new ArrayRow(database, schema, tableName, columnName, keySeq, null);
     }
 
     private RecordMetaDataProto.MetaData loadSchemaMetadata(final String database, final String schema) throws RelationalException {

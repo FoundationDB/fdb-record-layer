@@ -33,9 +33,11 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 
+import org.jspecify.annotations.Nullable;
 import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -58,6 +60,8 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
     // Dual-mode operation is temporary and should be removed once Relational has native support for some form of `ALTER`
     // commands that can `evolve` a table to new `generation`. In essence, we want generation assignment to happen at
     // a higher level, before the SchemaTemplate is made to serialize.
+    // Lazily determined from the first table's generations map (see checkTableGenerations); null until then.
+    @Nullable
     private Boolean assignGenerations;
 
     private int tableCounter;
@@ -113,12 +117,14 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
         final var builder = TypeRepository.newBuilder();
         type.defineProtoType(builder);
         final var typeDescriptors = builder.build();
-        final var typeDescriptor = typeDescriptors.getMessageDescriptor(type).getName();
+        // type was just defined into this same TypeRepository above, so the lookup always hits.
+        final var typeDescriptor = Objects.requireNonNull(typeDescriptors.getMessageDescriptor(type)).getName();
         for (final var descriptorName : typeDescriptors.getMessageTypes()) {
             if (descriptorNames.contains(descriptorName)) {
                 continue;
             }
-            final var descriptor = typeDescriptors.getMessageDescriptor(descriptorName);
+            // descriptorName was enumerated from this same typeDescriptors, so it always resolves.
+            final var descriptor = Objects.requireNonNull(typeDescriptors.getMessageDescriptor(descriptorName));
             fileBuilder.addMessageType(descriptor.toProto());
             descriptorNames.add(descriptorName);
         }
@@ -126,7 +132,8 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
             if (enumNames.contains(enumName)) {
                 continue;
             }
-            final var descriptor = typeDescriptors.getEnumDescriptor(enumName);
+            // enumName was enumerated from this same typeDescriptors, so it always resolves.
+            final var descriptor = Objects.requireNonNull(typeDescriptors.getEnumDescriptor(enumName));
             fileBuilder.addEnumType(descriptor.toProto());
             enumNames.add(enumName);
         }

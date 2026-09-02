@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Supplier;
 
+import org.jspecify.annotations.Nullable;
 import java.util.Locale;
 
 /**
@@ -65,7 +66,7 @@ public interface MetricCollector {
      * @return the value returned by the supplier
      * @throws RelationalException that is passed on by the supplier
      * */
-    <T> T clock(RelationalMetric.RelationalEvent event, Supplier<T> supplier) throws RelationalException;
+    <T extends @Nullable Object> T clock(RelationalMetric.RelationalEvent event, Supplier<T> supplier) throws RelationalException;
 
     /**
      * Returns the aggregate time taken by all the occurrences of a particular event in the lifetime of collector.

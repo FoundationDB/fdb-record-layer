@@ -152,6 +152,10 @@ public final class PlanContext {
 
         private boolean isCaseSensitive;
 
+        // Fields are populated via the fluent with*()/from*() methods below and validated
+        // (non-null-checked) in verify(), rather than through this constructor, so NullAway cannot
+        // see that they are always set before use; see the Assert.notNull(...) calls in verify().
+        @SuppressWarnings("NullAway.Init")
         private Builder() {
         }
 

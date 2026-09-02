@@ -86,6 +86,7 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
     }
 
     @Override
+    @Nullable
     public Row get(Transaction t, Row key, Options options) throws RelationalException {
         BackingStore store = getSchema().loadStore();
         return store.getFromIndex(index, key, options);

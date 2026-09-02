@@ -178,7 +178,12 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
             final var schemaExists = !cursorResult.getContinuation().isEnd() && cursorResult.get() != null;
             Assert.thatUnchecked(schemaExists, ErrorCode.UNKNOWN_SCHEMA_TEMPLATE,
                     "SchemaTemplate '" + templateName + "' is not in catalog");
-            return toSchemaTemplate(Assert.notNullUnchecked(cursorResult.get()).getRecord());
+            // schemaExists (just asserted true above) already established that cursorResult.get() != null;
+            // NullAway can't track that across the Assert.thatUnchecked call since Assert lives in the
+            // not-yet-migrated fdb-relational-api module.
+            @SuppressWarnings("NullAway")
+            final var record = Assert.notNullUnchecked(cursorResult.get()).getRecord();
+            return toSchemaTemplate(record);
         } catch (RecordCoreStorageException | InvalidProtocolBufferException e) {
             throw new UncheckedRelationalException(ExceptionUtil.toRelationalException(e));
         }
@@ -260,6 +265,11 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
         }
     }
 
+    // Defensive: the scanRecords() cursor above never actually yields a null element, so the null branch
+    // below is not expected to be hit; returning null there would violate this method's Function<T, Row>
+    // contract (RecordLayerIterator#next() forwards it without a null check), but changing that contract to
+    // accommodate this dead branch is out of scope here.
+    @SuppressWarnings("NullAway")
     private Row transformSchemaTemplates(@Nullable FDBStoredRecord<Message> record) {
         if (record == null) {
             return null;

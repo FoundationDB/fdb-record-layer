@@ -195,13 +195,16 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Object visitCreateTempFunction(final RelationalParser.CreateTempFunctionContext ctx) {
-        final var functionName = SemanticAnalyzer.normalizeString(ctx.tempSqlInvokedFunction().functionSpecification().schemaQualifiedRoutineName.getText(), caseSensitive);
+        // normalizeString() is @Nullable only when its input is null; schemaQualifiedRoutineName.getText() is
+        // never null for a parsed function name token, so the result here is never null either.
+        final var functionName = Objects.requireNonNull(SemanticAnalyzer.normalizeString(
+                ctx.tempSqlInvokedFunction().functionSpecification().schemaQualifiedRoutineName.getText(), caseSensitive));
         queryHasherContextBuilder.getLiteralsBuilder().setScope(functionName);
         return visitChildren(ctx);
     }
 
     @Override
-    public Value visitUid(RelationalParser.UidContext ctx) {
+    public @Nullable Value visitUid(RelationalParser.UidContext ctx) {
         String uid = SemanticAnalyzer.normalizeString(ctx.getText(), caseSensitive);
         sqlCanonicalizer.append("\"").append(uid).append("\"").append(" ");
         return null;
@@ -252,7 +255,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Object visitQuery(RelationalParser.QueryContext ctx) {
+    public @Nullable Object visitQuery(RelationalParser.QueryContext ctx) {
         if (queryCachingFlags.isEmpty()) {
             queryCachingFlags.add(NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT);
         }
@@ -264,7 +267,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public RelationalExpression visitStatementOptions(RelationalParser.StatementOptionsContext ctx) {
+    public @Nullable RelationalExpression visitStatementOptions(RelationalParser.StatementOptionsContext ctx) {
         for (final var opt : ctx.statementOption()) {
             visit(opt);
         }
@@ -272,7 +275,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Object visitStatementOption(RelationalParser.StatementOptionContext ctx) {
+    public @Nullable Object visitStatementOption(RelationalParser.StatementOptionContext ctx) {
         try {
             if (ctx.NOCACHE() != null) {
                 queryCachingFlags.add(NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION);
@@ -371,8 +374,9 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Object visitPreparedStatementParameter(RelationalParser.PreparedStatementParameterContext ctx) {
-        Object param;
+    public @Nullable Object visitPreparedStatementParameter(RelationalParser.PreparedStatementParameterContext ctx) {
+        // A prepared parameter bound to SQL NULL is a legitimate value, hence @Nullable here.
+        @Nullable Object param;
         if (ctx.QUESTION() != null) {
             final int currentUnnamedParameterIndex = preparedStatementParameters.currentUnnamedParamIndex();
             param = preparedStatementParameters.nextUnnamedParamValue();
@@ -424,7 +428,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Object visitInPredicate(RelationalParser.InPredicateContext ctx) {
+    public @Nullable Object visitInPredicate(RelationalParser.InPredicateContext ctx) {
         if (ctx.NOT() != null) {
             ctx.NOT().accept(this);
         }
@@ -574,17 +578,17 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         processLiteral(literal, tokenIndex, null, null);
     }
 
-    private void processUnnamedParameter(final Object literal, final int unnamedParameterIndex,
+    private void processUnnamedParameter(@Nullable final Object literal, final int unnamedParameterIndex,
                                          final int tokenIndex) {
         processLiteral(literal, tokenIndex, unnamedParameterIndex, null);
     }
 
-    private void processNamedParameter(final Object literal, final String parameterName,
+    private void processNamedParameter(@Nullable final Object literal, final String parameterName,
                                        final int tokenIndex) {
         processLiteral(literal, tokenIndex, null, parameterName);
     }
 
-    private void processLiteral(final Object literal, final int tokenIndex,
+    private void processLiteral(@Nullable final Object literal, final int tokenIndex,
                                 @Nullable final Integer unnamedParameterIndex, @Nullable final String parameterName) {
         if (allowLiteralAddition) {
             queryHasherContextBuilder.getLiteralsBuilder()

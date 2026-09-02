@@ -55,7 +55,8 @@ public final class KeySpaceUtils {
 
     private static String toPathElement(final KeySpacePath path) {
         if (path.getDirectory().getKeyType() != KeySpaceDirectory.KeyType.NULL) {
-            return path.getValue().toString();
+            // The KeyType.NULL check above is precisely what guarantees getValue() is non-null here.
+            return Objects.requireNonNull(path.getValue()).toString();
         } else {
             return "";
         }
@@ -244,7 +245,7 @@ public final class KeySpaceUtils {
     }
 
     @Nullable
-    private static KeySpacePath getSubPath(final KeySpace keySpace, final @Nullable KeySpacePath parentPath, final String pathName, final Object pathValue) {
+    private static KeySpacePath getSubPath(final KeySpace keySpace, final @Nullable KeySpacePath parentPath, final String pathName, final @Nullable Object pathValue) {
         try {
             if (parentPath == null) {
                 return keySpace.path(pathName, pathValue);

@@ -187,7 +187,8 @@ public class Literals {
             if (current.size() > 1) {
                 return Optional.empty();
             }
-            return Optional.of(literalReverseLookup.get(value));
+            // Note: this must be ofNullable, not of() -- a missing key legitimately means "no duplicate found".
+            return Optional.ofNullable(literalReverseLookup.get(value));
         }
 
         public Optional<OrderedLiteral> getFirstDuplicateOfConstantIdMaybe(String constantId) {
@@ -196,7 +197,8 @@ public class Literals {
             if (current.size() > 1) {
                 return Optional.empty();
             }
-            return Optional.of(literalReverseLookup.get(literals.stream().filter(l ->
+            // Note: this must be ofNullable, not of() -- a missing key legitimately means "no duplicate found".
+            return Optional.ofNullable(literalReverseLookup.get(literals.stream().filter(l ->
                     l.getConstantId().equals(constantId)).findFirst().orElseThrow().getLiteralObject()));
         }
 

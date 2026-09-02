@@ -61,7 +61,7 @@ public class RecordLayerStorageCluster implements StorageCluster {
                                      KeySpace keySpace,
                                      RecordLayerConfig rlConfig,
                                      StoreCatalog storeCatalog,
-                                     RelationalPlanCache planCache,
+                                     @Nullable RelationalPlanCache planCache,
                                      RecordLayerMetadataOperationsFactory ddlFactory) {
         //TODO(bfines) we shouldn't use FDBStoreTimer, we should use our own abstraction that can be easily disabled
         this.fdb = connection;

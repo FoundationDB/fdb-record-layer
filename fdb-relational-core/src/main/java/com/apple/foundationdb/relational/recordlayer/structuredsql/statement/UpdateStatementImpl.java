@@ -205,6 +205,10 @@ public class UpdateStatementImpl implements UpdateStatement {
 
         private final boolean isCaseSensitive;
 
+        // table and originalTableName are populated together by setTable(...) below, and build() (further
+        // down) validates that setTable(...) was called before construction completes, so NullAway cannot
+        // see that they are always set before use.
+        @SuppressWarnings("NullAway.Init")
         public BuilderImpl(final RelationalConnection connection,
                              final SchemaTemplate schemaTemplate) {
             this.connection = connection;
@@ -284,7 +288,12 @@ public class UpdateStatementImpl implements UpdateStatement {
 
         @Override
         public Builder setTable(final String table) {
-            final var normalizedTableName =
+            // normalizeString(x, ...) only returns null when x is null (see its implementation); table is
+            // non-null here, so the result is always non-null too, but NullAway can't see that across the
+            // method call, and Assert.notNullUnchecked can't narrow it either since Assert lives in the
+            // not-yet-migrated fdb-relational-api module.
+            @SuppressWarnings("NullAway")
+            final String normalizedTableName =
                     Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(table, isCaseSensitive));
             Optional<Table> maybeTable;
             try {
@@ -495,8 +504,14 @@ public class UpdateStatementImpl implements UpdateStatement {
             private UidReplacer(final Map<String, List<String>> symnonymsMap, boolean isCaseSensitive) {
                 ImmutableMap.Builder<String, List<String>> normalizedSynonymsMap = ImmutableMap.builder();
                 for (final var synonymsPair : symnonymsMap.entrySet()) {
-                    final var normalizedKey = Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(synonymsPair.getKey(), isCaseSensitive));
-                    final var normalizedValue = synonymsPair.getValue().stream().map(part -> Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(part, isCaseSensitive))).collect(Collectors.toUnmodifiableList());
+                    // normalizeString(x, ...) only returns null when x is null (see its implementation); the
+                    // map key/values here are non-null, so the results are always non-null too, but NullAway
+                    // can't see that across the method call, and Assert.notNullUnchecked can't narrow it
+                    // either since Assert lives in the not-yet-migrated fdb-relational-api module.
+                    @SuppressWarnings("NullAway")
+                    final String normalizedKey = Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(synonymsPair.getKey(), isCaseSensitive));
+                    @SuppressWarnings("NullAway")
+                    final List<String> normalizedValue = synonymsPair.getValue().stream().map(part -> Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(part, isCaseSensitive))).collect(Collectors.toUnmodifiableList());
                     normalizedSynonymsMap.put(normalizedKey, normalizedValue);
                 }
                 this.synonymsMap = normalizedSynonymsMap.build();

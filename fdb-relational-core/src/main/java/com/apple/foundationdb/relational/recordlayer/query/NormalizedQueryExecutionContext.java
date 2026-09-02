@@ -107,6 +107,10 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
         @Nullable
         private PlanHashMode planHashMode;
 
+        // continuation is byte[], and NullAway does not reliably respect @Nullable annotations on array-typed
+        // fields (a known limitation, also worked around in fdb-relational-grpc); it misreports this @Nullable
+        // field as @NonNull below.
+        @SuppressWarnings("NullAway")
         private Builder() {
             this.literalsBuilder = Literals.newBuilder();
             this.isForExplain = false;

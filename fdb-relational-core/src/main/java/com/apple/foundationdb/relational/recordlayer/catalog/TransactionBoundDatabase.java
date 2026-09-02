@@ -48,6 +48,7 @@ import com.apple.foundationdb.relational.transactionbound.catalog.HollowStoreCat
 
 import org.jspecify.annotations.Nullable;
 import java.net.URI;
+import java.util.Objects;
 
 /**
  * There can only be 1 Database object per Connection instance, and its lifecycle is managed by the connection
@@ -64,6 +65,8 @@ import java.net.URI;
 public class TransactionBoundDatabase extends AbstractDatabase {
     @Nullable
     private final KeySpace keySpace;
+    // store is only populated once connect() is called; it is not available beforehand.
+    @Nullable
     BackingStore store;
     URI uri;
 
@@ -103,7 +106,7 @@ public class TransactionBoundDatabase extends AbstractDatabase {
 
     @Override
     public BackingStore loadRecordStore(String schemaId, FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
-        return store;
+        return Objects.requireNonNull(store, "loadRecordStore() called before connect()");
     }
 
     @Override

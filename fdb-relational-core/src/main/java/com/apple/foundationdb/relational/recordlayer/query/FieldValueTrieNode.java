@@ -82,7 +82,7 @@ public class FieldValueTrieNode extends TrieNode.AbstractTrieNode<FieldValue.Res
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean semanticEquals(final Object other, final AliasMap equivalencesMap) {
+    public boolean semanticEquals(@Nullable final Object other, final AliasMap equivalencesMap) {
         if (this == other) {
             return true;
         }

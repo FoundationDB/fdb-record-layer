@@ -64,6 +64,7 @@ public class QueryExecutor {
         return RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
     }
 
+    @Nullable
     public Type getQueryResultType() {
         return plan.getResultType().getInnerType();
     }

@@ -21,4 +21,7 @@
 /**
  * Interfaces and core API functions around implementing a Catalog instance.
  */
+@NullMarked
 package com.apple.foundationdb.relational.api.options;
+
+import org.jspecify.annotations.NullMarked;

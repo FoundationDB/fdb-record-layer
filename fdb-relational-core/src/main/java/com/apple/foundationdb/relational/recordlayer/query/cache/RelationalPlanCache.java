@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.google.common.base.Ticker;
 import org.jspecify.annotations.Nullable;
+import java.util.Objects;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
@@ -59,14 +60,17 @@ public final class RelationalPlanCache extends MultiStageCache<String, QueryCach
     public static final class RelationalCacheBuilder extends MultiStageCache.Builder<String, QueryCacheKey, PhysicalPlanEquivalence, Plan<?>, RelationalCacheBuilder> {
 
         public RelationalCacheBuilder() {
-            size = (Integer) (Options.defaultOptions().get(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES));
-            secondarySize = (Integer) (Options.defaultOptions().get(Options.Name.PLAN_CACHE_SECONDARY_MAX_ENTRIES));
-            tertiarySize = (Integer) (Options.defaultOptions().get(Options.Name.PLAN_CACHE_TERTIARY_MAX_ENTRIES));
-            ttl = (Long) (Options.defaultOptions().get(Options.Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS));
+            // Options.defaultOptions() is a fixed map that is always populated with an entry for every
+            // Options.Name (including the PLAN_CACHE_* names below), so these lookups never actually
+            // return null; Objects.requireNonNull documents that invariant for NullAway.
+            size = (Integer) Objects.requireNonNull(Options.defaultOptions().get(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES), "no default registered for PLAN_CACHE_PRIMARY_MAX_ENTRIES");
+            secondarySize = (Integer) Objects.requireNonNull(Options.defaultOptions().get(Options.Name.PLAN_CACHE_SECONDARY_MAX_ENTRIES), "no default registered for PLAN_CACHE_SECONDARY_MAX_ENTRIES");
+            tertiarySize = (Integer) Objects.requireNonNull(Options.defaultOptions().get(Options.Name.PLAN_CACHE_TERTIARY_MAX_ENTRIES), "no default registered for PLAN_CACHE_TERTIARY_MAX_ENTRIES");
+            ttl = (Long) Objects.requireNonNull(Options.defaultOptions().get(Options.Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS), "no default registered for PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS");
             ttlTimeUnit = DEFAULT_TTL_TIME_UNIT;
-            secondaryTtl = (Long) (Options.defaultOptions().get(Options.Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS));
+            secondaryTtl = (Long) Objects.requireNonNull(Options.defaultOptions().get(Options.Name.PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS), "no default registered for PLAN_CACHE_SECONDARY_TIME_TO_LIVE_MILLIS");
             secondaryTtlTimeUnit = DEFAULT_SECONDARY_TTL_TIME_UNIT;
-            tertiaryTtl = (Long) (Options.defaultOptions().get(Options.Name.PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS));
+            tertiaryTtl = (Long) Objects.requireNonNull(Options.defaultOptions().get(Options.Name.PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS), "no default registered for PLAN_CACHE_TERTIARY_TIME_TO_LIVE_MILLIS");
             tertiaryTtlTimeUnit = DEFAULT_TERTIARY_TTL_TIME_UNIT;
             executor = null;
             secondaryExecutor = null;

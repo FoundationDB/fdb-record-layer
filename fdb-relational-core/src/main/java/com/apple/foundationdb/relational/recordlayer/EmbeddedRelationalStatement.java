@@ -46,6 +46,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 @API(API.Status.EXPERIMENTAL)
@@ -56,6 +57,11 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
     }
 
     @Override
+    // conn.getMetricCollector() is @Nullable only because the collector isn't set up until a transaction
+    // is active; Assert.notNullUnchecked enforces that invariant at runtime with a clear
+    // RelationalException, but NullAway can't see that since Assert lives in the not-yet-migrated
+    // fdb-relational-api module.
+    @SuppressWarnings("NullAway")
     PlanContext createPlanContext(final FDBRecordStoreBase<?> store, final Options options) throws RelationalException {
         return PlanContext.builder()
                 .fromRecordStore(store, options)
@@ -232,7 +238,9 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
                 if (row.getObject(keyLength - 1) != null) {
                     // We have a complete key. Delete only the one record
                     table.deleteRecord(row);
-                    return null;
+                    // Return value is unused by executeDeleteRange; ensureTransaction's Supplier<T> requires a
+                    // non-null result.
+                    return Boolean.TRUE;
                 }
             }
             try {
@@ -258,7 +266,9 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
                     throw new RuntimeException(sqle);
                 }
             }
-            return null;
+            // Return value is unused by executeDeleteRange; ensureTransaction's Supplier<T> requires a non-null
+            // result.
+            return Boolean.TRUE;
         });
     }
 
@@ -338,7 +348,10 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
         if (exception != null) {
             throw exception;
         } else {
-            return result;
+            // If we reach here, the try block above completed without catching an exception, so operation.get()
+            // ran to completion and assigned a real result; NullAway can't correlate that with the null-check on
+            // the unrelated `exception` variable.
+            return Objects.requireNonNull(result, "operation completed without an exception, so it must have produced a result");
         }
     }
 }

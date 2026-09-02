@@ -50,6 +50,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import com.google.protobuf.Descriptors;
 
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
@@ -59,6 +60,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
@@ -392,9 +394,14 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
         private final Map<String, StoredQuery> storedQueries;
 
-
+        // cachedMetadata is legitimately optional; it is only populated via setCachedMetadata()
+        // and build() branches on whether it was set.
+        @Nullable
         private RecordMetaData cachedMetadata;
 
+        // name is populated by the fluent setName() setter below and is required for build();
+        // NullAway cannot see that it is always set before use.
+        @SuppressWarnings("NullAway.Init")
         private Builder() {
             tables = new LinkedHashMap<>();
             auxiliaryTypes = new LinkedHashMap<>();
@@ -469,9 +476,12 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         }
 
         public Builder removeInvokedRoutine(final String invokedRoutineName) {
+            // Bug fix: this branch is only reached when invokedRoutineName is NOT present, so
+            // invokedRoutines.get(invokedRoutineName) would always be null; the intent is simply
+            // to fail with a clear error rather than dereference a missing entry.
             if (!invokedRoutines.containsKey(invokedRoutineName)) {
-                Assert.thatUnchecked(invokedRoutines.get(invokedRoutineName).isTemporary(), ErrorCode.UNDEFINED_FUNCTION,
-                        "attempt to non-existent temporary invoked routine!");
+                Assert.failUnchecked(ErrorCode.UNDEFINED_FUNCTION,
+                        "attempt to remove non-existent temporary invoked routine!");
             }
             invokedRoutines.remove(invokedRoutineName);
             return this;
@@ -549,7 +559,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         }
 
         public RecordLayerTable findTableByStorageName(final String storageName) {
-            return tables.values().stream().filter(t -> t.getType().getStorageName().equals(storageName))
+            return tables.values().stream().filter(t -> Objects.equals(t.getType().getStorageName(), storageName))
                     .findAny()
                     .orElseThrow(() -> Assert.failUnchecked(ErrorCode.UNDEFINED_TABLE, "could not find '" + storageName + "'"));
         }
@@ -668,7 +678,11 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             for (final var auxiliaryType : auxiliaryTypes.entrySet()) {
                 final var dataType = (DataType) auxiliaryType.getValue();
                 if (!dataType.isResolved()) {
-                    resolvedAuxiliaryTypes.put(auxiliaryType.getKey(), (DataType.Named) ((DataType) resolvedTypes.get(auxiliaryType.getKey())).withNullable(dataType.isNullable()));
+                    // Every auxiliary type key was included in namedTypes above and processed by
+                    // the topological sort into resolvedTypes, so a lookup here always hits.
+                    final var resolvedType = Objects.requireNonNull((DataType) resolvedTypes.get(auxiliaryType.getKey()),
+                            "resolved type not found for '" + auxiliaryType.getKey() + "'");
+                    resolvedAuxiliaryTypes.put(auxiliaryType.getKey(), (DataType.Named) resolvedType.withNullable(dataType.isNullable()));
                 } else {
                     resolvedAuxiliaryTypes.put(auxiliaryType.getKey(), auxiliaryType.getValue());
                 }
@@ -698,12 +712,15 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                         if (fieldType instanceof DataType.Named) {
                             final var depName = ((DataType.Named) fieldType).getName();
                             Assert.thatUnchecked(types.containsKey(depName), ErrorCode.UNKNOWN_TYPE, "could not find type '%s'", depName);
-                            mapBuilder.add(types.get(depName));
+                            // The Assert above guarantees the key is present; NullAway cannot see
+                            // that a boolean assertion narrows a later, separate map lookup.
+                            mapBuilder.add(Objects.requireNonNull(types.get(depName), "could not find type '" + depName + "'"));
                         } else if (fieldType.getCode() == DataType.Code.ARRAY && ((DataType.ArrayType) fieldType).getElementType() instanceof DataType.Named) {
                             final var asArray = (DataType.ArrayType) fieldType;
                             final var depName = ((DataType.Named) asArray.getElementType()).getName();
                             Assert.thatUnchecked(types.containsKey(depName), ErrorCode.UNKNOWN_TYPE, "could not find type '%s'", depName);
-                            mapBuilder.add(types.get(depName));
+                            // Same reasoning as above: the Assert just verified the key exists.
+                            mapBuilder.add(Objects.requireNonNull(types.get(depName), "could not find type '" + depName + "'"));
                         }
                     }
                     return mapBuilder.build();

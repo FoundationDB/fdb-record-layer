@@ -43,6 +43,9 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     @Nullable
     private final EmbeddedRelationalConnection connection;
 
+    // null until the first call to advanceRow(), and again whenever the underlying cursor is exhausted; see
+    // advanceRow() below.
+    @Nullable
     private Row currentRow;
 
     private volatile boolean closed;
@@ -71,7 +74,13 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     }
 
     @Override
-    @SuppressWarnings("PMD.PreserveStackTrace")
+    @SuppressWarnings({"PMD.PreserveStackTrace",
+            // advanceRow() genuinely returns null once the underlying cursor is exhausted; the caller,
+            // AbstractRecordLayerResultSet#next(), checks the result for null immediately after calling this. The
+            // inherited method signature (in AbstractRecordLayerResultSet, outside this migration's scope) still
+            // declares a @NonNull return type, and a `return` statement can't itself carry @SuppressWarnings, so
+            // this is suppressed at the method level.
+            "NullAway"})
     protected Row advanceRow() throws RelationalException {
         currentRow = null;
         if (currentCursor.hasNext()) {

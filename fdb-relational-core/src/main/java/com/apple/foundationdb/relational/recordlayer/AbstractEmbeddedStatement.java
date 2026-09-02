@@ -70,6 +70,11 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
         checkOpen();
         Assert.notNull(sql);
         conn.ensureTransactionActive();
+        // conn.getMetricCollector() is @Nullable only because the collector isn't set up until a
+        // transaction is active (just above); Assert.notNullUnchecked enforces that invariant at
+        // runtime with a clear RelationalException, but NullAway can't see that since Assert lives in
+        // the not-yet-migrated fdb-relational-api module.
+        @SuppressWarnings("NullAway")
         final var metricCollector = Assert.notNullUnchecked(conn.getMetricCollector());
         return metricCollector.clock(RelationalMetric.RelationalEvent.TOTAL_PROCESS_QUERY, () -> {
             try {
@@ -106,6 +111,8 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
     }
 
     private boolean clockAndExecuteQueryPlan(final QueryPlan plan, final Plan.ExecutionContext executionContext) throws RelationalException {
+        // See the comment on the analogous call in executeInternal() above for why this is suppressed.
+        @SuppressWarnings("NullAway")
         final var metricCollector = Assert.notNullUnchecked(conn.getMetricCollector());
         return metricCollector.clock(RelationalMetric.RelationalEvent.EXECUTE_QUERY_PLAN, () -> {
             currentResultSet = new ErrorCapturingResultSet(plan.execute(executionContext));
@@ -129,6 +136,8 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
     }
 
     private boolean clockAndExecuteNonQueryPlan(final Plan<?> plan, final Plan.ExecutionContext executionContext) throws RelationalException {
+        // See the comment on the analogous call in executeInternal() above for why this is suppressed.
+        @SuppressWarnings("NullAway")
         final var metricCollector = Assert.notNullUnchecked(conn.getMetricCollector());
         return metricCollector.clock(RelationalMetric.RelationalEvent.EXECUTE_NON_QUERY_PLAN, () -> {
             plan.execute(executionContext);

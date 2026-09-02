@@ -234,7 +234,9 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     private static RecordLayerColumn toColumn(FieldValue.ResolvedAccessor field, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode columnIdTrie) {
-        final var columnName = field.getName();
+        // field is always constructed from an Identifier's name (see visitUidListWithNestings), which is never
+        // null, even though ResolvedAccessor.getName() is declared @Nullable in general.
+        final var columnName = Objects.requireNonNull(field.getName(), "inline table column must have a name");
         final var builder = RecordLayerColumn.newBuilder().setName(columnName).setIndex(field.getOrdinal());
         if (columnIdTrie.getChildrenMap() == null) {
             return builder.setDataType(DataTypeUtils.toRelationalType(field.getType())).build();
@@ -484,8 +486,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             return Expression.ofUnnamed(targetDataType, value);
         }
 
-        Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "CONVERT function is not yet supported");
-        return null;
+        throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "CONVERT function is not yet supported");
     }
 
     @Override
@@ -563,8 +564,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         if (predicate instanceof RelationalParser.IsExpressionContext) {
             return visitIsExpression(operand, (RelationalParser.IsExpressionContext)predicate);
         }
-        Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "unsupported predicate " + ctx.predicate().getText());
-        return null;
+        throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "unsupported predicate " + ctx.predicate().getText());
     }
 
     @Override
@@ -838,8 +838,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Override
     public Expression visitBitStringConstant(RelationalParser.BitStringConstantContext ctx) {
-        Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "bit strings not supported");
-        return null;
+        throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "bit strings not supported");
     }
 
     @Override
@@ -942,6 +941,11 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         }
 
         final var arrayTargetType = Assert.castUnchecked(targetTypeMaybe.get(), Type.Array.class);
+        // arrayTargetType.getElementType() is @Nullable only for an erased array type, which cannot occur here since
+        // the target type was propagated down from a resolved schema/expression type; Assert.notNullUnchecked
+        // enforces that invariant at runtime with a clear RelationalException, but NullAway can't see that since
+        // Assert lives in the not-yet-migrated fdb-relational-api module.
+        @SuppressWarnings("NullAway")
         final var newStateBuilder = LogicalPlanFragment.State.newBuilder().withTargetType(Assert.notNullUnchecked(arrayTargetType.getElementType()));
         try {
             getDelegate().getCurrentPlanFragment().setState(newStateBuilder.build());
@@ -971,7 +975,9 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         if (targetField != null && maybeState.isPresent() && maybeState.get().getTargetTypeReorderings().isPresent()) {
             reorderings = maybeState.get().getTargetTypeReorderings().get();
         }
-        final var targetFieldReorderings = (reorderings == null || reorderings.getChildrenMap() == null) ?
+        // reorderings is only ever assigned (above) when targetField is non-null, so the extra targetField == null
+        // check below is redundant at runtime but lets NullAway see that targetField.getFieldName() is safe.
+        final var targetFieldReorderings = (targetField == null || reorderings == null || reorderings.getChildrenMap() == null) ?
                                            null :
                                            reorderings.getChildrenMap().get(targetField.getFieldName());
         final var newStateBuilder = LogicalPlanFragment.State.newBuilder();
@@ -992,6 +998,9 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         if (fieldType == null) {
             return expression;
         }
+        // fieldType is derived from targetField.getFieldType() above, so fieldType being non-null implies
+        // targetField is also non-null; reassign so NullAway can see that for the rest of this method.
+        targetField = Objects.requireNonNull(targetField);
         var coercedExpression = coerceIfNecessary(expression, fieldType);
         if (targetField.getFieldIndexOptional().isPresent()) {
             coercedExpression = coercedExpression.withUnderlying(new ColumnarValue(coercedExpression.getUnderlying(),
@@ -1026,7 +1035,12 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         }
         if (resultType.isArray() && PromoteValue.isPromotionNeeded(resultType, targetType) && value instanceof AbstractArrayConstructorValue) {
             Assert.thatUnchecked(targetType.isArray(), "Cannot convert array type to non-array type");
-            final var targetElementType = ((Type.Array) targetType).getElementType();
+            // getElementType() is @Nullable only for an erased array type; targetType here always originates from a
+            // resolved schema/expression type, so it is never erased. Assert.notNullUnchecked enforces that
+            // invariant at runtime with a clear RelationalException, but NullAway can't see that since Assert lives
+            // in the not-yet-migrated fdb-relational-api module.
+            @SuppressWarnings("NullAway")
+            final Type targetElementType = Assert.notNullUnchecked(((Type.Array) targetType).getElementType());
             return AbstractArrayConstructorValue.LightArrayConstructorValue.of(Streams.stream(value.getChildren()).map(c -> coerceValueIfNecessary(c, targetElementType)).collect(Collectors.toList()));
         }
         return value;
@@ -1043,6 +1057,11 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var elementFields = Assert.notNullUnchecked(targetType.getFields());
 
         if (state.getTargetTypeReorderings().isPresent()) {
+            // FieldAccessTrieNode.getChildrenMap() is @Nullable in general, but the reorderings trie built for a
+            // record target type always carries a non-null children map; Assert.notNullUnchecked enforces that
+            // invariant at runtime with a clear RelationalException, but NullAway can't see that since Assert lives
+            // in the not-yet-migrated fdb-relational-api module.
+            @SuppressWarnings("NullAway")
             final var targetTypeReorderings = ImmutableList.copyOf(Assert.notNullUnchecked(
                     state.getTargetTypeReorderings().get().getChildrenMap()).keySet());
             final var resultColumnsBuilder = ImmutableList.<Expression>builder();
@@ -1055,7 +1074,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                     currentFieldColumns = parseRecordField(providedColumnContexts.get(index), elementField);
                 } else if (index >= providedColumnContexts.size()) {
                     // column is declared but the value is not provided
-                    Assert.failUnchecked(ErrorCode.SYNTAX_ERROR, "Value of column \"" + elementField.getFieldName() + "\" is not provided");
+                    throw Assert.failUnchecked(ErrorCode.SYNTAX_ERROR, "Value of column \"" + elementField.getFieldName() + "\" is not provided");
                 } else {
                     // We do not yet support default values for any types, hence it makes sense to simply fail if the field type
                     // expects non-null but no value is provided.

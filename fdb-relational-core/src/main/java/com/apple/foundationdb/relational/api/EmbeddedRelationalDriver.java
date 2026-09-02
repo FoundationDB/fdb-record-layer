@@ -43,7 +43,10 @@ public class EmbeddedRelationalDriver implements RelationalDriver {
 
     private EmbeddedRelationalEngine engine;
 
-    public EmbeddedRelationalDriver(@Nullable EmbeddedRelationalEngine engine) throws SQLException {
+    // engine is dereferenced unconditionally below (e.g. engine.getStorageClusters()) with no null check,
+    // and no caller in this codebase ever passes null, so @Nullable here was never actually honored;
+    // require it, matching actual usage.
+    public EmbeddedRelationalDriver(EmbeddedRelationalEngine engine) throws SQLException {
         this.engine = engine;
     }
 
@@ -58,7 +61,11 @@ public class EmbeddedRelationalDriver implements RelationalDriver {
         return connect(url, null, connectionOptions);
     }
 
-    @SuppressWarnings("PMD.CloseResource") // returns connection outliving auto-closeable object. Should consider refactoring
+    @SuppressWarnings({"PMD.CloseResource", "NullAway"})
+    // PMD: returns connection outliving auto-closeable object. Should consider refactoring
+    // NullAway: per the java.sql.Driver#connect(String, Properties) contract this method mirrors, returning
+    // null here for a URL this driver doesn't understand is correct, expected behavior (relied upon by
+    // java.sql.DriverManager when trying multiple registered drivers), not a bug.
     public RelationalConnection connect(URI url,
                                         @Nullable Transaction existingTransaction,
                                         Options connectionOptions) throws SQLException {

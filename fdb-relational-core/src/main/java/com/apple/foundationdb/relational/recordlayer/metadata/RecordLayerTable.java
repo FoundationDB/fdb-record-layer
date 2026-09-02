@@ -205,6 +205,10 @@ public final class RecordLayerTable implements Table {
 
         private Record record;
 
+        // name, dataType, and record are populated by the fluent setters below (dataType/record
+        // are also lazily derived in build() if left unset) and validated in build(), so
+        // NullAway cannot see that they are always set before use.
+        @SuppressWarnings("NullAway.Init")
         private Builder() {
             this.indexes = new LinkedHashSet<>();
             this.columns = ImmutableList.builder();

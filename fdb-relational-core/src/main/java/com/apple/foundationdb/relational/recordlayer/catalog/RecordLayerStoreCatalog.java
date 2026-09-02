@@ -129,6 +129,9 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
     private final RecordLayerSchema catalogSchema;
 
     @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "Hard to remove exception with current inheritance")
+    // schemaTemplateCatalog is populated by initialize(), which the class Javadoc requires to be
+    // called before the catalog can be used; NullAway cannot see this two-phase initialization.
+    @SuppressWarnings("NullAway.Init")
     RecordLayerStoreCatalog(final KeySpace keySpace) throws RelationalException {
         this.keySpace = keySpace;
         this.catalogSchemaPath = RelationalKeyspaceProvider.toDatabasePath(DASH_DASH_SYS, keySpace)
@@ -453,11 +456,7 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
         return Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY, databaseId.getPath(), schemaName);
     }
 
-    @Nullable
-    private Row transformSchema(@Nullable FDBStoredRecord<Message> record) {
-        if (record == null) {
-            return null;
-        }
+    private Row transformSchema(FDBStoredRecord<Message> record) {
         Message m = record.getRecord();
         final RecordMetaData recordMetaData = catalogRecordMetaDataProvider.getRecordMetaData();
         final RecordType schemaTableMD = recordMetaData.getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME);

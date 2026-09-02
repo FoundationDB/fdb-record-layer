@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
 import com.apple.foundationdb.relational.util.Assert;
 
 import javax.annotation.concurrent.NotThreadSafe;
+import org.jspecify.annotations.Nullable;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -46,6 +47,7 @@ public class RecordLayerSchema implements DatabaseSchema {
     private final FDBRecordStoreBase.StoreExistenceCheck existenceCheck;
 
     //TODO(bfines) destroy this when the connection's transaction ends
+    @Nullable
     private BackingStore currentStore;
 
     /*

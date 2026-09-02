@@ -83,13 +83,20 @@ public final class OrderByExpression {
                     // the structural matching inside `pullUp()`.
                     final var underlying = orderByExpression.getUnderlying()
                             .simplify(EvaluationContext.empty(), aliasMap, constantAliases);
+                    // replace() is declared @Nullable in general (it returns null if the replacement operator
+                    // returns null for any node), but our operator below never returns null; Assert.notNullUnchecked
+                    // enforces that at runtime with a clear RelationalException, but NullAway can't see that since
+                    // Assert lives in the not-yet-migrated fdb-relational-api module.
+                    @SuppressWarnings("NullAway")
                     final var pulledUpUnderlying = Assert.notNullUnchecked(underlying.replace(
                             subExpression -> {
                                 final var pulledUpExpressionMap =
                                         simplifiedValue.pullUp(List.of(subExpression), EvaluationContext.empty(),
                                                 aliasMap, constantAliases, correlationIdentifier);
                                 if (pulledUpExpressionMap.containsKey(subExpression) && !pulledUpExpressionMap.get(subExpression).isEmpty()) {
-                                    return Iterables.getFirst(pulledUpExpressionMap.get(subExpression), null);
+                                    // the emptiness check above guarantees this always returns an actual element, so
+                                    // subExpression (rather than null) is passed as the unused fallback default.
+                                    return Iterables.getFirst(pulledUpExpressionMap.get(subExpression), subExpression);
                                 }
                                 return subExpression;
                             }

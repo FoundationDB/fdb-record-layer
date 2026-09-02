@@ -46,6 +46,7 @@ import com.google.protobuf.Message;
 import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.util.List;
+import java.util.Objects;
 import java.util.zip.Deflater;
 
 @API(API.Status.EXPERIMENTAL)
@@ -112,7 +113,7 @@ public final class StoreConfig {
         } catch (NoSuchDirectoryException nsde) {
             throw new RelationalException("Uninitialized Catalog", ErrorCode.INTERNAL_ERROR, nsde);
         } catch (MetaDataException mde) {
-            throw new RelationalException(mde.getMessage(), ErrorCode.UNDEFINED_SCHEMA, mde);
+            throw new RelationalException(Objects.requireNonNullElse(mde.getMessage(), mde.toString()), ErrorCode.UNDEFINED_SCHEMA, mde);
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }

@@ -187,6 +187,9 @@ public final class UserDefinedFunctionBuilder {
         private Quantifier.ForEach parametersQuantifier;
         private Type returnType;
 
+        // name, parameters, parametersQuantifier and returnType are populated by the fluent setters below,
+        // so NullAway cannot see that they are always set before use (enforced by this builder's callers).
+        @SuppressWarnings("NullAway.Init")
         private UserDefinedFunctionSignatureStepBuilder() {
             this.parametersBuilder = ImmutableList.builder();
         }

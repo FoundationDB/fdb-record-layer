@@ -38,7 +38,10 @@ public abstract class RecordTypeScannable<CursorT> implements DirectScannable {
     public final ResumableIterator<Row> openScan(
             @Nullable Row keyPrefix,
             Options options) throws RelationalException {
-        TupleRange range = TupleRange.allOf(TupleUtils.toFDBTuple(keyPrefix));
+        // A null keyPrefix means "no prefix restriction" (a full scan), which TupleRange.allOf already
+        // supports directly with a null Tuple; TupleUtils.toFDBTuple itself does not accept null, so it
+        // must only be called once we know keyPrefix is present.
+        TupleRange range = TupleRange.allOf(keyPrefix == null ? null : TupleUtils.toFDBTuple(keyPrefix));
         BackingStore store = getSchema().loadStore();
         final RecordCursor<CursorT> cursor = openScan(store, range, options.getOption(Options.Name.CONTINUATION), options);
         return RecordLayerIterator.create(cursor, keyValueTransform());
