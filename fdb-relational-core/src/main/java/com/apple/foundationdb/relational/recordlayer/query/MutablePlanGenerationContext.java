@@ -395,23 +395,20 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         final var literals = getLiterals();
         final var evaluationContext = getEvaluationContext();
         constantObjectValues.forEach(cov -> {
-            final EvaluatesToValue evaluatesTo;
             if (literals.isValueFree(cov.getConstantId())) {
-                // A value-free constant, e.g. a typed signature parameter planned with no value. IS_NOT_NULL is stated
-                // explicitly rather than dereferenced: dereferencing has no value to read, and folding one in would
-                // yield IS_NULL, a constraint no runtime non-null value could satisfy. Stating it also makes this
-                // constraint identical to the one a plan built with a non-null value carries — and since the constraint
-                // is the tertiary cache key (see PlanGenerator, PhysicalPlanEquivalence), identical constraints mean one
-                // cache entry rather than two that both match and are picked by insertion order.
-                evaluatesTo = EvaluatesToValue.isNotNull(cov);
-            } else {
-                // Bound constant: fold to its concrete value (enables constant folding and, at cache lookup, matches the
-                // runtime value against the plan's constraint). A constant bound to null folds to IS_NULL. A constant
-                // that is neither value-free nor bound is a bug, and dereferencing it here fails loudly rather than
-                // silently weakening the constraint.
-                evaluatesTo = EvaluatesToValue.of(cov, evaluationContext);
+                // A value-free constant, e.g. a typed signature parameter planned with no value. Its OfType constraint
+                // above is the whole of what is known about it, and that type's nullability already decides whether a
+                // null binding matches — OfTypeValue.eval answers expectedType.isNullable() when the bound value is
+                // null. So a nullable declaration accepts null and a NOT NULL one does not, with nothing further to
+                // state. Adding IS_NOT_NULL for the non-nullable case would encode the declaration a second time, in a
+                // place that could drift from the type it is meant to mirror.
+                return;
             }
-            predicateBuilder.add(new ValuePredicate(evaluatesTo,
+            // Bound constant: fold to its concrete value (enables constant folding and, at cache lookup, matches the
+            // runtime value against the plan's constraint). A constant bound to null folds to IS_NULL. A constant
+            // that is neither value-free nor bound is a bug, and dereferencing it here fails loudly rather than
+            // silently weakening the constraint.
+            predicateBuilder.add(new ValuePredicate(EvaluatesToValue.of(cov, evaluationContext),
                     new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true)));
         });
 
