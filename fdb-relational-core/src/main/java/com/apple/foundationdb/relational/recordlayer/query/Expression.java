@@ -252,7 +252,11 @@ public class Expression {
                         CorrelationIdentifier correlationIdentifier,
                         Set<CorrelationIdentifier> constantAliases) {
         // Walk the value, “offering” every sub-value for replacement in terms of the reference value.
-        return Assert.notNullUnchecked(value.replace(
+        // The replacement function below never itself returns null; Assert.notNullUnchecked can't narrow
+        // Value#replace(...)'s result on its own since Assert lives in the not-yet-migrated
+        // fdb-relational-api module.
+        @SuppressWarnings("NullAway")
+        final Value replaced = Assert.notNullUnchecked(value.replace(
                 subExpression -> {
                     // Match this sub-value against the reference value.
                     final Multimap<Value, Value> pulledUpExpressionMap =
@@ -274,6 +278,7 @@ public class Expression {
                     return Iterables.getOnlyElement(references);
                 }
         ));
+        return replaced;
     }
 
     public boolean canBeDerivedFrom(final Expression expression,
@@ -297,13 +302,18 @@ public class Expression {
      * instead of any {@link ConstantObjectValue}s.
      */
     public Expressions dereferenced(Literals literals) {
-        return Expressions.ofSingle(withUnderlying(Assert.notNullUnchecked(getUnderlying().replace(value -> {
+        // The replacement function below never itself returns null; Assert.notNullUnchecked can't narrow
+        // Value#replace(...)'s result on its own since Assert lives in the not-yet-migrated
+        // fdb-relational-api module.
+        @SuppressWarnings("NullAway")
+        final Value replaced = Assert.notNullUnchecked(getUnderlying().replace(value -> {
             if (value instanceof ConstantObjectValue) {
                 final ConstantObjectValue constantObjectValue = (ConstantObjectValue) value;
                 return new LiteralValue<>(constantObjectValue.getResultType(), literals.asMap().get(constantObjectValue.getConstantId()));
             }
             return value;
-        }))));
+        }));
+        return Expressions.ofSingle(withUnderlying(replaced));
     }
 
     public Expression asHidden() {

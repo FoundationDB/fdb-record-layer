@@ -552,9 +552,10 @@ public class LogicalOperator {
 
     public static LogicalOperator generateInsert(LogicalOperator insertSource, Table target) {
         final Type.Record targetType = Assert.castUnchecked(target, RecordLayerTable.class).getType();
+        final String targetStorageName = Objects.requireNonNull(targetType.getStorageName(), "target type for insert must have set storage name");
         final var insertExpression = new InsertExpression(Assert.castUnchecked(insertSource.getQuantifier(),
                         Quantifier.ForEach.class),
-                Assert.notNullUnchecked(targetType.getStorageName(), "target type for insert must have set storage name"),
+                targetStorageName,
                 targetType);
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(insertExpression));
         final var output = Expressions.fromQuantifier(resultingQuantifier);
