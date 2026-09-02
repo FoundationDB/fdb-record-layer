@@ -22,7 +22,11 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordStoreState;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -34,6 +38,8 @@ import com.apple.foundationdb.relational.recordlayer.query.cache.NoOpMetricColle
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -52,6 +58,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class OfflineValueFreePlanGenerationTest {
 
     private static final Type LONG_TYPE = Type.primitiveType(Type.TypeCode.LONG).notNullable();
+    private static final Type NULLABLE_LONG_TYPE = Type.primitiveType(Type.TypeCode.LONG).nullable();
 
     /**
      * A declared type is enough to plan a named parameter that has no value, and the resulting constraint cannot be
@@ -70,7 +77,7 @@ class OfflineValueFreePlanGenerationTest {
 
         final var constraint = plan.getConstraint();
 
-        // The parameter contributed a constraint (its declared type plus "is not null"), so the plan is specialized.
+        // The parameter contributed a constraint (its declared type), so the plan is specialized.
         assertThat(constraint.isConstrained()).isTrue();
         // With no value bound, the constraint cannot be shown to hold: dereferencing the value-free constant raises
         // Bindings.MissingBindingException, which compileTimeEval treats as unsatisfied.
@@ -97,6 +104,67 @@ class OfflineValueFreePlanGenerationTest {
         assertThat(plan.getConstraint()
                 .compileTimeEval(EvaluationContext.forTypeRepository(ParseHelpers.EMPTY_TYPE_REPOSITORY)))
                 .isFalse();
+    }
+
+    /**
+     * The declared type's nullability is the whole of what says which bindings the plan serves. A {@code NOT NULL}
+     * declaration is warmed for the non-null case only, so a null binding does not match and the query is planned
+     * again.
+     */
+    @Test
+    void nonNullableDeclaredTypeRejectsANullBinding() throws Exception {
+        final var constraint = valueFreePlanConstraint(LONG_TYPE);
+
+        assertThat(constraint.compileTimeEval(bindingConstantsOf(constraint, 42L))).isTrue();
+        assertThat(constraint.compileTimeEval(bindingConstantsOf(constraint, null))).isFalse();
+    }
+
+    /**
+     * A nullable declaration, which is the default, is warmed for every value the type admits — null included. That is
+     * what makes one plan universal, and it is expressed by the type alone: no separate "is not null" predicate is
+     * emitted, so there is nothing to contradict the declaration.
+     */
+    @Test
+    void nullableDeclaredTypeAcceptsANullBinding() throws Exception {
+        final var constraint = valueFreePlanConstraint(NULLABLE_LONG_TYPE);
+
+        assertThat(constraint.compileTimeEval(bindingConstantsOf(constraint, 42L))).isTrue();
+        assertThat(constraint.compileTimeEval(bindingConstantsOf(constraint, null))).isTrue();
+    }
+
+    /**
+     * Plans {@code where id = ?param_a} with {@code param_a} declared as {@code declaredType} and no value, and returns
+     * the plan's constraint.
+     */
+    @Nonnull
+    private QueryPlanConstraint valueFreePlanConstraint(@Nonnull final Type declaredType) throws Exception {
+        return PlanGenerator.create(
+                        booksTemplate(),
+                        NoOpMetadataOperationsFactory.INSTANCE,
+                        NoOpMetricCollector.INSTANCE,
+                        Options.NONE,
+                        PreparedParams.empty().withDeclaredTypes(Map.of("param_a", declaredType)))
+                .getPlan("select title from books where id = ?param_a")
+                .getConstraint();
+    }
+
+    /**
+     * An evaluation context binding every constant the constraint references to {@code value}, as a runtime lookup
+     * would. The constant ids are read out of the constraint rather than assumed, since they follow token positions.
+     */
+    @Nonnull
+    private static EvaluationContext bindingConstantsOf(@Nonnull final QueryPlanConstraint constraint,
+                                                        @Nullable final Object value) {
+        final var bindings = new HashMap<String, Object>();
+        constraint.getPredicate().preOrderStream()
+                .flatMap(predicate -> predicate.narrowMaybe(ValuePredicate.class).stream())
+                .forEach(valuePredicate -> valuePredicate.getValue().preOrderStream()
+                        .filter(ConstantObjectValue.class::isInstance)
+                        .map(ConstantObjectValue.class::cast)
+                        .forEach(cov -> bindings.put(cov.getConstantId(), value)));
+        return EvaluationContext.newBuilder()
+                .setConstant(Quantifier.constant(), bindings)
+                .build(ParseHelpers.EMPTY_TYPE_REPOSITORY);
     }
 
     /**
