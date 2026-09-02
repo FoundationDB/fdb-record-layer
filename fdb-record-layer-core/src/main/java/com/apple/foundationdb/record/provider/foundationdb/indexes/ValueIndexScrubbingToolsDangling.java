@@ -40,9 +40,11 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScrubbingTools;
 import com.apple.foundationdb.tuple.Tuple;
 
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -50,7 +52,8 @@ import java.util.concurrent.CompletableFuture;
  * pointing to non-existing record(s)
  */
 public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<IndexEntry> {
-    private Index index = null;
+    @Nullable
+    private Index index;
     private boolean allowRepair;
     private boolean isSynthetic;
 
@@ -65,6 +68,9 @@ public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<Ind
     }
 
     @Override
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters of
+                                   // FDBRecordStoreBase#scanIndex (out of scope to fix here); null intentionally means
+                                   // "start from the beginning".
     public RecordCursor<IndexEntry> getCursor(final TupleRange range, final FDBRecordStore store, final int limit) {
         // IsolationLevel.SNAPSHOT will not cause range conflicts, which is ok because this index is idempotent.
         // If a repair is made, any related component (in this case - index entries) should be explicitly added to the conflict list.
@@ -74,10 +80,14 @@ public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<Ind
                 .setReturnedRowLimit(limit);
 
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build(), false);
-        return store.scanIndex(index, IndexScanType.BY_VALUE, range, null, scanProperties);
+        final Index nonNullIndex = Objects.requireNonNull(index, "presetParams was not called appropriately for this scrubbing tool");
+        return store.scanIndex(nonNullIndex, IndexScanType.BY_VALUE, range, null, scanProperties);
     }
 
     @Override
+    @Nullable
+    @SuppressWarnings("NullAway") // IndexScrubbingTools#getKeyFromCursorResult (out of scope to fix here) is not annotated
+                                   // @Nullable even though a missing index entry genuinely yields a null key here.
     public Tuple getKeyFromCursorResult(final RecordCursorResult<IndexEntry> result) {
         final IndexEntry indexEntry = result.get();
         return indexEntry == null ? null : indexEntry.getKey();
@@ -120,6 +130,8 @@ public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<Ind
         }
     }
 
+    @SuppressWarnings("NullAway") // Issue#recordToIndex's constructor parameter is not annotated @Nullable even though it is
+                                   // documented as accepting null (this scrubbing tool never has a record to index).
     private Issue scrubDanglingEntry(FDBRecordStore store, IndexEntry indexEntry, List<Tuple> conflictPrimaryKeys) {
         // Here: the index entry is dangling. Fix it (if allowed) and report the issue.
         final Tuple valueKey = indexEntry.getKey();
@@ -130,7 +142,7 @@ public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<Ind
             for (Tuple primaryKey : conflictPrimaryKeys) {
                 store.addRecordReadConflict(primaryKey);
             }
-            final byte[] keyBytes = store.indexSubspace(index).pack(valueKey);
+            final byte[] keyBytes = store.indexSubspace(Objects.requireNonNull(index, "presetParams was not called appropriately for this scrubbing tool")).pack(valueKey);
             store.getContext().ensureActive().clear(keyBytes);
         }
 
