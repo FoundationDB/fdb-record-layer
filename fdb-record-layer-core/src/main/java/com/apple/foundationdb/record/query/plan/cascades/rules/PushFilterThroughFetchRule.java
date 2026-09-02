@@ -44,6 +44,7 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.physicalQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.anyPlan;
@@ -170,7 +171,8 @@ public class PushFilterThroughFetchRule extends AbstractCascadesRule<RecordQuery
 
         for (final QueryPredicate queryPredicate : queryPredicates) {
             final Optional<QueryPredicate> pushedPredicateOptional =
-                    queryPredicate.replaceLeavesMaybe(leafPredicate -> pushLeafPredicate(fetchPlan, quantifierOverFetch.getAlias(), newInnerAlias, leafPredicate));
+                    queryPredicate.replaceLeavesMaybe((Function<QueryPredicate, @Nullable QueryPredicate>)leafPredicate ->
+                            pushLeafPredicate(fetchPlan, quantifierOverFetch.getAlias(), newInnerAlias, leafPredicate));
 
             if (pushedPredicateOptional.isPresent()) {
                 pushedPredicatesBuilder.add(pushedPredicateOptional.get());

@@ -65,8 +65,8 @@ public class IdentityBiMap<K, V> implements BiMap<Wrapper<K>, Wrapper<V>> {
     @Override
     @CanIgnoreReturnValue
     @Nullable
-    public Wrapper<V> put(@Nullable final Wrapper<K> key,
-                          @Nullable final Wrapper<V> value) {
+    public Wrapper<V> put(final Wrapper<K> key,
+                          final Wrapper<V> value) {
         return getDelegate().put(key, value);
     }
 
@@ -79,8 +79,8 @@ public class IdentityBiMap<K, V> implements BiMap<Wrapper<K>, Wrapper<V>> {
     @Override
     @CanIgnoreReturnValue
     @Nullable
-    public Wrapper<V> forcePut(@Nullable final Wrapper<K> key,
-                               @Nullable final Wrapper<V> value) {
+    public Wrapper<V> forcePut(final Wrapper<K> key,
+                               final Wrapper<V> value) {
         return getDelegate().forcePut(key, value);
     }
 
@@ -260,12 +260,15 @@ public class IdentityBiMap<K, V> implements BiMap<Wrapper<K>, Wrapper<V>> {
         return new IdentityBiMap<>(delegate);
     }
 
-    public static <T> Wrapper<T> wrap(@Nullable final T reference) {
+    @SuppressWarnings("NullAway") // Equivalence.wrap() is annotated (via Guava's ParametricNullness) to accept a
+                                   // null reference; NullAway cannot propagate that through our own <T extends
+                                   // @Nullable Object> type variable across this generic-method boundary.
+    public static <T extends @Nullable Object> Wrapper<T> wrap(@Nullable final T reference) {
         return identity.wrap(reference);
     }
 
     @Nullable
-    public static <T> T unwrap(@Nullable final Wrapper<T> wrapper) {
+    public static <T extends @Nullable Object> T unwrap(@Nullable final Wrapper<T> wrapper) {
         return wrapper == null ? null : wrapper.get();
     }
 

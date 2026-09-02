@@ -125,6 +125,7 @@ public interface EnumeratingIterable<T> extends Iterable<List<T>> {
             // no op, we are at the end
         }
 
+        @Nullable
         @Override
         protected List<T> computeNext() {
             if (!atFirst) {

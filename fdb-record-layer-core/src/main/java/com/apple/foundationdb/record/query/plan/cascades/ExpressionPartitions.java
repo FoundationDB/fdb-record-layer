@@ -30,6 +30,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -148,7 +149,7 @@ public class ExpressionPartitions {
                     final var nonPartitioningPropertyMap = new LinkedIdentityMap<E, Map<ExpressionProperty<?>, ?>>();
                     for (final var expression : expressions) {
                         final var propertiesMapForExpression =
-                                nonPartitioningPropertiesMap.get(expression);
+                                Objects.requireNonNull(nonPartitioningPropertiesMap.get(expression));
                         nonPartitioningPropertyMap.put(expression, ImmutableMap.copyOf(propertiesMapForExpression));
                     }
 

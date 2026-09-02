@@ -45,9 +45,9 @@ public enum PseudoField {
 
     private final String fieldName;
     private final Type type;
-    private final Function<FDBQueriedRecord<?>, Object> valueExtractor;
+    private final Function<FDBQueriedRecord<?>, @Nullable Object> valueExtractor;
 
-    PseudoField(Type type, Function<FDBQueriedRecord<?>, Object> valueExtractor) {
+    PseudoField(Type type, Function<FDBQueriedRecord<?>, @Nullable Object> valueExtractor) {
         this.fieldName = PREFIX + name();
         this.type = type;
         this.valueExtractor = valueExtractor;

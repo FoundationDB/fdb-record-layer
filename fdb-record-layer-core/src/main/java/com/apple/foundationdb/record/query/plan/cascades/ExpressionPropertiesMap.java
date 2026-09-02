@@ -39,6 +39,7 @@ import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -190,7 +191,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
         for (final var expressionProperty : trackedPartitioningProperties) {
             final var propertyValue = propertyMap.get(expressionProperty);
             Verify.verify(propertyValue != null);
-            partitioningPropertyMapBuilder.put(expressionProperty, propertyMap.get(expressionProperty));
+            partitioningPropertyMapBuilder.put(expressionProperty, propertyValue);
         }
         final var partitioningPropertyMap = partitioningPropertyMapBuilder.build();
         final E typedExpression = narrow(expression);
@@ -244,7 +245,8 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
         update();
         final var resultMap = new LinkedIdentityMap<E, P>();
         for (final var entry : propertiesMap.entrySet()) {
-            resultMap.put(entry.getKey(), expressionProperty.narrowAttribute(entry.getValue().get(expressionProperty)));
+            resultMap.put(entry.getKey(),
+                    expressionProperty.narrowAttribute(Objects.requireNonNull(entry.getValue().get(expressionProperty))));
         }
         return resultMap;
     }

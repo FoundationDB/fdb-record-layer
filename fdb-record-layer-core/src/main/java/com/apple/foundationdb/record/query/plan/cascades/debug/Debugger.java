@@ -133,7 +133,7 @@ public interface Debugger extends PlannerEventListeners.EventListener {
      *         returned {@code null}, {@code Optional.of(result)} where {@code result} is the result of applying
      *         {@code function}, otherwise.
      */
-    static <T> Optional<T> mapDebugger(final Function<Debugger, T> function) {
+    static <T extends @Nullable Object> Optional<T> mapDebugger(final Function<Debugger, T> function) {
         return getDebuggerMaybe().map(function);
     }
 

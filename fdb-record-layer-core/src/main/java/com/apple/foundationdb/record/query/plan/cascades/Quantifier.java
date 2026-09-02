@@ -228,7 +228,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         @Override
-        public boolean semanticEqualsWithoutChildren(final Object o) {
+        public boolean semanticEqualsWithoutChildren(@Nullable final Object o) {
             if (this == o) {
                 return true;
             }
@@ -626,7 +626,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean semanticEqualsWithoutChildren(final Object o) {
+    public boolean semanticEqualsWithoutChildren(@Nullable final Object o) {
         if (this == o) {
             return true;
         }

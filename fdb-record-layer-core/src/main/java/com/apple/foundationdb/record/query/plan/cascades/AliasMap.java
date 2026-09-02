@@ -219,7 +219,7 @@ public class AliasMap {
 
     public boolean containsMapping(@Nullable final CorrelationIdentifier source,
                                    @Nullable final CorrelationIdentifier target) {
-        return containsSource(source) && containsTarget(target) && getTargetOrThrow(source).equals(target);
+        return containsSource(source) && containsTarget(target) && Objects.equals(getTargetOrThrow(source), target);
     }
 
     /**
@@ -325,7 +325,9 @@ public class AliasMap {
      *         from {@code source} in this alias map
      */
     @Nullable
-    public CorrelationIdentifier getTarget(final CorrelationIdentifier source) {
+    public CorrelationIdentifier getTarget(@Nullable final CorrelationIdentifier source) {
+        // ImmutableBiMap.get() tolerates a null key (it just can never contain one), so a null source correctly
+        // and safely reports "no mapping" rather than needing to be excluded here.
         return map.get(source);
     }
 
@@ -426,7 +428,7 @@ public class AliasMap {
         for (final CorrelationIdentifier otherSource : other.sources()) {
             final CorrelationIdentifier otherTarget = Objects.requireNonNull(other.getTarget(otherSource));
             if (containsSource(otherSource)) {
-                if (!otherTarget.equals(getTarget(otherSource))) {
+                if (!Objects.equals(otherTarget, getTarget(otherSource))) {
                     return false;
                 }
             } else {
@@ -462,7 +464,7 @@ public class AliasMap {
         for (final CorrelationIdentifier otherSource : other.sources()) {
             final CorrelationIdentifier otherTarget = Objects.requireNonNull(other.getTarget(otherSource));
             if (containsSource(otherSource)) {
-                if (!otherTarget.equals(getTarget(otherSource))) {
+                if (!Objects.equals(otherTarget, getTarget(otherSource))) {
                     return Optional.empty();
                 }
             } else {

@@ -350,8 +350,11 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
     }
 
     public static Optional<AggregateValue> aggregateValue(final Index index, final Value argument) {
-        return Optional.of((AggregateValue)aggregateMap.get()
-                .get(index.getType()).encapsulate(CallSiteArguments.ofPositional(argument)));
+        final BuiltInFunction<? extends Value> aggregateFunction = aggregateMap.get().get(index.getType());
+        if (aggregateFunction == null) {
+            return Optional.empty();
+        }
+        return Optional.of((AggregateValue)aggregateFunction.encapsulate(CallSiteArguments.ofPositional(argument)));
     }
 
     private static Map<String, BuiltInFunction<? extends Value>> computeAggregateMap() {

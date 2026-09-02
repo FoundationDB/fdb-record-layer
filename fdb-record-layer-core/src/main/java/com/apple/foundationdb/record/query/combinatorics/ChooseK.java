@@ -267,6 +267,7 @@ public class ChooseK {
                 // skipping is a non-op
             }
 
+            @Nullable
             @Override
             protected List<T> computeNext() {
                 if (atFirst) {

@@ -253,7 +253,7 @@ public class MaxMatchMap {
         // Translate the subtrees in query value with the candidate subtrees we just pulled up.
         //
         final var queryResultValueFromBelow = getQueryValue();
-        final var translatedQueryResultValue = Objects.requireNonNull(queryResultValueFromBelow.replace(value -> {
+        final var translatedQueryResultValue = Objects.requireNonNull(queryResultValueFromBelow.replace((Function<Value, @Nullable Value>)value -> {
             final var maxMatchValue = pulledUpMaxMatchMap.get(value);
             return maxMatchValue == null ? value : maxMatchValue;
         }));
@@ -938,9 +938,9 @@ public class MaxMatchMap {
                     final var matchingCandidateValuesBuilder =
                             ImmutableList.<NonnullPair<Value, QueryPlanConstraint>>builder();
                     for (final var matchingCandidateValuePair : parent.getMatchingCandidateValues()) {
-                        final var currentCandidateValue =
-                                Iterables.get(matchingCandidateValuePair.getLeft().getChildren(),
-                                        descendOrdinal, null);
+                        final var candidateChildren = ImmutableList.copyOf(matchingCandidateValuePair.getLeft().getChildren());
+                        final Value currentCandidateValue =
+                                descendOrdinal < candidateChildren.size() ? candidateChildren.get(descendOrdinal) : null;
                         if (currentCandidateValue != null) {
                             final var currentEqualsWithoutChildren =
                                     currentQueryValue.equalsWithoutChildren(currentCandidateValue);

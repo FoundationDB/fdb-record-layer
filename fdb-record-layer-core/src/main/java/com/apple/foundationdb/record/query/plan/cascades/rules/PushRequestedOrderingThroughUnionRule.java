@@ -33,10 +33,8 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -90,8 +88,7 @@ public class PushRequestedOrderingThroughUnionRule extends AbstractCascadesRule<
                     i == 0 ? exhaustiveRequestedOrderings : requestedOrderings);
         }
 
-        final var firstQuantifier =
-                Objects.requireNonNull(Iterables.getFirst(rangesOverQuantifiers, null));
+        final var firstQuantifier = rangesOverQuantifiers.get(0);
         call.pushConstraint(firstQuantifier.getRangesOver(),
                 RequestedOrderingConstraint.REQUESTED_ORDERING,
                 exhaustiveRequestedOrderings);

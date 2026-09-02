@@ -30,6 +30,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -132,6 +134,7 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
         int size = otherOrdered.size();
 
         return new AbstractIterator<AliasMap>() {
+            @Nullable
             @Override
             protected AliasMap computeNext() {
                 while (iterator.hasNext()) {

@@ -231,7 +231,7 @@ public interface Correlated<S extends Correlated<S>> {
         }
 
         @Override
-        public boolean equals(final Object o) {
+        public boolean equals(@Nullable final Object o) {
             if (this == o) {
                 return true;
             }

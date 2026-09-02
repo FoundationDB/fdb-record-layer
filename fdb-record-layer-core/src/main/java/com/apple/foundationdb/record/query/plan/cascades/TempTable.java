@@ -38,6 +38,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A mutable, temporary, serializable, and in-memory buffer of {@link QueryResult}s. It is aimed to be used as a temporary
@@ -143,7 +144,8 @@ public class TempTable implements ProtoSerializable {
             tempTableProto = PTempTable.parseFrom(byteString);
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("invalid bytes", ex)
-                    .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(byteString.toByteArray()));
+                    // byteString.toByteArray() is never null, so loggable() (only @Nullable for a null input) can't return null here.
+                    .addLogInfo(LogMessageKeys.RAW_BYTES, Objects.requireNonNull(ByteArrayUtil2.loggable(byteString.toByteArray())));
         }
         return from(tempTableProto, descriptor);
     }

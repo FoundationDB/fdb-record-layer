@@ -76,7 +76,7 @@ public class MetaDataPlanContext implements PlanContext {
             if (first) {
                 common = recordType.getPrimaryKey();
                 first = false;
-            } else if (!common.equals(recordType.getPrimaryKey())) {
+            } else if (!Objects.requireNonNull(common).equals(recordType.getPrimaryKey())) {
                 return null;
             }
         }

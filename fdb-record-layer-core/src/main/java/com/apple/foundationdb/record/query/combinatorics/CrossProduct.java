@@ -213,6 +213,7 @@ public class CrossProduct {
                 // skipping is a non-op
             }
 
+            @Nullable
             @Override
             protected List<T> computeNext() {
                 atFirst = false;

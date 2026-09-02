@@ -24,6 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Iterator;
 import java.util.function.Function;
 import java.util.stream.StreamSupport;
@@ -96,6 +98,7 @@ public class IterableHelpers {
             private Iterator<T> nestedIterator = source.iterator();
             private boolean isEmpty = true;
             private boolean hasSwitched = false;
+            @Nullable
             @Override
             protected T computeNext() {
                 if (nestedIterator.hasNext()) {

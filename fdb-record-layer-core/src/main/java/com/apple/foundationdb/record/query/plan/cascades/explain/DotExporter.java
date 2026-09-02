@@ -108,6 +108,8 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
      * @param graphAttributes map of global attributes
      * @param clusterProvider for partitioning the graph into clusters if warranted
      */
+    @SuppressWarnings("NullAway") // the edge id provider is a stub -- dot does not support ids for edges, and
+                                   // getEdgeID() (which would dereference its result) is never invoked for this exporter
     public DotExporter(final ComponentIdProvider<N> vertexIDProvider,
                        final ComponentAttributeProvider<N> vertexAttributeProvider,
                        final ComponentAttributeProvider<E> edgeAttributeProvider,
@@ -573,7 +575,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
 
     private String substituteVariables(final String detail,
                                        final Map<String, Attribute> nodeAttributes,
-                                       final Function<Attribute, String> toStringFn) {
+                                       final Function<@Nullable Attribute, String> toStringFn) {
         final Matcher matcher = VARIABLE.matcher(detail);
 
         final StringBuilder builder = new StringBuilder();
