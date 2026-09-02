@@ -202,7 +202,9 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         return outerFunction;
     }
 
-    @SuppressWarnings({"resource", "PMD.CloseResource"})
+    @SuppressWarnings({"resource", "PMD.CloseResource", "NullAway"}) // NullAway/JSpecify does not currently track @Nullable on array (byte[])
+                                                                      // parameters of KeyValueCursorBase.Builder#setContinuation (out of scope
+                                                                      // to fix here); passing null intentionally means "start from the beginning".
     private CompletableFuture<Optional<Tuple>> nextPrefixTuple(final TupleRange prefixRange,
                                                                final int prefixSize,
                                                                @Nullable final Tuple lastPrefixTuple,
@@ -505,6 +507,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         @Nullable
         private byte[] cachedBytes;
 
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields; cachedBytes is correctly left uninitialized (lazily computed).
         private Continuation(@Nullable final BigInteger lastHilbertValue, @Nullable final Tuple lastKey) {
             this.lastHilbertValue = lastHilbertValue;
             this.lastKey = lastKey;
@@ -538,6 +541,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
 
         @Nullable
         @Override
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return types.
         public byte[] toBytes() {
             if (isEnd()) {
                 return null;
@@ -554,6 +558,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         }
 
         @Nullable
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even across explicit null checks.
         private static Continuation fromBytes(@Nullable byte[] continuationBytes) {
             if (continuationBytes != null) {
                 final RecordCursorProto.MultidimensionalIndexScanContinuation parsed;
@@ -561,7 +566,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                     parsed = RecordCursorProto.MultidimensionalIndexScanContinuation.parseFrom(continuationBytes);
                 } catch (InvalidProtocolBufferException ex) {
                     throw new RecordCoreException("error parsing continuation", ex)
-                            .addLogInfo("raw_bytes", ByteArrayUtil2.loggable(continuationBytes));
+                            .addLogInfo("raw_bytes", Objects.requireNonNull(ByteArrayUtil2.loggable(continuationBytes)));
                 }
                 return new Continuation(new BigInteger(parsed.getLastHilbertValue().toByteArray()),
                         Tuple.fromBytes(parsed.getLastKey().toByteArray()));

@@ -180,7 +180,7 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
             }
             // It is unsafe to have two concurrent updates to the same ranked set, so ensure that at most
             // one update per grouping key is ongoing at any given time
-            final Function<Void, CompletableFuture<Void>> futureSupplier = vignore -> RankedSetIndexHelper.updateRankedSet(
+            final Function<@Nullable Void, CompletableFuture<Void>> futureSupplier = vignore -> RankedSetIndexHelper.updateRankedSet(
                     state, rankSubspace, config, indexEntry.getKey(), scoreKey, remove
             );
             CompletableFuture<Void> existingFuture = rankFutures.get(rankSubspace);
