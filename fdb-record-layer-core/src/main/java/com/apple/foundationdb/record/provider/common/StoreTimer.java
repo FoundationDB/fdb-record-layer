@@ -550,7 +550,7 @@ public class StoreTimer {
      * @param timeDifferenceNanos the time that instrumented event took to run
      */
     public void record(Event event, long timeDifferenceNanos) {
-        getCounter(event, true).record(timeDifferenceNanos);
+        Objects.requireNonNull(getCounter(event, true)).record(timeDifferenceNanos);
     }
 
     /**
@@ -562,7 +562,7 @@ public class StoreTimer {
      * @param size size of IO that instrumented event performed.
      */
     public void recordSize(SizeEvent event, long size) {
-        getCounter(event, true).record(size);
+        Objects.requireNonNull(getCounter(event, true)).record(size);
     }
 
     /**
@@ -582,7 +582,7 @@ public class StoreTimer {
      * @param startTime the {@code System.nanoTime()} when the event started
      */
     public void recordTimeout(Wait event, long startTime) {
-        getTimeoutCounter(event, true).record(System.nanoTime() - startTime);
+        Objects.requireNonNull(getTimeoutCounter(event, true)).record(System.nanoTime() - startTime);
     }
 
     /**
@@ -628,7 +628,7 @@ public class StoreTimer {
      * @param amount the number of times the event occurred
      */
     public void increment(Count event, int amount) {
-        getCounter(event, true).increment(amount);
+        Objects.requireNonNull(getCounter(event, true)).increment(amount);
     }
 
     /**
@@ -806,7 +806,7 @@ public class StoreTimer {
      *
      * @return a new future that will be complete after also recording timing information
      */
-    public <T> CompletableFuture<T> instrument(Event event, CompletableFuture<T> future, Executor executor) {
+    public <T> CompletableFuture<T> instrument(Event event, CompletableFuture<T> future, @Nullable Executor executor) {
         if (future.isDone()) {
             record(event, 0);
             return future;
@@ -887,6 +887,7 @@ public class StoreTimer {
      */
     public <T> RecordCursor<T> instrument(Event event, RecordCursor<T> inner) {
         return new RecordCursor<T>() {
+            @Nullable
             RecordCursorResult<T> nextResult;
 
             @Override

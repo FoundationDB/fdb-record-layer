@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 
 /**
@@ -50,7 +51,8 @@ public class IntersectionMultiCursor<T> extends IntersectionCursorBase<T, List<T
     @Override
     protected List<T> getNextResult(List<KeyedMergeCursorState<T>> cursorStates) {
         List<T> result = new ArrayList<>(cursorStates.size());
-        cursorStates.forEach(cursorState -> result.add(cursorState.getResult().get()));
+        // computeNextResultStates() has already settled on the states to return, so getResult() is guaranteed non-null here.
+        cursorStates.forEach(cursorState -> result.add(Objects.requireNonNull(cursorState.getResult()).get()));
         return result;
     }
 

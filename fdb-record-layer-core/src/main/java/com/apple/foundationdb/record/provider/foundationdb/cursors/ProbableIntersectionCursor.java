@@ -33,6 +33,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
@@ -99,7 +100,8 @@ public class ProbableIntersectionCursor<T> extends MergeCursor<T, T, ProbableInt
     @SuppressWarnings({"PMD.CompareObjectsWithEquals", "PMD.CloseResource"})
     private boolean checkIfInRest(ProbableIntersectionCursorState<T> cursorState) {
         final List<ProbableIntersectionCursorState<T>> cursorStates = getCursorStates();
-        final List<Object> key = cursorState.getComparisonKey();
+        final List<Object> key = Objects.requireNonNull(cursorState.getComparisonKey(),
+                "comparisonKey should be set once the associated result has a next value");
         boolean allContain = true;
         for (ProbableIntersectionCursorState<T> otherCursorState : cursorStates) {
             // Check if all states (beside the source state) contain the element (at least according
@@ -164,9 +166,10 @@ public class ProbableIntersectionCursor<T> extends MergeCursor<T, T, ProbableInt
         });
     }
 
+    @Nullable
     @Override
     protected T getNextResult(List<ProbableIntersectionCursorState<T>> resultStates) {
-        return resultStates.get(0).getResult().get();
+        return Objects.requireNonNull(resultStates.get(0).getResult()).get();
     }
 
     @Override

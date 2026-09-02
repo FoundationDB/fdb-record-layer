@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordCursorResult;
 
 import org.jspecify.annotations.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 
 /**
@@ -48,7 +49,7 @@ class KeyedMergeCursorState<T> extends MergeCursorState<T> {
     protected void handleNextCursorResult(RecordCursorResult<T> cursorResult) {
         super.handleNextCursorResult(cursorResult);
         if (cursorResult.hasNext()) {
-            comparisonKey = comparisonKeyFunction.apply(cursorResult.get());
+            comparisonKey = comparisonKeyFunction.apply(Objects.requireNonNull(cursorResult.get()));
         }
     }
 
@@ -63,6 +64,8 @@ class KeyedMergeCursorState<T> extends MergeCursorState<T> {
         this.comparisonKey = null;
     }
 
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters (a null continuation
+                                   // intentionally means "start from the beginning").
     public static <T> KeyedMergeCursorState<T> from(
             Function<byte[], RecordCursor<T>> cursorFunction,
             RecordCursorContinuation continuation,

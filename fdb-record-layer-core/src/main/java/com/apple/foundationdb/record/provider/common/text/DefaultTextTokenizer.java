@@ -28,6 +28,7 @@ import java.text.Normalizer;
 import java.util.Iterator;
 import java.util.Locale;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -135,7 +136,7 @@ public class DefaultTextTokenizer implements TextTokenizer {
         @Override
         public String next() {
             if (hasNext()) {
-                String next = nextToken;
+                String next = Objects.requireNonNull(nextToken, "nextToken should be set once hasNext() returns true");
                 nextToken = null;
                 return next;
             } else {

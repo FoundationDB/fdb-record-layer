@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
 import org.jspecify.annotations.Nullable;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -85,7 +86,7 @@ public class MapWhileCursor<T, V> implements RecordCursor<V> {
                     nextResult = RecordCursorResult.withoutNextValue(innerResult);
                     return nextResult;
                 }
-                final Optional<V> maybeRecord = func.apply(innerResult.get());
+                final Optional<V> maybeRecord = func.apply(Objects.requireNonNull(innerResult.get()));
                 if (maybeRecord.isPresent()) {
                     nextResult = RecordCursorResult.withNextValue(maybeRecord.get(), innerResult.getContinuation());
                     return nextResult;

@@ -51,6 +51,7 @@ public abstract class MergeCursorContinuation<B extends Message.Builder, C exten
     @Nullable
     private ByteString cachedByteString;
 
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields; cachedBytes is correctly left uninitialized (lazily computed).
     protected MergeCursorContinuation(List<C> continuations, @Nullable Message originalProto) {
         this.continuations = continuations;
         this.cachedProto = originalProto;
@@ -111,6 +112,7 @@ public abstract class MergeCursorContinuation<B extends Message.Builder, C exten
     @Nullable
     @Override
     @SpotBugsSuppressWarnings("EI")
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return types.
     public byte[] toBytes() {
         if (isEnd()) {
             return null;

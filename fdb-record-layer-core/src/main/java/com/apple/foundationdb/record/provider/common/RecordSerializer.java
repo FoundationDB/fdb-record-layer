@@ -145,7 +145,7 @@ public interface RecordSerializer<M extends Message> {
         private final String title;
         private final String logKey;
 
-        Events(String title, String logKey) {
+        Events(String title, @Nullable String logKey) {
             this.title = title;
             this.logKey = (logKey != null) ? logKey : StoreTimer.DetailEvent.super.logKey();
         }
@@ -183,7 +183,7 @@ public interface RecordSerializer<M extends Message> {
         private final boolean isSize;
         private final String logKey;
 
-        Counts(String title, boolean isSize, String logKey) {
+        Counts(String title, boolean isSize, @Nullable String logKey) {
             this.title = title;
             this.isSize = false;
             this.logKey = (logKey != null) ? logKey : StoreTimer.Count.super.logKey();

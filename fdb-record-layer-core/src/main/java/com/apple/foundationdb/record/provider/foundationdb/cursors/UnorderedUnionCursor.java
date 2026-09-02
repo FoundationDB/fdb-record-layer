@@ -31,6 +31,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -76,7 +77,8 @@ public class UnorderedUnionCursor<T> extends UnionCursorBase<T, MergeCursorState
                     allDone = false;
                     continue;
                 }
-                final RecordCursorResult<T> result = cursorState.getResult();
+                // The future for this cursor state has completed normally, so getResult() is guaranteed non-null here.
+                final RecordCursorResult<T> result = Objects.requireNonNull(cursorState.getResult());
                 if (result.hasNext()) {
                     // Found a cursor with an element.
                     allDone = false;

@@ -291,19 +291,22 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
     private boolean compareAllStates(final List<KeyedMergeCursorState<T>> cursorStates) {
         final long startTime = System.nanoTime();
 
-        List<Object> referenceKey = getReferenceState(cursorStates).getComparisonKey();
+        // compareAllStates() is only called once all cursor states have a next value (see computeNextResultStates()),
+        // so getComparisonKey() is guaranteed to be non-null for every state here.
+        List<Object> referenceKey = Objects.requireNonNull(getReferenceState(cursorStates).getComparisonKey());
         for (KeyedMergeCursorState<T> cursorState : cursorStates) {
+            List<Object> comparisonKey = Objects.requireNonNull(cursorState.getComparisonKey());
             // No point comparing the reference key to itself
-            if (cursorState.getComparisonKey() == referenceKey) {
+            if (comparisonKey == referenceKey) {
                 continue;
             }
-            int compare = KeyComparisons.KEY_COMPARATOR.compare(cursorState.getComparisonKey(), referenceKey);
+            int compare = KeyComparisons.KEY_COMPARATOR.compare(comparisonKey, referenceKey);
             if (compare != 0) {
-                logComparisonFailure(referenceKey, cursorState.getComparisonKey());
+                logComparisonFailure(referenceKey, comparisonKey);
                 if (abortOnComparisonFailure) {
                     throw new RecordCoreException("Comparison of plans failed")
                             .addLogInfo(LogMessageKeys.EXPECTED, referenceKey)
-                            .addLogInfo(LogMessageKeys.ACTUAL, cursorState.getComparisonKey())
+                            .addLogInfo(LogMessageKeys.ACTUAL, comparisonKey)
                             .addLogInfo(LogMessageKeys.PLAN_HASH, planHashSupplier.get());
                 } else {
                     return false;

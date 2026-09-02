@@ -33,6 +33,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -106,7 +107,8 @@ abstract class IntersectionCursorBase<T, U> extends MergeCursor<T, U, KeyedMerge
         final List<KeyedMergeCursorState<T>> cursorStates = getCursorStates();
         return AsyncUtil.whileTrue(() -> whenAll(cursorStates).thenApply(vignore -> {
             // If any of the cursors do not have a next element, then we are done.
-            if (cursorStates.stream().anyMatch(cursorState -> !cursorState.getResult().hasNext())) {
+            // This waits for all cursor states to return some result, so getResult will return something non-null.
+            if (cursorStates.stream().anyMatch(cursorState -> !Objects.requireNonNull(cursorState.getResult()).hasNext())) {
                 return false;
             }
 
@@ -128,7 +130,7 @@ abstract class IntersectionCursorBase<T, U> extends MergeCursor<T, U, KeyedMerge
         }), getExecutor()).thenApply(vignore -> {
             // This waits for all cursor states to return some result, so getResult will return
             // something non-null.
-            if (cursorStates.stream().anyMatch(cursorState -> !cursorState.getResult().hasNext())) {
+            if (cursorStates.stream().anyMatch(cursorState -> !Objects.requireNonNull(cursorState.getResult()).hasNext())) {
                 return Collections.emptyList();
             } else {
                 return cursorStates;

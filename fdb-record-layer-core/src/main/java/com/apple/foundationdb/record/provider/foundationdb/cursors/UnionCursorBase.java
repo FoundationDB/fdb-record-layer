@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableSet;
 import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -60,9 +61,10 @@ abstract class UnionCursorBase<T, S extends MergeCursorState<T>> extends MergeCu
      * @param chosenStates the states that contain the next value to return
      * @return the result to return from this cursor given these elements appear in the union
      */
+    @Nullable
     @Override
     protected T getNextResult(List<S> chosenStates) {
-        return chosenStates.get(0).getResult().get();
+        return Objects.requireNonNull(chosenStates.get(0).getResult()).get();
     }
 
     /**

@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
 import org.jspecify.annotations.Nullable;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -55,7 +56,7 @@ public class FilterCursor<T> implements RecordCursor<T> {
         }
         return AsyncUtil.whileTrue(() -> inner.onNext().thenApply(innerResult -> {
             nextResult = innerResult;
-            hasNext = innerResult.hasNext() && (Boolean.TRUE.equals(pred.apply(innerResult.get()))); // relies on short circuiting
+            hasNext = innerResult.hasNext() && (Boolean.TRUE.equals(pred.apply(Objects.requireNonNull(innerResult.get())))); // relies on short circuiting
             return innerResult.hasNext() && !hasNext; // keep looping only if we might find more records and we filtered a record out
         }), getExecutor()).thenApply(vignore -> nextResult);
     }

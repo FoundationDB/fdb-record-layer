@@ -59,7 +59,7 @@ import java.util.function.Function;
 public class FallbackCursor<T> implements RecordCursor<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(FallbackCursor.class);
 
-    private final Function<RecordCursorResult<T>, RecordCursor<T>> fallbackCursorSupplier;
+    private final Function<@Nullable RecordCursorResult<T>, RecordCursor<T>> fallbackCursorSupplier;
     private final Executor executor;
     private RecordCursor<T> inner;
     @Nullable
@@ -83,7 +83,7 @@ public class FallbackCursor<T> implements RecordCursor<T> {
      * returned cursor is expected to resume from the record following the last successful one (or fail if it does not
      * support continuing).
      */
-    public FallbackCursor(RecordCursor<T> inner, Function<RecordCursorResult<T>, RecordCursor<T>> fallbackCursorSupplier) {
+    public FallbackCursor(RecordCursor<T> inner, Function<@Nullable RecordCursorResult<T>, RecordCursor<T>> fallbackCursorSupplier) {
         this.inner = inner;
         this.fallbackCursorSupplier = fallbackCursorSupplier;
         this.executor = inner.getExecutor();

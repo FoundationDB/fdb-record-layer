@@ -37,6 +37,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
@@ -74,9 +75,11 @@ public class UnionCursor<T> extends UnionCursorBase<T, KeyedMergeCursorState<T>>
         return whenAll(cursorStates).thenApply(vignore -> {
             boolean anyHasNext = false;
             for (KeyedMergeCursorState<T> cursorState : cursorStates) {
-                if (cursorState.getResult().hasNext()) {
+                // whenAll() has completed, so getResult() is guaranteed to return something non-null here.
+                final RecordCursorResult<T> result = Objects.requireNonNull(cursorState.getResult());
+                if (result.hasNext()) {
                     anyHasNext = true;
-                } else if (cursorState.getResult().getNoNextReason().isLimitReached()) {
+                } else if (result.getNoNextReason().isLimitReached()) {
                     // If any side stopped due to limit reached, need to stop completely,
                     // since might otherwise duplicate ones after that, if other side still available.
                     return Collections.emptyList();
@@ -99,7 +102,9 @@ public class UnionCursor<T> extends UnionCursorBase<T, KeyedMergeCursorState<T>>
     private void chooseStates(List<KeyedMergeCursorState<T>> allStates, List<KeyedMergeCursorState<T>> chosenStates, List<KeyedMergeCursorState<T>> otherStates) {
         List<Object> nextKey = null;
         for (KeyedMergeCursorState<T> cursorState : allStates) {
-            final RecordCursorResult<T> result = cursorState.getResult();
+            // computeNextResultStates() only calls chooseStates() after whenAll() has completed, so getResult()
+            // is guaranteed to return something non-null here.
+            final RecordCursorResult<T> result = Objects.requireNonNull(cursorState.getResult());
             if (result.hasNext()) {
                 int compare;
                 final List<Object> resultKey = cursorState.getComparisonKey();

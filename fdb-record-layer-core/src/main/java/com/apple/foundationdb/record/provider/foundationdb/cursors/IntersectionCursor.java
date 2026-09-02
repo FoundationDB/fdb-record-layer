@@ -30,6 +30,7 @@ import com.google.protobuf.Message;
 
 import org.jspecify.annotations.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 
 /**
@@ -50,9 +51,10 @@ public class IntersectionCursor<T> extends IntersectionCursorBase<T, T> {
         super(comparisonKeyFunction, reverse, cursorStates, timer);
     }
 
+    @Nullable
     @Override
     protected T getNextResult(List<KeyedMergeCursorState<T>> cursorStates) {
-        return cursorStates.get(0).getResult().get();
+        return Objects.requireNonNull(cursorStates.get(0).getResult()).get();
     }
 
     /**

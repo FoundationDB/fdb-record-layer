@@ -47,7 +47,7 @@ public class ListCursor<T> implements RecordCursor<T> {
     private int nextPosition; // position of the next value to return
     private boolean closed = false;
 
-    public ListCursor(List<T> list, byte []continuation) {
+    public ListCursor(List<T> list, @Nullable byte[] continuation) {
         this(ForkJoinPool.commonPool(), list, continuation != null ? ByteBuffer.wrap(continuation).getInt() : 0);
     }
 
@@ -123,6 +123,7 @@ public class ListCursor<T> implements RecordCursor<T> {
 
         @Nullable
         @Override
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return types.
         public byte[] toBytes() {
             if (isEnd()) {
                 return null;

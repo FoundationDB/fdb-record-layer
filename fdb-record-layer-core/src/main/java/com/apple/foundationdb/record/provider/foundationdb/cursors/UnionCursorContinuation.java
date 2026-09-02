@@ -35,6 +35,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 import static com.apple.foundationdb.record.RecordCursorProto.UnionContinuation;
 
@@ -111,7 +112,8 @@ class UnionCursorContinuation extends MergeCursorContinuation<UnionContinuation.
         return new UnionCursorContinuation(cursor.getChildContinuations());
     }
 
-    @SuppressWarnings("PMD.PreserveStackTrace")
+    @SuppressWarnings({"PMD.PreserveStackTrace", "NullAway"}) // NullAway/JSpecify does not currently track @Nullable on array (byte[])
+                                                               // parameters, even across explicit null checks.
     static UnionCursorContinuation from(@Nullable byte[] bytes, int numberOfChildren) {
         if (bytes == null) {
             return new UnionCursorContinuation(Collections.nCopies(numberOfChildren, RecordCursorStartContinuation.START));
@@ -120,9 +122,9 @@ class UnionCursorContinuation extends MergeCursorContinuation<UnionContinuation.
             return UnionCursorContinuation.from(UnionContinuation.parseFrom(bytes), numberOfChildren);
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("invalid continuation", ex)
-                    .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes));
+                    .addLogInfo(LogMessageKeys.RAW_BYTES, Objects.requireNonNull(ByteArrayUtil2.loggable(bytes)));
         } catch (RecordCoreArgumentException ex) {
-            throw ex.addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes));
+            throw ex.addLogInfo(LogMessageKeys.RAW_BYTES, Objects.requireNonNull(ByteArrayUtil2.loggable(bytes)));
         }
     }
 

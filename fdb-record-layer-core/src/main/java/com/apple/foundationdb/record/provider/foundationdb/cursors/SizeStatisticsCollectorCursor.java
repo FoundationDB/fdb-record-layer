@@ -45,6 +45,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import org.jspecify.annotations.Nullable;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -79,6 +80,7 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
     private SizeStatisticsResults sizeStatisticsResults;  //the final output of the cursor
     private boolean closed;
 
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields/parameters, even across explicit null checks.
     private SizeStatisticsCollectorCursor(SubspaceProvider subspaceProvider, FDBRecordContext context,
                                           ScanProperties scanProperties, @Nullable byte[] continuation) {
         this.subspaceProvider = subspaceProvider;
@@ -104,7 +106,7 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
                 }
             } catch (InvalidProtocolBufferException ex) {
                 throw new RecordCoreException("Error parsing SizeStatisticsCollectorCursor continuation", ex)
-                        .addLogInfo("raw_bytes", ByteArrayUtil2.loggable(continuation));
+                        .addLogInfo("raw_bytes", Objects.requireNonNull(ByteArrayUtil2.loggable(continuation)));
             }
         }
     }
@@ -127,7 +129,7 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
         return subspaceProvider.getSubspaceAsync(context).thenCompose(subspace -> {
             KeyValueCursor kvCursor = KeyValueCursor.Builder.withSubspace(subspace).setContext(context).setContinuation(kvCursorContinuation).setScanProperties(scanProperties).build();
             return kvCursor.forEachResult(nextKv -> {
-                sizeStatisticsResults.updateStatistics(nextKv.get());
+                sizeStatisticsResults.updateStatistics(Objects.requireNonNull(nextKv.get()));
             }).thenApply(resultKv -> {
                 //resultKV.hasNext() is false and so determine whether this is because of in-band reason or a continuable out-of-band reason
                 if (resultKv.getNoNextReason() == NoNextReason.SOURCE_EXHAUSTED) {
@@ -176,6 +178,7 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
         private ByteString cachedByteString;
         private boolean finalResultsEmitted;
 
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields; cachedBytes is correctly left uninitialized (lazily computed).
         private SizeStatisticsCollectorCursorContinuation(RecordCursorResult<KeyValue> currentKvResult, SizeStatisticsResults sizeStatisticsResults, boolean finalResultsEmitted) {
             this.cachedBytes = null;
             this.currentKvResult = currentKvResult;

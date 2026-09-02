@@ -157,6 +157,7 @@ public class ChainedCursor<T> implements BaseCursor<T> {
         this(context, nextGenerator, continuationEncoder, continuationDecoder, continuation, scanProperties, context.getExecutor());
     }
 
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even across explicit null checks.
     private ChainedCursor(
             @Nullable FDBRecordContext context,
             Function<Optional<T>, CompletableFuture<Optional<T>>> nextGenerator,
@@ -254,6 +255,7 @@ public class ChainedCursor<T> implements BaseCursor<T> {
         @Nullable
         private byte[] cachedBytes;
 
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields; cachedBytes is correctly left uninitialized (lazily computed).
         public Continuation(Optional<T> lastValue, Function<T, byte[]> continuationEncoder) {
             this.lastValue = lastValue;
             this.continuationEncoder = continuationEncoder;
@@ -261,12 +263,13 @@ public class ChainedCursor<T> implements BaseCursor<T> {
 
         @Override
         public ByteString toByteString() {
-            byte[] bytes = toBytes();
+            @Nullable byte[] bytes = toBytes();
             return bytes == null ? ByteString.EMPTY : ZeroCopyByteString.wrap(bytes);
         }
 
         @Nullable
         @Override
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields.
         public byte[] toBytes() {
             if (cachedBytes == null) {
                 cachedBytes = lastValue.map(continuationEncoder).orElse(null);

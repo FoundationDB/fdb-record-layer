@@ -34,6 +34,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.jspecify.annotations.Nullable;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
@@ -124,15 +125,17 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
                         return false;
                     }
                 }), getExecutor())
-                .thenApply(ignore -> lastResult);
+                .thenApply(ignore -> Objects.requireNonNull(lastResult, "lastResult should be set once the retry loop completes"));
     }
 
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even across explicit null checks.
     private CompletableFuture<RecordCursorResult<T>> onNextWithRetry(final int attempt) {
         if (currentCursor == null) {
             openContextAndGenerateCursor(null);
         }
+        final RecordCursor<T> cursor = Objects.requireNonNull(currentCursor, "currentCursor should have been initialized above");
 
-        return MoreAsyncUtil.handleOnException(() -> currentCursor.onNext(), exception -> {
+        return MoreAsyncUtil.handleOnException(() -> cursor.onNext(), exception -> {
             if (!FDBExceptions.isRetriable(exception) || attempt >= maxRetriesOnRetriableException) {
                 throw FDBExceptions.wrapException(exception);
             }
@@ -142,6 +145,8 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
     }
 
     @Override
+    @SuppressWarnings("NullAway") // FDBDatabaseRunner#asyncToSync is declared with a plain <T> (not <T extends @Nullable Object>), so NullAway
+                                   // treats its return as possibly-null even though onNext() guarantees a non-null result here.
     public RecordCursorResult<T> getNext() {
         return runner.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, onNext());
     }

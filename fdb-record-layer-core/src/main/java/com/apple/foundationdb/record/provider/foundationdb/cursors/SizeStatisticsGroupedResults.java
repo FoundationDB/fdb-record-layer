@@ -23,24 +23,29 @@ package com.apple.foundationdb.record.provider.foundationdb.cursors;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.tuple.Tuple;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * The result of a grouped size calculation.
  * The result is aggregated for a subspace whose key suffix is specified below, within the containing subspace.
  */
 @API(API.Status.EXPERIMENTAL)
 public class SizeStatisticsGroupedResults {
+    @Nullable
     private final Tuple aggregationKey;
     private final SizeStatisticsResults stats;
 
-    public SizeStatisticsGroupedResults(final Tuple aggregationKey, SizeStatisticsResults stats) {
+    public SizeStatisticsGroupedResults(@Nullable final Tuple aggregationKey, SizeStatisticsResults stats) {
         this.aggregationKey = aggregationKey;
         this.stats = stats;
     }
 
     /**
-     * The Tuple that represents the key whose stats are aggregated.
+     * The Tuple that represents the key whose stats are aggregated. This is {@code null} only in the edge case
+     * where the scanned range was empty, so no groups were ever seen.
      * @return the Tuple representing the subspace key aggregated
      */
+    @Nullable
     public Tuple getAggregationKey() {
         return aggregationKey;
     }
