@@ -51,6 +51,7 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
@@ -243,9 +244,11 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     public CompletableFuture<RecordMetaDataProto.MetaData> loadAndSetCurrent(boolean checkCache, int currentVersion) {
         final int cachedSerializedVersion;
         if (checkCache && cache != null) {
-            byte[] serialized = cache.getCachedSerialized();
+            @Nullable byte[] serialized = cache.getCachedSerialized();
             if (serialized != null) {
-                RecordMetaDataProto.MetaData metaDataProto = parseMetaDataProto(serialized);
+                // NullAway/JSpecify does not reliably narrow @Nullable byte[] locals through a null check when
+                // passed to another method, so re-assert non-null explicitly (a known array-type tracking gap).
+                RecordMetaDataProto.MetaData metaDataProto = parseMetaDataProto(Objects.requireNonNull(serialized));
                 cachedSerializedVersion = metaDataProto.getVersion();
                 if (currentVersion < 0 || currentVersion == cachedSerializedVersion) {
                     recordMetaData = buildMetaData(metaDataProto, false);
@@ -324,7 +327,10 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     protected RecordMetaDataProto.MetaData parseMetaDataProto(byte[] serialized) {
         try {
-            return RecordMetaDataProto.MetaData.parseFrom(serialized, getExtensionRegistry());
+            // A null extension registry can result in NullPointerExceptions with proto3 (see getExtensionRegistry's
+            // javadoc), so substitute the empty registry, which is the documented synonym for null under proto2.
+            final ExtensionRegistry registry = getExtensionRegistry();
+            return RecordMetaDataProto.MetaData.parseFrom(serialized, registry != null ? registry : ExtensionRegistry.getEmptyRegistry());
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("Error parsing meta-data", ex);
         }
@@ -463,7 +469,9 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
         return getRecordMetaDataAsync(metaDataProvider == null)
                 .thenCompose(metaData -> {
                     if (metaData == null) {
-                        RecordMetaData seedMetaData = metaDataProvider.getRecordMetaData();
+                        // errorIfMissing (above) was only false because metaDataProvider != null, so metaData == null
+                        // here implies metaDataProvider is non-null.
+                        RecordMetaData seedMetaData = Objects.requireNonNull(metaDataProvider).getRecordMetaData();
                         RecordMetaDataProto.MetaData metaDataProto = seedMetaData.toProto();
                         return saveAndSetCurrent(metaDataProto);
                     } else {
@@ -485,16 +493,25 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     }
 
     class PendingCacheUpdate implements FDBRecordContext.AfterCommit {
+        @Nullable
         RecordMetaData metaData;
+        // NullAway/JSpecify does not reliably recognize @Nullable on byte[] fields for the field-initialization
+        // check, even though this field is correctly annotated @Nullable and is genuinely left unset (null) here.
+        @Nullable
+        @SuppressWarnings("NullAway")
         byte[] serialized;
 
         @Override
+        @SuppressWarnings("NullAway") // byte[] + @Nullable is not reliably tracked even through Objects.requireNonNull
         public void run() {
+            // addPendingCacheUpdate (below) is only ever called from within an "if (cache != null)" block, and
+            // cache is final, so if metaData/serialized were populated at all, cache is still non-null here.
+            final MetaDataCache nonNullCache = Objects.requireNonNull(cache);
             if (metaData != null) {
-                cache.setCachedMetaData(metaData);
+                nonNullCache.setCachedMetaData(metaData);
             }
             if (serialized != null) {
-                cache.setCachedSerialized(serialized);
+                nonNullCache.setCachedSerialized(serialized);
             }
         }
     }

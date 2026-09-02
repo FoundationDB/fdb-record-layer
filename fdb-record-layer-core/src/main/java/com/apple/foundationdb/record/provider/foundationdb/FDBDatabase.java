@@ -54,6 +54,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
@@ -127,6 +128,7 @@ public class FDBDatabase {
     private Cache<ScopedValue<Long>, String> reverseDirectoryInMemoryCache;
     private boolean opened;
     private final Object reverseDirectoryCacheLock = new Object();
+    @Nullable
     private volatile FDBReverseDirectoryCache reverseDirectoryCache;
     private final int reverseDirectoryMaxRowsPerTransaction;
     private final long reverseDirectoryMaxMillisPerTransaction;
@@ -145,6 +147,7 @@ public class FDBDatabase {
 
     private final Function<FDBLatencySource, Long> latencyInjector;
 
+    @Nullable
     private String datacenterId;
 
     private final FDBLocalityProvider localityProvider;
@@ -221,6 +224,7 @@ public class FDBDatabase {
         database().options().setDatacenterId(datacenterId);
     }
 
+    @Nullable
     public synchronized String getDatacenterId() {
         return datacenterId;
     }
@@ -302,7 +306,8 @@ public class FDBDatabase {
      */
     public Database database() {
         openFDB();
-        return database;
+        // openFDB() unconditionally sets database (opening it if not already open), so it is non-null here.
+        return Objects.requireNonNull(database);
     }
 
     /**
@@ -440,9 +445,11 @@ public class FDBDatabase {
         final WeakReadSemantics weakReadSemantics = context.getWeakReadSemantics();
         if (isTrackLastSeenVersion() && (weakReadSemantics != null)) {
             Pair<Long, Long> pair = lastSeenFDBVersion.get();
-            if (pair != initialVersionPair) {
-                long version = pair.getLeft();
-                long versionTimeMillis = pair.getRight();
+            if (pair != null && pair != initialVersionPair) {
+                // Any pair other than the initialVersionPair sentinel is only ever created (in
+                // updateLastSeenFDBVersion) with two non-null Long values.
+                long version = Objects.requireNonNull(pair.getLeft());
+                long versionTimeMillis = Objects.requireNonNull(pair.getRight());
                 // If the following condition holds, a subsequent getReadVersion (on this transaction) returns version,
                 // otherwise getReadVersion does not use the cached value and results in a GRV call to FDB
                 if (version >= weakReadSemantics.getMinVersion() &&
@@ -602,17 +609,20 @@ public class FDBDatabase {
 
     @API(API.Status.INTERNAL)
     public FDBReverseDirectoryCache getReverseDirectoryCache() {
-        if (reverseDirectoryCache == null) {
+        FDBReverseDirectoryCache cache = reverseDirectoryCache;
+        if (cache == null) {
             synchronized (reverseDirectoryCacheLock) {
-                if (reverseDirectoryCache == null) {
-                    reverseDirectoryCache = new FDBReverseDirectoryCache(
+                cache = reverseDirectoryCache;
+                if (cache == null) {
+                    cache = new FDBReverseDirectoryCache(
                             this,
                             reverseDirectoryMaxRowsPerTransaction,
                             reverseDirectoryMaxMillisPerTransaction);
+                    reverseDirectoryCache = cache;
                 }
             }
         }
-        return reverseDirectoryCache;
+        return cache;
     }
 
     private void setDirectoryCacheVersion(int version) {
@@ -697,7 +707,8 @@ public class FDBDatabase {
 
     public synchronized void close() {
         if (opened) {
-            database.close();
+            // opened is only ever set true together with database (see openFDB()), so database is non-null here.
+            Objects.requireNonNull(database).close();
             database = null;
             opened = false;
             directoryCacheVersion.set(0);
@@ -749,8 +760,8 @@ public class FDBDatabase {
                                  : config.getTimer();
 
         boolean enableAssertions = config.areAssertionsEnabled();
-        //noinspection ConstantConditions
-        Transaction transaction = database.createTransaction(executor, new EventKeeperTranslator(timer));
+        // The only caller (openContext()) calls openFDB() immediately before this, so database() is non-null.
+        Transaction transaction = database().createTransaction(executor, new EventKeeperTranslator(timer));
         if (timer != null || enableAssertions) {
             transaction = new InstrumentedTransaction(timer, delayedTimer, this, listener, transaction, enableAssertions);
             if (listener != null) {
@@ -1061,8 +1072,11 @@ public class FDBDatabase {
         return asyncToSyncExceptionMapper.apply(ex, null);
     }
 
-    @Nullable
-    public <T> T asyncToSync(@Nullable FDBStoreTimer timer, FDBStoreTimer.Wait event, CompletableFuture<T> async) {
+    // Note: T is intentionally unbounded (<T extends @Nullable Object>) rather than annotating the return
+    // type @Nullable, since this method is a transparent passthrough of async.get() -- nullability of the
+    // result should follow whatever nullability the caller's CompletableFuture<T> was instantiated with,
+    // not be forced nullable for every caller (many call sites use non-null T).
+    public <T extends @Nullable Object> T asyncToSync(@Nullable FDBStoreTimer timer, FDBStoreTimer.Wait event, CompletableFuture<T> async) {
         checkIfBlockingInFuture(async);
         if (async.isDone()) {
             try {

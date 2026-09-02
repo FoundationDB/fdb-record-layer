@@ -69,6 +69,9 @@ public class FDBTransactionContext {
     }
 
     public Transaction ensureActive() {
+        if (transaction == null) {
+            throw new RecordContextNotActiveException("Transaction is no longer active.");
+        }
         return transaction;
     }
 
@@ -87,7 +90,7 @@ public class FDBTransactionContext {
     }
 
     public CompletableFuture<Long> getApproximateTransactionSize() {
-        return transaction.getApproximateSize();
+        return ensureActive().getApproximateSize();
     }
 
     /**

@@ -155,7 +155,7 @@ public class IndexFunctionHelper {
                                 }))
                 .min(Comparator.comparing(pair -> {
                     // use the minimum spanning index that matches
-                    final IndexMaintainer indexMaintainer = pair.getRight();
+                    final IndexMaintainer indexMaintainer = Objects.requireNonNull(pair.getRight());
                     return indexMaintainer.state.index.getColumnSize();
                 }));
     }

@@ -36,6 +36,7 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Objects;
 
 /**
  * Additional function arguments for time window.
@@ -66,7 +67,7 @@ public class TimeWindowForFunction implements PlanHashable, PlanSerializable {
         if (leaderboardTypeParameter == null) {
             return leaderboardType;
         } else {
-            return ((Number)context.getBinding(leaderboardTypeParameter)).intValue();
+            return ((Number)Objects.requireNonNull(context.getBinding(leaderboardTypeParameter))).intValue();
         }
     }
 
@@ -78,7 +79,7 @@ public class TimeWindowForFunction implements PlanHashable, PlanSerializable {
         if (leaderboardTimestampParameter == null) {
             return leaderboardTimestamp;
         } else {
-            return ((Number)context.getBinding(leaderboardTimestampParameter)).longValue();
+            return ((Number)Objects.requireNonNull(context.getBinding(leaderboardTimestampParameter))).longValue();
         }
     }
 
@@ -99,8 +100,12 @@ public class TimeWindowForFunction implements PlanHashable, PlanSerializable {
         final Comparisons.Comparison timestampComparison = leaderboardTimestampParameter == null ?
                 new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, leaderboardTimestamp) :
                 new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, leaderboardTimestampParameter);
-        return new ScanComparisons(Arrays.asList(typeComparison, timestampComparison), Collections.emptySet())
-                .append(scanComparisons);
+        // ScanComparisons#append is @Nullable in general (it returns null when the receiver is not pure equality),
+        // but the receiver constructed here always has an empty inequality set, so isEquality() is always true and
+        // append() always returns non-null.
+        return Objects.requireNonNull(
+                new ScanComparisons(Arrays.asList(typeComparison, timestampComparison), Collections.emptySet())
+                        .append(scanComparisons));
     }
 
     public TupleRange prependLeaderboardKeys(EvaluationContext context, TupleRange tupleRange) {
@@ -108,6 +113,10 @@ public class TimeWindowForFunction implements PlanHashable, PlanSerializable {
     }
 
     @Override
+    @SuppressWarnings("NullAway") // PlanHashable#objectsPlanHash's Object... varargs is not annotated @Nullable,
+                                  // but each element is routed through objectPlanHash(mode, Object), which
+                                  // explicitly handles null elements (returning 0) -- passing the genuinely
+                                  // nullable leaderboardType/TimestampParameter fields here is safe.
     public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, leaderboardType, leaderboardTimestamp, leaderboardTypeParameter,
                 leaderboardTimestampParameter);

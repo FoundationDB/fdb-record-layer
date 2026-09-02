@@ -143,11 +143,12 @@ public class MetaDataProtoEditor {
     /**
      * Returns the builder for the top-level message type with the given name, or {@code null} if none is found.
      */
-    // Note: jspecify's @Nullable cannot be expressed on the qualified DescriptorProtos.DescriptorProto.Builder
-    // return type here without colliding with the "Builder" static import used below for
-    // DescriptorProtos.FieldDescriptorProto.Builder, and the Outer.@Nullable Inner syntax is not parseable by
-    // the PMD version used in this project. Revisit once NullAway is enabled for this module.
-    private static DescriptorProtos.DescriptorProto.Builder findMessageTypeByName(
+    // Note: jspecify's @Nullable on the qualified DescriptorProtos.DescriptorProto.Builder return type below
+    // requires the "Outer.@Nullable Inner" syntax, since a plain import of DescriptorProto.Builder would
+    // collide with the "Builder" static import used elsewhere in this file for
+    // DescriptorProtos.FieldDescriptorProto.Builder. PMD 6.44.0 cannot parse that syntax and will skip this
+    // file with a ParseException; that is a known, accepted limitation (see AGENTS.md NullAway rollout notes).
+    private static DescriptorProtos.DescriptorProto.@Nullable Builder findMessageTypeByName(
             DescriptorProtos.FileDescriptorProto.Builder recordsBuilder,
             String recordType) {
         return recordsBuilder.getMessageTypeBuilderList().stream()

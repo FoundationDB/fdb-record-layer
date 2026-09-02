@@ -145,7 +145,8 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
             }
             inited = true;
         }
-        return fdb;
+        // inited is only ever set true together with fdb (immediately above), so fdb is non-null here.
+        return Objects.requireNonNull(fdb);
     }
 
     private static synchronized void setStaticOptions(final FDB fdb) {
@@ -177,7 +178,8 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
                 database.close();
             }
             // TODO: Does this do the right thing yet?
-            fdb.stopNetwork();
+            // inited implies fdb is non-null (see initFDB()).
+            Objects.requireNonNull(fdb).stopNetwork();
             inited = false;
         }
     }
@@ -256,7 +258,10 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
             database.setDirectoryCacheSize(getDirectoryCacheSize());
             database.setTrackLastSeenVersion(getTrackLastSeenVersion());
             database.setResolverStateRefreshTimeMillis(getStateRefreshTimeMillis());
-            database.setDatacenterId(getDatacenterId());
+            final String datacenterId = getDatacenterId();
+            if (datacenterId != null) {
+                database.setDatacenterId(datacenterId);
+            }
             database.setStoreStateCache(storeStateCacheFactory.getCache(database));
             databases.put(clusterFile, database);
         }
@@ -296,7 +301,7 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
     }
 
     @Override
-    public Database open(final String clusterFile) {
+    public Database open(@Nullable final String clusterFile) {
         FDB fdb = initFDB();
         return fdb.open(clusterFile);
     }
