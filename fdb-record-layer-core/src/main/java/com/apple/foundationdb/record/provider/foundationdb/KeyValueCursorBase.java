@@ -67,6 +67,10 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
     private byte[] lastKey;
     private final SerializationMode serializationMode;
 
+    // NullAway/JSpecify does not reliably recognize @Nullable on the byte[] lastKey field for the
+    // field-initialization check, even though it is correctly annotated @Nullable and is genuinely left
+    // unset (null) here (no record has been read yet).
+    @SuppressWarnings("NullAway")
     protected KeyValueCursorBase(final FDBRecordContext context,
                                  final AsyncIterator<K> iterator,
                                  int prefixLength,
@@ -188,6 +192,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
 
         @Nullable
         @Override
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably track @Nullable on byte[] return types
         public byte[] toBytes() {
             if (lastKey == null) {
                 return null;
@@ -196,6 +201,8 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             return byteString.isEmpty() ? new byte[0] : byteString.toByteArray();
         }
 
+        @Nullable
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably track @Nullable on byte[] return types
         public static byte[] getInnerContinuation(@Nullable byte[] rawBytes) {
             if (rawBytes == null) {
                 return null;
@@ -250,16 +257,34 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
      * </code></pre>
      */
     @API(API.Status.UNSTABLE)
+    // NullAway.Init is suppressed here because this Builder follows a deliberate two-phase-initialization
+    // contract: setter-populated fields default to null until prepare() validates/defaults them, and
+    // prepare()-only fields (transaction, limitManager, streamingMode, begin, end) are left unset by the
+    // constructor and are always populated by prepare() before any getter is called -- see, e.g.,
+    // KeyValueCursor.Builder#build(), which always calls prepare() before calling any getter.
+    @SuppressWarnings("NullAway.Init")
     public abstract static class Builder<T extends Builder<T>> {
 
         private int prefixLength;
+        @Nullable
         private FDBRecordContext context = null;
         private final Subspace subspace;
+        // NullAway/JSpecify does not reliably recognize @Nullable on byte[] fields for the field-initialization
+        // check, even though continuation/lowBytes/highBytes below are correctly annotated @Nullable.
+        @Nullable
+        @SuppressWarnings("NullAway")
         private byte[] continuation = null;
+        @Nullable
         private ScanProperties scanProperties = null;
+        @Nullable
+        @SuppressWarnings("NullAway")
         private byte[] lowBytes = null;
+        @Nullable
+        @SuppressWarnings("NullAway")
         private byte[] highBytes = null;
+        @Nullable
         private EndpointType lowEndpoint = null;
+        @Nullable
         private EndpointType highEndpoint = null;
         private ReadTransaction transaction;
         private CursorLimitManager limitManager;
@@ -317,7 +342,8 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             reverse = scanProperties.isReverse();
 
             if (continuation != null) {
-                byte[] realContinuation = KeyValueCursorBase.Continuation.getInnerContinuation(continuation);
+                // getInnerContinuation returns null if and only if its argument is null.
+                byte[] realContinuation = Objects.requireNonNull(KeyValueCursorBase.Continuation.getInnerContinuation(continuation));
                 final byte[] continuationBytes = new byte[prefixLength + realContinuation.length];
                 System.arraycopy(lowBytes, 0, continuationBytes, 0, prefixLength);
                 System.arraycopy(realContinuation, 0, continuationBytes, prefixLength, realContinuation.length);
@@ -415,17 +441,21 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
          * @return the length of the key prefix
          */
         protected int calculatePrefixLength() {
+            // Only ever called from prepare(), after lowBytes/highBytes have already been defaulted.
+            final byte[] low = Objects.requireNonNull(lowBytes);
+            final byte[] high = Objects.requireNonNull(highBytes);
             int prefixLength = subspace.pack().length;
-            while ((prefixLength < lowBytes.length) &&
-                   (prefixLength < highBytes.length) &&
-                   (lowBytes[prefixLength] == highBytes[prefixLength])) {
+            while ((prefixLength < low.length) &&
+                   (prefixLength < high.length) &&
+                   (low[prefixLength] == high[prefixLength])) {
                 prefixLength++;
             }
             return prefixLength;
         }
 
         public FDBRecordContext getContext() {
-            return context;
+            // Only ever called after prepare(), which throws if context is not supplied.
+            return Objects.requireNonNull(context);
         }
 
         public int getLimit() {
