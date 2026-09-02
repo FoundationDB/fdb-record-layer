@@ -220,8 +220,13 @@ class StorageAdapter {
     }
 
     static Tuple tupleFromAccessInfo(final AccessInfo accessInfo) {
-        return Tuple.from(accessInfo.rotatorSeed(),
+        // Tuple.from(Object...) is from the unannotated fdb-java client library and genuinely supports null
+        // elements (a null centroid tuple represents "RaBitQ not in use"), but its varargs parameter is
+        // treated as @NonNull by NullAway's defaults.
+        @SuppressWarnings("NullAway")
+        final Tuple result = Tuple.from(accessInfo.rotatorSeed(),
                 accessInfo.canUseRaBitQ() ? StorageHelpers.tupleFromVector(accessInfo.negatedCentroid()) : null);
+        return result;
     }
 
     static VectorMetadata vectorMetadataFromTuple(final Tuple primaryKey, final Tuple valueTuple) {
@@ -229,7 +234,12 @@ class StorageAdapter {
     }
 
     static Tuple valueTupleFromVectorMetadata(final VectorMetadata vectorMetadata) {
-        return Tuple.from(vectorMetadata.vectorId().uuid(), vectorMetadata.additionalValues());
+        // Tuple.from(Object...) is from the unannotated fdb-java client library and genuinely supports null
+        // elements, but its varargs parameter is treated as @NonNull by NullAway's defaults;
+        // additionalValues() may legitimately be absent.
+        @SuppressWarnings("NullAway")
+        final Tuple result = Tuple.from(vectorMetadata.vectorId().uuid(), vectorMetadata.additionalValues());
+        return result;
     }
 
     static UUID clusterIdFromTuple(final Tuple tuple) {

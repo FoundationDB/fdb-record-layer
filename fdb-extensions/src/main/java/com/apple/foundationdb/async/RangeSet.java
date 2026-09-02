@@ -34,6 +34,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -95,10 +96,16 @@ public class RangeSet {
         return Arrays.equals(key, FINAL_KEY);
     }
 
+    // NullAway does not reliably recognize @Nullable on array-typed return values, so the `null` branches
+    // below are misflagged as returning @Nullable from a @NonNull-returning method despite the annotation.
+    @Nullable
+    @SuppressWarnings("NullAway")
     public static byte[] nullIfFirst(byte[] key) {
         return isFirstKey(key) ? null : key;
     }
 
+    @Nullable
+    @SuppressWarnings("NullAway")
     public static byte[] nullIfFinal(byte[] key) {
         return isFinalKey(key) ? null : key;
     }
@@ -219,8 +226,12 @@ public class RangeSet {
      * @return a future that is <code>true</code> if there were any modifications to the database and <code>false</code> otherwise
      */
     public CompletableFuture<Boolean> insertRange(TransactionContext tc, @Nullable byte[] begin, @Nullable byte[] end, boolean requireEmpty) {
-        byte[] beginNonNull = (begin == null) ? FIRST_KEY : begin;
-        byte[] endNonNull = (end == null) ? FINAL_KEY : end;
+        // NullAway does not reliably narrow @Nullable byte[] locals inside a ternary, even though begin/end
+        // are provably non-null in the branch where they are used below.
+        @SuppressWarnings("NullAway")
+        final byte[] beginNonNull = (begin == null) ? FIRST_KEY : begin;
+        @SuppressWarnings("NullAway")
+        final byte[] endNonNull = (end == null) ? FINAL_KEY : end;
         checkKey(beginNonNull);
         checkRange(beginNonNull, endNonNull);
 
@@ -249,7 +260,9 @@ public class RangeSet {
 
                 // If the before key is in some range, we don't have to update from before to the
                 // end of that range.
-                if (hasBefore) {
+                // hasBefore implies before != null (both are derived together just above), but NullAway
+                // cannot correlate the nullness of two different variables, so it is checked explicitly.
+                if (hasBefore && before != null) {
                     byte[] beforeEnd = before.getValue();
                     if (ByteArrayUtil.compareUnsigned(beginNonNull, beforeEnd) < 0) {
                         if (requireEmpty) {
@@ -282,7 +295,10 @@ public class RangeSet {
                     AtomicBoolean changed = new AtomicBoolean(false);
                     // If we are allowing non-empty ranges, then we just need to fill in the gaps.
                     return AsyncUtil.whileTrue(() -> {
-                        byte[] lastSeenBytes = lastSeen.get();
+                        // lastSeen is only ever set to a non-null value (see the AtomicReference construction
+                        // above and the .set() calls below), but NullAway models AtomicReference#get() as
+                        // always @Nullable, so the non-null-ness is re-asserted here.
+                        byte[] lastSeenBytes = Objects.requireNonNull(lastSeen.get());
                         if (MoreAsyncUtil.isCompletedNormally(afterIterator.onHasNext()) && afterIterator.hasNext()) {
                             KeyValue kv = afterIterator.next();
                             if (ByteArrayUtil.compareUnsigned(lastSeenBytes, kv.getKey()) < 0) {
@@ -294,7 +310,7 @@ public class RangeSet {
                         }
                         return afterIterator.onHasNext();
                     }, tc.getExecutor()).thenApply(vignore -> {
-                        byte[] lastSeenBytes = lastSeen.get();
+                        byte[] lastSeenBytes = Objects.requireNonNull(lastSeen.get());
                         // Get from lastSeen to the end (the last gap).
                         if (ByteArrayUtil.compareUnsigned(lastSeenBytes, frobnicatedEnd) < 0) {
                             tr.set(lastSeenBytes, endNonNull);
@@ -334,7 +350,11 @@ public class RangeSet {
      * @return an iterable that will produce all of the missing ranges
      */
     public AsyncIterable<Range> missingRanges(ReadTransaction tr) {
-        return missingRanges(tr, null, null);
+        // NullAway does not reliably honor @Nullable on byte[]-typed parameters, so the null literals below
+        // are misflagged as NonNull violations even though missingRanges()'s begin/end are @Nullable byte[].
+        @SuppressWarnings("NullAway")
+        final AsyncIterable<Range> result = missingRanges(tr, null, null);
+        return result;
     }
 
     /**
@@ -431,8 +451,12 @@ public class RangeSet {
      * @return an iterable that will produce all of the missing ranges
      */
     public AsyncIterable<Range> missingRanges(ReadTransaction tr, @Nullable byte[] begin, @Nullable byte[] end, int limit) {
-        byte[] beginNonNull = (begin == null) ? FIRST_KEY : begin;
-        byte[] endNonNull = (end == null) ? FINAL_KEY : end;
+        // NullAway does not reliably narrow @Nullable byte[] locals inside a ternary, even though begin/end
+        // are provably non-null in the branch where they are used below.
+        @SuppressWarnings("NullAway")
+        final byte[] beginNonNull = (begin == null) ? FIRST_KEY : begin;
+        @SuppressWarnings("NullAway")
+        final byte[] endNonNull = (end == null) ? FINAL_KEY : end;
         checkKey(beginNonNull);
         checkRange(beginNonNull, endNonNull);
 
@@ -471,6 +495,9 @@ public class RangeSet {
      * @return a future that will contain {@code true} if there are no ranges in this set or {@code false} otherwise
      */
     public CompletableFuture<Boolean> isEmpty(ReadTransaction rtr) {
+        // NullAway does not reliably honor @Nullable on byte[]-typed parameters, so the null literals below
+        // are misflagged as NonNull violations even though missingRanges()'s begin/end are @Nullable byte[].
+        @SuppressWarnings("NullAway")
         final AsyncIterator<Range> missing = missingRanges(rtr, null, null, 1).iterator();
         return missing.onHasNext().thenApply(doesHaveNext -> {
             if (doesHaveNext) {
@@ -579,7 +606,8 @@ public class RangeSet {
             if (!hasNext()) {
                 throw new NoSuchElementException("Attempted to get next missing range when none were present");
             }
-            Range ret = next;
+            // hasNext() is guaranteed to have set next when it returns true.
+            Range ret = Objects.requireNonNull(next);
             found = false;
             if (limit == UNLIMITED || numFound < limit) {
                 nextFuture = getNext();

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.util;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Map;
 
 /**
@@ -43,17 +45,17 @@ public interface LoggableKeysAndValues<T extends LoggableKeysAndValues<T>> {
      *
      * @return a single map with all log information
      */
-    Map<String, Object> getLogInfo();
+    Map<String, @Nullable Object> getLogInfo();
 
     /**
      * Add a key/value pair to the log information. This will use the description
      * given as the key and the object provided as the value.
      *
      * @param description description of the log info pair
-     * @param object value of the log info pair
+     * @param object value of the log info pair, which may be {@code null}
      * @return this <code>LoggableException</code>
      */
-    T addLogInfo(String description, Object object);
+    T addLogInfo(String description, @Nullable Object object);
 
     /**
      * Add a list of key/value pairs to the log information. This will treat the
@@ -68,7 +70,7 @@ public interface LoggableKeysAndValues<T extends LoggableKeysAndValues<T>> {
      * @return this <code>T</code>
      * @throws IllegalArgumentException if <code>keyValue</code> has odd length
      */
-    T addLogInfo(Object ... keyValue);
+    T addLogInfo(@Nullable Object ... keyValue);
 
     /**
      * Export the log information to a flattened array. This will flatten the map that would

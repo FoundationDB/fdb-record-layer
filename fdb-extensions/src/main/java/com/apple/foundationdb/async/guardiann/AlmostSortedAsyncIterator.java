@@ -25,6 +25,8 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.CloseableAsyncIterator;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Comparator;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -56,6 +58,7 @@ class AlmostSortedAsyncIterator<T> implements CloseableAsyncIterator<T> {
 
     private final Executor executor;
 
+    @Nullable
     private CompletableFuture<T> nextFuture;
     private boolean inDone;
 

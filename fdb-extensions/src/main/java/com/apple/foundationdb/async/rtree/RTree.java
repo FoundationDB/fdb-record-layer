@@ -563,10 +563,14 @@ public class RTree {
         final AtomicReference<byte[]> currentId = new AtomicReference<>(nodeId);
         final List<Deque<ChildSlot>> toBeProcessed = Lists.newArrayList();
         final AtomicReference<LeafNode> leafNode = new AtomicReference<>(null);
-        return AsyncUtil.whileTrue(() -> onReadListener.onAsyncRead(storageAdapter.fetchNode(readTransaction, currentId.get()))
+        return AsyncUtil.whileTrue(() -> {
+            // currentId is only ever set (below) via Objects.requireNonNull(...), so it is never actually null;
+            // NullAway still models AtomicReference#get() as @Nullable, so the invariant is re-asserted here.
+            final byte[] currentIdValue = Objects.requireNonNull(currentId.get());
+            return onReadListener.onAsyncRead(storageAdapter.fetchNode(readTransaction, currentIdValue))
                 .thenApply(node -> {
                     if (node == null) {
-                        if (Arrays.equals(currentId.get(), rootId)) {
+                        if (Arrays.equals(currentIdValue, rootId)) {
                             Verify.verify(leafNode.get() == null);
                             return false;
                         }
@@ -621,7 +625,8 @@ public class RTree {
                         leafNode.set((LeafNode)node);
                         return false;
                     }
-                }), executor).thenApply(vignore -> leafNode.get() == null
+                });
+        }, executor).thenApply(vignore -> leafNode.get() == null
                                                    ? TraversalState.end()
                                                    : TraversalState.of(toBeProcessed, leafNode.get()));
     }
@@ -795,14 +800,18 @@ public class RTree {
         //
         return AsyncUtil.whileTrue(() -> {
             final NodeSlot currentNewSlot = parentSlot.get();
+            // currentNode is only ever set (below) to the parent of a node already confirmed non-root, which by
+            // the tree's linkage invariant is always non-null once reached; NullAway still models
+            // AtomicReference#get() as @Nullable, so the invariant is re-asserted here.
+            final Node currentNodeValue = Objects.requireNonNull(currentNode.get());
 
             if (currentNewSlot != null) {
-                return insertSlotIntoTargetNode(transaction, level.get(), hilbertValue, key, currentNode.get(), currentNewSlot, insertSlotIndex.get())
+                return insertSlotIntoTargetNode(transaction, level.get(), hilbertValue, key, currentNodeValue, currentNewSlot, insertSlotIndex.get())
                         .thenApply(nodeOrAdjust -> {
-                            if (currentNode.get().isRoot()) {
+                            if (currentNodeValue.isRoot()) {
                                 return false;
                             }
-                            currentNode.set(currentNode.get().getParentNode());
+                            currentNode.set(currentNodeValue.getParentNode());
                             parentSlot.set(nodeOrAdjust.getSlotInParent());
                             insertSlotIndex.set(nodeOrAdjust.getSplitNode() == null ? -1 : nodeOrAdjust.getSplitNode().getSlotIndexInParent());
                             level.incrementAndGet();
@@ -810,13 +819,13 @@ public class RTree {
                         });
             } else {
                 // adjustment only
-                return updateSlotsAndAdjustNode(transaction, level.get(), hilbertValue, key, currentNode.get(), true)
+                return updateSlotsAndAdjustNode(transaction, level.get(), hilbertValue, key, currentNodeValue, true)
                         .thenApply(nodeOrAdjust -> {
                             Verify.verify(nodeOrAdjust.getSlotInParent() == null);
-                            if (currentNode.get().isRoot()) {
+                            if (currentNodeValue.isRoot()) {
                                 return false;
                             }
-                            currentNode.set(currentNode.get().getParentNode());
+                            currentNode.set(currentNodeValue.getParentNode());
                             level.incrementAndGet();
                             return nodeOrAdjust.parentNeedsAdjustment();
                         });
@@ -1131,14 +1140,18 @@ public class RTree {
         //
         return AsyncUtil.whileTrue(() -> {
             final NodeSlot currentDeleteSlot = parentSlot.get();
+            // currentNode is only ever set (below) to the parent of a node already confirmed non-root, which by
+            // the tree's linkage invariant is always non-null once reached; NullAway still models
+            // AtomicReference#get() as @Nullable, so the invariant is re-asserted here.
+            final Node currentNodeValue = Objects.requireNonNull(currentNode.get());
 
             if (currentDeleteSlot != null) {
-                return deleteSlotFromTargetNode(transaction, level.get(), hilbertValue, key, currentNode.get(), currentDeleteSlot, deleteSlotIndex.get())
+                return deleteSlotFromTargetNode(transaction, level.get(), hilbertValue, key, currentNodeValue, currentDeleteSlot, deleteSlotIndex.get())
                         .thenApply(nodeOrAdjust -> {
-                            if (currentNode.get().isRoot()) {
+                            if (currentNodeValue.isRoot()) {
                                 return false;
                             }
-                            currentNode.set(currentNode.get().getParentNode());
+                            currentNode.set(currentNodeValue.getParentNode());
                             parentSlot.set(nodeOrAdjust.getSlotInParent());
                             deleteSlotIndex.set(nodeOrAdjust.getTombstoneNode() == null ? -1 : nodeOrAdjust.getTombstoneNode().getSlotIndexInParent());
                             level.incrementAndGet();
@@ -1146,13 +1159,13 @@ public class RTree {
                         });
             } else {
                 // adjustment only
-                return updateSlotsAndAdjustNode(transaction, level.get(), hilbertValue, key, currentNode.get(), false)
+                return updateSlotsAndAdjustNode(transaction, level.get(), hilbertValue, key, currentNodeValue, false)
                         .thenApply(nodeOrAdjust -> {
                             Verify.verify(nodeOrAdjust.getSlotInParent() == null);
-                            if (currentNode.get().isRoot()) {
+                            if (currentNodeValue.isRoot()) {
                                 return false;
                             }
-                            currentNode.set(currentNode.get().getParentNode());
+                            currentNode.set(currentNodeValue.getParentNode());
                             level.incrementAndGet();
                             return nodeOrAdjust.parentNeedsAdjustment();
                         });
@@ -1519,10 +1532,15 @@ public class RTree {
         final AtomicInteger slotInParent = new AtomicInteger(-1);
         final AtomicReference<byte[]> currentId = new AtomicReference<>(rootId);
         final AtomicReference<LeafNode> leafNode = new AtomicReference<>(null);
-        return AsyncUtil.whileTrue(() -> storageAdapter.fetchNode(transaction, currentId.get())
+        return AsyncUtil.whileTrue(() -> {
+                    // currentId is only ever set (below) to a ChildSlot's non-null child id, so it is never
+                    // actually null; NullAway still models AtomicReference#get() as @Nullable, so the
+                    // invariant is re-asserted here.
+                    final byte[] currentIdValue = Objects.requireNonNull(currentId.get());
+                    return storageAdapter.fetchNode(transaction, currentIdValue)
                         .thenApply(node -> {
                             if (node == null) {
-                                if (Arrays.equals(currentId.get(), rootId)) {
+                                if (Arrays.equals(currentIdValue, rootId)) {
                                     Verify.verify(leafNode.get() == null);
                                     return false;
                                 }
@@ -1551,7 +1569,8 @@ public class RTree {
                                 leafNode.set((LeafNode)node);
                                 return false;
                             }
-                        }), executor)
+                        });
+                }, executor)
                 .thenApply(ignored -> {
                     final LeafNode node = leafNode.get();
                     if (logger.isTraceEnabled()) {
@@ -2270,6 +2289,13 @@ public class RTree {
             return currentArea;
         }
 
+        // A Tuple's element can genuinely be null (Tuple explicitly supports null entries), so
+        // point.getCoordinate(d) is correctly declared @Nullable. ranges is a plain Object[] here (rather
+        // than a @Nullable Object[]) because it is ultimately handed to Tuple.from(Object...), an external,
+        // unannotated varargs API that NullAway would misflag as array-of-nullable-into-array-of-nonnull
+        // regardless of how ranges is declared. Suppressed at the method level since every null-related
+        // finding in this method traces back to this one, already-understood situation.
+        @SuppressWarnings("NullAway")
         public Rectangle unionWith(final Point point) {
             Preconditions.checkArgument(getNumDimensions() == point.getNumDimensions());
             boolean isModified = false;
@@ -2362,6 +2388,9 @@ public class RTree {
             Preconditions.checkArgument(getNumDimensions() == point.getNumDimensions());
 
             for (int d = 0; d < getNumDimensions(); d++) {
+                // A Tuple's element (point.getCoordinate(d)) can genuinely be null; Tuple.from(Object...) is an
+                // external, unannotated varargs API that NullAway misflags as requiring non-null elements.
+                @SuppressWarnings("NullAway")
                 final Tuple otherTuple = Tuple.from(point.getCoordinate(d));
 
                 final Tuple lowTuple = Tuple.from(getLow(d));
@@ -2417,6 +2446,9 @@ public class RTree {
             return ranges.toString();
         }
         
+        // A Tuple's element can genuinely be null (see unionWith(Point) above for the full rationale);
+        // mbrRanges ends up passed to the external, unannotated Tuple.from(Object...) either way.
+        @SuppressWarnings("NullAway")
         public static Rectangle fromPoint(final Point point) {
             final Object[] mbrRanges = new Object[point.getNumDimensions() * 2];
             for (int d = 0; d < point.getNumDimensions(); d++) {

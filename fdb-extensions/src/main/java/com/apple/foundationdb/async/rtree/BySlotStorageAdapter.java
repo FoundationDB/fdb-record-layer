@@ -34,6 +34,7 @@ import com.google.common.collect.Lists;
 
 import java.math.BigInteger;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
@@ -140,18 +141,22 @@ class BySlotStorageAdapter extends AbstractStorageAdapter implements StorageAdap
         Verify.verify((nodeKind == NodeKind.LEAF && itemSlots != null && childSlots == null) ||
                       (nodeKind == NodeKind.INTERMEDIATE && itemSlots == null && childSlots != null));
 
-        if (nodeKind == NodeKind.LEAF &&
-                !getConfig().isStoreHilbertValues()) {
-            //
-            // We need to sort the slots by the computed Hilbert value/key. This is not necessary when we store
-            // the Hilbert value as fdb does the sorting for us.
-            //
-            itemSlots.sort(ItemSlot.comparator);
+        if (nodeKind == NodeKind.LEAF) {
+            // Verified above: nodeKind == LEAF implies itemSlots != null, but NullAway does not treat
+            // Verify.verify() as a null-check, so the invariant is re-asserted here.
+            final List<ItemSlot> nonNullItemSlots = Objects.requireNonNull(itemSlots);
+            if (!getConfig().isStoreHilbertValues()) {
+                //
+                // We need to sort the slots by the computed Hilbert value/key. This is not necessary when we store
+                // the Hilbert value as fdb does the sorting for us.
+                //
+                nonNullItemSlots.sort(ItemSlot.comparator);
+            }
+            return new LeafNode(nodeId, nonNullItemSlots);
+        } else {
+            // Verified above: nodeKind == INTERMEDIATE implies childSlots != null.
+            return new IntermediateNode(nodeId, Objects.requireNonNull(childSlots));
         }
-
-        return nodeKind == NodeKind.LEAF
-               ? new LeafNode(nodeId, itemSlots)
-               : new IntermediateNode(nodeId, childSlots);
     }
 
     @Override

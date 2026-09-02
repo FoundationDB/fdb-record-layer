@@ -199,6 +199,9 @@ public class BunchedMapIterator<K, V> implements AsyncPeekIterator<Map.Entry<K, 
      * @return a continuation that can be used to resume iteration later
      */
     @Nullable
+    // NullAway does not reliably recognize @Nullable on array-typed return values, so the `return null;`
+    // below is misflagged as returning @Nullable from a @NonNull-returning method despite the annotation.
+    @SuppressWarnings("NullAway")
     public byte[] getContinuation() {
         if (lastKey == null || done && (limit == ReadTransaction.ROW_LIMIT_UNLIMITED || returned < limit)) {
             // We exhausted the scan.

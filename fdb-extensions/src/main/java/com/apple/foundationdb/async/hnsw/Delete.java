@@ -203,7 +203,11 @@ class Delete {
 
                     return deleteFromLayers(transaction, storageTransform, quantizer, random, primaryKey, topLayer)
                             .thenCompose(potentialEntryNodeReferences -> {
-                                if (entryNodeReference != null && primaryKey.equals(entryNodeReference.getPrimaryKey())) {
+                                // entryNodeReference != null implies accessInfo != null (entryNodeReference is
+                                // derived from it just above), and accessInfo is used (not just entryNodeReference)
+                                // below, so it is checked explicitly; NullAway also does not carry a null check on
+                                // accessInfo across this lambda boundary even if it were checked outside.
+                                if (entryNodeReference != null && accessInfo != null && primaryKey.equals(entryNodeReference.getPrimaryKey())) {
                                     // find (and store) a new entry reference
                                     for (int i = potentialEntryNodeReferences.size() - 1; i >= 0; i --) {
                                         final EntryNodeReference potentialEntyNodeReference =
@@ -375,6 +379,10 @@ class Delete {
                                 // entry node reference in order to avoid a costly search for a new global entry point.
                                 // This reference is guaranteed to exist.
                                 //
+                                // Iterables.getFirst is from Guava, which is not jspecify-annotated, so its generic
+                                // default-value parameter is treated as @NonNull by NullAway's defaults; null is
+                                // the correct default here (there may be no candidates).
+                                @SuppressWarnings("NullAway")
                                 final Tuple firstPrimaryKey =
                                         Iterables.getFirst(candidateReferencesMap.keySet(), null);
                                 return firstPrimaryKey == null

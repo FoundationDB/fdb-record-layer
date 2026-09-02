@@ -35,6 +35,8 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 
+import org.jspecify.annotations.Nullable;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -555,15 +557,19 @@ public class RankedSet {
 
     class NthLookup implements Lookup {
         private long rank;
+        @Nullable
         private byte[] key = EMPTY_ARRAY;
         private int level = config.getNLevels();
+        @Nullable
         private Subspace levelSubspace;
-        private AsyncIterator<KeyValue> asyncIterator = null;
+        @Nullable
+        private AsyncIterator<KeyValue> asyncIterator;
 
         public NthLookup(long rank) {
             this.rank = rank;
         }
 
+        @Nullable
         public byte[] getKey() {
             return key;
         }
@@ -576,7 +582,11 @@ public class RankedSet {
                 if (level < 0) {
                     // Down to finest level without finding enough.
                     if (!config.isCountDuplicates()) {
-                        key = null;
+                        // NullAway does not reliably honor @Nullable on byte[]-typed fields, so the null literal
+                        // below is misflagged as a NonNull violation even though key is declared @Nullable byte[].
+                        @SuppressWarnings("NullAway")
+                        final Runnable clearKey = () -> key = null;
+                        clearKey.run();
                     }
                     return READY_FALSE;
                 }
@@ -586,8 +596,13 @@ public class RankedSet {
                         false,
                         StreamingMode.WANT_ALL));
             }
+            // Either newIterator just assigned levelSubspace/asyncIterator above, or this is a continuation of an
+            // already-started lookup where a previous call did so; either way both are non-null from here on, but
+            // that invariant does not survive the lambda boundary below, so it is re-asserted with local captures.
+            final Subspace currentLevelSubspace = Objects.requireNonNull(levelSubspace);
+            final AsyncIterator<KeyValue> currentAsyncIterator = Objects.requireNonNull(asyncIterator);
             final long startTime = System.nanoTime();
-            final CompletableFuture<Boolean> onHasNext = asyncIterator.onHasNext();
+            final CompletableFuture<Boolean> onHasNext = currentAsyncIterator.onHasNext();
             final boolean wasDone = onHasNext.isDone();
             return onHasNext.thenApply(hasNext -> {
                 if (!wasDone) {
@@ -595,12 +610,17 @@ public class RankedSet {
                 }
                 if (!hasNext) {
                     // Not enough on this level.
-                    key = null;
+                    // NullAway does not reliably honor @Nullable on byte[]-typed fields, so the null literal
+                    // below is misflagged as a NonNull violation even though key is declared @Nullable byte[].
+                    @SuppressWarnings("NullAway")
+                    final Runnable clearKey = () -> key = null;
+                    clearKey.run();
                     return false;
                 }
-                KeyValue kv = asyncIterator.next();
-                key = levelSubspace.unpack(kv.getKey()).getBytes(0);
-                if (rank == 0 && key.length > 0) {
+                KeyValue kv = currentAsyncIterator.next();
+                final byte[] newKey = currentLevelSubspace.unpack(kv.getKey()).getBytes(0);
+                key = newKey;
+                if (rank == 0 && newKey.length > 0) {
                     // Moved along correct rank, this is the key.
                     return false;
                 }
@@ -685,9 +705,11 @@ public class RankedSet {
         private final boolean keyShouldBePresent;
         private byte[] rankKey = EMPTY_ARRAY;
         private long rank = 0;
+        @Nullable
         private Subspace levelSubspace;
         private int level = config.getNLevels();
-        private AsyncIterator<KeyValue> asyncIterator = null;
+        @Nullable
+        private AsyncIterator<KeyValue> asyncIterator;
         private long lastCount;
 
         public RankLookup(byte[] key, boolean keyShouldBePresent) {
@@ -717,8 +739,13 @@ public class RankedSet {
                         StreamingMode.WANT_ALL));
                 lastCount = 0;
             }
+            // Either newIterator just assigned levelSubspace/asyncIterator above, or this is a continuation of an
+            // already-started lookup where a previous call did so; either way both are non-null from here on, but
+            // that invariant does not survive the lambda boundary below, so it is re-asserted with local captures.
+            final Subspace currentLevelSubspace = Objects.requireNonNull(levelSubspace);
+            final AsyncIterator<KeyValue> currentAsyncIterator = Objects.requireNonNull(asyncIterator);
             final long startTime = System.nanoTime();
-            final CompletableFuture<Boolean> onHasNext = asyncIterator.onHasNext();
+            final CompletableFuture<Boolean> onHasNext = currentAsyncIterator.onHasNext();
             final boolean wasDone = onHasNext.isDone();
             return onHasNext.thenApply(hasNext -> {
                 if (!wasDone) {
@@ -742,8 +769,8 @@ public class RankedSet {
                     }
                     return true;
                 }
-                KeyValue kv = asyncIterator.next();
-                rankKey = levelSubspace.unpack(kv.getKey()).getBytes(0);
+                KeyValue kv = currentAsyncIterator.next();
+                rankKey = currentLevelSubspace.unpack(kv.getKey()).getBytes(0);
                 lastCount = decodeLong(kv.getValue());
                 rank += lastCount;
                 return true;
@@ -817,7 +844,11 @@ public class RankedSet {
                     KeyValue kv = more ? it.next() : null;
                     byte[] nextKey = kv == null ? null : subspace.unpack(kv.getKey()).getBytes(1);
                     if (prevKey != null) {
-                        long count = countRange(tr, level - 1, prevKey, nextKey).join();
+                        // NullAway does not reliably honor @Nullable on byte[]-typed parameters, so forwarding
+                        // the @Nullable-tracked nextKey local is misflagged as a NonNull violation even though
+                        // countRange()'s endKey parameter is declared @Nullable byte[].
+                        @SuppressWarnings("NullAway")
+                        final long count = countRange(tr, level - 1, prevKey, nextKey).join();
                         if (prevCount != count) {
                             return new Consistency(level, prevCount, count, toDebugString(tc));
                         }
@@ -826,7 +857,10 @@ public class RankedSet {
                         break;
                     }
                     prevKey = nextKey;
-                    prevCount = decodeLong(kv.getValue());
+                    // more is true here (we would have broken out above otherwise), so kv is non-null (it is
+                    // set together with more just above), but NullAway cannot correlate the nullness of two
+                    // different variables, so it is checked explicitly.
+                    prevCount = decodeLong(Objects.requireNonNull(kv).getValue());
                 }
             }
             return new Consistency();
@@ -863,7 +897,7 @@ public class RankedSet {
         }
     }
 
-    private CompletableFuture<Long> countRange(ReadTransactionContext tc, int level, byte[] beginKey, byte[] endKey) {
+    private CompletableFuture<Long> countRange(ReadTransactionContext tc, int level, @Nullable byte[] beginKey, @Nullable byte[] endKey) {
         return tc.readAsync(tr ->
                 AsyncUtil.mapIterable(tr.getRange(beginKey == null ?
                                 subspace.range(Tuple.from(level)).begin :
@@ -930,6 +964,7 @@ public class RankedSet {
         private final int level;
         private final long prevCount;
         private final long count;
+        @Nullable
         private String structure;
 
         public Consistency(int level, long prevCount, long count, String structure) {

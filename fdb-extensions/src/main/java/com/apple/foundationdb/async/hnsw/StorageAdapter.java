@@ -266,6 +266,10 @@ interface StorageAdapter<N extends NodeReference> {
         final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
         final RealVector centroid = accessInfo.getNegatedCentroid();
         final byte[] key = entryNodeSubspace.pack();
+        // Tuple.from(Object...) is from the unannotated fdb-java client library and genuinely supports null
+        // elements (a null centroid tuple represents "no centroid"), but its varargs parameter is treated as
+        // @NonNull by NullAway's defaults.
+        @SuppressWarnings("NullAway")
         final byte[] value = Tuple.from(entryNodeReference.getLayer(),
                 entryNodeReference.getPrimaryKey(),
                 // getting underlying is okay as it is only written to the database

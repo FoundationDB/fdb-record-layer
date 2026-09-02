@@ -40,6 +40,7 @@ import com.google.common.collect.ImmutableList;
 
 import org.jspecify.annotations.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -371,13 +372,16 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
             final Tuple nodePrimaryKeyFromNeighbor = neighborKeyTuple.getNestedTuple(1);
             if (nodePrimaryKey == null || !nodePrimaryKey.equals(nodePrimaryKeyFromNeighbor)) {
                 if (nodePrimaryKey != null) {
+                    // A prior iteration must have run (nodePrimaryKey starts null) and set neighborsBuilder then;
+                    // NullAway cannot verify non-nullness carried across loop iterations like this.
                     nodeBuilder.add(getNodeFactory().create(nodePrimaryKey, null, null,
-                            neighborsBuilder.build()));
+                            Objects.requireNonNull(neighborsBuilder).build()));
                 }
                 nodePrimaryKey = nodePrimaryKeyFromNeighbor;
                 neighborsBuilder = ImmutableList.builder();
             }
-            neighborsBuilder.add(neighbor);
+            // Always set just above, either on this iteration or an earlier one.
+            Objects.requireNonNull(neighborsBuilder).add(neighbor);
             numRead ++;
         }
 
@@ -388,8 +392,9 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
         // a node can have.
         //
         if (numRead < maxNumRead && nodePrimaryKey != null) {
+            // nodePrimaryKey != null implies the loop ran at least once and set neighborsBuilder.
             nodeBuilder.add(getNodeFactory().create(nodePrimaryKey, null, null,
-                    neighborsBuilder.build()));
+                    Objects.requireNonNull(neighborsBuilder).build()));
         }
 
         return nodeBuilder.build();

@@ -158,7 +158,11 @@ public class BunchedMapTest {
     public void insertSingleKey() {
         List<Tuple> testTuples = Stream.of(1066L, 1776L, 1415L, 800L).map(Tuple::from).collect(Collectors.toList());
         Tuple value = Tuple.from(1415L);
-        db.run(tr -> {
+        // db.run(Function<Transaction, T>) has no void-returning overload, so tests that only care about side
+        // effects return null from the lambda; NullAway does not accept an explicit @Nullable type witness on
+        // this external, unannotated method either, so the suppression is scoped to this one declaration instead.
+        @SuppressWarnings("NullAway")
+        final Void ignored = db.run(tr -> {
             Tuple minSoFar = null;
             for (int i = 0; i < testTuples.size(); i++) {
                 Tuple key = testTuples.get(i);

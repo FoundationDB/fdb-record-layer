@@ -21,6 +21,7 @@
 package com.apple.foundationdb.async;
 
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
@@ -87,7 +88,8 @@ class WrappingAsyncPeekIterator<T> implements AsyncPeekCallbackIterator<T> {
         if (done) {
             throw new NoSuchElementException();
         } else if (hasCurrent || hasNext()) {
-            return nextItem;
+            // hasCurrent (or hasNext() having just made it so) guarantees nextItem was set below.
+            return Objects.requireNonNull(nextItem);
         } else {
             throw new NoSuchElementException();
         }

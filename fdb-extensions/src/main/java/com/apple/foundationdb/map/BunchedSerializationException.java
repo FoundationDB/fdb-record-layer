@@ -37,7 +37,11 @@ import java.util.Arrays;
 @SuppressWarnings("serial")
 public class BunchedSerializationException extends BunchedMapException {
     @Nullable
-    private byte[] data;
+    // NullAway does not reliably recognize @Nullable on byte[]-typed fields, so the explicit `= null` here
+    // (needed so neither constructor is separately flagged for not "guaranteeing" this field is initialized)
+    // is itself misflagged as a NonNull violation.
+    @SuppressWarnings("NullAway")
+    private byte[] data = null;
     @Nullable
     private Object value;
 
@@ -81,6 +85,9 @@ public class BunchedSerializationException extends BunchedMapException {
      * @return the data array that triggered the exception
      */
     @Nullable
+    // NullAway does not reliably recognize @Nullable on array-typed return values, so the `null` branch below
+    // is misflagged as returning @Nullable from a @NonNull-returning method despite the annotation.
+    @SuppressWarnings("NullAway")
     public byte[] getData() {
         return (data == null) ? null : Arrays.copyOf(data, data.length);
     }

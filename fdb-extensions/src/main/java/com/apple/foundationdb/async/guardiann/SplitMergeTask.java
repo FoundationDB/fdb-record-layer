@@ -327,6 +327,10 @@ class SplitMergeTask extends AbstractDeferredTask {
                         targetClusterMetadata, getCentroid(),
                         2, numNearestClusters - 2);
 
+        // Lists.newArrayList(E...) is from Guava, which is not jspecify-annotated, so its varargs parameter is
+        // treated as @NonNull by NullAway's defaults; a null classification2To3 is intentional here (see above)
+        // and is explicitly handled by the null check below.
+        @SuppressWarnings("NullAway")
         final List<ClusterClassification> allClassifications =
                 Lists.newArrayList(classification1To2, classification2To3);
 
@@ -481,6 +485,10 @@ class SplitMergeTask extends AbstractDeferredTask {
                         targetClusterMetadata, getCentroid(),
                         3, numNearestClusters - 3);
 
+        // Lists.newArrayList(E...) is from Guava, which is not jspecify-annotated, so its varargs parameter is
+        // treated as @NonNull by NullAway's defaults; a null classification3To2 is intentional (an unviable
+        // split drops out of the candidate set) and is explicitly handled downstream.
+        @SuppressWarnings("NullAway")
         final List<ClusterClassification> allClassifications =
                 Lists.newArrayList(classification2To1, classification3To2);
 

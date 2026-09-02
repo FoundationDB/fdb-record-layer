@@ -31,6 +31,7 @@ import com.google.common.collect.Streams;
 
 import java.math.BigInteger;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
@@ -167,9 +168,13 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
         Verify.verify((nodeKind == NodeKind.LEAF && itemSlots != null) ||
                       (nodeKind == NodeKind.INTERMEDIATE && childSlots != null));
 
-        return nodeKind == NodeKind.LEAF
-               ? new LeafNode(nodeId, itemSlots)
-               : new IntermediateNode(nodeId, childSlots);
+        // Verified above, but NullAway does not treat Verify.verify() as a null-check, so the invariant is
+        // re-asserted here.
+        if (nodeKind == NodeKind.LEAF) {
+            return new LeafNode(nodeId, Objects.requireNonNull(itemSlots));
+        } else {
+            return new IntermediateNode(nodeId, Objects.requireNonNull(childSlots));
+        }
     }
 
     @Override

@@ -114,6 +114,9 @@ public class ByteArrayUtil2 {
      */
     @API(API.Status.UNSTABLE)
     @Nullable
+    // NullAway does not reliably recognize @Nullable on array-typed return values, so the `return null;`
+    // below is misflagged as returning @Nullable from a @NonNull-returning method despite the annotation above.
+    @SuppressWarnings("NullAway")
     public static byte[] unprint(@Nullable String loggedBytes) {
         if (loggedBytes == null) {
             return null;

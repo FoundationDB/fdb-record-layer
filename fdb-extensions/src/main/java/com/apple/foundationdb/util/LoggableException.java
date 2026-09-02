@@ -73,7 +73,7 @@ public class LoggableException extends RuntimeException implements LoggableKeysA
      * @return a single map with all log information
      */
     @Override
-    public Map<String, Object> getLogInfo() {
+    public Map<String, @Nullable Object> getLogInfo() {
         return loggableKeysAndValuesImpl.getLogInfo();
     }
 
@@ -82,11 +82,11 @@ public class LoggableException extends RuntimeException implements LoggableKeysA
      * given as the key and the object provided as the value.
      *
      * @param description description of the log info pair
-     * @param object value of the log info pair
+     * @param object value of the log info pair, which may be {@code null}
      * @return this <code>LoggableException</code>
      */
     @Override
-    public LoggableException addLogInfo(String description, Object object) {
+    public LoggableException addLogInfo(String description, @Nullable Object object) {
         loggableKeysAndValuesImpl.addLogInfo(description, object);
         return this;
     }
@@ -105,7 +105,7 @@ public class LoggableException extends RuntimeException implements LoggableKeysA
      * @throws IllegalArgumentException if <code>keyValue</code> has odd length
      */
     @Override
-    public LoggableException addLogInfo(Object ... keyValue) {
+    public LoggableException addLogInfo(@Nullable Object ... keyValue) {
         loggableKeysAndValuesImpl.addLogInfo(keyValue);
         return this;
     }

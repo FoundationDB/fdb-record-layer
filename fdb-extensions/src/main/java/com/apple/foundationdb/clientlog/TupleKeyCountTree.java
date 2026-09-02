@@ -243,7 +243,11 @@ public class TupleKeyCountTree {
                 TupleKeyCountTree ancestor = this;
                 for (int i = 0; i <= nancestors; i++) {
                     path.add(0, ancestor);
-                    ancestor = ancestor.parent;
+                    // nancestors only ever increases in step with an actual recursion into a real child (see
+                    // the onlyChild.printTree(...) call above), so this node is guaranteed to have at least
+                    // `nancestors` real ancestors above it; NullAway cannot verify an invariant across
+                    // recursive calls like this.
+                    ancestor = Objects.requireNonNull(ancestor.parent);
                 }
             } else {
                 path = Collections.singletonList(this);

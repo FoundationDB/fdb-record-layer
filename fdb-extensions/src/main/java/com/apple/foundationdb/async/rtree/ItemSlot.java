@@ -95,7 +95,12 @@ public class ItemSlot implements NodeSlot {
 
     @Override
     public Tuple getSlotKey(final boolean storeHilbertValues) {
-        return Tuple.from(storeHilbertValues ? getHilbertValue() : null, getKey());
+        // Tuple.from(Object...) is from the unannotated fdb-java client library and genuinely supports null
+        // elements (omitting the Hilbert value when it is not stored), but its varargs parameter is treated
+        // as @NonNull by NullAway's defaults.
+        @SuppressWarnings("NullAway")
+        final Tuple result = Tuple.from(storeHilbertValues ? getHilbertValue() : null, getKey());
+        return result;
     }
 
     @Override

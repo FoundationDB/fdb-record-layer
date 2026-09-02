@@ -239,7 +239,9 @@ public interface Node {
                 Verify.verify(hilbertValueCompare >= 0,
                         "smallest (hilbertValue, key) pairs are not monotonically increasing (hilbertValueCheck)");
                 if (hilbertValueCompare == 0) {
-                    Verify.verify(TupleHelpers.compare(nodeSlot.getSmallestKey(), lastKey) >= 0,
+                    // lastHilbertValue != null implies lastKey != null (both are set together at the end of
+                    // each iteration below), but NullAway cannot correlate the nullness of two different locals.
+                    Verify.verify(TupleHelpers.compare(nodeSlot.getSmallestKey(), Objects.requireNonNull(lastKey)) >= 0,
                             "smallest (hilbertValue, key) pairs are not monotonically increasing (keyCheck)");
                 }
             }

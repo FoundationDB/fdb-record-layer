@@ -195,6 +195,10 @@ public class TupleOrdering {
         return decodeState.values;
     }
 
+    // state.add(...) is from the unannotated fdb-java client library, so its Object value parameter is treated
+    // as @NonNull by NullAway's defaults; a decoded NULL_LAST marker legitimately represents a null tuple
+    // element, so passing null here is correct.
+    @SuppressWarnings("NullAway")
     static void decodeNullsLast(TupleUtil.DecodeState state, byte[] bytes, int pos, int end) {
         if (bytes[pos] == NULL_LAST) {
             state.add(null, pos + 1);

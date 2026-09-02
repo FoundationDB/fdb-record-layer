@@ -46,6 +46,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -189,6 +190,12 @@ public class BunchedMap<K, V> {
 
     }
 
+    // NullAway does not reliably honor @Nullable on byte[]-typed parameters when checking a call's arguments,
+    // even for our own methods declared immediately above with an @Nullable byte[] parameter. A bare `null`
+    // literal, or an already-@Nullable-tracked byte[] value, passed to instrumentWrite/instrumentDelete is
+    // therefore misflagged as a NonNull violation. Call sites below wrap such calls in a Runnable so the
+    // resulting suppression can be scoped to a single local declaration rather than a whole method body.
+
     private CompletableFuture<Optional<KeyValue>> entryForKey(Transaction tr, byte[] subspaceKey, K key) {
         byte[] keyBytes = ByteArrayUtil.join(subspaceKey, serializer.serializeKey(key));
         tr.addReadConflictKey(keyBytes);
@@ -275,7 +282,9 @@ public class BunchedMap<K, V> {
         tr.addReadConflictKey(keyBytes);
         byte[] valueBytes = serializer.serializeEntries(Collections.singletonList(entry));
         tr.set(keyBytes, valueBytes);
-        instrumentWrite(keyBytes, valueBytes, null);
+        @SuppressWarnings("NullAway")
+        final Runnable instrumentAction = () -> instrumentWrite(keyBytes, valueBytes, null);
+        instrumentAction.run();
     }
 
     private void writeEntryListWithoutChecking(Transaction tr, byte[] subspaceKey, byte[] keyBytes,
@@ -289,7 +298,9 @@ public class BunchedMap<K, V> {
         addEntryListReadConflictRange(tr, subspaceKey, newKey, entryList);
         final byte[] oldKey = oldKv == null ? null : oldKv.getKey();
         final byte[] oldValue;
-        if (oldKey != null && !Arrays.equals(oldKey, newKey)) {
+        // oldKv != null is implied by oldKey != null (oldKey is derived from it above), but NullAway cannot
+        // correlate the nullness of two different variables, so the check is spelled out explicitly here.
+        if (oldKey != null && oldKv != null && !Arrays.equals(oldKey, newKey)) {
             tr.clear(oldKey);
             instrumentDelete(oldKey, oldKv.getValue());
             oldValue = null; // set the old value to null so that the instrumentation of the write doesn't double-count the delete
@@ -297,7 +308,11 @@ public class BunchedMap<K, V> {
             oldValue = oldKv == null ? null : oldKv.getValue();
         }
         tr.set(newKey, serializedBytes);
-        instrumentWrite(newKey, serializedBytes, oldValue);
+        // NullAway does not reliably honor @Nullable on byte[]-typed parameters, so forwarding the
+        // already-@Nullable-tracked oldValue local into instrumentWrite is misflagged as a NonNull violation.
+        @SuppressWarnings("NullAway")
+        final Runnable instrumentAction = () -> instrumentWrite(newKey, serializedBytes, oldValue);
+        instrumentAction.run();
         if (!Arrays.equals(keyBytes, newKey)) {
             tr.addWriteConflictKey(keyBytes);
         }
@@ -339,7 +354,12 @@ public class BunchedMap<K, V> {
                 addEntryListReadConflictRange(tr, subspaceKey, newKey, entryList);
                 byte[] appendBytes = serializer.serializeEntry(entryList.get(entryList.size() - 1));
                 tr.mutate(MutationType.APPEND_IF_FITS, newKey, appendBytes);
-                instrumentWrite(newKey, appendBytes, null); // do not include old value in instrumentation as we are incrementing the total size
+                // NullAway does not reliably honor @Nullable on byte[]-typed parameters, so the null literal
+                // below is misflagged as a NonNull violation even though instrumentWrite's oldValue parameter
+                // is declared @Nullable byte[].
+                @SuppressWarnings("NullAway")
+                final Runnable instrumentAction = () -> instrumentWrite(newKey, appendBytes, null); // do not include old value in instrumentation as we are incrementing the total size
+                instrumentAction.run();
                 tr.addWriteConflictKey(keyBytes);
             } else {
                 writeEntryListWithoutChecking(tr, subspaceKey, keyBytes, oldKv, newKey, entryList, serializedBytes);
@@ -629,7 +649,12 @@ public class BunchedMap<K, V> {
                     // The only key that was in the range was the key that
                     // we are currently removing, so just remove it.
                     tr.clear(kv.getKey());
-                    instrumentDelete(kv.getKey(), null);
+                    // NullAway does not reliably honor @Nullable on byte[]-typed parameters, so the null
+                    // literal below is misflagged as a NonNull violation even though instrumentDelete's
+                    // oldValue parameter is declared @Nullable byte[].
+                    @SuppressWarnings("NullAway")
+                    final Runnable instrumentAction = () -> instrumentDelete(kv.getKey(), null);
+                    instrumentAction.run();
                 } else {
                     // We have other items in the entry. Remove the entry
                     // we actually care about and serialize the rest.
@@ -648,7 +673,12 @@ public class BunchedMap<K, V> {
                     }
                     final byte[] newValue = serializer.serializeEntries(entryList);
                     tr.set(newKey, newValue);
-                    instrumentWrite(newKey, newValue, oldValue);
+                    // NullAway does not reliably honor @Nullable on byte[]-typed parameters, so forwarding the
+                    // already-@Nullable-tracked oldValue local into instrumentWrite is misflagged as a NonNull
+                    // violation.
+                    @SuppressWarnings("NullAway")
+                    final Runnable instrumentAction = () -> instrumentWrite(newKey, newValue, oldValue);
+                    instrumentAction.run();
                 }
                 return Optional.of(oldEntry.getValue());
             } else {
@@ -721,7 +751,10 @@ public class BunchedMap<K, V> {
                                               int keyLimit, @Nullable byte[] continuation) {
         return tcx.runAsync(tr -> {
             byte[] subspaceKey = subspace.getKey();
-            byte[] begin = (continuation == null) ? subspaceKey : continuation;
+            // NullAway does not reliably narrow @Nullable byte[] locals inside a ternary, even though
+            // continuation is provably non-null in the else branch here.
+            @SuppressWarnings("NullAway")
+            final byte[] begin = (continuation == null) ? subspaceKey : continuation;
             byte[] end = subspace.range().end;
             final AsyncIterable<KeyValue> iterable = tr.snapshot().getRange(begin, end, keyLimit);
             List<Map.Entry<K, V>> currentEntryList = new ArrayList<>(bunchSize);
@@ -740,12 +773,16 @@ public class BunchedMap<K, V> {
                     lastReadKeyBytes.set(null);
                     return;
                 }
-                if (lastReadKeyBytes.get() == null) {
-                    lastReadKeyBytes.set(kv.getKey());
+                // lastReadKeyBytes.get() is re-fetched (rather than reused from the check above) after
+                // possibly being set just below, so capture it once here for both use and null-safety.
+                byte[] lastRead = lastReadKeyBytes.get();
+                if (lastRead == null) {
+                    lastRead = kv.getKey();
+                    lastReadKeyBytes.set(lastRead);
                 }
                 final byte[] endKeyBytes = ByteArrayUtil.join(subspaceKey, serializer.serializeKey(entriesFromKey.get(entriesFromKey.size() - 1).getKey()), ZERO_ARRAY);
-                tr.addReadConflictRange(lastReadKeyBytes.get(), endKeyBytes);
-                tr.addWriteConflictRange(lastReadKeyBytes.get(), kv.getKey());
+                tr.addReadConflictRange(lastRead, endKeyBytes);
+                tr.addWriteConflictRange(lastRead, kv.getKey());
                 lastReadKeyBytes.set(endKeyBytes);
                 tr.clear(kv.getKey());
                 instrumentDelete(kv.getKey(), kv.getValue());
@@ -818,7 +855,11 @@ public class BunchedMap<K, V> {
      * @return an iterator over the entries in the map
      */
     public BunchedMapIterator<K, V> scan(ReadTransaction tr, Subspace subspace) {
-        return scan(tr, subspace, null, Transaction.ROW_LIMIT_UNLIMITED, false);
+        // NullAway does not reliably honor @Nullable on byte[]-typed parameters, so the null literal below
+        // is misflagged as a NonNull violation even though scan()'s continuation parameter is @Nullable byte[].
+        @SuppressWarnings("NullAway")
+        final BunchedMapIterator<K, V> result = scan(tr, subspace, null, Transaction.ROW_LIMIT_UNLIMITED, false);
+        return result;
     }
 
     /**
@@ -860,8 +901,11 @@ public class BunchedMap<K, V> {
             continuationKey = null;
             rangeReadIterable = tr.getRange(subspace.range(), ReadTransaction.ROW_LIMIT_UNLIMITED, reverse);
         } else {
-            continuationKey = serializer.deserializeKey(continuation);
-            byte[] continuationKeyBytes = ByteArrayUtil.join(subspaceKey, continuation);
+            // continuation is provably non-null here (the if-branch above handles the null case), but
+            // NullAway does not reliably narrow @Nullable byte[] locals, so it is re-asserted explicitly.
+            final byte[] nonNullContinuation = Objects.requireNonNull(continuation);
+            continuationKey = serializer.deserializeKey(nonNullContinuation);
+            byte[] continuationKeyBytes = ByteArrayUtil.join(subspaceKey, nonNullContinuation);
             if (reverse) {
                 rangeReadIterable = tr.getRange(subspaceKey, continuationKeyBytes, ReadTransaction.ROW_LIMIT_UNLIMITED, true);
             } else {
@@ -894,7 +938,11 @@ public class BunchedMap<K, V> {
      * @return an iterator over the entries in multiple maps
      */
     public <T> BunchedMapMultiIterator<K, V, T> scanMulti(ReadTransaction tr, Subspace subspace, SubspaceSplitter<T> splitter) {
-        return scanMulti(tr, subspace, splitter, null, ReadTransaction.ROW_LIMIT_UNLIMITED, false);
+        // NullAway does not reliably honor @Nullable on byte[]-typed parameters, so the null literal below
+        // is misflagged as a NonNull violation even though the continuation parameter is @Nullable byte[].
+        @SuppressWarnings("NullAway")
+        final BunchedMapMultiIterator<K, V, T> result = scanMulti(tr, subspace, splitter, null, ReadTransaction.ROW_LIMIT_UNLIMITED, false);
+        return result;
     }
 
     /**
@@ -914,7 +962,11 @@ public class BunchedMap<K, V> {
      */
     public <T> BunchedMapMultiIterator<K, V, T> scanMulti(ReadTransaction tr, Subspace subspace, SubspaceSplitter<T> splitter,
                                                         @Nullable byte[] continuation, int limit, boolean reverse) {
-        return scanMulti(tr, subspace, splitter, null, null, continuation, limit, reverse);
+        // NullAway does not reliably honor @Nullable on byte[]-typed parameters, so the null literals below
+        // are misflagged as NonNull violations even though subspaceStart/subspaceEnd are @Nullable byte[].
+        @SuppressWarnings("NullAway")
+        final BunchedMapMultiIterator<K, V, T> result = scanMulti(tr, subspace, splitter, null, null, continuation, limit, reverse);
+        return result;
     }
 
     /**
@@ -996,13 +1048,20 @@ public class BunchedMap<K, V> {
                                                           @Nullable byte[] subspaceStart, @Nullable byte[] subspaceEnd,
                                                           @Nullable byte[] continuation, int limit, @Nullable Consumer<KeyValue> postReadCallback, boolean reverse) {
         byte[] subspaceKey = subspace.getKey();
-        byte[] startBytes = (subspaceStart == null ? subspaceKey : ByteArrayUtil.join(subspaceKey, subspaceStart));
-        byte[] endBytes = (subspaceEnd == null ? ByteArrayUtil.strinc(subspaceKey) : ByteArrayUtil.join(subspaceKey, subspaceEnd));
+        // NullAway does not reliably propagate non-null-ness through generic substitution (e.g.
+        // Objects.requireNonNull) or ternary narrowing when the type involved is byte[], so the calls below
+        // are misflagged as NonNull violations even though subspaceStart/subspaceEnd/continuation are
+        // provably non-null on the join(...) side of each expression.
+        @SuppressWarnings("NullAway")
+        final byte[] startBytes = (subspaceStart == null ? subspaceKey : ByteArrayUtil.join(subspaceKey, subspaceStart));
+        @SuppressWarnings("NullAway")
+        final byte[] endBytes = (subspaceEnd == null ? ByteArrayUtil.strinc(subspaceKey) : ByteArrayUtil.join(subspaceKey, subspaceEnd));
         AsyncIterable<KeyValue> rangeReadIterable;
         if (continuation == null) {
             rangeReadIterable = tr.getRange(startBytes, endBytes, ReadTransaction.ROW_LIMIT_UNLIMITED, reverse);
         } else {
-            byte[] continuationEndpoint = ByteArrayUtil.join(subspaceKey, continuation);
+            @SuppressWarnings("NullAway")
+            final byte[] continuationEndpoint = ByteArrayUtil.join(subspaceKey, continuation);
             if (reverse) {
                 if (ByteArrayUtil.compareUnsigned(continuationEndpoint, endBytes) < 0) {
                     rangeReadIterable = tr.getRange(startBytes, continuationEndpoint, ReadTransaction.ROW_LIMIT_UNLIMITED, true);

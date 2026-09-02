@@ -38,6 +38,7 @@ import com.google.common.collect.ImmutableList;
 
 import org.jspecify.annotations.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.SplittableRandom;
 import java.util.concurrent.CompletableFuture;
 
@@ -110,7 +111,10 @@ public final class StorageHelpers {
                             ? vector.partialVector() : partialVector.add(vector.partialVector());
             partialCount += vector.partialCount();
         }
-        return partialCount == 0 ? null : new AggregatedVector(partialCount, partialVector);
+        // partialCount != 0 implies the loop ran at least once (it starts at 0 and is only ever increased by
+        // vector.partialCount()), which in turn means partialVector was assigned a non-null value; NullAway
+        // cannot correlate the nullness of two different locals like this.
+        return partialCount == 0 ? null : new AggregatedVector(partialCount, Objects.requireNonNull(partialVector));
     }
 
     /**

@@ -35,6 +35,7 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import org.jspecify.annotations.Nullable;
 
 import java.time.Instant;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
@@ -126,8 +127,11 @@ public class DatabaseClientLogEvents {
 
         public CompletableFuture<DatabaseClientLogEvents> run() {
             return AsyncUtil.whileTrue(this::loop).thenApply(vignore -> {
-                events.updateForRun(eventCount, limitReached);
-                return events;
+                // loop() always ensures events is set (either it was already, or the first iteration created
+                // one) before this future can complete, but that invariant does not survive the lambda boundary.
+                final DatabaseClientLogEvents currentEvents = Objects.requireNonNull(events);
+                currentEvents.updateForRun(eventCount, limitReached);
+                return currentEvents;
             });
         }
 
@@ -137,7 +141,11 @@ public class DatabaseClientLogEvents {
             transactionOptions.setReadSystemKeys();
             transactionOptions.setReadLockAware();
             if (events == null) {
-                return versionRangeProducer.apply(tr).thenCompose(versions -> {
+                // events == null implies versionRangeProducer != null: the two constructors set exactly one of
+                // the two fields, and events only ever transitions from null to non-null (never back), but
+                // NullAway cannot correlate the nullness of two different fields.
+                final Function<ReadTransaction, CompletableFuture<Long[]>> currentVersionRangeProducer = Objects.requireNonNull(versionRangeProducer);
+                return currentVersionRangeProducer.apply(tr).thenCompose(versions -> {
                     final Long startVersion = versions[0];
                     final byte[] startKey = startVersion == null ? SystemKeyspace.CLIENT_LOG_KEY_PREFIX : FDBClientLogEvents.eventKeyForVersion(startVersion);
                     final Long endVersion = versions[1];
@@ -151,9 +159,13 @@ public class DatabaseClientLogEvents {
         }
 
         private CompletableFuture<Boolean> loopBody() {
-            final AsyncIterable<KeyValue> range = events.getRange(tr);
+            // events and tr are always set by loop() before it calls this method (either on a previous call, or
+            // just above on this one), but NullAway does not track that across the two methods.
+            final DatabaseClientLogEvents currentEvents = Objects.requireNonNull(events);
+            final Transaction currentTr = Objects.requireNonNull(tr);
+            final AsyncIterable<KeyValue> range = currentEvents.getRange(currentTr);
             return FDBClientLogEvents.forEachEvent(range, this).thenApply(lastProcessedKey -> {
-                events.updateForTransaction(lastProcessedKey);
+                currentEvents.updateForTransaction(lastProcessedKey);
                 return false;   // Return to caller if range processed or limit reached.
             }).handle((b, t) -> {
                 if (tr != null) {
@@ -179,8 +191,11 @@ public class DatabaseClientLogEvents {
         @Override
         public CompletableFuture<Void> accept(FDBClientLogEvents.Event event) {
             eventCount++;
-            events.updateForEvent(event.getStartTimestamp());
-            return callback.accept(tr, event);
+            // Set by loop()/loopBody() before this callback can be invoked (see loopBody() above).
+            final DatabaseClientLogEvents currentEvents = Objects.requireNonNull(events);
+            final Transaction currentTr = Objects.requireNonNull(tr);
+            currentEvents.updateForEvent(event.getStartTimestamp());
+            return callback.accept(currentTr, event);
         }
 
         @Override
@@ -205,7 +220,11 @@ public class DatabaseClientLogEvents {
 
     private void updateForTransaction(@Nullable byte[] lastProcessedKey) {
         if (lastProcessedKey != null) {
-            startKey = ByteArrayUtil.join(lastProcessedKey, new byte[1]);   // The immediately following key.
+            // NullAway does not reliably narrow @Nullable byte[] locals, even via a direct null check on the
+            // same variable immediately above.
+            @SuppressWarnings("NullAway")
+            final byte[] joined = ByteArrayUtil.join(lastProcessedKey, new byte[1]);   // The immediately following key.
+            startKey = joined;
         } else {
             startKey = endKey;  // Empty range.
         }

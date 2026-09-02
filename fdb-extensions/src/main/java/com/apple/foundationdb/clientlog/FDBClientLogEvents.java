@@ -42,6 +42,7 @@ import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.StringJoiner;
 import java.util.concurrent.CompletableFuture;
 
@@ -780,10 +781,16 @@ public class FDBClientLogEvents {
         private final AsyncConsumer<Event> callback;
         @Nullable
         private ByteBuffer splitBuffer;
+        @Nullable
         private byte[] splitId;
         private int splitPosition;
+        @Nullable
         private byte[] lastProcessedKey;
 
+        // NullAway does not reliably recognize @Nullable on byte[]-typed fields, so it incorrectly insists that
+        // splitId and lastProcessedKey (both declared @Nullable byte[] above, and legitimately unset until the
+        // first chunked/whole key is processed) be assigned here.
+        @SuppressWarnings("NullAway")
         public EventDeserializer(AsyncConsumer<Event> callback) {
             this.callback = callback;
         }
@@ -810,17 +817,22 @@ public class FDBClientLogEvents {
                     splitId = transactionId;
                     splitPosition = 1;
                 } else if (chunkNumber == splitPosition && Arrays.equals(transactionId, splitId)) {
-                    if (splitBuffer.remaining() < keyValue.getValue().length) {
-                        final ByteBuffer newBuffer = ByteBuffer.allocate(splitBuffer.position() + keyValue.getValue().length);
-                        splitBuffer.flip();
-                        newBuffer.put(splitBuffer);
+                    // splitPosition is only ever advanced to a value that can match chunkNumber here after the
+                    // chunkNumber == 1 branch above has run (on this or an earlier call to accept()), which is
+                    // exactly when splitBuffer is allocated; NullAway cannot verify an invariant across calls.
+                    ByteBuffer currentSplitBuffer = Objects.requireNonNull(splitBuffer);
+                    if (currentSplitBuffer.remaining() < keyValue.getValue().length) {
+                        final ByteBuffer newBuffer = ByteBuffer.allocate(currentSplitBuffer.position() + keyValue.getValue().length);
+                        currentSplitBuffer.flip();
+                        newBuffer.put(currentSplitBuffer);
                         splitBuffer = newBuffer;
+                        currentSplitBuffer = newBuffer;
                     }
-                    splitBuffer.put(keyValue.getValue());
+                    currentSplitBuffer.put(keyValue.getValue());
                     splitPosition++;
                     if (splitPosition == numChunks) {
-                        splitBuffer.flip();
-                        ByteBuffer buffer = splitBuffer;
+                        currentSplitBuffer.flip();
+                        ByteBuffer buffer = currentSplitBuffer;
                         splitBuffer = null;
                         lastProcessedKey = keyValue.getKey();
                         return deserializeEvents(buffer, callback);

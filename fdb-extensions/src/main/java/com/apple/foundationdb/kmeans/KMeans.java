@@ -34,6 +34,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.SplittableRandom;
 
 /**
@@ -283,7 +284,10 @@ public final class KMeans {
             }
         }
 
-        return best;
+        // The restart loop below runs `r` from 0 to maxRestarts inclusive, so it always executes at least once,
+        // and its first iteration unconditionally sets best (the `best == null || ...` check is true on that
+        // pass), so best is always non-null here; NullAway cannot verify a loop invariant like this.
+        return Objects.requireNonNull(best);
     }
 
     /**

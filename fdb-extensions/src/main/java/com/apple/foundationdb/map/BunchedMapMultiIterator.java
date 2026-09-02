@@ -33,6 +33,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -75,6 +76,10 @@ public class BunchedMapMultiIterator<K, V, T> implements AsyncPeekIterator<Bunch
     private int returned;
     private boolean done;
 
+    // NullAway does not reliably recognize @Nullable on byte[]-typed fields (currentSubspaceSuffix,
+    // currentSubspaceKey above), so it both misflags the null literals assigned below and, separately,
+    // insists -- incorrectly, since they are declared @Nullable -- that they be definitely assigned here.
+    @SuppressWarnings("NullAway")
     BunchedMapMultiIterator(AsyncPeekIterator<KeyValue> underlying,
                             ReadTransaction tr,
                             Subspace subspace,
@@ -134,10 +139,14 @@ public class BunchedMapMultiIterator<K, V, T> implements AsyncPeekIterator<Bunch
                 byte[] nextSubspaceSuffix = Arrays.copyOfRange(nextSubspaceKey, subspaceKey.length, nextSubspaceKey.length);
                 K continuationKey = null;
                 if (!continuationSatisfied) {
-                    if (ByteArrayUtil.startsWith(continuation, nextSubspaceSuffix)) {
-                        continuationKey = bunchedMap.getSerializer().deserializeKey(continuation, nextSubspaceSuffix.length);
+                    // !continuationSatisfied implies continuation != null: continuationSatisfied starts out as
+                    // (continuation == null) and is only ever subsequently set to true, never back to false. But
+                    // NullAway cannot correlate the nullness of two different fields, so it is reasserted here.
+                    final byte[] nonNullContinuation = Objects.requireNonNull(continuation);
+                    if (ByteArrayUtil.startsWith(nonNullContinuation, nextSubspaceSuffix)) {
+                        continuationKey = bunchedMap.getSerializer().deserializeKey(nonNullContinuation, nextSubspaceSuffix.length);
                         continuationSatisfied = true;
-                    } else if (ByteArrayUtil.compareUnsigned(nextSubspaceSuffix, continuation) * (reverse ? -1 : 1) > 0) {
+                    } else if (ByteArrayUtil.compareUnsigned(nextSubspaceSuffix, nonNullContinuation) * (reverse ? -1 : 1) > 0) {
                         // We have already satisfied the continuation, so we are can just say it is satisfied
                         continuationSatisfied = true;
                         continuationKey = null;
@@ -200,12 +209,18 @@ public class BunchedMapMultiIterator<K, V, T> implements AsyncPeekIterator<Bunch
         }
         if (hasNextFuture == null) {
             if (mapIterator != null) {
-                hasNextFuture = mapIterator.onHasNext().thenCompose(mapHasNext -> {
+                // Captured to a local because the null-check above does not survive the lambda boundary below
+                // (mapIterator is a mutable field).
+                final BunchedMapIterator<K, V> currentMapIterator = mapIterator;
+                hasNextFuture = currentMapIterator.onHasNext().thenCompose(mapHasNext -> {
                     if (mapHasNext) {
-                        Map.Entry<K, V> entry = mapIterator.next();
-                        assert currentSubspace != null;
-                        assert currentSubspaceKey != null;
-                        nextEntry = new BunchedMapScanEntry<>(currentSubspace, currentSubspaceTag, entry.getKey(), entry.getValue());
+                        Map.Entry<K, V> entry = currentMapIterator.next();
+                        // currentSubspace/currentSubspaceKey are always set together with mapIterator (see
+                        // getNextMapIterator()), so they are non-null here too; assert is not used because
+                        // NullAway does not treat it as a null-check (and assertions may be disabled at runtime).
+                        final Subspace nonNullCurrentSubspace = Objects.requireNonNull(currentSubspace);
+                        Objects.requireNonNull(currentSubspaceKey);
+                        nextEntry = new BunchedMapScanEntry<>(nonNullCurrentSubspace, currentSubspaceTag, entry.getKey(), entry.getValue());
                         return AsyncUtil.READY_TRUE;
                     } else if (limit != ReadTransaction.ROW_LIMIT_UNLIMITED && returned == limit) {
                         // Because we pass limit information to the sub-iterators,
@@ -257,14 +272,19 @@ public class BunchedMapMultiIterator<K, V, T> implements AsyncPeekIterator<Bunch
      * @return a continuation that can be used to resume iteration later
      */
     @Nullable
+    // NullAway does not reliably recognize @Nullable on array-typed return values, so the `return null;`
+    // below is misflagged as returning @Nullable from a @NonNull-returning method despite the annotation.
+    @SuppressWarnings("NullAway")
     public byte[] getContinuation() {
         if (lastKey == null || currentSubspaceKey == null || done && (limit == ReadTransaction.ROW_LIMIT_UNLIMITED || returned < limit)) {
             // We exhausted the scan.
             return null;
         } else {
-            // Return a continuation with the information about the subspace key
-            // and the last key serialized.
-            return ByteArrayUtil.join(currentSubspaceSuffix, bunchedMap.getSerializer().serializeKey(lastKey));
+            // Return a continuation with the information about the subspace key and the last key serialized.
+            // currentSubspaceSuffix is always set together with currentSubspaceKey (see getNextMapIterator()),
+            // so it is non-null here too, but NullAway cannot correlate the nullness of two different fields.
+            final byte[] nonNullCurrentSubspaceSuffix = Objects.requireNonNull(currentSubspaceSuffix);
+            return ByteArrayUtil.join(nonNullCurrentSubspaceSuffix, bunchedMap.getSerializer().serializeKey(lastKey));
         }
     }
 

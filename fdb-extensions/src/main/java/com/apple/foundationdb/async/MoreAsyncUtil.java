@@ -131,7 +131,11 @@ public class MoreAsyncUtil {
      */
     public static <T> CompletableFuture<Void> consumeRemaining(final AsyncIterator<T> iterator,
                                                                final Executor executor) {
-        return tag(AsyncUtil.forEachRemaining(iterator, t -> { }, executor), null);
+        // tag() is from the unannotated fdb-java client library, so its generic value parameter is treated as
+        // @NonNull by NullAway's defaults; Void's only inhabitant is null, so this is the correct call.
+        @SuppressWarnings("NullAway")
+        final CompletableFuture<Void> result = tag(AsyncUtil.forEachRemaining(iterator, t -> { }, executor), null);
+        return result;
     }
 
     public static <T> AsyncIterable<T> limitIterable(final AsyncIterable<T> iterable,
@@ -223,6 +227,7 @@ public class MoreAsyncUtil {
             boolean done = false;
             @Nullable
             CompletableFuture<Boolean> nextFuture = null;
+            @Nullable
             T next = null;
 
             @Override
@@ -265,7 +270,8 @@ public class MoreAsyncUtil {
                 if (!hasNext()) {
                     throw new NoSuchElementException();
                 }
-                final T result = next;
+                // hasNext() (via advanceIfMatches) is guaranteed to have set next when it returns true.
+                final T result = Objects.requireNonNull(next);
                 nextFuture = null;
                 next = null;
                 return result;
@@ -305,6 +311,7 @@ public class MoreAsyncUtil {
                                                                 final AsyncIterator<T> iterator,
                                                                 final Function<T, Boolean> filter) {
         return new CloseableAsyncIterator<T>() {
+            @Nullable
             T next;
             boolean haveNext;
             @Nullable
@@ -350,7 +357,8 @@ public class MoreAsyncUtil {
                     throw new NoSuchElementException();
                 }
                 haveNext = false;
-                return next;
+                // hasNext() is guaranteed to have set next when it returns true.
+                return Objects.requireNonNull(next);
             }
 
             @Override
@@ -384,6 +392,7 @@ public class MoreAsyncUtil {
                                                      final AsyncIterable<T> iterable) {
         return filterIterable(executor, iterable,
                 new Function<>() {
+                    @Nullable
                     private Object lastObj;
 
                     @Override
@@ -419,6 +428,7 @@ public class MoreAsyncUtil {
                     int index = 0;
                     @Nullable
                     AsyncIterator<T> current;
+                    @Nullable
                     AsyncIterator<T> removeFrom;
                     @Nullable
                     CompletableFuture<Boolean> nextFuture;
@@ -472,8 +482,10 @@ public class MoreAsyncUtil {
                         if (!hasNext()) {
                             throw new NoSuchElementException();
                         }
-                        removeFrom = current;
-                        return current.next();
+                        // hasNext() is guaranteed to have set current when it returns true.
+                        final AsyncIterator<T> currentIterator = Objects.requireNonNull(current);
+                        removeFrom = currentIterator;
+                        return currentIterator.next();
                     }
 
                     @Override
@@ -688,7 +700,6 @@ public class MoreAsyncUtil {
     public static <T> AsyncIterable<T> filterToIterable(final T item,
                                                         final Function<T, CompletableFuture<Boolean>> filter) {
         return new AsyncIterable<T>() {
-            @Nullable
             @Override
             public CloseableAsyncIterator<T> iterator() {
                 return new CloseableAsyncIterator<T>() {
@@ -696,7 +707,6 @@ public class MoreAsyncUtil {
                     @Nullable
                     CompletableFuture<Boolean> nextFuture;
 
-                    @Nullable
                     @Override
                     public CompletableFuture<Boolean> onHasNext() {
                         if (used) {
@@ -772,16 +782,15 @@ public class MoreAsyncUtil {
     public static <T1, T2> AsyncIterable<T2> mapToIterable(final T1 item,
                                                            final Function<T1, CompletableFuture<T2>> func) {
         return new AsyncIterable<T2>() {
-            @Nullable
             @Override
             public CloseableAsyncIterator<T2> iterator() {
                 return new CloseableAsyncIterator<T2>() {
+                    @Nullable
                     T2 result;
                     boolean used = false;
                     @Nullable
                     CompletableFuture<Boolean> nextFuture;
 
-                    @Nullable
                     @Override
                     public CompletableFuture<Boolean> onHasNext() {
                         if (used) {
@@ -813,7 +822,8 @@ public class MoreAsyncUtil {
                             result = func.apply(item).join();
                         }
                         used = true;
-                        return result;
+                        // If nextFuture completed normally, or the direct func.apply(item) branch ran, result is set.
+                        return Objects.requireNonNull(result);
                     }
 
                     @Override
@@ -1021,7 +1031,7 @@ public class MoreAsyncUtil {
      * @param iterator iterator to close
      */
     @API(API.Status.UNSTABLE)
-    public static void closeIterator(Iterator<?> iterator) {
+    public static void closeIterator(@Nullable Iterator<?> iterator) {
         if (iterator instanceof CloseableAsyncIterator) {
             ((CloseableAsyncIterator<?>)iterator).close();
         } else if (iterator instanceof AsyncIterator) {

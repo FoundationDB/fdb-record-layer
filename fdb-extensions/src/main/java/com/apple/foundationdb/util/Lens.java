@@ -172,13 +172,20 @@ public interface Lens<C, A> {
             @Nullable
             @Override
             public A2 get(final C c) {
-                return downstream.get(Lens.this.get(c));
+                // The intermediate A may be absent (get() is documented to allow null); in that case there is
+                // nothing for downstream to focus into, so the composed attribute is absent too.
+                final A intermediate = Lens.this.get(c);
+                return intermediate == null ? null : downstream.get(intermediate);
             }
 
             @Override
             @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
             public C set(@Nullable final C c, @Nullable final A2 a2) {
-                return Lens.this.set(c, downstream.set(Lens.this.get(c), a2));
+                // Lens.this.get() requires a non-null container; when c is null (the "build a fresh container"
+                // case), there is no existing intermediate A to read, so treat it as absent rather than calling
+                // Lens.this.get(null).
+                final A currentA = c == null ? null : Lens.this.get(c);
+                return Lens.this.set(c, downstream.set(currentA, a2));
             }
         };
     }

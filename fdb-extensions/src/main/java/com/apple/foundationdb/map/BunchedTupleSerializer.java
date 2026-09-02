@@ -115,7 +115,12 @@ public class BunchedTupleSerializer implements BunchedSerializer<Tuple, Tuple> {
                 serializedEntries.add(serializeEntry(entry));
             }
         }
-        return ByteArrayUtil.join(null, serializedEntries);
+        // ByteArrayUtil.join is from the unannotated fdb-java client library; passing null for the separator is
+        // its documented way of requesting no separator between parts, but the parameter is treated as @NonNull
+        // by NullAway's defaults.
+        @SuppressWarnings("NullAway")
+        final byte[] result = ByteArrayUtil.join(null, serializedEntries);
+        return result;
     }
 
     @Override
