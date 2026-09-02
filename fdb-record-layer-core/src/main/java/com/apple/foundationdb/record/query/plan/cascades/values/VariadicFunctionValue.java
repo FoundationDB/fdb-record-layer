@@ -228,7 +228,8 @@ public class VariadicFunctionValue extends AbstractValue {
             Verify.verify(argType.isNull() || !argType.isUnresolved());
             final Type maximumType = Type.maximumType(commonType, argType);
             SemanticException.check(maximumType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
-            commonType = maximumType;
+            // check above guarantees the type is non-null.
+            commonType = Objects.requireNonNull(maximumType);
         }
 
         // Look up the physical operator implementing the comparison function for the common type of the arguments.
@@ -251,7 +252,8 @@ public class VariadicFunctionValue extends AbstractValue {
         }
         final ImmutableList<Value> children = promotedArguments.build();
 
-        return new VariadicFunctionValue(physicalOperator, children, resultType);
+        // check above guarantees the operator is non-null.
+        return new VariadicFunctionValue(Objects.requireNonNull(physicalOperator), children, resultType);
     }
 
     private static Map<NonnullPair<ComparisonFunction, TypeCode>, PhysicalOperator> computeOperatorMap() {
@@ -478,11 +480,11 @@ public class VariadicFunctionValue extends AbstractValue {
 
         private final TypeCode type;
 
-        private final transient Function<List<Object>, Object> evaluateFunction;
+        private final transient Function<List<Object>, @Nullable Object> evaluateFunction;
 
         PhysicalOperator(final ComparisonFunction comparisonFunction,
                          final TypeCode type,
-                         final Function<List<Object>, Object> evaluateFunction) {
+                         final Function<List<Object>, @Nullable Object> evaluateFunction) {
             this.comparisonFunction = comparisonFunction;
             this.type = type;
             this.evaluateFunction = evaluateFunction;
@@ -516,6 +518,7 @@ public class VariadicFunctionValue extends AbstractValue {
             return protoEnumBiMapSupplier.get();
         }
 
+        @Nullable
         private static Object coalesce(final List<Object> args) {
             for (Object i : args) {
                 if (i != null) {

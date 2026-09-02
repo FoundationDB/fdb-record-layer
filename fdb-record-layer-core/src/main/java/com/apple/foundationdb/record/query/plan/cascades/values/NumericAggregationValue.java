@@ -792,6 +792,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
      */
     public static class NumericAccumulator implements Accumulator {
         private final PhysicalOperator physicalOperator;
+        @Nullable
         Object state = null;
 
         public NumericAccumulator(final PhysicalOperator physicalOperator) {
@@ -905,23 +906,23 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
                     break;
                 case AVG_I:
                     pair = (Pair<?, ?>) state;
-                    builder.addState(RecordCursorProto.OneOfTypedState.newBuilder().setInt32State((int)pair.getLeft()))
-                            .addState(RecordCursorProto.OneOfTypedState.newBuilder().setInt64State((long)pair.getRight()));
+                    builder.addState(RecordCursorProto.OneOfTypedState.newBuilder().setInt32State((int)Objects.requireNonNull(pair.getLeft())))
+                            .addState(RecordCursorProto.OneOfTypedState.newBuilder().setInt64State((long)Objects.requireNonNull(pair.getRight())));
                     break;
                 case AVG_L:
                     pair = (Pair<?, ?>) state;
-                    builder.addState(RecordCursorProto.OneOfTypedState.newBuilder().setInt64State((long)pair.getLeft()))
-                            .addState(RecordCursorProto.OneOfTypedState.newBuilder().setInt64State((long)pair.getRight()));
+                    builder.addState(RecordCursorProto.OneOfTypedState.newBuilder().setInt64State((long)Objects.requireNonNull(pair.getLeft())))
+                            .addState(RecordCursorProto.OneOfTypedState.newBuilder().setInt64State((long)Objects.requireNonNull(pair.getRight())));
                     break;
                 case AVG_D:
                     pair = (Pair<?, ?>) state;
-                    builder.addState(RecordCursorProto.OneOfTypedState.newBuilder().setDoubleState((double)pair.getLeft()))
-                            .addState(RecordCursorProto.OneOfTypedState.newBuilder().setInt64State((long)pair.getRight()));
+                    builder.addState(RecordCursorProto.OneOfTypedState.newBuilder().setDoubleState((double)Objects.requireNonNull(pair.getLeft())))
+                            .addState(RecordCursorProto.OneOfTypedState.newBuilder().setInt64State((long)Objects.requireNonNull(pair.getRight())));
                     break;
                 case AVG_F:
                     pair = (Pair<?, ?>) state;
-                    builder.addState(RecordCursorProto.OneOfTypedState.newBuilder().setFloatState((float)pair.getLeft()))
-                            .addState(RecordCursorProto.OneOfTypedState.newBuilder().setInt64State((long)pair.getRight()));
+                    builder.addState(RecordCursorProto.OneOfTypedState.newBuilder().setFloatState((float)Objects.requireNonNull(pair.getLeft())))
+                            .addState(RecordCursorProto.OneOfTypedState.newBuilder().setInt64State((long)Objects.requireNonNull(pair.getRight())));
                     break;
                 case BITMAP_CONSTRUCT_AGG_I:
                 case BITMAP_CONSTRUCT_AGG_L:

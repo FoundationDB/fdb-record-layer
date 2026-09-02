@@ -335,7 +335,7 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(final FDBRecordStoreBase<M> store,
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
                                            final EvaluationContext context) {
         final var childResult = getChild().eval(store, context);
         if (childResult == null) {
@@ -455,12 +455,12 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
         final Map<Type.TypeCode, PhysicalOperator> fromMap = castOperatorMap.get(fromTypeCode);
 
         if (fromMap == null) {
-            SemanticException.fail(SemanticException.ErrorCode.INVALID_CAST, "No cast defined from " + fromTypeCode + " to " + toTypeCode);
+            throw SemanticException.newException(SemanticException.ErrorCode.INVALID_CAST, "No cast defined from " + fromTypeCode + " to " + toTypeCode);
         }
 
         final PhysicalOperator physicalOperator = fromMap.get(toTypeCode);
         if (physicalOperator == null) {
-            SemanticException.fail(SemanticException.ErrorCode.INVALID_CAST, "No cast defined from " + fromTypeCode + " to " + toTypeCode);
+            throw SemanticException.newException(SemanticException.ErrorCode.INVALID_CAST, "No cast defined from " + fromTypeCode + " to " + toTypeCode);
         }
 
         return new CastValue(inValue, castToType, physicalOperator);
@@ -550,7 +550,7 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
 
         // Check for null element types
         if (targetElementType == null) {
-            SemanticException.fail(SemanticException.ErrorCode.INVALID_CAST, "Target array element type cannot be null");
+            throw SemanticException.newException(SemanticException.ErrorCode.INVALID_CAST, "Target array element type cannot be null");
         }
 
         final var inputList = (List<Object>) in;
@@ -571,7 +571,7 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
             } else {
                 // Recursively cast elements
                 if (sourceElementType == null) {
-                    SemanticException.fail(SemanticException.ErrorCode.INVALID_CAST, "Source array element type cannot be null");
+                    throw SemanticException.newException(SemanticException.ErrorCode.INVALID_CAST, "Source array element type cannot be null");
                 }
                 final var elementCastValue = inject(new LiteralValue<>(sourceElementType, element), targetElementType);
                 final var evalContext = EvaluationContext.empty();
@@ -601,7 +601,7 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
         final var inputList = (List<Object>) in;
 
         if (sourceElementType == null) {
-            SemanticException.fail(SemanticException.ErrorCode.INVALID_CAST, "Source array element type cannot be null");
+            throw SemanticException.newException(SemanticException.ErrorCode.INVALID_CAST, "Source array element type cannot be null");
         }
 
         int numDimensions = targetVectorType.getDimensions();
@@ -653,8 +653,7 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
             final var longArray = array.stream().map(obj -> ((Number)obj).longValue()).mapToLong(Long::longValue).toArray();
             return new HalfRealVector(longArray);
         }
-        SemanticException.fail(SemanticException.ErrorCode.INVALID_CAST, "can not cast array of " + sourceElementType + " to half vector");
-        return null; // not reachable.
+        throw SemanticException.newException(SemanticException.ErrorCode.INVALID_CAST, "can not cast array of " + sourceElementType + " to half vector");
     }
 
     private static RealVector parseFloatVector(final List<Object> array, final Type sourceElementType) {
@@ -675,8 +674,7 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
             final var longArray = array.stream().map(obj -> ((Number)obj).longValue()).mapToLong(Long::longValue).toArray();
             return new FloatRealVector(longArray);
         }
-        SemanticException.fail(SemanticException.ErrorCode.INVALID_CAST, "can not cast array of " + sourceElementType + " to float vector");
-        return null; // not reachable.
+        throw SemanticException.newException(SemanticException.ErrorCode.INVALID_CAST, "can not cast array of " + sourceElementType + " to float vector");
     }
 
     private static RealVector parseDoubleVector(final List<Object> array, final Type sourceElementType) {
@@ -693,8 +691,7 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
             final var longArray = array.stream().map(obj -> ((Number)obj).longValue()).mapToLong(Long::longValue).toArray();
             return new DoubleRealVector(longArray);
         }
-        SemanticException.fail(SemanticException.ErrorCode.INVALID_CAST, "can not cast array of " + sourceElementType + " to double vector");
-        return null; // not reachable.
+        throw SemanticException.newException(SemanticException.ErrorCode.INVALID_CAST, "can not cast array of " + sourceElementType + " to double vector");
     }
 
 

@@ -35,6 +35,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 
+import org.jspecify.annotations.Nullable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -68,7 +69,7 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
     private QueryPlanConstraint resultQueryPlanConstraint;
     private final LinkedIdentitySet<RESULT> results;
     private boolean shouldReExplore;
-    private final Function<BASE, QueryPlanConstraint> retrieveQueryPlanConstraintFunction;
+    private final Function<BASE, @Nullable QueryPlanConstraint> retrieveQueryPlanConstraintFunction;
 
     public AbstractRuleCall(final PlannerRule<CALL, ? extends BASE> rule,
                             final BASE root,
@@ -77,7 +78,7 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
                             final PlannerBindings bindings,
                             final AliasMap equivalenceMap,
                             final Set<CorrelationIdentifier> constantAliases,
-                            final Function<BASE, QueryPlanConstraint> retrieveQueryPlanConstraintFunction) {
+                            final Function<BASE, @Nullable QueryPlanConstraint> retrieveQueryPlanConstraintFunction) {
         this.rule = rule;
         this.root = root;
         this.current = current;
@@ -104,7 +105,7 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
         return evaluationContext;
     }
 
-    protected Function<BASE, QueryPlanConstraint> getRetrieveQueryPlanConstraintFunction() {
+    protected Function<BASE, @Nullable QueryPlanConstraint> getRetrieveQueryPlanConstraintFunction() {
         return retrieveQueryPlanConstraintFunction;
     }
 

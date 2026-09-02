@@ -144,6 +144,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         return FieldValue.ofFieldsAndFuseIfPossible(child, fieldPath);
     }
 
+    @Nullable
     @Override
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         final var childResult = childValue.eval(store, context);
@@ -261,10 +262,11 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
             final int ordinal;
             if (fieldName != null) {
                 SemanticException.check(fieldNameFieldMap.containsKey(fieldName), SemanticException.ErrorCode.RECORD_DOES_NOT_CONTAIN_FIELD);
-                field = fieldNameFieldMap.get(fieldName);
+                // containsKey check above guarantees the lookup is non-null.
+                field = Objects.requireNonNull(fieldNameFieldMap.get(fieldName));
                 final var fieldOrdinalsMap = Objects.requireNonNull(recordType.getFieldNameToOrdinalMap());
                 SemanticException.check(fieldOrdinalsMap.containsKey(fieldName), SemanticException.ErrorCode.RECORD_DOES_NOT_CONTAIN_FIELD);
-                ordinal = fieldOrdinalsMap.get(fieldName);
+                ordinal = Objects.requireNonNull(fieldOrdinalsMap.get(fieldName));
             } else {
                 // field is not accessed by field but by ordinal number
                 Verify.verify(accessor.getOrdinal() >= 0);
@@ -684,7 +686,8 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
             final Map<String, Field> fieldNameMap = recordType.getFieldNameFieldMap();
             Field field = fieldNameMap.get(fieldName);
             SemanticException.check(field != null, SemanticException.ErrorCode.RECORD_DOES_NOT_CONTAIN_FIELD);
-            return new ResolvedAccessor(field, ordinalFieldNumber);
+            // check above guarantees the lookup is non-null.
+            return new ResolvedAccessor(Objects.requireNonNull(field), ordinalFieldNumber);
         }
     }
 

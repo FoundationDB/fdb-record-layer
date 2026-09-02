@@ -653,8 +653,20 @@ public class MessageHelpers {
             }
             final TransformationTrieNode otherTransformationTrieNode = (TransformationTrieNode)other;
 
-            return equalsNullable(getValue(), otherTransformationTrieNode.getValue(), (t, o) -> t.semanticEquals(o, equivalencesMap)) &&
-                   equalsNullable(getChildrenMap(), otherTransformationTrieNode.getChildrenMap(), (t, o) -> semanticEqualsForChildrenMap(t, o, equivalencesMap));
+            final var selfValue = getValue();
+            final var otherValue = otherTransformationTrieNode.getValue();
+            final boolean valuesEqual = selfValue == null || otherValue == null
+                                        ? selfValue == otherValue
+                                        : selfValue.semanticEquals(otherValue, equivalencesMap);
+            if (!valuesEqual) {
+                return false;
+            }
+
+            final var selfChildrenMap = getChildrenMap();
+            final var otherChildrenMap = otherTransformationTrieNode.getChildrenMap();
+            return selfChildrenMap == null || otherChildrenMap == null
+                   ? selfChildrenMap == otherChildrenMap
+                   : semanticEqualsForChildrenMap(selfChildrenMap, otherChildrenMap, equivalencesMap);
         }
 
         private static boolean semanticEqualsForChildrenMap(final Map<Integer, TransformationTrieNode> self,
@@ -668,23 +680,11 @@ public class MessageHelpers {
                 final var ordinal = entry.getKey();
                 final var selfNestedTrie = entry.getValue();
                 final var otherNestedTrie = other.get(ordinal);
-                if (!selfNestedTrie.semanticEquals(otherNestedTrie, equivalencesMap)) {
+                if (otherNestedTrie == null || !selfNestedTrie.semanticEquals(otherNestedTrie, equivalencesMap)) {
                     return false;
                 }
             }
             return true;
-        }
-
-        private static <T> boolean equalsNullable(@Nullable final T self,
-                                                  @Nullable final T other,
-                                                  final BiFunction<T, T, Boolean> nonNullableTest) {
-            if (self == null && other == null) {
-                return true;
-            }
-            if (self == null) {
-                return false;
-            }
-            return nonNullableTest.apply(self, other);
         }
 
         @Override

@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 
+import org.jspecify.annotations.Nullable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Supplier;
@@ -108,10 +109,12 @@ public abstract class WindowedValue extends AbstractValue {
      * This implementation is meant to give subclasses common functionality for their own implementation.
      * @param mode the plan hash kind to use
      * @param baseHash the subclass' base hash (concrete identifier)
-     * @param hashables the rest of the subclass' hashable parameters (if any)
+     * @param hashables the rest of the subclass' hashable parameters (if any); individual elements may be
+     *        {@code null} (e.g. an unset optional parameter) since {@link PlanHashable#objectsPlanHash} treats a
+     *        {@code null} element as contributing a hash of {@code 0}.
      * @return the plan hash value calculated
      */
-    protected int basePlanHash(final PlanHashMode mode, ObjectPlanHash baseHash, Object... hashables) {
+    protected int basePlanHash(final PlanHashMode mode, ObjectPlanHash baseHash, @Nullable Object... hashables) {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:

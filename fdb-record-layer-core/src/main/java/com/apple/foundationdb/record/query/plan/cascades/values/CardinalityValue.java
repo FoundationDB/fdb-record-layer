@@ -81,6 +81,7 @@ public class CardinalityValue extends AbstractValue {
         return Type.primitiveType(Type.TypeCode.INT);
     }
 
+    @Nullable
     @Override
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         final Object childResult = childValue.eval(store, context);

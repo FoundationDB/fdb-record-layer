@@ -90,8 +90,12 @@ public class CollateValue extends AbstractValue {
     @Override
     public <M extends Message> ByteString eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         final String str = (String)stringChild.eval(store, context);
+        if (str == null) {
+            // Collating a NULL string propagates to a NULL result, consistent with standard SQL NULL semantics.
+            return null;
+        }
         final TextCollator collator = getTextCollator(store, context);
-        return collator.getKey(str); //TODO str may be null?
+        return collator.getKey(str);
     }
 
     @Override
@@ -159,6 +163,9 @@ public class CollateValue extends AbstractValue {
     }
 
     @Override
+    @SuppressWarnings("NullAway") // PlanHashable.objectsPlanHash's varargs Object... is not @Nullable-annotated,
+    // but its element-wise implementation (objectPlanHash(mode, Object)) explicitly null-checks each element
+    // and returns 0 for null, so passing the (legitimately nullable) localeChild/strengthChild here is safe.
     public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, collatorRegistry.getName(),
                                             stringChild, localeChild, strengthChild);
@@ -282,13 +289,15 @@ public class CollateValue extends AbstractValue {
         if (localeChild != null) {
             final String locale = (String)localeChild.eval(store, context);
             if (strengthChild != null) {
-                final int strength = (Integer)strengthChild.eval(store, context);
-                return collatorRegistry.getTextCollator(locale, strength);
+                final Integer strength = (Integer)strengthChild.eval(store, context);
+                return locale == null
+                       ? collatorRegistry.getTextCollator(strength == null ? 0 : strength)
+                       : collatorRegistry.getTextCollator(locale, strength == null ? 0 : strength);
             }
-            return collatorRegistry.getTextCollator(locale);
+            return locale == null ? collatorRegistry.getTextCollator() : collatorRegistry.getTextCollator(locale);
         } else if (strengthChild != null) {
-            final int strength = (Integer)strengthChild.eval(store, context);
-            return collatorRegistry.getTextCollator(strength);
+            final Integer strength = (Integer)strengthChild.eval(store, context);
+            return collatorRegistry.getTextCollator(strength == null ? 0 : strength);
         } else {
             return collatorRegistry.getTextCollator();
         }

@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
+import org.jspecify.annotations.Nullable;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -50,7 +51,7 @@ public class AbstractValueRuleCall<RESULT, CALL extends AbstractValueRuleCall<RE
                                  final PlannerBindings bindings,
                                  final AliasMap equivalenceMap,
                                  final Set<CorrelationIdentifier> constantAliases,
-                                 final Function<Value, QueryPlanConstraint> retrieveQueryPlanConstraintFunction) {
+                                 final Function<Value, @Nullable QueryPlanConstraint> retrieveQueryPlanConstraintFunction) {
         super(rule, root, current, evaluationContext, bindings, equivalenceMap, constantAliases,
                 retrieveQueryPlanConstraintFunction);
     }

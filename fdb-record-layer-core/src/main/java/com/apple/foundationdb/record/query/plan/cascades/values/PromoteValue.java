@@ -155,10 +155,8 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
             try {
                 return UUID.fromString(value);
             } catch (IllegalArgumentException ex) {
-                SemanticException.fail(SemanticException.ErrorCode.INVALID_UUID_VALUE, value);
+                throw SemanticException.newException(SemanticException.ErrorCode.INVALID_UUID_VALUE, value);
             }
-            // won't happen
-            return null;
         }
 
         private static BiMap<PhysicalOperator, PPhysicalOperator> getProtoEnumBiMap() {
@@ -348,7 +346,8 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
             // this is definitely a leaf; and we need to promote
             final var physicalOperator = resolvePhysicalOperator(currentType, targetType);
             SemanticException.check(physicalOperator != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
-            return new CoercionTrieNode(new PrimitiveCoercionBiFunction(physicalOperator), null);
+            // check above guarantees the operator is non-null.
+            return new CoercionTrieNode(new PrimitiveCoercionBiFunction(Objects.requireNonNull(physicalOperator)), null);
         }
 
         // NONE is the type of the untyped empty array `[]`. Like a primitive, this is a leaf case that handles the
@@ -356,7 +355,8 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
         if (currentType.isNone()) {
             final var physicalOperator = resolvePhysicalOperator(currentType, targetType);
             SemanticException.check(physicalOperator != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
-            return new CoercionTrieNode(new PrimitiveCoercionBiFunction(physicalOperator), null);
+            // check above guarantees the operator is non-null.
+            return new CoercionTrieNode(new PrimitiveCoercionBiFunction(Objects.requireNonNull(physicalOperator)), null);
         }
 
         Verify.verify(targetType.getTypeCode() == currentType.getTypeCode());
@@ -598,6 +598,9 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
         }
 
         @Override
+        @SuppressWarnings("NullAway") // PlanHashable.objectsPlanHash's varargs Object... is not @Nullable-annotated,
+        // but its element-wise implementation (objectPlanHash(mode, Object)) explicitly null-checks each element
+        // and returns 0 for null, so passing the (legitimately nullable) elementsTrie here is safe at runtime.
         public int planHash(final PlanHashMode hashMode) {
             return PlanHashable.objectsPlanHash(hashMode, fromArrayType, toArrayType, elementsTrie);
         }

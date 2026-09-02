@@ -157,6 +157,9 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
     }
 
     @Override
+    @SuppressWarnings("NullAway") // PlanHashable.objectsPlanHash's varargs Object... is not @Nullable-annotated,
+    // but its element-wise implementation (objectPlanHash(mode, Object)) explicitly null-checks each element
+    // and returns 0 for null, so passing the (legitimately nullable) child here is safe at runtime.
     public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, operator, child);
     }
@@ -233,14 +236,14 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
 
         private final TypeCode resultType;
 
-        private final UnaryOperator<Object> initialToPartialFunction;
+        private final UnaryOperator<@Nullable Object> initialToPartialFunction;
 
         private final BinaryOperator<Object> partialToPartialFunction;
 
         private final UnaryOperator<Object> partialToFinalFunction;
 
         PhysicalOperator(final TypeCode resultType,
-                         final UnaryOperator<Object> initialToPartialFunction,
+                         final UnaryOperator<@Nullable Object> initialToPartialFunction,
                          final BinaryOperator<Object> partialToPartialFunction,
                          final UnaryOperator<Object> partialToFinalFunction) {
             this.resultType = resultType;
@@ -253,7 +256,7 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
             return resultType;
         }
 
-        public UnaryOperator<Object> getInitialToPartialFunction() {
+        public UnaryOperator<@Nullable Object> getInitialToPartialFunction() {
             return initialToPartialFunction;
         }
 
@@ -314,6 +317,7 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
      */
     public static class SumAccumulator implements Accumulator {
         private final PhysicalOperator physicalOperator;
+        @Nullable
         Object state = null;
 
         public SumAccumulator(final PhysicalOperator physicalOperator) {

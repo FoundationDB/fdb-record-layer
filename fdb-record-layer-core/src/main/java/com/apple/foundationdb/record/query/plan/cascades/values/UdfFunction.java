@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * This represents a user-defined function that can be subclassed to extend the planner with extra functionality.
@@ -37,7 +38,12 @@ import java.util.List;
 public abstract class UdfFunction extends BuiltInFunction<Value> {
 
     public UdfFunction() {
-        super("", List.of(), (builtInFunction, arguments) -> null);
+        super("", List.of(), (builtInFunction, arguments) -> {
+            // UdfFunction.encapsulate(CallSiteArguments) below is `final` and always overrides the dispatch that
+            // would otherwise invoke this placeholder, so it is never actually called; throw instead of returning
+            // null (which would silently violate EncapsulationFunction's @NonNull contract) in case that changes.
+            throw new RecordCoreException("UdfFunction placeholder encapsulation function should never be invoked");
+        });
     }
 
     @Override
@@ -68,7 +74,8 @@ public abstract class UdfFunction extends BuiltInFunction<Value> {
             // Incompatible types
             SemanticException.check(maxType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
             if (!argument.getResultType().equals(maxType)) {
-                promotedArgumentsList.add(PromoteValue.inject(argument, maxType));
+                // check above guarantees the type is non-null.
+                promotedArgumentsList.add(PromoteValue.inject(argument, Objects.requireNonNull(maxType)));
             } else {
                 promotedArgumentsList.add(argument);
             }

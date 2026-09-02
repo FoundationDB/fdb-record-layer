@@ -41,6 +41,7 @@ import com.google.protobuf.Message;
 
 import org.jspecify.annotations.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 public class SubscriptValue extends AbstractValue {
@@ -180,7 +181,8 @@ public class SubscriptValue extends AbstractValue {
             var indexValue = (Value)arguments.get(0);
             final var indexMaxType = Type.maximumType(indexValue.getResultType(), Type.primitiveType(Type.TypeCode.INT));
             SemanticException.check(indexMaxType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
-            indexValue = PromoteValue.inject(indexValue, indexMaxType);
+            // check above guarantees the type is non-null.
+            indexValue = PromoteValue.inject(indexValue, Objects.requireNonNull(indexMaxType));
 
             var sourceValue = (Value)arguments.get(1);
             Verify.verify(sourceValue.getResultType().isArray());

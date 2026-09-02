@@ -108,7 +108,7 @@ public class AbstractRuleSet<CALL extends PlannerRuleCall, BASE> {
         try {
             return rulesCache.get((Class<? extends BASE>)value.getClass()).stream().filter(rulePredicate);
         } catch (final ExecutionException ee) {
-            throw new RecordCoreException(ee.getCause());
+            throw new RecordCoreException("unable to compute applicable simplification rules", ee.getCause());
         }
     }
 }
