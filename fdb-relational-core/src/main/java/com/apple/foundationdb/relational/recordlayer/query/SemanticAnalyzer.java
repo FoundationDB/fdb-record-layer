@@ -86,6 +86,7 @@ import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -279,7 +280,14 @@ public class SemanticAnalyzer {
         try {
             return metadataCatalog.getTables().stream()
                     .map(table -> Assert.castUnchecked(table, RecordLayerTable.class))
-                    .map(table -> Assert.notNullUnchecked(table.getType().getStorageName()))
+                    // A table's DataType always has a storage name; DataType.getStorageName() is @Nullable
+                    // only because it's shared with non-table types, but Assert.notNullUnchecked can't
+                    // narrow that here since Assert lives in the not-yet-migrated fdb-relational-api module.
+                    .map(table -> {
+                        @SuppressWarnings("NullAway")
+                        final String storageName = Assert.notNullUnchecked(table.getType().getStorageName());
+                        return storageName;
+                    })
                     .collect(ImmutableSet.toImmutableSet());
         } catch (RelationalException e) {
             throw e.toUncheckedWrappedException();
@@ -637,8 +645,14 @@ public class SemanticAnalyzer {
     }
 
     public DataType lookupBuiltInType(final ParsedTypeInfo parsedTypeInfo) {
-        Assert.thatUnchecked(!parsedTypeInfo.hasCustomType(), ErrorCode.INTERNAL_ERROR, () -> "unexpected custom type " +
-                Assert.notNullUnchecked(parsedTypeInfo.getCustomType()).getName());
+        // The message supplier below is only invoked when the assertion is false, i.e. when
+        // hasCustomType() is true, i.e. when getCustomType() (== "customType != null", see ParsedTypeInfo
+        // above) is guaranteed non-null; NullAway can't see that invariant, and Assert.notNullUnchecked
+        // can't narrow it either since Assert lives in the not-yet-migrated fdb-relational-api module.
+        @SuppressWarnings("NullAway")
+        final Supplier<String> unexpectedCustomTypeMessage = () -> "unexpected custom type " +
+                Assert.notNullUnchecked(parsedTypeInfo.getCustomType()).getName();
+        Assert.thatUnchecked(!parsedTypeInfo.hasCustomType(), ErrorCode.INTERNAL_ERROR, unexpectedCustomTypeMessage);
         return lookupType(parsedTypeInfo, typeToLookUp -> {
             Assert.failUnchecked("unexpected custom type " + typeToLookUp);
             return Optional.empty();
@@ -649,12 +663,18 @@ public class SemanticAnalyzer {
                                final Function<String, Optional<DataType>> dataTypeProvider) {
         DataType type;
         final var isNullable = parsedTypeInfo.isNullable();
+        // hasCustomType()/hasPrimitiveType() are exactly "customType/primitiveTypeContext != null" (see
+        // ParsedTypeInfo above), so the notNullUnchecked calls below are safe given these guards; NullAway
+        // can't see that invariant, and Assert.notNullUnchecked can't narrow it either since Assert lives
+        // in the not-yet-migrated fdb-relational-api module.
         if (parsedTypeInfo.hasCustomType()) {
+            @SuppressWarnings("NullAway")
             final var typeName = Assert.notNullUnchecked(parsedTypeInfo.getCustomType()).getName();
             final var maybeFound = dataTypeProvider.apply(typeName);
             // if we cannot find the type now, mark it, we will try to resolve it later on via a second pass.
             type = maybeFound.map(dataType -> dataType.withNullable(isNullable)).orElseGet(() -> DataType.UnresolvedType.of(typeName, isNullable));
         } else {
+            @SuppressWarnings("NullAway")
             final var primitiveType = Assert.notNullUnchecked(parsedTypeInfo.getPrimitiveTypeContext());
             if (primitiveType.vectorType() != null) {
                 final var vectorTypeCtx = primitiveType.vectorType();
@@ -671,7 +691,9 @@ public class SemanticAnalyzer {
                 Assert.thatUnchecked(length > 0, ErrorCode.SYNTAX_ERROR, "vector dimension must be positive");
                 type = DataType.VectorType.of(precision, length, isNullable);
             } else {
-                final var primitiveTypeName = parsedTypeInfo.getPrimitiveTypeContext().getText();
+                // Reuse the already-validated primitiveType (from just above) instead of re-fetching it via
+                // the @Nullable getter.
+                final var primitiveTypeName = primitiveType.getText();
 
                 switch (primitiveTypeName.toUpperCase(Locale.ROOT)) {
                     case "STRING":
@@ -783,18 +805,31 @@ public class SemanticAnalyzer {
                 continue;
             }
             if (requiresPromotion) {
-                result = Assert.castUnchecked(Type.maximumType(result, unionLegType), Type.Record.class);
+                result = maximumRecordTypeOrFail(result, unionLegType);
                 continue;
             }
             final var oldType = result;
-            result = Assert.castUnchecked(Assert.notNullUnchecked(Type.maximumType(result, unionLegType), ErrorCode.UNION_INCOMPATIBLE_COLUMNS,
-                            "Incompatible column types in UNION legs"),
-                    Type.Record.class);
+            result = maximumRecordTypeOrFail(result, unionLegType);
             if (!oldType.equals(result)) {
                 requiresPromotion = true;
             }
         }
-        return requiresPromotion ? Optional.of(Assert.notNullUnchecked(result)) : Optional.empty();
+        // requiresPromotion is only set to true after a successful, non-null assignment to result above, so
+        // this is never actually null; NullAway can't see that invariant, and Assert.notNullUnchecked can't
+        // narrow it either since Assert lives in the not-yet-migrated fdb-relational-api module.
+        @SuppressWarnings("NullAway")
+        final Type.Record nonNullResult = Assert.notNullUnchecked(result);
+        return requiresPromotion ? Optional.of(nonNullResult) : Optional.empty();
+    }
+
+    // Type.maximumType() can legitimately return null for incompatible types; Assert.notNullUnchecked
+    // enforces that with a clear RelationalException, but NullAway can't see through it since Assert lives
+    // in the not-yet-migrated fdb-relational-api module.
+    @SuppressWarnings("NullAway")
+    private static Type.Record maximumRecordTypeOrFail(final Type.Record left, final Type.Record right) {
+        return Assert.castUnchecked(Assert.notNullUnchecked(Type.maximumType(left, right), ErrorCode.UNION_INCOMPATIBLE_COLUMNS,
+                        "Incompatible column types in UNION legs"),
+                Type.Record.class);
     }
 
     public Type.Array resolveArrayTypeFromValues(Expressions arrayItems) {
@@ -869,8 +904,12 @@ public class SemanticAnalyzer {
         final long maxInclusive = Integer.MAX_VALUE;
         final var underlying = expression.getUnderlying();
         Assert.thatUnchecked(underlying instanceof LiteralValue<?>);
-        final var value = ((LiteralValue<?>) underlying).getLiteralValue();
-        Assert.notNullUnchecked(value, ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE,
+        final var underlyingValue = ((LiteralValue<?>) underlying).getLiteralValue();
+        // Reassign through notNullUnchecked (rather than discarding its result) so the non-null check
+        // actually narrows the value used below; Assert.notNullUnchecked can't narrow it on its own since
+        // Assert lives in the not-yet-migrated fdb-relational-api module.
+        @SuppressWarnings("NullAway")
+        final Object value = Assert.notNullUnchecked(underlyingValue, ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE,
                 () -> String.format(Locale.ROOT, "limit value out of range [1, %d]", Integer.MAX_VALUE));
         if (value.getClass() == Integer.class) {
             Assert.thatUnchecked(minInclusive <= ((Integer) value) && ((Integer) value) <= maxInclusive,
@@ -927,8 +966,12 @@ public class SemanticAnalyzer {
         final var underlying = continuation.getUnderlying();
         Assert.thatUnchecked(underlying instanceof LiteralValue<?>, ErrorCode.INVALID_CONTINUATION,
                 "Unexpected continuation parameter of type %s", underlying.getClass().getSimpleName());
-        final var continuationBytes = Assert.castUnchecked(underlying, LiteralValue.class).getLiteralValue();
-        Assert.notNullUnchecked(continuationBytes);
+        final var underlyingBytes = Assert.castUnchecked(underlying, LiteralValue.class).getLiteralValue();
+        // Reassign through notNullUnchecked (rather than discarding its result) so the non-null check
+        // actually narrows the value used below; Assert.notNullUnchecked can't narrow it on its own since
+        // Assert lives in the not-yet-migrated fdb-relational-api module.
+        @SuppressWarnings("NullAway")
+        final Object continuationBytes = Assert.notNullUnchecked(underlyingBytes);
         Assert.thatUnchecked(continuationBytes instanceof ByteString, ErrorCode.INVALID_CONTINUATION,
                 "Unexpected continuation parameter of type %s", continuationBytes.getClass().getSimpleName());
     }
@@ -1110,14 +1153,17 @@ public class SemanticAnalyzer {
         final AtomicReference<Optional<Type>> result = new AtomicReference<>(Optional.empty());
         recursiveQueryTraversal(namedQueryBody, queryName, idParser,
                 nonRecursiveBranch -> {
-                    if (result.get().isEmpty()) {
+                    // result is always set to a non-null Optional (initially Optional.empty(), later
+                    // Optional.of(...) below); AtomicReference#get() is only @Nullable in general because
+                    // the JDK API permits storing null, which this usage never does.
+                    if (Objects.requireNonNull(result.get()).isEmpty()) {
                         final var logicalOperator = handleQueryFragment(nonRecursiveBranch, namedQueryBody, memoizer, queryVisitor);
                         result.set(Optional.of(logicalOperator.getQuantifier().getFlowedObjectType()));
                     }
                 },
                 ignored -> {
                 });
-        return result.get();
+        return Objects.requireNonNull(result.get());
     }
 
     /**

@@ -37,6 +37,7 @@ import java.net.URI;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 public abstract class AbstractDatabase implements RelationalDatabase {
 
@@ -79,7 +80,9 @@ public abstract class AbstractDatabase implements RelationalDatabase {
         if (schema == null) {
             // The SchemaExistenceCheck from the options is only taken when the schema is created firstly
             // It is an immutable parameter for the schema and the options for the following operations on that schema are ignored
-            schema = new RecordLayerSchema(schemaId, this, connection);
+            // connection is set via setConnection(...) as part of database construction, before any
+            // schema is ever loaded, so it is always present by the time loadSchema() is called.
+            schema = new RecordLayerSchema(schemaId, this, Objects.requireNonNull(connection, "connection not set on database before loadSchema() was called"));
             putBack = true;
         }
 

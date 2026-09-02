@@ -42,6 +42,7 @@ import com.apple.foundationdb.relational.util.Assert;
 
 import com.google.protobuf.Descriptors;
 
+import java.util.Objects;
 
 @API(API.Status.EXPERIMENTAL)
 public class RecordMetadataSerializer extends SkeletonVisitor {
@@ -64,7 +65,9 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
         Assert.thatUnchecked(table instanceof RecordLayerTable);
         final var recLayerTable = (RecordLayerTable) table;
         final KeyExpression keyExpression = recLayerTable.getPrimaryKey();
-        final RecordTypeBuilder recordType = getBuilder().getRecordType(recLayerTable.getType().getStorageName());
+        // A table's Record type is never anonymous, so storageName is always present.
+        final var storageName = Objects.requireNonNull(recLayerTable.getType().getStorageName());
+        final RecordTypeBuilder recordType = getBuilder().getRecordType(storageName);
         recordType.setRecordTypeKey(recordTypeCounter++);
         recordType.setPrimaryKey(keyExpression);
     }

@@ -82,6 +82,12 @@ public class IteratorResultSet extends AbstractRecordLayerResultSet {
     }
 
     @Override
+    // advanceRow() genuinely returns null once the underlying iterator is exhausted; the caller,
+    // AbstractRecordLayerResultSet#next(), checks the result for null immediately after calling this. The
+    // inherited method signature (in AbstractRecordLayerResultSet, outside this migration's scope) still declares
+    // a @NonNull return type, and a `return` statement can't itself carry @SuppressWarnings, so this is suppressed
+    // at the method level.
+    @SuppressWarnings("NullAway")
     protected Row advanceRow() throws RelationalException {
         if (!rowIter.hasNext()) {
             return null;

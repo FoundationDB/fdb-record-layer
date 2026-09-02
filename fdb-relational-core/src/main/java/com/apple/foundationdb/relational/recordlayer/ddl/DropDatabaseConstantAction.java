@@ -34,6 +34,7 @@ import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 
 import java.net.URI;
 import java.sql.SQLException;
+import java.util.Objects;
 
 @API(API.Status.EXPERIMENTAL)
 public class DropDatabaseConstantAction implements ConstantAction {
@@ -67,7 +68,7 @@ public class DropDatabaseConstantAction implements ConstantAction {
             }
         } catch (SQLException se) {
             ErrorCode ec = ErrorCode.get(se.getSQLState());
-            throw new RelationalException(se.getMessage(), ec, se);
+            throw new RelationalException(Objects.requireNonNullElse(se.getMessage(), se.toString()), ec, se);
         }
 
         catalog.deleteDatabase(txn, dbUrl, throwIfDoesNotExist);

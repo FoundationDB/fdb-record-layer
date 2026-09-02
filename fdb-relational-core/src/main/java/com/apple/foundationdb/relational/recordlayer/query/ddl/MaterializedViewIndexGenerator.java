@@ -262,7 +262,7 @@ public final class MaterializedViewIndexGenerator {
                 // Make sure the grouping values and the result values are consistent
                 if (groupingValues == null) {
                     // This shouldn't happen unless there's more than one indexable aggregate value
-                    Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Grouping values absent from aggregate result value");
+                    throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Grouping values absent from aggregate result value");
                 }
                 final var simplifiedGroupingValues =
                         Values.deconstructRecord(groupingValues).stream()
@@ -561,17 +561,20 @@ public final class MaterializedViewIndexGenerator {
         } else if (value instanceof LiteralValue<?>) {
             return Key.Expressions.value(((LiteralValue<?>) value).getLiteralValue());
         } else {
-            Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "unable to construct expression");
-            return null;
+            throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "unable to construct expression");
         }
     }
 
     private static KeyExpression toKeyExpression(FieldValueTrieNode trieNode,
                                                  Map<Value, String> orderingFunctions) {
-        Assert.notNullUnchecked(trieNode.getChildrenMap());
-        Assert.thatUnchecked(!trieNode.getChildrenMap().isEmpty());
+        // FieldValueTrieNode.getChildrenMap() (fdb-record-layer-core) is @Nullable for leaf
+        // nodes; Assert.notNullUnchecked enforces the non-leaf invariant expected here at
+        // runtime with a clear RelationalException, but NullAway can't see that since Assert
+        // lives in the not-yet-migrated fdb-relational-api module.
+        @SuppressWarnings("NullAway")
+        final var childrenMap = Assert.notNullUnchecked(trieNode.getChildrenMap());
+        Assert.thatUnchecked(!childrenMap.isEmpty());
 
-        final var childrenMap = trieNode.getChildrenMap();
         final var exprConstituents = childrenMap.entrySet().stream().map(nodeEntry -> {
             final FieldValue.ResolvedAccessor accessor = nodeEntry.getKey();
             final FieldValueTrieNode node = nodeEntry.getValue();
@@ -744,7 +747,12 @@ public final class MaterializedViewIndexGenerator {
             final var valueWithChild = (ValueWithChild) value;
             return valueWithChild.withNewChild(dereference(valueWithChild.getChild()));
         } else if (value instanceof QuantifiedObjectValue) {
-            return dereference(correlatedKeyExpressions.get(value.getCorrelatedTo().stream().findFirst().orElseThrow()));
+            final var alias = value.getCorrelatedTo().stream().findFirst().orElseThrow();
+            // Every quantifier is registered into correlatedKeyExpressions by
+            // collectQuantifiers/collectQuantifiersInternal before any value referencing it is
+            // dereferenced, so the lookup here always hits.
+            return dereference(Objects.requireNonNull(correlatedKeyExpressions.get(alias),
+                    () -> "no correlated value found for alias " + alias));
         } else if (value instanceof ArithmeticValue) {
             final List<Value> newChildren = new ArrayList<>();
             for (Value v:value.getChildren()) {

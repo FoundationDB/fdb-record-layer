@@ -99,6 +99,12 @@ public class RecordLayerMetadataOperationsFactory implements MetadataOperationsF
         protected RecordLayerConfig rlConfig;
         protected KeySpace baseKeySpace;
 
+        // storeCatalog, rlConfig, and baseKeySpace are populated by the fluent setters below, so
+        // NullAway cannot see that they are always set before use in build().
+        @SuppressWarnings("NullAway.Init")
+        public Builder() {
+        }
+
         public Builder setStoreCatalog(StoreCatalog storeCatalog) {
             this.storeCatalog = storeCatalog;
             return this;

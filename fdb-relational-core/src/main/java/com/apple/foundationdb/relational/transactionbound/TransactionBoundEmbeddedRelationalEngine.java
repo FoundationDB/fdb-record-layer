@@ -38,6 +38,7 @@ import java.util.List;
  */
 @API(API.Status.EXPERIMENTAL)
 public class TransactionBoundEmbeddedRelationalEngine extends EmbeddedRelationalEngine {
+    @Nullable
     private final RelationalPlanCache planCache;
     private final List<StorageCluster> clusters;
 
@@ -79,6 +80,7 @@ public class TransactionBoundEmbeddedRelationalEngine extends EmbeddedRelational
         return clusters;
     }
 
+    @Nullable
     public RelationalPlanCache getPlanCache() {
         return planCache;
     }

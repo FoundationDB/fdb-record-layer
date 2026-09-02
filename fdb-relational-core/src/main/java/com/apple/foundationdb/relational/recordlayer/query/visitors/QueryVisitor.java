@@ -67,6 +67,7 @@ import com.google.common.collect.Streams;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.jspecify.annotations.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -696,7 +697,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                 type = type == null ? rowExpression.getUnderlying().getResultType()
                         : Type.maximumType(type, rowExpression.getUnderlying().getResultType());
             }
-            final var actualInlineTableType = type;
+            // the isEmpty() check above guarantees the loop below runs at least once, so type is always assigned.
+            final var actualInlineTableType = Objects.requireNonNull(type, "inline table must have at least one row to infer a type");
             final var inlineTypedWithNames = TypeUtils.setFieldNames(actualInlineTableType, typeMaybe.getRight());
             Assert.thatUnchecked(inlineTypedWithNames.isRecord());
             final var stateBuilder = LogicalPlanFragment.State.newBuilder().withTargetType(inlineTypedWithNames);
@@ -770,7 +772,10 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         if (fieldAccessTrieNode.getChildrenMap() == null) {
             return StringTrieNode.leafNode();
         }
-        final var map = fieldAccessTrieNode.getChildrenMap().entrySet().stream().collect(ImmutableMap.toImmutableMap(pair -> pair.getKey().getName(), pair -> toString(pair.getValue())));
+        // pair.getKey() is always constructed from an Identifier's name (see ExpressionVisitor#visitUidListWithNestings),
+        // which is never null, even though ResolvedAccessor.getName() is declared @Nullable in general.
+        final var map = fieldAccessTrieNode.getChildrenMap().entrySet().stream().collect(ImmutableMap.toImmutableMap(
+                pair -> Objects.requireNonNull(pair.getKey().getName()), pair -> toString(pair.getValue())));
         return new StringTrieNode(map);
     }
 
@@ -818,6 +823,10 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             transformMapBuilder.put(target, update);
         }
 
+        // tableType.getStorageName() is @Nullable in general, but a table's record type always has a storage name;
+        // Assert.notNullUnchecked enforces that invariant at runtime with a clear RelationalException, but
+        // NullAway can't see that since Assert lives in the not-yet-migrated fdb-relational-api module.
+        @SuppressWarnings("NullAway")
         final var updateExpression = new UpdateExpression(Assert.castUnchecked(updateSource.getQuantifier(), Quantifier.ForEach.class),
                 Assert.notNullUnchecked(tableType.getStorageName(), "Update target type must have storage type name available"),
                 Type.Record.fromFields(tableType.getFields()), // Remove the type name from the update target type to avoid clashes with the table type in the update source
@@ -858,7 +867,12 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         Optional<Expression> whereMaybe = ctx.whereExpr() == null ? Optional.empty() : Optional.of(visitWhereExpr(ctx.whereExpr()));
         final var deleteSource = LogicalOperator.generateSimpleSelect(output, getDelegate().getLogicalOperators(), whereMaybe, Optional.of(tableId), ImmutableSet.of(), false);
 
-        final var deleteExpression = new DeleteExpression(Assert.castUnchecked(deleteSource.getQuantifier(), Quantifier.ForEach.class), table.getType().getStorageName());
+        // table.getType().getStorageName() is @Nullable in general, but a table's record type always has a storage
+        // name; Assert.notNullUnchecked enforces that invariant at runtime with a clear RelationalException, but
+        // NullAway can't see that since Assert lives in the not-yet-migrated fdb-relational-api module.
+        @SuppressWarnings("NullAway")
+        final var deleteExpression = new DeleteExpression(Assert.castUnchecked(deleteSource.getQuantifier(), Quantifier.ForEach.class),
+                Assert.notNullUnchecked(table.getType().getStorageName(), "Delete target type must have storage type name available"));
         final var deleteQuantifier = Quantifier.forEach(Reference.initialOf(deleteExpression));
         final var resultingDelete = LogicalOperator.newUnnamedOperator(Expressions.fromQuantifier(deleteQuantifier), deleteQuantifier);
 

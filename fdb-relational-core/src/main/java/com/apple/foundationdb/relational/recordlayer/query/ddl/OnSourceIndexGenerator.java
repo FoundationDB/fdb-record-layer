@@ -188,14 +188,21 @@ public final class OnSourceIndexGenerator {
                 .addAll(keyIdentifiers)
                 .addAll(valueIdentifiers)
                 .build().stream().map(identifier -> {
-                    final var column = originalOutputMap.get(identifier);
-                    Assert.notNullUnchecked(column, ErrorCode.UNDEFINED_COLUMN, () -> "could not find " + identifier);
+                    // originalOutputMap.get(identifier) is @Nullable only because Map.get() is
+                    // generically nullable; Assert.notNullUnchecked enforces that every
+                    // projected identifier is actually present with a clear RelationalException,
+                    // but NullAway can't see that since Assert lives in the not-yet-migrated
+                    // fdb-relational-api module.
+                    @SuppressWarnings("NullAway")
+                    final var column = Assert.notNullUnchecked(originalOutputMap.get(identifier), ErrorCode.UNDEFINED_COLUMN, () -> "could not find " + identifier);
                     return column;
                 }).collect(ImmutableList.toImmutableList());
 
         final List<OrderByExpression> orderByExpressions = keyColumns.stream().map(keyColumn -> {
-            final var column = originalOutputMap.get(keyColumn.getIdentifier());
-            Assert.notNullUnchecked(column, ErrorCode.UNDEFINED_COLUMN, () -> "could not find " + keyColumn.getIdentifier());
+            // Same reasoning as above: Assert.notNullUnchecked enforces the real invariant at
+            // runtime; NullAway can't see through the not-yet-migrated Assert utility.
+            @SuppressWarnings("NullAway")
+            final var column = Assert.notNullUnchecked(originalOutputMap.get(keyColumn.getIdentifier()), ErrorCode.UNDEFINED_COLUMN, () -> "could not find " + keyColumn.getIdentifier());
             return OrderByExpression.of(Expression.fromColumn(column), keyColumn.isDescending(), keyColumn.isNullsLast());
         }).collect(ImmutableList.toImmutableList());
 
@@ -321,6 +328,10 @@ public final class OnSourceIndexGenerator {
 
         private RecordLayerSchemaTemplate.Builder metadataBuilder;
 
+        // indexName, indexSource, semanticAnalyzer, and metadataBuilder are populated by the
+        // fluent setters below and validated before use in build(), so NullAway cannot see that
+        // they are always set before use.
+        @SuppressWarnings("NullAway.Init")
         private Builder() {
             this.keyColumns = new ArrayList<>();
             this.valueColumns = new ArrayList<>();

@@ -155,8 +155,14 @@ final class UserDefinedMacroFunctionBuilder implements UserDefinedFunctionBuilde
             columnBuilder.add(Column.of(parameters.asList().get(i).getName().map(Identifier::getName),
                     parametersQuantifiedObjectValues.get(i)));
         }
+        // parametersQuantifiedObjectValues is non-empty here (see the early return above), which is exactly
+        // when parametersQuantifier is set (it represents a quantifier over the function's parameters);
+        // Assert.notNullUnchecked can't narrow that since Assert lives in the not-yet-migrated
+        // fdb-relational-api module.
+        @SuppressWarnings("NullAway")
+        final CorrelationIdentifier parametersQuantifierAlias = Assert.notNullUnchecked(parametersQuantifier).getAlias();
         RegularTranslationMap translationMap = RegularTranslationMap.builder()
-                .when(Assert.notNullUnchecked(parametersQuantifier).getAlias())
+                .when(parametersQuantifierAlias)
                 .then((sourceAlias, leafValue) ->
                         RecordConstructorValue.ofColumns(columnBuilder.build()))
                 .build();

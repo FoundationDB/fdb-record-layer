@@ -62,6 +62,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
@@ -77,6 +78,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     private final String tableName;
     private final EmbeddedRelationalConnection conn;
 
+    @Nullable
     private RecordType currentTypeRef;
 
     public RecordTypeTable(RecordLayerSchema schema,
@@ -98,6 +100,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     @Override
+    @Nullable
     public Row get(Transaction t, Row key, Options options) throws RelationalException {
         loadRecordType(options);
         BackingStore store = schema.loadStore();
@@ -121,8 +124,10 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
             } else if (o2 == null) {
                 return 1;
             } else {
-                Descriptors.FieldDescriptor field1 = descriptorLookupMap.get(o1);
-                Descriptors.FieldDescriptor field2 = descriptorLookupMap.get(o2);
+                // Both o1 and o2 are always keys of descriptorLookupMap: this comparator is only ever
+                // invoked (via orderedFieldMap.putAll below) on keys drawn from that same map.
+                Descriptors.FieldDescriptor field1 = Objects.requireNonNull(descriptorLookupMap.get(o1));
+                Descriptors.FieldDescriptor field2 = Objects.requireNonNull(descriptorLookupMap.get(o2));
                 return Integer.compare(field1.getIndex(), field2.getIndex());
             }
         });
@@ -363,7 +368,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
                 //make sure to clear our state if the transaction ends
                 this.conn.addCloseListener(() -> currentTypeRef = null);
             } catch (MetaDataException mde) {
-                throw new RelationalException(mde.getMessage(), ErrorCode.UNDEFINED_SCHEMA, mde);
+                throw new RelationalException(Objects.requireNonNullElse(mde.getMessage(), mde.toString()), ErrorCode.UNDEFINED_SCHEMA, mde);
             }
         } else {
             //make sure that this record type is valid _for the operation we are doing now_.

@@ -26,11 +26,15 @@ import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.AbstractRecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.metadata.NoOpSchemaTemplate;
 import com.apple.foundationdb.relational.transactionbound.catalog.HollowSchemaTemplateCatalog;
+
+import java.util.List;
 
 /**
  * Implementation of Schema template catalog that ignores CRUD operations on templates. This is essentially used
@@ -68,7 +72,9 @@ public class NoOpSchemaTemplateCatalog extends HollowSchemaTemplateCatalog {
 
     @Override
     public RelationalResultSet listTemplates(Transaction txn) {
-        return new AbstractRecordLayerResultSet(null) {
+        // Previously constructed with a null StructMetaData; use a real (empty) one instead so
+        // getMetaData() below doesn't have to handle a null metaData field.
+        return new AbstractRecordLayerResultSet(RelationalStructMetaData.of(DataType.StructType.from("EMPTY", List.of(), false))) {
             @Override
             protected boolean hasNext() {
                 return false;
@@ -76,7 +82,10 @@ public class NoOpSchemaTemplateCatalog extends HollowSchemaTemplateCatalog {
 
             @Override
             protected Row advanceRow() {
-                return null;
+                // hasNext() is hard-coded false above, so this is never actually called; returning null here
+                // would violate advanceRow()'s @NonNull contract, but changing that contract to accommodate
+                // this dead branch is out of scope here.
+                throw new IllegalStateException("advanceRow() should never be called: hasNext() is always false");
             }
 
             @Override

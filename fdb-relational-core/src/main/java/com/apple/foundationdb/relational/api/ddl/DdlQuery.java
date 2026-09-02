@@ -54,6 +54,7 @@ public interface DdlQuery extends DdlPreparedAction<RelationalResultSet> {
         }
 
         @Override
+        @SuppressWarnings("NullAway") // intentional no-op: this action never produces a result set to return.
         public RelationalResultSet executeAction(Transaction txn) throws RelationalException {
             return null;
         }

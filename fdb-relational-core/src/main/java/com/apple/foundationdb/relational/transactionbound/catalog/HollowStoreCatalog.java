@@ -50,6 +50,9 @@ public class HollowStoreCatalog implements StoreCatalog, KeySpaceProvider {
     }
 
     @Override
+    @SuppressWarnings("NullAway") // StoreCatalog#getSchemaTemplateCatalog() declares no `throws`, so unlike this
+    // class's other methods we cannot throw OperationUnsupportedException here; this hollow catalog genuinely has
+    // no schema template catalog to return, and its only caller in this configuration does not invoke this method.
     public SchemaTemplateCatalog getSchemaTemplateCatalog() {
         return null;
     }

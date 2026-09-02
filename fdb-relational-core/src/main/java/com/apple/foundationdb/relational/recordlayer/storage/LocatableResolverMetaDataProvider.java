@@ -43,6 +43,8 @@ import org.jspecify.annotations.Nullable;
 import java.util.List;
 
 final class LocatableResolverMetaDataProvider implements RecordMetaDataProvider {
+    // Lazily-initialized singleton, populated by instance() below via double-checked locking.
+    @Nullable
     private static volatile LocatableResolverMetaDataProvider memoizedInstance;
 
     static final String INTERNING_TYPE_NAME = "Interning";
@@ -129,7 +131,13 @@ final class LocatableResolverMetaDataProvider implements RecordMetaDataProvider 
         if (result == null) {
             return null;
         }
-        return wrapInterning(key, result.getValue(), result.getMetadata());
+        // ResolverResult.getMetadata() (fdb-record-layer-core) and wrapInterning's metaData
+        // parameter are both correctly declared @Nullable byte[]; this is a known NullAway/
+        // JSpecify limitation with array-typed nullability tracking.
+        final var metadata = result.getMetadata();
+        @SuppressWarnings("NullAway")
+        final Message wrapped = wrapInterning(key, result.getValue(), metadata);
+        return wrapped;
     }
 
     Message wrapResolverState(ResolverStateProto.State state) {
@@ -141,15 +149,18 @@ final class LocatableResolverMetaDataProvider implements RecordMetaDataProvider 
     }
 
     static LocatableResolverMetaDataProvider instance() throws RelationalException {
-        if (memoizedInstance == null) {
+        LocatableResolverMetaDataProvider result = memoizedInstance;
+        if (result == null) {
             synchronized (LocatableResolverMetaDataProvider.class) {
-                if (memoizedInstance == null) {
+                result = memoizedInstance;
+                if (result == null) {
                     RecordMetaData metaData = SCHEMA_TEMPLATE.toRecordMetadata();
-                    memoizedInstance = new LocatableResolverMetaDataProvider(metaData);
+                    result = new LocatableResolverMetaDataProvider(metaData);
+                    memoizedInstance = result;
                 }
             }
         }
-        return memoizedInstance;
+        return result;
     }
 
     public static SchemaTemplate getSchemaTemplate() {

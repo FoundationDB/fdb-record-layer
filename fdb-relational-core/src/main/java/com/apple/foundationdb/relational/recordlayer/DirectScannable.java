@@ -53,6 +53,12 @@ public interface DirectScannable {
             @Nullable Row keyPrefix,
             Options options) throws RelationalException;
 
+    /**
+     * Get the record at the given key.
+     *
+     * @return the row at the given key, or {@code null} if no such row exists.
+     */
+    @Nullable
     Row get(Transaction t, Row key, Options options) throws RelationalException;
 
     KeyBuilder getKeyBuilder() throws RelationalException;

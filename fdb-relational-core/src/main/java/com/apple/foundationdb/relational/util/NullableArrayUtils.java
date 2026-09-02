@@ -27,6 +27,8 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 
 import com.google.protobuf.Descriptors;
 
+import java.util.Objects;
+
 /**
  * A Utils class that holds logic related to nullable arrays.
  * Nullable Arrays are arrays that, if unset, will be NULL.
@@ -82,7 +84,8 @@ public final class NullableArrayUtils {
         }
         final var typeRepositoryBuilder = TypeRepository.newBuilder();
         record.defineProtoType(typeRepositoryBuilder);
-        final var parentDescriptor = typeRepositoryBuilder.build().getMessageDescriptor(record);
+        // record was just defined into typeRepositoryBuilder above, so looking it back up always succeeds.
+        final var parentDescriptor = Objects.requireNonNull(typeRepositoryBuilder.build().getMessageDescriptor(record));
         return wrapArray(keyExpression, parentDescriptor, containsNullableArray);
     }
 

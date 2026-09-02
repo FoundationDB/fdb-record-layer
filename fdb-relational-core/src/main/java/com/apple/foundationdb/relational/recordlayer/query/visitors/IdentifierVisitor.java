@@ -88,22 +88,19 @@ public final class IdentifierVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override // not supported yet
     @ExcludeFromJacocoGeneratedReport
     public Identifier visitIndexColumnName(RelationalParser.IndexColumnNameContext ctx) {
-        Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "setting index column is not supported");
-        return null;
+        throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "setting index column is not supported");
     }
 
     @Override // not supported yet
     @ExcludeFromJacocoGeneratedReport
     public Identifier visitCharsetName(RelationalParser.CharsetNameContext ctx) {
-        Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "setting charset is not supported");
-        return null;
+        throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "setting charset is not supported");
     }
 
     @Override // not supported yet
     @ExcludeFromJacocoGeneratedReport
     public Identifier visitCollationName(RelationalParser.CollationNameContext ctx) {
-        Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "setting collation is not supported");
-        return null;
+        throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "setting collation is not supported");
     }
 
     @Override

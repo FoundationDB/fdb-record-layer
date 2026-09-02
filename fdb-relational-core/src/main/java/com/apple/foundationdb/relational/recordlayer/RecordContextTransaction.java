@@ -35,6 +35,7 @@ import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -64,7 +65,7 @@ public class RecordContextTransaction implements Transaction {
         try {
             context.commit();
         } catch (FDBExceptions.FDBStoreTransactionConflictException ex) {
-            throw new RelationalException(ex.getMessage(), ErrorCode.SERIALIZATION_FAILURE, ex);
+            throw new RelationalException(Objects.requireNonNullElse(ex.getMessage(), ex.toString()), ErrorCode.SERIALIZATION_FAILURE, ex);
         } catch (RecordCoreException e) {
             throw ExceptionUtil.toRelationalException(e);
         }

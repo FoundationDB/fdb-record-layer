@@ -131,6 +131,10 @@ public class RecordLayerView implements com.apple.foundationdb.relational.api.me
         private boolean isTemporary;
         private Function<Boolean, LogicalOperator> compilableViewSupplier;
 
+        // description, name, and compilableViewSupplier are populated by the fluent setters
+        // below and validated in build(), so NullAway cannot see that they are always set before
+        // use.
+        @SuppressWarnings("NullAway.Init")
         private Builder() {
         }
 

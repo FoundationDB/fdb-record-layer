@@ -37,6 +37,7 @@ import com.google.common.base.VerifyException;
 
 import java.sql.SQLException;
 import java.util.Map;
+import java.util.Objects;
 
 @API(API.Status.EXPERIMENTAL)
 public final class ExceptionUtil {
@@ -44,13 +45,13 @@ public final class ExceptionUtil {
         if (re instanceof RelationalException) {
             return (RelationalException) re;
         } else if (re instanceof SQLException) {
-            return new RelationalException(re.getMessage(), ErrorCode.get(((SQLException) re).getSQLState()), re);
+            return new RelationalException(Objects.requireNonNullElse(re.getMessage(), re.toString()), ErrorCode.get(((SQLException) re).getSQLState()), re);
         } else if (re instanceof RecordCoreException) {
             return recordCoreToRelationalException((RecordCoreException) re);
         } else if (re instanceof UncheckedRelationalException) {
             return ((UncheckedRelationalException) re).unwrap();
         } else if (re instanceof VerifyException) {
-            return new RelationalException(re.getMessage(), ErrorCode.INTERNAL_ERROR, re);
+            return new RelationalException(Objects.requireNonNullElse(re.getMessage(), re.toString()), ErrorCode.INTERNAL_ERROR, re);
         }
         return new RelationalException(ErrorCode.UNKNOWN, re);
     }

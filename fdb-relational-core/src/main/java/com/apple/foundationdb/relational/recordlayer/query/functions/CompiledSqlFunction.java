@@ -159,9 +159,13 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
         private final RelationalExpression body;
         private final Expressions parameters;
         private final List<Optional<Value>> parameterDefaults;
+        @Nullable
         private final ForEach parametersQuantifier;
         private Literals literals;
 
+        // Assert.isNullUnchecked's own parameter isn't @Nullable (Assert lives in the not-yet-migrated
+        // fdb-relational-api module), even though its entire purpose is to check a value that may be null.
+        @SuppressWarnings("NullAway")
         CompiledSQLFunctionStepBuilder(final String name,
                                        final RelationalExpression body,
                                        final Expressions parameters,

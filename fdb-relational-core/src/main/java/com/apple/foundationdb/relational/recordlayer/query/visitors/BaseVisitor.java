@@ -218,6 +218,11 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return getPlanGenerationContext().isForDdl();
     }
 
+    // SemanticAnalyzer.normalizeString() is @Nullable only when its input is null; value here is @NonNull, so the
+    // result is never null. Assert.notNullUnchecked enforces that invariant at runtime with a clear
+    // RelationalException, but NullAway can't see that since Assert lives in the not-yet-migrated
+    // fdb-relational-api module.
+    @SuppressWarnings("NullAway")
     protected String normalizeString(final String value) {
         return Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(value, caseSensitive));
     }

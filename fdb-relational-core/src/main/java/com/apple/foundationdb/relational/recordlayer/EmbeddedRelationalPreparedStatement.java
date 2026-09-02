@@ -37,6 +37,7 @@ import java.sql.Array;
 import java.sql.SQLException;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.TreeMap;
 import java.util.UUID;
 
@@ -55,7 +56,9 @@ public class EmbeddedRelationalPreparedStatement extends AbstractEmbeddedStateme
     public RelationalResultSet executeQuery() throws SQLException {
         checkOpen();
         if (execute()) {
-            return currentResultSet;
+            // execute() returning true (per AbstractEmbeddedStatement#clockAndExecuteQueryPlan) is exactly
+            // what guarantees currentResultSet is set at this point.
+            return Objects.requireNonNull(currentResultSet);
         } else {
             throw new SQLException(String.format(Locale.ROOT, "query '%s' does not return result set, use JDBC executeUpdate method instead", sql), ErrorCode.NO_RESULT_SET.getErrorCode());
         }
@@ -212,6 +215,11 @@ public class EmbeddedRelationalPreparedStatement extends AbstractEmbeddedStateme
     }
 
     @Override
+    // conn.getMetricCollector() is @Nullable only because the collector isn't set up until a transaction
+    // is active; Assert.notNullUnchecked enforces that invariant at runtime with a clear
+    // RelationalException, but NullAway can't see that since Assert lives in the not-yet-migrated
+    // fdb-relational-api module.
+    @SuppressWarnings("NullAway")
     PlanContext createPlanContext(final FDBRecordStoreBase<?> store, final Options options) throws RelationalException {
         return PlanContext.builder()
                 .fromRecordStore(store, options)

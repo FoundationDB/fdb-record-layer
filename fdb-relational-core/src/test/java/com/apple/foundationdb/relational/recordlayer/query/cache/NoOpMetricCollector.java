@@ -39,7 +39,7 @@ public class NoOpMetricCollector implements MetricCollector {
     }
 
     @Override
-    public <T> T clock(final RelationalMetric.RelationalEvent event, final Supplier<T> supplier) throws RelationalException {
+    public <T extends @org.jspecify.annotations.Nullable Object> T clock(final RelationalMetric.RelationalEvent event, final Supplier<T> supplier) throws RelationalException {
         return supplier.get();
     }
 }

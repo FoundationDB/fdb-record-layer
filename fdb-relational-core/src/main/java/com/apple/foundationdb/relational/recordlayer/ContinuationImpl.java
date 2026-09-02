@@ -42,6 +42,10 @@ import java.util.Objects;
 public final class ContinuationImpl implements Continuation {
     public static final int CURRENT_VERSION = 1;
 
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters across this constructor call; this
+    // genuinely passes null to represent "no continuation bytes" for the BEGIN sentinel, same as before this
+    // migration.
+    @SuppressWarnings("NullAway")
     public static final ContinuationImpl BEGIN = new ContinuationImpl((byte[]) null);
 
     public static final ContinuationImpl END = new ContinuationImpl(new byte[0]);
@@ -72,6 +76,11 @@ public final class ContinuationImpl implements Continuation {
 
     @Nullable
     @Override
+    // Continuation#getExecutionState() is declared @Nullable byte[] (using javax.annotation.Nullable in the
+    // not-yet-migrated fdb-relational-api module), but NullAway/JSpecify does not reliably match array-typed
+    // nullability across that annotation boundary, so this override is flagged as mismatched even though it
+    // genuinely returns null when there is no execution state, same as before this migration.
+    @SuppressWarnings("NullAway")
     public byte[] getExecutionState() {
         if (!proto.hasExecutionState()) {
             return null;
@@ -81,6 +90,10 @@ public final class ContinuationImpl implements Continuation {
     }
 
     @Override
+    // Continuation#getReason() (in the not-yet-migrated fdb-relational-api module) has no explicit @Nullable
+    // annotation, so NullAway treats it as @NonNull; this override genuinely returns null when the proto has no
+    // reason set, same as before this migration.
+    @SuppressWarnings("NullAway")
     public Reason getReason() {
         if (proto.hasReason()) {
             return Reason.valueOf(proto.getReason().name());
@@ -179,6 +192,10 @@ import com.apple.foundationdb.annotation.API;
      * @param cursorContinuation the inner cursor continuation to be placed inside the newly created continuation
      * @return a continuation that holds the given cursor continuation
      */
+    // RecordCursorContinuation#toBytes() is declared @Nullable (javax.annotation.Nullable, in the unmigrated
+    // fdb-record-layer-core module); NullAway/JSpecify does not reliably track @Nullable on byte[] return values
+    // across that boundary, though the ContinuationImpl constructor genuinely accepts null here.
+    @SuppressWarnings("NullAway")
     public static Continuation fromRecordCursorContinuation(RecordCursorContinuation cursorContinuation) {
         return cursorContinuation.isEnd() ? END : new ContinuationImpl(cursorContinuation.toBytes());
     }

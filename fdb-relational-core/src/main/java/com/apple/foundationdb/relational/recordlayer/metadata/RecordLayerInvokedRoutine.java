@@ -138,6 +138,10 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         private UserDefinedFunction serializableFunction;
         private boolean isTemporary;
 
+        // Fields are populated via the fluent setters below and validated (non-null-checked) in
+        // build(), rather than through this constructor, so NullAway cannot see that they are
+        // always set before use; see the Assert.notNullUnchecked(...) calls in build().
+        @SuppressWarnings("NullAway.Init")
         private Builder() {
         }
 

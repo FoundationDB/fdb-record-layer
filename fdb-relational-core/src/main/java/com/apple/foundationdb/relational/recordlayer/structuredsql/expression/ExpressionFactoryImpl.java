@@ -64,7 +64,12 @@ public class ExpressionFactoryImpl implements ExpressionFactory {
                     ErrorCode.INVALID_COLUMN_REFERENCE,
                     "invalid field reference %s",
                     fieldParts);
-            final var normalizedFieldPart = Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(fieldPart, caseSensitive));
+            // normalizeString(x, ...) only returns null when x is null (see its implementation); fieldPart is
+            // non-null here, so the result is always non-null too, but NullAway can't see that across the
+            // method call, and Assert.notNullUnchecked can't narrow it either since Assert lives in the
+            // not-yet-migrated fdb-relational-api module.
+            @SuppressWarnings("NullAway")
+            final String normalizedFieldPart = Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(fieldPart, caseSensitive));
             normalizedFieldParts.add(normalizedFieldPart);
             final var result =
                     ((DataType.StructType) current)
@@ -84,7 +89,12 @@ public class ExpressionFactoryImpl implements ExpressionFactory {
     @Override
     public Field<?> field(final String tableName, Iterable<String> parts) {
         final boolean caseSensitive = options.getOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS);
-        final var normalizedName = Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(tableName, caseSensitive));
+        // normalizeString(x, ...) only returns null when x is null (see its implementation); tableName is
+        // non-null here, so the result is always non-null too, but NullAway can't see that across the
+        // method call, and Assert.notNullUnchecked can't narrow it either since Assert lives in the
+        // not-yet-migrated fdb-relational-api module.
+        @SuppressWarnings("NullAway")
+        final String normalizedName = Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(tableName, caseSensitive));
         final Optional<Table> maybeTable;
         try {
             maybeTable = schemaTemplate.findTableByName(normalizedName); // could be a performance hit.

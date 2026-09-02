@@ -520,7 +520,7 @@ public class MultiStageCacheTests {
         }
 
         @Override
-        public <T> T clock(final RelationalMetric.RelationalEvent event, final com.apple.foundationdb.relational.util.Supplier<T> supplier) throws com.apple.foundationdb.relational.api.exceptions.RelationalException {
+        public <T extends @org.jspecify.annotations.Nullable Object> T clock(final RelationalMetric.RelationalEvent event, final com.apple.foundationdb.relational.util.Supplier<T> supplier) throws com.apple.foundationdb.relational.api.exceptions.RelationalException {
             return supplier.get();
         }
 

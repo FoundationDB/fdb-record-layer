@@ -82,14 +82,12 @@ public final class Star extends Expression {
 
     @Override
     public Expression withName(Identifier name) {
-        Assert.failUnchecked("attempt to name a star expression");
-        return null;
+        throw Assert.failUnchecked("attempt to name a star expression");
     }
 
     @Override
     public Expression withUnderlying(Value underlying) {
-        Assert.failUnchecked("attempt to replace underlying value of a star expression");
-        return null;
+        throw Assert.failUnchecked("attempt to replace underlying value of a star expression");
     }
 
     /**

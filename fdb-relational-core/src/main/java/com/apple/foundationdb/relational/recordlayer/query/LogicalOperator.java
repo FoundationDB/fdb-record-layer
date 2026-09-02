@@ -258,8 +258,7 @@ public class LogicalOperator {
             // if we fully supported invisible columns (see: https://github.com/FoundationDB/fdb-record-layer/pull/3787)
             type = type.addPseudoFields();
         }
-        final String storageName = type.getStorageName();
-        Assert.thatUnchecked(storageName != null, "storage name for table access must not be null");
+        final String storageName = Objects.requireNonNull(type.getStorageName(), "storage name for table access must not be null");
         final var typeFilterExpression = LogicalTypeFilterExpression.of(ImmutableSet.of(storageName), scanExpression, type);
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(typeFilterExpression));
         final ImmutableList.Builder<Expression> attributesBuilder = ImmutableList.builder();

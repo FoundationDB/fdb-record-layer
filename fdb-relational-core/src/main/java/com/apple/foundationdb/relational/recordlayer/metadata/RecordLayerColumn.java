@@ -84,6 +84,9 @@ public class RecordLayerColumn implements Column {
 
         private int index;
 
+        // name and dataType are populated by the fluent setters below, so NullAway cannot see
+        // that they are always set before use in build().
+        @SuppressWarnings("NullAway.Init")
         private Builder() {
             this.index = -1;
         }
