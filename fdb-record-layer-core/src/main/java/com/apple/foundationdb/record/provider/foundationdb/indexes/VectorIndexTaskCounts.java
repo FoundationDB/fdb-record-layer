@@ -178,7 +178,7 @@ final class VectorIndexTaskCounts {
         return Range.startsWith(perPrefixSubspace.getKey());
     }
 
-    private static long decodeCount(@Nullable final byte[] value) {
+    private static long decodeCount(final byte @Nullable [] value) {
         return value == null ? 0L : AtomicMutation.Standard.decodeUnsignedLong(value);
     }
 

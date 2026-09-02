@@ -275,7 +275,7 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
         }
 
         @Override
-        public void onKeyValueRead(final int layer, final byte[] key, @Nullable final byte[] value) {
+        public void onKeyValueRead(final int layer, final byte[] key, final byte @Nullable [] value) {
             VectorIndexInstrumentation.recordKeyValueRead(timer, key, value);
 
             final int totalLength = key.length + (value == null ? 0 : value.length);

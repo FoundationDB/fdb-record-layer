@@ -25,6 +25,8 @@ import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Helper functions and instrumentation events for vector index maintainers. The engine-specific configuration (HNSW or
  * Guardiann) is intentionally not exposed here; it is encapsulated by {@link VectorIndexEngine} and its implementations.
@@ -70,7 +72,7 @@ public final class VectorIndexHelper {
         private final String title;
         private final String logKey;
 
-        Events(String title, String logKey) {
+        Events(String title, @Nullable String logKey) {
             this.title = title;
             this.logKey = (logKey != null) ? logKey : StoreTimer.DetailEvent.super.logKey();
         }
