@@ -388,6 +388,18 @@ test_block:
           {'Bob', {!l 1, 'Engineering'}},
           {'Carol', {!l 2, 'Sales'}},
           {'Dave', !null _}]
+    -
+      # LEFT JOIN with an OR predicate over the preserved side. This triggers the OR-to-UNION rewrite, and both
+      # disjuncts are covered by `emp$fname`, so the rewrite is attractive here. But it must not fire on the SELECT that
+      # owns the null-on-empty quantifier, since splitting that into a UNION of SELECTs would not preserve the
+      # outer-join semantics. In the explain plan, note that `ON EMPTY NULL` is still there (not accidentally dropped),
+      # and there’s no UNION over it.
+      - query: SELECT "e"."fname", "d"."name" FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id" WHERE "e"."fname" = 'Alice' OR "e"."fname" = 'Dave';
+      - supported_version: !current_version
+      - explain: "COVERING(emp$fname [EQUALS promote(@c28 AS STRING)] -> [fname: KEY:[0], id: KEY:[2]]) ∪ COVERING(emp$fname [EQUALS promote(@c34 AS STRING)] -> [fname: KEY:[0], id: KEY:[2]]) COMPARE BY (_.fname, _.id) | FETCH | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY NULL AS q1 RETURN (q0.fname AS fname, q1.name AS name) }"
+      - unorderedResult: [
+          {'Alice', 'Engineering'},
+          {'Dave', !null _}]
 ---
 test_block:
   name: right-outer-join
