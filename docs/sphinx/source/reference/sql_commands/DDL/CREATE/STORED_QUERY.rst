@@ -19,6 +19,7 @@ Syntax
 .. code-block:: sql
 
     CREATE STORED QUERY query_name
+        [ ( parameter_name data_type [ NOT NULL ], ... ) ]
         [ DECLARE
               FUNCTION function_name ( [IN] parameter_name data_type [DEFAULT default_value], ... )
                   AS ( query );
@@ -32,11 +33,44 @@ Parameters
 ``query_name``
     The name of the stored query, unique within the schema template. The name identifies the stored query in metadata; it is not used to invoke the query.
 
+signature
+    Optional. Declares typed named parameters, which the body refers to by name. See `Signature`_ below.
+
 ``DECLARE`` block
     Optional. Declares one or more transaction-local functions that the stored query body may call, using the same syntax as :ref:`CREATE TEMPORARY FUNCTION <create_temporary_function>`. Multiple functions are separated by semicolons.
 
 ``query``
     The body of the stored query — any SELECT statement (including CTEs, recursive CTEs, and joins). The body may contain concrete literals.
+
+Signature
+=========
+
+A stored query may declare parameters, which is how it stands in for a runtime query that binds values rather than writing them as literals:
+
+.. code-block:: sql
+
+    CREATE STORED QUERY by_col1(param_a BIGINT)
+        AS SELECT * FROM t1 WHERE col1 = param_a
+
+In the body a parameter is written as a **bare identifier**, with no ``?`` — unlike the runtime statement it stands for, where the same reference is ``?param_a``. It becomes exactly that internally, so the stored form above is equivalent to ``SELECT * FROM t1 WHERE col1 = ?PARAM_A``. A parameter may also be referred to inside a declared function's body.
+
+A parameter is **nullable by default**, as a column is. Write ``NOT NULL`` to declare that it never receives a null.
+
+Naming
+------
+
+A parameter name is an ordinary identifier: unquoted it is upper-cased, quoted it keeps its spelling, and the connection option ``CASE_SENSITIVE_IDENTIFIERS`` decides which rule applies. A prepared parameter name, on the other hand, is never normalized — neither the ``?name`` in the query text nor the name passed to ``setLong``, ``setNull`` and the rest.
+
+The two are compared as raw strings, so the name a client uses is the declared identifier **after** normalization:
+
+.. code-block:: sql
+
+    CREATE STORED QUERY by_zone("CK___zone_key" BIGINT, adopter_a INTEGER)
+        AS SELECT * FROM t1 WHERE zone_key = "CK___zone_key" AND adopter = adopter_a
+
+``"CK___zone_key"`` is quoted, so it keeps its spelling and a client binds ``?CK___zone_key``. ``adopter_a`` is not, so it becomes ``ADOPTER_A`` and a client binds ``?ADOPTER_A``. Quote a parameter — in the signature and in every reference in the body — whenever the client's spelling is not already upper case.
+
+A parameter name must not collide with a parameter of a declared function, since inside that function's body the two references would be indistinguishable.
 
 Examples
 ========
@@ -76,6 +110,18 @@ Temporary functions in scope are part of the plan-cache key, so a runtime query 
     SELECT * FROM recent(20)    -- reuses the warmed plan
 
 The function definition must match the one declared in the stored query; the invocation's literal is stripped, so any argument value reuses the plan.
+
+A signature and a ``DECLARE`` block combine, and a parameter may be captured inside a function's body:
+
+.. code-block:: sql
+
+    CREATE STORED QUERY by_fn(param_a BIGINT, param_b BIGINT)
+        DECLARE
+            FUNCTION f1(IN p BIGINT) AS (SELECT * FROM t1 WHERE col1 = p AND col2 = param_a)
+        AS
+            SELECT id FROM f1(param_b)
+
+Here ``param_a`` is captured by ``f1``'s body while ``param_b`` is passed as its argument. The runtime counterpart installs the same temporary function and issues the same query, binding ``?PARAM_A`` and ``?PARAM_B``.
 
 See Also
 ========
