@@ -148,7 +148,11 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             return ctx.FALSE() == null;
         });
         literalNodes.put(RelationalParser.BytesConstantContext.class, context -> ParseHelpers.parseBytes(context.getText()));
-        literalNodes.put(RelationalParser.StringConstantContext.class, context -> SemanticAnalyzer.normalizeString(context.getText(), false));
+        // Must decode exactly as ExpressionVisitor.visitStringLiteral does: this is the value the
+        // literal is extracted as for the plan cache, and a literal that caches differently from the
+        // way it evaluates is a cache that answers with the wrong constant.
+        literalNodes.put(RelationalParser.StringConstantContext.class, context ->
+                SemanticAnalyzer.normalizeStringLiteral(((RelationalParser.StringConstantContext) context).stringLiteral()));
         literalNodes.put(RelationalParser.DecimalConstantContext.class, context -> ParseHelpers.parseDecimal(context.getText()));
         literalNodes.put(RelationalParser.NegativeDecimalConstantContext.class, context -> ParseHelpers.parseDecimal(context.getText()));
     }

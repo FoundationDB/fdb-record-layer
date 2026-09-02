@@ -479,7 +479,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         // (yhatem) we have control over the ENUM values' numbers.
         final List<DataType.EnumType.EnumValue> enumValues = new ArrayList<>(ctx.STRING_LITERAL().size());
         for (int i = 0; i < ctx.STRING_LITERAL().size(); i++) {
-            enumValues.add(DataType.EnumType.EnumValue.of(Assert.notNullUnchecked(getDelegate().normalizeString(ctx.STRING_LITERAL(i).getText())), i));
+            enumValues.add(DataType.EnumType.EnumValue.of(SemanticAnalyzer.normalizeStringLiteral(ctx.STRING_LITERAL(i).getText()), i));
         }
         return DataType.EnumType.from(enumId.getName(), enumValues, false);
     }
