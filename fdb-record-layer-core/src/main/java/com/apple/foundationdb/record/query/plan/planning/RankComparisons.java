@@ -55,6 +55,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -250,11 +251,15 @@ public class RankComparisons {
         }
 
         public ScanComparisons getScanComparisons() {
-            final ScanComparisons rankComparison = ScanComparisons.from(comparison.getComparison());
+            // A rank comparison's underlying comparison is always EQUALITY or INEQUALITY (see
+            // ScanComparisons.ComparisonType), so ScanComparisons.from never actually returns null here.
+            final ScanComparisons rankComparison = Objects.requireNonNull(ScanComparisons.from(comparison.getComparison()));
             if (groupComparisons.isEmpty()) {
                 return rankComparison;
             } else {
-                return new ScanComparisons(groupComparisons, Collections.emptySet()).append(rankComparison);
+                // The ScanComparisons built here has no inequality comparisons, so isEquality() is always
+                // true and append() (which only returns null for a non-equality receiver) never does here.
+                return Objects.requireNonNull(new ScanComparisons(groupComparisons, Collections.emptySet()).append(rankComparison));
             }
         }
 
@@ -269,8 +274,10 @@ public class RankComparisons {
                     ((IndexRecordFunction<?>)comparison.getFunction()).getOperand(), index.getName());
             final List<Comparisons.Comparison> comparisons = new ArrayList<>(groupComparisons);
             comparisons.add(comparison.getComparison());
-            final BindingFunction bindingFunction = BindingFunction.comparisonBindingFunction(substitute, index, metaData);
-            return new RecordQueryScoreForRankPlan.ScoreForRank(bindingName, bindingFunction, function, comparisons);
+            // substitute/bindingName are set together (both null or both non-null) at construction time; a
+            // RankComparison without a substitute isn't expected to reach getScoreForRank().
+            final BindingFunction bindingFunction = BindingFunction.comparisonBindingFunction(Objects.requireNonNull(substitute), index, metaData);
+            return new RecordQueryScoreForRankPlan.ScoreForRank(Objects.requireNonNull(bindingName), bindingFunction, function, comparisons);
         }
     }
 }
