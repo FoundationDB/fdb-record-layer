@@ -45,10 +45,10 @@ public abstract class AndOrComponent extends SimpleComponentWithChildren impleme
     }
 
     @Nullable
-    private Boolean evalInternal(Function<QueryComponent, Boolean> evalChildFunction) {
-        Boolean retVal = !isOr();
+    private Boolean evalInternal(Function<QueryComponent, @Nullable Boolean> evalChildFunction) {
+        @Nullable Boolean retVal = !isOr();
         for (QueryComponent child : getChildren()) {
-            final Boolean val = evalChildFunction.apply(child);
+            @Nullable final Boolean val = evalChildFunction.apply(child);
             if (val == null) {
                 retVal = null;
             } else if (val) {

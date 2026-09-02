@@ -79,6 +79,7 @@ public interface SyntheticRecordFromStoredRecordPlan extends PlanHashable  {
      * @param <M> type of raw record
      * @return a cursor of synthetic records
      */
+    @SuppressWarnings("NullAway") // NullAway doesn't reliably track @Nullable on byte[] parameters; continuation is declared @Nullable above.
     default <M extends Message> RecordCursor<FDBSyntheticRecord> execute(FDBRecordStore store,
                                                                          FDBStoredRecord<M> record) {
         return execute(store, record, null, ExecuteProperties.SERIAL_EXECUTE);

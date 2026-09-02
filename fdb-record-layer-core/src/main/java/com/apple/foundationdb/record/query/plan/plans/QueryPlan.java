@@ -81,6 +81,7 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
      * @param context evaluation context containing parameter bindings
      * @return a cursor of items that match the query criteria
      */
+    @SuppressWarnings("NullAway") // NullAway doesn't reliably track @Nullable on byte[] parameters; continuation is declared @Nullable above.
     default RecordCursor<T> execute(FDBRecordStore store, EvaluationContext context) {
         return execute(store, context, null, ExecuteProperties.SERIAL_EXECUTE);
     }

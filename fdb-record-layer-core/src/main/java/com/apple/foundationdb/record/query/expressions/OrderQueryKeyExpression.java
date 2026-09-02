@@ -26,6 +26,9 @@ import com.apple.foundationdb.record.util.pair.Pair;
 
 import org.jspecify.annotations.Nullable;
 
+import java.util.Objects;
+import java.util.function.Function;
+
 /**
  * Handle {@link OrderFunctionKeyExpression} in a query.
  */
@@ -83,7 +86,9 @@ public class OrderQueryKeyExpression extends QueryKeyExpression {
         if (comparison instanceof Comparisons.ComparisonWithParameter) {
             adjustedComponent = parameterComparison(type, ((Comparisons.ComparisonWithParameter)comparison).getParameter());
         } else {
-            adjustedComponent = simpleComparison(type, comparison.getComparand());
+            // IS_NULL/NOT_NULL were already returned above, so comparison isn't a null-comparison here;
+            // every other non-parameter Comparison implementation carries a non-null comparand.
+            adjustedComponent = simpleComparison(type, Objects.requireNonNull(comparison.getComparand()));
         }
         final Comparisons.Comparison adjustedComparison = adjustedComponent.getComparison();
         Comparisons.Comparison nullComparison = null;
@@ -110,6 +115,12 @@ public class OrderQueryKeyExpression extends QueryKeyExpression {
 
     private Comparisons.SimpleComparison adjustedNullComparison(Comparisons.Type type) {
         // super.nullComparison doesn't deal with getComparandConversionFunction.
-        return new Comparisons.SimpleComparison(type, keyExpression.getComparandConversionFunction().apply(null));
+        final Function<Object, Object> conversion = Objects.requireNonNull(keyExpression.getComparandConversionFunction());
+        // OrderFunctionKeyExpression's conversion function specifically supports a null comparand (it
+        // packs it into the ordering-appropriate byte representation for null), even though the
+        // interface's general contract declares a @NonNull Function<Object, Object>.
+        @SuppressWarnings("NullAway")
+        final Object convertedNull = conversion.apply(null);
+        return new Comparisons.SimpleComparison(type, convertedNull);
     }
 }

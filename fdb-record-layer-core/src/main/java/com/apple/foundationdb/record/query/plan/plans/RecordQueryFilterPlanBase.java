@@ -78,7 +78,10 @@ public abstract class RecordQueryFilterPlanBase extends AbstractRelationalExpres
                                                                                       QueryResult datum);
 
     @Override
-    @SuppressWarnings("PMD.CloseResource")
+    @SuppressWarnings({"PMD.CloseResource", "NullAway"}) // evalFilter/evalFilterAsync are legitimately @Nullable (a null
+                                                           // filter result means "unknown"), but RecordCursor's
+                                                           // filterInstrumented/filterAsyncInstrumented take a plain,
+                                                           // non-nullness-aware java.util.function.Function.
     public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
                                                                      final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,

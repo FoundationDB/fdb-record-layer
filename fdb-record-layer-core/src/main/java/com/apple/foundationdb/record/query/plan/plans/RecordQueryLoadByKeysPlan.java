@@ -316,7 +316,8 @@ public class RecordQueryLoadByKeysPlan extends AbstractRelationalExpressionWitho
         @Override
         @SuppressWarnings("unchecked")
         public List<Tuple> getPrimaryKeys(EvaluationContext context) {
-            return (List<Tuple>)context.getBinding(parameter);
+            return (List<Tuple>)Objects.requireNonNull(context.getBinding(parameter),
+                    () -> "missing binding for parameter " + parameter);
         }
 
         @Override

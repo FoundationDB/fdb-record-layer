@@ -81,6 +81,9 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
      * @param <M> type used to represent stored records
      * @return a cursor of records that match the query criteria
      */
+    @SuppressWarnings("NullAway") // QueryResult.getQueriedRecord() is legitimately @Nullable, but the target type of this
+                                   // method reference is the JDK's non-nullness-aware java.util.function.Function, whose R
+                                   // is inferred @NonNull here from RecordCursor.map's declared signature.
     default <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(FDBRecordStoreBase<M> store,
                                                                   EvaluationContext context,
                                                                   @Nullable byte[] continuation,
@@ -114,6 +117,7 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
      * @param <M> type used to represent stored records
      * @return a cursor of records that match the query criteria
      */
+    @SuppressWarnings("NullAway") // NullAway doesn't reliably track @Nullable on byte[] parameters; continuation is declared @Nullable above.
     default <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(FDBRecordStoreBase<M> store, EvaluationContext context) {
         return execute(store, context, null, ExecuteProperties.SERIAL_EXECUTE);
     }

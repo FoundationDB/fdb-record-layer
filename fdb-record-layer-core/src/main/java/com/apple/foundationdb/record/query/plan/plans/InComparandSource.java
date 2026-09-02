@@ -100,7 +100,9 @@ public class InComparandSource extends InSource {
     @Override
     @SuppressWarnings("unchecked")
     protected List<Object> getValues(@Nullable final EvaluationContext context) {
-        return (List<Object>)comparison.getComparand(null, context);
+        // comparison is always a list-valued comparison (e.g. ListComparison) for an IN source, whose
+        // getComparand() never actually returns null (only unbound parameter comparisons can).
+        return (List<Object>)Objects.requireNonNull(comparison.getComparand(null, context));
     }
 
     @Override

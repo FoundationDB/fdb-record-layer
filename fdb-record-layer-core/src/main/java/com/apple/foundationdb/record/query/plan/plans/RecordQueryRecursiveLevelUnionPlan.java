@@ -141,7 +141,9 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
         return ImmutableSet.of();
     }
 
-    @SuppressWarnings("resource")
+    @SuppressWarnings({"resource", "NullAway"}) // NullAway doesn't reliably track @Nullable on byte[] through the
+                                                 // `x == null ? null : x.toByteArray()` ternary, even though the
+                                                 // target executePlan parameter is declared @Nullable byte[].
     @Override
     public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
                                                                      final EvaluationContext context,
@@ -330,7 +332,7 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
 
         private TempTable recursiveUnionTempTable;
 
-        private final BiFunction<ByteString, EvaluationContext, RecordCursor<QueryResult>> recursiveCursorCreator;
+        private final BiFunction<@Nullable ByteString, EvaluationContext, RecordCursor<QueryResult>> recursiveCursorCreator;
 
         private final EvaluationContext baseContext;
 
@@ -354,8 +356,11 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
          * @param tempTableFactory the {@link TempTable} factory.
          * @param continuationBytes optional continuation of the {@link RecursiveUnionCursor}.
          */
-        RecursiveStateManagerImpl(final BiFunction<ByteString, EvaluationContext, RecordCursor<QueryResult>> initialCursorCreator,
-                                  final BiFunction<ByteString, EvaluationContext,  RecordCursor<QueryResult>> recursiveCursorCreator,
+        @SuppressWarnings("NullAway") // NullAway doesn't reliably narrow @Nullable byte[] via the enclosing
+                                       // `continuationBytes == null` check below; Continuation.from's parameter
+                                       // is genuinely non-null here.
+        RecursiveStateManagerImpl(final BiFunction<@Nullable ByteString, EvaluationContext, RecordCursor<QueryResult>> initialCursorCreator,
+                                  final BiFunction<@Nullable ByteString, EvaluationContext,  RecordCursor<QueryResult>> recursiveCursorCreator,
                                   final EvaluationContext baseContext,
                                   final CorrelationIdentifier scanTempTableAlias,
                                   final CorrelationIdentifier insertTempTableAlias,

@@ -96,6 +96,10 @@ public class RecordQuerySortPlan extends AbstractRelationalExpressionWithChildre
         // Since we are sorting, we need to feed through everything from the inner plan,
         // even just to get the top few.
         final ExecuteProperties executeInner = executeProperties.clearSkipAndLimit();
+        // QueryResult.getQueriedRecord() is legitimately @Nullable, but the target type of this method
+        // reference is the JDK's non-nullness-aware java.util.function.Function, whose R is inferred
+        // @NonNull here from the declared type of innerCursor.
+        @SuppressWarnings("NullAway")
         final Function<byte[], RecordCursor<FDBQueriedRecord<M>>> innerCursor =
                 innerContinuation -> getChild().executePlan(store, context, innerContinuation, executeInner)
                         .map(QueryResult::<M>getQueriedRecord);

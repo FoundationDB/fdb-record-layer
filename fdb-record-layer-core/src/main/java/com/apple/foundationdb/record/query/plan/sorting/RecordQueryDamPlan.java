@@ -109,6 +109,10 @@ public class RecordQueryDamPlan extends AbstractRelationalExpressionWithChildren
         // in-memory-unlimited which in turn ensures that we go over the input exactly once.
         //
         final ExecuteProperties executeInner = executeProperties.clearSkipAndLimit();
+        // QueryResult.getQueriedRecord() is legitimately @Nullable, but the target type of this method
+        // reference is the JDK's non-nullness-aware java.util.function.Function, whose R is inferred
+        // @NonNull here from the declared type of innerCursor.
+        @SuppressWarnings("NullAway")
         final Function<byte[], RecordCursor<FDBQueriedRecord<M>>> innerCursor =
                 innerContinuation -> getChild().executePlan(store, context, innerContinuation, executeInner)
                         .map(QueryResult::getQueriedRecord);

@@ -39,6 +39,7 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -120,7 +121,8 @@ public class UnionVisitor extends RecordQueryPlannerSubstitutionVisitor {
                     Verify.verifyNotNull(fetchIndexRecords));
 
             if (shouldPullOutFilter) {
-                return new RecordQueryFilterPlan(newUnionPlan, filter);
+                // filter and shouldPullOutFilter are always set together above, so filter is non-null here.
+                return new RecordQueryFilterPlan(newUnionPlan, Objects.requireNonNull(filter));
             } else {
                 return newUnionPlan;
             }

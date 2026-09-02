@@ -364,6 +364,8 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
     }
 
     @Override
+    @SuppressWarnings("NullAway") // PlanHashable.objectsPlanHash's varargs aren't annotated @Nullable, but each
+                                   // element is hashed via objectPlanHash, which is explicitly null-safe.
     public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:

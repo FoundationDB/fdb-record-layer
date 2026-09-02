@@ -116,7 +116,8 @@ public class QueryPlanInfo {
 
         // Suppress Unchecked Cast exception since all put() into the map use the right type for the value from the key.
         @SuppressWarnings("unchecked")
-        public T narrow(final Object o) {
+        @Nullable
+        public T narrow(@Nullable final Object o) {
             return (T) o;
         }
 

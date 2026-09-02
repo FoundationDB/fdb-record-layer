@@ -115,7 +115,8 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
             fields.removeIf(keyExpression -> !keyExpression.needsCopyingToPartialRecord());
 
             if (fieldsFromIndex.containsAll(fields)) {
-                final IndexKeyValueToPartialRecord keyValueToPartialRecord = fieldsFromIndex.buildIndexKeyValueToPartialRecord(recordType).build();
+                final IndexKeyValueToPartialRecord.Builder keyValueToPartialRecordBuilder = fieldsFromIndex.buildIndexKeyValueToPartialRecord(recordType);
+                final IndexKeyValueToPartialRecord keyValueToPartialRecord = keyValueToPartialRecordBuilder == null ? null : keyValueToPartialRecordBuilder.build();
                 if (keyValueToPartialRecord != null) {
                     return new RecordQueryCoveringIndexPlan(indexPlan, recordType.getName(), fieldsFromIndex, keyValueToPartialRecord);
                 }

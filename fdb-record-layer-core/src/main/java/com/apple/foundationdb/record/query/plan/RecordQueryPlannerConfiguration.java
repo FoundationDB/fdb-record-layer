@@ -39,6 +39,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 import org.jspecify.annotations.Nullable;
 
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -85,9 +86,11 @@ public class RecordQueryPlannerConfiguration {
 
     private RecordQueryPlannerConfiguration(RecordPlannerConfigurationProto.PlannerConfiguration proto, @Nullable RecordQueryPlannerSortConfiguration sortConfiguration) {
         this.proto = proto;
-        this.indexScanPreference = SCAN_PREFERENCE_BI_MAP.inverse().get(proto.getIndexScanPreference());
-        this.indexFetchMethod = FETCH_METHOD_BI_MAP.inverse().get(proto.getIndexFetchMethod());
-        this.vectorIndexEnginePreference = VECTOR_INDEX_ENGINE_PREFERENCE_BI_MAP.inverse().get(proto.getVectorIndexEnginePreference());
+        // These enum<->proto-enum BiMaps are built to be exhaustive bijections (see protoEnumBiMap),
+        // so a lookup by any valid enum constant is guaranteed to succeed.
+        this.indexScanPreference = Objects.requireNonNull(SCAN_PREFERENCE_BI_MAP.inverse().get(proto.getIndexScanPreference()));
+        this.indexFetchMethod = Objects.requireNonNull(FETCH_METHOD_BI_MAP.inverse().get(proto.getIndexFetchMethod()));
+        this.vectorIndexEnginePreference = Objects.requireNonNull(VECTOR_INDEX_ENGINE_PREFERENCE_BI_MAP.inverse().get(proto.getVectorIndexEnginePreference()));
         this.disabledTransformationRules = ImmutableSet.copyOf(proto.getDisabledTransformationRulesList());
         this.valueIndexesOverScanNeeded = ImmutableSet.copyOf(proto.getValueIndexesOverScanNeededList());
         this.sortConfiguration = sortConfiguration;
@@ -462,7 +465,7 @@ public class RecordQueryPlannerConfiguration {
 
         @CanIgnoreReturnValue
         public Builder setIndexScanPreference(QueryPlanner.IndexScanPreference indexScanPreference) {
-            protoBuilder.setIndexScanPreference(SCAN_PREFERENCE_BI_MAP.get(indexScanPreference));
+            protoBuilder.setIndexScanPreference(Objects.requireNonNull(SCAN_PREFERENCE_BI_MAP.get(indexScanPreference)));
             return this;
         }
 
@@ -705,7 +708,7 @@ public class RecordQueryPlannerConfiguration {
         @API(API.Status.EXPERIMENTAL)
         @CanIgnoreReturnValue
         public Builder setIndexFetchMethod(final IndexFetchMethod indexFetchMethod) {
-            protoBuilder.setIndexFetchMethod(FETCH_METHOD_BI_MAP.get(indexFetchMethod));
+            protoBuilder.setIndexFetchMethod(Objects.requireNonNull(FETCH_METHOD_BI_MAP.get(indexFetchMethod)));
             return this;
         }
 
@@ -721,7 +724,7 @@ public class RecordQueryPlannerConfiguration {
         @API(API.Status.EXPERIMENTAL)
         @CanIgnoreReturnValue
         public Builder setVectorIndexEnginePreference(final VectorIndexEnginePreference vectorIndexEnginePreference) {
-            protoBuilder.setVectorIndexEnginePreference(VECTOR_INDEX_ENGINE_PREFERENCE_BI_MAP.get(vectorIndexEnginePreference));
+            protoBuilder.setVectorIndexEnginePreference(Objects.requireNonNull(VECTOR_INDEX_ENGINE_PREFERENCE_BI_MAP.get(vectorIndexEnginePreference)));
             return this;
         }
 

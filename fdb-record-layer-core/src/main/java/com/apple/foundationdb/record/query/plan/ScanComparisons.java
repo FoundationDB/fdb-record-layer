@@ -309,12 +309,14 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
     protected static void addComparandToList(List<Object> items, Comparisons.Comparison comparison,
                                              @Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
         if (comparison.hasMultiColumnComparand()) {
-            items.addAll(((Tuple)comparison.getComparand(store, context)).getItems());
+            // hasMultiColumnComparand() == true guarantees a non-null Tuple comparand.
+            items.addAll(((Tuple)Objects.requireNonNull(comparison.getComparand(store, context))).getItems());
         } else {
             items.add(toTupleItem(comparison.getComparand(store, context)));
         }
     }
 
+    @Nullable
     public static Object toTupleItem(@Nullable Object item) {
         if (item instanceof ByteString) {
             return ((ByteString) item).toByteArray();
@@ -541,7 +543,9 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
         @Nullable
         private final EvaluationContext context;
         private final Tuple baseTuple;
+        @Nullable
         private Object lowItem = null;
+        @Nullable
         private Object highItem = null;
         private EndpointType lowEndpoint;
         private EndpointType highEndpoint;
@@ -573,29 +577,38 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
             }
             final EndpointComparison endpointComparison = comparison.hasMultiColumnComparand() ? EndpointComparison.MULTIPLE : EndpointComparison.VALUE;
             switch (comparison.getType()) {
-                case GREATER_THAN:
-                    if (lowItem == null || Comparisons.compare(lowItem, comparand) <= 0) {
-                        lowItem = comparand;
+                case GREATER_THAN: {
+                    // A null comparand here (e.g. an inequality bound to a null parameter) can't be
+                    // meaningfully compared against; evalComparison() treats that case as "never matches",
+                    // which this scan-range computation doesn't model, so fail fast instead of silently
+                    // computing a wrong range.
+                    final Object nonNullComparand = Objects.requireNonNull(comparand, "cannot use a null comparand as an inequality bound");
+                    if (lowItem == null || Comparisons.compare(lowItem, nonNullComparand) <= 0) {
+                        lowItem = nonNullComparand;
                         lowEndpoint = EndpointType.RANGE_EXCLUSIVE;
                         hasLow = endpointComparison;
                     }
                     break;
-                case GREATER_THAN_OR_EQUALS:
-                    if (lowItem == null || Comparisons.compare(lowItem, comparand) < 0) {
-                        lowItem = comparand;
+                }
+                case GREATER_THAN_OR_EQUALS: {
+                    final Object nonNullComparand = Objects.requireNonNull(comparand, "cannot use a null comparand as an inequality bound");
+                    if (lowItem == null || Comparisons.compare(lowItem, nonNullComparand) < 0) {
+                        lowItem = nonNullComparand;
                         lowEndpoint = EndpointType.RANGE_INCLUSIVE;
                         hasLow = endpointComparison;
                     }
                     break;
+                }
                 case NOT_NULL:
                     if (lowItem == null) {
                         lowEndpoint = EndpointType.RANGE_EXCLUSIVE;
                         hasLow = endpointComparison;
                     }
                     break;
-                case LESS_THAN:
-                    if (highItem == null || Comparisons.compare(highItem, comparand) >= 0) {
-                        highItem = comparand;
+                case LESS_THAN: {
+                    final Object nonNullComparand = Objects.requireNonNull(comparand, "cannot use a null comparand as an inequality bound");
+                    if (highItem == null || Comparisons.compare(highItem, nonNullComparand) >= 0) {
+                        highItem = nonNullComparand;
                         highEndpoint = EndpointType.RANGE_EXCLUSIVE;
                         hasHigh = endpointComparison;
                     }
@@ -604,9 +617,11 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
                         hasLow = EndpointComparison.VALUE;
                     }
                     break;
-                case LESS_THAN_OR_EQUALS:
-                    if (highItem == null || Comparisons.compare(highItem, comparand) > 0) {
-                        highItem = comparand;
+                }
+                case LESS_THAN_OR_EQUALS: {
+                    final Object nonNullComparand = Objects.requireNonNull(comparand, "cannot use a null comparand as an inequality bound");
+                    if (highItem == null || Comparisons.compare(highItem, nonNullComparand) > 0) {
+                        highItem = nonNullComparand;
                         highEndpoint = EndpointType.RANGE_INCLUSIVE;
                         hasHigh = endpointComparison;
                     }
@@ -615,13 +630,14 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
                         hasLow = EndpointComparison.VALUE;
                     }
                     break;
+                }
                 default:
                     throw new RecordCoreException("Unexpected inequality comparison " + comparison);
             }
         }
 
         @Nullable
-        private Tuple buildEndpointTuple(EndpointComparison hasItem, Object item) {
+        private Tuple buildEndpointTuple(EndpointComparison hasItem, @Nullable Object item) {
             switch (hasItem) {
                 case VALUE:
                     return baseTuple.addObject(toTupleItem(item));
