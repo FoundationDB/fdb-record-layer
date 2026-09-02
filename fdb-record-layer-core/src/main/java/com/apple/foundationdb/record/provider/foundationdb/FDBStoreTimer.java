@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableSet;
 import org.jspecify.annotations.Nullable;
 
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -261,7 +262,7 @@ public class FDBStoreTimer extends StoreTimer {
         private final String title;
         private final String logKey;
 
-        Events(String title, String logKey) {
+        Events(String title, @Nullable String logKey) {
             this.title = title;
             this.logKey = (logKey != null) ? logKey : StoreTimer.Event.super.logKey();
         }
@@ -319,7 +320,7 @@ public class FDBStoreTimer extends StoreTimer {
         private final String title;
         private final String logKey;
 
-        DetailEvents(String title, String logKey) {
+        DetailEvents(String title, @Nullable String logKey) {
             this.title = title;
             this.logKey = (logKey != null) ? logKey : StoreTimer.DetailEvent.super.logKey();
         }
@@ -481,7 +482,7 @@ public class FDBStoreTimer extends StoreTimer {
         private final String title;
         private final String logKey;
 
-        Waits(String title, String logKey) {
+        Waits(String title, @Nullable String logKey) {
             this.title = title;
             this.logKey = (logKey != null) ? logKey : Wait.super.logKey();
         }
@@ -793,7 +794,7 @@ public class FDBStoreTimer extends StoreTimer {
         private final String logKey;
         private final boolean delayedUntilCommit;
 
-        Counts(String title, boolean isSize, String logKey, boolean delayedUntilCommit) {
+        Counts(String title, boolean isSize, @Nullable String logKey, boolean delayedUntilCommit) {
             this.title = title;
             this.isSize = isSize;
             this.logKey = (logKey != null) ? logKey : Count.super.logKey();
@@ -958,7 +959,9 @@ public class FDBStoreTimer extends StoreTimer {
     @Override
     public void recordTimeout(Wait event, long startTime) {
         final long totalNanos = System.nanoTime() - startTime;
-        getCounter(Events.TIMEOUTS, true).record(totalNanos);
-        getTimeoutCounter(event, true).record(totalNanos);
+        // getCounter/getTimeoutCounter are declared @Nullable Counter regardless of createIfNotExists, but per
+        // their javadoc, passing createIfNotExists=true (as here) guarantees a non-null result.
+        Objects.requireNonNull(getCounter(Events.TIMEOUTS, true)).record(totalNanos);
+        Objects.requireNonNull(getTimeoutCounter(event, true)).record(totalNanos);
     }
 }
