@@ -52,6 +52,10 @@ public class JavaCallFunction extends BuiltInFunction<Value> {
         Verify.verify(arguments.get(0) instanceof LiteralValue<?>);
         final var literalValue = (LiteralValue<?>)arguments.get(0);
         final var functionName = (String)literalValue.evalWithoutStore(EvaluationContext.empty());
+        if (functionName == null) {
+            // Class.forName(null) throws an unhelpful NullPointerException rather than a domain exception.
+            throw new RecordCoreException("function name must not be NULL");
+        }
 
         // for now, the function name is expected to represent the fully-qualified class name, so we can find
         // it quickly via reflection, in the future we'll use the service loader to register the function.

@@ -27,6 +27,8 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.planprotos.PBinaryRelOpValue;
 import com.apple.foundationdb.record.planprotos.PBinaryRelOpValue.PBinaryPhysicalOperator;
 import com.apple.foundationdb.record.planprotos.PRelOpValue;
@@ -72,7 +74,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BinaryOperator;
 import java.util.function.Supplier;
-import java.util.function.UnaryOperator;
 import java.util.stream.StreamSupport;
 
 /**
@@ -200,7 +201,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         final Type maximumType = Type.maximumType(leftType, rightType);
         // The maximum type may be undefined (if a non-primitive type is involved).
         if (maximumType == null) {
-            SemanticException.fail(
+            throw SemanticException.newException(
                     SemanticException.ErrorCode.COMPARISON_OF_INCOMPATIBLE_TYPES,
                     "left type: " + leftType + ", right type: " + rightType);
         }
@@ -321,7 +322,8 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
             return new UnaryRelOpValue(functionName,
                     comparisonType,
                     ImmutableList.of(arg0),
-                    physicalOperator);
+                    // check above guarantees the operator is non-null.
+                    Objects.requireNonNull(physicalOperator));
         } else {
             Verify.verify(arguments.get(0) instanceof Value);
             Value arg0 = (Value)arguments.get(0);
@@ -360,7 +362,8 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
             return new BinaryRelOpValue(functionName,
                     comparisonType,
                     ImmutableList.of(arg0, arg1),
-                    physicalOperator);
+                    // check above guarantees the operator is non-null.
+                    Objects.requireNonNull(physicalOperator));
         }
     }
 
@@ -1225,49 +1228,49 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
     }
 
     private enum UnaryPhysicalOperator {
-        IS_NULL_UI(Comparisons.Type.IS_NULL, Type.TypeCode.UNKNOWN, Objects::isNull),
-        IS_NULL_II(Comparisons.Type.IS_NULL, Type.TypeCode.INT, Objects::isNull),
-        IS_NULL_LI(Comparisons.Type.IS_NULL, Type.TypeCode.LONG, Objects::isNull),
-        IS_NULL_FI(Comparisons.Type.IS_NULL, Type.TypeCode.FLOAT, Objects::isNull),
-        IS_NULL_DI(Comparisons.Type.IS_NULL, Type.TypeCode.DOUBLE, Objects::isNull),
-        IS_NULL_SS(Comparisons.Type.IS_NULL, Type.TypeCode.STRING, Objects::isNull),
-        IS_NULL_BI(Comparisons.Type.IS_NULL, Type.TypeCode.BOOLEAN, Objects::isNull),
+        IS_NULL_UI(Comparisons.Type.IS_NULL, Type.TypeCode.UNKNOWN),
+        IS_NULL_II(Comparisons.Type.IS_NULL, Type.TypeCode.INT),
+        IS_NULL_LI(Comparisons.Type.IS_NULL, Type.TypeCode.LONG),
+        IS_NULL_FI(Comparisons.Type.IS_NULL, Type.TypeCode.FLOAT),
+        IS_NULL_DI(Comparisons.Type.IS_NULL, Type.TypeCode.DOUBLE),
+        IS_NULL_SS(Comparisons.Type.IS_NULL, Type.TypeCode.STRING),
+        IS_NULL_BI(Comparisons.Type.IS_NULL, Type.TypeCode.BOOLEAN),
 
-        IS_NOT_NULL_UI(Comparisons.Type.NOT_NULL, Type.TypeCode.UNKNOWN, Objects::nonNull),
-        IS_NOT_NULL_II(Comparisons.Type.NOT_NULL, Type.TypeCode.INT, Objects::nonNull),
-        IS_NOT_NULL_LI(Comparisons.Type.NOT_NULL, Type.TypeCode.LONG, Objects::nonNull),
-        IS_NOT_NULL_FI(Comparisons.Type.NOT_NULL, Type.TypeCode.FLOAT, Objects::nonNull),
-        IS_NOT_NULL_DI(Comparisons.Type.NOT_NULL, Type.TypeCode.DOUBLE, Objects::nonNull),
-        IS_NOT_NULL_SS(Comparisons.Type.NOT_NULL, Type.TypeCode.STRING, Objects::nonNull),
-        IS_NOT_NULL_BI(Comparisons.Type.NOT_NULL, Type.TypeCode.BOOLEAN, Objects::nonNull),
+        IS_NOT_NULL_UI(Comparisons.Type.NOT_NULL, Type.TypeCode.UNKNOWN),
+        IS_NOT_NULL_II(Comparisons.Type.NOT_NULL, Type.TypeCode.INT),
+        IS_NOT_NULL_LI(Comparisons.Type.NOT_NULL, Type.TypeCode.LONG),
+        IS_NOT_NULL_FI(Comparisons.Type.NOT_NULL, Type.TypeCode.FLOAT),
+        IS_NOT_NULL_DI(Comparisons.Type.NOT_NULL, Type.TypeCode.DOUBLE),
+        IS_NOT_NULL_SS(Comparisons.Type.NOT_NULL, Type.TypeCode.STRING),
+        IS_NOT_NULL_BI(Comparisons.Type.NOT_NULL, Type.TypeCode.BOOLEAN),
 
-        IS_NULL_BY(Comparisons.Type.IS_NULL, Type.TypeCode.BYTES, Objects::isNull),
-        IS_NOT_NULL_BY(Comparisons.Type.NOT_NULL, Type.TypeCode.BYTES, Objects::nonNull),
+        IS_NULL_BY(Comparisons.Type.IS_NULL, Type.TypeCode.BYTES),
+        IS_NOT_NULL_BY(Comparisons.Type.NOT_NULL, Type.TypeCode.BYTES),
 
-        IS_NULL_EI(Comparisons.Type.IS_NULL, Type.TypeCode.ENUM, Objects::isNull),
-        IS_NOT_NULL_EI(Comparisons.Type.NOT_NULL, Type.TypeCode.ENUM, Objects::nonNull),
+        IS_NULL_EI(Comparisons.Type.IS_NULL, Type.TypeCode.ENUM),
+        IS_NOT_NULL_EI(Comparisons.Type.NOT_NULL, Type.TypeCode.ENUM),
 
-        IS_NULL_ID(Comparisons.Type.IS_NULL, Type.TypeCode.UUID, Objects::isNull),
-        IS_NOT_NULL_ID(Comparisons.Type.NOT_NULL, Type.TypeCode.UUID, Objects::nonNull),
+        IS_NULL_ID(Comparisons.Type.IS_NULL, Type.TypeCode.UUID),
+        IS_NOT_NULL_ID(Comparisons.Type.NOT_NULL, Type.TypeCode.UUID),
 
-        IS_NULL_NT(Comparisons.Type.IS_NULL, Type.TypeCode.NULL, Objects::isNull),
-        IS_NOT_NULL_NT(Comparisons.Type.NOT_NULL, Type.TypeCode.NULL, Objects::nonNull),
+        IS_NULL_NT(Comparisons.Type.IS_NULL, Type.TypeCode.NULL),
+        IS_NOT_NULL_NT(Comparisons.Type.NOT_NULL, Type.TypeCode.NULL),
 
-        IS_NULL_VECTOR(Comparisons.Type.IS_NULL, Type.TypeCode.VECTOR, Objects::isNull),
-        IS_NOT_NULL_VECTOR(Comparisons.Type.NOT_NULL, Type.TypeCode.VECTOR, Objects::nonNull),
+        IS_NULL_VECTOR(Comparisons.Type.IS_NULL, Type.TypeCode.VECTOR),
+        IS_NOT_NULL_VECTOR(Comparisons.Type.NOT_NULL, Type.TypeCode.VECTOR),
 
-        IS_NULL_VERSION(Comparisons.Type.IS_NULL, Type.TypeCode.VERSION, Objects::isNull),
-        IS_NOT_NULL_VERSION(Comparisons.Type.NOT_NULL, Type.TypeCode.VERSION, Objects::nonNull),
+        IS_NULL_VERSION(Comparisons.Type.IS_NULL, Type.TypeCode.VERSION),
+        IS_NOT_NULL_VERSION(Comparisons.Type.NOT_NULL, Type.TypeCode.VERSION),
 
         // <array> IS NULL, <array> IS NOT NULL
-        IS_NULL_ARRAY(Comparisons.Type.IS_NULL, Type.TypeCode.ARRAY, Objects::isNull),
-        IS_NOT_NULL_ARRAY(Comparisons.Type.NOT_NULL, Type.TypeCode.ARRAY, Objects::nonNull),
+        IS_NULL_ARRAY(Comparisons.Type.IS_NULL, Type.TypeCode.ARRAY),
+        IS_NOT_NULL_ARRAY(Comparisons.Type.NOT_NULL, Type.TypeCode.ARRAY),
 
         // [] IS NULL, [] IS NOT NULL
         // These are odd special cases, but we define them nevertheless for "syntactic" completeness, as otherwise
         // you could write  `[1] IS NULL` but not `[] IS NULL`.
-        IS_NULL_NONE(Comparisons.Type.IS_NULL, Type.TypeCode.NONE, Objects::isNull),
-        IS_NOT_NULL_NONE(Comparisons.Type.NOT_NULL, Type.TypeCode.NONE, Objects::nonNull);
+        IS_NULL_NONE(Comparisons.Type.IS_NULL, Type.TypeCode.NONE),
+        IS_NOT_NULL_NONE(Comparisons.Type.NOT_NULL, Type.TypeCode.NONE);
 
         private static final Supplier<BiMap<UnaryPhysicalOperator, PUnaryPhysicalOperator>> protoEnumBiMapSupplier =
                 Suppliers.memoize(() -> PlanSerialization.protoEnumBiMap(UnaryPhysicalOperator.class,
@@ -1277,17 +1280,24 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
         private final Type.TypeCode argType;
 
-        private final UnaryOperator<Object> evaluateFunction;
-
-        UnaryPhysicalOperator(Comparisons.Type type, Type.TypeCode argType, UnaryOperator<Object> evaluateFunction) {
+        UnaryPhysicalOperator(Comparisons.Type type, Type.TypeCode argType) {
             this.type = type;
             this.argType = argType;
-            this.evaluateFunction = evaluateFunction;
         }
 
         @Nullable
         public Object eval(@Nullable final Object arg1) {
-            return evaluateFunction.apply(arg1);
+            // every `UnaryPhysicalOperator` is an IS_NULL/NOT_NULL variant (see the enum constants above); the
+            // result is fully determined by `type`, so there is no need for a per-constant evaluation function.
+            switch (type) {
+                case IS_NULL:
+                    return arg1 == null;
+                case NOT_NULL:
+                    return arg1 != null;
+                default:
+                    throw new RecordCoreException("unexpected comparison type for unary operator")
+                            .addLogInfo(LogMessageKeys.COMPARISON_TYPE, type);
+            }
         }
 
         public Comparisons.Type getType() {

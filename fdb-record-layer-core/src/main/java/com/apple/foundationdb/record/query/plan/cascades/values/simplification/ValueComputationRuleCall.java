@@ -55,7 +55,7 @@ public class ValueComputationRuleCall<ARGUMENT, RESULT> extends AbstractValueRul
                                     final PlannerBindings bindings,
                                     final AliasMap aliasMap,
                                     final Set<CorrelationIdentifier> constantAliases,
-                                    final Function<Value, QueryPlanConstraint> retrieveQueryPlanConstraintFunction,
+                                    final Function<Value, @Nullable QueryPlanConstraint> retrieveQueryPlanConstraintFunction,
                                     final Function<Value, NonnullPair<Value, RESULT>> retrieveResultFunction) {
         super(rule, root, current, evaluationContext, bindings, aliasMap, constantAliases,
                 retrieveQueryPlanConstraintFunction);

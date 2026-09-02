@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
@@ -92,10 +93,19 @@ public class FirstOrDefaultStreamingValue extends AbstractValue {
         return onEmptyResultValue;
     }
 
+    @Nullable
     @Override
     @SpotBugsSuppressWarnings({"NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", "NP_NONNULL_PARAM_VIOLATION"})
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably track @Nullable on the byte[] `continuation`
+    // parameter of StreamingValue#evalAsStream even though it is annotated @Nullable there; passing a literal null
+    // (no continuation, i.e. start from the beginning) is legitimate.
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
-        final var childResult = childValue.evalAsStream(store, context, null, null).first().join();
+        if (store == null) {
+            // Streaming the child requires an actual record store to fetch records from; unlike compile-time-only
+            // values, this value cannot be meaningfully evaluated via evalWithoutStore().
+            throw new RecordCoreException("unable to eval a first-or-default streaming value without a store");
+        }
+        final var childResult = childValue.evalAsStream(store, context, null, ExecuteProperties.SERIAL_EXECUTE).first().join();
         if (childResult.isPresent()) {
             return childResult.get();
         } else {

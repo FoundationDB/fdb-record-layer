@@ -459,7 +459,11 @@ public class Simplification {
                         ruleSet,
                         (rule, r, c, plannerBindings) ->
                                 new QueryPredicateSimplificationRuleCall(rule, r, c, evaluationContext, plannerBindings,
-                                        aliasMap, constantAliases, constraintsMap::get));
+                                        // QueryPredicateSimplificationRuleCall's constraint function is declared
+                                        // @NonNull-returning; fall back to noConstraint() for predicates not yet
+                                        // present in the map (mirrors AbstractRuleCall#getQueryPlanConstraint).
+                                        aliasMap, constantAliases,
+                                        value -> constraintsMap.getOrDefault(value, QueryPlanConstraint.noConstraint())));
         return simplifiedPredicate == root
                ? Constrained.unconstrained(root)
                : Constrained.ofConstrainedObject(simplifiedPredicate,

@@ -125,6 +125,9 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
     }
 
     @Override
+    @SuppressWarnings("NullAway") // PlanHashable.objectsPlanHash's varargs Object... is not @Nullable-annotated,
+    // but its element-wise implementation (objectPlanHash(mode, Object)) explicitly null-checks each element
+    // and returns 0 for null, so passing the (legitimately nullable) literal value here is safe at runtime.
     public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:

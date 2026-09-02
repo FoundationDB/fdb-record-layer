@@ -140,7 +140,8 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
         }
         final var promotionOperator = PromoteValue.resolvePhysicalOperator(objType, getResultType());
         SemanticException.check(promotionOperator != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
-        return promotionOperator.apply(null, obj);
+        // check above guarantees the operator is non-null.
+        return Objects.requireNonNull(promotionOperator).apply(null, obj);
     }
 
     @Override

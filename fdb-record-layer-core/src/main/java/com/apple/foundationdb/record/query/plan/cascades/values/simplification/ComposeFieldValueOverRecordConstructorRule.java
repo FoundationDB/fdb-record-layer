@@ -30,9 +30,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
-import com.google.common.collect.Iterables;
-
-import java.util.Objects;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.anyObject;
@@ -72,8 +69,8 @@ public class ComposeFieldValueOverRecordConstructorRule extends ValueSimplificat
         Verify.verify(!fieldPathTypes.isEmpty());
         final var recordConstructor = bindings.get(recordConstructorMatcher);
 
-        final var firstFieldOrdinal = Objects.requireNonNull(Iterables.getFirst(fieldPathOrdinals, null));
-        final var fieldFieldType = Objects.requireNonNull(Iterables.getFirst(fieldPathTypes, null));
+        final var firstFieldOrdinal = fieldPathOrdinals.iterator().next();
+        final var fieldFieldType = fieldPathTypes.iterator().next();
         final var column = findColumn(recordConstructor, firstFieldOrdinal, fieldFieldType);
 
         final var root = bindings.get(rootMatcher);

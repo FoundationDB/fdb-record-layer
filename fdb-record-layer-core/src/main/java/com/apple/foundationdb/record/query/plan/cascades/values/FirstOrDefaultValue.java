@@ -89,6 +89,7 @@ public class FirstOrDefaultValue extends AbstractValue {
         return onEmptyResultValue;
     }
 
+    @Nullable
     @Override
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         final var childResult = childValue.eval(store, context);

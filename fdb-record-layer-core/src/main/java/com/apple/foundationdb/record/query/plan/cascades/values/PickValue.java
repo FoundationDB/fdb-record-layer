@@ -224,13 +224,16 @@ public class PickValue extends AbstractValue {
             var selectorValue = (Value)arguments.get(0);
             final var selectorMaxType = Type.maximumType(selectorValue.getResultType(), Type.primitiveType(Type.TypeCode.INT));
             SemanticException.check(selectorMaxType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
-            selectorValue = PromoteValue.inject(selectorValue, selectorMaxType);
+            // check above guarantees the type is non-null.
+            selectorValue = PromoteValue.inject(selectorValue, Objects.requireNonNull(selectorMaxType));
 
             final var firstAlternative = (Value)arguments.get(1);
             var alternativesMaxType = firstAlternative.getResultType();
             for (int i = 2; i < arguments.size(); i++) {
-                alternativesMaxType = Type.maximumType(alternativesMaxType, arguments.get(i).getResultType());
-                SemanticException.check(alternativesMaxType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+                final var newAlternativesMaxType = Type.maximumType(alternativesMaxType, arguments.get(i).getResultType());
+                SemanticException.check(newAlternativesMaxType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+                // check above guarantees the type is non-null.
+                alternativesMaxType = Objects.requireNonNull(newAlternativesMaxType);
             }
 
             final var alternativesList = ImmutableList.<Value>builder();

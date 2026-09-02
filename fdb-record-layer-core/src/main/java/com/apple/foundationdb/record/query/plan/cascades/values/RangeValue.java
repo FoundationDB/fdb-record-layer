@@ -108,12 +108,12 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
         final long endExclusiveValue = (Long)Verify.verifyNotNull(endExclusive.eval(store, context));
         final var beginInclusiveValue = (Long)Verify.verifyNotNull(this.beginInclusive.eval(store, context));
         final var stepValue = (Long)Verify.verifyNotNull(step.eval(store, context));
-        return new Cursor(store.getExecutor(), endExclusiveValue, beginInclusiveValue, stepValue, rangeValueAsLong -> Objects.requireNonNull(currentRangeValue.replace(v -> {
+        return new Cursor(store.getExecutor(), endExclusiveValue, beginInclusiveValue, stepValue, rangeValueAsLong -> Objects.requireNonNull(Objects.requireNonNull(currentRangeValue.replace(v -> {
             if (v instanceof LiteralValue) {
                 return LiteralValue.ofScalar(rangeValueAsLong);
             }
             return v;
-        })).eval(store, context), continuation).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
+        })).eval(store, context)), continuation).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
     @Override
@@ -132,9 +132,9 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
     @Override
     public CardinalitiesProperty.Cardinalities getCardinalities() {
         try {
-            long beginLong = ((Number) beginInclusive.evalWithoutStore(EvaluationContext.EMPTY)).longValue();
-            long endLong = ((Number) endExclusive.evalWithoutStore(EvaluationContext.EMPTY)).longValue();
-            long stepLong = ((Number) step.evalWithoutStore(EvaluationContext.EMPTY)).longValue();
+            long beginLong = ((Number) Objects.requireNonNull(beginInclusive.evalWithoutStore(EvaluationContext.EMPTY))).longValue();
+            long endLong = ((Number) Objects.requireNonNull(endExclusive.evalWithoutStore(EvaluationContext.EMPTY))).longValue();
+            long stepLong = ((Number) Objects.requireNonNull(step.evalWithoutStore(EvaluationContext.EMPTY))).longValue();
 
             var cardinality = CardinalitiesProperty.Cardinality.ofCardinality(Math.floorDiv(endLong - beginLong, stepLong));
             return new CardinalitiesProperty.Cardinalities(cardinality, cardinality);
@@ -264,6 +264,8 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
 
         private final Function<Long, Object> rangeValueCreator;
 
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably narrow a @Nullable byte[] after a
+        // null check inside a ternary; `continuation` is provably non-null in the false-branch below.
         Cursor(final Executor executor, final long endExclusive, final long beginInclusive,
                 final long step, final Function<Long, Object> rangeValueCreator, @Nullable final byte[] continuation) {
             this(executor, endExclusive, step, rangeValueCreator,
@@ -381,8 +383,10 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
                     final var parsed = RecordCursorProto.RangeCursorContinuation.parseFrom(unparsedContinuationBytes);
                     return from(parsed, endExclusive, step);
                 } catch (InvalidProtocolBufferException ex) {
+                    // unparsedContinuationBytes is non-null here, so ByteArrayUtil2.loggable(...) (which only
+                    // returns null for a null input) is guaranteed to return non-null too.
                     throw new RecordCoreException("invalid continuation", ex)
-                            .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(unparsedContinuationBytes));
+                            .addLogInfo(LogMessageKeys.RAW_BYTES, Objects.requireNonNull(ByteArrayUtil2.loggable(unparsedContinuationBytes)));
                 }
             }
         }
