@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
+import com.apple.foundationdb.record.lucene.LuceneScanQueryParameters.LuceneQueryHighlightParameters;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
@@ -63,6 +64,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexExpressions.DocumentFieldDerivation;
@@ -126,8 +128,8 @@ public class LucenePlanner extends RecordQueryPlanner {
             groupingComparisons = ScanComparisons.EMPTY;
         }
 
-        LucenePlanState state = new LucenePlanState(index, groupingComparisons, filter);
-        state.documentFields = LuceneIndexExpressions.getDocumentFieldDerivations(index, metaData);
+        LucenePlanState state = new LucenePlanState(index, groupingComparisons, filter,
+                LuceneIndexExpressions.getDocumentFieldDerivations(index, metaData));
 
         QueryComponent queryComponent = state.groupingComparisons.isEmpty() ? state.filter : filterMask.getUnsatisfiedFilter();
         // Special scans like auto-complete cannot be combined with regular queries.
@@ -142,7 +144,7 @@ public class LucenePlanner extends RecordQueryPlanner {
                 return null;
             }
             getStoredFields(state);
-            LuceneScanQueryParameters.LuceneQueryHighlightParameters highlightParameters = getHighlightParameters(queryComponent);
+            LuceneQueryHighlightParameters highlightParameters = getHighlightParameters(queryComponent);
             scanParameters = new LuceneScanQueryParameters(groupingComparisons, query,
                     state.sort, state.storedFields, state.storedFieldTypes, highlightParameters);
         }
@@ -160,7 +162,8 @@ public class LucenePlanner extends RecordQueryPlanner {
                 state.repeated, false, false, null);
     }
 
-    private static LuceneScanQueryParameters.LuceneQueryHighlightParameters getHighlightParameters(QueryComponent queryComponent) {
+    @Nullable
+    private static LuceneQueryHighlightParameters getHighlightParameters(@Nullable QueryComponent queryComponent) {
         if (queryComponent instanceof LuceneQueryComponent) {
             LuceneQueryComponent luceneQueryComponent = (LuceneQueryComponent)queryComponent;
             return luceneQueryComponent.getLuceneQueryHighlightParameters();
@@ -168,7 +171,7 @@ public class LucenePlanner extends RecordQueryPlanner {
             return getHighlightParameters(((NestedField)queryComponent).getChild());
         } else if (queryComponent instanceof AndOrComponent) {
             for (QueryComponent child : ((AndOrComponent) queryComponent).getChildren()) {
-                LuceneScanQueryParameters.LuceneQueryHighlightParameters parameters = getHighlightParameters(child);
+                LuceneQueryHighlightParameters parameters = getHighlightParameters(child);
                 if (parameters != null) {
                     return parameters;
                 }
@@ -192,19 +195,21 @@ public class LucenePlanner extends RecordQueryPlanner {
         @Nullable
         PlanOrderingKey planOrderingKey;
 
-        Map<String, DocumentFieldDerivation> documentFields;
+        final Map<String, DocumentFieldDerivation> documentFields;
         boolean repeated;   // Matching a repeated field may introduce duplicates
 
-        LucenePlanState(final Index index, final ScanComparisons groupingComparisons, final QueryComponent filter) {
+        LucenePlanState(final Index index, final ScanComparisons groupingComparisons, final QueryComponent filter,
+                        final Map<String, DocumentFieldDerivation> documentFields) {
             this.index = index;
             this.groupingComparisons = groupingComparisons;
             this.filter = filter;
+            this.documentFields = documentFields;
         }
     }
 
     @Nullable
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private LuceneScanParameters getSpecialScan(LucenePlanState state, FilterSatisfiedMask filterMask, QueryComponent queryComponent) {
+    private LuceneScanParameters getSpecialScan(LucenePlanState state, FilterSatisfiedMask filterMask, @Nullable QueryComponent queryComponent) {
         QueryComponent component = queryComponent;
         final ImmutableList.Builder<String> prefixComponentsBuilder = ImmutableList.builder();
         // find the prefix of the special scan (if it exists)
@@ -236,7 +241,10 @@ public class LucenePlanner extends RecordQueryPlanner {
                         luceneQueryComponent.getQuery(), luceneQueryComponent.isQueryIsParameter());
 
         if (queryComponent != state.filter) {
-            filterMask = filterMask.getChild(queryComponent);
+            // component (derived from queryComponent above) was proven to be a LuceneQueryComponent, which is only
+            // possible if queryComponent itself is non-null (the instanceof checks above would have returned null
+            // immediately for a null queryComponent).
+            filterMask = filterMask.getChild(Objects.requireNonNull(queryComponent));
         }
         filterMask.setSatisfied(true);
         return scanParameters;
@@ -608,8 +616,10 @@ public class LucenePlanner extends RecordQueryPlanner {
                     final KeyExpression fieldExpression = fields.get(i);
                     if (recordFieldPathMatches(fieldExpression, documentField.getRecordFieldPath())) {
                         state.storedFields.set(i, documentField.getDocumentField());
-                        state.storedFieldTypes.set(i, documentField.getType());
-                        state.storedFieldExpressions.add(fieldExpression);
+                        // storedFieldTypes and storedFieldExpressions are always initialized together with
+                        // storedFields immediately above.
+                        Objects.requireNonNull(state.storedFieldTypes).set(i, documentField.getType());
+                        Objects.requireNonNull(state.storedFieldExpressions).add(fieldExpression);
                         break;
                     }
                 }

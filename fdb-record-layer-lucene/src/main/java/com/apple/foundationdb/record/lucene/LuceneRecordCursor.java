@@ -102,10 +102,14 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     @Nullable
     private RecordCursorResult<IndexEntry> nextResult;
     final IndexMaintainerState state;
+    @Nullable
     private IndexReader indexReader;
     private final Query query;
+    @Nullable
     private final Sort sort;
+    @Nullable
     private IndexSearcher searcher;
+    @Nullable
     private RecordCursor<IndexEntry> lookupResults = null;
     private int currentPosition = 0;
     private final List<KeyExpression> fields;
@@ -157,6 +161,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     /**
      * partitioning field value to search after.
      */
+    @Nullable
     private Tuple searchAfterPartitioningKey = null;
 
     /**
@@ -175,7 +180,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                        final IndexMaintainerState state,
                        Query query,
                        @Nullable Sort sort,
-                       byte[] continuation,
+                       byte @Nullable [] continuation,
                        @Nullable Tuple groupingKey,
                        @Nullable LucenePartitionInfo partitionInfo,
                        @Nullable LuceneQueryHighlightParameters luceneQueryHighlightParameters,
@@ -306,10 +311,12 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                         } catch (IOException ioException) {
                             throw LuceneExceptions.toRecordCoreException("Record Cursor failed", ioException, LogMessageKeys.QUERY, query);
                         }
-                        return lookupResults.onNext().thenCompose(this::switchToNextPartitionAndContinue);
+                        // maybePerformScan() always (re-)populates lookupResults before returning normally.
+                        return Objects.requireNonNull(lookupResults).onNext().thenCompose(this::switchToNextPartitionAndContinue);
                     }, executor).thenCompose(Function.identity());
                 }
-                return lookupResults.onNext().thenCompose(this::switchToNextPartitionAndContinue);
+                // The condition above being false implies lookupResults != null (De Morgan's on the `||`).
+                return Objects.requireNonNull(lookupResults).onNext().thenCompose(this::switchToNextPartitionAndContinue);
             });
         });
     }
@@ -322,8 +329,8 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         }
 
         // here: this is a continuation in a partitioned index, and we haven't yet "sanitized" the partition info
-        // with respect to the continuation, do that now:
-        return partitioner.getPartitionMetaInfoById(Objects.requireNonNull(partitionId), groupingKey).thenCompose(partitionInfo -> {
+        // with respect to the continuation, do that now: partitioning is enabled here, so groupingKey is present.
+        return partitioner.getPartitionMetaInfoById(Objects.requireNonNull(partitionId), Objects.requireNonNull(groupingKey)).thenCompose(partitionInfo -> {
             // the boundaries of the partition may have changed (due to re-balancing, explicit doc removal etc.)
             partitionKey = LucenePartitioner.getPartitionKey(partitionInfo);
 
@@ -339,7 +346,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                 dontResetSearchAfter = true;
 
                 // get the proper partition
-                getProperContinuationPartition = partitioner.findPartitionInfo(groupingKey, searchAfterPartitioningKey).thenCompose(properPartitionInfo -> {
+                getProperContinuationPartition = partitioner.findPartitionInfo(Objects.requireNonNull(groupingKey), searchAfterPartitioningKey).thenCompose(properPartitionInfo -> {
                     // if a "proper" partition no longer exists (e.g. there's no more records past the current continuation point in any partition),
                     // we keep the original partition info as is and let the normal "exhausted" condition be met.
                     if (properPartitionInfo != null) {
@@ -375,8 +382,8 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         final CompletableFuture<LucenePartitionInfo> nextPartitionFuture;
         if (sortedByPartitioningKey && !isReverseSort) {
             // if we're in a partitioning-field-ascending-sort query, get the next more recent partition
-            nextPartitionFuture = partitioner.getPartitionMetaInfoById(partitionId, groupingKey)
-                    .thenCompose(curPartition -> LucenePartitioner.getNextNewerPartitionInfo(state.context, groupingKey, partitioner.getPartitionKey(curPartition), state.indexSubspace));
+            nextPartitionFuture = partitioner.getPartitionMetaInfoById(Objects.requireNonNull(partitionId), Objects.requireNonNull(groupingKey))
+                    .thenCompose(curPartition -> LucenePartitioner.getNextNewerPartitionInfo(state.context, Objects.requireNonNull(groupingKey), partitioner.getPartitionKey(curPartition), state.indexSubspace));
         } else {
             // otherwise get the next older partition
             nextPartitionFuture = LucenePartitioner.getNextOlderPartitionInfo(
@@ -387,7 +394,8 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         }
 
         return nextPartitionFuture.thenCompose(nextPartition -> {
-            if (nextPartition != null && nextPartition.getId() != partitionId) {
+            // partitionKey != null (checked above) implies partitioning is active, so partitionId is also set.
+            if (nextPartition != null && nextPartition.getId() != Objects.requireNonNull(partitionId)) {
                 // reset scan params/state
                 exhausted = false;
                 this.partitionKey = partitioner.getPartitionKey(nextPartition);
@@ -404,7 +412,8 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                 }
                 try {
                     maybePerformScan();
-                    return lookupResults.onNext().thenCompose(this::switchToNextPartitionAndContinue);
+                    // maybePerformScan() always (re-)populates lookupResults before returning normally.
+                    return Objects.requireNonNull(lookupResults).onNext().thenCompose(this::switchToNextPartitionAndContinue);
                 } catch (IOException ioException) {
                     throw LuceneExceptions.toRecordCoreException(ioException.getMessage(), ioException, LogMessageKeys.QUERY, query);
                 }
@@ -468,8 +477,9 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                     } else if (exhausted) {
                         nextResult = RecordCursorResult.exhausted();
                     } else if (limitRemaining <= 0) {
+                        // exhausted is false here, so the scan matched at least `limit` docs and searchAfter was set.
                         RecordCursorContinuation continuationFromDoc = LuceneCursorContinuation.fromScoreDoc(
-                                searchAfter,
+                                Objects.requireNonNull(searchAfter),
                                 partitionId,
                                 partitionKey);
                         nextResult = RecordCursorResult.withoutNextValue(continuationFromDoc, NoNextReason.RETURN_LIMIT_REACHED);
@@ -478,8 +488,9 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                         if (stoppedReason.isEmpty()) {
                             throw new RecordCoreException("limit manager stopped LuceneRecordCursor but did not report a reason");
                         } else {
+                            // exhausted is false here, so the scan matched at least `limit` docs and searchAfter was set.
                             nextResult = RecordCursorResult.withoutNextValue(LuceneCursorContinuation.fromScoreDoc(
-                                    searchAfter,
+                                    Objects.requireNonNull(searchAfter),
                                     partitionId,
                                     partitionKey), stoppedReason.get());
                         }
@@ -519,7 +530,8 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private CompletableFuture<ScoreDocIndexEntry> buildIndexEntryFromScoreDocAsync(ScoreDoc scoreDoc) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                Document document = searcher.doc(scoreDoc.doc, storedFieldsToReturn);
+                // searchForTopDocs() always sets searcher before the results it produced are processed here.
+                Document document = Objects.requireNonNull(searcher).doc(scoreDoc.doc, storedFieldsToReturn);
                 IndexableField primaryKey = document.getField(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME);
                 BytesRef pk = primaryKey.binaryValue();
                 if (LOGGER.isTraceEnabled()) {
@@ -540,14 +552,16 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                     }
                 }
                 if (storedFields != null) {
+                    // storedFieldTypes is always supplied alongside storedFields (see constructor), same length.
+                    final List<LuceneIndexExpressions.DocumentFieldType> fieldTypes = Objects.requireNonNull(storedFieldTypes);
                     for (int i = 0; i < storedFields.size(); i++) {
-                        if (storedFieldTypes.get(i) == null) {
+                        if (fieldTypes.get(i) == null) {
                             continue;
                         }
                         Object value = null;
                         IndexableField docField = document.getField(storedFields.get(i));
                         if (docField != null) {
-                            switch (storedFieldTypes.get(i)) {
+                            switch (fieldTypes.get(i)) {
                                 case STRING:
                                     value = docField.stringValue();
                                     break;
@@ -596,9 +610,11 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     public static final class ScoreDocIndexEntry extends IndexEntry {
         private final ScoreDoc scoreDoc;
 
+        @Nullable
         private final Map<String, Set<String>> termMap;
         private final LuceneAnalyzerCombinationProvider analyzerSelector;
         private final LuceneAnalyzerCombinationProvider autoCompleteAnalyzerSelector;
+        @Nullable
         private final LuceneQueryHighlightParameters luceneQueryHighlightParameters;
         private final KeyExpression indexKey;
 
@@ -606,6 +622,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             return scoreDoc;
         }
 
+        @Nullable
         public Map<String, Set<String>> getTermMap() {
             return termMap;
         }
@@ -618,6 +635,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             return autoCompleteAnalyzerSelector;
         }
 
+        @Nullable
         public LuceneQueryHighlightParameters getLuceneQueryHighlightParameters() {
             return luceneQueryHighlightParameters;
         }

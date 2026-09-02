@@ -27,6 +27,7 @@ import com.google.common.base.Suppliers;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -82,7 +83,8 @@ public class LazyOpener<T> {
         } catch (ExecutionException e) {
             final Throwable outerCause = e.getCause();
             if (outerCause instanceof UncheckedIOException) {
-                final IOException innerCause = ((UncheckedIOException)outerCause).getCause();
+                // UncheckedIOException's constructors require a non-null IOException cause, so this is safe.
+                final IOException innerCause = Objects.requireNonNull(((UncheckedIOException)outerCause).getCause());
                 innerCause.addSuppressed(e);
                 throw innerCause;
             } else {

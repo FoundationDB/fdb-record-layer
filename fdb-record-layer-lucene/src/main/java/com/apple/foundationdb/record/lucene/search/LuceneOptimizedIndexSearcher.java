@@ -41,11 +41,13 @@ import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.ThreadInterruptedException;
 
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -66,7 +68,7 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
         super(r);
     }
 
-    public LuceneOptimizedIndexSearcher(final IndexReader r, final Executor executor) {
+    public LuceneOptimizedIndexSearcher(final IndexReader r, @Nullable final Executor executor) {
         super(r, executor);
     }
 
@@ -220,7 +222,8 @@ public class LuceneOptimizedIndexSearcher extends IndexSearcher {
             dependencies.stream().map(CompletableFuture::join).collect(Collectors.toList())
                     .forEach((Pair<LeafReaderContext, Pair<LeafCollector, BulkScorer>> result) -> {
                         final Pair<LeafCollector, BulkScorer> scorer = result.getRight();
-                        final LeafReaderContext ctx = result.getLeft();
+                        // Always constructed with a non-null ctx as the pair's left element (see the map() above).
+                        final LeafReaderContext ctx = Objects.requireNonNull(result.getLeft());
                         if (scorer != null && scorer.getLeft() != null && scorer.getRight() != null) {
                             try {
                                 scorer.getRight().score(scorer.getLeft(), ctx.reader().getLiveDocs());

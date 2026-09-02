@@ -45,6 +45,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -66,7 +67,7 @@ public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
     @Nullable
     private final FDBStoreTimer timer;
 
-    private IndexReader indexReader;
+    private @Nullable IndexReader indexReader;
 
     @Nullable
     private List<IndexEntry> spellcheckSuggestions = null;
@@ -92,7 +93,7 @@ public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
         this.state = state;
         this.limit = Math.min(
                 scanProperties.getExecuteProperties().getReturnedRowLimitOrMax(),
-                state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_SPELLCHECK_SEARCH_UPPER_LIMIT));
+                Objects.requireNonNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_SPELLCHECK_SEARCH_UPPER_LIMIT)));
         this.groupingKey = groupingKey;
         this.partitionId = partitionId;
         this.spellchecker = new DirectSpellChecker();
@@ -110,16 +111,19 @@ public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
                     throw LuceneExceptions.toRecordCoreException("Spellcheck suggestions lookup failure", e);
                 }
             }
-            return currentPosition < spellcheckSuggestions.size() ? spellcheckSuggestions.get(currentPosition) : null;
+            // spellcheck() always populates spellcheckSuggestions before returning normally.
+            final List<IndexEntry> suggestions = Objects.requireNonNull(spellcheckSuggestions);
+            return currentPosition < suggestions.size() ? suggestions.get(currentPosition) : null;
         }, executor);
         return spellcheckResult.thenApply(r -> {
             if (r == null) {
                 return RecordCursorResult.exhausted();
             } else {
+                final List<IndexEntry> suggestions = Objects.requireNonNull(spellcheckSuggestions);
                 if (LOGGER.isTraceEnabled()) {
-                    LOGGER.trace("Suggestion read as an index entry={}", spellcheckSuggestions.get(currentPosition));
+                    LOGGER.trace("Suggestion read as an index entry={}", suggestions.get(currentPosition));
                 }
-                return RecordCursorResult.withNextValue(r, continuationHelper(spellcheckSuggestions.get(currentPosition++)));
+                return RecordCursorResult.withNextValue(r, continuationHelper(suggestions.get(currentPosition++)));
             }
         });
     }

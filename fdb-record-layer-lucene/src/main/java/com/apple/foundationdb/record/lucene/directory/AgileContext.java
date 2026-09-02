@@ -32,6 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.jspecify.annotations.Nullable;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.StampedLock;
 import java.util.function.Consumer;
@@ -49,6 +50,7 @@ public class AgileContext implements AgilityContext {
     private final FDBDatabase database;
     private final FDBRecordContext callerContext; // for counters updates only
 
+    @Nullable
     private FDBRecordContext currentContext;
     private long creationTime;
     private int currentWriteSize;
@@ -67,7 +69,9 @@ public class AgileContext implements AgilityContext {
     private boolean committingNow = false;
     private long prevCommitCheckTime;
     private boolean closed = false;
+    @Nullable
     private Function<FDBRecordContext, CompletableFuture<Void>> commitCheck;
+    @Nullable
     private Throwable lastException = null;
 
     @SuppressWarnings("this-escape")
@@ -214,7 +218,7 @@ public class AgileContext implements AgilityContext {
                 lock.unlock(stamp);
             }
         }
-        return function.apply(currentContext).whenComplete((result, exception) -> {
+        return function.apply(Objects.requireNonNull(currentContext)).whenComplete((result, exception) -> {
             lock.unlock(stamp);
             if (exception == null) {
                 commitIfNeeded();
@@ -255,7 +259,7 @@ public class AgileContext implements AgilityContext {
         final long stamp = lock.readLock();
         try {
             createIfNeeded();
-            function.accept(currentContext);
+            function.accept(Objects.requireNonNull(currentContext));
         } finally {
             lock.unlock(stamp);
         }

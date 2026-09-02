@@ -59,6 +59,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -198,7 +199,7 @@ public class PendingWriteQueue {
     public RecordCursor<QueueEntry> getQueueCursor(
             FDBRecordContext context,
             ScanProperties scanProperties,
-            @Nullable byte[] continuation) {
+            byte @Nullable [] continuation) {
         // Force snapshot isolation on the inner cursor (the only component that issues FDB reads) so the drain
         // never installs a read-conflict range over the queue subspace. The unsplitter still receives the
         // original scanProperties, so the caller's row/byte/skip limits are honored (it issues no reads itself,
@@ -308,7 +309,8 @@ public class PendingWriteQueue {
         // There is no need to replay with a continuation as all the replayed items need to make it into the
         // current writer in the given transaction to be queried
         return getQueueCursor(context, scanProperties, null).forEachResult(entry -> {
-            replayOperation(entry.get(), indexWriter, index);
+            // forEachResult only invokes this for results where hasNext() is true, so get() is non-null.
+            replayOperation(Objects.requireNonNull(entry.get()), indexWriter, index);
         }).thenAccept(lastResult -> {
             if (lastResult.getNoNextReason().equals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED)) {
                 // Reached the row limit
@@ -385,7 +387,8 @@ public class PendingWriteQueue {
                          ? Tuple.from(incarnation, recordVersion.toVersionstamp())
                          : Tuple.from(recordVersion.toVersionstamp());
         long startTime = System.nanoTime();
-        byte[] value = serializer.encode(builder.build().toByteArray());
+        // serializer.encode() only returns null when given null input; the encoded bytes are non-null here.
+        byte[] value = Objects.requireNonNull(serializer.encode(builder.build().toByteArray()));
         context.record(LuceneEvents.Waits.WAIT_LUCENE_SERIALIZE, System.nanoTime() - startTime);
         // save with splits
         SplitHelper.saveWithSplit(context, queueSubspace, keyTuple, value, null, true, false, false, null, null);
@@ -464,6 +467,7 @@ public class PendingWriteQueue {
         return ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN).putLong(count).array();
     }
 
+    @Nullable
     private Long decodeQueueSize(@Nullable byte[] bytes) {
         return bytes == null ? null : ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).getLong();
     }

@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex.DocumentIndexEntry;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.lucene.idformat.LuceneIndexKeySerializer;
 import com.apple.foundationdb.record.lucene.idformat.RecordCoreFormatException;
@@ -69,7 +70,7 @@ public final class LuceneIndexMaintainerHelper {
                                      FDBDirectoryManager directoryManager,
                                      Index index,
                                      Tuple groupingKey,
-                                     Integer partitionId,
+                                     @Nullable Integer partitionId,
                                      Tuple primaryKey,
                                      boolean isWriteOnlyMode) throws IOException {
         final long startTime = System.nanoTime();
@@ -77,7 +78,7 @@ public final class LuceneIndexMaintainerHelper {
         @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = directoryManager.getDirectory(groupingKey, partitionId).getPrimaryKeySegmentIndex();
 
         if (segmentIndex != null) {
-            final LucenePrimaryKeySegmentIndex.DocumentIndexEntry documentIndexEntry = getDocumentIndexEntryWithRetry(directoryManager, segmentIndex, groupingKey, partitionId, primaryKey);
+            final DocumentIndexEntry documentIndexEntry = getDocumentIndexEntryWithRetry(directoryManager, segmentIndex, groupingKey, partitionId, primaryKey);
             if (documentIndexEntry != null) {
                 context.ensureActive().clear(documentIndexEntry.entryKey); // TODO: Only if valid?
                 long valid = indexWriter.tryDeleteDocument(documentIndexEntry.indexReader, documentIndexEntry.docId);
@@ -158,9 +159,10 @@ public final class LuceneIndexMaintainerHelper {
      * @throws IOException in case of error
      */
     @SuppressWarnings("PMD.CloseResource")
-    private static LucenePrimaryKeySegmentIndex.DocumentIndexEntry getDocumentIndexEntryWithRetry(FDBDirectoryManager directoryManager, LucenePrimaryKeySegmentIndex segmentIndex, final Tuple groupingKey, final Integer partitionId, final Tuple primaryKey) throws IOException {
+    @Nullable
+    private static DocumentIndexEntry getDocumentIndexEntryWithRetry(FDBDirectoryManager directoryManager, LucenePrimaryKeySegmentIndex segmentIndex, final Tuple groupingKey, @Nullable final Integer partitionId, final Tuple primaryKey) throws IOException {
         DirectoryReader directoryReader = directoryManager.getWriterReader(groupingKey, partitionId, false);
-        LucenePrimaryKeySegmentIndex.DocumentIndexEntry documentIndexEntry = segmentIndex.findDocument(directoryReader, primaryKey);
+        DocumentIndexEntry documentIndexEntry = segmentIndex.findDocument(directoryReader, primaryKey);
         if (documentIndexEntry != null) {
             return documentIndexEntry;
         } else {
@@ -240,19 +242,22 @@ public final class LuceneIndexMaintainerHelper {
                 storedField = null;
                 break;
             case INT:
-                luceneField = new IntPoint(fieldName, (Integer)value);
-                sortedField = field.isSorted() ? new NumericDocValuesField(fieldName, (Integer)value) : null;
-                storedField = field.isStored() ? new StoredField(fieldName, (Integer)value) : null;
+                final Integer intValue = Objects.requireNonNull((Integer)value, "INT field value must not be null");
+                luceneField = new IntPoint(fieldName, intValue);
+                sortedField = field.isSorted() ? new NumericDocValuesField(fieldName, intValue) : null;
+                storedField = field.isStored() ? new StoredField(fieldName, intValue) : null;
                 break;
             case LONG:
-                luceneField = new LongPoint(fieldName, (Long)value);
-                sortedField = field.isSorted() ? new NumericDocValuesField(fieldName, (Long)value) : null;
-                storedField = field.isStored() ? new StoredField(fieldName, (Long)value) : null;
+                final Long longValue = Objects.requireNonNull((Long)value, "LONG field value must not be null");
+                luceneField = new LongPoint(fieldName, longValue);
+                sortedField = field.isSorted() ? new NumericDocValuesField(fieldName, longValue) : null;
+                storedField = field.isStored() ? new StoredField(fieldName, longValue) : null;
                 break;
             case DOUBLE:
-                luceneField = new DoublePoint(fieldName, (Double)value);
-                sortedField = field.isSorted() ? new NumericDocValuesField(fieldName, NumericUtils.doubleToSortableLong((Double)value)) : null;
-                storedField = field.isStored() ? new StoredField(fieldName, (Double)value) : null;
+                final Double doubleValue = Objects.requireNonNull((Double)value, "DOUBLE field value must not be null");
+                luceneField = new DoublePoint(fieldName, doubleValue);
+                sortedField = field.isSorted() ? new NumericDocValuesField(fieldName, NumericUtils.doubleToSortableLong(doubleValue)) : null;
+                storedField = field.isStored() ? new StoredField(fieldName, doubleValue) : null;
                 break;
             case BOOLEAN:
                 byte[] bytes = Boolean.TRUE.equals(value) ? BooleanPointsConfig.TRUE_BYTES : BooleanPointsConfig.FALSE_BYTES;

@@ -101,8 +101,7 @@ public class FDBDirectorySharedCache {
      * @param blockNumber block number in the file
      * @return the cached block or {@code null} if not cached
      */
-    @Nullable
-    public byte[] getBlockIfPresent(long id, int blockNumber) {
+    public byte @Nullable [] getBlockIfPresent(long id, int blockNumber) {
         return blocks.getIfPresent(Pair.of(id, blockNumber));
     }
 
@@ -116,10 +115,11 @@ public class FDBDirectorySharedCache {
         blocks.asMap().putIfAbsent(Pair.of(id, blockNumber), block);
     }
 
-    public void setFieldInfosReferenceCount(final ConcurrentMap<Long, AtomicInteger> fieldInfosReferenceCount) {
+    public void setFieldInfosReferenceCount(@Nullable final ConcurrentMap<Long, AtomicInteger> fieldInfosReferenceCount) {
         this.fieldInfosReferenceCount.compareAndSet(null, fieldInfosReferenceCount);
     }
 
+    @Nullable
     public ConcurrentMap<Long, AtomicInteger> getFieldInfosReferenceCount() {
         return this.fieldInfosReferenceCount.get();
     }

@@ -202,7 +202,7 @@ public class LuceneIndexKeySerializer {
                 result.addAll(applyFormat((RecordIdFormat.TupleElement)formatElement, verifyTuple(keyElement)));
             } else if (formatElement instanceof RecordIdFormat.FormatElementType) {
                 // Recursion termination condition
-                byte[] byteArray = applyFormat((RecordIdFormat.FormatElementType)formatElement, keyElement);
+                @Nullable byte[] byteArray = applyFormat((RecordIdFormat.FormatElementType)formatElement, keyElement);
                 // Skip if null (e.g. NONE element)
                 if (byteArray != null) {
                     result.add(byteArray);
