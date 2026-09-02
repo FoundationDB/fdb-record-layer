@@ -65,13 +65,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 
 /**
  * A query plan that reconstructs records from the entries in a covering index.
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryCoveringIndexPlan extends AbstractRelationalExpressionWithoutChildren implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithMatchCandidate {
+public class RecordQueryCoveringIndexPlan extends AbstractRelationalExpressionWithoutChildren implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithMatchCandidate, RecordQueryPlanWithIndexEntryToQueriedRecord {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Covering-Index-Plan");
 
     @Nonnull
@@ -112,16 +111,22 @@ public class RecordQueryCoveringIndexPlan extends AbstractRelationalExpressionWi
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         return indexPlan
                 .executeEntries(store, context, continuation, executeProperties)
-                .map(indexEntryToQueriedRecord(store))
+                .map(indexEntry -> indexEntryToQueriedRecord(store, context, indexEntry))
                 .map(queriedRecord -> QueryResult.fromQueriedRecord(getResultValue().getResultType(), context, queriedRecord));
     }
 
     @Nonnull
-    @API(API.Status.INTERNAL)
-    public <M extends Message> Function<IndexEntry, FDBQueriedRecord<M>> indexEntryToQueriedRecord(final @Nonnull FDBRecordStoreBase<M> store) {
-        final IndexScanType scanType = getScanType();
-        boolean hasPrimaryKey = !scanType.equals(IndexScanType.BY_GROUP);
-        return QueryPlanUtils.getCoveringIndexEntryToPartialRecordFunction(store, recordTypeName, getIndexName(), toRecord, hasPrimaryKey);
+    @Override
+    public <M extends Message> FDBQueriedRecord<M> indexEntryToQueriedRecord(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                            @Nonnull final EvaluationContext context,
+                                                                            @Nonnull final IndexEntry indexEntry) {
+        final var metaData = store.getRecordMetaData();
+        return RecordQueryPlanWithIndexEntryToQueriedRecord.intoStoredRecordShape(store,
+                metaData.getIndex(getIndexName()),
+                metaData.getQueryableRecordType(recordTypeName),
+                toRecord,
+                !getScanType().equals(IndexScanType.BY_GROUP),
+                indexEntry);
     }
 
     @Nonnull
