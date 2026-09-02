@@ -122,7 +122,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    public RecordCursor<IndexEntry> scan(final IndexScanType scanType, final TupleRange range, @Nullable final byte[] continuation, final ScanProperties scanProperties) {
+    public RecordCursor<IndexEntry> scan(final IndexScanType scanType, final TupleRange range, final byte @Nullable [] continuation, final ScanProperties scanProperties) {
         throw new RecordCoreException("unsupported scan type for Lucene index: " + scanType);
     }
 
@@ -136,7 +136,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
      */
     @Override
     @SuppressWarnings("PMD.CloseResource")
-    public RecordCursor<IndexEntry> scan(final IndexScanBounds scanBounds, @Nullable final byte[] continuation, final ScanProperties scanProperties) {
+    public RecordCursor<IndexEntry> scan(final IndexScanBounds scanBounds, final byte @Nullable [] continuation, final ScanProperties scanProperties) {
         final IndexScanType scanType = scanBounds.getScanType();
         LOG.trace("scan scanType={}", scanType);
 
@@ -152,7 +152,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
             return new LuceneRecordCursor(executor, state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_EXECUTOR_SERVICE),
                     partitioner,
-                    state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_CURSOR_PAGE_SIZE),
+                    Objects.requireNonNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_CURSOR_PAGE_SIZE)),
                     scanProperties, state, scanQuery.getQuery(), scanQuery.getSort(), continuation,
                     scanQuery.getGroupKey(), partitionInfo, scanQuery.getLuceneQueryHighlightParameters(), scanQuery.getTermMap(),
                     scanQuery.getStoredFields(), scanQuery.getStoredFieldTypes(), directoryManager.getAnalyzerSelector(), autoCompleteAnalyzerSelector);
@@ -182,7 +182,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         }
     }
 
-    <M extends Message> void writeDocumentBypassQueue(final FDBIndexableRecord<M> newRecord, final Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry, final Integer partitionId) {
+    <M extends Message> void writeDocumentBypassQueue(final FDBIndexableRecord<M> newRecord, final Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry, @Nullable final Integer partitionId) {
         try {
             writeDocumentBypassQueue(entry.getKey(), partitionId, newRecord.getPrimaryKey(), entry.getValue());
         } catch (IOException e) {
@@ -191,7 +191,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     public void writeDocumentBypassQueue(Tuple groupingKey,
-                                         Integer partitionId,
+                                         @Nullable Integer partitionId,
                                          Tuple primaryKey,
                                          List<LuceneDocumentFromRecord.DocumentField> fields) throws IOException {
         final long startTime = System.nanoTime();
@@ -302,7 +302,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 () -> runner.runAsync(
                         context -> context.instrument(LuceneEvents.Events.LUCENE_REBALANCE_PARTITION_TRANSACTION,
                                 storeBuilder.setContext(context).openAsync().thenCompose(store ->
-                                        getPartitioner(state.index, store).rebalancePartitions(continuation.get(), repartitionDocumentCount, repartitioningLogMessages)
+                                        getPartitioner(state.index, store).rebalancePartitions(Objects.requireNonNull(continuation.get()), repartitionDocumentCount, repartitioningLogMessages)
                                                 .thenApply(newContinuation -> {
                                                     if (newContinuation.isEnd() || maxIterations.decrementAndGet() == 0) {
                                                         mergeControl.setRepartitionCapped(!newContinuation.isEnd());
@@ -353,7 +353,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 .thenCompose(ignored ->
                     // update new
                     AsyncUtil.whenAll(newRecordFields.entrySet().stream()
-                        .map(entry -> updateRecord(newRecord, destinationPartitionIdHint, entry))
+                        .map(entry -> updateRecord(Objects.requireNonNull(newRecord), destinationPartitionIdHint, entry))
                         .collect(Collectors.toList())));
     }
 
@@ -365,7 +365,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
      */
     private <M extends Message> CompletableFuture<Void> updateRecord(
             final FDBIndexableRecord<M> newRecord,
-            final Integer destinationPartitionIdHint,
+            @Nullable final Integer destinationPartitionIdHint,
             final Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry) {
         return tryDeleteInWriteOnlyMode(Objects.requireNonNull(newRecord), entry.getKey()).thenCompose(countDeleted ->
                 partitioner.addToAndSavePartitionMetadata(newRecord, entry.getKey(), destinationPartitionIdHint)
@@ -373,7 +373,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Nullable
-    public <M extends Message> FDBIndexableRecord<M> maybeFilterRecord(FDBIndexableRecord<M> rec) {
+    public <M extends Message> FDBIndexableRecord<M> maybeFilterRecord(@Nullable FDBIndexableRecord<M> rec) {
         if (rec != null) {
             final IndexMaintenanceFilter.IndexValues filterType = IndexMaintenanceUtils.getFilterTypeForRecord(state, rec);
             if (filterType == IndexMaintenanceFilter.IndexValues.NONE) {
@@ -451,7 +451,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    public RecordCursor<InvalidIndexEntry> validateEntries(@Nullable byte[] continuation, @Nullable ScanProperties scanProperties) {
+    public RecordCursor<InvalidIndexEntry> validateEntries(byte @Nullable [] continuation, @Nullable ScanProperties scanProperties) {
         LOG.trace("validateEntries");
         return RecordCursor.empty(executor);
     }
@@ -563,7 +563,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
 
     @SuppressWarnings("PMD.CloseResource") // the indexReader and directory are closed by the directoryManager
-    private CompletableFuture<LuceneMetadataInfo.LuceneInfo> getLuceneInfo(final Tuple groupingKey, final Integer partitionId) {
+    private CompletableFuture<LuceneMetadataInfo.LuceneInfo> getLuceneInfo(final Tuple groupingKey, @Nullable final Integer partitionId) {
         try {
             try (IndexReader indexReader = directoryManager.getIndexReader(groupingKey, partitionId)) {
                 final FDBDirectory directory = getDirectory(groupingKey, partitionId);
@@ -613,7 +613,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    private boolean shouldUseQueue(Tuple groupingKey, Integer partitionId) {
+    private boolean shouldUseQueue(Tuple groupingKey, @Nullable Integer partitionId) {
         FDBDirectory directory = directoryManager.getDirectory(groupingKey, partitionId);
         return directory.shouldUseQueue();
     }

@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 
 import org.jspecify.annotations.Nullable;
 import java.time.Duration;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -62,12 +63,13 @@ public class LuceneConcurrency {
     @Nullable
     @API(API.Status.INTERNAL)
     public static <T> T asyncToSync(StoreTimer.Wait event, CompletableFuture<T> async, FDBRecordContext recordContext) {
-        if (recordContext.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_USE_LEGACY_ASYNC_TO_SYNC)) {
+        if (Objects.requireNonNull(recordContext.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_USE_LEGACY_ASYNC_TO_SYNC))) {
             return recordContext.asyncToSync(event, async);
         }
 
         if (recordContext.hasHookForAsyncToSync() && !MoreAsyncUtil.isCompletedNormally(async)) {
-            recordContext.getHookForAsyncToSync().accept(event);
+            // hasHookForAsyncToSync() returning true means the hook field is non-null.
+            Objects.requireNonNull(recordContext.getHookForAsyncToSync()).accept(event);
         }
 
         recordContext.getDatabase().checkIfBlockingInFuture(async);
@@ -94,11 +96,11 @@ public class LuceneConcurrency {
             } catch (TimeoutException ex) {
                 if (timer != null) {
                     timer.recordTimeout(event, startTime);
-                    throw new AsyncToSyncTimeoutException(ex.getMessage(), ex,
+                    throw new AsyncToSyncTimeoutException(Objects.requireNonNullElse(ex.getMessage(), "asyncToSync timed out"), ex,
                             LogMessageKeys.TIME_LIMIT.toString(), asyncToSyncTimeout.toNanos(),
                             LogMessageKeys.TIME_UNIT.toString(), TimeUnit.NANOSECONDS);
                 }
-                throw new AsyncToSyncTimeoutException(ex.getMessage(), ex);
+                throw new AsyncToSyncTimeoutException(Objects.requireNonNullElse(ex.getMessage(), "asyncToSync timed out"), ex);
             } catch (ExecutionException ex) {
                 throw FDBExceptions.wrapException(ex);
             } catch (InterruptedException ex) {

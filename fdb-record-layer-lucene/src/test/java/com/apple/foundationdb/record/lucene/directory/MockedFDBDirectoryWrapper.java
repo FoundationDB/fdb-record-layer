@@ -49,8 +49,8 @@ public class MockedFDBDirectoryWrapper extends FDBDirectoryWrapper {
 
     @Override
     protected FDBDirectory createFDBDirectory(final Subspace subspace, final Map<String, String> options,
-                                              final FDBDirectorySharedCacheManager sharedCacheManager,
-                                              final Tuple sharedCacheKey, final boolean useCompoundFile,
+                                              @Nullable final FDBDirectorySharedCacheManager sharedCacheManager,
+                                              @Nullable final Tuple sharedCacheKey, final boolean useCompoundFile,
                                               final AgilityContext agilityContext,
                                               final @Nullable LockFactory lockFactory,
                                               final int blockCacheMaximumSize) {

@@ -81,6 +81,9 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
     public FieldInfos read(final Directory directory, final String fileName) throws IOException {
         final FieldInfosStorage fieldInfosStorage = FDBDirectoryUtils.getFDBDirectory(directory).getFieldInfosStorage();
         final FDBLuceneFileReference fileReference = fieldInfosStorage.getFDBLuceneFileReference(fileName);
+        if (fileReference == null) {
+            throw new RecordCoreException("Reference not found").addLogInfo(LuceneLogMessageKeys.FILE_NAME, fileName);
+        }
         long id = fileReference.getFieldInfosId();
         final ByteString bitSetBytes = fileReference.getFieldInfosBitSet();
         if (bitSetBytes.isEmpty()) {
@@ -90,6 +93,9 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
         // There may be other fields in the protobuf that are not used in this segment
         BitSet bitSet = BitSet.valueOf(bitSetBytes.toByteArray());
         final LuceneFieldInfosProto.FieldInfos protobuf = fieldInfosStorage.readFieldInfos(id);
+        if (protobuf == null) {
+            throw new RecordCoreException("Field infos not found").addLogInfo(LuceneLogMessageKeys.FILE_NAME, fileName);
+        }
         List<FieldInfo> fieldInfos = new ArrayList<>();
         for (final LuceneFieldInfosProto.FieldInfo fieldInfo : protobuf.getFieldInfoList()) {
             if (bitSet.get(fieldInfo.getNumber())) {

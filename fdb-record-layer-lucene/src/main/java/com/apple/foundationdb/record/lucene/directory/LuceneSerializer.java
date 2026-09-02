@@ -40,6 +40,7 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.util.Objects;
 
 /**
  * Serialize a Lucene directory block to/from an FDB key-value byte array.
@@ -84,11 +85,14 @@ public class LuceneSerializer {
         return keyManager;
     }
 
-    @Nullable
-    public byte[] encode(@Nullable byte[] data) {
+    public byte @Nullable [] encode(@Nullable byte[] data) {
         if (data == null) {
             return null;
         }
+        // NullAway's array-type checking doesn't reliably narrow a @Nullable array parameter to non-null via a
+        // preceding null check when the value is later passed to another non-null byte[] parameter. data is
+        // definitely non-null here (checked above); Objects.requireNonNull is just used as a type-narrowing no-op.
+        final byte[] nonNullData = Objects.requireNonNull(data);
 
         final CompressedAndEncryptedSerializerState state = new CompressedAndEncryptedSerializerState();
         long prefix = 0;
@@ -112,7 +116,7 @@ public class LuceneSerializer {
             // Placeholder for the code byte at beginning, will be modified in output byte array if needed
             decodedDataOutput.writeVLong(prefix);
             final int prefixLength = (int)decodedDataOutput.size();
-            encoded = compressIfNeeded(state, decodedDataOutput, data, prefixLength);
+            encoded = compressIfNeeded(state, decodedDataOutput, nonNullData, prefixLength);
             encoded = encryptIfNeeded(state, encoded, prefixLength);
         } catch (IOException | GeneralSecurityException ex) {
             throw new RecordCoreException("Lucene data encoding failure", ex);
@@ -124,15 +128,14 @@ public class LuceneSerializer {
                     LuceneLogMessageKeys.ENCRYPTION_SUPPOSED, encryptionEnabled,
                     LuceneLogMessageKeys.COMPRESSED_EVENTUALLY, state.isCompressed(),
                     LuceneLogMessageKeys.ENCRYPTED_EVENTUALLY, state.isEncrypted(),
-                    LuceneLogMessageKeys.ORIGINAL_DATA_SIZE, data.length,
+                    LuceneLogMessageKeys.ORIGINAL_DATA_SIZE, nonNullData.length,
                     LuceneLogMessageKeys.ENCODED_DATA_SIZE, encoded.length));
         }
 
         return encoded;
     }
 
-    @Nullable
-    public byte[] decode(@Nullable byte[] data) {
+    public byte @Nullable [] decode(@Nullable byte[] data) {
         if (data == null) {
             return null;
         }
@@ -230,6 +233,10 @@ public class LuceneSerializer {
             return encoded;
         }
 
+        if (keyManager == null) {
+            throw new RecordCoreException("cannot encrypt Lucene blocks without keys");
+        }
+
         final byte[] encrypted;
         final byte[] ivData = new byte[CipherPool.IV_SIZE];
         keyManager.getRandom(state.getKeyNumber()).nextBytes(ivData);
@@ -276,25 +283,31 @@ public class LuceneSerializer {
         encodedDataInput.reset(decrypted);
     }
 
-    @Nullable
-    public byte[] encodeFieldProtobuf(@Nullable byte[] bytes) {
+    public byte @Nullable [] encodeFieldProtobuf(@Nullable byte[] bytes) {
         if (fieldProtobufPrefixEnabled) {
             return encode(bytes);
         } else {
-            return bytes;
+            // NullAway's array-type checking treats the @Nullable byte[] parameter and the byte @Nullable[] return
+            // type as mismatched "type parameter" nullability even though they mean the same thing; both are
+            // genuinely nullable here (bytes is returned unchanged).
+            @SuppressWarnings("NullAway")
+            final byte @Nullable [] result = bytes;
+            return result;
         }
     }
 
-    @Nullable
-    public byte[] decodeFieldProtobuf(@Nullable byte[] bytes) {
+    public byte @Nullable [] decodeFieldProtobuf(@Nullable byte[] bytes) {
         if (bytes == null) {
             return null;
         }
+        // See encode()'s comment: data is definitely non-null here (checked above); Objects.requireNonNull is
+        // just used as a type-narrowing no-op to work around NullAway's unreliable array-type flow narrowing.
+        final byte[] nonNullBytes = Objects.requireNonNull(bytes);
 
-        if (isProtobufMessageWithoutPrefix(bytes)) {
-            return bytes;
+        if (isProtobufMessageWithoutPrefix(nonNullBytes)) {
+            return nonNullBytes;
         }
-        return decode(bytes);
+        return decode(nonNullBytes);
     }
 
     // This can be removed once it is guaranteed that all indexes are using the encoded format.

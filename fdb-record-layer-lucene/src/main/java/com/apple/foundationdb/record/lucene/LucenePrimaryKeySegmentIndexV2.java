@@ -67,7 +67,8 @@ public class LucenePrimaryKeySegmentIndexV2 implements LucenePrimaryKeySegmentIn
     public List<List<Object>> readAllEntries() {
         AtomicReference<List<List<Object>>> list = new AtomicReference<>();
         directory.getAgilityContext().accept(aContext -> readAllEntries(aContext, list));
-        return list.get();
+        // The accept() call above runs synchronously, and readAllEntries() always populates list before returning.
+        return Objects.requireNonNull(list.get());
     }
 
     private void readAllEntries(FDBRecordContext aContext, AtomicReference<List<List<Object>>> list) {
@@ -77,7 +78,7 @@ public class LucenePrimaryKeySegmentIndexV2 implements LucenePrimaryKeySegmentIn
                 .setScanProperties(ScanProperties.FORWARD_SCAN)
                 .build();
                  RecordCursor<Tuple> entries = kvs.map(kv -> subspace.unpack(kv.getKey()))) {
-            tuples = LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY, entries.asList(), aContext);
+            tuples = Objects.requireNonNull(LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY, entries.asList(), aContext));
         }
         list.set(tuples.stream().map(t -> {
             List<Object> items = t.getItems();
@@ -95,7 +96,7 @@ public class LucenePrimaryKeySegmentIndexV2 implements LucenePrimaryKeySegmentIn
     @SuppressWarnings("PMD.CloseResource")
     public List<String> findSegments(Tuple primaryKey) throws IOException {
         try {
-            return directory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY,
+            return Objects.requireNonNull(directory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY,
                     directory.getAgilityContext().apply(context -> {
                         final Subspace keySubspace = subspace.subspace(primaryKey);
                         final KeyValueCursor kvs = KeyValueCursor.Builder.newBuilder(keySubspace)
@@ -112,7 +113,7 @@ public class LucenePrimaryKeySegmentIndexV2 implements LucenePrimaryKeySegmentIn
                                 return "#" + segid;
                             }
                         }).asList().whenComplete((result, err) -> kvs.close());
-                    }));
+                    })));
         } catch (RecordCoreException ex) {
             throw LuceneExceptions.toIoException(ex, null);
         }
@@ -155,8 +156,8 @@ public class LucenePrimaryKeySegmentIndexV2 implements LucenePrimaryKeySegmentIn
                     }
                     return null;
                 }).filter(Objects::nonNull)) {
-            doc.set(directory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY,
-                    documents.first()).orElse(null));
+            doc.set(Objects.requireNonNull(directory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY,
+                    documents.first())).orElse(null));
         }
     }
 

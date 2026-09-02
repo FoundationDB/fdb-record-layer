@@ -72,6 +72,7 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
     final LuceneQueryHighlightParameters luceneQueryHighlightParameters;
 
     @SpotBugsSuppressWarnings("NP_STORE_INTO_NONNULL_FIELD") // TODO remove this once we have a proper implementation
+    @SuppressWarnings("NullAway") // same as above: intentionally storing null into the non-null query field for now.
     protected LuceneScanQueryParameters(final PlanSerializationContext serializationContext,
                                         final PLuceneScanQueryParameters luceneScanQueryParametersProto) {
         super(serializationContext, Objects.requireNonNull(luceneScanQueryParametersProto.getSuper()));
@@ -158,11 +159,13 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
         }
         if (storedFields != null) {
             StringBuilder stored = new StringBuilder();
+            // storedFieldTypes is always supplied alongside storedFields (see constructor), same length.
+            final List<LuceneIndexExpressions.DocumentFieldType> fieldTypes = Objects.requireNonNull(storedFieldTypes);
             for (int i = 0; i < storedFields.size(); i++) {
                 if (i > 0) {
                     stored.append(", ");
                 }
-                stored.append(storedFields.get(i) + ":" + storedFieldTypes.get(i));
+                stored.append(storedFields.get(i) + ":" + fieldTypes.get(i));
             }
             detailsBuilder.add("stored: {{stored}}");
             attributeMapBuilder.put("stored", Attribute.gml(stored.toString()));
@@ -191,7 +194,7 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
         if (this == other) {
             return true;
         }
-        if (!super.equals(other)) {
+        if (other == null || !super.equals(other)) {
             return false;
         }
 
@@ -256,6 +259,7 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
 
         //the maximum number of times the query will be matched during summarization
         private final int maxMatchCount;
+        @Nullable
         private Query query;
 
         /**
@@ -270,12 +274,13 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
             this(snippetSize, maxMatchCount, null);
         }
 
-        public LuceneQueryHighlightParameters(int snippetSize, int maxMatchCount, Query theQuery) {
+        public LuceneQueryHighlightParameters(int snippetSize, int maxMatchCount, @Nullable Query theQuery) {
             this.snippedSize = snippetSize;
             this.maxMatchCount = maxMatchCount;
             this.query = theQuery;
         }
 
+        @Nullable
         public Query getQuery() {
             return query;
         }

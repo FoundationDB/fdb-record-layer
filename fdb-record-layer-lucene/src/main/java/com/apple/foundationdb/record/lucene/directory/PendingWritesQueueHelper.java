@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @API(API.Status.INTERNAL)
 public final class PendingWritesQueueHelper {
@@ -73,16 +74,16 @@ public final class PendingWritesQueueHelper {
                 builder.setStringValue((String)value);
                 break;
             case INT:
-                builder.setIntValue((Integer)value);
+                builder.setIntValue(Objects.requireNonNull((Integer)value));
                 break;
             case LONG:
-                builder.setLongValue((Long)value);
+                builder.setLongValue(Objects.requireNonNull((Long)value));
                 break;
             case DOUBLE:
-                builder.setDoubleValue((Double)value);
+                builder.setDoubleValue(Objects.requireNonNull((Double)value));
                 break;
             case BOOLEAN:
-                builder.setBooleanValue((Boolean)value);
+                builder.setBooleanValue(Objects.requireNonNull((Boolean)value));
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported field type: " + field.getType() + " for field " + field.getFieldName());

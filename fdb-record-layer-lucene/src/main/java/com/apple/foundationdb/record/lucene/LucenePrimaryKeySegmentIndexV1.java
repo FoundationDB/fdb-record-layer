@@ -80,7 +80,8 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
     public List<List<Object>> readAllEntries() {
         AtomicReference<List<List<Object>>> list = new AtomicReference<>();
         directory.getAgilityContext().accept(aContext -> readAllEntries(aContext, list));
-        return list.get();
+        // The accept() call above runs synchronously, and readAllEntries() always populates list before returning.
+        return Objects.requireNonNull(list.get());
     }
 
     private void readAllEntries(FDBRecordContext aContext, AtomicReference<List<List<Object>>> list) {
@@ -90,7 +91,7 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
                 .setScanProperties(ScanProperties.FORWARD_SCAN)
                 .build();
                 RecordCursor<Tuple> entries = kvs.map(kv -> subspace.unpack(kv.getKey()))) {
-            tuples = LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY, entries.asList(), aContext);
+            tuples = Objects.requireNonNull(LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY, entries.asList(), aContext));
         }
         list.set(tuples.stream().map(t -> {
             List<Object> items = t.getItems();
@@ -114,7 +115,7 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
     @SuppressWarnings("PMD.CloseResource")
     public List<String> findSegments(Tuple primaryKey) throws IOException {
         try {
-            return directory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY,
+            return Objects.requireNonNull(directory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY,
                     directory.getAgilityContext().apply(context -> {
                         final Subspace keySubspace = subspace.subspace(primaryKey);
                         final KeyValueCursor kvs = KeyValueCursor.Builder.newBuilder(keySubspace)
@@ -131,7 +132,7 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
                                 return "#" + segid;
                             }
                         }).asList().whenComplete((result, err) -> kvs.close());
-                    }));
+                    })));
         } catch (RecordCoreException ex) {
             throw LuceneExceptions.toIoException(ex, null);
         }
@@ -174,8 +175,8 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
                     }
                     return null;
                 }).filter(Objects::nonNull)) {
-            doc.set(directory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY,
-                    documents.first()).orElse(null));
+            doc.set(Objects.requireNonNull(directory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY,
+                    documents.first())).orElse(null));
         }
     }
 
@@ -252,7 +253,7 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
                     final int maxDoc = mergeState.maxDocs[i];
                     for (int j = 0; j < maxDoc; j++) {
                         storedFieldsReader.visitDocument(j, visitor);
-                        final byte[] primaryKey = visitor.getPrimaryKey();
+                        final byte @Nullable [] primaryKey = visitor.getPrimaryKey();
                         if (primaryKey != null) {
                             if (liveDocs == null || liveDocs.get(j)) {
                                 int docId = docMap.get(j);
@@ -323,11 +324,9 @@ public class LucenePrimaryKeySegmentIndexV1 implements LucenePrimaryKeySegmentIn
      * After calling {@link StoredFieldsReader#visitDocument}, any primary key will be in {@link #getPrimaryKey}.
      */
     static class PrimaryKeyVisitor extends StoredFieldVisitor {
-        @Nullable
-        private byte[] primaryKey = null;
+        private byte @Nullable [] primaryKey = null;
 
-        @Nullable
-        public byte[] getPrimaryKey() {
+        public byte @Nullable [] getPrimaryKey() {
             return primaryKey;
         }
 

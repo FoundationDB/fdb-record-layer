@@ -109,10 +109,10 @@ public class LucenePartitioner {
     public static final int PARTITION_DATA_SUBSPACE = 1;
     private final IndexMaintainerState state;
     private final boolean partitioningEnabled;
-    private final String partitionFieldNameInLucene;
+    private final @Nullable String partitionFieldNameInLucene;
     private final int indexPartitionHighWatermark;
     private final int indexPartitionLowWatermark;
-    private final KeyExpression partitioningKeyExpression;
+    private final @Nullable KeyExpression partitioningKeyExpression;
     private final LuceneRepartitionPlanner repartitionPlanner;
     private final LazyOpener<FDBDirectoryManager> directoryManagerSupplier;
 
@@ -120,7 +120,7 @@ public class LucenePartitioner {
         this.state = state;
         String partitionFieldName = state.index.getOption(LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME);
         this.partitioningEnabled = partitionFieldName != null;
-        if (partitioningEnabled && (partitionFieldName.isEmpty() || partitionFieldName.isBlank())) {
+        if (partitionFieldName != null && (partitionFieldName.isEmpty() || partitionFieldName.isBlank())) {
             throw new RecordCoreArgumentException("Invalid partition field name", LogMessageKeys.FIELD_NAME, partitionFieldName);
         }
         // partition field name in lucene, when nested, has `_` in place of `.`
@@ -200,7 +200,10 @@ public class LucenePartitioner {
      * no partitioning metadata exist for the given query
      */
     public PartitionedQueryHint selectQueryPartition(Tuple groupKey, @Nullable LuceneScanQuery luceneScanQuery) {
-        return LuceneConcurrency.asyncToSync(WAIT_LOAD_LUCENE_PARTITION_METADATA, selectQueryPartitionAsync(groupKey, luceneScanQuery), state.context);
+        // selectQueryPartitionAsync's future never completes with a null PartitionedQueryHint; asyncToSync's generic
+        // signature is just conservatively @Nullable.
+        return Objects.requireNonNull(
+                LuceneConcurrency.asyncToSync(WAIT_LOAD_LUCENE_PARTITION_METADATA, selectQueryPartitionAsync(groupKey, luceneScanQuery), state.context));
     }
 
     /**
@@ -426,8 +429,7 @@ public class LucenePartitioner {
      * @return <code>null</code> if primary field is already included in the sort fields,
      * otherwise the updated list of sort fields.
      */
-    @Nullable
-    private SortField[] ensurePrimaryKeyIsInSort(Sort sort) {
+    private SortField @Nullable [] ensurePrimaryKeyIsInSort(Sort sort) {
         // precondition: sort is by partition key (see LucenePartitioner.isSortedByPartitionField())
         // so, either partition field + primary key (explicitly) or just partition field.
         SortField[] fields = sort.getSort();
@@ -678,7 +680,8 @@ public class LucenePartitioner {
      * @throws RecordCoreException if no field of type <code>long</code> with given name is found
      */
     private <M extends Message> Object getPartitioningFieldValue(FDBIndexableRecord<M> rec) {
-        Key.Evaluated evaluatedKey = partitioningKeyExpression.evaluateSingleton(rec);
+        // Only called when partitioning is enabled, in which case partitioningKeyExpression is always set.
+        Key.Evaluated evaluatedKey = Objects.requireNonNull(partitioningKeyExpression).evaluateSingleton(rec);
         if (evaluatedKey.size() == 1) {
             Object value = evaluatedKey.getObject(0);
             if (value == null) {
@@ -804,7 +807,8 @@ public class LucenePartitioner {
             AtomicReference<RecordCursorContinuation> continuation = new AtomicReference<>(start);
             return AsyncUtil.whileTrue(() -> cursor.onNext().thenCompose(cursorResult -> {
                 if (cursorResult.hasNext()) {
-                    final Tuple groupingKey = Tuple.fromItems(cursorResult.get().getItems().subList(0, groupingCount));
+                    // get() is only @Nullable when hasNext() is false; it's guaranteed non-null here.
+                    final Tuple groupingKey = Tuple.fromItems(Objects.requireNonNull(cursorResult.get()).getItems().subList(0, groupingCount));
                     return processPartitionRebalancing(groupingKey, documentCount, logMessages)
                             .thenCompose(movedCount -> {
                                 if (movedCount > 0) {
@@ -1219,8 +1223,10 @@ public class LucenePartitioner {
             savePartitionMetadata(groupingKey, builder);
         } else {
             // no older partition - need to delete the newer partition data and set a new "from" ("from" is the key)
-            state.context.ensureActive().clear(partitionMetadataKeyFromPartitioningValue(groupingKey, getPartitionKey(repartitioningContext.newerPartition)));
-            LucenePartitionInfo.Builder builder = repartitioningContext.newerPartition.toBuilder();
+            // No older partition to update, so (per LuceneRepartitionPlanner's invariant) the newer partition must exist.
+            final LucenePartitionInfo newerPartition = Objects.requireNonNull(repartitioningContext.newerPartition);
+            state.context.ensureActive().clear(partitionMetadataKeyFromPartitioningValue(groupingKey, getPartitionKey(newerPartition)));
+            LucenePartitionInfo.Builder builder = newerPartition.toBuilder();
             builder.setFrom(partitionInfo.getFrom());
             savePartitionMetadata(groupingKey, builder);
         }
@@ -1410,10 +1416,9 @@ public class LucenePartitioner {
          * if the sort fields contain only the partition field, this will contain both the
          * partition field and, as the second item, the primary key {@link LuceneIndexMaintainer#PRIMARY_KEY_SEARCH_NAME}.
          */
-        @Nullable
-        SortField[] updatedSortFields;
+        SortField @Nullable [] updatedSortFields;
 
-        PartitionedSortContext(boolean isByPartitionField, boolean isReverse, @Nullable final SortField[] updatedSortFields) {
+        PartitionedSortContext(boolean isByPartitionField, boolean isReverse, final SortField @Nullable [] updatedSortFields) {
             this.isByPartitionField = isByPartitionField;
             this.isReverse = isReverse;
             this.updatedSortFields = updatedSortFields;
@@ -1439,7 +1444,7 @@ public class LucenePartitioner {
          */
         final boolean canHaveMatches;
 
-        PartitionedQueryHint(boolean canHaveMatches, LucenePartitionInfo startPartition) {
+        PartitionedQueryHint(boolean canHaveMatches, @Nullable LucenePartitionInfo startPartition) {
             this.canHaveMatches = canHaveMatches;
             this.startPartition = startPartition;
         }

@@ -21,4 +21,7 @@
 /**
  * Contains filter classes.
  */
+@NullMarked
 package com.apple.foundationdb.record.lucene.filter;
+
+import org.jspecify.annotations.NullMarked;

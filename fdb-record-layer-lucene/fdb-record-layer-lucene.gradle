@@ -18,6 +18,10 @@
  * limitations under the License.
  */
 
+plugins {
+    alias(libs.plugins.errorprone)
+}
+
 apply from: rootProject.file('gradle/proto.gradle')
 apply from: rootProject.file('gradle/publishing.gradle')
 
@@ -34,6 +38,9 @@ dependencies {
     compileOnly(libs.jspecify)
     annotationProcessor(libs.autoService)
 
+    errorprone(libs.errorprone.core)
+    errorprone(libs.nullaway)
+
     testImplementation project(':fdb-test-utils')
     testImplementation(testFixtures(project(coreProject)))
     testImplementation(libs.bundles.test.impl)
@@ -41,8 +48,38 @@ dependencies {
     testRuntimeOnly(libs.bundles.test.runtime)
     testRuntimeOnly(libs.junit.vintage)
     testCompileOnly(libs.bundles.test.compileOnly)
+    testCompileOnly(libs.jspecify)
     testImplementation(libs.snakeyaml)
     testAnnotationProcessor(libs.autoService)
+}
+
+// jspecify + NullAway null-checking, scoped to this module only. See @NullMarked
+// package-info.java files under com.apple.foundationdb.record.lucene (and its sub-packages).
+// Generated protobuf code that shares the top-level com.apple.foundationdb.record.lucene
+// package (LuceneContinuationProto, LuceneFieldInfosProto, LuceneFileSystemProto,
+// LucenePartitionInfoProto, LucenePendingWriteQueueProto, LuceneStoredFieldsProto -- each a
+// java_outer_classname wrapping the message/builder types as nested classes) is carved out
+// via UnannotatedClasses rather than UnannotatedSubPackages, because it lives directly in the
+// annotated package itself rather than in a genuine sub-package. The other generated protos
+// for this module (com.apple.foundationdb.record.planprotos) land in a sibling top-level
+// package, so they're already outside AnnotatedPackages and need no carve-out.
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs << '-Xmaxerrs' << '10000' // TEMP-DIAGNOSTIC: remove before commit
+    options.errorprone {
+        disableAllChecks = true
+        error("NullAway")
+        option("NullAway:AnnotatedPackages", "com.apple.foundationdb.record.lucene")
+        option("NullAway:UnannotatedClasses", [
+                "com.apple.foundationdb.record.lucene.LuceneContinuationProto",
+                "com.apple.foundationdb.record.lucene.LuceneFieldInfosProto",
+                "com.apple.foundationdb.record.lucene.LuceneFileSystemProto",
+                "com.apple.foundationdb.record.lucene.LucenePartitionInfoProto",
+                "com.apple.foundationdb.record.lucene.LucenePendingWriteQueueProto",
+                "com.apple.foundationdb.record.lucene.LuceneStoredFieldsProto",
+        ].join(","))
+        option("NullAway:JSpecifyMode", "true")
+        option("NullAway:AcknowledgeRestrictiveAnnotations", "true")
+    }
 }
 
 // Disable blocking detection, because we do this *a lot* in lucene

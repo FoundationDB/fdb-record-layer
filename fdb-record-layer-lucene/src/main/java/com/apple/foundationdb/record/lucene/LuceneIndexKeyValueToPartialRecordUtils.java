@@ -83,9 +83,9 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
                             throw new RecordCoreException("Invalid grouping value tuple given a grouping key")
                                     .addLogInfo(LogMessageKeys.VALUE, groupingKey.toString());
                         }
-                        source.buildMessage(groupingKey.get(groupingKeyIndex), (String) value, null, null, false);
+                        source.buildMessage(groupingKey.get(groupingKeyIndex), (String) Objects.requireNonNull(value), null, null, false);
                     } else if (type.equals(LuceneIndexExpressions.DocumentFieldType.TEXT)) {
-                        buildIfFieldNameMatch(source, fieldName, luceneField, overriddenKeyRanges, suggestion, (String) value);
+                        buildIfFieldNameMatch(source, fieldName, luceneField, overriddenKeyRanges, suggestion, (String) Objects.requireNonNull(value));
                     }
                 },
                 null, 0, root instanceof GroupingKeyExpression ? ((GroupingKeyExpression) root).getGroupingCount() : 0, new ArrayList<>());
@@ -94,7 +94,7 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
     public static void populatePrimaryKey(KeyExpression primaryKey, Descriptors.Descriptor descriptor, Message.Builder builder, Tuple tuple) {
         LuceneIndexExpressions.getFields(primaryKey, new PartialRecordBuildSource(null, descriptor, builder),
                 (source, fieldName, value, type, fieldNameOverride, namedFieldPath, namedFieldSuffix, stored, sorted, overriddenKeyRanges, groupingKeyIndex, keyIndex, fieldConfigsIgnored) -> {
-                    source.buildMessage(tuple.get(keyIndex), (String) value, null, null, false);
+                    source.buildMessage(tuple.get(keyIndex), (String) Objects.requireNonNull(value), null, null, false);
                 }, null);
     }
 
@@ -355,7 +355,9 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
 
             if (parent != null) {
                 addRequiredFieldsToBuilder(builder);
-                parent.buildMessage(builder.build(), this.fieldDescriptor, mappedKeyFieldDescriptor == null ? customizedKey : null, mappedKeyFieldDescriptor == null ? mappedKeyField : null, forLuceneField);
+                // Only the root source (whose parent is always null) is constructed with a null fieldDescriptor;
+                // any source with a non-null parent has a non-null fieldDescriptor.
+                parent.buildMessage(builder.build(), Objects.requireNonNull(this.fieldDescriptor), mappedKeyFieldDescriptor == null ? customizedKey : null, mappedKeyFieldDescriptor == null ? mappedKeyField : null, forLuceneField);
             }
             if (forLuceneField) {
                 this.hasBeenBuilt = true;

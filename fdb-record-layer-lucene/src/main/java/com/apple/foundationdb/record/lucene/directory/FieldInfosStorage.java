@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.LuceneExceptions;
-import com.apple.foundationdb.record.lucene.LuceneFieldInfosProto;
+import com.apple.foundationdb.record.lucene.LuceneFieldInfosProto.FieldInfos;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 import com.apple.foundationdb.record.lucene.codec.LazyOpener;
 import com.apple.foundationdb.record.util.pair.Pair;
@@ -31,6 +31,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.lucene.store.Directory;
 
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.BitSet;
@@ -50,7 +51,7 @@ import java.util.stream.Collectors;
 public class FieldInfosStorage {
 
     public static final long GLOBAL_FIELD_INFOS_ID = -2;
-    private final LazyOpener<Map<Long, LuceneFieldInfosProto.FieldInfos>> allFieldInfosSupplier;
+    private final LazyOpener<Map<Long, FieldInfos>> allFieldInfosSupplier;
     private final FDBDirectory directory;
     private final AtomicReference<ConcurrentMap<Long, AtomicInteger>> referenceCount;
 
@@ -61,7 +62,7 @@ public class FieldInfosStorage {
                                 Pair::getLeft,
                                 pair -> {
                                     try {
-                                        return LuceneFieldInfosProto.FieldInfos.parseFrom(pair.getRight());
+                                        return FieldInfos.parseFrom(pair.getRight());
                                     } catch (InvalidProtocolBufferException e) {
                                         throw new UncheckedIOException(e);
                                     }
@@ -72,19 +73,19 @@ public class FieldInfosStorage {
     }
 
     @VisibleForTesting
-    public Map<Long, LuceneFieldInfosProto.FieldInfos> getAllFieldInfos() throws IOException {
+    public Map<Long, FieldInfos> getAllFieldInfos() throws IOException {
         return allFieldInfosSupplier.get();
     }
 
-    public LuceneFieldInfosProto.FieldInfos readGlobalFieldInfos() throws IOException {
+    public @Nullable FieldInfos readGlobalFieldInfos() throws IOException {
         return readFieldInfos(GLOBAL_FIELD_INFOS_ID);
     }
 
-    public LuceneFieldInfosProto.FieldInfos readFieldInfos(long id) throws IOException {
+    public @Nullable FieldInfos readFieldInfos(long id) throws IOException {
         return getAllFieldInfos().get(id);
     }
 
-    public long writeFieldInfos(LuceneFieldInfosProto.FieldInfos value) throws IOException {
+    public long writeFieldInfos(FieldInfos value) throws IOException {
         try {
             long id;
             if (Boolean.TRUE.equals(getAllFieldInfos().isEmpty())) {
@@ -99,7 +100,7 @@ public class FieldInfosStorage {
         }
     }
 
-    private void writeFieldInfos(final long id, final LuceneFieldInfosProto.FieldInfos value) throws IOException {
+    private void writeFieldInfos(final long id, final FieldInfos value) throws IOException {
         try {
             directory.writeFieldInfos(id, value.toByteArray());
             getAllFieldInfos().put(id, value);
@@ -108,10 +109,11 @@ public class FieldInfosStorage {
         }
     }
 
-    public void updateGlobalFieldInfos(LuceneFieldInfosProto.FieldInfos value) throws IOException {
+    public void updateGlobalFieldInfos(FieldInfos value) throws IOException {
         writeFieldInfos(GLOBAL_FIELD_INFOS_ID, value);
     }
 
+    @Nullable
     public FDBLuceneFileReference getFDBLuceneFileReference(String fileName) {
         return directory.getFDBLuceneFileReference(fileName);
     }
@@ -134,17 +136,20 @@ public class FieldInfosStorage {
         }
     }
 
-    void initializeReferenceCount(final ConcurrentMap<Long, AtomicInteger> fieldInfosCount) {
+    void initializeReferenceCount(@Nullable final ConcurrentMap<Long, AtomicInteger> fieldInfosCount) {
         referenceCount.compareAndSet(null, fieldInfosCount);
     }
 
+    @Nullable
     public ConcurrentMap<Long, AtomicInteger> getReferenceCount() {
         return referenceCount.get();
     }
 
     public void addReference(final FDBLuceneFileReference reference) {
         if (reference.getFieldInfosId() != 0) {
-            referenceCount.get()
+            // writeFDBLuceneFileReference() always populates the file reference cache (which in turn initializes
+            // referenceCount) before calling this method.
+            Objects.requireNonNull(referenceCount.get(), "fieldInfosReferenceCache")
                     .computeIfAbsent(reference.getFieldInfosId(), key -> new AtomicInteger(0))
                     .incrementAndGet();
         }
@@ -152,8 +157,8 @@ public class FieldInfosStorage {
 
     public boolean delete(final long id) throws IOException {
         if (id != 0 &&
-                Objects.requireNonNull(referenceCount.get(), "fieldInfosReferenceCache")
-                        .get(id).decrementAndGet() == 0) {
+                Objects.requireNonNull(Objects.requireNonNull(referenceCount.get(), "fieldInfosReferenceCache")
+                        .get(id), "no reference count entry for id").decrementAndGet() == 0) {
             getAllFieldInfos().remove(id);
             return true;
         }

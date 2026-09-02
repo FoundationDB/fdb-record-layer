@@ -152,6 +152,7 @@ public class FDBDirectory extends Directory {
     private final int maxPendingWritesToReplay;
     private final int maxPendingQueueSize;
     private final int blockCacheMaximumSize;
+    @Nullable
     private Lock lastLock = null;
     private final int blockSize;
 
@@ -252,8 +253,10 @@ public class FDBDirectory extends Directory {
         this.sharedCachePending = sharedCacheManager != null && sharedCacheKey != null;
         this.fieldInfosStorage = new FieldInfosStorage(this);
         this.deferDeleteToCompoundFile = deferDeleteToCompoundFile;
-        this.maxPendingWritesToReplay = agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_MAX_PENDING_WRITES_REPLAYED_FOR_QUERY);
-        this.maxPendingQueueSize = agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_MAX_PENDING_QUEUE_SIZE);
+        this.maxPendingWritesToReplay = Objects.requireNonNullElse(
+                agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_MAX_PENDING_WRITES_REPLAYED_FOR_QUERY), PendingWriteQueue.DEFAULT_MAX_PENDING_ENTRIES_TO_REPLAY);
+        this.maxPendingQueueSize = Objects.requireNonNullElse(
+                agilityContext.getPropertyValue(LuceneRecordContextProperties.LUCENE_MAX_PENDING_QUEUE_SIZE), PendingWriteQueue.DEFAULT_MAX_PENDING_QUEUE_SIZE);
     }
 
     private void cacheRemovalCallback() {
@@ -369,9 +372,9 @@ public class FDBDirectory extends Directory {
     }
 
     Stream<NonnullPair<Long, byte[]>> getAllFieldInfosStream() {
-        return asyncToSync(
+        return Objects.requireNonNull(asyncToSync(
                 LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS,
-                agilityContext.apply(aContext -> aContext.ensureActive().getRange(fieldInfosSubspace.range()).asList()))
+                agilityContext.apply(aContext -> aContext.ensureActive().getRange(fieldInfosSubspace.range()).asList())))
                 .stream()
                 .map(keyValue -> NonnullPair.of(
                             fieldInfosSubspace.unpack(keyValue.getKey()).getLong(0),
@@ -533,14 +536,17 @@ public class FDBDirectory extends Directory {
                 if (sharedCache == null) {
                     return readData(id, block);
                 }
-                final byte[] fromShared = sharedCache.getBlockIfPresent(id, block);
+                // Capture a stable local reference; the field could theoretically change before the async
+                // continuation below runs, but sharedCache is only ever set once per directory instance.
+                final FDBDirectorySharedCache cache = sharedCache;
+                final byte @Nullable [] fromShared = cache.getBlockIfPresent(id, block);
                 if (fromShared != null) {
                     agilityContext.increment(LuceneEvents.Counts.LUCENE_SHARED_CACHE_HITS);
                     return CompletableFuture.completedFuture(fromShared);
                 } else {
                     agilityContext.increment(LuceneEvents.Counts.LUCENE_SHARED_CACHE_MISSES);
                     return readData(id, block).thenApply(data -> {
-                        sharedCache.putBlockIfAbsent(id, block, data);
+                        cache.putBlockIfAbsent(id, block, data);
                         return data;
                     });
                 }
@@ -567,7 +573,7 @@ public class FDBDirectory extends Directory {
             throw new RecordCoreStorageException("Could not find stored fields")
                     .addLogInfo(LuceneLogMessageKeys.SEGMENT, segmentName)
                     .addLogInfo(LuceneLogMessageKeys.DOC_ID, docId)
-                    .addLogInfo(LogMessageKeys.KEY, ByteArrayUtil2.loggable(key));
+                    .addLogInfo(LogMessageKeys.KEY, Objects.requireNonNull(ByteArrayUtil2.loggable(key)));
         }
         return Objects.requireNonNull(decodeFieldProtobuf(rawBytes));
     }
@@ -579,8 +585,8 @@ public class FDBDirectory extends Directory {
         if (list == null) {
             throw new RecordCoreStorageException("Could not find stored fields")
                     .addLogInfo(LuceneLogMessageKeys.SEGMENT, segmentName)
-                    .addLogInfo(LogMessageKeys.RANGE_START, ByteArrayUtil2.loggable(range.begin))
-                    .addLogInfo(LogMessageKeys.RANGE_END, ByteArrayUtil2.loggable(range.end));
+                    .addLogInfo(LogMessageKeys.RANGE_START, Objects.requireNonNull(ByteArrayUtil2.loggable(range.begin)))
+                    .addLogInfo(LogMessageKeys.RANGE_END, Objects.requireNonNull(ByteArrayUtil2.loggable(range.end)));
         }
         return list.stream().map(KeyValue::getValue).map(this::decodeFieldProtobuf).collect(Collectors.toList());
     }
@@ -688,23 +694,27 @@ public class FDBDirectory extends Directory {
         }
         if (sharedCachePending) {
             return loadFileSequenceCounter().thenCompose(vignore -> {
-                sharedCache = sharedCacheManager.getCache(sharedCacheKey, fileSequenceCounter.get());
+                // sharedCachePending is only ever true when both fields were set non-null at construction time.
+                sharedCache = Objects.requireNonNull(sharedCacheManager).getCache(Objects.requireNonNull(sharedCacheKey), fileSequenceCounter.get());
                 if (sharedCache == null) {
                     sharedCachePending = false;
                     return getFileReferenceCacheAsync();
                 }
-                Map<String, FDBLuceneFileReference> fromShared = sharedCache.getFileReferencesIfPresent();
+                // Capture a stable local reference so it can be used safely from the nested async continuation below.
+                final FDBDirectorySharedCache cache = sharedCache;
+                Map<String, FDBLuceneFileReference> fromShared = cache.getFileReferencesIfPresent();
                 if (fromShared != null) {
                     ConcurrentSkipListMap<String, FDBLuceneFileReference> copy = new ConcurrentSkipListMap<>(fromShared);
                     fileReferenceCache.compareAndSet(null, copy);
-                    fieldInfosStorage.initializeReferenceCount(sharedCache.getFieldInfosReferenceCount());
+                    fieldInfosStorage.initializeReferenceCount(cache.getFieldInfosReferenceCount());
                     sharedCachePending = false;
                     return CompletableFuture.completedFuture(fromShared);
                 }
                 return fileReferenceMapSupplier.get().thenApply(ignore -> {
-                    final ConcurrentSkipListMap<String, FDBLuceneFileReference> fromSupplier = fileReferenceCache.get();
-                    sharedCache.setFileReferencesIfAbsent(fromSupplier);
-                    sharedCache.setFieldInfosReferenceCount(getFieldInfosStorage().getReferenceCount());
+                    // fileReferenceMapSupplier.get() always populates fileReferenceCache before completing.
+                    final ConcurrentSkipListMap<String, FDBLuceneFileReference> fromSupplier = Objects.requireNonNull(fileReferenceCache.get());
+                    cache.setFileReferencesIfAbsent(fromSupplier);
+                    cache.setFieldInfosReferenceCount(getFieldInfosStorage().getReferenceCount());
                     sharedCachePending = false;
                     return fromSupplier;
                 });
@@ -740,7 +750,8 @@ public class FDBDirectory extends Directory {
             }
 
             if (isCompoundFile(name)) {
-                Map<String, FDBLuceneFileReference> cache = this.fileReferenceCache.get();
+                // getFileReferenceCacheAsync() (awaited above) always populates fileReferenceCache as a side effect.
+                Map<String, FDBLuceneFileReference> cache = Objects.requireNonNull(this.fileReferenceCache.get());
                 String primaryKeyName = name.substring(0, name.length() - DATA_EXTENSION.length()) + "pky";
                 deleteFileInternal(cache, primaryKeyName);
                 // TODO: If the segment is being deleted because it no longer has any live docs, it won't be merged
@@ -949,6 +960,9 @@ public class FDBDirectory extends Directory {
         try {
             if (FDBDirectory.isSegmentInfo(name) || FDBDirectory.isEntriesFile(name)) {
                 final FDBLuceneFileReference reference = getFDBLuceneFileReference(name);
+                if (reference == null) {
+                    throw new NoSuchFileException(name);
+                }
                 if (reference.getContent().isEmpty()) {
                     throw new RecordCoreException("File content is not stored in reference")
                             .addLogInfo(LuceneLogMessageKeys.FILE_NAME, name);
@@ -1242,28 +1256,32 @@ public class FDBDirectory extends Directory {
 
     private byte[] encodeFieldProtobuf(final byte[] bytes) {
         long startTime = System.nanoTime();
-        byte[] encoded = serializer.encodeFieldProtobuf(bytes);
+        // LuceneSerializer's encode methods only return null when given null input; bytes is non-null here.
+        byte[] encoded = Objects.requireNonNull(serializer.encodeFieldProtobuf(bytes));
         agilityContext.recordEvent(LuceneEvents.Waits.WAIT_LUCENE_SERIALIZE, System.nanoTime() - startTime);
         return encoded;
     }
 
     private byte[] decodeFieldProtobuf(final byte[] bytes) {
         long startTime = System.nanoTime();
-        final byte[] decoded = serializer.decodeFieldProtobuf(bytes);
+        // LuceneSerializer's decode methods only return null when given null input; bytes is non-null here.
+        final byte[] decoded = Objects.requireNonNull(serializer.decodeFieldProtobuf(bytes));
         agilityContext.recordEvent(LuceneEvents.Waits.WAIT_LUCENE_DESERIALIZE, System.nanoTime() - startTime);
         return decoded;
     }
 
     private byte[] encode(final byte[] bytes) {
         long startTime = System.nanoTime();
-        final byte[] encoded = serializer.encode(bytes);
+        // LuceneSerializer's encode methods only return null when given null input; bytes is non-null here.
+        final byte[] encoded = Objects.requireNonNull(serializer.encode(bytes));
         agilityContext.recordEvent(LuceneEvents.Waits.WAIT_LUCENE_SERIALIZE, System.nanoTime() - startTime);
         return encoded;
     }
 
     private byte[] decode(final byte[] bytes) {
         long startTime = System.nanoTime();
-        final byte[] decoded = serializer.decode(bytes);
+        // LuceneSerializer's decode methods only return null when given null input; bytes is non-null here.
+        final byte[] decoded = Objects.requireNonNull(serializer.decode(bytes));
         agilityContext.recordEvent(LuceneEvents.Waits.WAIT_LUCENE_DESERIALIZE, System.nanoTime() - startTime);
         return decoded;
     }

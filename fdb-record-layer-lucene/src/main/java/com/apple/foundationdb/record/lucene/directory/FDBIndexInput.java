@@ -34,6 +34,7 @@ import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
 import java.io.EOFException;
 import java.io.IOException;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Verify.verify;
@@ -53,12 +54,14 @@ public final class FDBIndexInput extends IndexInput {
      * Position within the current block
      */
     private long position;
+    @Nullable
     private CompletableFuture<byte[]> currentData;
     private int currentBlock;
     private final long initialOffset;
     private int numberOfSeeks = 0;
     // These actual values are added to remove a hotspot during byte reads.
-    private byte[] actualCurrentData;
+    private byte @Nullable [] actualCurrentData;
+    @Nullable
     private FDBLuceneFileReference actualReference;
 
     /**
@@ -125,7 +128,9 @@ public final class FDBIndexInput extends IndexInput {
 
     private byte[] getCurrentData() {
         if (actualCurrentData == null) {
-            actualCurrentData = fdbDirectory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_DATA_BLOCK, currentData);
+            // currentData is always set by the constructor or readBlock() before this is called; the eventual
+            // result never resolves to null either.
+            actualCurrentData = Objects.requireNonNull(fdbDirectory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_DATA_BLOCK, Objects.requireNonNull(currentData)));
         }
         return actualCurrentData;
     }

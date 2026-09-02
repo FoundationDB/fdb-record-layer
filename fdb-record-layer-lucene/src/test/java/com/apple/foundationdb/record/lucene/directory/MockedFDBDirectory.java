@@ -51,7 +51,7 @@ import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepo
 public class MockedFDBDirectory extends FDBDirectory {
     private InjectedFailureRepository injectedFailures;
 
-    public MockedFDBDirectory(final Subspace subspace, final Map<String, String> options, final FDBDirectorySharedCacheManager sharedCacheManager, final Tuple sharedCacheKey, final boolean useCompoundFile, final AgilityContext agilityContext, @Nullable LockFactory lockFactory, final int blockCacheMaximumSize) {
+    public MockedFDBDirectory(final Subspace subspace, final Map<String, String> options, @Nullable final FDBDirectorySharedCacheManager sharedCacheManager, @Nullable final Tuple sharedCacheKey, final boolean useCompoundFile, final AgilityContext agilityContext, @Nullable LockFactory lockFactory, final int blockCacheMaximumSize) {
         super(subspace, options, sharedCacheManager, sharedCacheKey, useCompoundFile, agilityContext, lockFactory, blockCacheMaximumSize);
     }
 
