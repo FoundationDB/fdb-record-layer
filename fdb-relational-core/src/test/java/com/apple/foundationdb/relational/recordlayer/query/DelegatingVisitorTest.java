@@ -245,6 +245,36 @@ public class DelegatingVisitorTest {
     }
 
     @Test
+    void visitStoredQuerySignatureTest() {
+        testSimple("(param_a BIGINT, param_b STRING NOT NULL)",
+                RelationalParser::storedQuerySignature,
+                DelegatingVisitor::visitStoredQuerySignature,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitStoredQuerySignature(RelationalParser.StoredQuerySignatureContext ctx) {
+                        called.set(true);
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitStoredQueryParameterTest() {
+        testSimple("param_a BIGINT NOT NULL",
+                RelationalParser::storedQueryParameter,
+                DelegatingVisitor::visitStoredQueryParameter,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitStoredQueryParameter(RelationalParser.StoredQueryParameterContext ctx) {
+                        called.set(true);
+                        return null;
+                    }
+                });
+    }
+
+    @Test
     void visitDeclareBlockTest() {
         testSimple("DECLARE FUNCTION f() AS (SELECT 1)",
                 RelationalParser::declareBlock,
