@@ -42,7 +42,7 @@ public final class UnknownStoreLockStateException extends RecordCoreStorageExcep
                                           @Nullable LogMessageKeys subspaceLogKey,
                                           @Nullable SubspaceProvider subspaceProvider) {
         super(message);
-        if (subspaceLogKey != null) {
+        if (subspaceLogKey != null && subspaceProvider != null) {
             addLogInfo(subspaceLogKey, subspaceProvider);
         }
         addLogInfo(LogMessageKeys.VALUE, unknownFields);

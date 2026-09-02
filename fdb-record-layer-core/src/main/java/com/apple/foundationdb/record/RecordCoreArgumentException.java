@@ -22,6 +22,8 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Functional equivalent of <code>IllegalArgumentException</code>.
  */
@@ -29,7 +31,7 @@ import com.apple.foundationdb.annotation.API;
 public class RecordCoreArgumentException extends RecordCoreException {
     private static final long serialVersionUID = 1;
 
-    public RecordCoreArgumentException(String msg, Object... keyValue) {
+    public RecordCoreArgumentException(String msg, @Nullable Object... keyValue) {
         super(msg, keyValue);
     }
 

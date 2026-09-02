@@ -102,6 +102,9 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
     }
 
     @Override
+    @SuppressWarnings("NullAway") // value legitimately may be null here (a null literal key expression, see the
+    // constructor); LiteralValue.ofScalar's parameter is missing a @Nullable annotation in a file outside this
+    // module's metadata package (query.plan.cascades.values), a pre-existing gap this file cannot fix directly.
     public Value toValue(final CorrelationIdentifier baseAlias,
                          final Type baseType) {
         return LiteralValue.ofScalar(value);

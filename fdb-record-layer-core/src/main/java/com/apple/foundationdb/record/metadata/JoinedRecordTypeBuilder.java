@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.google.protobuf.Descriptors;
@@ -96,7 +97,15 @@ public final class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Jo
         }
 
         protected JoinedRecordType.Join build(Map<String, JoinedRecordType.JoinConstituent> constituentsByName) {
-            return new JoinedRecordType.Join(constituentsByName.get(left), leftExpression, constituentsByName.get(right), rightExpression);
+            final JoinedRecordType.JoinConstituent leftConstituent = constituentsByName.get(left);
+            if (leftConstituent == null) {
+                throw new RecordCoreArgumentException("unknown constituent in join").addLogInfo("constituent", left);
+            }
+            final JoinedRecordType.JoinConstituent rightConstituent = constituentsByName.get(right);
+            if (rightConstituent == null) {
+                throw new RecordCoreArgumentException("unknown constituent in join").addLogInfo("constituent", right);
+            }
+            return new JoinedRecordType.Join(leftConstituent, leftExpression, rightConstituent, rightExpression);
         }
     }
 
@@ -105,13 +114,22 @@ public final class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Jo
     }
 
     public JoinedRecordTypeBuilder(RecordMetaDataProto.JoinedRecordType typeProto, RecordMetaDataBuilder metaDataBuilder) {
-        super(typeProto.getName(), LiteralKeyExpression.fromProtoValue(typeProto.getRecordTypeKey()), metaDataBuilder);
+        super(typeProto.getName(), requireRecordTypeKey(typeProto), metaDataBuilder);
         for (RecordMetaDataProto.JoinedRecordType.JoinConstituent joinConstituent : typeProto.getJoinConstituentsList()) {
             addConstituent(joinConstituent.getName(), metaDataBuilder.getRecordType(joinConstituent.getRecordType()), joinConstituent.getOuterJoined());
         }
         for (RecordMetaDataProto.JoinedRecordType.Join join : typeProto.getJoinsList()) {
             addJoin(join.getLeft(), KeyExpression.fromProto(join.getLeftExpression()), join.getRight(), KeyExpression.fromProto(join.getRightExpression()));
         }
+    }
+
+    private static Object requireRecordTypeKey(RecordMetaDataProto.JoinedRecordType typeProto) {
+        final Object recordTypeKey = LiteralKeyExpression.fromProtoValue(typeProto.getRecordTypeKey());
+        if (recordTypeKey == null) {
+            throw new RecordCoreArgumentException("joined record type must have a record type key")
+                    .addLogInfo(LogMessageKeys.RECORD_TYPE, typeProto.getName());
+        }
+        return recordTypeKey;
     }
 
     @Override
@@ -182,6 +200,11 @@ public final class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Jo
         final List<JoinedRecordType.Join> builtJoins = joins.stream()
                 .map(join -> join.build(constituentsByName))
                 .collect(Collectors.toList());
+        if (recordTypeKey == null) {
+            // Should not happen: both constructors guarantee a non-null record type key.
+            throw new RecordCoreArgumentException("joined record type must have a record type key")
+                    .addLogInfo(LogMessageKeys.RECORD_TYPE, name);
+        }
         return new JoinedRecordType(metaData, descriptor, primaryKey, recordTypeKey, indexes, multiTypeIndexes, builtConstituents, builtJoins);
     }
 

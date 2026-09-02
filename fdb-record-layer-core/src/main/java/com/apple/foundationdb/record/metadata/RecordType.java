@@ -31,6 +31,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Record type meta-data.
@@ -157,12 +158,14 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
     public Object getRecordTypeKey() {
         if (recordTypeKey == null) {
             // Taking the smallest matching field makes this stable if fields are deprecated and not removed.
-            recordTypeKey = TupleTypeUtil.toTupleEquivalentValue(
+            // toTupleEquivalentValue only returns null for a null or NullStandin input; a field number is
+            // neither, so this is guaranteed non-null.
+            recordTypeKey = Objects.requireNonNull(TupleTypeUtil.toTupleEquivalentValue(
                     metaData.getUnionDescriptor().getFields().stream()
                         .filter(f -> f.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE && f.getMessageType() == descriptor)
                         .min(Comparator.comparing(Descriptors.FieldDescriptor::getNumber))
                         .orElseThrow(() -> new MetaDataException("no matching fields in union"))
-                        .getNumber());
+                        .getNumber()));
         }
         return recordTypeKey;
     }

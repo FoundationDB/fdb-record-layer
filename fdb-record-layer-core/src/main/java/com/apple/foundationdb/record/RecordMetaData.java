@@ -48,6 +48,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -499,7 +500,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
             if (first) {
                 common = recordType.getPrimaryKey();
                 first = false;
-            } else if (!common.equals(recordType.getPrimaryKey())) {
+            } else if (common == null || !common.equals(recordType.getPrimaryKey())) {
                 return null;
             }
         }
@@ -618,7 +619,11 @@ public class RecordMetaData implements RecordMetaDataProvider {
         if (excludedDependencies != null) {
             excludeMap = new HashMap<>(excludedDependencies.length);
             for (FileDescriptor dependency : excludedDependencies) {
-                excludeMap.put(dependency.getName(), dependency);
+                // NullAway does not reliably track element nullability for arrays; excludedDependencies is a plain
+                // (non-@Nullable-element) FileDescriptor[], so dependency is never actually null here.
+                @SuppressWarnings("NullAway")
+                final String dependencyName = dependency.getName();
+                excludeMap.put(dependencyName, dependency);
             }
         }
 
@@ -638,10 +643,12 @@ public class RecordMetaData implements RecordMetaDataProvider {
         for (RecordType recordType : getRecordTypes().values()) {
             // Add this record type to each appropriate index.
             for (Index index : recordType.getIndexes()) {
-                indexBuilders.get(index.getName()).addRecordType(recordType.getName());
+                // Every index referenced by a record type is guaranteed to have been registered above.
+                Objects.requireNonNull(indexBuilders.get(index.getName())).addRecordType(recordType.getName());
             }
             for (Index index : recordType.getMultiTypeIndexes()) {
-                indexBuilders.get(index.getName()).addRecordType(recordType.getName());
+                // Every index referenced by a record type is guaranteed to have been registered above.
+                Objects.requireNonNull(indexBuilders.get(index.getName())).addRecordType(recordType.getName());
             }
 
             RecordMetaDataProto.RecordType.Builder typeBuilder = builder.addRecordTypesBuilder()
@@ -661,7 +668,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
                 builder.addUnnestedRecordTypes(((UnnestedRecordType)syntheticRecordType).toProto());
             }
             for (Index syntheticIndex : syntheticRecordType.getIndexes()) {
-                indexBuilders.get(syntheticIndex.getName()).addRecordType(syntheticRecordType.getName());
+                // Every index referenced by a synthetic record type is guaranteed to have been registered above.
+                Objects.requireNonNull(indexBuilders.get(syntheticIndex.getName())).addRecordType(syntheticRecordType.getName());
             }
         }
 

@@ -42,6 +42,8 @@ public class NonnullPair<L, R> implements Pair<L, R> {
     }
 
     @Override
+    @SuppressWarnings("NullAway") // We check the left and right are not null during the static initializer (of()),
+    // so we do not need to double check during the get methods, even though the delegate's own type is @Nullable.
     public L getLeft() {
         // We check the left and right are not null during the static initializer, so we
         // do not need to double check during the get methods
@@ -49,6 +51,7 @@ public class NonnullPair<L, R> implements Pair<L, R> {
     }
 
     @Override
+    @SuppressWarnings("NullAway") // See getLeft() above.
     public R getRight() {
         // We check the left and right are not null during the static initializer, so we
         // do not need to double check during the get methods

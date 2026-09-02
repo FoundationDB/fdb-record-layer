@@ -43,6 +43,8 @@ public class RecordCursorEndContinuation implements RecordCursorContinuation {
 
     @Nullable
     @Override
+    @SuppressWarnings("NullAway") // NullAway does not reliably track @Nullable on byte[] return types, even on this
+    // correctly-annotated override.
     public byte[] toBytes() {
         return null;
     }

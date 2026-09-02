@@ -128,7 +128,7 @@ public final class UnnestedRecordTypeBuilder extends SyntheticRecordTypeBuilder<
 
     @API(API.Status.INTERNAL)
     public UnnestedRecordTypeBuilder(RecordMetaDataProto.UnnestedRecordType typeProto, final RecordMetaDataBuilder metaDataBuilder) {
-        super(typeProto.getName(), LiteralKeyExpression.fromProtoValue(typeProto.getRecordTypeKey()), metaDataBuilder);
+        super(typeProto.getName(), requireRecordTypeKey(typeProto), metaDataBuilder);
 
         // Deserialize each of the constituents
         final Descriptors.FileDescriptor fileDescriptor = metaDataBuilder.getUnionDescriptor().getFile();
@@ -161,6 +161,15 @@ public final class UnnestedRecordTypeBuilder extends SyntheticRecordTypeBuilder<
                 addConstituent(newConstituent(constituentName, nestedTypeBuilder, parentConstituent, nestingExpression));
             }
         }
+    }
+
+    private static Object requireRecordTypeKey(RecordMetaDataProto.UnnestedRecordType typeProto) {
+        final Object recordTypeKey = LiteralKeyExpression.fromProtoValue(typeProto.getRecordTypeKey());
+        if (recordTypeKey == null) {
+            throw new MetaDataException("unnested record type must have a record type key")
+                    .addLogInfo(LogMessageKeys.RECORD_TYPE, typeProto.getName());
+        }
+        return recordTypeKey;
     }
 
     @API(API.Status.INTERNAL)

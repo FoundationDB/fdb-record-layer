@@ -41,7 +41,7 @@ public final class StoreIsFullyLockedException extends RecordCoreStorageExceptio
         super("Record Store is fully locked and cannot be opened",
                 LogMessageKeys.STORE_LOCK_STATE_REASON, storeLockState.getReason(),
                 LogMessageKeys.STORE_LOCK_STATE_TIMESTAMP_MILLIS, storeLockState.getTimestamp());
-        if (subspaceLogKey != null) {
+        if (subspaceLogKey != null && subspaceProvider != null) {
             addLogInfo(subspaceLogKey, subspaceProvider);
         }
     }

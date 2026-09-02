@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.API;
 import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -133,9 +134,9 @@ public class MutableRecordStoreState extends RecordStoreState {
         verifyWritable();
         IndexState previous;
         if (state.isReadable()) {
-            previous = indexStateMap.get().remove(indexName);
+            previous = Objects.requireNonNull(indexStateMap.get()).remove(indexName);
         } else {
-            previous = indexStateMap.get().put(indexName, state);
+            previous = Objects.requireNonNull(indexStateMap.get()).put(indexName, state);
         }
         return previous == null ? IndexState.READABLE : previous;
     }
