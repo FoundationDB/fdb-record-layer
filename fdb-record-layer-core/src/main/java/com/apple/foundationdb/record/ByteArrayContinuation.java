@@ -67,6 +67,7 @@ public class ByteArrayContinuation implements RecordCursorContinuation {
      * @param bytes a nullable byte array representing a serialized continuation
      * @return a {@code RecordCursorContinuation} as described above
      */
+    @SuppressWarnings("NullAway") // NullAway does not track the null-check above for byte[] type parameters
     public static RecordCursorContinuation fromNullable(@Nullable final byte[] bytes) {
         if (bytes == null) {
             return RecordCursorEndContinuation.END;

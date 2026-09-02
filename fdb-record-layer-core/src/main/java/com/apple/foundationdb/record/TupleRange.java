@@ -413,6 +413,8 @@ public class TupleRange {
      *
      * @return a FoundationDB {@link Range} over the same keys as this <code>TupleRange</code>
      */
+    @SuppressWarnings("NullAway") // NullAway does not reliably track nullability through byte[] ternaries;
+    // toRange(byte[], byte[], ...) below accepts @Nullable byte[] for both parameters.
     public Range toRange() {
         return toRange(
                 low == null ? null : low.pack(),
@@ -514,7 +516,10 @@ public class TupleRange {
             default:
                 throw new RecordCoreException("Incorrect high endpoint: " + highEndpoint);
         }
-        return new Range(lowBytes == null ? new byte[0] : lowBytes, highBytes == null ? new byte[]{(byte)0xff} : highBytes);
+        @SuppressWarnings("NullAway") // NullAway does not reliably track nullability through byte[] ternaries;
+        // lowBytes/highBytes are non-null by this point on every reachable path (the null-yielding branches above throw).
+        final Range range = new Range(lowBytes == null ? new byte[0] : lowBytes, highBytes == null ? new byte[]{(byte)0xff} : highBytes);
+        return range;
     }
 
     private static void verifyPrefixStringSemantics(@Nullable byte[] lowBytes, @Nullable byte[] highBytes,

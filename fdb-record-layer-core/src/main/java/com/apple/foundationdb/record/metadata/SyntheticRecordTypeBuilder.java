@@ -30,6 +30,7 @@ import com.google.protobuf.Descriptors;
 import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -164,7 +165,10 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
         return Key.Expressions.concat(
                 Key.Expressions.recordType(),
                 Key.Expressions.list(constituents.stream()
-                        .map(c -> Key.Expressions.field(c.getName()).nest(c.getRecordType().getPrimaryKey()))
+                        // Constituent record types are guaranteed to already have a primary key by the time a
+                        // synthetic record type is built (RecordMetaDataBuilder.build() validates all regular
+                        // record types before processing synthetic ones).
+                        .map(c -> Key.Expressions.field(c.getName()).nest(Objects.requireNonNull(c.getRecordType().getPrimaryKey())))
                         .collect(Collectors.toList())));
     }
 

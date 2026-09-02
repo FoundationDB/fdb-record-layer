@@ -44,6 +44,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Namespace for classes related to {@link KeyExpression} construction and evaluation.
@@ -524,10 +525,12 @@ public class Key {
             try {
                 return clazz.cast(result);
             } catch (ClassCastException e) {
+                // Class.cast(null) always returns null without throwing, so reaching this catch block means
+                // result was non-null (just of the wrong type).
                 throw new KeyExpression.InvalidResultException("Invalid type in value").addLogInfo(
                         "index", idx,
                         LogMessageKeys.EXPECTED_TYPE, clazz.getName(),
-                        LogMessageKeys.ACTUAL_TYPE, result.getClass().getName());
+                        LogMessageKeys.ACTUAL_TYPE, Objects.requireNonNull(result).getClass().getName());
             }
         }
 

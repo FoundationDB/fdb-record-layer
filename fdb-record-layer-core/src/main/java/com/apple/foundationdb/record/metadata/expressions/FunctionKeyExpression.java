@@ -226,7 +226,7 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
         try {
             return create(function.getName(), KeyExpression.fromProto(function.getArguments()));
         } catch (RecordCoreException e) {
-            throw new DeserializationException(e.getMessage(), e);
+            throw new DeserializationException(Objects.requireNonNullElse(e.getMessage(), "Error deserializing function"), e);
         }
     }
 

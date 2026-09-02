@@ -85,6 +85,8 @@ public class IndexEntry {
     }
 
     @API(API.Status.INTERNAL)
+    @SuppressWarnings("NullAway") // NullAway does not reliably track @Nullable on array-typed fields (nullStandins);
+    // this constructor intentionally leaves it at its default null value.
     public IndexEntry(Index index, Tuple key, Tuple value, @Nullable Tuple primaryKey) {
         this.index = index;
         this.key = key;

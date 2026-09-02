@@ -107,6 +107,10 @@ public class OrderFunctionKeyExpression extends InvertibleFunctionKeyExpression 
     }
 
     @Override
+    @SuppressWarnings("NullAway") // getObject(idx, clazz) is @Nullable in general (a Key.Evaluated position may hold
+    // null), but this order-preserving byte encoding is never actually null in practice; TupleOrdering.unpack's
+    // parameter (fdb-extensions, outside this module) is not annotated @Nullable, a pre-existing gap this file
+    // cannot fix directly.
     protected List<Key.Evaluated> evaluateInverseInternal(Key.Evaluated result) {
         return Collections.singletonList(Key.Evaluated.fromTuple(TupleOrdering.unpack(result.getObject(0, byte[].class), direction)));
     }

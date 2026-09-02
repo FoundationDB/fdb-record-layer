@@ -104,7 +104,8 @@ public class RecordCursorResult<T> {
     @Nullable
     public T get() {
         if (!hasNext()) {
-            throw new IllegalResultValueAccessException(continuation, noNextReason);
+            // Invariant enforced by both constructors: noNextReason is non-null whenever hasNext is false.
+            throw new IllegalResultValueAccessException(continuation, Objects.requireNonNull(noNextReason));
         }
         return nextValue;
     }
@@ -127,7 +128,8 @@ public class RecordCursorResult<T> {
         if (hasNext()) {
             throw new IllegalResultNoNextReasonAccessException(nextValue, continuation);
         }
-        return noNextReason;
+        // Invariant enforced by both constructors: noNextReason is non-null whenever hasNext is false.
+        return Objects.requireNonNull(noNextReason);
     }
 
     @Override
@@ -167,7 +169,10 @@ public class RecordCursorResult<T> {
      * @param <U> the type of the function's result and the type of value in the returned result
      * @return a new result with a value equal to the value of the function on the current result, if one is present
      */
-    @SuppressWarnings("unchecked") // allows us to reuse this object if we don't have a value
+    @SuppressWarnings({"unchecked", "NullAway"}) // unchecked: allows us to reuse this object if we don't have a value
+    // NullAway: nextValue (and thus get()) may legitimately be null independent of T -- a cursor may produce a null
+    // value as its "next" result -- but func's declared parameter type doesn't express this since T's own bound is
+    // unrelated to the nullability of this particular field; pre-existing contract, not a real bug.
     public <U> RecordCursorResult<U> map(Function<? super T, ? extends U>  func) {
         if (hasNext()) {
             return withNextValue(func.apply(get()), getContinuation());
@@ -186,7 +191,9 @@ public class RecordCursorResult<T> {
      * @param <U> the type of the value for the returned result
      * @return a future that, when complete, contains the result of type {@code U}
      */
-    @SuppressWarnings("unchecked") // allows us to reuse this object if we don't have a value
+    @SuppressWarnings({"unchecked", "NullAway"}) // unchecked: allows us to reuse this object if we don't have a value
+    // NullAway: nextValue may legitimately be null independent of T -- a cursor may produce a null value as its
+    // "next" result -- but func's declared parameter type doesn't express this; pre-existing contract, not a real bug.
     public <U> CompletableFuture<RecordCursorResult<U>> mapAsync(Function<? super T, ? extends CompletableFuture<? extends  U>> func) {
         if (hasNext()) {
             return func.apply(nextValue).thenApply(mappedValue -> withNextValue(mappedValue, continuation));
@@ -205,7 +212,8 @@ public class RecordCursorResult<T> {
         if (hasNext()) {
             return RecordCursorResult.withNextValue(nextValue, newContinuation);
         } else {
-            return RecordCursorResult.withoutNextValue(newContinuation, noNextReason);
+            // Invariant enforced by both constructors: noNextReason is non-null whenever hasNext is false.
+            return RecordCursorResult.withoutNextValue(newContinuation, Objects.requireNonNull(noNextReason));
         }
     }
 

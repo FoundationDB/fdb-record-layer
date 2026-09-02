@@ -216,7 +216,8 @@ public class MetaDataEvolutionValidator {
                 } else {
                     if (updatedDescriptors.containsValue(newRecord)) {
                         // A "merge" -- two different types in the old union point to the same type in the new union
-                        final Descriptor alreadySeenOldRecord = updatedDescriptors.inverse().get(newRecord);
+                        // Guaranteed non-null: containsValue(newRecord) being true means the inverse map has an entry.
+                        final Descriptor alreadySeenOldRecord = Objects.requireNonNull(updatedDescriptors.inverse().get(newRecord));
                         throw new MetaDataException("record type corresponds to multiple types in old meta-data",
                                 LogMessageKeys.OLD_RECORD_TYPE, oldRecord.getName() + " & " + alreadySeenOldRecord.getName(),
                                 LogMessageKeys.NEW_RECORD_TYPE, newRecord.getName());
@@ -678,7 +679,7 @@ public class MetaDataEvolutionValidator {
             if (!oldRecordTypeNames.contains(newRecordTypeName)) {
                 RecordType newRecordType = newMetaData.getRecordType(newRecordTypeName);
                 Integer sinceVersion = newRecordType.getSinceVersion();
-                if (sinceVersion == null || newRecordType.getSinceVersion() <= oldMetaData.getVersion()) {
+                if (sinceVersion == null || sinceVersion <= oldMetaData.getVersion()) {
                     throw new MetaDataException("new index adds record type that is not newer than old meta-data",
                             LogMessageKeys.INDEX_NAME, newIndex.getName(),
                             LogMessageKeys.RECORD_TYPE, newRecordTypeName);
@@ -724,8 +725,12 @@ public class MetaDataEvolutionValidator {
         // Make sure the primary key component positions are the same
         if (oldIndex.hasPrimaryKeyComponentPositions()) {
             if (newIndex.hasPrimaryKeyComponentPositions()) {
-                int[] oldPositions = oldIndex.getPrimaryKeyComponentPositions();
-                int[] newPositions = newIndex.getPrimaryKeyComponentPositions();
+                // NullAway does not reliably track @Nullable on array return types; hasPrimaryKeyComponentPositions()
+                // guarantees getPrimaryKeyComponentPositions() is non-null here.
+                @SuppressWarnings("NullAway")
+                final int[] oldPositions = oldIndex.getPrimaryKeyComponentPositions();
+                @SuppressWarnings("NullAway")
+                final int[] newPositions = newIndex.getPrimaryKeyComponentPositions();
                 if (!Arrays.equals(oldPositions, newPositions)) {
                     throw new MetaDataException("new index changes primary key component positions",
                             LogMessageKeys.INDEX_NAME, newIndex.getName());

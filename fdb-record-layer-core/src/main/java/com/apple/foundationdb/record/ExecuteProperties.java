@@ -384,6 +384,7 @@ public class ExecuteProperties {
         private long timeLimit = UNLIMITED_TIME;
         private int scannedRecordsLimit = Integer.MAX_VALUE;
         private long scannedBytesLimit = Long.MAX_VALUE;
+        @Nullable
         private ExecuteState executeState = null;
         private boolean failOnScanLimitReached = false;
         private boolean isDryRun = false;

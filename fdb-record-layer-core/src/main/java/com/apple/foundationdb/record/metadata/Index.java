@@ -112,6 +112,8 @@ public class Index {
      * @param predicate index predicate, for sparse indexes, can be null.
      * @see IndexTypes
      */
+    @SuppressWarnings("NullAway") // NullAway does not reliably track @Nullable on array-typed fields
+    // (primaryKeyComponentPositions); this constructor intentionally leaves it at its default null value.
     public Index(String name,
                  KeyExpression rootExpression,
                  String type,
@@ -169,6 +171,8 @@ public class Index {
      * @param orig original index to copy
      * @param predicate the index predicate
      */
+    @SuppressWarnings("NullAway") // NullAway does not reliably track @Nullable on array-typed fields
+    // (primaryKeyComponentPositions), either when read here from orig or assigned null in the else branch.
     public Index(Index orig, @Nullable final IndexPredicate predicate) {
         this(orig.name, orig.rootExpression, orig.type, ImmutableMap.copyOf(orig.options), predicate);
         if (orig.primaryKeyComponentPositions != null) {
@@ -182,7 +186,9 @@ public class Index {
         this.lastModifiedVersion = orig.lastModifiedVersion;
     }
 
-    @SuppressWarnings({"deprecation", "squid:CallToDeprecatedMethod", "java:S3776"}) // Old (deprecated) index type needs grouping compatibility
+    @SuppressWarnings({"deprecation", "squid:CallToDeprecatedMethod", "java:S3776", "NullAway"}) // Old (deprecated) index type
+    // needs grouping compatibility; NullAway does not reliably track @Nullable on array-typed fields
+    // (primaryKeyComponentPositions), which this constructor intentionally leaves at its default null value.
     public Index(RecordMetaDataProto.Index proto) throws KeyExpression.DeserializationException {
         name = proto.getName();
         // Compatibility with old serialized metadata.
@@ -371,6 +377,7 @@ public class Index {
      *
      * @return a {@link Tuple}-encodable version of index subspace key
      */
+    @Nullable
     public Object getSubspaceTupleKey() {
         return TupleTypeUtil.toTupleAppropriateValue(subspaceKey);
     }
@@ -465,7 +472,7 @@ public class Index {
      * @see #getPrimaryKeyComponentPositions()
      */
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
-    public void setPrimaryKeyComponentPositions(int[] primaryKeyComponentPositions) {
+    public void setPrimaryKeyComponentPositions(@Nullable int[] primaryKeyComponentPositions) {
         this.primaryKeyComponentPositions = primaryKeyComponentPositions;
     }
 

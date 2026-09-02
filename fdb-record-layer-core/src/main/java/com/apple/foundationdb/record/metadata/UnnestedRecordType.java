@@ -302,7 +302,7 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
                             }
                         }
                         Key.Evaluated childElem = childElems.get(childElemIndex);
-                        Message childMessage = childElem.getObject(0, Message.class);
+                        Message childMessage = Objects.requireNonNull(childElem.getObject(0, Message.class));
                         FDBStoredRecord<?> childRecord = FDBStoredRecord.newBuilder()
                                 .setRecordType(constituent.getRecordType())
                                 .setRecord(childMessage)

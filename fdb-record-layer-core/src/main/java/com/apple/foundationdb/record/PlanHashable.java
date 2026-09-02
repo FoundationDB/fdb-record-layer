@@ -308,11 +308,11 @@ public interface PlanHashable {
      * @return a stable hash code
      */
     @Deprecated(forRemoval = true)
-    static int objectsPlanHash(final PlanHashKind kind, final Object... objects) {
+    static int objectsPlanHash(final PlanHashKind kind, @Nullable final Object... objects) {
         return objectsPlanHash(currentHashMode(kind), Arrays.asList(objects));
     }
 
-    static int objectsPlanHash(final PlanHashMode mode, final Object... objects) {
+    static int objectsPlanHash(final PlanHashMode mode, @Nullable final Object... objects) {
         return objectPlanHash(mode, Arrays.asList(objects));
     }
 

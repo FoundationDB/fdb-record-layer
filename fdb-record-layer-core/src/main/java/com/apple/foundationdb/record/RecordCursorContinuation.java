@@ -67,7 +67,7 @@ public interface RecordCursorContinuation {
      * @return a (possibly EMPTY) ByteString containing a binary serialization of this continuation
      */
     default ByteString toByteString() {
-        final byte[] bytes = toBytes();
+        @Nullable final byte[] bytes = toBytes();
         return bytes == null ? ByteString.EMPTY : ByteString.copyFrom(bytes);
     }
 

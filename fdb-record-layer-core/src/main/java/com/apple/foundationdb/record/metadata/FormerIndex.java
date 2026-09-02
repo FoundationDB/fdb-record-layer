@@ -83,6 +83,7 @@ public class FormerIndex {
      *
      * @return a {@link Tuple}-encodable version of index subspace key
      */
+    @Nullable
     public Object getSubspaceTupleKey() {
         return TupleTypeUtil.toTupleAppropriateValue(subspaceKey);
     }

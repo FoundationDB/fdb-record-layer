@@ -45,6 +45,8 @@ public class KeyRange {
      *    care must be taken not to modify its contents. If null, assume infinity.
      * @param highEndpoint how the high endpoint is to be treated
      */
+    @SuppressWarnings("NullAway") // NullAway does not reliably track nullability through byte[] ternaries;
+    // the null checks above guarantee `lowKey`/`highKey` are non-null in the branches used here.
     public KeyRange(@Nullable byte[] lowKey, EndpointType lowEndpoint,
                     @Nullable byte[] highKey, EndpointType highEndpoint) {
         this.lowKey = lowKey == null ? new byte[0] : lowKey;

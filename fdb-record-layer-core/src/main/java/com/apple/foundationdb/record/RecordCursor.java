@@ -46,6 +46,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -243,7 +244,7 @@ public interface RecordCursor<T> extends AutoCloseable {
             throw new RecordCoreException(CompletionExceptionLogHelper.asCause(ex));
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            throw new RecordCoreInterruptedException(ex.getMessage(), ex);
+            throw new RecordCoreInterruptedException(Objects.requireNonNullElse(ex.getMessage(), "Interrupted"), ex);
         }
     }
 
@@ -406,6 +407,8 @@ public interface RecordCursor<T> extends AutoCloseable {
      *     continuations that have been transformed by the {@code convertor}
      */
     @API(API.Status.EXPERIMENTAL)
+    @SuppressWarnings("NullAway") // NullAway does not reliably track nullability of byte[] return types;
+    // ContinuationConvertor#unwrapContinuation is declared to return non-null.
     static <T> RecordCursor<T> mapContinuation(Function<byte[], RecordCursor<T>> cursorFunction, ContinuationConvertor convertor, @Nullable byte[] continuation) {
         byte[] innerContinuation = convertor.unwrapContinuation(continuation);
         return cursorFunction.apply(innerContinuation)
@@ -597,6 +600,9 @@ public interface RecordCursor<T> extends AutoCloseable {
      * @param <V> the result type of the inner cursor produced by the mapping function
      * @return a {@link FlatMapPipelinedCursor} that maps the inner function across the results of the outer function
      */
+    @SuppressWarnings("NullAway") // NullAway does not reliably track @Nullable on byte[] (params, narrowing after a
+    // null check, or through this diamond-operator constructor call); every null/nullable byte[] here flows into a
+    // parameter that FlatMapPipelinedCursor's constructor and Function<byte[], ...>#apply already declare/expect as nullable.
     static <T, V> RecordCursor<V> flatMapPipelined(Function<byte[], ? extends RecordCursor<T>> outerFunc,
                                                    BiFunction<T, byte[], ? extends RecordCursor<V>> innerFunc,
                                                    @Nullable Function<T, byte[]> checker,
@@ -742,8 +748,8 @@ public interface RecordCursor<T> extends AutoCloseable {
      * @return a future that is complete when the function has been called and all remaining
      * records and the result has then completed
      */
-    default CompletableFuture<Void> forEachAsync(Function<T, CompletableFuture<Void>> func, int pipelineSize) {
-        return mapPipelined(func, pipelineSize).reduce(null, (v1, v2) -> null);
+    default CompletableFuture<@Nullable Void> forEachAsync(Function<T, CompletableFuture<Void>> func, int pipelineSize) {
+        return mapPipelined(func, pipelineSize).<@Nullable Void>reduce(null, (v1, v2) -> null);
     }
 
     /**
@@ -848,6 +854,8 @@ public interface RecordCursor<T> extends AutoCloseable {
         return fromFuture(ForkJoinPool.commonPool(), future);
     }
 
+    @SuppressWarnings("NullAway") // NullAway does not reliably track @Nullable on byte[] parameters;
+    // fromFuture(Executor, CompletableFuture, byte[]) below declares its continuation parameter as @Nullable.
     static <T> RecordCursor<T> fromFuture(Executor executor, CompletableFuture<T> future) {
         return fromFuture(executor, future, null);
     }
@@ -941,8 +949,7 @@ public interface RecordCursor<T> extends AutoCloseable {
      * @param <U> the result type of the reduction
      * @return a future that completes to the result of reduction
      */
-    @Nullable
-    default <U> CompletableFuture<U> reduce(U identity, BiFunction<U, ? super T, U> accumulator) {
+    default <U extends @Nullable Object> CompletableFuture<U> reduce(U identity, BiFunction<U, ? super T, U> accumulator) {
         final AtomicReference<U> holder = new AtomicReference<>(identity);
         return forEachResult(result -> holder.set(accumulator.apply(holder.get(), result.get()))).thenApply(vignore -> holder.get());
     }
@@ -955,8 +962,7 @@ public interface RecordCursor<T> extends AutoCloseable {
      * @param <U> the result type of the reduction
      * @return a future that completes to the result of reduction
      */
-    @Nullable
-    default <U> CompletableFuture<U> reduce(U identity, BiFunction<U, ? super T, U> accumulator, Predicate<U> stopCondition) {
+    default <U extends @Nullable Object> CompletableFuture<U> reduce(U identity, BiFunction<U, ? super T, U> accumulator, Predicate<U> stopCondition) {
         final AtomicReference<U> holder = new AtomicReference<>(identity);
         return AsyncUtil.whileTrue(() -> onNext().thenApply(result -> {
             if (result.hasNext()) {

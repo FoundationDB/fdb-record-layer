@@ -23,6 +23,8 @@ package com.apple.foundationdb.record;
 import com.apple.foundationdb.annotation.API;
 import com.google.protobuf.Descriptors;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * A function to be applied to a record as part of query execution.
  * @param <T> the result type of the function
@@ -73,7 +75,7 @@ public abstract class RecordFunction<T> implements PlanHashable {
      * @param hashables the rest of the subclass' hashable parameters (if any)
      * @return the plan hash value calculated
      */
-    protected int basePlanHash(final PlanHashMode mode, ObjectPlanHash baseHash, Object... hashables) {
+    protected int basePlanHash(final PlanHashMode mode, ObjectPlanHash baseHash, @Nullable Object... hashables) {
         switch (mode.getKind()) {
             case LEGACY:
                 return name.hashCode();

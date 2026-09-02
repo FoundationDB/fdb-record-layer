@@ -150,6 +150,10 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     private void processSchemaOptions(boolean processExtensionOptions) {
         if (processExtensionOptions) {
+            if (recordsDescriptor == null) {
+                // Should not happen as this method should only be called when a file descriptor has been set.
+                throw new RecordCoreException("cannot process schema options from null file descriptor");
+            }
             RecordMetaDataOptionsProto.SchemaOptions schemaOptions = recordsDescriptor.getOptions()
                     .getExtension(RecordMetaDataOptionsProto.schema);
             if (schemaOptions != null) {
@@ -186,7 +190,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                     if (syntheticRecordTypeBuilder != null) {
                         syntheticRecordTypeBuilders.add(syntheticRecordTypeBuilder);
                     } else {
-                        throwUnknownRecordType(recordTypeName, false);
+                        throw unknownRecordTypeException(recordTypeName, false);
                     }
                 }
             }
@@ -271,6 +275,10 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         // If a local file descriptor has been set, update records types (etc.) to use the local descriptor.
         if (localFileDescriptor != null) {
             Descriptor localUnionDescriptor = fetchLocalUnionDescriptor();
+            if (unionDescriptor == null) {
+                // Should not happen since initRecordTypesAndUnion (called above) always sets unionDescriptor.
+                throw new RecordCoreException("cannot validate union with null union descriptor");
+            }
             evolutionValidator.validateUnion(unionDescriptor, localUnionDescriptor);
             updateUnionFieldsAndRecordTypesFromLocal(localUnionDescriptor);
             unionDescriptor = localUnionDescriptor;
@@ -830,7 +838,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                                   Descriptor oldDescriptor,
                                   Descriptor newDescriptor) {
         // Create a new record type based off the old one
-        RecordTypeBuilder oldRecordType = oldRecordTypes.get(oldDescriptor.getName());
+        RecordTypeBuilder oldRecordType = Verify.verifyNotNull(oldRecordTypes.get(oldDescriptor.getName()));
         RecordTypeBuilder newRecordType = new RecordTypeBuilder(newDescriptor, oldRecordType);
         recordTypes.put(newRecordType.getName(), newRecordType); // update the record type builder
     }
@@ -947,6 +955,10 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     }
 
     public Descriptor getUnionDescriptor() {
+        if (unionDescriptor == null) {
+            // Should not happen as this method should only be called once records have been set.
+            throw new RecordCoreException("cannot get union descriptor before records have been set");
+        }
         return unionDescriptor;
     }
 
@@ -961,13 +973,13 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     public RecordTypeBuilder getRecordType(String name) {
         RecordTypeBuilder recordType = recordTypes.get(name);
         if (recordType == null) {
-            throwUnknownRecordType(name, false);
+            throw unknownRecordTypeException(name, false);
         }
         return recordType;
     }
 
-    private void throwUnknownRecordType(final String name, boolean isSynthetic) {
-        throw new MetaDataException("Unknown " + (isSynthetic ? "Synthetic " : "") + "record type " + name);
+    private MetaDataException unknownRecordTypeException(final String name, boolean isSynthetic) {
+        return new MetaDataException("Unknown " + (isSynthetic ? "Synthetic " : "") + "record type " + name);
     }
 
 
@@ -976,7 +988,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     public SyntheticRecordTypeBuilder<?> getSyntheticRecordType(String name) {
         SyntheticRecordTypeBuilder<?> recordType = syntheticRecordTypes.get(name);
         if (recordType == null) {
-            throwUnknownRecordType(name, true);
+            throw unknownRecordTypeException(name, true);
         }
         return recordType;
     }
@@ -1048,7 +1060,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             recordType = syntheticRecordTypes.get(name);
         }
         if (recordType == null) {
-            throwUnknownRecordType(name, false);
+            throw unknownRecordTypeException(name, false);
         }
         return recordType;
     }
@@ -1430,6 +1442,10 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * @return new meta-data
      */
     public RecordMetaData build(boolean validate) {
+        if (recordsDescriptor == null) {
+            // Should not happen as this method should only be called once records have been set.
+            throw new RecordCoreException("cannot build meta-data before records have been set");
+        }
         Map<String, RecordType> builtRecordTypes = Maps.newHashMapWithExpectedSize(recordTypes.size());
         Map<String, SyntheticRecordType<?>> builtSyntheticRecordTypes = Maps.newHashMapWithExpectedSize(syntheticRecordTypes.size());
         Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticRecordTypeMap = Maps.newHashMapWithExpectedSize(syntheticRecordTypes.size());
@@ -1479,6 +1495,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     // Note that there is no harm in this returning null for very complex overlaps; that just results in some duplication.
     @Nullable
+    @SuppressWarnings("NullAway") // NullAway does not reliably track @Nullable on array return types (int[] here),
+    // even on this correctly-annotated method.
     public static int[] buildPrimaryKeyComponentPositions(KeyExpression indexKey, KeyExpression primaryKey) {
         List<KeyExpression> indexKeys = indexKey.normalizeKeyForPositions();
         List<KeyExpression> primaryKeys = primaryKey.normalizeKeyForPositions();

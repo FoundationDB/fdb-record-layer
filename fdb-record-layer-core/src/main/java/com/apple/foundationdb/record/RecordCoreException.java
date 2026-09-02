@@ -50,13 +50,13 @@ public class RecordCoreException extends LoggableException {
     }
 
     @Override
-    public RecordCoreException addLogInfo(String description, Object object) {
+    public RecordCoreException addLogInfo(String description, @Nullable Object object) {
         super.addLogInfo(description, object);
         return this;
     }
 
     @Override
-    public RecordCoreException addLogInfo(Object ... keyValue) {
+    public RecordCoreException addLogInfo(@Nullable Object ... keyValue) {
         super.addLogInfo(keyValue);
         return this;
     }

@@ -61,7 +61,7 @@ public interface QueryableKeyExpression extends KeyExpression {
 
     default <M extends Message> List<Object> evalForOneOfQuery(FDBRecordStoreBase<M> store, EvaluationContext context, @Nullable FDBRecord<M> record, @Nullable Message message) {
         final List<Key.Evaluated> keys = evaluateMessage(record, message);
-        final Function<Key.Evaluated, Object> mapper;
+        final Function<Key.Evaluated, @Nullable Object> mapper;
         if (evalForQueryAsTuple()) {
             mapper = Key.Evaluated::toTuple;
         } else {

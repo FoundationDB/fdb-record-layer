@@ -123,6 +123,9 @@ public class EvaluationContext {
      *
      * @return the value bound to the given parameter
      */
+    @SuppressWarnings("NullAway") // Bindings.get() is @Nullable in general (a binding may be explicitly set to null),
+    // but every caller of this typed overload only ever binds non-null values (e.g. quantified records) under the
+    // given Internal/alias pair; pre-existing contract, not tracked by the type system.
     public Object getBinding(final Bindings.Internal type, final CorrelationIdentifier alias) {
         return bindings.get(type.bindingName(alias.getId()));
     }

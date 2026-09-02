@@ -213,7 +213,7 @@ public class RecordStoreState {
      * @return the state of the given index
      */
     public IndexState getState(String indexName) {
-        return indexStateMap.get().getOrDefault(indexName, IndexState.READABLE);
+        return Objects.requireNonNull(indexStateMap.get()).getOrDefault(indexName, IndexState.READABLE);
     }
 
     /**
@@ -222,7 +222,8 @@ public class RecordStoreState {
      * @return <code>true</code> if all of the indexes are readable and <code>false</code> otherwise
      */
     public boolean allIndexesReadable() {
-        return indexStateMap.get().isEmpty() || indexStateMap.get().values().stream().allMatch(IndexState::isReadable);
+        final Map<String, IndexState> indexStates = Objects.requireNonNull(indexStateMap.get());
+        return indexStates.isEmpty() || indexStates.values().stream().allMatch(IndexState::isReadable);
     }
 
     /**
@@ -236,7 +237,7 @@ public class RecordStoreState {
      * if the state is actually described by this <code>RecordStoreState</code>
      */
     public boolean compatibleWith(RecordStoreState other) {
-        return indexStateMap.get().entrySet().stream().allMatch(entry -> {
+        return Objects.requireNonNull(indexStateMap.get()).entrySet().stream().allMatch(entry -> {
             boolean readableInOther = other.getState(entry.getKey()).isReadable();
             return entry.getValue().isReadable() == readableInOther;
         });
@@ -247,7 +248,7 @@ public class RecordStoreState {
      * @return a set of indexes that are write-only for this store
      */
     public Set<String> getWriteOnlyIndexNames() {
-        return indexStateMap.get().entrySet().stream()
+        return Objects.requireNonNull(indexStateMap.get()).entrySet().stream()
                 .filter(entry -> entry.getValue().isWriteOnly())
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toSet());
@@ -258,7 +259,7 @@ public class RecordStoreState {
      * @return a set of indexes that are disabled for this store
      */
     public Set<String> getDisabledIndexNames() {
-        return indexStateMap.get().entrySet().stream()
+        return Objects.requireNonNull(indexStateMap.get()).entrySet().stream()
                 .filter(entry -> entry.getValue().isDisabled())
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toSet());
@@ -314,7 +315,7 @@ public class RecordStoreState {
      * @return the store header associated with the record store
      */
     public DataStoreInfo getStoreHeader() {
-        return storeHeader.get();
+        return Objects.requireNonNull(storeHeader.get());
     }
 
     /**
@@ -344,7 +345,8 @@ public class RecordStoreState {
             return false;
         } else {
             RecordStoreState other = (RecordStoreState)o;
-            return storeHeader.get().equals(other.storeHeader.get()) && indexStateMap.get().equals(other.indexStateMap.get());
+            return Objects.requireNonNull(storeHeader.get()).equals(Objects.requireNonNull(other.storeHeader.get()))
+                    && Objects.requireNonNull(indexStateMap.get()).equals(Objects.requireNonNull(other.indexStateMap.get()));
         }
     }
 
