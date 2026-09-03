@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.DirectoryLay
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.PathValue;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -221,6 +222,9 @@ public class KeySpacePathParsingTest {
     @ParameterizedTest
     @MethodSource("defaultValueSource")
     void defaultValue(Pair<KeySpaceDirectory.KeyType, Object> typeAndDefault) throws RelationalException {
+        // Pair.getLeft()/getRight() are declared @Nullable per their API contract, but defaultValueSource()
+        // never supplies a null KeyType here.
+        @SuppressWarnings("NullAway")
         KeySpace keySpace = new KeySpace(
                 new KeySpaceDirectory("testRoot", KeySpaceDirectory.KeyType.STRING)
                         .addSubdirectory(new KeySpaceDirectory("a", typeAndDefault.getLeft(), typeAndDefault.getRight())));
@@ -246,7 +250,13 @@ public class KeySpacePathParsingTest {
     static Stream<Arguments> unsupportedType() {
         return Arrays.stream(KeySpaceDirectory.KeyType.values())
                 .filter(type -> !PARSEABLE_KEY_TYPES.contains(type))
-                .map(type -> Arguments.of(type, VALUES_FOR_TYPE.get(type).get(0)));
+                .map(type -> {
+                    // VALUES_FOR_TYPE covers every KeyType (verified by validateValuesForTypeCoverage());
+                    // Map.get() is @Nullable per NullAway's built-in model, but the key is always present here.
+                    @SuppressWarnings("NullAway")
+                    final List<PathEntry> entries = VALUES_FOR_TYPE.get(type);
+                    return Arguments.of(type, entries.get(0));
+                });
     }
 
     @ParameterizedTest
@@ -265,9 +275,15 @@ public class KeySpacePathParsingTest {
     static Stream<Arguments> supportedType() {
         return Arrays.stream(KeySpaceDirectory.KeyType.values())
                 .filter(PARSEABLE_KEY_TYPES::contains)
-                .flatMap(type -> ParameterizedTestUtils.booleans("constant")
-                        .flatMap(constant -> VALUES_FOR_TYPE.get(type).stream()
-                                .map(pathEntry -> Arguments.of(type, constant, pathEntry))));
+                .flatMap(type -> {
+                    // VALUES_FOR_TYPE covers every KeyType (verified by validateValuesForTypeCoverage());
+                    // Map.get() is @Nullable per NullAway's built-in model, but the key is always present here.
+                    @SuppressWarnings("NullAway")
+                    final List<PathEntry> entries = VALUES_FOR_TYPE.get(type);
+                    return ParameterizedTestUtils.booleans("constant")
+                            .flatMap(constant -> entries.stream()
+                                    .map(pathEntry -> Arguments.of(type, constant, pathEntry)));
+                });
     }
 
     @ParameterizedTest
@@ -538,7 +554,7 @@ public class KeySpacePathParsingTest {
     }
 
     private static KeySpaceDirectory createDirectory(String name, KeySpaceDirectory.KeyType type,
-                                                     boolean constant, Object constantValue) {
+                                                     boolean constant, @Nullable Object constantValue) {
         if (constant) {
             return new KeySpaceDirectory(name, type, constantValue);
         } else {
@@ -585,10 +601,16 @@ public class KeySpacePathParsingTest {
         try {
             List<Object> values = new ArrayList<>();
             KeySpacePath currentPath = path;
-            values.add(context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, currentPath.resolveAsync(context)).getResolvedValue());
+            // asyncToSync()'s generic return type isn't nullability-annotated in this unmigrated
+            // record-layer-core API, but resolveAsync() never completes with a null PathValue.
+            @SuppressWarnings("NullAway")
+            PathValue resolved = context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, currentPath.resolveAsync(context));
+            values.add(resolved.getResolvedValue());
             while (currentPath.getParent() != null) {
                 currentPath = currentPath.getParent();
-                values.add(context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, currentPath.resolveAsync(context)).getResolvedValue());
+                @SuppressWarnings("NullAway")
+                PathValue resolvedParent = context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, currentPath.resolveAsync(context));
+                values.add(resolvedParent.getResolvedValue());
             }
             return values;
         } catch (RecordCoreException ex) {
@@ -620,7 +642,7 @@ public class KeySpacePathParsingTest {
                 path -> path.add(name, value));
     }
 
-    static AmbiguousHalf ambiguousHalf(final KeySpaceDirectory.KeyType type, final Object value) {
+    static AmbiguousHalf ambiguousHalf(final KeySpaceDirectory.KeyType type, @Nullable final Object value) {
         return new AmbiguousHalf(type.name(), isConstant -> createDirectory(type.name(), type, isConstant, value),
                 keySpace -> keySpace.path(type.name(), value),
                 path -> path.add(type.name(), value));

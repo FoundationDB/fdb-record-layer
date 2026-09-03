@@ -123,6 +123,9 @@ class ValueTupleTest {
     }
 
     @Test
+    // testLong.equals(null) deliberately exercises the equals()-must-accept-null contract; AbstractRow's
+    // equals(Object) parameter isn't annotated @Nullable even though Object.equals() requires tolerating null.
+    @SuppressWarnings("NullAway")
     void testEquals() {
         assertThat(testLong.equals(null)).isFalse();
         assertThat(testLong.equals(5)).isFalse();
