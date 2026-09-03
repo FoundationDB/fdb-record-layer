@@ -46,8 +46,7 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
     private RecordCursorResult<T> result;
     private Continuation continuation;
     // null until iteration is exhausted; see fetchNextResult() and getNoNextReason() below.
-    @Nullable
-    private RecordCursor.NoNextReason noNextReason;
+    private RecordCursor.@Nullable NoNextReason noNextReason;
 
     private RecordLayerIterator(RecordCursor<T> cursor, Function<T, Row> transform) throws RelationalException {
         this.recordCursor = cursor;
