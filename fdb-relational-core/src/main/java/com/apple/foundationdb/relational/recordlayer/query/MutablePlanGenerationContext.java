@@ -253,6 +253,10 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         }
     }
 
+    // continuation is already correctly declared @Nullable byte[] above; NullAway/JSpecify does not
+    // reliably track @Nullable on array-typed fields (known limitation), which is why this constructor
+    // setting it to null is still flagged as if the field were non-null.
+    @SuppressWarnings("NullAway")
     public MutablePlanGenerationContext(PreparedParams preparedParams,
                                         PlanHashable.PlanHashMode planHashMode,
                                         String query,
