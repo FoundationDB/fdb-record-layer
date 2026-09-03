@@ -53,6 +53,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
@@ -309,7 +310,8 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
     private CompletableFuture<Tuple> evaluateEqualRange(TupleRange range,
                                                         EvaluateEqualRange function) {
         Subspace rankSubspace = getSecondarySubspace();
-        Tuple values = range.getLow();
+        // Callers only invoke this method after checking range.isEquals(), which guarantees range.getLow() is non-null.
+        Tuple values = Objects.requireNonNull(range.getLow(), "range.isEquals() should guarantee a non-null low endpoint");
         final int groupingCount = getGroupingCount();
         if (groupingCount > 0) {
             rankSubspace = rankSubspace.subspace(TupleHelpers.subTuple(values, 0, groupingCount));
