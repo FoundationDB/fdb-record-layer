@@ -226,7 +226,7 @@ public class SlidingWindowIndexMaintainerFactory implements IndexMaintainerFacto
             if (index.getBooleanOption(IndexOptions.UNIQUE_OPTION, false)) {
                 throw new MetaDataException("sliding window index does not support unique indexes");
             }
-            IndexPredicate.validateRowNumberWindowPlacement(index.getPredicate());
+            IndexPredicate.validateRowNumberWindowPlacement(predicate);
             delegateIndexValidator.validate(metaDataValidator);
         }
     }

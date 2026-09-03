@@ -150,6 +150,7 @@ public class NoOpIndexMaintainer extends IndexMaintainer {
     }
 
     @Override
+    @Nullable
     public <M extends Message> List<IndexEntry> filteredIndexEntries(@Nullable final FDBIndexableRecord<M> savedRecord) {
         return null;
     }

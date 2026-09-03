@@ -28,6 +28,8 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Known hash functions available as index options.
  */
@@ -56,6 +58,7 @@ public class RankedSetHashFunctions {
         throw new RecordCoreArgumentException("hash function not found: " + name);
     }
 
+    @Nullable
     public static String getHashFunctionName(RankedSet.HashFunction hashFunction) {
         return extent.inverse().get(hashFunction);
     }

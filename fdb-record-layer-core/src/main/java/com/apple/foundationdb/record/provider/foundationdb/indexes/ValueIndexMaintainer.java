@@ -105,6 +105,8 @@ public class ValueIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters of scan()
+                                   // (null continuation intentionally means "start from the beginning").
     public CompletableFuture<Tuple> evaluateAggregateFunction(IndexAggregateFunction function,
                                                               TupleRange range,
                                                               final IsolationLevel isolationLevel) {

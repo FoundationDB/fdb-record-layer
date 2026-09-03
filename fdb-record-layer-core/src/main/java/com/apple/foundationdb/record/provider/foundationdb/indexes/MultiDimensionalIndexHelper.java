@@ -26,6 +26,8 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Helper functions for index maintainers that use a {@link RTree}.
  */
@@ -80,7 +82,7 @@ public class MultiDimensionalIndexHelper {
         private final String title;
         private final String logKey;
 
-        Events(String title, String logKey) {
+        Events(String title, @Nullable String logKey) {
             this.title = title;
             this.logKey = (logKey != null) ? logKey : StoreTimer.DetailEvent.super.logKey();
         }
