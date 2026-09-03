@@ -121,8 +121,7 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
             try {
                 final RecordCursorResult<T> currentResult = fetchNextResult();
                 // hasNext() above (via fetchNextResult().hasNext()) is what guarantees get() is non-null here.
-                @SuppressWarnings("NullAway")
-                final T nextValue = currentResult.get();
+                final T nextValue = Objects.requireNonNull(currentResult.get());
                 final var row = transform.apply(nextValue);
                 // TODO(sfines,yhatem) pass the Record-Layer Continuation object as-is to avoid copying bytes around.
                 // See the comment in fetchNextResult() above about this same @SuppressWarnings.
