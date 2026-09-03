@@ -162,6 +162,8 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
     }
 
     @Override
+    @SuppressWarnings("NullAway") // RecordCoreArgumentException's varargs constructor parameter is not annotated @Nullable
+                                   // even though value can genuinely be null.
     protected void validateConstant(@Nullable Object value) {
         if (!(value instanceof String)) {
             throw new RecordCoreArgumentException("Illegal constant value type provided for directory",
@@ -178,7 +180,9 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
     }
 
     @Override
-    @SuppressWarnings("squid:S1604") // need annotation so no lambda
+    @SuppressWarnings({"squid:S1604", "NullAway"}) // need annotation so no lambda; RecordCoreArgumentException's varargs
+                                                    // constructor parameter is not annotated @Nullable even though
+                                                    // value/this.value can genuinely be null.
     protected CompletableFuture<PathValue> toTupleValueAsyncImpl(FDBRecordContext context, @Nullable Object value) {
         // We allow someone to explicitly pass the value of a directory layer entry, however if
         // this directory is hard-wired to a specific value, then the value passed in is compared
@@ -296,6 +300,9 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
             resolver.resolveWithMetadata(context, key, createHooks));
     }
 
+    @SuppressWarnings("NullAway") // ResolverResult#getMetadata uses the @Nullable byte[] annotation position (which
+                                   // NullAway does not reliably recognize) while PathValue's constructor uses the
+                                   // reliable byte @Nullable [] position; both are genuinely nullable.
     private static PathValue toPathValue(ResolverResult result) {
         return new PathValue(result.getValue(), result.getMetadata());
     }
