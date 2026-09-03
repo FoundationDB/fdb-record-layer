@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.RecordCoreInternalException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
@@ -94,6 +95,13 @@ public class SplitHelper {
     private SplitHelper() {
     }
 
+    // ByteArrayUtil2.loggable() genuinely returns null only when given a null byte[], but every call site in this
+    // file passes the result of subspace.pack()/getKey() or a KeyValue's getKey(), none of which are ever null;
+    // LoggableException#addLogInfo's value parameter does not accept null, so wrap here rather than at every site.
+    private static String loggable(byte[] bytes) {
+        return Objects.requireNonNull(ByteArrayUtil2.loggable(bytes));
+    }
+
     /**
      * Save serialized representation using multiple keys if necessary.
      * @param context write transaction
@@ -129,7 +137,7 @@ public class SplitHelper {
         if (omitUnsplitSuffix && version != null) {
             throw new RecordCoreArgumentException("Cannot include version in-line using old unsplit record format")
                     .addLogInfo(LogMessageKeys.KEY_TUPLE, key)
-                    .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()))
+                    .addLogInfo(LogMessageKeys.SUBSPACE, loggable(subspace.pack()))
                     .addLogInfo(LogMessageKeys.VERSION, version);
         }
         boolean hasVersionInKey = key.hasIncompleteVersionstamp();
@@ -141,7 +149,7 @@ public class SplitHelper {
             if (!splitLongRecords) {
                 throw new RecordCoreException("Record is too long to be stored in a single value; consider split_long_records")
                         .addLogInfo(LogMessageKeys.KEY_TUPLE, key)
-                        .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()))
+                        .addLogInfo(LogMessageKeys.SUBSPACE, loggable(subspace.pack()))
                         .addLogInfo(LogMessageKeys.VALUE_SIZE, serialized.length);
             }
             writeSplitRecord(context, subspace, key, serialized, hasVersionInKey, clearBasedOnPreviousSizeInfo, previousSizeInfo, sizeInfo);
@@ -206,7 +214,9 @@ public class SplitHelper {
         byte[] keyBytes;
         if (recordKey.hasIncompleteVersionstamp()) {
             keyBytes = subspace.packWithVersionstamp(recordKey);
-            byte[] current = context.addVersionMutation(
+            // addVersionMutation is declared @Nullable byte[], but NullAway does not reliably track that through
+            // this assignment (a known array-type tracking gap).
+            @Nullable byte[] current = context.addVersionMutation(
                     MutationType.SET_VERSIONSTAMPED_KEY,
                     keyBytes,
                     serialized);
@@ -444,14 +454,14 @@ public class SplitHelper {
                 if (version != null) {
                     throw new FoundSplitWithoutStartException(SplitHelper.RECORD_VERSION, false)
                             .addLogInfo(LogMessageKeys.KEY_TUPLE, key)
-                            .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(recordSubspace.pack()))
+                            .addLogInfo(LogMessageKeys.SUBSPACE, loggable(recordSubspace.pack()))
                             .addLogInfo(LogMessageKeys.VERSION, version);
                 }
                 return CompletableFuture.completedFuture((FDBRawRecord)null);
             } else if (unsplitValue != null && startSplitValue != null) {
                 throw new RecordCoreException("Unsplit value followed by split.")
                         .addLogInfo(LogMessageKeys.KEY_TUPLE, key)
-                        .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(recordSubspace.pack()));
+                        .addLogInfo(LogMessageKeys.SUBSPACE, loggable(recordSubspace.pack()));
             } else if (unsplitValue != null) {
                 // Record is unsplit. No further scans needed
                 storedSizes.setSplit(false);
@@ -471,10 +481,10 @@ public class SplitHelper {
                     long expectedSplit = lastSplit.incrementAndGet();
                     if (splitPoint != expectedSplit) {
                         throw new RecordCoreException("Split record segments out of order")
-                                .addLogInfo(LogMessageKeys.KEY, ByteArrayUtil2.loggable(keyValue.getKey()))
+                                .addLogInfo(LogMessageKeys.KEY, loggable(keyValue.getKey()))
                                 .addLogInfo(LogMessageKeys.EXPECTED_INDEX, expectedSplit)
                                 .addLogInfo(LogMessageKeys.FOUND_INDEX, splitPoint)
-                                .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()));
+                                .addLogInfo(LogMessageKeys.SUBSPACE, loggable(subspace.pack()));
                     }
                     storedSizes.add(keyValue);
                     values.add(keyValue.getValue());
@@ -574,8 +584,8 @@ public class SplitHelper {
             return subspace.unpack(kv.getKey());
         } catch (IllegalArgumentException e) {
             throw new RecordCoreArgumentException("unable to unpack key", e)
-                    .addLogInfo(LogMessageKeys.KEY, ByteArrayUtil2.loggable(kv.getKey()))
-                    .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.getKey()));
+                    .addLogInfo(LogMessageKeys.KEY, loggable(kv.getKey()))
+                    .addLogInfo(LogMessageKeys.SUBSPACE, loggable(subspace.getKey()));
         }
     }
 
@@ -731,6 +741,10 @@ public class SplitHelper {
         @Nullable
         private FDBRecordVersion version;
 
+        // NullAway/JSpecify does not reliably recognize @Nullable on the byte[] result field for the
+        // field-initialization check, even though it is correctly annotated @Nullable and is genuinely left
+        // unset (null) here (no key-value has been read yet).
+        @SuppressWarnings("NullAway")
         public SingleKeyUnsplitter(FDBRecordContext context, Tuple key,
                                    final Subspace keySplitSubspace,
                                    final AsyncIterator<KeyValue> iter, @Nullable final SizeInfo sizeInfo) {
@@ -748,6 +762,10 @@ public class SplitHelper {
          * or {@code null} if the underlying iterator has no items or if the {@code KeyValue} is not split
          * and its value is {@code null}
          */
+        // NullAway/JSpecify does not reliably track @Nullable on the byte[] result field even through
+        // Objects.requireNonNull (a known array-type tracking gap); the null check a few lines below already
+        // establishes that result is non-null at that point.
+        @SuppressWarnings("NullAway")
         public CompletableFuture<FDBRawRecord> run(Executor executor) {
             sizeInfo.reset();
             final byte[] versionKey = keySplitSubspace.pack(RECORD_VERSION);
@@ -763,11 +781,13 @@ public class SplitHelper {
                     return hasNext;
                 }), executor).thenApply(vignore -> {
                     if (result != null) {
-                        return new FDBRawRecord(key, result, version, sizeInfo);
+                        // Field-narrowing on the @Nullable byte[] result field does not reliably survive into this
+                        // lambda (a known array-type tracking gap); re-assert non-null explicitly.
+                        return new FDBRawRecord(key, Objects.requireNonNull(result), version, sizeInfo);
                     } else if (version != null) {
                         throw new FoundSplitWithoutStartException(SplitHelper.RECORD_VERSION, false)
                                 .addLogInfo(LogMessageKeys.KEY_TUPLE, key)
-                                .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(keySplitSubspace.pack()))
+                                .addLogInfo(LogMessageKeys.SUBSPACE, loggable(keySplitSubspace.pack()))
                                 .addLogInfo(LogMessageKeys.VERSION, version);
 
                     } else {
@@ -781,14 +801,14 @@ public class SplitHelper {
             if (subkey.size() != 1) {
                 throw new RecordCoreException("Expected only a single key extension for split record.")
                         .addLogInfo(LogMessageKeys.KEY_TUPLE, key)
-                        .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(keySplitSubspace.pack()));
+                        .addLogInfo(LogMessageKeys.SUBSPACE, loggable(keySplitSubspace.pack()));
             }
             long index = subkey.getLong(0);
             if (index == UNSPLIT_RECORD) {
                 if (result != null) {
                     throw new RecordCoreException("More than one unsplit value.")
                             .addLogInfo(LogMessageKeys.KEY_TUPLE, key)
-                            .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(keySplitSubspace.pack()));
+                            .addLogInfo(LogMessageKeys.SUBSPACE, loggable(keySplitSubspace.pack()));
                 }
                 result = kv.getValue();
                 sizeInfo.add(kv);
@@ -798,7 +818,7 @@ public class SplitHelper {
                     if (result != null) {
                         throw new RecordCoreException("Unsplit value followed by split.")
                                 .addLogInfo(LogMessageKeys.KEY_TUPLE, key)
-                                .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(keySplitSubspace.pack()));
+                                .addLogInfo(LogMessageKeys.SUBSPACE, loggable(keySplitSubspace.pack()));
                     }
                     result = kv.getValue();
                     sizeInfo.add(kv);
@@ -817,12 +837,12 @@ public class SplitHelper {
                 if (lastIndex >= SplitHelper.START_SPLIT_RECORD) {
                     throw new FoundSplitOutOfOrderException(lastIndex + 1, index)
                             .addLogInfo(LogMessageKeys.KEY_TUPLE, key)
-                            .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(keySplitSubspace.pack()));
+                            .addLogInfo(LogMessageKeys.SUBSPACE, loggable(keySplitSubspace.pack()));
                 } else {
                     throw new FoundSplitWithoutStartException(index, false)
-                            .addLogInfo(LogMessageKeys.KEY, ByteArrayUtil2.loggable(kv.getKey()))
+                            .addLogInfo(LogMessageKeys.KEY, loggable(kv.getKey()))
                             .addLogInfo(LogMessageKeys.KEY_TUPLE, key)
-                            .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(keySplitSubspace.pack()));
+                            .addLogInfo(LogMessageKeys.SUBSPACE, loggable(keySplitSubspace.pack()));
                 }
             }
         }
@@ -855,8 +875,10 @@ public class SplitHelper {
         private NoNextReason innerNoNextReason;
         @Nullable
         private RecordCursorResult<KeyValue> pending;
-        @Nullable
-        private RecordCursorContinuation continuation;
+        // Use the START sentinel rather than null for "haven't produced a continuation yet" -- this is the
+        // documented purpose of RecordCursorStartContinuation (see RecordCursorContinuation's javadoc), and
+        // avoids ever needing to treat a genuinely-missing continuation as a possibility below.
+        private RecordCursorContinuation continuation = RecordCursorStartContinuation.START;
         private final CursorLimitManager limitManager;
         private long readLastKeyNanos = 0L; // for logging purposes
 
@@ -870,6 +892,10 @@ public class SplitHelper {
             this(context, subspace, inner, oldVersionFormat, sizeInfo, scanProperties.isReverse(), new CursorLimitManager(scanProperties));
         }
 
+        // NullAway/JSpecify does not reliably recognize @Nullable on the byte[] nextPrefix field for the
+        // field-initialization check, even though it is correctly annotated @Nullable and is genuinely left
+        // unset (null) here (no key-value has been read yet).
+        @SuppressWarnings("NullAway")
         public KeyValueUnsplitter(FDBRecordContext context, final Subspace subspace,
                                   final RecordCursor<KeyValue> inner, final boolean oldVersionFormat,
                                   @Nullable final SizeInfo sizeInfo,
@@ -884,6 +910,9 @@ public class SplitHelper {
         }
 
         @Override
+        // NullAway/JSpecify does not reliably recognize @Nullable on the byte[] nextPrefix field, even for a
+        // plain "nextPrefix = null;" assignment (a known array-type tracking gap).
+        @SuppressWarnings("NullAway")
         public CompletableFuture<RecordCursorResult<FDBRawRecord>> onNext() {
             if (nextResult != null && !nextResult.hasNext()) {
                 return CompletableFuture.completedFuture(nextResult);
@@ -902,8 +931,8 @@ public class SplitHelper {
                 return appendUntilNewKey().thenApply(vignore -> {
                     if (nextVersion != null && next == null) {
                         throw new FoundSplitWithoutStartException(RECORD_VERSION, reverse)
-                                .addLogInfo(LogMessageKeys.KEY_TUPLE, nextKey)
-                                .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()))
+                                .addLogInfo(LogMessageKeys.KEY_TUPLE, nextKey == null ? "null" : nextKey)
+                                .addLogInfo(LogMessageKeys.SUBSPACE, loggable(subspace.pack()))
                                 .addLogInfo(LogMessageKeys.VERSION, nextVersion);
                     }
                     if (!oldVersionFormat && nextKey != null) {
@@ -928,7 +957,9 @@ public class SplitHelper {
                         }
                     } else { // has next result
                         sizeInfo.setVersionedInline(nextVersion != null);
-                        final FDBRawRecord result = new FDBRawRecord(nextKey, next.getValue(), nextVersion, sizeInfo);
+                        // next and nextKey are always set/cleared together (see appendFirst/appendNext), so
+                        // next != null here implies nextKey != null.
+                        final FDBRawRecord result = new FDBRawRecord(Objects.requireNonNull(nextKey), next.getValue(), nextVersion, sizeInfo);
                         next = null;
                         nextKey = null;
                         nextVersion = null;
@@ -957,7 +988,11 @@ public class SplitHelper {
             if (innerNoNextReason == NoNextReason.SOURCE_EXHAUSTED) {
                 return innerNoNextReason;
             }
-            return limitManager.getStoppedReason().orElse(innerNoNextReason);
+            // mergeNoNextReason is only ever called (from onNext()) once either limitManager has recorded a
+            // stopped reason or the inner cursor has stopped and set innerNoNextReason, so at least one of these
+            // is always present. orElseGet (rather than orElse) keeps this lazy, since only one of the two is
+            // guaranteed to be non-null, not both.
+            return limitManager.getStoppedReason().orElseGet(() -> Objects.requireNonNull(innerNoNextReason));
         }
 
         @Override
@@ -999,8 +1034,8 @@ public class SplitHelper {
                     if (!innerResult.hasNext()) {
                         if (reverse && next != null && nextIndex != START_SPLIT_RECORD && nextIndex != UNSPLIT_RECORD && nextIndex != RECORD_VERSION) {
                             throw new FoundSplitWithoutStartException(nextIndex, true)
-                                    .addLogInfo(LogMessageKeys.KEY_TUPLE, nextKey)
-                                    .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()));
+                                    .addLogInfo(LogMessageKeys.KEY_TUPLE, nextKey == null ? "null" : nextKey)
+                                    .addLogInfo(LogMessageKeys.SUBSPACE, loggable(subspace.pack()));
                         }
                         innerNoNextReason = innerResult.getNoNextReason();
                         // If we already built up some values, then we already cached an appropriate continuation.
@@ -1028,7 +1063,8 @@ public class SplitHelper {
 
         // Process the next key-value pair from the inner cursor; return whether unsplit complete.
         protected boolean append(RecordCursorResult<KeyValue> resultWithKv) {
-            KeyValue kv = resultWithKv.get(); // KeyValue is non-null since we only pass in a result that has one
+            // KeyValue is non-null since we only pass in a result that has one.
+            KeyValue kv = Objects.requireNonNull(resultWithKv.get());
             limitManager.reportScannedBytes(kv.getKey().length + kv.getValue().length);
             if (nextPrefix == null) {
                 continuation = resultWithKv.getContinuation();
@@ -1039,9 +1075,9 @@ public class SplitHelper {
             } else {
                 if (reverse && nextIndex != UNSPLIT_RECORD && nextIndex != START_SPLIT_RECORD && nextIndex != RECORD_VERSION) {
                     throw new FoundSplitWithoutStartException(nextIndex, true)
-                            .addLogInfo(LogMessageKeys.KEY, ByteArrayUtil2.loggable(kv.getKey()))
-                            .addLogInfo(LogMessageKeys.KEY_TUPLE, nextKey) // nextKey may be null if no version and scanning in the forward direction
-                            .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()));
+                            .addLogInfo(LogMessageKeys.KEY, loggable(kv.getKey()))
+                            .addLogInfo(LogMessageKeys.KEY_TUPLE, nextKey == null ? "null" : nextKey) // nextKey may be null if no version and scanning in the forward direction
+                            .addLogInfo(LogMessageKeys.SUBSPACE, loggable(subspace.pack()));
                 }
                 pending = resultWithKv;
                 logEndFound();
@@ -1069,7 +1105,7 @@ public class SplitHelper {
             } else if (!reverse && nextIndex == RECORD_VERSION) {
                 if (oldVersionFormat) {
                     throw new RecordCoreException("Found record version when old format specified")
-                            .addLogInfo(LogMessageKeys.KEY, ByteArrayUtil2.loggable(kv.getKey()))
+                            .addLogInfo(LogMessageKeys.KEY, loggable(kv.getKey()))
                             .addLogInfo(LogMessageKeys.KEY_TUPLE, keyTuple);
                 }
                 // First key is a record version. This should only happen in
@@ -1087,7 +1123,7 @@ public class SplitHelper {
                 done = false;
             } else {
                 throw new FoundSplitWithoutStartException(nextIndex, reverse)
-                        .addLogInfo(LogMessageKeys.KEY, ByteArrayUtil2.loggable(kv.getKey()))
+                        .addLogInfo(LogMessageKeys.KEY, loggable(kv.getKey()))
                         .addLogInfo(LogMessageKeys.KEY_TUPLE, keyTuple);
             }
             logFirstKey(done);
@@ -1096,7 +1132,9 @@ public class SplitHelper {
 
         // Process the a key-value pair (other than the first one) for a given record; return whether the record is complete
         private boolean appendNext(KeyValue kv) {
-            long index = nextSubspace.unpack(kv.getKey()).getLong(0);
+            // appendNext is only ever called (from append()) when nextPrefix != null, and nextSubspace/nextPrefix
+            // are always set and cleared together (see appendFirst/onNext), so nextSubspace is non-null here.
+            long index = Objects.requireNonNull(nextSubspace).unpack(kv.getKey()).getLong(0);
             sizeInfo.add(kv);
             boolean done;
             if (!reverse && nextIndex == RECORD_VERSION && (index == UNSPLIT_RECORD || index == START_SPLIT_RECORD)) {
@@ -1113,7 +1151,9 @@ public class SplitHelper {
                 // in the forward scan. Append its value to the end of the current
                 // key-value pair being accumulated. Return false because there is
                 // no way to know if this is the last key or not.
-                next = new KeyValue(nextPrefix, ByteArrayUtil.join(next.getValue(), kv.getValue()));
+                // next was already established (non-null) on a prior call, since this is the second or later
+                // key for the current record (the first-key cases above set `next` themselves).
+                next = new KeyValue(nextPrefix, ByteArrayUtil.join(Objects.requireNonNull(next).getValue(), kv.getValue()));
                 nextIndex = index;
                 done = false;
             } else if (reverse && index == RECORD_VERSION && (nextIndex == START_SPLIT_RECORD || nextIndex == UNSPLIT_RECORD)) {
@@ -1122,9 +1162,9 @@ public class SplitHelper {
                 // is always first key for a given record (if it is present).
                 if (oldVersionFormat) {
                     throw new RecordCoreException("Found record version when old format specified")
-                            .addLogInfo(LogMessageKeys.KEY, ByteArrayUtil2.loggable(kv.getKey()))
-                            .addLogInfo(LogMessageKeys.KEY_TUPLE, nextKey)
-                            .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()));
+                            .addLogInfo(LogMessageKeys.KEY, loggable(kv.getKey()))
+                            .addLogInfo(LogMessageKeys.KEY_TUPLE, nextKey == null ? "null" : nextKey)
+                            .addLogInfo(LogMessageKeys.SUBSPACE, loggable(subspace.pack()));
                 }
                 nextVersion = unpackVersion(kv.getValue());
                 nextIndex = index;
@@ -1135,23 +1175,24 @@ public class SplitHelper {
                 // accumulated. Return false because there is no way to know if this is the
                 // last key or not (in particular, even if index == START_SPLIT_RECORD, it's
                 // possible that there is a record version before it).
-                next = new KeyValue(nextPrefix, ByteArrayUtil.join(kv.getValue(), next.getValue()));
+                // next was already established (non-null) on a prior call; see the forward-scan case above.
+                next = new KeyValue(nextPrefix, ByteArrayUtil.join(kv.getValue(), Objects.requireNonNull(next).getValue()));
                 nextIndex = index;
                 done = false;
             } else {
                 final long expectedIndex = nextIndex + (reverse ? -1 : 1);
                 if (reverse && expectedIndex == START_SPLIT_RECORD || !reverse && nextIndex == RECORD_VERSION) {
                     throw new FoundSplitWithoutStartException(index, reverse)
-                            .addLogInfo(LogMessageKeys.KEY, ByteArrayUtil2.loggable(kv.getKey()))
-                            .addLogInfo(LogMessageKeys.KEY_TUPLE, nextKey)
-                            .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()));
+                            .addLogInfo(LogMessageKeys.KEY, loggable(kv.getKey()))
+                            .addLogInfo(LogMessageKeys.KEY_TUPLE, nextKey == null ? "null" : nextKey)
+                            .addLogInfo(LogMessageKeys.SUBSPACE, loggable(subspace.pack()));
                 } else {
                     throw new RecordCoreException("Split record segments out of order")
-                            .addLogInfo(LogMessageKeys.KEY, ByteArrayUtil2.loggable(kv.getKey()))
-                            .addLogInfo(LogMessageKeys.KEY_TUPLE, nextKey)
+                            .addLogInfo(LogMessageKeys.KEY, loggable(kv.getKey()))
+                            .addLogInfo(LogMessageKeys.KEY_TUPLE, nextKey == null ? "null" : nextKey)
                             .addLogInfo(LogMessageKeys.EXPECTED_INDEX, nextIndex + (reverse ? -1 : 1))
                             .addLogInfo(LogMessageKeys.FOUND_INDEX, index)
-                            .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()));
+                            .addLogInfo(LogMessageKeys.SUBSPACE, loggable(subspace.pack()));
                 }
             }
             logNextKey(done);
