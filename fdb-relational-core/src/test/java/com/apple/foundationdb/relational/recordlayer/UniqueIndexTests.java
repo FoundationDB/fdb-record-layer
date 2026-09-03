@@ -36,6 +36,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 
 public class UniqueIndexTests {
@@ -91,7 +92,7 @@ public class UniqueIndexTests {
             Assertions.assertEquals(count, toInsert.size());
         } catch (SQLException e) {
             Assertions.assertEquals(e.getSQLState(), ErrorCode.UNIQUE_CONSTRAINT_VIOLATION.getErrorCode());
-            Assertions.assertTrue(e.getMessage().contains("Duplicate entry for unique index"));
+            Assertions.assertTrue(Objects.requireNonNullElse(e.getMessage(), e.toString()).contains("Duplicate entry for unique index"));
             foundError = true;
         } catch (Exception e) {
             Assertions.fail(String.format(Locale.ROOT, "Unexpected exception while inserting records to table %s: %s", tableName, e.getMessage()));

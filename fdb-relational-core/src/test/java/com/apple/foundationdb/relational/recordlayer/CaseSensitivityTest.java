@@ -221,7 +221,14 @@ public class CaseSensitivityTest {
                 }
                 RelationalDatabaseMetaData md = conn.getMetaData().unwrap(RelationalDatabaseMetaData.class);
                 for (String table : tables) {
-                    try (RelationalResultSet rs = md.getTables("/TEST/VARIOUS_TABLES_DB", "VARIOUS_TABLE_" + table.toUpperCase(Locale.ROOT), null, null)) {
+                    // md.getTables(...) accepts null tableNamePattern/types per JDBC javadoc ("no filter"); the
+                    // unmigrated fdb-relational-api interface it's declared on isn't annotated to say so.
+                    @SuppressWarnings("NullAway")
+                    RelationalResultSet rs = md.getTables("/TEST/VARIOUS_TABLES_DB", "VARIOUS_TABLE_" + table.toUpperCase(Locale.ROOT), null, null);
+                    try (rs) {
+                        // ArrayRow(Object...) is declared in the unmigrated fdb-relational-api module without
+                        // @Nullable on its varargs elements, but a null column value is a legitimate row value.
+                        @SuppressWarnings("NullAway")
                         List<Row> row = List.of(new ArrayRow(
                                 "/TEST/VARIOUS_TABLES_DB",
                                 "VARIOUS_TABLE_" + table.toUpperCase(Locale.ROOT),
@@ -263,7 +270,11 @@ public class CaseSensitivityTest {
                 }
                 RelationalDatabaseMetaData md = conn.getMetaData().unwrap(RelationalDatabaseMetaData.class);
                 for (String column : columns) {
-                    try (RelationalResultSet rs = md.getColumns("/TEST/VARIOUS_COLUMNS_DB", "VARIOUS_COLUMNS_" + column.toUpperCase(Locale.ROOT), "TBL_VARIOUS_COLUMNS", null)) {
+                    // md.getColumns(...) accepts a null columnNamePattern per JDBC javadoc ("no filter"); the
+                    // unmigrated fdb-relational-api interface it's declared on isn't annotated to say so.
+                    @SuppressWarnings("NullAway")
+                    RelationalResultSet rs = md.getColumns("/TEST/VARIOUS_COLUMNS_DB", "VARIOUS_COLUMNS_" + column.toUpperCase(Locale.ROOT), "TBL_VARIOUS_COLUMNS", null);
+                    try (rs) {
                         ResultSetAssert.assertThat(rs)
                                 .hasNextRow()
                                 .hasColumn("COLUMN_NAME", quoted ? column : column.toUpperCase(Locale.ROOT));
