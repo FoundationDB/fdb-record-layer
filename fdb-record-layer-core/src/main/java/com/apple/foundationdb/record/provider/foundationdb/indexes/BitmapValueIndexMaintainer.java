@@ -172,6 +172,10 @@ public class BitmapValueIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
+    @SuppressWarnings("NullAway") // RecordIndexUniquenessViolation's existingKey constructor parameter is not annotated
+                                   // @Nullable even though the field it populates is (and we genuinely don't know the
+                                   // other key here); futures is non-null whenever unique && !remove, which is exactly
+                                   // the condition guarding its use below (NullAway cannot correlate the two).
     protected <M extends Message> CompletableFuture<Void> updateIndexKeys(final FDBIndexableRecord<M> savedRecord,
                                                                           final boolean remove,
                                                                           final List<IndexEntry> indexEntries) {
@@ -248,7 +252,8 @@ public class BitmapValueIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    @SuppressWarnings("PMD.CloseResource")
+    @SuppressWarnings({"PMD.CloseResource", "NullAway"}) // NullAway/JSpecify does not currently track @Nullable on array (byte[])
+                                                          // parameters of scan() (null continuation).
     public CompletableFuture<Tuple> evaluateAggregateFunction(IndexAggregateFunction function,
                                                               TupleRange range,
                                                               IsolationLevel isolationveLevel) {

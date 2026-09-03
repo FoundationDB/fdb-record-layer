@@ -222,8 +222,9 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         // This guarantees consistent state for any persistent data structures that are modified in this transaction.
         CompletableFuture<Void> future = AsyncUtil.DONE;
         if (oldIndexEntries != null && !oldIndexEntries.isEmpty()) {
-            final Function<Void, CompletableFuture<Void>> oldUpdate =
-                    updateIndexKeysFunction(oldRecord, true, oldIndexEntries);
+            // filteredIndexEntries(oldRecord) only returns non-null when oldRecord is non-null.
+            final Function<@Nullable Void, CompletableFuture<Void>> oldUpdate =
+                    updateIndexKeysFunction(Objects.requireNonNull(oldRecord), true, oldIndexEntries);
             if (MoreAsyncUtil.isCompletedNormally(future)) {
                 future = oldUpdate.apply(null);
             } else {
@@ -231,8 +232,9 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
             }
         }
         if (newIndexEntries != null && !newIndexEntries.isEmpty()) {
-            final Function<Void, CompletableFuture<Void>> newUpdate =
-                    updateIndexKeysFunction(newRecord, false, newIndexEntries);
+            // filteredIndexEntries(newRecord) only returns non-null when newRecord is non-null.
+            final Function<@Nullable Void, CompletableFuture<Void>> newUpdate =
+                    updateIndexKeysFunction(Objects.requireNonNull(newRecord), false, newIndexEntries);
             if (MoreAsyncUtil.isCompletedNormally(future)) {
                 future = newUpdate.apply(null);
             } else {
@@ -397,7 +399,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         }
     }
 
-    protected <M extends Message> Function<Void, CompletableFuture<Void>> updateIndexKeysFunction(final FDBIndexableRecord<M> savedRecord,
+    protected <M extends Message> Function<@Nullable Void, CompletableFuture<Void>> updateIndexKeysFunction(final FDBIndexableRecord<M> savedRecord,
                                                                                                   final boolean remove,
                                                                                                   final List<IndexEntry> indexEntries) {
         return vignore -> updateIndexKeys(savedRecord, remove, indexEntries);

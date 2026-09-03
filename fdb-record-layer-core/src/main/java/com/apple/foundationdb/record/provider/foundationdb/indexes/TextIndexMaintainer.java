@@ -69,6 +69,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
@@ -440,12 +441,14 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
             }
             );
         } else if (oldRecord != null) {
-            // Updating an existing record.
+            // Updating an existing record. Given the two branches above have already been ruled out, oldRecord != null
+            // here implies newRecord != null (the only remaining case besides "both null", handled below).
+            final FDBIndexableRecord<M> nonNullNewRecord = Objects.requireNonNull(newRecord);
             return getRecordTokenizerVersion(oldRecord.getPrimaryKey()).thenCompose(recordTokenizerVersion -> {
                 if (recordTokenizerVersion == tokenizerVersion) {
                     // In this case, we don't need to do any book-keeping of the tokenizer version, and
                     // updating the entries works exactly the same for this record as all others.
-                    return super.update(oldRecord, newRecord);
+                    return super.update(oldRecord, nonNullNewRecord);
                 } else {
                     // Because the tokenizer version changed, we will re-index the record.
                     // This is necessary if some of the entries have changed but not others in
@@ -456,8 +459,8 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
                     return super.update(oldRecord, null).thenCompose(new Function<Void, CompletionStage<Void>>() {
                         @Override
                         public CompletionStage<Void> apply(Void vignore) {
-                            TextIndexMaintainer.this.writeRecordTokenizerVersion(newRecord.getPrimaryKey());
-                            return TextIndexMaintainer.super.update(null, newRecord);
+                            TextIndexMaintainer.this.writeRecordTokenizerVersion(nonNullNewRecord.getPrimaryKey());
+                            return TextIndexMaintainer.super.update(null, nonNullNewRecord);
                         }
                     });
                 }
@@ -551,7 +554,7 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
         }
 
         @Override
-        protected void instrumentDelete(byte[] key, @Nullable byte[] oldValue) {
+        protected void instrumentDelete(byte[] key, byte @Nullable [] oldValue) {
             timer.increment(FDBStoreTimer.Counts.DELETE_INDEX_KEY);
             timer.increment(FDBStoreTimer.Counts.DELETE_INDEX_KEY_BYTES, key.length);
             if (oldValue != null) {
@@ -560,7 +563,7 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
         }
 
         @Override
-        protected void instrumentWrite(byte[] key, byte[] value, @Nullable byte[] oldValue) {
+        protected void instrumentWrite(byte[] key, byte[] value, byte @Nullable [] oldValue) {
             timer.increment(FDBStoreTimer.Counts.SAVE_INDEX_KEY);
             timer.increment(FDBStoreTimer.Counts.SAVE_INDEX_KEY_BYTES, key.length);
             timer.increment(FDBStoreTimer.Counts.SAVE_INDEX_VALUE_BYTES, value.length);
