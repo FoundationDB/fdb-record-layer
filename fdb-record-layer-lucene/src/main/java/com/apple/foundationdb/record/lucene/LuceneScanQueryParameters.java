@@ -71,8 +71,7 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
     @Nullable
     final LuceneQueryHighlightParameters luceneQueryHighlightParameters;
 
-    @SpotBugsSuppressWarnings("NP_STORE_INTO_NONNULL_FIELD") // TODO remove this once we have a proper implementation
-    @SuppressWarnings("NullAway") // same as above: intentionally storing null into the non-null query field for now.
+    @SuppressWarnings("NullAway") // intentionally storing null into the non-null query field for now.
     protected LuceneScanQueryParameters(final PlanSerializationContext serializationContext,
                                         final PLuceneScanQueryParameters luceneScanQueryParametersProto) {
         super(serializationContext, Objects.requireNonNull(luceneScanQueryParametersProto.getSuper()));

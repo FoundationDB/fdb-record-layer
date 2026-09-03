@@ -74,7 +74,7 @@ public class LuceneIndexSpellCheckQueryPlan extends LuceneIndexQueryPlan {
         final RecordType recordType = Iterables.getOnlyElement(recordTypes);
         // entryCursorFunction's type is fixed by RecordQueryPlanWithIndex (unannotated core), whose own default
         // implementation likewise applies a @Nullable continuation to this same Function<byte[], ...> type.
-        @SuppressWarnings("NullAway")
+        @SuppressWarnings({"NullAway", "PMD.CloseResource"})
         final RecordCursor<IndexEntry> entryCursor = entryCursorFunction.apply(continuation);
         return entryCursor
                 .map(QueryPlanUtils.getCoveringIndexEntryToPartialRecordFunction(store, recordType.getName(), indexName,
