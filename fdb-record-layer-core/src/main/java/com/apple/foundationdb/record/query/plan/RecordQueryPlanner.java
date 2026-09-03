@@ -938,7 +938,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     @Nullable
     private ScoredMatch matchCandidateScan(CandidateScan candidateScan,
                                            KeyExpression indexExpr,
-                                           QueryComponent filter, @Nullable KeyExpression sort) {
+                                           @Nullable QueryComponent filter, @Nullable KeyExpression sort) {
         filter = candidateScan.planContext.rankComparisons.planComparisonSubstitute(filter);
         if (filter instanceof FieldWithComparison) {
             return planFieldWithComparison(candidateScan, indexExpr, (FieldWithComparison) filter, sort, true);
@@ -1249,6 +1249,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         return null;
     }
 
+    @Nullable
     private ScoredMatch planThenNestedField(CandidateScan candidateScan, ThenKeyExpression then,
                                             NestedField filter, @Nullable KeyExpression sort) {
         if (sort instanceof ThenKeyExpression || then.createsDuplicates()) {
@@ -1269,6 +1270,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         return match;
     }
 
+    @Nullable
     private ScoredMatch planNestingNestedField(CandidateScan candidateScan, NestingKeyExpression nesting,
                                                NestedField filter, @Nullable KeyExpression sort) {
         if (Objects.equals(nesting.getParent().getFieldName(), filter.getFieldName())) {
@@ -1324,9 +1326,10 @@ public class RecordQueryPlanner implements QueryPlanner {
             final ComparisonRanges planComparisonRanges =
                     sortOnlyPlan == null ? null : getPlanComparisonRanges(sortOnlyPlan.getPlan());
             if (planComparisonRanges != null) {
+                // planComparisonRanges can only be non-null here if sortOnlyPlan was non-null (see the ternary above).
                 return new ScoredMatch(0, planComparisonRanges,
                         Collections.singletonList(oneOfThemWithComparison),
-                        sortOnlyPlan.createsDuplicates, sortOnlyPlan.isStrictlySorted);
+                        Objects.requireNonNull(sortOnlyPlan).createsDuplicates, sortOnlyPlan.isStrictlySorted);
             } else {
                 return null;
             }
@@ -1374,6 +1377,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
     }
 
+    @Nullable
     private ScoredMatch planAndWithThen(CandidateScan candidateScan,
                                        ThenKeyExpression indexExpr,
                                        List<QueryComponent> filters,
@@ -1381,6 +1385,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         return planAndWithThen(candidateScan, indexExpr, indexExpr.getChildren(), filters, sort);
     }
 
+    @Nullable
     private ScoredMatch planAndWithThen(CandidateScan candidateScan,
                                         @Nullable ThenKeyExpression indexExpr,
                                         List<KeyExpression> indexChildren,
@@ -1860,7 +1865,9 @@ public class RecordQueryPlanner implements QueryPlanner {
         // Note that this also improves the _second-best_ plan for planFilterWithInJoin, but an IN filter wins
         // out there over the equivalent OR(EQUALS) filters.
         if (allHaveSameBasePlan) {
-            final RecordQueryPlan combinedOrFilter = new RecordQueryFilterPlan(commonFilteredBasePlan,
+            // allHaveSameBasePlan is only ever true after the loop if commonFilteredBasePlan was set non-null on
+            // the first iteration and never contradicted (see the loop above), so it's guaranteed non-null here.
+            final RecordQueryPlan combinedOrFilter = new RecordQueryFilterPlan(Objects.requireNonNull(commonFilteredBasePlan),
                     new OrComponent(subplans.stream()
                             .map(subplan -> ((RecordQueryFilterPlan)subplan.getPlan()).getConjunctedFilter())
                             .collect(Collectors.toList())));
@@ -2127,7 +2134,9 @@ public class RecordQueryPlanner implements QueryPlanner {
         final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
         final List<KeyExpression> keyFields = indexExpr.normalizeKeyForPositions();
         final List<KeyExpression> valueFields = Collections.emptyList();
-        for (KeyExpression resultField : query.getRequiredResults()) {
+        // A covering aggregate index plan needs to know which fields the caller requires; the query passed in
+        // here is required to have them set (see, e.g., ComposedBitmapIndexAggregate.plan's queryBuilder javadoc).
+        for (KeyExpression resultField : Objects.requireNonNull(query.getRequiredResults())) {
             if (!addCoveringField(resultField, builder, keyFields, valueFields)) {
                 return null;
             }
@@ -2183,9 +2192,14 @@ public class RecordQueryPlanner implements QueryPlanner {
         final List<Index> indexes;
         @Nullable
         final KeyExpression commonPrimaryKey;
+        // Lazily set by planExtractedInsFilterOnce()/planCoveringAggregateIndex() before any planning code that
+        // reads it runs (e.g. matchCandidateScan()); not a constructor parameter because plan() and
+        // planCoveringAggregateIndex() each construct a PlanContext well before the filter used to build the
+        // RankComparisons is finalized.
         RankComparisons rankComparisons;
         boolean allowDuplicates;
 
+        @SuppressWarnings("NullAway")
         public PlanContext(RecordQuery query, List<Index> indexes,
                            @Nullable KeyExpression commonPrimaryKey) {
             this.query = query;
