@@ -54,7 +54,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.metric.StoreTimerMetricCollector;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
-import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.utils.PermutationIterator;
@@ -166,17 +165,8 @@ public class DdlStatementParsingTest {
 
     void shouldWorkWithInjectedFactory(@Nonnull final String query,
                                        @Nonnull final MetadataOperationsFactory metadataOperationsFactory) throws Exception {
-        connection.setAutoCommit(false);
-        (connection.getUnderlyingEmbeddedConnection()).createNewTransaction();
-        final var transaction = connection.getUnderlyingEmbeddedConnection().getTransaction();
-        final var plan = DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
-                "/DdlStatementParsingTest", metadataOperationsFactory, PreparedParams.empty(),
-                Options.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true).build()).getPlan(query);
-        // execute the plan so we run any extra test-driven verifications within the transactional closure.
-        plan.execute(Plan.ExecutionContext.of(transaction, Options.NONE, connection,
-                StoreTimerMetricCollector.fromFDBRecordContext(transaction.unwrap(RecordContextTransaction.class).getContext())));
-        connection.rollback();
-        connection.setAutoCommit(true);
+        DdlTestUtil.shouldWorkWithInjectedFactory(connection, database.getSchemaTemplateName(),
+                "/DdlStatementParsingTest", query, metadataOperationsFactory);
     }
 
     void shouldFailWithInjectedQueryFactory(@Nonnull final String query, @Nullable ErrorCode errorCode,
@@ -1532,68 +1522,6 @@ public class DdlStatementParsingTest {
             }
         });
     }
-
-    @Test
-    void createIndexOnRepeated() throws Exception {
-        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE TYPE AS STRUCT A(x bigint) " +
-                "CREATE TABLE T(p bigint, a A array, primary key(p)) " +
-                "CREATE VIEW mv1 AS SELECT SQ.x, t.p from T AS t, (select M.x from t.a AS M) SQ " +
-                "CREATE INDEX i1 on mv1(x, p)";
-
-        shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
-            @Nonnull
-            @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
-                final var tableMaybe = Assertions.assertDoesNotThrow(() -> template.findTableByName("T"));
-                assertThat(tableMaybe).isPresent();
-                final var table = Assert.optionalUnchecked(tableMaybe);
-                assertThat(table.getIndexes().size()).isEqualTo(1);
-                final var index = Assert.optionalUnchecked(table.getIndexes().stream().findFirst());
-                assertThat(index.getIndexType()).isEqualTo(IndexTypes.VALUE);
-                assertThat(index.getName()).isEqualTo("i1");
-                assertThat(index).isInstanceOf(RecordLayerIndex.class);
-                final var recordLayerIndex = Assert.castUnchecked(index, RecordLayerIndex.class);
-                assertThat(recordLayerIndex.getKeyExpression()).isEqualTo(
-                        Key.Expressions.concat(Key.Expressions.field("a", KeyExpression.FanType.None)
-                                .nest(Key.Expressions.field("values", KeyExpression.FanType.FanOut).nest("x")), Key.Expressions.field("p")));
-                return txn -> {
-                };
-            }
-        });
-    }
-
-    @Test
-    void createIndexOnRepeatedUsingMatViewSyntax() throws Exception {
-        final String schemaStatement = "CREATE SCHEMA TEMPLATE test_template " +
-                "CREATE TYPE AS STRUCT A(x bigint) " +
-                "CREATE TABLE T(p bigint, a A array, primary key(p)) " +
-                "CREATE INDEX mv1 AS SELECT SQ.x, t.p from T AS t, (select M.x from t.a AS M) SQ order by SQ.x, t.p ";
-
-        shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
-            @Nonnull
-            @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                      @Nonnull Options templateProperties) {
-                final var tableMaybe = Assertions.assertDoesNotThrow(() -> template.findTableByName("T"));
-                assertThat(tableMaybe).isPresent();
-                final var table = Assert.optionalUnchecked(tableMaybe);
-                assertThat(table.getIndexes().size()).isEqualTo(1);
-                final var index = Assert.optionalUnchecked(table.getIndexes().stream().findFirst());
-                assertThat(index.getIndexType()).isEqualTo(IndexTypes.VALUE);
-                assertThat(index.getName()).isEqualTo("mv1");
-                assertThat(index).isInstanceOf(RecordLayerIndex.class);
-                final var recordLayerIndex = Assert.castUnchecked(index, RecordLayerIndex.class);
-                assertThat(recordLayerIndex.getKeyExpression()).isEqualTo(
-                        Key.Expressions.concat(Key.Expressions.field("a", KeyExpression.FanType.None)
-                                .nest(Key.Expressions.field("values", KeyExpression.FanType.FanOut).nest("x")), Key.Expressions.field("p")));
-                return txn -> {
-                };
-            }
-        });
-    }
-
 
     @Test
     void createIndexOnAggregate() throws Exception {

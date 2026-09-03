@@ -29,7 +29,7 @@ import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
-import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
+import com.apple.foundationdb.relational.recordlayer.query.ddl.IndexGenerationResult;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor;
@@ -363,7 +363,7 @@ public class DelegatingVisitorTest {
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     @SuppressWarnings({"NullableProblems", "DataFlowIssue"})
-                    public RecordLayerIndex visitVectorIndexDefinition(@Nonnull RelationalParser.VectorIndexDefinitionContext ctx) {
+                    public IndexGenerationResult visitVectorIndexDefinition(@Nonnull RelationalParser.VectorIndexDefinitionContext ctx) {
                         called.set(true);
                         return null;
                     }
@@ -435,7 +435,7 @@ public class DelegatingVisitorTest {
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     @SuppressWarnings({"NullableProblems", "DataFlowIssue"})
-                    public RecordLayerIndex visitIndexOnSourceDefinition(@Nonnull RelationalParser.IndexOnSourceDefinitionContext ctx) {
+                    public IndexGenerationResult visitIndexOnSourceDefinition(@Nonnull RelationalParser.IndexOnSourceDefinitionContext ctx) {
                         called.set(true);
                         return null;
                     }
@@ -486,7 +486,7 @@ public class DelegatingVisitorTest {
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
                     @SuppressWarnings({"NullableProblems", "DataFlowIssue"})
-                    public RecordLayerIndex visitIndexAsSelectDefinition(@Nonnull RelationalParser.IndexAsSelectDefinitionContext ctx) {
+                    public IndexGenerationResult visitIndexAsSelectDefinition(@Nonnull RelationalParser.IndexAsSelectDefinitionContext ctx) {
                         called.set(true);
                         return null;
                     }

@@ -22,18 +22,22 @@ package com.apple.foundationdb.relational.recordlayer.metadata.serde;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedMacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.util.ProtoUtils;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerUnnestedSyntheticTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.util.Assert;
@@ -123,6 +127,12 @@ public class RecordMetadataDeserializer {
                 schemaTemplateBuilder.addView(generateViewBuilder(metadataProvider, view.getKey(), view.getValue().getDefinition()).build());
             }
         }
+        for (final var syntheticType : recordMetaData.getSyntheticRecordTypes().values()) {
+            Assert.thatUnchecked(syntheticType instanceof UnnestedRecordType, ErrorCode.UNSUPPORTED_OPERATION,
+                    "Unsupported synthetic record type in metadata, only unnested record types can be deserialized");
+            schemaTemplateBuilder.addSyntheticTable(
+                    generateUnnestedSyntheticTableBuilder(recordMetaData, (UnnestedRecordType) syntheticType).build());
+        }
         for (final var entry : recordMetaData.getStoredQueries().entrySet()) {
             final RecordMetaData.StoredQuery storedQuery = entry.getValue();
             schemaTemplateBuilder.addStoredQuery(entry.getKey(), storedQuery.getQuery(), storedQuery.getTempFunctions());
@@ -195,6 +205,33 @@ public class RecordMetadataDeserializer {
                 .setName(name)
                 .setDescription(definition)
                 .setViewCompiler(getViewCompiler(name, metadata, definition));
+    }
+
+    @Nonnull
+    private static RecordLayerUnnestedSyntheticTable.Builder generateUnnestedSyntheticTableBuilder(
+            @Nonnull final RecordMetaData recordMetaData,
+            @Nonnull final UnnestedRecordType unnestedRecordType) {
+        final UnnestedRecordType.NestedConstituent parentConstituent = unnestedRecordType.getParentConstituent();
+        final String parentStorageName = parentConstituent.getRecordType().getName();
+        final Type.Record parentType = Type.Record.fromDescriptorPreservingName(
+                recordMetaData.getRecordType(parentStorageName).getDescriptor());
+        final RecordLayerUnnestedSyntheticTable.Builder builder = RecordLayerUnnestedSyntheticTable.newBuilder()
+                .setName(unnestedRecordType.getName())
+                .setAlias(parentConstituent.getName())
+                .setParentTableType(parentType);
+        for (final UnnestedRecordType.NestedConstituent constituent : unnestedRecordType.getConstituents()) {
+            if (constituent.isParent()) {
+                continue;
+            }
+            builder.addConstituent(new RecordLayerUnnestedSyntheticTable.NestedConstituent(
+                    constituent.getName(), Objects.requireNonNull(constituent.getParentName()),
+                    constituent.getNestingExpression()));
+        }
+        // add indexes
+        for (final Index index : unnestedRecordType.getIndexes()) {
+            builder.addIndex(RecordLayerIndex.from(unnestedRecordType.getName(), unnestedRecordType.getName(), index));
+        }
+        return builder;
     }
 
     @Nonnull

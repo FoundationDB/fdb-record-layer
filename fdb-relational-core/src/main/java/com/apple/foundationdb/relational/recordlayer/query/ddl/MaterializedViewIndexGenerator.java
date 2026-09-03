@@ -72,12 +72,15 @@ import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSyntheticTable;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerUnnestedSyntheticTable;
 import com.apple.foundationdb.relational.recordlayer.query.FieldValueTrieNode;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
@@ -89,6 +92,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -115,6 +119,7 @@ import static java.util.stream.Collectors.toList;
 @API(API.Status.EXPERIMENTAL)
 public final class MaterializedViewIndexGenerator {
 
+    private static final String UNNESTED_TABLE_NAME_PREFIX = "__unnested_";
     private static final String BITMAP_BIT_POSITION = "bitmap_bit_position";
     private static final String BITMAP_BUCKET_OFFSET = "bitmap_bucket_offset";
 
@@ -124,6 +129,14 @@ public final class MaterializedViewIndexGenerator {
     @Nonnull
     private final IdentityHashMap<CorrelationIdentifier, Value> correlatedKeyExpressions = new IdentityHashMap<>();
 
+    /**
+     * Unnestings discovered while collecting quantifiers, keyed by the {@link AnnotatedAccessor} marker. One marker
+     * identifies exactly one explode, so this is a plain map; whether an unnesting becomes a constituent of the
+     * unnested synthetic table or a fan-out is {@link UnnestingInfo#structArray()}.
+     */
+    @Nonnull
+    private final Map<Integer, UnnestingInfo> unnestings = new LinkedHashMap<>();
+
     @Nonnull
     private final List<RelationalExpression> relationalExpressions;
 
@@ -131,6 +144,9 @@ public final class MaterializedViewIndexGenerator {
     private final RelationalExpression relationalExpression;
 
     private final boolean useLegacyBasedExtremumEver;
+
+    @Nonnull
+    private Optional<RecordLayerSyntheticTable.Builder> syntheticTableBuilder = Optional.empty();
 
     private MaterializedViewIndexGenerator(@Nonnull RelationalExpression relationalExpression, boolean useLegacyBasedExtremumEver) {
         collectQuantifiers(relationalExpression);
@@ -145,15 +161,27 @@ public final class MaterializedViewIndexGenerator {
         this.useLegacyBasedExtremumEver = useLegacyBasedExtremumEver;
     }
 
+    /**
+     * Generates the index definition, and for an unnesting over a struct array, the unnested synthetic table
+     * to define it on. Callers must register the returned table, if present, otherwise the index would name a
+     * type that does not exist.
+     *
+     * @param schemaTemplateBuilder the schema template being built
+     * @param indexName the name of the index
+     * @param isUnique whether the index is unique
+     * @param containsNullableArray whether the schema contains any nullable array
+     * @param generateKeyValueExpressionWithEmptyKey whether to generate a key-with-value expression
+     *        even when there is no ordering
+     * @return the index definition and, when the plan unnests a struct array, the unnested synthetic table
+     */
     @Nonnull
-    public RecordLayerIndex.Builder generate(@Nonnull RecordLayerSchemaTemplate.Builder schemaTemplateBuilder, @Nonnull String indexName,
-                                             boolean isUnique, boolean containsNullableArray, boolean generateKeyValueExpressionWithEmptyKey) {
+    public IndexGenerationResult generate(@Nonnull RecordLayerSchemaTemplate.Builder schemaTemplateBuilder, @Nonnull String indexName,
+                                     boolean isUnique, boolean containsNullableArray, boolean generateKeyValueExpressionWithEmptyKey) {
         final String recordTypeName = getRecordTypeName();
         // Have to use the storage name here because the index generator uses it
         final Type.Record tableType = schemaTemplateBuilder.findTableByStorageName(recordTypeName).getType();
         final var indexBuilder = RecordLayerIndex.newBuilder()
                 .setName(indexName)
-                .setTableType(tableType)
                 .setUnique(isUnique);
 
         collectQuantifiers(relationalExpression);
@@ -191,18 +219,46 @@ public final class MaterializedViewIndexGenerator {
                 Assert.thatUnchecked(!orderByValues.isEmpty(), ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, value indexes must have an order by clause at the top level");
             }
             final var reordered = reorderValues(fieldValues, orderByValues);
-            final var expression = generate(reordered, orderingFunctions);
             var splitPoint = orderByValues.size();
             if (orderByValues.isEmpty() && !generateKeyValueExpressionWithEmptyKey) {
                 splitPoint = -1;
             }
-            if (splitPoint != -1 && splitPoint < fieldValues.size()) {
-                indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(keyWithValue(expression, splitPoint).toKeyExpression(), tableType, containsNullableArray)));
+            validateScalarUnnestings(reordered);
+            final boolean useUnnestedSyntheticTable = requiresUnnestedSyntheticTable(reordered);
+            // A predicate would have to be evaluated against the synthetic record rather than the stored one,
+            // which is not worked out yet. Rejected rather than falling back to a fan-out, which cannot express
+            // these shapes and so would fail later with a less clear error.
+            Assert.thatUnchecked(!useUnnestedSyntheticTable || predicate == null, ErrorCode.UNSUPPORTED_OPERATION,
+                    "Unsupported index definition, a predicate is not supported on an index over an unnested synthetic table");
+            KeyExpression keyExpression;
+            if (useUnnestedSyntheticTable) {
+                final String syntheticTableName = UNNESTED_TABLE_NAME_PREFIX + recordTypeName + "_" + indexName;
+                indexBuilder
+                        .setTableName(syntheticTableName)
+                        .setTableStorageName(syntheticTableName);
+                final String parentConstituentAlias = findParentConstituentAlias();
+                syntheticTableBuilder = Optional.of(buildUnnestedSyntheticTable(
+                        schemaTemplateBuilder, syntheticTableName, recordTypeName, parentConstituentAlias));
+                // For unnested synthetic tables the key expression uses constituent-alias paths
+                // (e.g. field("SQ").nest(field("a"))) rather than stored-table field paths.
+                // Build it directly from the dereferenced FieldValues.
+                final KeyExpression fullExpr = buildConstituentKeyExpression(
+                        reordered, orderingFunctions, parentConstituentAlias);
+                keyExpression = splitPoint != -1 && splitPoint < fieldValues.size()
+                                ? keyWithValue(fullExpr, splitPoint)
+                                : fullExpr;
             } else {
-                indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(expression.toKeyExpression(), tableType, containsNullableArray)));
+                indexBuilder.setTableType(tableType);
+                final var expression = generate(reordered, orderingFunctions);
+                final var unwrappedKeyExpression = splitPoint != -1 && splitPoint < fieldValues.size() ?
+                                                   keyWithValue(expression, splitPoint) : expression;
+                keyExpression = KeyExpression.fromProto(NullableArrayUtils.wrapArray(
+                        unwrappedKeyExpression.toKeyExpression(), tableType, containsNullableArray));
             }
+            indexBuilder.setKeyExpression(keyExpression);
         } else {
             Assert.thatUnchecked(aggregateValues.size() == 1, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, multiple group by aggregations found");
+            indexBuilder.setTableType(tableType);
             final var aggregateValue = (AggregateValue) aggregateValues.get(0);
             int aggregateOrderIndex = -1;
             if (!orderByValues.isEmpty()) {
@@ -242,7 +298,7 @@ public final class MaterializedViewIndexGenerator {
                 Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition. Cannot order " + indexType + " index by aggregate value");
             }
         }
-        return indexBuilder;
+        return new IndexGenerationResult(indexBuilder, this.syntheticTableBuilder);
     }
 
     @Nonnull
@@ -691,6 +747,10 @@ public final class MaterializedViewIndexGenerator {
             this.marker = marker;
         }
 
+        int getMarker() {
+            return marker;
+        }
+
         @Nonnull
         public static AnnotatedAccessor of(@Nonnull FieldValue.ResolvedAccessor resolvedAccessor, int marker) {
             return new AnnotatedAccessor(resolvedAccessor.getField(), resolvedAccessor.getOrdinal(), marker);
@@ -727,11 +787,18 @@ public final class MaterializedViewIndexGenerator {
             if (qun.getRangesOver().get() instanceof ExplodeExpression) {
                 explodeCounter.incrementAndGet();
                 final var collectionValue = ((ExplodeExpression) qun.getRangesOver().get()).getCollectionValue();
-                if (collectionValue instanceof FieldValue) {
-                    final var field = (FieldValue) collectionValue;
+                if (collectionValue instanceof final FieldValue field) {
                     final var fieldAccessors = new ArrayList<>(field.getFieldPath().getFieldAccessors());
                     fieldAccessors.set(fieldAccessors.size() - 1, AnnotatedAccessor.of(fieldAccessors.get(fieldAccessors.size() - 1), explodeCounter.get()));
-                    correlatedKeyExpressions.put(qun.getAlias(), FieldValue.ofFields(((FieldValue) collectionValue).getChild(), new FieldValue.FieldPath(fieldAccessors)));
+                    correlatedKeyExpressions.put(qun.getAlias(), FieldValue.ofFields(field.getChild(), new FieldValue.FieldPath(fieldAccessors)));
+                    final var accessors = field.getFieldPath().getFieldAccessors();
+                    final String arrayFieldStorageName =
+                            accessors.get(accessors.size() - 1).getField().getFieldStorageName();
+                    final String owningAlias = resolveOwningAlias(field);
+                    final var arrayType = (Type.Array) field.getFieldPath().getLastFieldType();
+                    unnestings.put(explodeCounter.get(),
+                            new UnnestingInfo(qun.getAlias().toString(), owningAlias, arrayFieldStorageName,
+                                    arrayType.isNullable(), arrayType.getElementType() instanceof Type.Record));
                 } else {
                     correlatedKeyExpressions.put(qun.getAlias(), collectionValue);
                 }
@@ -739,6 +806,45 @@ public final class MaterializedViewIndexGenerator {
                 correlatedKeyExpressions.put(qun.getAlias(), qun.getRangesOver().get().getResultValue());
             }
             collectQuantifiersInternal(qun.getRangesOver().get(), explodeCounter);
+        }
+    }
+
+    /**
+     * Returns the alias of the constituent that owns the array an explode reads from. Dereferences the collection
+     * value and takes the innermost enclosing unnesting, identified by an {@link AnnotatedAccessor} in the resulting
+     * path; when there is none, the array hangs off the stored record and the value's own correlation is returned.
+     *
+     * @param collectionValue the array a newly seen explode ranges over
+     * @return the alias of the owning constituent
+     */
+    @Nonnull
+    private String resolveOwningAlias(@Nonnull final FieldValue collectionValue) {
+        final var markers = unnestingMarkers(dereference(collectionValue));
+        for (int i = markers.size() - 1; i >= 0; i--) {
+            final UnnestingInfo enclosing = unnestings.get(markers.get(i));
+            if (enclosing != null && enclosing.structArray()) {
+                return enclosing.alias();
+            }
+        }
+        return Iterables.getOnlyElement(collectionValue.getCorrelatedTo()).toString();
+    }
+
+    /**
+     * One unnesting, as discovered from an {@link ExplodeExpression} during {@link #collectQuantifiers}.
+     *
+     * <p>A struct array becomes a constituent of the unnested synthetic table, navigated by {@link #arrayElements()} from
+     * {@code owningAlias}. A scalar array cannot be a constituent, since its elements have no fields to reference,
+     * so the same expression is instead emitted as a fan-out inside the owning constituent.
+     */
+    private record UnnestingInfo(@Nonnull String alias,
+                                 @Nonnull String owningAlias,
+                                 @Nonnull String arrayFieldStorageName,
+                                 boolean nullableArray,
+                                 boolean structArray) {
+
+        @Nonnull
+        KeyExpression arrayElements() {
+            return NullableArrayUtils.arrayElements(arrayFieldStorageName, nullableArray);
         }
     }
 
@@ -829,5 +935,197 @@ public final class MaterializedViewIndexGenerator {
     @Nonnull
     public static MaterializedViewIndexGenerator from(@Nonnull RelationalExpression relationalExpression, boolean useLongBasedExtremumEver) {
         return new MaterializedViewIndexGenerator(relationalExpression, useLongBasedExtremumEver);
+    }
+
+    /**
+     * Finds the correlation alias of the parent (stored record) constituent of an unnested index.
+     * The parent is the quantifier that ranges over the stored record scan, which in an index
+     * definition plan is always wrapped in a {@link LogicalTypeFilterExpression}. All other
+     * quantifiers of the select range over {@link ExplodeExpression}s (the unnested constituents).
+     */
+    @Nonnull
+    private String findParentConstituentAlias() {
+        return relationalExpressions.stream()
+                .filter(expression -> expression instanceof SelectExpression)
+                .flatMap(expression -> expression.getQuantifiers().stream())
+                .filter(quantifier -> quantifier.getRangesOver().get() instanceof LogicalTypeFilterExpression)
+                .map(quantifier -> quantifier.getAlias().toString())
+                .findFirst()
+                .orElseThrow(() -> Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION,
+                        "Could not determine parent constituent alias in unnested index definition"));
+    }
+
+    @Nonnull
+    private RecordLayerUnnestedSyntheticTable.Builder buildUnnestedSyntheticTable(
+            @Nonnull RecordLayerSchemaTemplate.Builder schemaTemplateBuilder,
+            @Nonnull String syntheticTableName,
+            @Nonnull String recordTypeName,
+            @Nonnull String parentAlias) {
+        final RecordLayerUnnestedSyntheticTable.Builder builder = RecordLayerUnnestedSyntheticTable.newBuilder()
+                .setName(syntheticTableName)
+                .setAlias(parentAlias)
+                .setParentTableType(schemaTemplateBuilder.findTableByStorageName(recordTypeName).getType());
+        unnestings.values().stream().filter(UnnestingInfo::structArray).forEach(info ->
+                builder.addConstituent(new RecordLayerUnnestedSyntheticTable.NestedConstituent(
+                        info.alias(), info.owningAlias(), info.arrayElements())));
+        return builder;
+    }
+
+    /**
+     * Builds the index key for an unnested synthetic table, rewriting the {@link AnnotatedAccessor}-marked paths of
+     * the dereferenced values into constituent-alias paths: {@code field("SQ").nest(field("a"))} for unnested
+     * fields, {@code field("row").nest(...)} for parent fields. Values are emitted positionally, preserving the
+     * order of {@code reordered}; a constituent is navigated with {@link KeyExpression.FanType#None}, so it may be
+     * referenced repeatedly and non-adjacently without duplicating entries.
+     */
+    @Nonnull
+    private KeyExpression buildConstituentKeyExpression(
+            @Nonnull List<Value> reordered,
+            @Nonnull Map<Value, String> orderingFunctions,
+            @Nonnull String parentAlias) {
+        final List<KeyExpression> parts = new ArrayList<>(reordered.size());
+        for (final Value value : reordered) {
+            final KeyExpression base = toKeyExpressionOnNestedConstituent(value, parentAlias);
+            final String orderingFunctionName = orderingFunctions.get(value);
+            parts.add(orderingFunctionName != null ? function(orderingFunctionName, base) : base);
+        }
+        return parts.size() == 1 ? parts.get(0) : concat(parts);
+    }
+
+    /**
+     * Returns the markers of every unnestings in a value transitively.
+     * For {@code FROM A AS a, (SELECT * FROM a.p) AS b, (SELECT * FROM b.q) AS c} the value {@code c.y} dereferences
+     * to {@code [ann(P), ann(Q), Y]} and so traverses both unnestings, while {@code b.x} dereferences to
+     * {@code [ann(P), X]} and traverses only the outer one.
+     *
+     * @param value the dereferenced value
+     * @return the markers of the unnestings traversed, outermost first, empty if there are none
+     */
+    @Nonnull
+    private static List<Integer> unnestingMarkers(@Nonnull final Value value) {
+        final var markers = ImmutableList.<Integer>builder();
+        if (value instanceof FieldValue fieldValue) {
+            for (final FieldValue.ResolvedAccessor accessor : fieldValue.getFieldPath().getFieldAccessors()) {
+                if (accessor instanceof AnnotatedAccessor annotatedAccessor) {
+                    markers.add(annotatedAccessor.getMarker());
+                }
+            }
+        }
+        for (final Value child : value.getChildren()) {
+            markers.addAll(unnestingMarkers(child));
+        }
+        return markers.build();
+    }
+
+    /**
+     * Rejects an index whose key reads through the same scalar unnesting at more than one position. A scalar array
+     * cannot be a constituent of an unnested synthetic table, so each reference is emitted as its own fan-out over
+     * the array;
+     * two of them would range over it independently and yield a cross-product of one view column against itself.
+     * The stored-table path already rejects this shape, so the check applies to both representations.
+     *
+     * @param keyValues the index key columns, in key order
+     */
+    private void validateScalarUnnestings(@Nonnull final List<Value> keyValues) {
+        final Map<Integer, Integer> scalarPositionCounts = new LinkedHashMap<>();
+        for (final Value keyValue : keyValues) {
+            for (final Integer marker : ImmutableSet.copyOf(unnestingMarkers(keyValue))) {
+                final UnnestingInfo info = unnestings.get(marker);
+                if (info == null || !info.structArray()) {
+                    scalarPositionCounts.merge(marker, 1, Integer::sum);
+                }
+            }
+        }
+        Assert.thatUnchecked(scalarPositionCounts.values().stream().allMatch(count -> count == 1),
+                ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, a scalar array cannot be referenced at more than one index key position");
+    }
+
+    /**
+     * Returns whether this index has to be defined on an {@link RecordLayerUnnestedSyntheticTable} rather than on the
+     * stored table with a fan-out key expression. A fan-out suffices while every column read through one unnesting
+     * sits in a contiguous run of the index key; two or more columns reached through the same unnesting at
+     * non-adjacent positions require an unnested synthetic table, whose constituents are navigated with
+     * {@link KeyExpression.FanType#None} and so may be referenced at any number of key positions.
+     *
+     * <p>Every unnesting a column is read through counts, not only the innermost, so chained unnesting can require
+     * one even when no innermost unnesting is itself split. Only struct arrays are considered, since a scalar array
+     * cannot be a constituent.
+     *
+     * @param keyValues the index key columns, in key order
+     * @return whether an unnested synthetic table is required
+     */
+    private boolean requiresUnnestedSyntheticTable(@Nonnull final List<Value> keyValues) {
+        final Map<Integer, Integer> firstPositions = new LinkedHashMap<>();
+        final Map<Integer, Integer> lastPositions = new LinkedHashMap<>();
+        final Map<Integer, Integer> counts = new LinkedHashMap<>();
+        for (int i = 0; i < keyValues.size(); i++) {
+            // Distinct markers per position: the counts below must be a number of key positions, and one value
+            // can read through the same unnesting more than once (e.g. `M.x + M.y`).
+            for (final Integer marker : ImmutableSet.copyOf(unnestingMarkers(keyValues.get(i)))) {
+                // Skip scalar arrays, which cannot be constituents.
+                final UnnestingInfo info = unnestings.get(marker);
+                if (info == null || !info.structArray()) {
+                    continue;
+                }
+                firstPositions.putIfAbsent(marker, i);
+                lastPositions.put(marker, i);
+                counts.merge(marker, 1, Integer::sum);
+            }
+        }
+        return counts.entrySet().stream().anyMatch(entry ->
+                lastPositions.get(entry.getKey()) - firstPositions.get(entry.getKey()) + 1 != entry.getValue());
+    }
+
+    /**
+     * Translates a single dereferenced {@link FieldValue} into a constituent-alias key expression.
+     * {@link AnnotatedAccessor}s in the path mark unnesting boundaries.
+     *
+     * <p>The <em>last</em> such accessor is the one that matters: it identifies the innermost
+     * unnesting, and therefore the constituent the value actually lives in. Any outer unnestings in
+     * the path are already accounted for by that constituent's parent chain, so re-emitting them
+     * here would fan out a second time. For {@code FROM T AS r, r.a AS x, x.b AS y} the value
+     * {@code y.c} dereferences to {@code [ann(A), ann(B), C]} and must become
+     * {@code field("y").nest(field("C"))}, not {@code field("x").nest(field("B", FanOut).nest(field("C")))}.
+     */
+    @Nonnull
+    private KeyExpression toKeyExpressionOnNestedConstituent(@Nonnull Value value, @Nonnull String parentAlias) {
+        if (!(value instanceof FieldValue fieldValue)) {
+            throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION,
+                    "Unsupported index definition, an index over an unnested synthetic table supports only plain column references");
+        }
+        final var accessors = fieldValue.getFieldPath().getFieldAccessors();
+        if (accessors.isEmpty()) {
+            return field(parentAlias, KeyExpression.FanType.None);
+        }
+        // for `FROM T AS r, r.a AS x, x.b AS y`, the value y.c dereferences to [ann(A), ann(B), C],
+        // ann(B) that says where c lives.
+        int innermostUnnestingIdx = -1;
+        for (int i = accessors.size() - 1; i >= 0; i--) {
+            if (accessors.get(i) instanceof AnnotatedAccessor) {
+                innermostUnnestingIdx = i;
+                break;
+            }
+        }
+        if (innermostUnnestingIdx < 0) {
+            return field(parentAlias, KeyExpression.FanType.None)
+                    .nest(toKeyExpression(accessors.iterator(), KeyExpression.FanType.FanOut));
+        }
+        final int marker = ((AnnotatedAccessor) accessors.get(innermostUnnestingIdx)).getMarker();
+        final var remaining = accessors.subList(innermostUnnestingIdx + 1, accessors.size());
+        final UnnestingInfo info = unnestings.get(marker);
+        Assert.notNullUnchecked(info, "unknown unnesting in index definition");
+        if (info.structArray()) {
+            final FieldKeyExpression constituent = field(info.alias(), KeyExpression.FanType.None);
+            return remaining.isEmpty()
+                   ? constituent
+                   : constituent.nest(toKeyExpression(remaining.iterator(), KeyExpression.FanType.FanOut));
+        }
+        // Scalar array, not a constituent. Fan out over the array field within the
+        // constituent that owns it. Scalar elements have no sub-fields, so nothing remains.
+        Assert.thatUnchecked(remaining.isEmpty(), ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, cannot dereference a field of a scalar array element");
+        return field(info.owningAlias(), KeyExpression.FanType.None)
+                .nest(info.arrayElements());
     }
 }
