@@ -54,6 +54,7 @@ import java.sql.Struct;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -202,16 +203,21 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         } catch (SQLException e) {
             throw new RelationalException(e).toUncheckedWrappedException();
         }
+        // resolvedType is non-null here in both cases: either type was already non-null, or it was null and
+        // got reassigned above.
+        final Array nonNullResolvedType = Objects.requireNonNull(resolvedType);
         if (!arrayElements.isEmpty()) {
-            Assert.thatUnchecked(resolvedType.equals(LiteralsUtils.resolveArrayTypeFromObjectsList(arrayElements)),
-                    DATATYPE_MISMATCH, "Cannot convert literal to " + resolvedType);
+            Assert.thatUnchecked(nonNullResolvedType.equals(LiteralsUtils.resolveArrayTypeFromObjectsList(arrayElements)),
+                    DATATYPE_MISMATCH, "Cannot convert literal to " + nonNullResolvedType);
         }
         for (int i = 0; i < arrayElements.size(); i++) {
             final Object o = arrayElements.get(i);
-            processPreparedStatementParameter(o, resolvedType.getElementType(), unnamedParameterIndex, parameterName, i);
+            // A resolved array parameter type always has a known element type.
+            final Type elementType = Objects.requireNonNull(nonNullResolvedType.getElementType());
+            processPreparedStatementParameter(o, elementType, unnamedParameterIndex, parameterName, i);
         }
         finishArrayLiteral(unnamedParameterIndex, parameterName, tokenIndex);
-        return processComplexLiteral(tokenIndex, resolvedType);
+        return processComplexLiteral(tokenIndex, nonNullResolvedType);
     }
 
     private Value processQueryLiteralOrParameter(Type type,
@@ -422,13 +428,16 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         } catch (SQLException e) {
             throw new RelationalException(e).toUncheckedWrappedException();
         }
-        Assert.thatUnchecked(resolvedType.getFields().size() == attributes.length);
+        // resolvedType is non-null here in both cases: either type was already non-null, or it was null and
+        // got reassigned above.
+        final Record nonNullResolvedType = Objects.requireNonNull(resolvedType);
+        Assert.thatUnchecked(nonNullResolvedType.getFields().size() == attributes.length);
         for (int i = 0; i < attributes.length; i++) {
-            processPreparedStatementParameter(attributes[i], resolvedType.getFields().get(i).getFieldType(),
+            processPreparedStatementParameter(attributes[i], nonNullResolvedType.getFields().get(i).getFieldType(),
                     unnamedParameterIndex, parameterName, i);
         }
-        finishStructLiteral(resolvedType, unnamedParameterIndex, parameterName, tokenIndex);
-        return processComplexLiteral(tokenIndex, resolvedType);
+        finishStructLiteral(nonNullResolvedType, unnamedParameterIndex, parameterName, tokenIndex);
+        return processComplexLiteral(tokenIndex, nonNullResolvedType);
     }
 
     public void importAuxiliaryLiterals(final Literals auxiliaryLiterals) {

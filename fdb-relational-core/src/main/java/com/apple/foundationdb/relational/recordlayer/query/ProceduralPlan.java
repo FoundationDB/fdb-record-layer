@@ -28,6 +28,8 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
+
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 
 @API(API.Status.EXPERIMENTAL)
@@ -52,7 +54,8 @@ public final class ProceduralPlan extends Plan<Void> {
     }
 
     @Override
-    public Void executeInternal(final ExecutionContext context) throws RelationalException {
+    // Void's only value is null, so this genuinely always returns null.
+    public @Nullable Void executeInternal(final ExecutionContext context) throws RelationalException {
         final var metricCollector = Objects.requireNonNull(context.metricCollector);
         return metricCollector.clock(RelationalMetric.RelationalEvent.EXECUTE_PROCEDURAL_PLAN_ACTION, () -> {
             action.executeAction(context.transaction);
