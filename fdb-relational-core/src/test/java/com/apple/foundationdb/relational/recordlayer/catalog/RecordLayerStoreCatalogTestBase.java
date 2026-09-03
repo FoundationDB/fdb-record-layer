@@ -55,6 +55,9 @@ public abstract class RecordLayerStoreCatalogTestBase {
 
     KeySpace keySpace;
 
+    // fdb and storeCatalog are initialized by subclasses' @BeforeEach methods (e.g.
+    // RecordLayerStoreCatalogImplTest.setUpCatalog()), not by this constructor.
+    @SuppressWarnings("NullAway.Init")
     RecordLayerStoreCatalogTestBase() {
         final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
         keyspaceProvider.registerDomainIfNotExists("TEST");
@@ -306,6 +309,9 @@ public abstract class RecordLayerStoreCatalogTestBase {
         return generateTestSchemaTemplate(schemaTemplateName, version, false);
     }
 
+    // The view compiler lambdas below intentionally return null (views are never actually compiled in these
+    // tests), but Function<Boolean, LogicalOperator>.apply() is assumed @NonNull.
+    @SuppressWarnings("NullAway")
     static RecordLayerSchemaTemplate generateTestSchemaTemplate(final String schemaTemplateName, int version, boolean withViews) {
         final var builder = RecordLayerSchemaTemplate
                 .newBuilder()

@@ -72,6 +72,7 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -92,7 +93,9 @@ public class BackingLocatableResolverStoreTest {
 
     @BeforeEach
     void setUp() throws RelationalException {
-        storageCluster = relationalExtension.getEngine()
+        // getEngine() is @Nullable only until the extension's own beforeEach() has run; JUnit guarantees that
+        // has already happened by the time this test's @BeforeEach executes.
+        storageCluster = Objects.requireNonNull(relationalExtension.getEngine(), "engine not initialized")
                 .getStorageClusters()
                 .stream()
                 .findFirst()
@@ -117,7 +120,6 @@ public class BackingLocatableResolverStoreTest {
             path.deleteAllData(context);
             context.commit();
         }
-        path = null;
     }
 
     private static class TransactionBoundLocatableResolverDatabase extends AbstractDatabase {
@@ -125,6 +127,8 @@ public class BackingLocatableResolverStoreTest {
         private final TransactionManager transactionManager;
         private final LocatableResolver resolver;
         private final StoreCatalog catalog;
+        // Never assigned outside of close(); genuinely null for the lifetime of this instance.
+        @Nullable
         private Transaction txn;
 
         public TransactionBoundLocatableResolverDatabase(URI dbPath,
@@ -193,6 +197,9 @@ public class BackingLocatableResolverStoreTest {
         resolveMappings(db, 1);
     }
 
+    // assertMapping's byte[] metaData parameter is already @Nullable, but NullAway does not reliably
+    // track @Nullable on array-typed parameters.
+    @SuppressWarnings("NullAway")
     @Test
     void resolveMultiple() throws RelationalException, SQLException {
         RelationalDatabase db = createScopedInterningDatabase();
@@ -520,6 +527,10 @@ public class BackingLocatableResolverStoreTest {
         }
     }
 
+    // ResolverCreateHooks.MetadataHook (fdb-relational-api, not yet migrated) extends Function<String, byte[]>;
+    // returning null is the documented way to signal "no metadata" (see MetadataHook.DEFAULT_HOOK), but
+    // NullAway does not reliably track @Nullable on array-typed return values.
+    @SuppressWarnings("NullAway")
     private Map<String, Long> resolveMappings(RelationalDatabase db, int count) throws RelationalException, SQLException {
         return resolveMappings(db, count, ignore -> null);
     }
