@@ -2642,7 +2642,7 @@ public class RecordQueryPlanner implements QueryPlanner {
 
         protected abstract boolean planNestedFieldOrComponentChild(KeyExpression child,
                                                                    QueryComponent filterChild,
-                                                                   Function<KeyExpression, ScoredMatch> maybeSortedMatch);
+                                                                   Function<@Nullable KeyExpression, @Nullable ScoredMatch> maybeSortedMatch);
 
         protected abstract int getEqualitySize();
 
@@ -2661,7 +2661,10 @@ public class RecordQueryPlanner implements QueryPlanner {
                     if (Objects.equals(field.getFieldName(), indexField.getFieldName())) {
                         final OrderQueryKeyExpression orderedExpression = new OrderQueryKeyExpression(indexOrderedField);
                         final Pair<Comparisons.Comparison, Comparisons.Comparison> adjustedComparisons = orderedExpression.adjustComparison(field.getComparison());
-                        if (adjustedComparisons != null && addToComparisons(adjustedComparisons.getLeft())) {
+                        // Pair.getLeft()/getRight() are unconditionally declared @Nullable, but adjustComparison()'s
+                        // contract guarantees a non-null left (the adjusted comparison); only the right (an
+                        // optional null-exclusion comparison, checked below) may be absent.
+                        if (adjustedComparisons != null && addToComparisons(Objects.requireNonNull(adjustedComparisons.getLeft()))) {
                             if (adjustedComparisons.getRight() != null) {
                                 addToComparisons(adjustedComparisons.getRight());
                             }
@@ -2824,10 +2827,10 @@ public class RecordQueryPlanner implements QueryPlanner {
         @Override
         protected boolean planNestedFieldOrComponentChild(KeyExpression child,
                                                           QueryComponent filterChild,
-                                                          Function<KeyExpression, ScoredMatch> maybeSortedMatch) {
+                                                          Function<@Nullable KeyExpression, @Nullable ScoredMatch> maybeSortedMatch) {
             ScoredMatch scoredMatch = maybeSortedMatch.apply(null);
             if (scoredMatch != null) {
-                ScanComparisons nextComparisons = scoredMatch.getComparisonRanges().toScanComparisons();
+                @Nullable ScanComparisons nextComparisons = scoredMatch.getComparisonRanges().toScanComparisons();
                 if (!comparisons.isEquality() && nextComparisons.getEqualitySize() > 0) {
                     throw new Query.InvalidExpressionException(
                             "Two nested fields in the same and clause, combine them into one");
@@ -2838,12 +2841,15 @@ public class RecordQueryPlanner implements QueryPlanner {
                         nextComparisons = scoredMatch == null ? null : scoredMatch.getComparisonRanges().toScanComparisons();
                     }
                     if (scoredMatch != null) {
+                        // nextComparisons is only reassigned together with scoredMatch above, so it's
+                        // guaranteed non-null whenever scoredMatch is (in both the reassigned and original case).
+                        final ScanComparisons nonNullNextComparisons = Objects.requireNonNull(nextComparisons);
                         unsatisfiedFilters.remove(filterChild);
                         unsatisfiedFilters.addAll(scoredMatch.unsatisfiedFilters);
-                        comparisons.addAll(nextComparisons);
-                        if (nextComparisons.isEquality()) {
+                        comparisons.addAll(nonNullNextComparisons);
+                        if (nonNullNextComparisons.isEquality()) {
                             foundComparison = true;
-                            foundCompleteComparison = nextComparisons.getEqualitySize() == child.getColumnSize();
+                            foundCompleteComparison = nonNullNextComparisons.getEqualitySize() == child.getColumnSize();
                             satisfyEqualitySort(child);
                         }
                         return true;
@@ -3021,7 +3027,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         @Override
         protected boolean planNestedFieldOrComponentChild(KeyExpression child,
                                                           QueryComponent filterChild,
-                                                          Function<KeyExpression, ScoredMatch> maybeSortedMatch) {
+                                                          Function<@Nullable KeyExpression, @Nullable ScoredMatch> maybeSortedMatch) {
             @Nullable ScoredMatch scoredMatch = maybeSortedMatch.apply(null);
             if (scoredMatch != null) {
                 ComparisonRanges nextComparisonRanges = scoredMatch.getComparisonRanges();
