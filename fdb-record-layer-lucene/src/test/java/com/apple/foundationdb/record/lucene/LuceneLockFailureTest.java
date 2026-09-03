@@ -48,6 +48,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Objects;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_BY_FIELD_NAME;
 import static com.apple.foundationdb.record.lucene.LuceneIndexOptions.INDEX_PARTITION_HIGH_WATERMARK;
@@ -318,14 +319,14 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
 
     // Open the store with the type and index
     private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
-        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, useCascadesPlanner);
+        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, Objects.requireNonNull(path), document, index, useCascadesPlanner);
         this.recordStore = pair.getLeft();
         this.planner = pair.getRight();
     }
 
     // Open the store for the type and index, and set the prefixes for the type such that deleteWhere can be run
     private void openStoreWithPrefixes(final FDBRecordContext context, final String document, final Index index) {
-        this.recordStore = openRecordStore(context, path, metaDataBuilder -> {
+        this.recordStore = openRecordStore(context, Objects.requireNonNull(path), metaDataBuilder -> {
             TextIndexTestUtils.addRecordTypePrefix(metaDataBuilder);
             metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
             metaDataBuilder.addIndex(document, index);

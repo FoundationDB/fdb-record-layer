@@ -209,7 +209,9 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     private static final Index COMPLEX_TEXT_BY_GROUP = new Index("Complex$text_by_group", function(LuceneFunctionNames.LUCENE_TEXT, field("text")).groupBy(field("group")), LuceneIndexTypes.LUCENE);
 
+    @Nullable
     private ExecutorService executorService = null;
+    @Nullable
     private SerializationKeyManager keyManager;
 
     @Override
@@ -225,7 +227,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                         Sets.newHashSet(LuceneIndexTypes.LUCENE)
                 );
             }
-            planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
+            planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, Objects.requireNonNull(recordStore.getTimer()));
         }
     }
 
@@ -272,7 +274,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }, SIMPLE_TEXT_SUFFIXES);
     }
 
-    protected void openRecordStore(FDBRecordContext context, RecordMetaDataHook hook, Index simpleDocIndex) {
+    protected void openRecordStore(FDBRecordContext context, RecordMetaDataHook hook, @Nullable Index simpleDocIndex) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
         metaDataBuilder.getRecordType(TextIndexTestUtils.COMPLEX_DOC).setPrimaryKey(concatenateFields("group", "doc_id"));
         if (simpleDocIndex != null) {
@@ -1397,7 +1399,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             do {
                 try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan, continuation, executeProperties)) {
                     primaryKeys.addAll(recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList(holder).get());
-                    continuation = holder.get().getContinuation().toBytes();
+                    continuation = Objects.requireNonNull(holder.get()).getContinuation().toBytes();
                 }
             } while (continuation != null);
             if (sorted) {

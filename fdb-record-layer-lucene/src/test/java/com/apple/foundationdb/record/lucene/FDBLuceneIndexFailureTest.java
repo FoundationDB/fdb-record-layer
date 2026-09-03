@@ -27,7 +27,7 @@ import com.apple.foundationdb.record.lucene.directory.InjectedFailureRepository;
 import com.apple.foundationdb.record.lucene.directory.MockedLuceneIndexMaintainerFactory;
 import com.apple.foundationdb.record.lucene.directory.TestingIndexMaintainerRegistry;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.provider.common.StoreTimer.Event;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
@@ -46,6 +46,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -54,6 +55,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
@@ -533,9 +535,9 @@ public class FDBLuceneIndexFailureTest extends FDBLuceneTestBase {
         }
     }
 
-    private RuntimeException mapExceptions(Throwable throwable, StoreTimer.Event event) {
+    private RuntimeException mapExceptions(Throwable throwable, @Nullable Event event) {
         if (throwable instanceof ExecutionException) {
-            throwable = throwable.getCause();
+            throwable = Objects.requireNonNull(throwable.getCause());
         }
         return new UnknownLoggableException(throwable);
     }
@@ -550,7 +552,7 @@ public class FDBLuceneIndexFailureTest extends FDBLuceneTestBase {
      * @param index the index to use
      */
     private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
-        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, isUseCascadesPlanner(), registry);
+        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, Objects.requireNonNull(path), document, index, isUseCascadesPlanner(), registry);
         this.recordStore = pair.getLeft();
         this.planner = pair.getRight();
         this.recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(true);

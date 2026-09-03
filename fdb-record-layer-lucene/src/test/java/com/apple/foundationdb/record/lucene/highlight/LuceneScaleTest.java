@@ -243,7 +243,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
     protected void clear() {
         if (Config.CLEAR_BEFORE_RUN) {
             fdb.run(context -> {
-                path.deleteAllData(context);
+                Objects.requireNonNull(path).deleteAllData(context);
                 return null;
             });
         }
@@ -263,7 +263,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                 );
             }
 
-            planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
+            planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, Objects.requireNonNull(recordStore.getTimer()));
         }
     }
 
@@ -514,8 +514,8 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         private void disableIndex() {
             try (FDBRecordContext context = openContext()) {
                 final FDBRecordStore store = openStore(context);
-                maxDocId = LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_SYSTEM_KEY,
-                        store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).getCount(), context);
+                maxDocId = Objects.requireNonNull(LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_SYSTEM_KEY,
+                        store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).getCount(), context));
                 continuing = maxDocId > 0;
                 logger.info("Disabling index");
                 store.markIndexDisabled(INDEX.getName());
@@ -527,8 +527,8 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
             OnlineIndexer.Builder indexBuilder = null;
             try (FDBRecordContext context = openContext()) {
                 final FDBRecordStore store = openStore(context);
-                maxDocId = LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_SYSTEM_KEY,
-                        store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).getCount(), context);
+                maxDocId = Objects.requireNonNull(LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_SYSTEM_KEY,
+                        store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).getCount(), context));
                 continuing = maxDocId > 0;
                 if (!store.getIndexState(INDEX.getName()).isReadable()) {
                     indexBuilder = OnlineIndexer.newBuilder()
@@ -587,7 +587,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         }
 
         private FDBRecordStore openStore(final FDBRecordContext context) {
-            final Pair<FDBRecordStore, QueryPlanner> res = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, TextIndexTestUtils.COMPLEX_DOC, INDEX, false);
+            final Pair<FDBRecordStore, QueryPlanner> res = LuceneIndexTestUtils.rebuildIndexMetaData(context, Objects.requireNonNull(path), TextIndexTestUtils.COMPLEX_DOC, INDEX, false);
             recordStore = res.getLeft();
             planner = res.getRight();
             return recordStore;
@@ -639,7 +639,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
 
         private Message getRandomRecord(final FDBRecordStore store) {
             // TODO randomly get a record, but skew it towards more recent ones...
-            return store.loadRecord(Tuple.from(1, random.nextInt(maxDocId))).getRecord();
+            return Objects.requireNonNull(store.loadRecord(Tuple.from(1, random.nextInt(maxDocId)))).getRecord();
         }
 
         public void search() throws ExecutionException, InterruptedException {

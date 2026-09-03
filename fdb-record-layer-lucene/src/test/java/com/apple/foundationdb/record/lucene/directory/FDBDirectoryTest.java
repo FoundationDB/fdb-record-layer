@@ -49,6 +49,7 @@ import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
@@ -139,9 +140,9 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         FDBLuceneFileReference luceneFileReference = directory.getFDBLuceneFileReference("test1");
         assertNotNull(luceneFileReference, "fileReference should exist");
 
-        LuceneSerializer serializer = directory.getSerializer();
+        LuceneSerializer serializer = Objects.requireNonNull(directory.getSerializer());
         assertCorrectMetricSize(LuceneEvents.SizeEvents.LUCENE_WRITE_FILE_REFERENCE, 2,
-                serializer.encode(reference1.getBytes()).length + serializer.encode(reference2.getBytes()).length);
+                Objects.requireNonNull(serializer.encode(reference1.getBytes())).length + Objects.requireNonNull(serializer.encode(reference2.getBytes())).length);
     }
 
     @Test
@@ -170,7 +171,9 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
                 directory.getFDBLuceneFileReferenceAsync("testReference2"), 1).get(), "seek data should exist");
 
         directory.getCallerContext().commit();
-        assertCorrectMetricSize(LuceneEvents.SizeEvents.LUCENE_WRITE, 1, directory.getSerializer().encode(data).length);
+        final LuceneSerializer serializer = Objects.requireNonNull(directory.getSerializer());
+        final byte[] encoded = Objects.requireNonNull(serializer.encode(data));
+        assertCorrectMetricSize(LuceneEvents.SizeEvents.LUCENE_WRITE, 1, encoded.length);
     }
 
     @Test
@@ -408,7 +411,8 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
                             () -> newDirectory.clearOngoingMergeIndicatorIfQueueEmptyAsync().join(),
                             "clearUseQueueFailIfNonEmpty should throw when queue is not empty");
             assertThat(completionException.getCause(), Matchers.instanceOf(RecordCoreException.class));
-            assertThat(completionException.getCause().getMessage(),
+            final Throwable cause = Objects.requireNonNull(completionException.getCause());
+            assertThat(cause.getMessage(),
                     Matchers.containsString("pending write queue is not empty"));
 
             // Indicator should still be set

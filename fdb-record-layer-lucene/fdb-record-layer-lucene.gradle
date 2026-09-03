@@ -64,7 +64,6 @@ dependencies {
 // for this module (com.apple.foundationdb.record.planprotos) land in a sibling top-level
 // package, so they're already outside AnnotatedPackages and need no carve-out.
 tasks.withType(JavaCompile).configureEach {
-    options.compilerArgs << '-Xmaxerrs' << '10000' // TEMP-DIAGNOSTIC: remove before commit
     options.errorprone {
         disableAllChecks = true
         error("NullAway")

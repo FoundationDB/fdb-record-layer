@@ -42,6 +42,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
@@ -306,12 +307,12 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
                 () -> {
                     timer.reset();
                     assertNull(timer.getCounter(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY),
-                            () -> "Count: " + timer.getCounter(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY).getCount());
+                            () -> "Count: " + Objects.requireNonNull(timer.getCounter(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY)).getCount());
                     idCounter -= 3;
                     createDocuments(index, 3);
                     assertNull(timer.getCounter(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY),
-                            () -> "Count: " + timer.getCounter(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY).getCount());
-                    assertEquals(3, timer.getCounter(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY).getCount());
+                            () -> "Count: " + Objects.requireNonNull(timer.getCounter(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_QUERY)).getCount());
+                    assertEquals(3, Objects.requireNonNull(timer.getCounter(LuceneEvents.Events.LUCENE_DELETE_DOCUMENT_BY_PRIMARY_KEY)).getCount());
                 });
         // retrying the merge should cleanup any extraneous mappings
         try (FDBRecordContext context = openContext()) {
@@ -347,7 +348,7 @@ public class LucenePrimaryKeySegmentIndexTest extends FDBRecordStoreTestBase {
     }
 
     private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
-        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, isUseCascadesPlanner());
+        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, Objects.requireNonNull(path), document, index, isUseCascadesPlanner());
         this.recordStore = pair.getLeft();
         this.planner = pair.getRight();
         recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(autoMerge);

@@ -60,6 +60,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
@@ -630,12 +631,12 @@ public class LuceneIndexTestUtils {
                         Sets.newHashSet(LuceneIndexTypes.LUCENE)
                 );
             }
-            planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
+            planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, Objects.requireNonNull(recordStore.getTimer()));
         }
         return planner;
     }
 
-    public static LuceneScanBounds fullSortTextSearch(FDBRecordStore recordStore, Index index, String search, Sort sort) {
+    public static LuceneScanBounds fullSortTextSearch(FDBRecordStore recordStore, Index index, String search, @Nullable Sort sort) {
         LuceneScanParameters scan = new LuceneScanQueryParameters(
                 ScanComparisons.EMPTY,
                 new LuceneQueryMultiFieldSearchClause(LuceneQueryType.QUERY, search, false),
@@ -896,7 +897,7 @@ public class LuceneIndexTestUtils {
         }
 
         public Index getIndex(final String key) {
-            return indexes.get(key);
+            return Objects.requireNonNull(indexes.get(key));
         }
 
         public boolean isSynthetic() {

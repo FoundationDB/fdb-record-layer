@@ -39,7 +39,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import org.jspecify.annotations.Nullable;
 import javax.crypto.SecretKey;
+import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
@@ -60,7 +62,7 @@ class LuceneSerializerTest {
                 .setContent(content)
                 .build();
         final byte[] originalValue = reference.toByteArray();
-        final byte[] encodedValue = serializer.encode(originalValue);
+        final byte[] encodedValue = Objects.requireNonNull(serializer.encode(originalValue));
         final byte[] decodedValue = serializer.decode(encodedValue);
 
         final byte[] expectedEncodedValue = new byte[originalValue.length + 1];
@@ -91,7 +93,7 @@ class LuceneSerializerTest {
                 .setContent(ByteString.copyFromUtf8(content))
                 .build();
         final byte[] value = reference.toByteArray();
-        final byte[] encodedValue = serializer.encode(value);
+        final byte[] encodedValue = Objects.requireNonNull(serializer.encode(value));
         final byte[] decodedValue = serializer.decode(encodedValue);
 
         // The encoded value's size is smaller than the original one due to compression
@@ -127,7 +129,7 @@ class LuceneSerializerTest {
                 .setContent(content)
                 .build();
         final byte[] value = reference.toByteArray();
-        final byte[] encodedValue = serializer.encode(value);
+        final byte[] encodedValue = Objects.requireNonNull(serializer.encode(value));
         final byte[] decodedValue = serializer.decode(encodedValue);
         Assertions.assertArrayEquals(value, decodedValue);
         final LuceneFileSystemProto.LuceneFileReference decryptedReference = LuceneFileSystemProto.LuceneFileReference.parseFrom(decodedValue);
@@ -223,15 +225,15 @@ class LuceneSerializerTest {
         final LuceneSerializer serializer = getSerializer(encode, compress, encrypt, random);
         final Message built = build.build();
         final byte[] value = built.toByteArray();
-        final byte[] encodedValue = serializer.encodeFieldProtobuf(value);
-        final byte[] decodedValue = serializer.decodeFieldProtobuf(encodedValue);
+        final byte[] encodedValue = Objects.requireNonNull(serializer.encodeFieldProtobuf(value));
+        final byte[] decodedValue = Objects.requireNonNull(serializer.decodeFieldProtobuf(encodedValue));
         Assertions.assertArrayEquals(value, decodedValue);
         final Message parsed = parse.parse(decodedValue);
         Assertions.assertEquals(built, parsed);
     }
 
     private LuceneSerializer getSerializer(boolean encodeFieldProtobuf, boolean compress,
-                                           boolean encrypt, Random randomIfEncrypting) {
+                                           boolean encrypt, @Nullable Random randomIfEncrypting) {
         final SerializationKeyManager keyManager;
         if (encrypt) {
             SecretKey key = RandomSecretUtil.randomSecretKey(randomIfEncrypting);

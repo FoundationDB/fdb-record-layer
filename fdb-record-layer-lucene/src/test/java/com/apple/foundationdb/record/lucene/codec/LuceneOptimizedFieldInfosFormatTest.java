@@ -59,6 +59,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -322,8 +323,8 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
                 },
                 directory -> {
                     final FieldInfosStorage fieldInfoStorage = directory.getFieldInfosStorage();
-                    final LuceneFieldInfosProto.FieldInfos global = fieldInfoStorage
-                            .readFieldInfos(FieldInfosStorage.GLOBAL_FIELD_INFOS_ID);
+                    final LuceneFieldInfosProto.FieldInfos global = Objects.requireNonNull(fieldInfoStorage
+                            .readFieldInfos(FieldInfosStorage.GLOBAL_FIELD_INFOS_ID));
                     final LuceneFieldInfosProto.FieldInfos.Builder builder = global.toBuilder();
                     final LuceneFieldInfosProto.FieldInfo.Builder fieldInfoBuilder = builder.getFieldInfoBuilder(0);
                     final List<LuceneFieldInfosProto.Attribute> reversedAttributes = new ArrayList<>();
@@ -339,8 +340,8 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
                 },
                 directory -> {
                     final FieldInfosStorage fieldInfoStorage = directory.getFieldInfosStorage();
-                    final LuceneFieldInfosProto.FieldInfos global = fieldInfoStorage
-                            .readFieldInfos(FieldInfosStorage.GLOBAL_FIELD_INFOS_ID);
+                    final LuceneFieldInfosProto.FieldInfos global = Objects.requireNonNull(fieldInfoStorage
+                            .readFieldInfos(FieldInfosStorage.GLOBAL_FIELD_INFOS_ID));
                     assertEquals(
                             global.getFieldInfo(0).getAttributesList().stream()
                                     .map(LuceneFieldInfosProto.Attribute::getKey)
@@ -356,8 +357,8 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
                             directory.getFieldInfosCount()));
 
                     final FieldInfosStorage fieldInfoStorage = directory.getFieldInfosStorage();
-                    final LuceneFieldInfosProto.FieldInfos global = fieldInfoStorage
-                            .readFieldInfos(FieldInfosStorage.GLOBAL_FIELD_INFOS_ID);
+                    final LuceneFieldInfosProto.FieldInfos global = Objects.requireNonNull(fieldInfoStorage
+                            .readFieldInfos(FieldInfosStorage.GLOBAL_FIELD_INFOS_ID));
                     assertEquals(
                             global.getFieldInfo(0).getAttributesList().stream()
                                     .map(LuceneFieldInfosProto.Attribute::getKey)
@@ -391,13 +392,13 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
         sameOrMultiTransaction(oneTransaction,
                 directory -> {
                     for (Pair<LightSegmentInfo, FieldInfo> pair : fieldInfos) {
-                        write(directory, pair.getLeft(), new FieldInfos(new FieldInfo[] {pair.getRight()}));
+                        write(directory, Objects.requireNonNull(pair.getLeft()), new FieldInfos(new FieldInfo[] {pair.getRight()}));
                     }
                 },
                 directory -> {
                     for (Pair<LightSegmentInfo, FieldInfo> pair : fieldInfos) {
                         assertFieldInfosEqual(new FieldInfos(new FieldInfo[] { pair.getRight() }),
-                                read(directory, pair.getLeft()));
+                                read(directory, Objects.requireNonNull(pair.getLeft())));
                     }
                 });
     }
@@ -553,7 +554,7 @@ class LuceneOptimizedFieldInfosFormatTest extends FDBRecordStoreTestBase {
     }
 
     private FDBDirectory createDirectory(final FDBRecordContext context) {
-        return new FDBDirectory(path.toSubspace(context), context,
+        return new FDBDirectory(Objects.requireNonNull(path).toSubspace(context), context,
                 Map.of(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true"));
     }
 

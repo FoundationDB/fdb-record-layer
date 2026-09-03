@@ -92,6 +92,7 @@ public class LuceneIndexTestDataModel {
     final ConcurrentMap<Tuple, ConcurrentMap<Tuple, Tuple>> groupingKeyToPrimaryKeyToPartitionKey;
     private final ConcurrentMap<Tuple, RecordUnderTest> recordsUnderTest;
     final ConcurrentMap<Tuple, AtomicInteger> nextRecNoInGroup;
+    @Nullable
     private LuceneIndexTestValidator validator;
     // A "start" timestamp to make the partitioning field look more like a timestamp
     private long start;
@@ -100,12 +101,12 @@ public class LuceneIndexTestDataModel {
     private LuceneIndexTestDataModel(final Builder builder,
                                      final Function<FDBRecordContext, FDBRecordStore> schemaSetup) {
         random = builder.random;
-        textGenerator = builder.textGenerator;
+        textGenerator = Objects.requireNonNull(builder.textGenerator);
         isGrouped = builder.isGrouped;
         isSynthetic = builder.isSynthetic;
         primaryKeySegmentIndexEnabled = builder.primaryKeySegmentIndexEnabled;
         partitionHighWatermark = builder.partitionHighWatermark;
-        index = builder.index;
+        index = Objects.requireNonNull(builder.index);
         this.schemaSetup = schemaSetup;
         groupingKeyToPrimaryKeyToPartitionKey = new ConcurrentHashMap<>();
         recordsUnderTest = new ConcurrentHashMap<>();
@@ -129,7 +130,7 @@ public class LuceneIndexTestDataModel {
     }
 
     public Set<Tuple> primaryKeys(Tuple groupingKey) {
-        return groupingKeyToPrimaryKeyToPartitionKey.get(groupingKey).keySet();
+        return Objects.requireNonNull(groupingKeyToPrimaryKeyToPartitionKey.get(groupingKey)).keySet();
     }
 
     public List<RecordUnderTest> recordsUnderTest() {
@@ -219,8 +220,8 @@ public class LuceneIndexTestDataModel {
 
     private Tuple saveRecordToSync(final boolean withContent, final FDBRecordStore recordStore,
                                    final int group) {
-        return recordStore.getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_SAVE_RECORD,
-                saveRecordAsync(withContent, recordStore, group));
+        return Objects.requireNonNull(recordStore.getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_SAVE_RECORD,
+                saveRecordAsync(withContent, recordStore, group)));
     }
 
     public CompletableFuture<Tuple> saveRecordAsync(final boolean withContent, final FDBRecordStore recordStore, final int group) {
@@ -295,8 +296,7 @@ public class LuceneIndexTestDataModel {
     }
 
     public void validate(final Supplier<FDBRecordContext> openContext) throws IOException {
-        getValidator(openContext);
-        validator.validate(index, groupingKeyToPrimaryKeyToPartitionKey, isSynthetic ? CHILD_SEARCH_TERM : PARENT_SEARCH_TERM);
+        getValidator(openContext).validate(index, groupingKeyToPrimaryKeyToPartitionKey, isSynthetic ? CHILD_SEARCH_TERM : PARENT_SEARCH_TERM);
     }
 
     public Map<Tuple, List<Integer>> getPartitionCounts(final Supplier<FDBRecordContext> openContext) {
@@ -460,6 +460,7 @@ public class LuceneIndexTestDataModel {
         private final Random random;
         private final StoreBuilderSupplier storeBuilderSupplier;
         private final TestKeySpacePathManagerExtension pathManager;
+        @Nullable
         private RandomTextGenerator textGenerator;
         boolean isGrouped;
         boolean isSynthetic;
@@ -543,7 +544,7 @@ public class LuceneIndexTestDataModel {
                 this.metadata = metaDataBuilder.build();
             }
             final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context -> {
-                final FDBRecordStore store = storeBuilderSupplier.get(context, metadata, path).createOrOpen();
+                final FDBRecordStore store = storeBuilderSupplier.get(context, Objects.requireNonNull(metadata), path).createOrOpen();
                 store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
                 return store;
             };
@@ -629,7 +630,7 @@ public class LuceneIndexTestDataModel {
 
         @Override
         public CompletableFuture<Void> deleteRecord(FDBRecordStore recordStore) {
-            groupingKeyToPrimaryKeyToPartitionKey.get(groupingKey).remove(primaryKey);
+            Objects.requireNonNull(groupingKeyToPrimaryKeyToPartitionKey.get(groupingKey)).remove(primaryKey);
             recordsUnderTest.remove(primaryKey);
             return recordStore.deleteRecordAsync(primaryKey)
                     .thenAccept(wasDeleted -> assertTrue(wasDeleted, () -> primaryKey + " should have been deletable"));
@@ -675,7 +676,7 @@ public class LuceneIndexTestDataModel {
 
         @Override
         public CompletableFuture<Void> deleteRecord(FDBRecordStore recordStore) {
-            groupingKeyToPrimaryKeyToPartitionKey.get(groupingKey).remove(syntheticPrimaryKey);
+            Objects.requireNonNull(groupingKeyToPrimaryKeyToPartitionKey.get(groupingKey)).remove(syntheticPrimaryKey);
             recordsUnderTest.remove(parentPrimaryKey);
             return recordStore.deleteRecordAsync(parentPrimaryKey)
                     .thenAccept(wasDeleted -> assertTrue(wasDeleted, () -> parentPrimaryKey + " should have been deletable"))

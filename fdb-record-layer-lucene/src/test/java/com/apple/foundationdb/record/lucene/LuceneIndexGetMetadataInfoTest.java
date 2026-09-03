@@ -35,6 +35,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -77,7 +78,7 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
                 assertEquals(Map.of(), result.getLuceneInfo());
             } else {
                 assertEquals(Set.of(0), result.getLuceneInfo().keySet());
-                final LuceneMetadataInfo.LuceneInfo luceneInfo = result.getLuceneInfo().get(0);
+                final LuceneMetadataInfo.LuceneInfo luceneInfo = Objects.requireNonNull(result.getLuceneInfo().get(0));
                 assertEquals(dataModel.primaryKeys(groupingKey).size(), luceneInfo.getDocumentCount());
                 // When we save, we save all records for a group in a single transaction, so that will result in a
                 // single segment, but when the index is not grouped we have 5 transactions, which results in 5
@@ -123,7 +124,7 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
             } else {
                 assertEquals(Set.copyOf(partitionIds), result.getLuceneInfo().keySet());
                 for (final Integer partitionId : partitionIds) {
-                    final LuceneMetadataInfo.LuceneInfo luceneInfo = result.getLuceneInfo().get(partitionId);
+                    final LuceneMetadataInfo.LuceneInfo luceneInfo = Objects.requireNonNull(result.getLuceneInfo().get(partitionId));
                     assertEquals(10, luceneInfo.getDocumentCount());
                     assertThat(luceneInfo.getFiles(), Matchers.hasSize(segmentCountToFileCount(1)));
                     assertThat(luceneInfo.getDetailedFileInfos(), Matchers.hasSize(segmentCountToFileCount(1)));
@@ -180,7 +181,7 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
                 .map(LucenePartitionInfoProto.LucenePartitionInfo::getId)
                 .findFirst().orElseThrow();
         for (final Integer partitionId : partitionIds) {
-            final LuceneMetadataInfo.LuceneInfo luceneInfo = result.getLuceneInfo().get(partitionId);
+            final LuceneMetadataInfo.LuceneInfo luceneInfo = Objects.requireNonNull(result.getLuceneInfo().get(partitionId));
             if (partitionId == smallerPartition) {
                 assertEquals(9, luceneInfo.getDocumentCount());
                 // one extra file for the `.liv`
@@ -286,7 +287,7 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
 
         // Queue has pending entries - metadata should report a non-zero queue size
         final LuceneMetadataInfo result = getLuceneMetadataInfo(false, Tuple.from(), dataModel, null);
-        assertThat(result.getLuceneInfo().get(0).getPendingWritesQueueSize(), Matchers.equalTo(3L));
+        assertThat(Objects.requireNonNull(result.getLuceneInfo().get(0)).getPendingWritesQueueSize(), Matchers.equalTo(3L));
 
         // Merge drains the queue
         try (FDBRecordContext context = openContext()) {
@@ -295,7 +296,7 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
 
         // After merge the queue is empty - metadata should report zero
         final LuceneMetadataInfo result2 = getLuceneMetadataInfo(false, Tuple.from(), dataModel, null);
-        assertEquals(0L, result2.getLuceneInfo().get(0).getPendingWritesQueueSize());
+        assertEquals(0L, Objects.requireNonNull(result2.getLuceneInfo().get(0)).getPendingWritesQueueSize());
     }
 
     private static void assertPartitionInfosHaveCorrectFromTo(

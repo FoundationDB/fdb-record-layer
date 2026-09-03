@@ -80,6 +80,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
@@ -120,7 +121,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
 
     private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
-        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, isUseCascadesPlanner());
+        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, Objects.requireNonNull(path), document, index, isUseCascadesPlanner());
         this.recordStore = pair.getLeft();
         this.planner = pair.getRight();
     }
@@ -580,14 +581,14 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
             TextIndexTestUtils.addRecordTypePrefix(metaDataBuilder);
         };
         try (final FDBRecordContext context = openContext()) {
-            recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), hook);
             for (Index index: indexes) {
                 recordStore.markIndexDisabled(index).join();
             }
             context.commit();
         }
         try (final FDBRecordContext context = openContext()) {
-            recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), hook);
             for (int i = 0; i < numRecords; i ++) {
                 long docId = docIds[i];
                 recordStore.saveRecord(createSimpleDocument(docId, randomText(rn), randomGroup(rn)));
@@ -596,7 +597,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         }
         // overwrite some records (to enforce merge), write others as new
         try (final FDBRecordContext context = openContext()) {
-            recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), hook);
             for (int i = 0; i < middle; i ++) {
                 long docId = docIds[i];
                 recordStore.saveRecord(createSimpleDocument(docId, randomText(rn), randomGroup(rn)));
@@ -609,7 +610,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         }
         // build the index ..
         try (final FDBRecordContext context = openContext()) {
-            recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), hook);
             try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                     .setRecordStore(recordStore)
                     .setTargetIndexes(indexes)
@@ -623,7 +624,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         }
         // .. and assert readable mode
         try (final FDBRecordContext context = openContext()) {
-            recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), hook);
             for (Index index: indexes) {
                 assertTrue(recordStore.getIndexState(index).isReadable());
             }
@@ -1250,7 +1251,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
             commit(context);
         }
         newLength = listFiles(index).length;
-        final int timeCommitCount = timer.getCounter(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_TIME_QUOTA).getCount();
+        final int timeCommitCount = Objects.requireNonNull(timer.getCounter(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_TIME_QUOTA)).getCount();
         LOGGER.debug("Merge test: number of files: old=" + oldLength + " new=" + newLength +
                      " needMerge=" + recordStore.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes() +
                      " timeCommitCount: " + timeCommitCount);

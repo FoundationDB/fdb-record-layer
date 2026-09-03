@@ -41,6 +41,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import java.io.IOException;
+import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -81,7 +82,7 @@ class FDBDirectoryLockTest {
             final Lock lock1 = directory.obtainLock(lockName);
             lock1.ensureValid();
             LockObtainFailedException e = assertThrows(LockObtainFailedException.class, () -> directory.obtainLock(lockName));
-            assertTrue(e.getMessage().contains(alreadyLockedMessage));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains(alreadyLockedMessage));
             lock1.ensureValid();
             lock1.close();
 
@@ -89,7 +90,7 @@ class FDBDirectoryLockTest {
             final Lock lock2 = directory.obtainLock(lockName);
             lock2.ensureValid();
             e = assertThrows(LockObtainFailedException.class, () -> directory.obtainLock(lockName));
-            assertTrue(e.getMessage().contains(alreadyLockedMessage));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains(alreadyLockedMessage));
             lock2.ensureValid();
             lock2.close();
         }

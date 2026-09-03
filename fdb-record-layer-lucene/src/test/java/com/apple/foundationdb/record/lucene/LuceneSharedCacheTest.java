@@ -45,6 +45,7 @@ import org.junit.jupiter.api.Test;
 import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
@@ -82,7 +83,7 @@ public class LuceneSharedCacheTest extends FDBRecordStoreQueryTestBase {
                     Set.of(IndexTypes.TEXT),
                     Set.of(LuceneIndexTypes.LUCENE)
             );
-            planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
+            planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, Objects.requireNonNull(recordStore.getTimer()));
         }
     }
 

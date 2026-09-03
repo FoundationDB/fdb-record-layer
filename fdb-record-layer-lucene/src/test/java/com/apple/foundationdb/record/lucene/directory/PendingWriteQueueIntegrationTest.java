@@ -95,9 +95,9 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
         final Index index = SIMPLE_TEXT_SUFFIXES;
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
-                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                Objects.requireNonNull(LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
                         TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
-                        index, useCascadesPlanner).getLeft();
+                        index, useCascadesPlanner).getLeft());
 
         // Set "ongoing merge" indicator
         setOngoingMergeIndicator(schemaSetup, index, null, null);
@@ -134,9 +134,9 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
         final Index index = SIMPLE_TEXT_SUFFIXES;
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
-                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                Objects.requireNonNull(LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
                         TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
-                        index, useCascadesPlanner).getLeft();
+                        index, useCascadesPlanner).getLeft());
 
         // Set ongoing merge indicator
         setOngoingMergeIndicator(schemaSetup, index, null, null);
@@ -184,9 +184,9 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
         final Index index = SIMPLE_TEXT_SUFFIXES;
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
-                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                Objects.requireNonNull(LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
                         TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
-                        index, useCascadesPlanner).getLeft();
+                        index, useCascadesPlanner).getLeft());
 
 
         // Write multiple records
@@ -257,9 +257,9 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
         final Index index = complexPartitionedIndex(options);
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
-                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                Objects.requireNonNull(LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
                         TestRecordsTextProto.ComplexDocument.getDescriptor().getName(),
-                        index, useCascadesPlanner).getLeft();
+                        index, useCascadesPlanner).getLeft());
 
         // Insert a few documents when "ongoing merge" indicator is clear.
         try (FDBRecordContext context = openContext()) {
@@ -351,9 +351,9 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
         final Index index = complexPartitionedIndex(options);
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
-                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                Objects.requireNonNull(LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
                         TestRecordsTextProto.ComplexDocument.getDescriptor().getName(),
-                        index, useCascadesPlanner).getLeft();
+                        index, useCascadesPlanner).getLeft());
 
         final Tuple groupingKey = Tuple.from(1L);
         final int numPartitions = 5; // if changed, other parts of the test should be modified
@@ -395,7 +395,7 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
             FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
             for (int partition = 0; partition < numPartitions; partition++) {
                 // Delete first document from each partition
-                recordStore.deleteRecord(partitionPrimaryKeys.get(partition).get(0));
+                recordStore.deleteRecord(Objects.requireNonNull(partitionPrimaryKeys.get(partition)).get(0));
             }
             commit(context);
         }
@@ -454,9 +454,9 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
         final Index index = complexPartitionedIndex(options);
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
-                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                Objects.requireNonNull(LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
                         TestRecordsTextProto.ComplexDocument.getDescriptor().getName(),
-                        index, useCascadesPlanner).getLeft();
+                        index, useCascadesPlanner).getLeft());
 
         final Tuple groupingKey = Tuple.from(1L);
         final Integer partition0 = 0;
@@ -487,8 +487,8 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
         // Delete one document from each partition (will be queued)
         try (FDBRecordContext context = openContext()) {
             FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
-            recordStore.deleteRecord(primaryKeys.get(2001L)); // Delete from partition 0
-            recordStore.deleteRecord(primaryKeys.get(3001L)); // Delete from partition 1
+            recordStore.deleteRecord(Objects.requireNonNull(primaryKeys.get(2001L))); // Delete from partition 0
+            recordStore.deleteRecord(Objects.requireNonNull(primaryKeys.get(3001L))); // Delete from partition 1
             commit(context);
         }
 
@@ -525,9 +525,9 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
         final Index index = SIMPLE_TEXT_SUFFIXES;
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
-                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                Objects.requireNonNull(LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
                         TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
-                        index, useCascadesPlanner).getLeft();
+                        index, useCascadesPlanner).getLeft());
 
         // Insert document before queue is enabled
         try (FDBRecordContext context = openContext()) {
@@ -576,9 +576,9 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
         final Index index = SIMPLE_TEXT_SUFFIXES;
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
-                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                Objects.requireNonNull(LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
                         TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
-                        index, useCascadesPlanner).getLeft();
+                        index, useCascadesPlanner).getLeft());
 
         // Mark "ongoing merge" indicator
         setOngoingMergeIndicator(schemaSetup, index, null, null);
@@ -632,9 +632,9 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
         final Index index = SIMPLE_TEXT_SUFFIXES;
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
-                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                Objects.requireNonNull(LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
                         TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
-                        index, useCascadesPlanner).getLeft();
+                        index, useCascadesPlanner).getLeft());
 
         // Mark "ongoing merge" indicator
         setOngoingMergeIndicator(schemaSetup, index, null, null);
@@ -667,9 +667,9 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
         final Index index = SIMPLE_TEXT_SUFFIXES;
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
-                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                Objects.requireNonNull(LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
                         TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
-                        index, useCascadesPlanner).getLeft();
+                        index, useCascadesPlanner).getLeft());
 
         // Enable queue
         setOngoingMergeIndicator(schemaSetup, index, null, null);
@@ -715,9 +715,9 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
         final Index index = SIMPLE_TEXT_SUFFIXES;
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
-                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                Objects.requireNonNull(LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
                         TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
-                        index, useCascadesPlanner).getLeft();
+                        index, useCascadesPlanner).getLeft());
 
         // Insert without queue indicator - should request deferred merge
         try (FDBRecordContext context = openContext()) {
@@ -768,9 +768,9 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
         final Index index = SIMPLE_TEXT_SUFFIXES;
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
-                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                Objects.requireNonNull(LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
                         TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
-                        index, useCascadesPlanner).getLeft();
+                        index, useCascadesPlanner).getLeft());
 
         // Setup: Create initial records before queue mode
         try (FDBRecordContext context = openContext()) {
@@ -891,9 +891,9 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
         final Index index = SIMPLE_TEXT_SUFFIXES;
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
-                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                Objects.requireNonNull(LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
                         TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
-                        index, useCascadesPlanner).getLeft();
+                        index, useCascadesPlanner).getLeft());
 
         // 1. Set ongoing merge indicator
         setOngoingMergeIndicator(schemaSetup, index, null, null);
@@ -904,7 +904,12 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
             FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
             Subspace subspace = recordStore.indexSubspace(index).subspace(Tuple.from(FDBDirectory.FILE_LOCK_SUBSPACE));
             byte[] fileLockKey = subspace.pack(Tuple.from(IndexWriter.WRITE_LOCK_NAME));
-            lockFactory = new FDBDirectoryLockFactory(null, 10_000);
+            // The directory is unused by the obtainLock(AgilityContext, byte[], String) overload below,
+            // but the constructor requires a non-null value.
+            IndexMaintainerState state = new IndexMaintainerState(recordStore, index,
+                    recordStore.getIndexMaintenanceFilter());
+            FDBDirectory directory = FDBDirectoryManager.getManager(state).getDirectory(null, null);
+            lockFactory = new FDBDirectoryLockFactory(directory, 10_000);
             lockFactory.obtainLock(new NonAgileContext(context), fileLockKey, IndexWriter.WRITE_LOCK_NAME);
             commit(context);
         }
@@ -932,9 +937,9 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
                 options.put(LuceneIndexOptions.PENDING_WRITE_QUEUE_INCARNATION_ENABLED, Boolean.toString(incarnationEnabled)));
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
-                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                Objects.requireNonNull(LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
                         TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
-                        index, useCascadesPlanner).getLeft();
+                        index, useCascadesPlanner).getLeft());
 
         // Set "ongoing merge" indicator so the queue is used
         setOngoingMergeIndicator(schemaSetup, index, null, null);
@@ -977,9 +982,9 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
         final Index index = SIMPLE_TEXT_SUFFIXES;
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
-                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                Objects.requireNonNull(LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
                         TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
-                        index, useCascadesPlanner).getLeft();
+                        index, useCascadesPlanner).getLeft());
 
         // Set "ongoing merge" indicator so writes go to queue
         setOngoingMergeIndicator(schemaSetup, index, null, null);
