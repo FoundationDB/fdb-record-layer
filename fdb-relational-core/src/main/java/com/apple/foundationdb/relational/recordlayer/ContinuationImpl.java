@@ -206,7 +206,7 @@ import com.apple.foundationdb.annotation.API;
      * @return the deserialized continuation
      * @throws InvalidProtocolBufferException in case the continuation cannot be deserialized
      */
-    public static ContinuationImpl parseContinuation(byte[] bytes) throws InvalidProtocolBufferException {
+    public static ContinuationImpl parseContinuation(@Nullable byte[] bytes) throws InvalidProtocolBufferException {
         if (bytes == null) {
             return BEGIN;
         } else {

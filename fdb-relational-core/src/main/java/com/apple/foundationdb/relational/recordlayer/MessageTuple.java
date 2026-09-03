@@ -50,7 +50,11 @@ public class MessageTuple extends AbstractRow {
     }
 
     @Override
-    @Nullable
+    // Row#getObject(int) (fdb-relational-api, unannotated) is treated by NullAway's override check as
+    // implicitly @NonNull, so this can't be declared @Nullable even though it genuinely returns null below
+    // (representing a SQL NULL / absent field or an empty vector byte string), matching Row's actual,
+    // documented column-value contract.
+    @SuppressWarnings("NullAway")
     public Object getObject(int position) throws InvalidColumnReferenceException {
         if (position < 0 || position >= getNumFields()) {
             throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);

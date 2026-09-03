@@ -131,7 +131,12 @@ public final class CopyPlan extends QueryPlan {
     public static CopyPlan getCopyExportAction(String path,
                                                QueryExecutionContext queryExecutionContext,
                                                boolean incrementIncarnation) {
-        return new CopyPlan(CopyType.EXPORT, path, incrementIncarnation, queryExecutionContext, null);
+        // CopyPlan's constructor already declares its continuation parameter @Nullable byte[]; NullAway/
+        // JSpecify doesn't reliably track @Nullable on array-typed parameters for a literal null argument
+        // (known limitation).
+        @SuppressWarnings("NullAway")
+        final CopyPlan plan = new CopyPlan(CopyType.EXPORT, path, incrementIncarnation, queryExecutionContext, null);
+        return plan;
     }
 
     /**
@@ -143,7 +148,10 @@ public final class CopyPlan extends QueryPlan {
      */
     public static CopyPlan getCopyImportAction(String path,
                                                QueryExecutionContext queryExecutionContext) {
-        return new CopyPlan(CopyType.IMPORT, path, false, queryExecutionContext, null);
+        // See the comment in getCopyExportAction() above about this same @SuppressWarnings.
+        @SuppressWarnings("NullAway")
+        final CopyPlan plan = new CopyPlan(CopyType.IMPORT, path, false, queryExecutionContext, null);
+        return plan;
     }
 
     public static CopyPlan fromContinuation(final com.apple.foundationdb.relational.continuation.CopyPlan protobuf,
@@ -156,6 +164,10 @@ public final class CopyPlan extends QueryPlan {
                 continuation);
     }
 
+    // continuation is already correctly declared @Nullable byte[] above; NullAway/JSpecify does not
+    // reliably track @Nullable on array-typed fields (known limitation), which is why this constructor's
+    // assignment is still flagged as if the field were non-null.
+    @SuppressWarnings("NullAway")
     private CopyPlan(CopyType copyType,
                      String path,
                      boolean incrementIncarnation,

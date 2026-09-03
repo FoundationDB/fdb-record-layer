@@ -29,7 +29,10 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
-public abstract class Plan<T> {
+
+import org.jspecify.annotations.Nullable;
+
+public abstract class Plan<T extends @Nullable Object> {
 
     protected final String query;
 

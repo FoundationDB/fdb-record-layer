@@ -171,7 +171,12 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
         @Override
         public Type getResultType() {
-            return Assert.notNullUnchecked(recordQueryPlan.getResultType().getInnerType());
+            // getInnerType() is @Nullable in general, but recordQueryPlan's result type here always has an
+            // inner type; Assert.notNullUnchecked can't narrow that since Assert lives in the not-yet-migrated
+            // fdb-relational-api module.
+            @SuppressWarnings("NullAway")
+            final Type innerType = Assert.notNullUnchecked(recordQueryPlan.getResultType().getInnerType());
+            return innerType;
         }
 
         public QueryExecutionContext getQueryExecutionContext() {
@@ -236,7 +241,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
             final EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) executionContext.connection;
             try {
-                final String schemaName = conn.getSchema();
+                // Executing a query plan requires a schema to already be selected on the connection.
+                final String schemaName = Objects.requireNonNull(conn.getSchema(), "No schema selected on connection");
                 try (RecordLayerSchema recordLayerSchema = conn.getRecordLayerDatabase().loadSchema(schemaName)) {
                     final var evaluationContext = queryExecutionContext.getEvaluationContext();
                     final var typedEvaluationContext = EvaluationContext.forBindingsAndTypeRepository(evaluationContext.getBindings(), typeRepository);
@@ -333,11 +339,16 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                             DataType.StructType.Field.from("PLANNER_METRICS", plannerMetricsStructType, 5)),
                     true);
 
+            // ArrayRow's vararg parameter type isn't @Nullable (NullAway/JSpecify doesn't reliably track
+            // element nullability for array/vararg-typed parameters); PLAN_SERIALIZATION_MODE is genuinely
+            // null when there's no compiled statement.
+            @SuppressWarnings("NullAway")
+            final Object planSerializationMode = parsedContinuation.getCompiledStatement() == null ? null : parsedContinuation.getCompiledStatement().getPlanSerializationMode();
             final Struct continuationInfo = ContinuationImpl.BEGIN.equals(parsedContinuation) ? null :
                                             new ImmutableRowStruct(new ArrayRow(
                             parsedContinuation.getExecutionState(),
                             parsedContinuation.getVersion(),
-                            parsedContinuation.getCompiledStatement() == null ? null : parsedContinuation.getCompiledStatement().getPlanSerializationMode(),
+                            planSerializationMode,
                             parsedContinuation.getPlanHash(),
                             getSerializedPlanFromContinuation(parsedContinuation, executionContext).map(RecordQueryPlan::getComplexity).orElse(null)
                     ), RelationalStructMetaData.of(continuationStructType));
@@ -384,13 +395,18 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             }
 
             final var plannerGraph = Objects.requireNonNull(recordQueryPlan.acceptVisitor(PlannerGraphVisitor.forExplain()));
-            return new IteratorResultSet(RelationalStructMetaData.of(explainStructType), Collections.singleton(new ArrayRow(
+            // ArrayRow's vararg parameter type isn't @Nullable (NullAway/JSpecify doesn't reliably track
+            // element nullability for array/vararg-typed parameters); continuationInfo and plannerMetrics
+            // are genuinely null in some cases (see their assignments above).
+            @SuppressWarnings("NullAway")
+            final ArrayRow explainRow = new ArrayRow(
                     explain(),
                     planHashSupplier.get(),
                     PlannerGraphVisitor.exportToDot(plannerGraph),
                     PlannerGraphVisitor.exportToGml(plannerGraph, Map.of()),
                     continuationInfo,
-                    plannerMetrics)).iterator(), 0);
+                    plannerMetrics);
+            return new IteratorResultSet(RelationalStructMetaData.of(explainStructType), Collections.singleton(explainRow).iterator(), 0);
         }
 
         @SuppressWarnings("PMD.CloseResource") // cursor returned inside the ResultSet, Connection now owned by this method
@@ -399,8 +415,11 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                                                         final ExecutionContext executionContext,
                                                         final ContinuationImpl parsedContinuation) throws RelationalException {
             final var connection = (EmbeddedRelationalConnection) executionContext.connection;
-            Type type = recordQueryPlan.getResultType().getInnerType();
-            Assert.notNull(type);
+            // Reassign through notNull (rather than discarding its result) so the non-null check actually
+            // narrows the value used below; Assert.notNull can't narrow it on its own since Assert lives in
+            // the not-yet-migrated fdb-relational-api module.
+            @SuppressWarnings("NullAway")
+            final Type type = Assert.notNull(recordQueryPlan.getResultType().getInnerType());
             Assert.that(type instanceof Type.Record, ErrorCode.INTERNAL_ERROR, "unexpected plan returning top-level result of type %s", type.getTypeCode());
             final FDBRecordStoreBase<?> fdbRecordStore = recordLayerSchema.loadStore().unwrap(FDBRecordStoreBase.class);
 
