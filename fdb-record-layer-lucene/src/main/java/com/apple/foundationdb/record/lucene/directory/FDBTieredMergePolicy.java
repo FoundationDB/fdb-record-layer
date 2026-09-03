@@ -66,6 +66,7 @@ class FDBTieredMergePolicy extends TieredMergePolicy {
     }
 
     @Override
+    @Nullable
     @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
     public MergeSpecification findMerges(MergeTrigger mergeTrigger, SegmentInfos infos, MergeContext mergeContext) throws IOException {
         if (mergeControl == null) {
