@@ -11,7 +11,7 @@ Jinja2==3.1.6
 MarkupSafe==3.0.3
 myst-parser==5.1.0
 packaging==26.3
-Pygments==2.20.0
+Pygments==2.21.0
 railroad-diagrams==3.0.1
 requests==2.34.2
 snowballstemmer==3.1.1
