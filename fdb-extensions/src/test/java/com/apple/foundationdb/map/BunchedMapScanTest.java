@@ -122,7 +122,11 @@ public class BunchedMapScanTest {
 
     private void clearAndPopulate() {
         // Populate data
-        db.run(tr -> {
+        // db.run(Function<Transaction, T>) has no void-returning overload, so this side-effect-only call returns
+        // null from the lambda; NullAway does not accept an explicit @Nullable type witness on this external,
+        // unannotated method either, so the suppression is scoped to this one declaration instead.
+        @SuppressWarnings("NullAway")
+        final Void ignored = db.run(tr -> {
             tr.clear(bmSubspace.range());
             keys.forEach(k -> map.put(tr, bmSubspace, k, value).join());
             return null;
@@ -130,7 +134,9 @@ public class BunchedMapScanTest {
     }
 
     private void clearAndPopulateMulti() {
-        db.run(tr -> {
+        // See clearAndPopulate() above for why this suppression is needed.
+        @SuppressWarnings("NullAway")
+        final Void ignored = db.run(tr -> {
             tr.clear(bmSubspace.range());
             for (int i = 0; i < keys.size(); i++) {
                 map.put(tr, subSubspaces.get(i % subSubspaces.size()), keys.get(i), value).join();
@@ -176,7 +182,13 @@ public class BunchedMapScanTest {
     }
 
     private void getKeys(boolean reverse) throws InterruptedException, ExecutionException {
-        testScan(ReadTransaction.ROW_LIMIT_UNLIMITED, reverse, (tr, bignore) -> map.scan(tr, bmSubspace, null, ReadTransaction.ROW_LIMIT_UNLIMITED, reverse));
+        testScan(ReadTransaction.ROW_LIMIT_UNLIMITED, reverse, (tr, bignore) -> {
+            // NullAway does not reliably honor @Nullable on byte[]-typed parameters, so the null literal below
+            // is misflagged as a NonNull violation even though scan()'s continuation parameter is @Nullable byte[].
+            @SuppressWarnings("NullAway")
+            final BunchedMapIterator<Tuple, Tuple> result = map.scan(tr, bmSubspace, null, ReadTransaction.ROW_LIMIT_UNLIMITED, reverse);
+            return result;
+        });
     }
 
     @Test
@@ -218,6 +230,9 @@ public class BunchedMapScanTest {
         getKeysContinuationRescan(1, reverse); // Limit of 1 to test every key
 
         // Unlimited should return null continuation.
+        // NullAway does not reliably honor @Nullable on byte[]-typed parameters, so the null literal below is
+        // misflagged as a NonNull violation even though scan()'s continuation parameter is @Nullable byte[].
+        @SuppressWarnings("NullAway")
         BunchedMapIterator<Tuple, Tuple> iterator = map.scan(tr, bmSubspace, null, ReadTransaction.ROW_LIMIT_UNLIMITED, reverse);
         List<Tuple> readKeys = AsyncUtil.collectRemaining(AsyncUtil.mapIterator(iterator, Map.Entry::getKey)).get();
         if (reverse) {
@@ -227,18 +242,25 @@ public class BunchedMapScanTest {
         assertNull(iterator.getContinuation());
 
         // Limited that returns everything because it is is limit aligned should return a non-null continuation.
-        iterator = map.scan(tr, bmSubspace, null, keys.size(), reverse);
+        // See the comment above: same NullAway array-parameter limitation applies to each reassignment below.
+        @SuppressWarnings("NullAway")
+        final BunchedMapIterator<Tuple, Tuple> iterator2 = map.scan(tr, bmSubspace, null, keys.size(), reverse);
+        iterator = iterator2;
         readKeys = AsyncUtil.collectRemaining(AsyncUtil.mapIterator(iterator, Map.Entry::getKey)).get();
         if (reverse) {
             readKeys = Lists.reverse(readKeys);
         }
         assertEquals(keys, readKeys);
         assertNotNull(iterator.getContinuation());
-        iterator = map.scan(tr, bmSubspace, iterator.getContinuation(), ReadTransaction.ROW_LIMIT_UNLIMITED, reverse);
+        @SuppressWarnings("NullAway")
+        final BunchedMapIterator<Tuple, Tuple> iterator3 = map.scan(tr, bmSubspace, iterator.getContinuation(), ReadTransaction.ROW_LIMIT_UNLIMITED, reverse);
+        iterator = iterator3;
         assertFalse(iterator.hasNext());
 
         // Limited with a limit greater than the actual number of keys should return a null continuation.
-        iterator = map.scan(tr, bmSubspace, null, keys.size() + 1, reverse);
+        @SuppressWarnings("NullAway")
+        final BunchedMapIterator<Tuple, Tuple> iterator4 = map.scan(tr, bmSubspace, null, keys.size() + 1, reverse);
+        iterator = iterator4;
         readKeys = AsyncUtil.collectRemaining(AsyncUtil.mapIterator(iterator, Map.Entry::getKey)).get();
         if (reverse) {
             readKeys = Lists.reverse(readKeys);

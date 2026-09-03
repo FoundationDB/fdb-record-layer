@@ -908,13 +908,15 @@ public class MoreAsyncUtil {
      * @param <T> the element type of the iterator
      * @return the reduced result
      */
-    @Nullable
     public static <U, T> CompletableFuture<U> reduce(AsyncIterator<T> iterator, U identity,
                                                      BiFunction<U, ? super T, U> accumulator) {
         return reduce(ForkJoinPool.commonPool(), iterator, identity, accumulator);
     }
 
-    @Nullable
+    // The returned CompletableFuture reference is never itself null (it is always a fresh future constructed
+    // below); a pre-existing @Nullable annotation here predating this migration incorrectly described the
+    // future's resolved value (which may be null if U is nullable-instantiated) rather than the future
+    // reference. Corrected rather than propagated by the mechanical jspecify swap.
     public static <U, T> CompletableFuture<U> reduce(Executor executor,
                                                      AsyncIterator<T> iterator, U identity,
                                                      BiFunction<U, ? super T, U> accumulator) {
