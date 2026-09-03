@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.recordlayer.query.AstNormalizer;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
+import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import org.apache.logging.log4j.Level;
@@ -48,6 +49,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Testing basic query logging: plan, time, cache hits, etc.
@@ -336,12 +338,21 @@ public class QueryLoggingTest {
         int queryHash = 0;
         conn.setAutoCommit(false);
         conn.createNewTransaction();
-        try (var schema = conn.getRecordLayerDatabase().loadSchema(conn.getSchema())) {
+        // The schema is set via RelationalConnectionRule#withSchema("TEST_SCHEMA") above, so getSchema()
+        // is non-null here even though it's declared @Nullable for the general "no schema selected" case.
+        final var schemaName = Objects.requireNonNull(conn.getSchema());
+        try (var schema = conn.getRecordLayerDatabase().loadSchema(schemaName)) {
             final var store = schema.loadStore().unwrap(FDBRecordStoreBase.class);
+            // conn.getMetricCollector() is @Nullable only because the collector isn't set up until a
+            // transaction is active (already the case here); Assert.notNullUnchecked enforces that
+            // invariant at runtime, but NullAway can't see that since Assert lives in the not-yet-migrated
+            // fdb-relational-api module.
+            @SuppressWarnings("NullAway")
+            final var metricCollector = Assert.notNullUnchecked(conn.getMetricCollector());
             final var planContext = PlanContext.Builder.create()
                     .fromRecordStore(store, conn.getOptions())
                     .fromDatabase(conn.getRecordLayerDatabase())
-                    .withMetricsCollector(conn.getMetricCollector())
+                    .withMetricsCollector(metricCollector)
                     .withSchemaTemplate(conn.getSchemaTemplate())
                     .build();
             queryHash = AstNormalizer.normalizeQuery(planContext, query1, false, PlanHashable.PlanHashMode.VC0).getQueryCacheKey().hashCode();
