@@ -535,6 +535,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
+                    @SuppressWarnings("NullAway") // intentionally returns null; only the invocation is being tested here
                     public Object visitHnswMetric(RelationalParser.HnswMetricContext ctx) {
                         called.set(true);
                         return null;
@@ -550,6 +551,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
+                    @SuppressWarnings("NullAway") // intentionally returns null; only the invocation is being tested here
                     public Object visitVectorEngine(RelationalParser.VectorEngineContext ctx) {
                         called.set(true);
                         return null;
@@ -565,6 +567,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
+                    @SuppressWarnings("NullAway") // intentionally returns null; only the invocation is being tested here
                     public Object visitVectorIndexOptionValue(RelationalParser.VectorIndexOptionValueContext ctx) {
                         called.set(true);
                         return null;
@@ -580,6 +583,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
+                    @SuppressWarnings("NullAway") // intentionally returns null; only the invocation is being tested here
                     public Object visitVectorIndexOption(RelationalParser.VectorIndexOptionContext ctx) {
                         called.set(true);
                         return null;
@@ -595,6 +599,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
+                    @SuppressWarnings("NullAway") // intentionally returns null; only the invocation is being tested here
                     public Object visitIndexPartitionClause(RelationalParser.IndexPartitionClauseContext ctx) {
                         called.set(true);
                         return null;
@@ -610,6 +615,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
+                    @SuppressWarnings("NullAway") // intentionally returns null; only the invocation is being tested here
                     public Expressions visitWindowOptionsClause(RelationalParser.WindowOptionsClauseContext ctx) {
                         called.set(true);
                         return null;
@@ -625,6 +631,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
+                    @SuppressWarnings("NullAway") // intentionally returns null; only the invocation is being tested here
                     public Expression visitWindowOption(RelationalParser.WindowOptionContext ctx) {
                         called.set(true);
                         return null;
@@ -640,6 +647,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
+                    @SuppressWarnings("NullAway") // intentionally returns null; only the invocation is being tested here
                     public Object visitWindowSpec(RelationalParser.WindowSpecContext ctx) {
                         called.set(true);
                         return null;
@@ -691,6 +699,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
+                    @SuppressWarnings("NullAway") // intentionally returns null; only the invocation is being tested here
                     public Object visitFunctionNameKeyword(RelationalParser.FunctionNameKeywordContext ctx) {
                         called.set(true);
                         return null;

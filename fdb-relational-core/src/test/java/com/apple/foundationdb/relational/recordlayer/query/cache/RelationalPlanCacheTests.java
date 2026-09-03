@@ -317,12 +317,18 @@ public class RelationalPlanCacheTests {
         final AbstractDatabase database = embeddedConnection.getRecordLayerDatabase();
         final var storeState = new RecordStoreState(null, readableIndexes.stream().map(index -> Pair.of(index, IndexState.READABLE)).collect(Collectors.toMap(Pair::getKey, Pair::getValue)));
         final FDBRecordStoreBase<?> store = database.loadSchema(schemaName).loadStore().unwrap(FDBRecordStoreBase.class);
+        // embeddedConnection.getMetricCollector() is @Nullable only because the collector isn't set up
+        // until a transaction is active (already the case here); Assert.notNullUnchecked enforces that
+        // invariant at runtime, but NullAway can't see that since Assert lives in the not-yet-migrated
+        // fdb-relational-api module.
+        @SuppressWarnings("NullAway")
+        final var metricCollector = Assert.notNullUnchecked(embeddedConnection.getMetricCollector());
         final PlanContext planContext = PlanContext.Builder
                 .create()
                 .fromDatabase(database)
                 .fromRecordStore(store, options)
                 .withSchemaTemplate(embeddedConnection.getTransaction().getBoundSchemaTemplateMaybe().orElse(schemaTemplate))
-                .withMetricsCollector(Assert.notNullUnchecked(embeddedConnection.getMetricCollector()))
+                .withMetricsCollector(metricCollector)
                 .withPlannerConfiguration(PlannerConfiguration.of(Optional.of(readableIndexes), options))
                 .build();
         return PlanGenerator.create(Optional.of(cache), planContext, store.getRecordMetaData(), storeState, store.getIndexMaintainerRegistry(), options);
@@ -330,8 +336,14 @@ public class RelationalPlanCacheTests {
 
     private Plan.ExecutionContext getExecutionContext() throws RelationalException {
         final var embeddedConnection = Assert.castUnchecked(connection.getUnderlyingEmbeddedConnection(), EmbeddedRelationalConnection.class);
+        // embeddedConnection.getMetricCollector() is @Nullable only because the collector isn't set up
+        // until a transaction is active (already the case here); Assert.notNullUnchecked enforces that
+        // invariant at runtime, but NullAway can't see that since Assert lives in the not-yet-migrated
+        // fdb-relational-api module.
+        @SuppressWarnings("NullAway")
+        final var metricCollector = Assert.notNullUnchecked(embeddedConnection.getMetricCollector());
         return Plan.ExecutionContext.of(embeddedConnection.getTransaction(),  Options.builder().build(),
-                embeddedConnection, Assert.notNullUnchecked(embeddedConnection.getMetricCollector()));
+                embeddedConnection, metricCollector);
     }
 
     private static String inferScanType(final Plan<?> plan) {

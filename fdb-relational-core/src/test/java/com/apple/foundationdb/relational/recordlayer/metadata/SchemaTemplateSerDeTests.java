@@ -249,7 +249,7 @@ public class SchemaTemplateSerDeTests {
         for (final var unionField : unionDesc.getFieldList()) {
             final var typeName = unionField.getTypeName();
             Assertions.assertTrue(testcase.containsKey(typeName));
-            final var expectedGenerations = testcase.get(typeName);
+            final var expectedGenerations = Objects.requireNonNull(testcase.get(typeName));
             Assertions.assertTrue(expectedGenerations.contains(NonnullPair.of(unionField.getNumber(), unionField.getOptions())));
         }
     }
@@ -648,7 +648,7 @@ public class SchemaTemplateSerDeTests {
             final var functionName = entry.getKey();
             final var functionDescription = entry.getValue();
             Assertions.assertTrue(invokedRoutines.containsKey(functionName));
-            final var function = invokedRoutines.get(functionName);
+            final var function = Objects.requireNonNull(invokedRoutines.get(functionName));
             Assertions.assertInstanceOf(RawSqlFunction.class, function);
             final var rawSqlFunction = (RawSqlFunction)function;
             Assertions.assertEquals(functionName, rawSqlFunction.getFunctionName());
@@ -669,7 +669,9 @@ public class SchemaTemplateSerDeTests {
     }
 
     private static final class CompiledFunctionStub extends CompiledSqlFunction {
-        @SuppressWarnings("DataFlowIssue") // only for test.
+        // CompiledSqlFunction's "body" parameter is @NonNull, but view/function expansion isn't implemented
+        // for this test stub, so we intentionally pass null; CompiledSqlFunction isn't in scope to relax.
+        @SuppressWarnings({"DataFlowIssue", "NullAway"}) // only for test.
         CompiledFunctionStub() {
             super("something", List.of(), List.of(), List.of(),
                     Optional.empty(), null, Literals.empty());
@@ -1053,7 +1055,7 @@ public class SchemaTemplateSerDeTests {
         }
 
         boolean hasOneCompilationRequestFor(final String functionName) {
-            return 1 == invocationsCount.get(functionName);
+            return Integer.valueOf(1).equals(invocationsCount.get(functionName));
         }
 
         public PlanGenerator getPlanGenerator() throws RelationalException, SQLException {
