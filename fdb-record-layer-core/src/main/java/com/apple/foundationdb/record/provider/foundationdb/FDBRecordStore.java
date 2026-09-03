@@ -307,6 +307,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     private final FDBPreloadRecordCache preloadCache;
 
     private boolean storeStateReadConflict;
+    @Nullable
     private IndexDeferredMaintenanceControl indexDeferredMaintenanceControl;
 
     private final Set<String> indexStateReadConflicts = ConcurrentHashMap.newKeySet(8);
@@ -442,7 +443,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD_STORE_STATE,
                     preloadRecordStoreStateAsync(StoreExistenceCheck.NONE, IsolationLevel.SERIALIZABLE, IsolationLevel.SNAPSHOT));
         }
-        return recordStoreStateRef.get();
+        // The asyncToSync call above guarantees recordStoreStateRef is now populated.
+        return Objects.requireNonNull(recordStoreStateRef.get());
     }
 
     private CompletableFuture<RecordStoreState> getRecordStoreStateAsync() {
@@ -584,7 +586,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (metaData.getRecordCountKey() != null) {
             beginRecordStoreStateRead();
             try {
-                RecordMetaDataProto.DataStoreInfo header = recordStoreStateRef.get().getStoreHeader();
+                // beginRecordStoreStateRead() above already established that the state is loaded.
+                RecordMetaDataProto.DataStoreInfo header = Objects.requireNonNull(recordStoreStateRef.get()).getStoreHeader();
                 // We do not need to check the format version here. In order for it to be DISABLED we would have to be
                 // on a format version that supports such a state.
                 if (header.getRecordCountState() != RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
@@ -684,7 +687,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final List<CompletableFuture<Void>> futures = new ArrayList<>();
         final RecordType sameRecordType;
         if (oldRecord == null) {
-            sameRecordType = newRecord.getRecordType();
+            // Established above that oldRecord and newRecord aren't both null.
+            sameRecordType = Objects.requireNonNull(newRecord).getRecordType();
         } else if (newRecord == null) {
             sameRecordType = oldRecord.getRecordType();
         } else if (oldRecord.getRecordType() == newRecord.getRecordType()) {
@@ -868,9 +872,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (oldRecord == null && newRecord == null) {
             return AsyncUtil.DONE;
         }
-        final RecordType recordType = oldRecord != null ? oldRecord.getRecordType() : newRecord.getRecordType();
+        // Established above that oldRecord and newRecord aren't both null.
+        final RecordType recordType = oldRecord != null ? oldRecord.getRecordType() : Objects.requireNonNull(newRecord).getRecordType();
         final List<CompletableFuture<Void>> futures = new ArrayList<>();
-        for (IndexMaintainer indexMaintainer : maintainers.get(recordType)) {
+        // maintainers is always built (by getSyntheticMaintainers) from the same synthetic record types that
+        // oldRecord/newRecord are instances of, so recordType is always a key in this map.
+        for (IndexMaintainer indexMaintainer : Objects.requireNonNull(maintainers.get(recordType))) {
             CompletableFuture<Void> future = indexMaintainer.update(oldRecord, newRecord);
             if (!MoreAsyncUtil.isCompletedNormally(future)) {
                 futures.add(future);
@@ -1550,6 +1557,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return storedRecord.thenApply(rec -> new FDBIndexedRecord<>(indexedRawRecord.getIndexEntry(), rec));
     }
 
+    @Nullable
     private <M extends Message> FDBIndexedRecord<M> handleOrphanEntry(final IndexEntry indexEntry, final IndexOrphanBehavior orphanBehavior) {
         switch (orphanBehavior) {
             case SKIP:
@@ -1581,7 +1589,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return an instance of {@link FDBRawRecord} reconstructed from the given record splits, null if no record entries found
      */
     @Nullable
-    @SuppressWarnings("PMD.CloseResource")
+    // ListCursor's continuation constructor parameter (from the .cursors package, outside this scope) is not
+    // annotated @Nullable even though null legitimately means "start from the beginning", which is exactly the
+    // case here since scannedRange is a fresh in-memory list.
+    @SuppressWarnings({"PMD.CloseResource", "NullAway"})
     private FDBRawRecord reconstructSingleRecord(final Subspace recordSubspace, final SizeInfo sizeInfo,
                                                  final MappedKeyValue mappedResult, final boolean oldVersionFormat) {
         List<KeyValue> scannedRange = mappedResult.getRangeResult();
@@ -1637,7 +1648,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public CompletableFuture<Void> resolveUniquenessViolation(Index index, Tuple valueKey, @Nullable Tuple remainPrimaryKey) {
         return scanUniquenessViolations(index, valueKey).forEachAsync(uniquenessViolation -> {
             if (remainPrimaryKey == null || !remainPrimaryKey.equals(uniquenessViolation.getPrimaryKey())) {
-                return deleteRecordAsync(uniquenessViolation.getPrimaryKey()).thenApply(ignore -> null);
+                // scanUniquenessViolations always constructs these with a non-null primary key (see just above).
+                return deleteRecordAsync(Objects.requireNonNull(uniquenessViolation.getPrimaryKey())).thenApply(ignore -> null);
             } else {
                 // The uniqueness violation entry of the remained primary key will be removed as part of
                 // removeUniquenessViolationsAsync when deleting the second to last record that contains the value key.
@@ -1706,7 +1718,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 countKeysAndValues(FDBStoreTimer.Counts.DELETE_RECORD_KEY, FDBStoreTimer.Counts.DELETE_RECORD_KEY_BYTES, FDBStoreTimer.Counts.DELETE_RECORD_VALUE_BYTES,
                         oldRecord);
                 addRecordCount(metaData, oldRecord, LITTLE_ENDIAN_INT64_MINUS_ONE);
-                final boolean oldHasIncompleteVersion = oldRecord.hasVersion() && !oldRecord.getVersion().isComplete();
+                final boolean oldHasIncompleteVersion = oldRecord.hasVersion() && !Objects.requireNonNull(oldRecord.getVersion()).isComplete();
                 if (useOldVersionFormat()) {
                     byte[] versionKey = getSubspace().pack(recordVersionKey(primaryKey));
                     if (oldHasIncompleteVersion) {
@@ -1871,7 +1883,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         try {
             CompletableFuture<Void> future = new RecordsWhereDeleter(component).run();
             async = true;
-            return future.whenComplete((ignore, err) -> recordStoreStateRef.get().endRead());
+            // Already established non-null above (line checks it's non-null before beginRead()); narrowing does
+            // not survive into this lambda, so re-assert.
+            return future.whenComplete((ignore, err) -> Objects.requireNonNull(recordStoreStateRef.get()).endRead());
         } finally {
             if (!async) {
                 recordStoreStateRef.get().endRead();
@@ -1970,6 +1984,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     .collect(Collectors.toList());
 
             evaluated = deleteRecordsWhereCheckRecordTypes();
+            if (evaluated == null) {
+                // deleteRecordsWhereCheckRecordTypes() only returns null if allRecordTypes was empty, which
+                // should not happen for a valid record store (there is always at least one record type).
+                throw recordCoreException("deleteRecordsWhere did not match any record types");
+            }
             if (recordTypeKeyComparison == null) {
                 indexEvaluated = evaluated;
             } else {
@@ -1978,6 +1997,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             deleteRecordsWhereCheckIndexes();
         }
 
+        @Nullable
         private Evaluated deleteRecordsWhereCheckRecordTypes() {
             Evaluated evaluated = null;
 
@@ -2003,7 +2023,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             final KeyExpression recordCountKey = getRecordMetaData().getRecordCountKey();
             if (recordCountKey != null
                     // we don't need to call beginRecordStoreStateRead(), that is checked in deleteRecordsWhereAsync
-                    && recordStoreStateRef.get().getStoreHeader().getRecordCountState() != RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
+                    && Objects.requireNonNull(recordStoreStateRef.get()).getStoreHeader().getRecordCountState() != RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
                 final QueryToKeyMatcher.Match match = matcher.matchesSatisfyingQuery(recordCountKey);
                 if (match.getType() != QueryToKeyMatcher.MatchType.EQUALITY) {
                     throw new Query.InvalidExpressionException("Record count key not matching for deleteRecordsWhere");
@@ -2068,14 +2088,16 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             final Collection<RecordType> recordTypesForIndex = recordMetaData.recordTypesForIndex(index);
 
             if (recordType == null || (Key.Expressions.hasRecordTypePrefix(index.getRootExpression()))) {
-                return indexMaintainer.canDeleteWhere(matcher, evaluated);
+                // evaluated is only null if allRecordTypes was empty, which cannot happen for a real
+                // deleteRecordsWhere call (canDeleteWhere itself dereferences it unconditionally).
+                return indexMaintainer.canDeleteWhere(matcher, Objects.requireNonNull(evaluated));
             } else if (recordTypesForIndex.size() > 1) {
                 throw recordCoreException("Index " + index.getName() +
                         " applies to more record types than just " + recordType.getName());
             } else if (indexMatcher == null) {
                 return true;
             } else {
-                return indexMaintainer.canDeleteWhere(indexMatcher, indexEvaluated);
+                return indexMaintainer.canDeleteWhere(indexMatcher, Objects.requireNonNull(indexEvaluated));
             }
         }
 
@@ -2205,7 +2227,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 syntheticQueryComponent = Query.field(constituentName).matches(typelessComponent);
             }
             final QueryToKeyMatcher syntheticMatcher = new QueryToKeyMatcher(syntheticQueryComponent);
-            return indexMaintainer.canDeleteWhere(syntheticMatcher, indexEvaluated);
+            return indexMaintainer.canDeleteWhere(syntheticMatcher, Objects.requireNonNull(indexEvaluated));
         }
 
         @SuppressWarnings("PMD.CloseResource")
@@ -2233,7 +2255,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             final KeyExpression recordCountKey = getRecordMetaData().getRecordCountKey();
             if (recordCountKey != null
                     // we don't need to call beginRecordStoreStateRead(), that is checked in deleteRecordsWhereAsync
-                    && recordStoreStateRef.get().getStoreHeader().getRecordCountState() != RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
+                    && Objects.requireNonNull(recordStoreStateRef.get()).getStoreHeader().getRecordCountState() != RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
                 if (prefix.size() == recordCountKey.getColumnSize()) {
                     // Delete a single record used for counting
                     context.clear(getSubspace().pack(Tuple.from(RECORD_COUNT_KEY).addAll(prefix)));
@@ -2244,7 +2266,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
 
             final List<CompletableFuture<Void>> futures = new ArrayList<>();
-            final Tuple indexPrefix = indexEvaluated.toTuple();
+            final Tuple indexPrefix = Objects.requireNonNull(indexEvaluated).toTuple();
             for (IndexMaintainer indexMaintainer : indexMaintainers) {
                 final CompletableFuture<Void> future;
                 // Only need to check key expression in the case where a normal index has a different prefix.
@@ -2321,7 +2343,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             beginRecordStoreStateRead();
             boolean futureCreated = false;
             try {
-                RecordMetaDataProto.DataStoreInfo header = recordStoreStateRef.get().getStoreHeader();
+                // beginRecordStoreStateRead() above already established that the state is loaded.
+                RecordMetaDataProto.DataStoreInfo header = Objects.requireNonNull(recordStoreStateRef.get()).getStoreHeader();
                 // We can always check the state, even if the formatVersion is older, because older versions will always
                 // have the default of READABLE
                 if (header.getRecordCountState() == RecordMetaDataProto.DataStoreInfo.RecordCountState.READABLE) {
@@ -2338,8 +2361,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                         return result;
                     } else if (key.isPrefixKey(recordMetaData.getRecordCountKey())) {
                         AsyncIterable<KeyValue> kvs = tr.getRange(getSubspace().range(Tuple.from(RECORD_COUNT_KEY)));
-                        final CompletableFuture<Long> result = MoreAsyncUtil.reduce(getExecutor(), kvs.iterator(), 0L,
-                                (count, kv) -> count + decodeRecordCount(kv.getValue()))
+                        // MoreAsyncUtil (outside this scope, in fdb-extensions) is not in AnnotatedPackages, so
+                        // NullAway conservatively treats its return value as @Nullable; it never actually is.
+                        final CompletableFuture<Long> result = Objects.requireNonNull(MoreAsyncUtil.reduce(getExecutor(), kvs.iterator(), 0L,
+                                (count, kv) -> count + decodeRecordCount(kv.getValue())))
                                 .whenComplete((ignored, error) -> endRecordStoreStateRead());
                         futureCreated = true;
                         return result;
@@ -2417,7 +2442,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                                   StoreRecordFunction<T> function,
                                                                                   FDBRecord<M> rec) {
         if (FunctionNames.VERSION.equals(function.getName())) {
-            if (rec.hasVersion() && rec.getVersion().isComplete()) {
+            if (rec.hasVersion() && Objects.requireNonNull(rec.getVersion()).isComplete()) {
                 return CompletableFuture.completedFuture((T) rec.getVersion());
             }
             return (CompletableFuture<T>) loadRecordVersionAsync(rec.getPrimaryKey()).orElse(CompletableFuture.completedFuture(null));
@@ -2550,7 +2575,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (recordStoreStateRef.get() == null) {
                 recordStoreStateRef.compareAndSet(null, storeState.toMutable());
             }
-            return recordStoreStateRef.get().getStoreHeader();
+            // Either it was already set, or the compareAndSet above (by this thread or a racing one) set it.
+            return Objects.requireNonNull(recordStoreStateRef.get()).getStoreHeader();
         });
         if (!MoreAsyncUtil.isCompletedNormally(metaDataPreloadFuture)) {
             storeHeaderFuture = metaDataPreloadFuture.thenCombine(storeHeaderFuture, (vignore, storeHeader) -> storeHeader);
@@ -2936,20 +2962,23 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
+    // These four helpers are only ever called once the record store state has been loaded (callers are
+    // responsible for calling preloadRecordStoreStateAsync()/checkVersion() first), so recordStoreStateRef is
+    // always non-null here.
     private void beginRecordStoreStateRead() {
-        recordStoreStateRef.get().beginRead();
+        Objects.requireNonNull(recordStoreStateRef.get()).beginRead();
     }
 
     private void endRecordStoreStateRead() {
-        recordStoreStateRef.get().endRead();
+        Objects.requireNonNull(recordStoreStateRef.get()).endRead();
     }
 
     private void beginRecordStoreStateWrite() {
-        recordStoreStateRef.get().beginWrite();
+        Objects.requireNonNull(recordStoreStateRef.get()).beginWrite();
     }
 
     private void endRecordStoreStateWrite() {
-        recordStoreStateRef.get().endWrite();
+        Objects.requireNonNull(recordStoreStateRef.get()).endWrite();
     }
 
     private CompletableFuture<RecordMetaDataProto.DataStoreInfo> loadStoreHeaderAsync(StoreExistenceCheck existenceCheck, IsolationLevel isolationLevel, @Nullable String bypassFullStoreLockReason) {
@@ -2997,14 +3026,17 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     state.setStoreHeader(newStoreHeader);
                     return state;
                 });
-                ensureContextActive().set(getSubspace().pack(STORE_INFO_KEY), newStoreHeaderRef.get().toByteArray());
+                // updateAndGet above always invokes the lambda synchronously (at least once) before returning,
+                // and that lambda always sets newStoreHeaderRef, so it is non-null here.
+                ensureContextActive().set(getSubspace().pack(STORE_INFO_KEY), Objects.requireNonNull(newStoreHeaderRef.get()).toByteArray());
             }
         } finally {
             endRecordStoreStateWrite();
         }
 
-        RecordMetaDataProto.DataStoreInfo oldStoreHeader = oldStoreHeaderRef.get();
-        RecordMetaDataProto.DataStoreInfo newStoreHeader = newStoreHeaderRef.get();
+        // See the comment above: updateAndGet's lambda always sets both refs before this point is reached.
+        RecordMetaDataProto.DataStoreInfo oldStoreHeader = Objects.requireNonNull(oldStoreHeaderRef.get());
+        RecordMetaDataProto.DataStoreInfo newStoreHeader = Objects.requireNonNull(newStoreHeaderRef.get());
 
         // Update the meta-data version-stamp key as appropriate.
         if (oldStoreHeader.getCacheable()) {
@@ -3583,6 +3615,16 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
+    // Some @Nullable byte[] parameters in this file (e.g. IndexingRangeSet#insertRangeAsync's begin/end,
+    // KeyValueCursorBase.Builder#setContinuation) are already correctly annotated, but NullAway does not
+    // reliably recognize a null literal as matching a @Nullable byte[] parameter (a known array-type tracking
+    // gap); this helper isolates that suppression to the handful of call sites that need a null byte[] value.
+    @Nullable
+    @SuppressWarnings("NullAway")
+    private static byte[] noBytes() {
+        return null;
+    }
+
     @SuppressWarnings("PMD.CloseResource")
     private CompletableFuture<Boolean> markIndexNotReadable(String indexName, IndexState indexState) {
         if (recordStoreStateRef.get() == null) {
@@ -3607,7 +3649,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                             // after the index is build to avoid carrying extra meta-data about the index range
                             // set. However, when we mark an index as write-only, we want to preserve the record
                             // that the index was completely built (if the range set was empty, i.e., cleared)
-                            return indexRangeSet.insertRangeAsync(null, null);
+                            return indexRangeSet.insertRangeAsync(noBytes(), noBytes());
                         } else {
                             return AsyncUtil.READY_FALSE;
                         }
@@ -4020,7 +4062,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(isSubspace)
                 .setContext(getContext())
                 .setRange(TupleRange.ALL)
-                .setContinuation(null)
+                .setContinuation(noBytes())
                 .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder()
                         .setIsolationLevel(isolationLevel)
                         .setDefaultCursorStreamingMode(CursorStreamingMode.WANT_ALL)
@@ -4954,9 +4996,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final ScanProperties scanProperties = new ScanProperties(executeProperties);
         final RecordCursor<FDBStoredRecord<Message>> records;
         if (singleRecordTypeWithPrefixKey == null) {
-            records = scanRecords(null, scanProperties);
+            records = scanRecords(noBytes(), scanProperties);
         } else {
-            records = scanRecords(TupleRange.allOf(singleRecordTypeWithPrefixKey.getRecordTypeKeyTuple()), null, scanProperties);
+            records = scanRecords(TupleRange.allOf(singleRecordTypeWithPrefixKey.getRecordTypeKeyTuple()), noBytes(), scanProperties);
         }
         return records.onNext().thenApply(result -> {
             if (result.hasNext()) {
@@ -5247,7 +5289,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                            subspaceProvider.logKey(), subspaceProvider.toString(context)));
         }
         final Map<Evaluated, Long> counts = new HashMap<>();
-        final RecordCursor<FDBStoredRecord<Message>> records = scanRecords(null, ScanProperties.FORWARD_SCAN);
+        final RecordCursor<FDBStoredRecord<Message>> records = scanRecords(noBytes(), ScanProperties.FORWARD_SCAN);
         CompletableFuture<Void> future = records.forEach(rec -> {
             Evaluated subkey = recordCountKey.evaluateSingleton(rec);
             counts.compute(subkey, (k, v) -> (v == null) ? 1 : v + 1);
@@ -5309,7 +5351,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return RecordCursor.flatMapPipelined(ignore -> RecordCursor.fromIterator(getExecutor(), cursor),
                 (result, ignore) -> RecordCursor.fromIterator(getExecutor(),
                         transaction.snapshot().getRange(result, rangeEnd, 1).iterator()),
-                null, DEFAULT_PIPELINE_SIZE)
+                noBytes(), DEFAULT_PIPELINE_SIZE)
                 .map(keyValue -> {
                     Tuple recordKey = recordsSubspace().unpack(keyValue.getKey());
                     return hasSplitRecordSuffix ? recordKey.popBack() : recordKey;
@@ -5319,6 +5361,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     private static class DistinctFilterCursorClosure {
+        @Nullable
         private Tuple previousKey = null;
 
         boolean pred(Tuple key) {
@@ -5388,7 +5431,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                         return false;
                     }
 
-                    repairRecordKeyIfNecessary(context, recordSubspace, result.get(), isDryRun);
+                    // Established non-null: !result.hasNext() already returned above.
+                    repairRecordKeyIfNecessary(context, recordSubspace, Objects.requireNonNull(result.get()), isDryRun);
                     return true;
                 })).thenApply(ignored -> nextContinuation.get());
     }
@@ -5982,7 +6026,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 return store.checkVersion(userVersionChecker, StoreExistenceCheck.ERROR_IF_NOT_EXISTS)
                         .thenApply(checkVersionDidSomething -> NonnullPair.of(false, store));
             }
-            final RecordMetaData recordMetaData = metaDataProvider.getRecordMetaData();
+            final RecordMetaData recordMetaData = Objects.requireNonNull(metaDataProvider,
+                    "metaDataProvider must be set on the builder to repair a missing store header").getRecordMetaData();
             final RecordMetaDataProto.DataStoreInfo.Builder dataStoreInfo = RecordMetaDataProto.DataStoreInfo.newBuilder()
                     .setFormatVersion(formatVersion.getValueForSerialization())
                     .setMetaDataversion(recordMetaData.getVersion())
@@ -6027,13 +6072,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
             // Since another instance may still have a cached version of the store header, we need to make
             // sure that the cache is invalidated
+            final FDBRecordContext nonNullContext = requireContext();
             final CompletableFuture<Void> bumpMetaDataVersionStamp = updateRecordCountState.thenCompose(vignore ->
-                    context.getMetaDataVersionStampAsync(IsolationLevel.SNAPSHOT)
+                    nonNullContext.getMetaDataVersionStampAsync(IsolationLevel.SNAPSHOT)
                             .thenAccept(metaDataVersionStamp -> {
                                 // If the metaDataVersionStamp was null before than nothing was cached based on
                                 // the metaDataVersionStamp, so we don't need to set the stamp.
                                 if (metaDataVersionStamp != null) {
-                                    context.setMetaDataVersionStamp();
+                                    nonNullContext.setMetaDataVersionStamp();
                                 }
                             }));
             // The handling of indexes could be improved with any of the following, but we're keeping it simple:

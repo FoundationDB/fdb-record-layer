@@ -145,7 +145,7 @@ public class FDBStoredRecordBuilder<M extends Message> implements FDBRecord<M>, 
         return this;
     }
 
-    public FDBStoredRecordBuilder<M> setVersion(FDBRecordVersion recordVersion) {
+    public FDBStoredRecordBuilder<M> setVersion(@Nullable FDBRecordVersion recordVersion) {
         this.recordVersion = recordVersion;
         return this;
     }
