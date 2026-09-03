@@ -60,6 +60,7 @@ import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -338,7 +339,9 @@ public class ComposedBitmapIndexAggregate {
                 indexNodes = new HashMap<>();
             }
             final QueryComponent filterWithParents = rebuildNestedComponent(indexFilter, prefixFields);
-            IndexNode existing = indexNodes.get(filterWithParents);
+            // indexNodes is initialized together with bitmapIndexes above (and never cleared), so it's
+            // guaranteed non-null by this point.
+            IndexNode existing = Objects.requireNonNull(indexNodes).get(filterWithParents);
             if (existing != null) {
                 return Optional.of(existing);
             }
@@ -372,10 +375,13 @@ public class ComposedBitmapIndexAggregate {
             final QueryComponent fullFilter = andFilters(groupFilters, filterWithParents);
             // Allow conditions on the position field as well.
             final KeyExpression fullOperand = new GroupingKeyExpression(fullKey.getWholeKey(), 0);
+            // Capture into a final local: indexNodes' narrowed non-null state (established above) doesn't
+            // persist into the lambda below, since it's a mutable field rather than an effectively-final local.
+            final Map<QueryComponent, IndexNode> nonNullIndexNodes = Objects.requireNonNull(indexNodes);
             return IndexAggregateGroupKeys.conditionsToGroupKeys(fullOperand, fullFilter)
                     .map(groupKeys -> {
                         final IndexNode indexNode = new IndexNode(fullFilter, groupKeys, index.getName());
-                        indexNodes.put(indexFilter, indexNode);
+                        nonNullIndexNodes.put(indexFilter, indexNode);
                         return indexNode;
                     });
         }
