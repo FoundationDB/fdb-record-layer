@@ -96,8 +96,9 @@ public final class FDBIndexOutput extends IndexOutput {
      * Close the directory which writes the FileReference.
      */
     @Override
-    @SuppressWarnings("NullAway") // buffer = null below is intentional: writes after close() should fail fast
-                                   // with an NPE rather than silently writing to a stale buffer.
+    // buffer = null below is intentional: writes after close() should fail fast with an NPE
+    // rather than silently writing to a stale buffer.
+    @SuppressWarnings("NullAway")
     public void close() throws IOException {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace(getLogMessage("close()",
