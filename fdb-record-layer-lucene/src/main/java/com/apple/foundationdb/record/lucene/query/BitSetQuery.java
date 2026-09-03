@@ -34,6 +34,7 @@ import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.ScorerSupplier;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.DocIdSetBuilder;
+import org.apache.lucene.util.DocIdSetBuilder.BulkAdder;
 import org.apache.lucene.util.FixedBitSet;
 import org.apache.lucene.util.NumericUtils;
 
@@ -93,7 +94,7 @@ public class BitSetQuery extends Query {
                 return new PointValues.IntersectVisitor() {
 
                     @Nullable
-                    DocIdSetBuilder.BulkAdder adder;
+                    BulkAdder adder;
 
                     @Override
                     public void grow(int count) {
