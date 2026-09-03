@@ -155,10 +155,10 @@ public class ResolvedKeySpacePath {
         if (cachedTuple == null) {
             final int len = size();
 
-            final Object[] values = new Object[len];
+            final @Nullable Object[] values = new Object[len];
             ResolvedKeySpacePath current = this;
             for (int i = len - 1; i >= 0; i--) {
-                values[i] = current.getResolvedValue();
+                values[i] = Objects.requireNonNull(current, "size() should bound this walk to existing ancestors").getResolvedValue();
                 current = current.getParent();
             }
             cachedTuple = Tuple.from(values);
@@ -203,8 +203,11 @@ public class ResolvedKeySpacePath {
         final ResolvedKeySpacePath[] flat = new ResolvedKeySpacePath[len];
         ResolvedKeySpacePath current = this;
         for (int i = len - 1; i >= 0; i--) {
-            flat[i] = current;
-            current = current.getParent();
+            // size() should bound this walk to existing ancestors, so current is non-null at each iteration; the
+            // very last reassignment below (once i reaches -1 and the loop exits) is allowed to become null.
+            final ResolvedKeySpacePath nonNullCurrent = Objects.requireNonNull(current);
+            flat[i] = nonNullCurrent;
+            current = nonNullCurrent.getParent();
         }
         return Arrays.asList(flat);
     }
@@ -250,7 +253,7 @@ public class ResolvedKeySpacePath {
         return sb.toString();
     }
 
-    public static void appendValue(StringBuilder sb, Object value) {
+    public static void appendValue(StringBuilder sb, @Nullable Object value) {
         if (value == null) {
             sb.append("null");
         } else if (value instanceof String) {
