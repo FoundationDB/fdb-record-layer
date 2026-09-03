@@ -83,7 +83,8 @@ public class RankComparisons {
         return comparisons.get(comparison);
     }
 
-    public QueryComponent planComparisonSubstitute(QueryComponent component) {
+    @Nullable
+    public QueryComponent planComparisonSubstitute(@Nullable QueryComponent component) {
         if (component instanceof QueryRecordFunctionWithComparison) {
             final RankComparison rankComparison = getPlanComparison((QueryRecordFunctionWithComparison)component);
             if (rankComparison != null) {
