@@ -160,7 +160,12 @@ public class TextScan implements PlanHashable {
         return scan(store, context, prefix, suffix, index, tokenList, continuation, scanProperties);
     }
 
-    @SuppressWarnings({"squid:S2095", "PMD.CloseResource"}) // try-with-resources - the two cursors returned cannot be closed because they are wrapped and returned
+    @SuppressWarnings({"squid:S2095", "PMD.CloseResource", "NullAway"}) // try-with-resources - the two cursors returned cannot be closed
+                                                                        // because they are wrapped and returned; the NullAway suppression is because
+                                                                        // scanTokenPrefix/scanToken's returned Function<byte[], ...> is declared with a
+                                                                        // plain (non-@Nullable) byte[] type argument to stay assignable to the
+                                                                        // List<Function<byte[], ...>> expected by ProbableIntersectionCursor/UnionCursor
+                                                                        // below, even though the lambdas they return genuinely accept a null continuation.
     private <M extends Message> RecordCursor<IndexEntry> scan(FDBRecordStoreBase<M> store,
                                                               EvaluationContext context,
                                                               @Nullable Tuple prefix, @Nullable TupleRange suffix,
@@ -530,6 +535,8 @@ public class TextScan implements PlanHashable {
     }
 
     @Override
+    @SuppressWarnings("NullAway") // PlanHashable.planHash/objectsPlanHash's varargs aren't annotated @Nullable, but
+                                   // each element is hashed via a null-safe helper (see PlanHashable.planHash(mode, Iterable)).
     public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
