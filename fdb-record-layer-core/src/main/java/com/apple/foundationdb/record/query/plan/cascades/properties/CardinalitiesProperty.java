@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
+import com.apple.foundationdb.record.query.plan.cascades.AggregateIndexMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -55,6 +56,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableSc
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.InComparandSource;
 import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
@@ -196,26 +198,32 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         @Nonnull
         @Override
         public Cardinalities visitRecordQueryAggregateIndexPlan(@Nonnull final RecordQueryAggregateIndexPlan aggregateIndexPlan) {
-            final var groupingValueMaybe = aggregateIndexPlan.getGroupingValueMaybe();
-            if (groupingValueMaybe.isEmpty()) {
-                return Cardinalities.atMostOne();
-            }
-            final var groupingValue = groupingValueMaybe.get();
             final var indexScanPlan = aggregateIndexPlan.getIndexPlan();
             final var matchCandidateOptional = indexScanPlan.getMatchCandidateMaybe();
             if (matchCandidateOptional.isEmpty()) {
                 return Cardinalities.unknownMaxCardinality();
             }
-            final var ordering = matchCandidateOptional.get()
-                    .computeOrderingFromScanComparisons(
-                            indexScanPlan.getScanComparisons(),
-                            indexScanPlan.isReverse(),
-                            false);
-            if (ordering.getEqualityBoundValues().contains(groupingValue)) {
-                return Cardinalities.atMostOne();
-            } else {
-                return Cardinalities.unknownMaxCardinality();
+            final var matchCandidate = matchCandidateOptional.get();
+            if (!(matchCandidate instanceof final AggregateIndexMatchCandidate aggregateIndexMatchCandidate)) {
+                return Cardinalities.unknownCardinalities();
             }
+
+            //
+            // The group by result value holds the grouping value ahead of the aggregate values, so a single child means
+            // the index collapses everything into one group and the scan yields at most one record.
+            //
+            final var groupByColumns = aggregateIndexMatchCandidate.getGroupByResultValue().getChildren();
+            if (Iterables.size(groupByColumns) <= 1) {
+                return Cardinalities.atMostOne();
+            }
+
+            final Value groupingValue = Iterables.get(groupByColumns, 0);
+            final var ordering =
+                    matchCandidate.computeOrderingFromScanComparisons(indexScanPlan.getScanComparisons(),
+                            indexScanPlan.isReverse(), false);
+            return ordering.getEqualityBoundValues().contains(groupingValue)
+                   ? Cardinalities.atMostOne()
+                   : Cardinalities.unknownMaxCardinality();
         }
 
         @Nonnull
