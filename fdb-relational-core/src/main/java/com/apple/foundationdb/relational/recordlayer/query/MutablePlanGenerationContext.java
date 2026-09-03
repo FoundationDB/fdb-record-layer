@@ -396,12 +396,22 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         final var evaluationContext = getEvaluationContext();
         constantObjectValues.forEach(cov -> {
             if (literals.isValueFree(cov.getConstantId())) {
-                // A value-free constant, e.g. a typed signature parameter planned with no value. Its OfType constraint
-                // above is the whole of what is known about it, and that type's nullability already decides whether a
-                // null binding matches — OfTypeValue.eval answers expectedType.isNullable() when the bound value is
-                // null. So a nullable declaration accepts null and a NOT NULL one does not, with nothing further to
-                // state. Adding IS_NOT_NULL for the non-nullable case would encode the declaration a second time, in a
-                // place that could drift from the type it is meant to mirror.
+                // A value-free constant, e.g. a typed signature parameter planned with no value. Its declared type is
+                // all that is known about it, and OfTypeValue.eval already answers expectedType.isNullable() when the
+                // bound value is null, so the OfType constraint above alone would decide null correctly.
+                //
+                // IS_NOT_NULL is nonetheless stated for a non-nullable declaration, because a plan built later from a
+                // concrete non-null value states it too, and the constraint is the plan cache key. Saying it here makes
+                // the two constraints equal member for member, so a warmed plan and a runtime-built plan for the same
+                // parameter cannot end up as two competing cache entries. The nullability read here is the same
+                // cov.getResultType() that OfTypeValue.from(cov) uses above, so the two cannot drift apart.
+                //
+                // A nullable declaration says nothing extra: such a plan serves a null binding, and IS_NOT_NULL would
+                // contradict it.
+                if (!cov.getResultType().isNullable()) {
+                    predicateBuilder.add(new ValuePredicate(EvaluatesToValue.isNotNull(cov),
+                            new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true)));
+                }
                 return;
             }
             // Bound constant: fold to its concrete value (enables constant folding and, at cache lookup, matches the
