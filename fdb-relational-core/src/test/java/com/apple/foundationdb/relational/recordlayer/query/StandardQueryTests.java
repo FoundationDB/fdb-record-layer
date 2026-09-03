@@ -24,7 +24,7 @@ import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.FloatRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.RealVector;
-import com.apple.foundationdb.record.util.pair.Pair;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
@@ -67,6 +67,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -78,8 +79,8 @@ public class StandardQueryTests {
     /**
      * A restaurant review.
      */
-    private record Review(long reviewer, long rating, List<Pair<Long, String>> endorsements) {
-        static Review of(long reviewer, long rating, final List<Pair<Long, String>> endorsements) {
+    private record Review(long reviewer, long rating, List<NonnullPair<Long, String>> endorsements) {
+        static Review of(long reviewer, long rating, final List<NonnullPair<Long, String>> endorsements) {
             return new Review(reviewer, rating, endorsements);
         }
     }
@@ -675,7 +676,8 @@ public class StandardQueryTests {
                     statement.execute("SELECT id, c.d.e.f, a.b.c.d.e.f FROM tbl1");
                     fail("expected an exception to be thrown by running 'SELECT id, c.d.e.f, a.b.c.d.e.f FROM tbl1'");
                 } catch (SQLException cse) {
-                    cse.getMessage().contains("field type 'f' can only be resolved on records");
+                    Assertions.assertTrue(Objects.requireNonNullElse(cse.getMessage(), cse.toString())
+                            .contains("field type 'f' can only be resolved on records"));
                 }
             }
         }
@@ -747,11 +749,11 @@ public class StandardQueryTests {
                 insertRestaurantComplexRecord(statement);
                 RelationalStruct l42 = insertRestaurantComplexRecord(statement, 42L, "rest1",
                         List.of(Review.of(1L, 4L, List.of(
-                                        Pair.of(400L, "good"),
-                                        Pair.of(401L, "meh"))),
+                                        NonnullPair.of(400L, "good"),
+                                        NonnullPair.of(401L, "meh"))),
                                 Review.of(2L, 5L, List.of(
-                                        Pair.of(402L, "awesome"),
-                                        Pair.of(401L, "wow")))));
+                                        NonnullPair.of(402L, "awesome"),
+                                        NonnullPair.of(401L, "wow")))));
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord AS R WHERE EXISTS (SELECT * FROM R.reviews AS RE WHERE EXISTS(SELECT * FROM RE.endorsements AS REE WHERE REE.\"endorsementText\"='wow'))")) {
                     ResultSetAssert.assertThat(resultSet).containsRowsPartly(l42);
                 }
@@ -913,7 +915,8 @@ public class StandardQueryTests {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate3).build()) {
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM T1 WHERE name(loc) = ?name")) {
                 ps.setString("name", "Apple Park Visitor Center");
-                final var errorMsg3 = Assertions.assertThrows(SQLException.class, ps::executeQuery).getMessage();
+                final var exception3 = Assertions.assertThrows(SQLException.class, ps::executeQuery);
+                final var errorMsg3 = Objects.requireNonNullElse(exception3.getMessage(), exception3.toString());
                 Assertions.assertTrue(errorMsg3.contains("syntax error"));
             }
         }
@@ -1223,7 +1226,8 @@ public class StandardQueryTests {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 100, 500, 101)");
-                final var message = Assertions.assertThrows(SQLException.class, () -> statement.execute("select struct asd (a, 42, struct def (b, c), struct def(b, c, a)) as X from t1")).getMessage();
+                final var exception = Assertions.assertThrows(SQLException.class, () -> statement.execute("select struct asd (a, 42, struct def (b, c), struct def(b, c, a)) as X from t1"));
+                final var message = Objects.requireNonNullElse(exception.getMessage(), exception.toString());
                 Assertions.assertTrue(message.contains("Name DEF is already registered with a different type")); // we could improve this error message.
             }
         }
