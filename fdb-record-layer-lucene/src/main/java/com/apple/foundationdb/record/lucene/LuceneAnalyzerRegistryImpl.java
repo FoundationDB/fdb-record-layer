@@ -123,14 +123,14 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
             return; // not sure how to deal with other types (i.e. AUTO_COMPLETE) yet.
         }
         if (isEligibleForNoOpAnalyzer(fieldInfo)) {
-            if (registry.isEmpty()
-                    || registry.get(type) == null
-                    || registry.get(type).get(ExactTokenAnalyzerFactory.NAME) == null) {
+            final Map<String, LuceneAnalyzerFactory> registryForType = registry.get(type);
+            final LuceneAnalyzerFactory exactTokenFactory = registryForType == null ? null : registryForType.get(ExactTokenAnalyzerFactory.NAME);
+            if (registry.isEmpty() || registryForType == null || exactTokenFactory == null) {
                 throw new MetaDataException("could not retrieve analyzer",
                         LuceneLogMessageKeys.ANALYZER_NAME, ExactTokenAnalyzerFactory.NAME,
                         LuceneLogMessageKeys.ANALYZER_TYPE, type);
             }
-            chooserPerFieldOverride.put(fieldName, registry.get(type).get(ExactTokenAnalyzerFactory.NAME).getIndexAnalyzerChooser(index));
+            chooserPerFieldOverride.put(fieldName, exactTokenFactory.getIndexAnalyzerChooser(index));
         }
     }
 

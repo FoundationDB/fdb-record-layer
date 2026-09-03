@@ -40,7 +40,6 @@ import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
-import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -327,7 +326,6 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
     }
 
     @SuppressWarnings("PMD.CloseResource") // we are just unwrapping objects, not taking ownership
-    @Nullable
     private static String getFileName(final Directory directory, final SegmentInfo segmentInfo, final String segmentSuffix) {
         String fileName;
         final Directory unwrapped = FilterDirectory.unwrap(directory);
