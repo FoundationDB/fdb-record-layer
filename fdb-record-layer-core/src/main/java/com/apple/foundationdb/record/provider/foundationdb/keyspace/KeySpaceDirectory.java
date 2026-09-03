@@ -164,6 +164,8 @@ public class KeySpaceDirectory {
      * directory.
      * @param value constant value to validate
      */
+    @SuppressWarnings("NullAway") // RecordCoreArgumentException's varargs constructor parameter is not annotated @Nullable
+                                   // even though log values are commonly null (e.g. this directory's own null constant value).
     protected void validateConstant(@Nullable Object value) {
         if (!keyType.isMatch(value)) {
             throw new RecordCoreArgumentException("Illegal constant value provided for directory",
@@ -184,6 +186,8 @@ public class KeySpaceDirectory {
      * @throws RecordCoreArgumentException if the value is not valid
      */
     @API(API.Status.EXPERIMENTAL)
+    @SuppressWarnings("NullAway") // RecordCoreArgumentException's addLogInfo/varargs are not annotated @Nullable even though
+                                   // log values are commonly null (e.g. an invalid null value provided by a caller).
     public void validateValue(@Nullable Object value) {
         // Validate that the value is valid for this directory
         if (!isValueValid(value)) {
@@ -336,6 +340,8 @@ public class KeySpaceDirectory {
      * @throws RecordCoreArgumentException if a subdirectory of the same name already exists, or a subdirectory of the
      *   same type already exists with the same constant value
      */
+    @SuppressWarnings("NullAway") // RecordCoreArgumentException's varargs constructor parameter is not annotated @Nullable
+                                   // even though existingSubdir.getValue() can genuinely be null (an unconstrained directory).
     public KeySpaceDirectory addSubdirectory(KeySpaceDirectory subdirectory) {
         for (KeySpaceDirectory existingSubdir : subdirsByName.values()) {
             if (existingSubdir.getName().equals(subdirectory.getName())) {
@@ -584,7 +590,9 @@ public class KeySpaceDirectory {
                 LogMessageKeys.RANGE, range);
     }
 
-    @SuppressWarnings("PMD.CloseResource")
+    @SuppressWarnings({"PMD.CloseResource", "NullAway"}) // NullAway/JSpecify does not currently track @Nullable on array (byte[])
+                                                          // parameters of KeyValueCursorBase.Builder#setContinuation (out of
+                                                          // scope to fix here); null intentionally means "start from the beginning".
     private CompletableFuture<Optional<Tuple>> nextTuple(FDBRecordContext context,
                                                          Subspace subspace,
                                                          KeyRange range,
@@ -617,7 +625,7 @@ public class KeySpaceDirectory {
 
         return cursor.onNext().thenApply(next -> {
             if (next.hasNext()) {
-                KeyValue kv = next.get();
+                KeyValue kv = Objects.requireNonNull(next.get());
                 return Optional.of(subspace.unpack(kv.getKey()));
             }
             return Optional.empty();
@@ -664,6 +672,8 @@ public class KeySpaceDirectory {
      * @throws RecordCoreArgumentException if the value provided for this directory is incompatible with the
      *   definition of this directory
      */
+    @SuppressWarnings("NullAway") // RecordCoreArgumentException's varargs constructor parameter is not annotated @Nullable
+                                   // even though value can genuinely be null.
     protected CompletableFuture<PathValue> toTupleValueAsyncImpl(FDBRecordContext context, @Nullable Object value) {
         if (this.isConstant() && !areEqual(this.value, value)) {
             throw new RecordCoreArgumentException("Illegal value provided",
@@ -681,6 +691,8 @@ public class KeySpaceDirectory {
      * @throws RecordCoreArgumentException if the value is not suitable for storing in this directory
      */
     @Nullable
+    @SuppressWarnings("NullAway") // RecordCoreArgumentException's varargs constructor parameter is not annotated @Nullable
+                                   // even though value can genuinely be null.
     protected Object validateResolvedValue(@Nullable Object value) {
         if (!keyType.isMatch(value)) {
             throw new RecordCoreArgumentException("Illegal value type provided for directory",
@@ -840,7 +852,7 @@ public class KeySpaceDirectory {
             }
         } catch (IOException e) {
             // Should never happen
-            throw new RecordCoreException(e.getMessage(), e);
+            throw new RecordCoreException(Objects.requireNonNullElse(e.getMessage(), "error writing keyspace directory tree"), e);
         }
     }
 
@@ -907,7 +919,7 @@ public class KeySpaceDirectory {
         UUID(UUID.class, (byte) 0x30, (byte) 0x31);
 
         // Function that tests a value to see if it is of this type
-        final Function<Object, Boolean> matcher;
+        final Function<@Nullable Object, Boolean> matcher;
         // Value used by a directory to indicate that it can accept any value of this type
         @Nullable
         final Object anyValue;
@@ -919,11 +931,11 @@ public class KeySpaceDirectory {
             this(v -> v != null && expectedType.isAssignableFrom(v.getClass()), ANY_VALUE, typeLowBounds, typeHighBounds);
         }
 
-        KeyType(Function<Object, Boolean> matcher, byte typeLowBounds, byte typeHighBounds) {
+        KeyType(Function<@Nullable Object, Boolean> matcher, byte typeLowBounds, byte typeHighBounds) {
             this(matcher, ANY_VALUE, typeLowBounds, typeHighBounds);
         }
 
-        KeyType(Function<Object, Boolean> matcher, @Nullable Object anyValue,
+        KeyType(Function<@Nullable Object, Boolean> matcher, @Nullable Object anyValue,
                 byte typeLowBounds, byte typeHighBounds) {
             this.matcher = matcher;
             this.typeLowBounds = typeLowBounds;
@@ -940,6 +952,7 @@ public class KeySpaceDirectory {
             return matcher.apply(value);
         }
 
+        @Nullable
         public Object getAnyValue() {
             return anyValue;
         }
@@ -952,6 +965,9 @@ public class KeySpaceDirectory {
             return typeHighBounds;
         }
 
+        @SuppressWarnings("NullAway") // RecordCoreArgumentException's varargs constructor parameter is not annotated @Nullable;
+                                       // value is guaranteed non-null here because the NULL type's matcher (v -> v == null)
+                                       // would already have matched and returned above if value were null.
         public static KeyType typeOf(@Nullable Object value) {
             for (KeyType type : values()) {
                 if (type.matcher.apply(value)) {
@@ -961,7 +977,7 @@ public class KeySpaceDirectory {
 
             throw new RecordCoreArgumentException("No directory type matches value",
                     "value", value,
-                    "value_type", value.getClass().getName());
+                    "value_type", Objects.requireNonNull(value).getClass().getName());
         }
     }
 
