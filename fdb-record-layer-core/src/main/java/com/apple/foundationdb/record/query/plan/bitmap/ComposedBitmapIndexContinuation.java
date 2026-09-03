@@ -42,6 +42,7 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A {@link RecordCursor} doing as bit-wise merge of bitmaps from two or more {@code BITMAP_VALUE} indexes.
@@ -112,7 +113,10 @@ class ComposedBitmapIndexContinuation extends MergeCursorContinuation<RecordCurs
         return getContinuations().get(i);
     }
 
-    @SuppressWarnings("PMD.PreserveStackTrace")
+    @SuppressWarnings({"PMD.PreserveStackTrace", "NullAway"}) // NullAway doesn't reliably narrow @Nullable byte[]
+                                                               // via the enclosing `bytes == null` check below;
+                                                               // parseFrom/loggable's parameters are genuinely
+                                                               // non-null here.
     static ComposedBitmapIndexContinuation from(@Nullable byte[] bytes, int numberOfChildren) {
         if (bytes == null) {
             return new ComposedBitmapIndexContinuation(Collections.nCopies(numberOfChildren, RecordCursorStartContinuation.START), null);
@@ -121,9 +125,9 @@ class ComposedBitmapIndexContinuation extends MergeCursorContinuation<RecordCurs
             return from(RecordCursorProto.ComposedBitmapIndexContinuation.parseFrom(bytes), numberOfChildren);
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("invalid continuation", ex)
-                    .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes));
+                    .addLogInfo(LogMessageKeys.RAW_BYTES, Objects.requireNonNull(ByteArrayUtil2.loggable(bytes)));
         } catch (RecordCoreArgumentException ex) {
-            throw ex.addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes));
+            throw ex.addLogInfo(LogMessageKeys.RAW_BYTES, Objects.requireNonNull(ByteArrayUtil2.loggable(bytes)));
         }
     }
 
