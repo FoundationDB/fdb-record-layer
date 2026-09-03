@@ -329,7 +329,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private RecordQueryPlan plan(PlanContext planContext, QueryComponent filter, KeyExpression sort, boolean sortReverse) {
+    private RecordQueryPlan plan(PlanContext planContext, @Nullable QueryComponent filter, @Nullable KeyExpression sort, boolean sortReverse) {
         RecordQueryPlan plan = null;
         if (filter == null) {
             plan = planNoFilter(planContext, sort, sortReverse);
@@ -373,7 +373,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private RecordQueryPlan planNoFilter(PlanContext planContext, KeyExpression sort, boolean sortReverse) {
+    private RecordQueryPlan planNoFilter(PlanContext planContext, @Nullable KeyExpression sort, boolean sortReverse) {
         ScoredPlan bestPlan = null;
         Index bestIndex = null;
         if (sort == null) {
@@ -589,7 +589,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
             @Nullable final KeyExpression candidateKey;
             boolean candidateOnly;
-            if (getConfiguration().shouldOmitPrimaryKeyInOrderingKeyForInUnion()) {
+            if (getConfiguration().shouldOmitPrimaryKeyInOrderingKeyForInUnion() || planContext.commonPrimaryKey == null) {
                 candidateKey = planContext.query.getSort();
                 candidateOnly = false;
             } else {
@@ -649,6 +649,7 @@ public class RecordQueryPlanner implements QueryPlanner {
      * @see RecordQueryPlannerConfiguration#getMaxNumReplansForInToJoin()
      * @see RecordQueryPlannerConfiguration#getMaxNumReplansForInUnion()
      */
+    @Nullable
     private PlanWithInExtractor planExtractedInsFilter(PlanContext planContext, InExtractor inExtractor, boolean needOrdering, int maxNumReplansConfig) {
         int maxNumReplans = Math.max(maxNumReplansConfig, 0);
         boolean allowNonSargedInBindings = maxNumReplansConfig < 0;
@@ -1080,8 +1081,9 @@ public class RecordQueryPlanner implements QueryPlanner {
             recordStoreState.endRead();
         }
 
-        indexes.removeIf(query.hasAllowedIndexes() ?
-                index -> !query.getAllowedIndexes().contains(index.getName()) :
+        final Collection<String> allowedIndexes = query.getAllowedIndexes();
+        indexes.removeIf(allowedIndexes != null ?
+                index -> !allowedIndexes.contains(index.getName()) :
                 index -> !query.getIndexQueryabilityFilter().isQueryable(index));
 
         return new PlanContext(query, indexes, commonPrimaryKey);
@@ -1119,8 +1121,10 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
 
         if (bestPlan.getNumNonSargables() > 0) {
+            // planComparisonSubstitutes(components) only returns null when components is null; combineNonSargables()
+            // never returns null, so this call doesn't either.
             final RecordQueryPlan filtered = new RecordQueryFilterPlan(bestPlan.getPlan(),
-                    planContext.rankComparisons.planComparisonSubstitutes(bestPlan.combineNonSargables()));
+                    Objects.requireNonNull(planContext.rankComparisons.planComparisonSubstitutes(bestPlan.combineNonSargables())));
             // TODO: further optimization requires knowing which filters are satisfied
             return new ScoredPlan(filtered, Collections.emptyList(), Collections.emptyList(),
                     bestPlan.sargedComparisons, bestPlan.score, bestPlan.createsDuplicates, bestPlan.isStrictlySorted,
@@ -1671,7 +1675,7 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     @Nullable
     protected ScoredPlan planOther(CandidateScan candidateScan,
-                                   Index index, QueryComponent filter,
+                                   Index index, @Nullable QueryComponent filter,
                                    @Nullable KeyExpression sort, boolean sortReverse,
                                    @Nullable KeyExpression commonPrimaryKey) {
         if (indexTypes.getTextTypes().contains(index.getType())) {
@@ -1684,10 +1688,15 @@ public class RecordQueryPlanner implements QueryPlanner {
     @Nullable
     @SuppressWarnings("PMD.UnusedFormalParameter")
     private ScoredPlan planText(CandidateScan candidateScan,
-                                Index index, QueryComponent filter,
+                                Index index, @Nullable QueryComponent filter,
                                 @Nullable KeyExpression sort, boolean sortReverse) {
         if (sort != null) {
             // TODO: Full Text: Sorts are not supported with full text queries (https://github.com/FoundationDB/fdb-record-layer/issues/55)
+            return null;
+        }
+        if (filter == null) {
+            // Nothing to text-search on; only reachable from plan()'s "attempt the whole filter" special case,
+            // which already excludes text-type indexes before calling this far, but be defensive anyway.
             return null;
         }
         FilterSatisfiedMask filterMask = FilterSatisfiedMask.of(filter);
