@@ -141,8 +141,7 @@ public class ResolvedKeySpacePath {
      * @return the metadata that is stored along with the resolved value for this path element or <code>null</code>
      *   if there is no metadata
      */
-    @Nullable
-    public byte[] getResolvedMetadata() {
+    public byte @Nullable [] getResolvedMetadata() {
         return value.getMetadata();
     }
 
