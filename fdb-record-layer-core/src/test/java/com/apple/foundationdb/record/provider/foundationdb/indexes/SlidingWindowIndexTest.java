@@ -57,6 +57,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexingPendingWriteQueue;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
+import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowTestHelpers.SlidingWindow;
@@ -66,29 +67,43 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.slidingwindowvector.TestRecordsSlidingWindowVectorProto.SlidingWindowVectorRecord;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
+import com.apple.test.RandomSeedSource;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
+import java.util.stream.LongStream;
 
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowTestHelpers.SlidingWindowAssert.assertThat;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowTestHelpers.makeVector;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowTestHelpers.sampleVector;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -141,14 +156,24 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     }
 
     private void rec(long recNo, String zone, String category, long relevance, long score, HalfRealVector vector) {
-        recordStore.saveRecord(SlidingWindowVectorRecord.newBuilder()
+        recordStore.saveRecord(createRecord(recNo, zone, category, relevance, score, vector));
+    }
+
+    @Nonnull
+    private SlidingWindowVectorRecord createRecord(long recNo, long relevance) {
+        return createRecord(recNo, "z", "c", relevance, 0, sampleVector());
+    }
+
+    @Nonnull
+    private SlidingWindowVectorRecord createRecord(long recNo, String zone, String category, long relevance, long score, HalfRealVector vector) {
+        return SlidingWindowVectorRecord.newBuilder()
                 .setRecNo(recNo)
                 .setZone(zone)
                 .setCategory(category)
                 .setRelevance(relevance)
                 .setScore(score)
                 .setVectorData(ByteString.copyFrom(vector.getRawData()))
-                .build());
+                .build();
     }
 
     private void deleteRec(long recNo) {
@@ -435,6 +460,190 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
                     .underlyingHnsw()
                     .containsInAnyOrder(3L, 4L);
             commit(context);
+        }
+    }
+
+    // ===== Concurrent manipulation tests =====
+
+    /**
+     * Validate concurrent saves work if each save is for a unique record. As each save is unique,
+     * the only place where intra-transaction concurrency can cause a problem is within the
+     * index maintainer itself. The {@link SlidingWindowIndexMaintainer} grabs a write lock over
+     * the window subspace for that reason, which means we effectively serialize access to that
+     * area. For that reason, we expect consistent results whether the store's concurrency
+     * manager is enabled or not.
+     *
+     * @param disableConcurrencyManagement whether to disable the store's concurrency manager in the test
+     * @throws Exception any exception thrown during the test
+     */
+    @ParameterizedTest
+    @BooleanSource
+    void concurrentInsertsToDistinctKeys(boolean disableConcurrencyManagement) throws Exception {
+        final int totalRecords = 150;
+        final int concurrency = 50;
+        final int windowSize = 10;
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, windowSize, Direction.DESC);
+            recordStore = recordStore.asBuilder().setDisableConcurrencyManagement(disableConcurrencyManagement).open();
+            saveAllWithConcurrency(totalRecords, concurrency,
+                    id -> createRecord(id, 300L + (id % 2 == 0 ? 1L : -1L) * id));
+
+            assertThat(slidingWindow())
+                    .hasSizeOf(windowSize)
+                    .underlyingHnsw()
+                    // Should contain the limit (10) largest even records, as those the most relevant
+                    .containsInAnyOrder(LongStream.range(totalRecords - 2 * windowSize, totalRecords).filter(l -> l % 2 == 0).toArray());
+        }
+    }
+
+    /**
+     * Validate what happens if we have concurrent saves and some of those are overwrites of existing records.
+     * This can sometimes hit a deadlock that we have more explicit testing for in
+     * {@link #concurrentlySaveOtherRecordWhileUpdatingBoundaryKey(boolean)}.
+     *
+     * @param disableConcurrencyManagement whether to disable the store's concurrency manager in the test
+     * @throws Exception any exception thrown during the test
+     */
+    @ParameterizedTest(name = "concurrentInsertsToKeysWithOverwrites[disableConcurrencyManagement={0}]")
+    @BooleanSource
+    void concurrentInsertsToKeysWithOverwrites(boolean disableConcurrencyManagement) throws Exception {
+        final int totalRecords = 300;
+        final int concurrency = 75;
+        final int windowSize = 5;
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, windowSize, Direction.DESC);
+            recordStore = recordStore.asBuilder().setDisableConcurrencyManagement(disableConcurrencyManagement).open();
+
+            try {
+                saveAllWithConcurrency(totalRecords, concurrency,
+                        id -> createRecord(id % 20, 300 + (long)(id % 2 == 0 ? 1 : -1) * id));
+            } catch (TimeoutException e) {
+                // Should only get a timeout if we disable concurrency management
+                assertFalse(disableConcurrencyManagement);
+                Assumptions.assumeFalse(true);
+            } catch (ExecutionException e) {
+                // Should only get a FoundSplitWithoutStartException if concurrency management is disabled
+                assertInstanceOf(SplitHelper.FoundSplitWithoutStartException.class, e.getCause());
+                assertTrue(disableConcurrencyManagement);
+                Assumptions.assumeFalse(true);
+            }
+
+            assertThat(slidingWindow())
+                    .hasSizeOf(5)
+                    .underlyingHnsw()
+                    // There are 20 unique keys. The top 5 even ones are the ones relevant enough to be indexed with the window as is
+                    .containsInAnyOrder(LongStream.range(10, 20).filter(l -> l % 2 == 0).toArray());
+        }
+    }
+
+    /**
+     * Validate that we can update records concurrently as long as we don't have a deadlock on reading
+     * boundary key. This test achieves this by inserting 40 records, and then only updating the 5 most
+     * and least relevant. This means the boundary key always points to a record that is in the middle and
+     * is therefore not updated. This means we avoid the concurrency problem alluded to in
+     * {@link #concurrentlySaveOtherRecordWhileUpdatingBoundaryKey(boolean)}. This test makes sure we have
+     * sensible outcomes in such a regime.
+     *
+     * @param seed the seed to use when generating random values
+     * @throws Exception any exception thrown during the test
+     */
+    @ParameterizedTest
+    @RandomSeedSource
+    void concurrentInsertsToKeysWithOverwritesConstantBoundary(long seed) throws Exception {
+        final Random random = new Random(seed);
+        final int totalRecords = 300;
+        final int concurrency = 75;
+        final int windowSize = 20;
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, windowSize, Direction.DESC);
+
+            // Save 20 records with relevance < 100 and 20 with relevance >= 100
+            for (int i = 0; i < 40; i++) {
+                rec(i, i * 5);
+            }
+            // With window size 5, the boundary key is relevance 100.
+            saveAllWithConcurrency(totalRecords, concurrency, id -> {
+                // Mutate either the 5 most or 5 least relevant records
+                int recNo = random.nextInt(10);
+                int relevance = random.nextInt(50);
+                if (recNo >= 5) {
+                    recNo = 39 - recNo;
+                    relevance += 150;
+                }
+                return createRecord(recNo, relevance);
+            });
+
+            assertThat(slidingWindow())
+                    .hasSizeOf(20)
+                    .underlyingHnsw()
+                    // The top 20 most relevant records should still be the top 20 by id
+                    .containsInAnyOrder(LongStream.range(20, 40).toArray());
+        }
+    }
+
+    @CanIgnoreReturnValue
+    @Nonnull
+    private List<FDBStoredRecord<Message>> saveAllWithConcurrency(final int totalRecords, final int concurrency, @Nonnull Function<Integer, Message> recordGenerator) throws Exception {
+        final Deque<CompletableFuture<FDBStoredRecord<Message>>> futures = new ArrayDeque<>();
+        final List<FDBStoredRecord<Message>> records = new ArrayList<>();
+        int startedSaves = 0;
+        while (records.size() < totalRecords) {
+            while (startedSaves < totalRecords && futures.size() < concurrency) {
+                futures.addLast(recordStore.saveRecordAsync(recordGenerator.apply(startedSaves)));
+                startedSaves++;
+            }
+            futures.peekFirst().get(1, TimeUnit.SECONDS);
+            while (!futures.isEmpty() && futures.peekFirst().isDone()) {
+                records.add(futures.pollFirst().get(1, TimeUnit.SECONDS));
+            }
+        }
+        return records;
+    }
+
+    /**
+     * Check what happens if we have two concurrent updates where one of them is the boundary key record.
+     *
+     * @param disableConcurrencyManagement whether the store's concurrency management should be disabled
+     * @throws Exception any exception encountered by the test
+     */
+    @ParameterizedTest(name = "concurrentlySaveOtherRecordWhileUpdatingBoundaryKey[disableConcurrencyManagement={0}]")
+    @BooleanSource
+    void concurrentlySaveOtherRecordWhileUpdatingBoundaryKey(boolean disableConcurrencyManagement) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            recordStore = recordStore.asBuilder().setDisableConcurrencyManagement(disableConcurrencyManagement).open();
+
+            rec(1, 100);
+            rec(2, 200);
+            rec(3, 300);
+
+            // Create a new record (4) and also update the pre-existing record (2) that is on the boundary. They both
+            // end up adjusting the window, one of them to 210 and the other to 190.
+            //
+            // If we have not disabled store concurrency management, then the first save grab a write lock on record 4,
+            // then when updating the index, it grabs a write lock on the window space and a read lock on record 2. The second save needs to
+            // grab a write lock on record 2, after which it will grab a write lock on the window space. So there's a likely
+            // thread ordering of:
+            //
+            //  1. f1 grabs write locks on record 4 and the index window space
+            //  2. f2 brags a write lock on record 2 and then waits for f1 to release the index window space lock
+            //  3. f1 attempts to read the boundary key, so it waits for f2 to to release the lock on record 2
+            //
+            // At this point, they're stuck.
+            final CompletableFuture<FDBStoredRecord<Message>> f1 = recordStore.saveRecordAsync(createRecord(4, 210));
+            final CompletableFuture<FDBStoredRecord<Message>> f2 = recordStore.saveRecordAsync(createRecord(2, 190));
+            try {
+                CompletableFuture.allOf(f1, f2).get(1, TimeUnit.SECONDS);
+            } catch (TimeoutException e) {
+                // Should only time out here if concurrency management is enabled
+                assertFalse(disableConcurrencyManagement);
+                Assumptions.assumeFalse(true);
+            }
+
+            assertThat(slidingWindow())
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(3L, 4L);
         }
     }
 
