@@ -45,6 +45,10 @@ class DatabaseClientLogEventsTest {
             end = ZonedDateTime.parse(args[2]).toInstant();
         }
         FDB fdb = FDB.selectAPIVersion(710);
+        // FDB.open(String) is from the unannotated fdb-java client library; passing a null cluster file path is
+        // its documented way of using the default cluster file, but the parameter is treated as @NonNull by
+        // NullAway's defaults.
+        @SuppressWarnings("NullAway")
         Database database = fdb.open(cluster);
         Executor executor = database.getExecutor();
         DatabaseClientLogEvents.EventConsumer consumer = (tr, event) -> {

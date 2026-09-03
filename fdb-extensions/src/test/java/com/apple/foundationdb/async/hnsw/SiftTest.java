@@ -92,6 +92,8 @@ class SiftTest implements BaseTest {
     static final TestClassSubspaceExtension rtSecondarySubspace = new TestClassSubspaceExtension(dbExtension);
 
     @TempDir
+    // Injected by JUnit's TempDirectory extension before each test; NullAway cannot see framework injection.
+    @SuppressWarnings("NullAway")
     Path tempDir;
 
     private static Database db;

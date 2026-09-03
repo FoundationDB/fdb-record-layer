@@ -400,7 +400,9 @@ class TestHelpers {
                 final ArgumentsAccessor args = parameterInfo.getArguments();
 
                 final BaseTest baseTest = (BaseTest)context.getRequiredTestInstance();
-                final Config config = (Config)args.get(1);
+                // This test extension is only ever registered on parameterized tests whose second argument is a
+                // Config; ArgumentsAccessor.get(int) is generically nullable, but that invariant guarantees non-null here.
+                final Config config = (Config)Objects.requireNonNull(args.get(1));
                 logger.error("dumping contents of HNSW to {}", baseTest.getTempDir());
                 dumpLayers(baseTest.getDb(), baseTest.getSubspace(), config, baseTest.getTempDir());
             } else {

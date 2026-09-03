@@ -111,6 +111,8 @@ class OperationsTest implements BaseTest {
     TestSubspaceExtension rtSecondarySubspace = new TestSubspaceExtension(dbExtension);
 
     @TempDir
+    // Injected by JUnit's TempDirectory extension before each test; NullAway cannot see framework injection.
+    @SuppressWarnings("NullAway")
     Path tempDir;
 
     private Database db;
@@ -474,7 +476,11 @@ class OperationsTest implements BaseTest {
                     CommonTestHelpers.pickRandomVectors(random, remainingData, numVectorsPerDeleteBatch);
 
             final long beginTs = System.nanoTime();
-            db.run(tr -> {
+            // db.run(Function<Transaction, T>) has no void-returning overload, so this side-effect-only call
+            // returns null from the lambda; NullAway does not accept an explicit @Nullable type witness on this
+            // external, unannotated method either, so the suppression is scoped to this one declaration instead.
+            @SuppressWarnings("NullAway")
+            final Void ignored = db.run(tr -> {
                 onWriteListener.reset();
                 onReadListener.reset();
 
