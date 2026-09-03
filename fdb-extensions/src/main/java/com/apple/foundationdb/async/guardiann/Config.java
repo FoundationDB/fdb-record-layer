@@ -77,6 +77,9 @@ import javax.annotation.Nonnull;
  * @param mergeMaxEverFraction fraction of a cluster's max-ever primary count below which it becomes merge-eligible;
  *        the effective merge threshold is
  *        {@code max(primaryClusterMin, floor(mergeMaxEverFraction * maxEverNumPrimaryVectors))}
+ * @param clusterMetadataMaxPendingDeltas how many appended, not-yet-folded deltas a cluster's metadata value may
+ *        accumulate before a writer compacts it instead of appending again; effectively "compact once every N
+ *        metadata updates". Larger values mean fewer conflicting compactions but more work folding on every read
  */
 @SuppressWarnings("checkstyle:MemberName")
 public record Config(@Nonnull Metric metric,
@@ -120,7 +123,9 @@ public record Config(@Nonnull Metric metric,
                      // construction (centroid-walk tuning for the non-search insert/delete/maintenance paths)
                      @Nonnull SearchConfig constructionSearchConfig,
                      // merge trigger (hysteresis relative to a cluster's max-ever primary count)
-                     double mergeMaxEverFraction) implements VectorEncodingConfig {
+                     double mergeMaxEverFraction,
+                     // cluster-metadata delta log
+                     int clusterMetadataMaxPendingDeltas) implements VectorEncodingConfig {
 
     @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
     public static final int DEFAULT_PRIMARY_CLUSTER_MIN = 50;
@@ -129,6 +134,10 @@ public record Config(@Nonnull Metric metric,
     // fraction of a cluster's max-ever primary count below which a merge is triggered (subject to the
     // primaryClusterMin floor); see Config#mergeThreshold
     public static final double DEFAULT_MERGE_MAX_EVER_FRACTION = 1.0d / 5.0d;
+    // Deltas appended to a cluster's metadata value before a writer folds them back into the base value. See
+    // ClusterMetadataDelta; the cap keeps base + MAX_PENDING x deltaSize far below FDB's value-size limit.
+    public static final int DEFAULT_CLUSTER_METADATA_MAX_PENDING_DELTAS = 64;
+    public static final int MAX_CLUSTER_METADATA_MAX_PENDING_DELTAS = 4096;
     public static final int DEFAULT_UNDERREPLICATED_PRIMARY_CLUSTER_MAX = 50;
     public static final int DEFAULT_REPLICATED_CLUSTER_MAX_WRITES = 3 * DEFAULT_PRIMARY_CLUSTER_MAX / 10;
     public static final int DEFAULT_REPLICATED_CLUSTER_TARGET = DEFAULT_PRIMARY_CLUSTER_MAX / 10;
@@ -179,6 +188,9 @@ public record Config(@Nonnull Metric metric,
                 "primaryClusterHardMax must be > primaryClusterMax");
         Preconditions.checkArgument(mergeMaxEverFraction > 0.0d && mergeMaxEverFraction <= 1.0d,
                 "mergeMaxEverFraction must be in (0, 1]");
+        Preconditions.checkArgument(clusterMetadataMaxPendingDeltas >= 1
+                        && clusterMetadataMaxPendingDeltas <= MAX_CLUSTER_METADATA_MAX_PENDING_DELTAS,
+                "clusterMetadataMaxPendingDeltas must be in [1, %s]", MAX_CLUSTER_METADATA_MAX_PENDING_DELTAS);
     }
 
     /**
@@ -210,7 +222,7 @@ public record Config(@Nonnull Metric metric,
                 reassignNumNeighboringClusters(),
                 collapseMinDuplicates(), splitMergeConcurrency(), reassignConcurrency(),
                 collapseConcurrency(), bounceConcurrency(),
-                constructionSearchConfig(), mergeMaxEverFraction());
+                constructionSearchConfig(), mergeMaxEverFraction(), clusterMetadataMaxPendingDeltas());
     }
 
     @Override
@@ -246,6 +258,7 @@ public record Config(@Nonnull Metric metric,
                 ", bounceConcurrency=" + bounceConcurrency() +
                 ", constructionSearchConfig=" + constructionSearchConfig() +
                 ", mergeMaxEverFraction=" + mergeMaxEverFraction() +
+                ", clusterMetadataMaxPendingDeltas=" + clusterMetadataMaxPendingDeltas() +
                 "]";
     }
 
@@ -304,6 +317,8 @@ public record Config(@Nonnull Metric metric,
         private SearchConfig constructionSearchConfig = DEFAULT_CONSTRUCTION_SEARCH_CONFIG;
         // merge trigger
         private double mergeMaxEverFraction = DEFAULT_MERGE_MAX_EVER_FRACTION;
+        // cluster-metadata delta log
+        private int clusterMetadataMaxPendingDeltas = DEFAULT_CLUSTER_METADATA_MAX_PENDING_DELTAS;
 
         public ConfigBuilder() {
         }
@@ -329,7 +344,8 @@ public record Config(@Nonnull Metric metric,
                              final int collapseConcurrency,
                              final int bounceConcurrency,
                              @Nonnull final SearchConfig constructionSearchConfig,
-                             final double mergeMaxEverFraction) {
+                             final double mergeMaxEverFraction,
+                             final int clusterMetadataMaxPendingDeltas) {
             this.metric = metric;
             this.primaryClusterMin = primaryClusterMin;
             this.primaryClusterMax = primaryClusterMax;
@@ -363,6 +379,7 @@ public record Config(@Nonnull Metric metric,
             this.bounceConcurrency = bounceConcurrency;
             this.constructionSearchConfig = constructionSearchConfig;
             this.mergeMaxEverFraction = mergeMaxEverFraction;
+            this.clusterMetadataMaxPendingDeltas = clusterMetadataMaxPendingDeltas;
         }
 
         @Nonnull
@@ -396,6 +413,17 @@ public record Config(@Nonnull Metric metric,
         @Nonnull
         public ConfigBuilder setMergeMaxEverFraction(final double mergeMaxEverFraction) {
             this.mergeMaxEverFraction = mergeMaxEverFraction;
+            return this;
+        }
+
+        public int getClusterMetadataMaxPendingDeltas() {
+            return clusterMetadataMaxPendingDeltas;
+        }
+
+        @CanIgnoreReturnValue
+        @Nonnull
+        public ConfigBuilder setClusterMetadataMaxPendingDeltas(final int clusterMetadataMaxPendingDeltas) {
+            this.clusterMetadataMaxPendingDeltas = clusterMetadataMaxPendingDeltas;
             return this;
         }
 
@@ -746,7 +774,8 @@ public record Config(@Nonnull Metric metric,
                     getReassignNumNeighboringClusters(),
                     getCollapseMinDuplicates(), getSplitMergeConcurrency(), getReassignConcurrency(),
                     getCollapseConcurrency(), getBounceConcurrency(),
-                    getConstructionSearchConfig(), getMergeMaxEverFraction());
+                    getConstructionSearchConfig(), getMergeMaxEverFraction(),
+                    getClusterMetadataMaxPendingDeltas());
         }
     }
 }

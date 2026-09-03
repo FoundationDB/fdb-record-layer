@@ -33,6 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import java.util.EnumSet;
 import java.util.Objects;
 import java.util.SplittableRandom;
 import java.util.UUID;
@@ -154,22 +155,22 @@ class Delete {
                                                                 config.constructionSearchConfig().centroidEfOutwardSearch()),
                                                 getExecutor()),
                                         resultEntry ->
-                                                primitives.fetchClusterMetadataWithDistance(transaction,
+                                                primitives.fetchClusterCandidateForUpdate(transaction,
                                                         StorageAdapter.clusterIdFromTuple(resultEntry.primaryKey()),
                                                         storageTransform.transform(
                                                                 Objects.requireNonNull(resultEntry.vector())),
                                                         resultEntry.distance())
-                                                        .thenApply(clusterMetadataWithDistance -> Objects.requireNonNull(
-                                                                clusterMetadataWithDistance,
+                                                        .thenApply(clusterCandidate -> Objects.requireNonNull(
+                                                                clusterCandidate,
                                                                 "cluster found in centroid HNSW is missing its metadata")),
                                         1),
                                 config.deleteMaxCandidateClusters(),
                                 getExecutor()),
                         getExecutor())
-                .thenCompose(clusterMetadataWithDistances ->
-                        MoreAsyncUtil.forEach(clusterMetadataWithDistances,
-                                clusterMetadataWithDistance -> {
-                                    final UUID clusterId = clusterMetadataWithDistance.clusterMetadata().id();
+                .thenCompose(clusterCandidates ->
+                        MoreAsyncUtil.forEach(clusterCandidates,
+                                clusterCandidate -> {
+                                    final UUID clusterId = clusterCandidate.clusterMetadata().id();
                                     return primitives.fetchVectorReference(transaction, storageTransform,
                                             clusterId, primaryKey);
                                 },
@@ -181,36 +182,37 @@ class Delete {
                             // asynchronous and is threaded through this future.
                             CompletableFuture<Void> primaryUpdateFuture = AsyncUtil.DONE;
 
-                            for (int i = 0; i < clusterMetadataWithDistances.size(); i++) {
+                            for (int i = 0; i < clusterCandidates.size(); i++) {
                                 final VectorReference vectorReference = vectorReferences.get(i);
                                 if (vectorReference == null) {
                                     continue;
                                 }
 
-                                final ClusterMetadataWithDistance clusterMetadataWithDistance =
-                                        clusterMetadataWithDistances.get(i);
-                                final ClusterMetadata clusterMetadata = clusterMetadataWithDistance.clusterMetadata();
-                                final UUID clusterId = clusterMetadata.id();
+                                final ClusterCandidateForUpdate clusterCandidate = clusterCandidates.get(i);
+                                final UUID clusterId = clusterCandidate.clusterMetadata().id();
 
                                 primitives.deleteVectorReference(transaction, clusterId, primaryKey);
 
                                 if (vectorReference.isPrimaryCopy()) {
                                     foundPrimary = true;
-                                    final RunningStats updatedStandardDeviation =
-                                            clusterMetadata.runningStandardDeviation().remove(
-                                                    clusterMetadataWithDistance.distance());
-
+                                    // Removing the primary drops its distance sample from the cluster's statistics.
+                                    final ClusterMetadataDelta delta =
+                                            new ClusterMetadataDelta(ClusterMetadataDelta.StatsOp.REMOVE,
+                                                    clusterCandidate.distance(), 0, 0,
+                                                    EnumSet.noneOf(ClusterMetadata.State.class),
+                                                    EnumSet.noneOf(ClusterMetadata.State.class));
                                     primaryUpdateFuture = primaryUpdateFuture.thenCompose(ignored ->
                                             primitives.updateClusterMetadataAndEnqueueMergeOrReassignTaskMaybe(transaction,
-                                                    random.split(), clusterMetadata,
-                                                    clusterMetadataWithDistance.centroid(), accessInfo,
-                                                    updatedStandardDeviation));
+                                                    random.split(), clusterCandidate.forUpdate(),
+                                                    clusterCandidate.centroid(), accessInfo, delta));
                                 } else {
+                                    // Removing a replica leaves the statistics alone and only lowers the count.
                                     primitives.updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe(transaction,
-                                            random.split(), clusterMetadata,
-                                            clusterMetadataWithDistance.centroid(), accessInfo,
-                                            0, 0, -1,
-                                            clusterMetadata.runningStandardDeviation(),
+                                            random.split(), clusterCandidate.forUpdate(),
+                                            clusterCandidate.centroid(), accessInfo,
+                                            new ClusterMetadataDelta(ClusterMetadataDelta.StatsOp.NONE, 0.0d, 0, -1,
+                                                    EnumSet.noneOf(ClusterMetadata.State.class),
+                                                    EnumSet.noneOf(ClusterMetadata.State.class)),
                                             ImmutableSet.of());
                                 }
                             }

@@ -69,6 +69,7 @@ class ConfigTest {
                 .setCentroidEfRingSearch(SearchConfig.DEFAULT_CENTROID_EF_RING_SEARCH + 1)
                 .build();
         final double mergeMaxEverFraction = 0.42d;
+        final int clusterMetadataMaxPendingDeltas = Config.DEFAULT_CLUSTER_METADATA_MAX_PENDING_DELTAS + 1;
 
         Assertions.assertThat(defaultConfig.metric()).isNotSameAs(metric);
         Assertions.assertThat(defaultConfig.primaryClusterMin()).isNotEqualTo(primaryClusterMin);
@@ -103,6 +104,7 @@ class ConfigTest {
         Assertions.assertThat(defaultConfig.bounceConcurrency()).isNotEqualTo(bounceConcurrency);
         Assertions.assertThat(defaultConfig.constructionSearchConfig()).isNotEqualTo(constructionSearchConfig);
         Assertions.assertThat(defaultConfig.mergeMaxEverFraction()).isNotEqualTo(mergeMaxEverFraction);
+        Assertions.assertThat(defaultConfig.clusterMetadataMaxPendingDeltas()).isNotEqualTo(clusterMetadataMaxPendingDeltas);
 
         final Config newConfig =
                 defaultConfig.toBuilder()
@@ -139,6 +141,7 @@ class ConfigTest {
                         .setBounceConcurrency(bounceConcurrency)
                         .setConstructionSearchConfig(constructionSearchConfig)
                         .setMergeMaxEverFraction(mergeMaxEverFraction)
+                        .setClusterMetadataMaxPendingDeltas(clusterMetadataMaxPendingDeltas)
                         .build(NUM_DIMENSIONS);
 
         Assertions.assertThat(newConfig.metric()).isSameAs(metric);
@@ -174,6 +177,7 @@ class ConfigTest {
         Assertions.assertThat(newConfig.bounceConcurrency()).isEqualTo(bounceConcurrency);
         Assertions.assertThat(newConfig.constructionSearchConfig()).isEqualTo(constructionSearchConfig);
         Assertions.assertThat(newConfig.mergeMaxEverFraction()).isEqualTo(mergeMaxEverFraction);
+        Assertions.assertThat(newConfig.clusterMetadataMaxPendingDeltas()).isEqualTo(clusterMetadataMaxPendingDeltas);
     }
 
     @Test
@@ -251,5 +255,28 @@ class ConfigTest {
         Assertions.assertThat(Guardiann.newConfigBuilder()
                         .setMergeMaxEverFraction(1.0d).build(NUM_DIMENSIONS).mergeMaxEverFraction())
                 .isEqualTo(1.0d);
+    }
+
+    @Test
+    void testClusterMetadataMaxPendingDeltasIsBounded() {
+        // The upper bound keeps base + threshold x deltaSize far below FDB's value-size limit, so that an append can
+        // never silently fail to fit; the lower bound of 1 keeps compaction from being disabled entirely.
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setClusterMetadataMaxPendingDeltas(0).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setClusterMetadataMaxPendingDeltas(Config.MAX_CLUSTER_METADATA_MAX_PENDING_DELTAS + 1)
+                        .build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        Assertions.assertThat(Guardiann.newConfigBuilder()
+                        .setClusterMetadataMaxPendingDeltas(1).build(NUM_DIMENSIONS)
+                        .clusterMetadataMaxPendingDeltas())
+                .isEqualTo(1);
+        Assertions.assertThat(Guardiann.newConfigBuilder()
+                        .setClusterMetadataMaxPendingDeltas(Config.MAX_CLUSTER_METADATA_MAX_PENDING_DELTAS)
+                        .build(NUM_DIMENSIONS)
+                        .clusterMetadataMaxPendingDeltas())
+                .isEqualTo(Config.MAX_CLUSTER_METADATA_MAX_PENDING_DELTAS);
     }
 }
