@@ -206,6 +206,9 @@ public class KeySpace {
      * @throws RecordCoreArgumentException if the tuple provided does not correspond to any path through
      *   the directory structure at this point
      */
+    @SuppressWarnings("NullAway") // FDBRecordContext#asyncToSync is declared with a plain <T> (not <T extends @Nullable Object>),
+                                   // so NullAway treats its return as possibly-null even though resolveFromKeyAsync() never
+                                   // completes with a null value.
     public ResolvedKeySpacePath resolveFromKey(FDBRecordContext context, Tuple key) {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, resolveFromKeyAsync(context, key));
     }
@@ -223,8 +226,11 @@ public class KeySpace {
      */
     @API(API.Status.DEPRECATED)
     @Deprecated
+    @SuppressWarnings("NullAway") // KeySpaceDirectory#listSubdirectoryAsync declares its own continuation parameter with
+                                   // @Nullable byte[] (a position NullAway does not reliably recognize), so passing this
+                                   // method's byte @Nullable [] continuation through still trips the checker.
     public RecordCursor<KeySpacePath> listAsync(FDBRecordContext context, String subdirName,
-                                                @Nullable byte[] continuation, ScanProperties scanProperties) {
+                                                byte @Nullable [] continuation, ScanProperties scanProperties) {
         return root.listSubdirectoryAsync(null, context, subdirName, continuation, scanProperties)
                 .map(ResolvedKeySpacePath::toPath);
     }
@@ -241,6 +247,9 @@ public class KeySpace {
      */
     @API(API.Status.DEPRECATED)
     @Deprecated
+    @SuppressWarnings("NullAway") // FDBRecordContext#asyncToSync is declared with a plain <T> (not <T extends @Nullable Object>),
+                                   // so NullAway treats its return as possibly-null even though listAsync(...).asList() never
+                                   // completes with a null value.
     public List<KeySpacePath> list(FDBRecordContext context, String directory,
                                    ScanProperties scanProperties) {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_LIST,
@@ -258,6 +267,9 @@ public class KeySpace {
      */
     @API(API.Status.DEPRECATED)
     @Deprecated
+    @SuppressWarnings("NullAway") // FDBRecordContext#asyncToSync is declared with a plain <T> (not <T extends @Nullable Object>),
+                                   // so NullAway treats its return as possibly-null even though listAsync(...).asList() never
+                                   // completes with a null value.
     public List<KeySpacePath> list(FDBRecordContext context, String directory) {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_LIST,
                 listAsync(context, directory, null, ScanProperties.FORWARD_SCAN).asList());
@@ -272,9 +284,12 @@ public class KeySpace {
      * @param scanProperties the properties to be used to control how the scan is performed
      * @return a cursor over the paths that were found
      */
+    @SuppressWarnings("NullAway") // KeySpaceDirectory#listSubdirectoryAsync declares its own continuation parameter with
+                                   // @Nullable byte[] (a position NullAway does not reliably recognize), so passing this
+                                   // method's byte @Nullable [] continuation through still trips the checker.
     public RecordCursor<ResolvedKeySpacePath> listDirectoryAsync(FDBRecordContext context,
                                                                  String directory,
-                                                                 @Nullable byte[] continuation,
+                                                                 byte @Nullable [] continuation,
                                                                  ScanProperties scanProperties) {
         return root.listSubdirectoryAsync(null, context, directory, continuation, scanProperties);
     }
@@ -288,9 +303,12 @@ public class KeySpace {
      * @param scanProperties the properties to be used to control how the scan is performed
      * @return a list of the paths that were found
      */
+    @SuppressWarnings("NullAway") // FDBRecordContext#asyncToSync is declared with a plain <T> (not <T extends @Nullable Object>),
+                                   // so NullAway treats its return as possibly-null even though listDirectoryAsync(...).asList()
+                                   // never completes with a null value.
     public List<ResolvedKeySpacePath> listDirectory(FDBRecordContext context,
                                                     String directory,
-                                                    @Nullable byte[] continuation,
+                                                    byte @Nullable [] continuation,
                                                     ScanProperties scanProperties) {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_LIST,
                 listDirectoryAsync(context, directory, continuation, scanProperties).asList());
