@@ -28,6 +28,7 @@ import com.google.protobuf.ByteString;
 
 import org.jspecify.annotations.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -161,29 +162,29 @@ public class KeySpacePathSerializer {
                     builder.setNullValue(true);
                     break;
                 case BYTES:
-                    builder.setBytesValue(ByteString.copyFrom((byte[])value));
+                    builder.setBytesValue(ByteString.copyFrom((byte[])Objects.requireNonNull(value)));
                     break;
                 case STRING:
-                    builder.setStringValue((String)value);
+                    builder.setStringValue((String)Objects.requireNonNull(value));
                     break;
                 case LONG:
                     if (value instanceof Integer) {
                         builder.setLongValue(((Integer)value).longValue());
                     } else {
-                        builder.setLongValue((Long)value);
+                        builder.setLongValue((Long)Objects.requireNonNull(value));
                     }
                     break;
                 case FLOAT:
-                    builder.setFloatValue((Float)value);
+                    builder.setFloatValue((Float)Objects.requireNonNull(value));
                     break;
                 case DOUBLE:
-                    builder.setDoubleValue((Double)value);
+                    builder.setDoubleValue((Double)Objects.requireNonNull(value));
                     break;
                 case BOOLEAN:
-                    builder.setBooleanValue((Boolean)value);
+                    builder.setBooleanValue((Boolean)Objects.requireNonNull(value));
                     break;
                 case UUID:
-                    final UUID uuid = (UUID)value;
+                    final UUID uuid = (UUID)Objects.requireNonNull(value);
                     builder.getUuidBuilder()
                             .setLeastSignificantBits(uuid.getLeastSignificantBits())
                             .setMostSignificantBits(uuid.getMostSignificantBits());
@@ -192,11 +193,13 @@ public class KeySpacePathSerializer {
                     throw new IllegalStateException("Unexpected value type: " + keyType);
             }
         } catch (ClassCastException e) {
+            // A ClassCastException can only be thrown by casting a non-null, wrongly-typed value (casting null to
+            // any reference type never throws), so value is guaranteed non-null here.
             throw new RecordCoreArgumentException("KeySpacePath has incorrect value type", e)
                     .addLogInfo(
                             LogMessageKeys.DIR_NAME, keySpacePath.getDirectoryName(),
                             LogMessageKeys.EXPECTED_TYPE, keyType,
-                            LogMessageKeys.ACTUAL, value);
+                            LogMessageKeys.ACTUAL, Objects.requireNonNull(value));
 
         }
         return builder.build();
