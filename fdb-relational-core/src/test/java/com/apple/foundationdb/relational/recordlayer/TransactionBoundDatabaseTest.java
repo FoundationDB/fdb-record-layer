@@ -67,6 +67,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -311,7 +312,10 @@ public class TransactionBoundDatabaseTest {
                             RelationalAssertions.assertThrowsSqlException(() -> export.apply(statement))
                                     .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
                         } else {
-                            data.addAll(getExportedData(export.apply(statement)));
+                            // SQLFunction.apply() is declared @Nullable generically, but this particular
+                            // export query always produces a result set.
+                            final RelationalResultSet exported = Objects.requireNonNull(export.apply(statement));
+                            data.addAll(getExportedData(exported));
                         }
                     }
                 });
@@ -384,7 +388,7 @@ public class TransactionBoundDatabaseTest {
     private void assertSimpleRecordExists(final FDBRecordStore store, final String field) {
         final FDBStoredRecord<Message> rec = store.loadRecord(Tuple.from(field));
         Assertions.assertThat(rec).isNotNull();
-        final Message message = rec.getRecord();
+        final Message message = Objects.requireNonNull(rec).getRecord();
         final Descriptors.Descriptor type = getSimpleType(store);
         Assertions.assertThat(message.getField(getSimpleField(type))).isEqualTo(field);
     }

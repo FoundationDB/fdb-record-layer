@@ -460,8 +460,12 @@ public class AutoCommitTests {
             conn = getConnectionWithExistingTransaction(conn, database.getConnectionUri(), alternateDriver);
         }
         setAutoCommit(conn, transactionType);
-        try (final var rs = conn.getMetaData().getTables("/TEST/AutoCommitTests", "TEST_SCHEMA", null, null)) {
-            ResultSetAssert.assertThat(rs)
+        // getTables' tableNamePattern/types params genuinely accept null per the JDBC javadoc contract
+        // (null means "match all"), but the unmigrated fdb-relational-api interface isn't annotated to say so.
+        @SuppressWarnings("NullAway")
+        final var tables = conn.getMetaData().getTables("/TEST/AutoCommitTests", "TEST_SCHEMA", null, null);
+        try (tables) {
+            ResultSetAssert.assertThat(tables)
                     .hasNextRow()
                     .hasNextRow()
                     .hasNextRow()
