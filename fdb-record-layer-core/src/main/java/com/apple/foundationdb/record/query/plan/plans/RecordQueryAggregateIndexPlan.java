@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
@@ -30,11 +31,10 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.planprotos.PRecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
@@ -52,7 +52,6 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithoutChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
@@ -60,7 +59,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -78,7 +76,8 @@ import java.util.stream.StreamSupport;
 public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionWithoutChildren implements RecordQueryPlanWithNoChildren,
                                                                                                           RecordQueryPlanWithMatchCandidate,
                                                                                                           RecordQueryPlanWithConstraint,
-                                                                                                          RecordQueryPlanWithComparisons {
+                                                                                                          RecordQueryPlanWithComparisons,
+                                                                                                          RecordQueryPlanWithIndexEntryToQueriedRecord {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Aggregate-Index-Plan");
 
     @Nonnull
@@ -124,23 +123,37 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
 
     @Nonnull
     @Override
-    @SuppressWarnings({"unchecked", "resource"})
+    @SuppressWarnings("resource")
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        final TypeRepository typeRepository = context.getTypeRepository();
-        final Descriptors.Descriptor recordDescriptor = Objects.requireNonNull(typeRepository.getMessageDescriptor(resultValue.getResultType()));
-
         return indexPlan
                 .executeEntries(store, context, continuation, executeProperties)
-                .map(indexEntry -> {
-                    final RecordMetaData metaData = store.getRecordMetaData();
-                    final RecordType recordType = metaData.getRecordType(recordTypeName);
-                    final Index index = metaData.getIndex(getIndexName());
-                    return store.coveredIndexQueriedRecord(index, indexEntry, recordType, (M)toRecord.toRecord(recordDescriptor, indexEntry), false);
-                })
+                .map(indexEntry -> indexEntryToQueriedRecord(store, context, indexEntry))
                 .map(queriedRecord -> QueryResult.fromQueriedRecord(resultValue.getResultType(), context, queriedRecord));
+    }
+
+    /**
+     * Entries are decoded into the shape of this plan's result -- the result of the select-having -- and not into a copy
+     * of a stored record. The aggregate column is the reason: no record has it, so only the result type describes the
+     * shape an entry has to be placed into. The record type is looked up directly rather than as a queryable one because
+     * the indexed record type of an aggregate index need not be queryable.
+     */
+    @Nonnull
+    @Override
+    public <M extends Message> FDBQueriedRecord<M> indexEntryToQueriedRecord(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                            @Nonnull final EvaluationContext context,
+                                                                            @Nonnull final IndexEntry indexEntry) {
+        final var metaData = store.getRecordMetaData();
+        final var shape = Objects.requireNonNull(context.getTypeRepository().getMessageDescriptor(resultValue.getResultType()));
+        return RecordQueryPlanWithIndexEntryToQueriedRecord.intoShape(store,
+                metaData.getIndex(getIndexName()),
+                metaData.getRecordType(recordTypeName),
+                shape,
+                toRecord,
+                false,
+                indexEntry);
     }
 
     @Nonnull
