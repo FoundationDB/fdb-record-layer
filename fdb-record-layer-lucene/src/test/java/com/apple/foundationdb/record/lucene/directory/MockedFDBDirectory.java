@@ -31,6 +31,7 @@ import org.apache.lucene.store.LockFactory;
 import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
@@ -49,6 +50,7 @@ import static com.apple.foundationdb.record.lucene.directory.InjectedFailureRepo
  * exception is the exception that should be throws and count is the number of "clean" invocation to allow before starting to fail.
  */
 public class MockedFDBDirectory extends FDBDirectory {
+    @Nullable
     private InjectedFailureRepository injectedFailures;
 
     public MockedFDBDirectory(final Subspace subspace, final Map<String, String> options, @Nullable final FDBDirectorySharedCacheManager sharedCacheManager, @Nullable final Tuple sharedCacheKey, final boolean useCompoundFile, final AgilityContext agilityContext, @Nullable LockFactory lockFactory, final int blockCacheMaximumSize) {
@@ -61,7 +63,7 @@ public class MockedFDBDirectory extends FDBDirectory {
 
     @Override
     public long getIncrement() throws IOException {
-        injectedFailures.checkFailureForIoException(LUCENE_GET_INCREMENT);
+        Objects.requireNonNull(injectedFailures).checkFailureForIoException(LUCENE_GET_INCREMENT);
         return super.getIncrement();
     }
 
@@ -69,7 +71,7 @@ public class MockedFDBDirectory extends FDBDirectory {
     public CompletableFuture<FDBLuceneFileReference> getFDBLuceneFileReferenceAsync(final String name) {
         return super.getFDBLuceneFileReferenceAsync(name)
                 .thenApply(ref -> {
-                    injectedFailures.checkFailureForCoreException(LUCENE_GET_FDB_LUCENE_FILE_REFERENCE_ASYNC);
+                    Objects.requireNonNull(injectedFailures).checkFailureForCoreException(LUCENE_GET_FDB_LUCENE_FILE_REFERENCE_ASYNC);
                     return ref;
                 });
     }
@@ -78,14 +80,14 @@ public class MockedFDBDirectory extends FDBDirectory {
     public CompletableFuture<byte[]> readBlock(final IndexInput requestingInput, final String fileName, final CompletableFuture<FDBLuceneFileReference> referenceFuture, final int block) {
         return super.readBlock(requestingInput, fileName, referenceFuture, block)
                 .thenApply(bytes -> {
-                    injectedFailures.checkFailureForCoreException(LUCENE_READ_BLOCK);
+                    Objects.requireNonNull(injectedFailures).checkFailureForCoreException(LUCENE_READ_BLOCK);
                     return bytes;
                 });
     }
 
     @Override
     public String[] listAll() throws IOException {
-        injectedFailures.checkFailureForIoException(LUCENE_LIST_ALL);
+        Objects.requireNonNull(injectedFailures).checkFailureForIoException(LUCENE_LIST_ALL);
         return super.listAll();
     }
 
@@ -93,27 +95,27 @@ public class MockedFDBDirectory extends FDBDirectory {
     public CompletableFuture<Map<String, FDBLuceneFileReference>> getFileReferenceCacheAsync() {
         return super.getFileReferenceCacheAsync()
                 .thenApply(cache -> {
-                    injectedFailures.checkFailureForCoreException(LUCENE_GET_FILE_REFERENCE_CACHE_ASYNC);
+                    Objects.requireNonNull(injectedFailures).checkFailureForCoreException(LUCENE_GET_FILE_REFERENCE_CACHE_ASYNC);
                     return cache;
                 });
     }
 
     @Override
     protected boolean deleteFileInternal(final Map<String, FDBLuceneFileReference> cache, final String name) throws IOException {
-        injectedFailures.checkFailureForCoreException(LUCENE_DELETE_FILE_INTERNAL);
+        Objects.requireNonNull(injectedFailures).checkFailureForCoreException(LUCENE_DELETE_FILE_INTERNAL);
         return super.deleteFileInternal(cache, name);
     }
 
     @Nullable
     @Override
     public LucenePrimaryKeySegmentIndex getPrimaryKeySegmentIndex() {
-        injectedFailures.checkFailureForCoreException(LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX);
+        Objects.requireNonNull(injectedFailures).checkFailureForCoreException(LUCENE_GET_PRIMARY_KEY_SEGMENT_INDEX);
         return super.getPrimaryKeySegmentIndex();
     }
 
     @Override
     Stream<NonnullPair<Long, byte[]>> getAllFieldInfosStream() {
-        injectedFailures.checkFailureForCoreException(LUCENE_GET_ALL_FIELDS_INFO_STREAM);
+        Objects.requireNonNull(injectedFailures).checkFailureForCoreException(LUCENE_GET_ALL_FIELDS_INFO_STREAM);
         return super.getAllFieldInfosStream();
     }
 

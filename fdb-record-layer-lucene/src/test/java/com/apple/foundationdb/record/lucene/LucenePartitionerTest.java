@@ -36,6 +36,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Tag(Tags.RequiresFDB)
 public class LucenePartitionerTest extends FDBRecordStoreConcurrentTestBase {
@@ -210,7 +211,7 @@ public class LucenePartitionerTest extends FDBRecordStoreConcurrentTestBase {
             dataModel.groupingKeyToPrimaryKeyToPartitionKey.keySet().forEach(groupingKey -> {
                 final List<LucenePartitionInfoProto.LucenePartitionInfo> partitions =
                         partitioner.getAllPartitionMetaInfo(groupingKey).join();
-                Assertions.assertThat(partitions).anyMatch(partition -> partition.getId() == partitionsWithZeroCount.get(groupingKey));
+                Assertions.assertThat(partitions).anyMatch(partition -> partition.getId() == Objects.requireNonNull(partitionsWithZeroCount.get(groupingKey)));
             });
         }
     }

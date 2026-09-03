@@ -41,6 +41,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -401,7 +402,7 @@ public class FDBLuceneQueuedDocQueryTest extends FDBRecordStoreTestBase {
     }
 
     protected FDBRecordStore openRecordStore(FDBRecordContext context, Index index) {
-        recordStore = LuceneIndexTestUtils.openRecordStore(context, path, mdb -> {
+        recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), mdb -> {
             if (index != null) {
                 mdb.removeIndex("SimpleDocument$text");
                 mdb.addIndex(TextIndexTestUtils.SIMPLE_DOC, index);

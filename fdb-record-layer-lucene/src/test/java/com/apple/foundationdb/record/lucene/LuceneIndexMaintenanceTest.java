@@ -542,7 +542,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         Index index = complexPartitionedIndex(options);
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
-                LuceneIndexTestUtils.rebuildIndexMetaData(context, path, TestRecordsTextProto.ComplexDocument.getDescriptor().getName(), index, useCascadesPlanner).getLeft();
+                Objects.requireNonNull(LuceneIndexTestUtils.rebuildIndexMetaData(context, path, TestRecordsTextProto.ComplexDocument.getDescriptor().getName(), index, useCascadesPlanner).getLeft());
 
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 8)
@@ -561,7 +561,8 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             // subspace for (group 1, partition data subspace, partition 0, file lock subspace)
             Subspace subspace = recordStore.indexSubspace(index).subspace(Tuple.from(1, LucenePartitioner.PARTITION_DATA_SUBSPACE, 0, FDBDirectory.FILE_LOCK_SUBSPACE));
             byte[] fileLockKey = subspace.pack(Tuple.from("write.lock"));
-            FDBDirectoryLockFactory lockFactory = new FDBDirectoryLockFactory(null, 10_000);
+            final FDBDirectory directory = getIndexMaintainer(recordStore, index).getDirectoryManager().getDirectory(Tuple.from(1), 0);
+            FDBDirectoryLockFactory lockFactory = new FDBDirectoryLockFactory(directory, 10_000);
 
             Lock testLock = lockFactory.obtainLock(new NonAgileContext(context), fileLockKey, "write.lock");
             testLock.ensureValid();
@@ -575,7 +576,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(
                     index,
                     LuceneIndexTestValidator.groupedSortedTextSearch(recordStore, index, "text:word", null, 1), null, ScanProperties.FORWARD_SCAN)) {
-                List<Tuple> primaryKeys = LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, cursor.asList(), context)
+                List<Tuple> primaryKeys = Objects.requireNonNull(LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, cursor.asList(), context))
                         .stream()
                         .map(IndexEntry::getPrimaryKey)
                         .collect(Collectors.toList());
@@ -615,7 +616,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         Index index = complexPartitionedIndex(options);
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
-                LuceneIndexTestUtils.rebuildIndexMetaData(context, path, TestRecordsTextProto.ComplexDocument.getDescriptor().getName(), index, useCascadesPlanner).getLeft();
+                Objects.requireNonNull(LuceneIndexTestUtils.rebuildIndexMetaData(context, path, TestRecordsTextProto.ComplexDocument.getDescriptor().getName(), index, useCascadesPlanner).getLeft());
 
         assertNotNull(index);
 
@@ -657,7 +658,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                             try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(
                                     index,
                                     LuceneIndexTestValidator.groupedSortedTextSearch(recordStore, index, "text:word", null, 1), null, ScanProperties.FORWARD_SCAN)) {
-                                List<IndexEntry> matches = LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, cursor.asList(), context);
+                                List<IndexEntry> matches = Objects.requireNonNull(LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, cursor.asList(), context));
                                 assertFalse(matches.isEmpty());
                             }
 
@@ -748,7 +749,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         Index index = complexPartitionedIndex(options);
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
-                LuceneIndexTestUtils.rebuildIndexMetaData(context, path, TestRecordsTextProto.ComplexDocument.getDescriptor().getName(), index, useCascadesPlanner).getLeft();
+                Objects.requireNonNull(LuceneIndexTestUtils.rebuildIndexMetaData(context, path, TestRecordsTextProto.ComplexDocument.getDescriptor().getName(), index, useCascadesPlanner).getLeft());
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 8)
                 .build();
@@ -799,7 +800,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         Index index = complexPartitionedIndex(options);
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
-                LuceneIndexTestUtils.rebuildIndexMetaData(context, path, TestRecordsTextProto.ComplexDocument.getDescriptor().getName(), index, useCascadesPlanner).getLeft();
+                Objects.requireNonNull(LuceneIndexTestUtils.rebuildIndexMetaData(context, path, TestRecordsTextProto.ComplexDocument.getDescriptor().getName(), index, useCascadesPlanner).getLeft());
 
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 8)
@@ -985,7 +986,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         try (FDBRecordContext context = openContext(contextProps)) {
             final FDBRecordStore recordStore = dataModel.createOrOpenRecordStore(context);
             dataModel.groupingKeys().forEach(groupingKey -> {
-                List<Tuple> sortedPartitionKeys = dataModel.groupingKeyToPrimaryKeyToPartitionKey.get(groupingKey)
+                List<Tuple> sortedPartitionKeys = Objects.requireNonNull(dataModel.groupingKeyToPrimaryKeyToPartitionKey.get(groupingKey))
                         .values().stream().sorted().collect(Collectors.toList());
                 // delete enough docs to empty partition
                 Set<Tuple> partitionKeysToDelete = new HashSet<>(sortedPartitionKeys.subList(start, end));
@@ -1297,9 +1298,10 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         final RecordLayerPropertyStorage contextProps2 = contextPropsBuilder.build();
         IOException ioException = assertThrows(IOException.class,
                 () -> dataModel.validate(() -> openContext(contextProps2)));
-        assertThat(ioException.getCause(), instanceOf(RecordCoreException.class));
+        final Throwable cause = Objects.requireNonNull(ioException.getCause());
+        assertThat(cause, instanceOf(RecordCoreException.class));
         // Possible failures: (1) does not decrypt; (2) decrypts to garbage with bad compression level; (3) does not decompress.
-        assertThat(ioException.getCause().getMessage(), anyOf(
+        assertThat(cause.getMessage(), anyOf(
                 containsString("Lucene data decoding failure"),
                 containsString("Un-supported compression version")));
     }
@@ -1665,6 +1667,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         }
     }
 
+    @Nullable
     private static LoggableKeysAndValues<? extends Exception> findTimeoutException(final RecordCoreException e) {
         Map<Throwable, String> visited = new IdentityHashMap<>();
         ArrayDeque<Throwable> toVisit = new ArrayDeque<>();

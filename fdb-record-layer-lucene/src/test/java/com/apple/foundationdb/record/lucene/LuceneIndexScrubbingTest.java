@@ -39,6 +39,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.lucene.LuceneIndexTestUtils.SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX;
@@ -59,7 +60,7 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
     }
 
     private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
-        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, isUseCascadesPlanner());
+        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, Objects.requireNonNull(path), document, index, isUseCascadesPlanner());
         this.recordStore = pair.getLeft();
         this.planner = pair.getRight();
     }
@@ -246,7 +247,7 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
 
         try (final FDBRecordContext context = openContext()) {
             // Overwrite + add records without updating the index
-            Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, SIMPLE_DOC, index, isUseCascadesPlanner(), registry);
+            Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, Objects.requireNonNull(path), SIMPLE_DOC, index, isUseCascadesPlanner(), registry);
             this.recordStore = pair.getLeft();
             this.planner = pair.getRight();
             injectedFailures.setFlag(LUCENE_MAINTAINER_SKIP_INDEX_UPDATE);

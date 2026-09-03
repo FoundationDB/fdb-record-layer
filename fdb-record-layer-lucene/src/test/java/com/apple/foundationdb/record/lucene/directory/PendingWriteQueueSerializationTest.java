@@ -67,9 +67,9 @@ class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
         final Index index = SIMPLE_TEXT_SUFFIXES;
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
-                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                Objects.requireNonNull(LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
                         TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
-                        index, useCascadesPlanner).getLeft();
+                        index, useCascadesPlanner).getLeft());
 
         final long directRecordId = 1001L;
         final long queuedRecordId = 2002L;
@@ -117,7 +117,7 @@ class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
         final Index index = TEXT_AND_STORED_COMPLEX;
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
-                LuceneIndexTestUtils.rebuildIndexMetaData(context, path, COMPLEX_DOC, index, useCascadesPlanner).getLeft();
+                Objects.requireNonNull(LuceneIndexTestUtils.rebuildIndexMetaData(context, path, COMPLEX_DOC, index, useCascadesPlanner).getLeft());
 
         final long directRecordId = 1001L;
         final long queuedRecordId = 2002L;

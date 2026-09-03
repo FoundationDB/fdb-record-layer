@@ -23,10 +23,14 @@ package com.apple.foundationdb.record.lucene.directory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
 
+import org.jspecify.annotations.Nullable;
+import java.util.Objects;
+
 /**
  * A Testing-focused {@link FDBDirectoryManager} that allows a mocked-FDBDirectory to be injected into the system.
  */
 public class MockedFDBDirectoryManager extends FDBDirectoryManager {
+    @Nullable
     private InjectedFailureRepository injectedFailures;
 
     public MockedFDBDirectoryManager(final IndexMaintainerState state) {
@@ -38,7 +42,7 @@ public class MockedFDBDirectoryManager extends FDBDirectoryManager {
                                                             final int mergeDirectoryCount, final AgilityContext agilityContext,
                                                             final int blockCacheMaximumSize) {
         return new MockedFDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext, blockCacheMaximumSize,
-                injectedFailures, writerAnalyzer, exceptionAtCreation);
+                Objects.requireNonNull(injectedFailures), writerAnalyzer, exceptionAtCreation);
     }
 
     /**

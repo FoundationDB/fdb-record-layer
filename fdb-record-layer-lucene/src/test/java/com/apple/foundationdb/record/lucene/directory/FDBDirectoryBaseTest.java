@@ -36,6 +36,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import org.jspecify.annotations.Nullable;
 import java.util.Map;
 import java.util.Random;
 
@@ -66,7 +67,7 @@ public abstract class FDBDirectoryBaseTest {
         directory = createDirectory(subspace, context, null);
     }
 
-    protected FDBDirectory createDirectory(final Subspace subspace, final FDBRecordContext context, final Map<String, String> indexOptions) {
+    protected FDBDirectory createDirectory(final Subspace subspace, final FDBRecordContext context, @Nullable final Map<String, String> indexOptions) {
         return new FDBDirectory(subspace, context, indexOptions);
     }
 

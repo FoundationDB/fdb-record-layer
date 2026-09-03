@@ -39,6 +39,7 @@ import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.query;
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.scanParams;
@@ -70,7 +71,7 @@ public class LuceneSyntheticPlannerTest extends FDBRecordStoreTestBase {
                     Sets.newHashSet(IndexTypes.TEXT),
                     Sets.newHashSet(LuceneIndexTypes.LUCENE)
             );
-        planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
+        planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, Objects.requireNonNull(recordStore.getTimer()));
         planner.setConfiguration(planner.getConfiguration()
                 .asBuilder()
                 .setPlanOtherAttemptWholeFilter(attemptWholeFilter)

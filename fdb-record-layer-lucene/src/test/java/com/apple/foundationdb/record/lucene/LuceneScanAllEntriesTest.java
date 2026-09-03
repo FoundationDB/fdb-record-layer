@@ -55,8 +55,10 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import org.jspecify.annotations.Nullable;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.LongPredicate;
 import java.util.stream.Collectors;
@@ -127,7 +129,7 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
     }
 
     private Set<Tuple> expectedResults(final boolean matchAllDocs, final boolean isGrouped, final boolean includeEmptyDoc,
-                                       final Tuple group1ContentDoc, final Tuple group2ContentDoc, final Tuple group2EmptyDoc) {
+                                       final Tuple group1ContentDoc, final Tuple group2ContentDoc, @Nullable final Tuple group2EmptyDoc) {
         // Synthetic record does not change the expected results - it just creates a record with a compound
         // key, so not needed for this method.
         Set<Tuple> result = new HashSet<>();
@@ -174,7 +176,7 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
 
             // Run the scan with the given query and assert the results
             final Tuple groupTuple = LuceneIndexTestDataModel.calculateGroupTuple(isGrouped, 2);
-            final Set<Tuple> expectedKeys = dataModel.groupingKeyToPrimaryKeyToPartitionKey.get(groupTuple).keySet();
+            final Set<Tuple> expectedKeys = Objects.requireNonNull(dataModel.groupingKeyToPrimaryKeyToPartitionKey.get(groupTuple)).keySet();
             assertEquals(500, expectedKeys.size());
             assertIndexEntryPrimaryKeyTuples(expectedKeys,
                     store.scanIndex(dataModel.index, scanBounds, null, ScanProperties.FORWARD_SCAN));
@@ -219,7 +221,7 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
                     });
             // Run the scan with the given query and assert the results
             final Tuple groupTuple = LuceneIndexTestDataModel.calculateGroupTuple(isGrouped, 2);
-            final Set<Tuple> expectedKeys = dataModel.groupingKeyToPrimaryKeyToPartitionKey.get(groupTuple).keySet();
+            final Set<Tuple> expectedKeys = Objects.requireNonNull(dataModel.groupingKeyToPrimaryKeyToPartitionKey.get(groupTuple)).keySet();
             assertEquals(500, expectedKeys.size());
             assertIndexEntryPrimaryKeyTuples(expectedKeys, cursor);
         }
@@ -412,7 +414,7 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
         try (FDBRecordContext context = openContext()) {
             RecordCoreException exception = Assertions.assertThrows(RecordCoreException.class, () -> dataModel.saveRecords(1, context, 2));
 
-            Assertions.assertTrue(exception.getMessage().startsWith("Filter failed for recNo:"),
+            Assertions.assertTrue(Objects.requireNonNull(exception.getMessage()).startsWith("Filter failed for recNo:"),
                     "Exception message should indicate filter failure");
             Assertions.assertEquals(1002L, exception.getLogInfo().get("rec_no"),
                     "Exception should log the rec_no that caused the failure");

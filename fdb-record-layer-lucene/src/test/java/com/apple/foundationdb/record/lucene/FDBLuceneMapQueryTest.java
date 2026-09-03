@@ -57,6 +57,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.jspecify.annotations.Nullable;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
@@ -140,6 +141,7 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
 
     private static final List<TestRecordsTextProto.MapDocument> mapDocuments = createMapDocuments();
 
+    @Nullable
     private ExecutorService executorService = null;
 
     @Override
@@ -152,7 +154,7 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
                     Sets.newHashSet(LuceneIndexTypes.LUCENE)
             );
         }
-        planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
+        planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, Objects.requireNonNull(recordStore.getTimer()));
     }
 
     @Override
@@ -204,28 +206,28 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
                                 Pair.of("Blah", false),
                                 Pair.of("c", false))
                         .map(pair ->
-                                Arguments.of(Query.field("stringToLongMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsValue(pair.getLeft()))),
+                                Arguments.of(Query.field("stringToLongMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsValue(Objects.requireNonNull(pair.getLeft())))),
                                         pair.getRight(),
                                         "MapField$string2long")),
                 Stream.of(Pair.of("c", true),
                                 Pair.of("Blah", false),
                                 Pair.of("d", false))
                         .map(pair ->
-                                Arguments.of(Query.field("stringWrapperToLongMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").matches(Query.field("value").equalsValue(pair.getLeft())))),
+                                Arguments.of(Query.field("stringWrapperToLongMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").matches(Query.field("value").equalsValue(Objects.requireNonNull(pair.getLeft()))))),
                                         pair.getRight(),
                                         "MapField$stringWrapper2long")),
                 Stream.of(Pair.of("f", true),
                                 Pair.of("Blah", false),
                                 Pair.of("d", false))
                         .map(pair ->
-                                Arguments.of(Query.field("stringToIntMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsValue(pair.getLeft()))),
+                                Arguments.of(Query.field("stringToIntMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsValue(Objects.requireNonNull(pair.getLeft())))),
                                         pair.getRight(),
                                         "MapField$string2int")),
                 Stream.of(Pair.of("g", true),
                                 Pair.of("Blah", false),
                                 Pair.of("a", false))
                         .map(pair ->
-                                Arguments.of(Query.field("stringToDoubleMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsValue(pair.getLeft()))),
+                                Arguments.of(Query.field("stringToDoubleMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsValue(Objects.requireNonNull(pair.getLeft())))),
                                         pair.getRight(),
                                         "MapField$string2double"))
         ).flatMap(Function.identity());

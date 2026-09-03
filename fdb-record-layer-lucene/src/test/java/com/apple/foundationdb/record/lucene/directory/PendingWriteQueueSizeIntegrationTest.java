@@ -51,6 +51,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -84,7 +85,7 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
         // Write too many records in a single transaction
         final int maxQueueSize = 5;
         try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
-            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, simpleMetadataHook());
+            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), simpleMetadataHook());
             for (int i = 0; i < maxQueueSize; i++) {
                 recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(100L + i, "test document", 1));
             }
@@ -102,7 +103,7 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
 
         final int maxQueueSize = 5;
         try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
-            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, simpleMetadataHook());
+            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), simpleMetadataHook());
             for (int i = 0; i < maxQueueSize; i++) {
                 recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(100L + i, "test document", 1));
             }
@@ -110,7 +111,7 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
         }
 
         try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
-            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, simpleMetadataHook());
+            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), simpleMetadataHook());
             assertThrows(PendingWriteQueue.PendingWritesQueueTooLargeException.class,
                     () -> recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(999L, "test document", 1)));
             // The index is now in an inconsistent state, do don't commit
@@ -125,7 +126,7 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
 
         final int maxQueueSize = 5;
         try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
-            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, simpleMetadataHook());
+            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), simpleMetadataHook());
             for (int i = 0; i < maxQueueSize; i++) {
                 recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(100L + i, "test document", 1));
             }
@@ -138,7 +139,7 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
         setOngoingMergeIndicator(index, null, null, simpleMetadataHook());
 
         try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
-            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, simpleMetadataHook());
+            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), simpleMetadataHook());
             recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(999L, "test document", 1));
             commit(context);
         }
@@ -156,7 +157,7 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
         // Write 5 records
         final int maxQueueSize = 5;
         try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
-            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, simpleMetadataHook());
+            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), simpleMetadataHook());
             for (int i = 0; i < maxQueueSize; i++) {
                 recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(100L + i, "test document", 1));
             }
@@ -168,7 +169,7 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
 
         // Update 3 documents, third update fails
         try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
-            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, simpleMetadataHook());
+            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), simpleMetadataHook());
             recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(100L, "test document updated", 1));
             recordStore.saveRecord(LuceneIndexTestUtils.createSimpleDocument(101L, "test document updated", 1));
             assertThrows(PendingWriteQueue.PendingWritesQueueTooLargeException.class, () ->
@@ -201,7 +202,7 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
         final int someDocsCount = 3;
         // Insert a few documents when "ongoing merge" indicator is clear.
         try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
-            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), hook);
             for (int i = 0; i < 6; i++) {
                 recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(2000L + i, "document foo", 1L, 30L + i));
             }
@@ -221,7 +222,7 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
 
         // Insert documents when "ongoing merge" indicator is set.
         try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
-            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), hook);
             // Put 3 docs in each partition
             for (int i = 0; i < someDocsCount; i++) {
                 // save record to new partition (queued)
@@ -237,13 +238,13 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
             commit(context);
         }
         try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
-            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), hook);
             // additional doc fails on new queue
             assertThrows(PendingWriteQueue.PendingWritesQueueTooLargeException.class, () ->
                     recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(999, "second document", 1L, 100L + 9)));
         }
         try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
-            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), hook);
             // additional docs succeed on old queue
             for (int i = someDocsCount; i < maxQueueSize; i++) {
                 recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(200L + i, "second document", 1L, 30L - i));
@@ -251,7 +252,7 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
             commit(context);
         }
         try (FDBRecordContext context = openContext(getContextProperties(maxQueueSize))) {
-            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), hook);
             // additional docs fail on both queues
             assertThrows(PendingWriteQueue.PendingWritesQueueTooLargeException.class, () ->
                     recordStore.saveRecord(LuceneIndexTestUtils.createComplexDocument(999, "second document", 1L, 100L + 9)));
@@ -274,7 +275,7 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
 
     private void verifyClearedQueueAndIndicator(Index index, @Nullable Tuple groupingKey, @Nullable Integer partitionId, final RecordMetaDataHook hook) {
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), hook);
             IndexMaintainerState state = new IndexMaintainerState(recordStore, index,
                     recordStore.getIndexMaintenanceFilter());
             FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
@@ -294,7 +295,7 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
     private void verifyExpectedQueueAndIndicator(Index index, @Nullable Tuple groupingKey, @Nullable Integer partitionId,
                                                  List<LucenePendingWriteQueueProto.PendingWriteItem.OperationType> expectedOperations, final RecordMetaDataHook hook) {
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), hook);
             IndexMaintainerState state = new IndexMaintainerState(recordStore, index,
                     recordStore.getIndexMaintenanceFilter());
             FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
@@ -319,7 +320,7 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
 
     private void verifyPartitionCount(Index index, @Nullable Tuple groupingKey, List<Integer> expectedCount, final RecordMetaDataHook hook) {
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), hook);
             final LuceneIndexMaintainer indexMaintainer = (LuceneIndexMaintainer)recordStore.getIndexMaintainer(index);
             final LucenePartitioner partitioner = indexMaintainer.getPartitioner();
 
@@ -343,7 +344,7 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
         int pkLocation = (group == null) ? 0 : 1;
 
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), hook);
             LuceneScanBounds scanBounds = LuceneIndexTestUtils.fullTextSearch(recordStore, index, query, false, 0, group);
 
             try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, scanBounds, null, ScanProperties.FORWARD_SCAN)) {
@@ -361,7 +362,7 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
 
     private void setOngoingMergeIndicator(Index index, @Nullable Tuple groupingKey, @Nullable Integer partitionId, final RecordMetaDataHook hook) {
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), hook);
             // Get directory and set ongoing merge indicator
             IndexMaintainerState state = new IndexMaintainerState(recordStore, index, recordStore.getIndexMaintenanceFilter());
             FDBDirectoryManager directoryManager = FDBDirectoryManager.getManager(state);
@@ -373,7 +374,7 @@ class PendingWriteQueueSizeIntegrationTest extends FDBRecordStoreTestBase {
 
     private void mergeIndexNow(Index index, final RecordMetaDataHook hook) {
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            FDBRecordStore recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), hook);
             final LuceneIndexMaintainer indexMaintainer = getIndexMaintainer(recordStore, index);
             indexMaintainer.mergeIndex().join();
             commit(context);

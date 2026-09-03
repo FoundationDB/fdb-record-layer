@@ -548,9 +548,8 @@ public class LuceneHighlighterTest {
             Assertions.assertTrue(result instanceof HighlightedTerm, "Did not return a string!");
             return (HighlightedTerm)result;
         } catch (ParseException e) {
-            Assertions.fail("Failed to parse Lucene query");
+            return Assertions.fail("Failed to parse Lucene query");
         }
-        return null;
     }
 
     private void assertHighlightCorrect(HighlightedTerm expected, HighlightedTerm actual) {
