@@ -36,10 +36,14 @@ public class ResolverResult {
     @Nullable
     private final byte[] metadata;
 
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even
+                                   // for a null literal passed to another constructor that declares the same array @Nullable.
     public ResolverResult(long value) {
         this(value, null);
     }
 
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields; metadata
+                                   // is correctly assigned null when the given metadata is null.
     public ResolverResult(long value, @Nullable byte[] metadata) {
         this.value = value;
         this.metadata = metadata == null ? null : Arrays.copyOf(metadata, metadata.length);
@@ -50,6 +54,7 @@ public class ResolverResult {
     }
 
     @Nullable
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return types.
     public byte[] getMetadata() {
         return metadata == null ? null : Arrays.copyOf(metadata, metadata.length);
     }
