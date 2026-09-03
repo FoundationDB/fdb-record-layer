@@ -39,6 +39,7 @@ import org.apache.lucene.store.LockFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.UUID;
