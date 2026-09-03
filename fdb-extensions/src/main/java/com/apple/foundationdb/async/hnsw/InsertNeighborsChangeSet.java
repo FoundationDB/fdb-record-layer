@@ -21,6 +21,7 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableMap;
@@ -94,6 +95,11 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
      * @return a non-null {@code Iterable} containing all neighbors from this node and its ancestors.
      */
     @Override
+    // getParent() is overridden below to always return this.parent, which is non-null by construction (see the
+    // constructor's contract, documented as "never null" on the override's Javadoc); SpotBugs's
+    // NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE analysis appears to fall back to the wider @Nullable contract
+    // declared by NeighborsChangeSet.getParent() rather than this narrowed override.
+    @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     public Iterable<N> merge() {
         return Iterables.concat(Iterables.filter(getParent().merge(),
                 current -> !insertedNeighborsMap.containsKey(Objects.requireNonNull(current).getPrimaryKey())),
@@ -115,6 +121,8 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
      * @param tuplePredicate a predicate to filter which neighbor tuples should be written; must not be null
      */
     @Override
+    // See the comment on merge() above: getParent() always returns this.parent (non-null) in this class.
+    @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     public void writeDelta(final InliningStorageAdapter storageAdapter, final Transaction transaction,
                            final Quantizer quantizer, final int layer, final AbstractNode<N> node,
                            final Predicate<Tuple> tuplePredicate) {

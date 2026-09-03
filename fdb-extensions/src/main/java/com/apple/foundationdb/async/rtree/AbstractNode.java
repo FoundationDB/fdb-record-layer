@@ -208,8 +208,11 @@ abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> im
 
     @Override
     public String toString() {
+        // Captured once rather than calling getParentNode() twice (once to check for null, once to dereference);
+        // SpotBugs (NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE) cannot tell that two separate calls would agree.
+        final IntermediateNode parent = getParentNode();
         return "[" + getKind().name() + ": id = " + NodeHelpers.bytesToHex(getId()) + "; parent = " +
-               (getParentNode() == null ? "null" : NodeHelpers.bytesToHex(getParentNode().getId())) + "; slotInParent = " +
+               (parent == null ? "null" : NodeHelpers.bytesToHex(parent.getId())) + "; slotInParent = " +
                getSlotInParent() + "]";
     }
 }

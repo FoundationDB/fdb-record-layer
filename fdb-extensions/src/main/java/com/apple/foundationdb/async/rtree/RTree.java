@@ -813,9 +813,12 @@ public class RTree {
                             }
                             currentNode.set(currentNodeValue.getParentNode());
                             parentSlot.set(nodeOrAdjust.getSlotInParent());
-                            insertSlotIndex.set(nodeOrAdjust.getSplitNode() == null ? -1 : nodeOrAdjust.getSplitNode().getSlotIndexInParent());
+                            // Captured once rather than calling getSplitNode() three times; SpotBugs
+                            // (NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE) cannot tell that the separate calls would agree.
+                            final Node splitNode = nodeOrAdjust.getSplitNode();
+                            insertSlotIndex.set(splitNode == null ? -1 : splitNode.getSlotIndexInParent());
                             level.incrementAndGet();
-                            return nodeOrAdjust.getSplitNode() != null || nodeOrAdjust.parentNeedsAdjustment();
+                            return splitNode != null || nodeOrAdjust.parentNeedsAdjustment();
                         });
             } else {
                 // adjustment only
@@ -1153,9 +1156,12 @@ public class RTree {
                             }
                             currentNode.set(currentNodeValue.getParentNode());
                             parentSlot.set(nodeOrAdjust.getSlotInParent());
-                            deleteSlotIndex.set(nodeOrAdjust.getTombstoneNode() == null ? -1 : nodeOrAdjust.getTombstoneNode().getSlotIndexInParent());
+                            // Captured once rather than calling getTombstoneNode() three times; SpotBugs
+                            // (NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE) cannot tell that the separate calls would agree.
+                            final Node tombstoneNode = nodeOrAdjust.getTombstoneNode();
+                            deleteSlotIndex.set(tombstoneNode == null ? -1 : tombstoneNode.getSlotIndexInParent());
                             level.incrementAndGet();
-                            return nodeOrAdjust.getTombstoneNode() != null || nodeOrAdjust.parentNeedsAdjustment();
+                            return tombstoneNode != null || nodeOrAdjust.parentNeedsAdjustment();
                         });
             } else {
                 // adjustment only
@@ -1676,9 +1682,14 @@ public class RTree {
         }
 
         int numLevels = 1;
-        while (node.getParentNode() != null) {
+        // Captured once per level rather than calling getParentNode() twice (once in the loop condition, once in
+        // the body); SpotBugs (NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE) cannot tell that two separate calls would
+        // agree.
+        IntermediateNode parentNode = node.getParentNode();
+        while (parentNode != null) {
             numLevels ++;
-            node = node.getParentNode();
+            node = parentNode;
+            parentNode = node.getParentNode();
         }
         Verify.verify(node.isRoot(), "end of update path should be the root");
         logger.trace("numLevels = {}", numLevels);

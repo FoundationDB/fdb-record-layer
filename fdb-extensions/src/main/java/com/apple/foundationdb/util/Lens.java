@@ -179,7 +179,6 @@ public interface Lens<C, A> {
             }
 
             @Override
-            @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
             public C set(@Nullable final C c, @Nullable final A2 a2) {
                 // Lens.this.get() requires a non-null container; when c is null (the "build a fresh container"
                 // case), there is no existing intermediate A to read, so treat it as absent rather than calling
