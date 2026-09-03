@@ -29,7 +29,6 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.DatabaseMetaDataResponse;
 import com.apple.foundationdb.relational.util.BuildVersion;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
-import javax.annotation.Nonnull;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverManager;
@@ -108,7 +107,6 @@ class JDBCRelationalDatabaseMetaData implements RelationalDatabaseMetaData {
         return level == getDefaultTransactionIsolation();
     }
 
-    @Nonnull
     @Override
     @ExcludeFromJacocoGeneratedReport
     public RelationalResultSet getSchemas() throws SQLException {
@@ -131,7 +129,6 @@ class JDBCRelationalDatabaseMetaData implements RelationalDatabaseMetaData {
         }
     }
 
-    @Nonnull
     @Override
     @ExcludeFromJacocoGeneratedReport
     public RelationalResultSet getColumns(String catalog, String schema, String table, String column) throws SQLException {

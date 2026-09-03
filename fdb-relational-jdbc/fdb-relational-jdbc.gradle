@@ -22,6 +22,7 @@ import org.yaml.snakeyaml.Yaml
 
 plugins {
     alias(libs.plugins.shadow)
+    alias(libs.plugins.errorprone)
 }
 
 
@@ -31,12 +32,16 @@ dependencies {
     implementation project(":fdb-relational-api")
     implementation project(":fdb-relational-grpc")
     implementation project(":fdb-extensions")
+    compileOnly(libs.jspecify)
     implementation(libs.grpc.inprocess)
     implementation(libs.grpc.netty)
     implementation(libs.grpc.protobuf)
     implementation(libs.grpc.stub)
     implementation(libs.grpc.services)
     implementation(libs.dropwizard)
+
+    errorprone(libs.errorprone.core)
+    errorprone(libs.nullaway)
 
     testImplementation(libs.bundles.test.impl)
     testRuntimeOnly(libs.bundles.test.runtime)
@@ -48,6 +53,20 @@ dependencies {
     // FDB Relational core test fixture in the TEST context only -- not in main!!!!
     testImplementation(testFixtures(project(":fdb-relational-core")))
     testImplementation(libs.grpc.testing)
+}
+
+// Pilot: jspecify + NullAway, scoped to this module only. See @NullMarked package-info.java in
+// com.apple.foundationdb.relational.jdbc (this module shares that package name with
+// fdb-relational-grpc's non-grpc package, but each module's compileJava only analyzes its own
+// classes). Companion PR to the fdb-relational-grpc pilot.
+tasks.withType(JavaCompile).configureEach {
+    options.errorprone {
+        disableAllChecks = true
+        error("NullAway")
+        option("NullAway:AnnotatedPackages", "com.apple.foundationdb.relational.jdbc")
+        option("NullAway:JSpecifyMode", "true")
+        option("NullAway:AcknowledgeRestrictiveAnnotations", "true")
+    }
 }
 
 // We only set FDB_CLUSTER_FILE here, to help ensure that none of the other tests use it, but these tests depend on

@@ -80,6 +80,7 @@ public class ServerSideExceptionsOnClientSideTest {
                     }
                 } catch (SQLException sqlException) {
                     Assertions.assertEquals(sqlException.getSQLState(), ErrorCode.SYNTAX_ERROR.getErrorCode());
+                    Assertions.assertNotNull(sqlException.getMessage());
                     Assertions.assertTrue(sqlException.getMessage().contains(badSql));
                     Assertions.assertTrue(sqlException.getMessage().contains("syntax error"));
                 }
@@ -91,6 +92,7 @@ public class ServerSideExceptionsOnClientSideTest {
                         throw new RuntimeException("Should not get to here!");
                     }
                 } catch (StatusRuntimeException statusRuntimeException) {
+                    Assertions.assertNotNull(statusRuntimeException.getMessage());
                     Assertions.assertTrue(statusRuntimeException.getMessage().contains("Empty sql"));
                 }
             }

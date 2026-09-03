@@ -26,10 +26,10 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.column.NullColumn;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Type;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Uuid;
 import com.google.protobuf.ByteString;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -109,11 +109,11 @@ public class ParameterHelperTest {
         });
     }
 
-    private static void checkValue(Object value, Parameter actual, Type expectedType, Function<Column, Boolean> typeChecker, Function<Column, Object> typeGetter) {
+    private static void checkValue(@Nullable Object value, Parameter actual, Type expectedType, Function<Column, Boolean> typeChecker, Function<Column, Object> typeGetter) {
         checkValue(value, actual, expectedType, typeChecker, typeGetter, null);
     }
 
-    private static void checkValue(Object value, Parameter actual, Type expectedType, Function<Column, Boolean> typeChecker,
+    private static void checkValue(@Nullable Object value, Parameter actual, Type expectedType, Function<Column, Boolean> typeChecker,
                                    Function<Column, Object> typeGetter, @Nullable Consumer<Object> customAssert) {
         Assertions.assertEquals(expectedType, actual.getMetadata().getType());
         Assertions.assertTrue(actual.hasParameter());

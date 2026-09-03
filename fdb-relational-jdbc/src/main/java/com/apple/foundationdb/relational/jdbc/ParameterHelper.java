@@ -34,11 +34,13 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Uuid;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.VectorMetadata;
 import com.google.protobuf.ByteString;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
+
 import java.sql.Array;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 public class ParameterHelper {
@@ -114,7 +116,7 @@ public class ParameterHelper {
                 .build();
     }
 
-    public static int getVectorPrecision(@Nonnull final RealVector vector) throws SQLException {
+    public static int getVectorPrecision(final RealVector vector) throws SQLException {
         if (vector instanceof DoubleRealVector) {
             return 64;
         }
@@ -162,7 +164,7 @@ public class ParameterHelper {
                 .build();
     }
 
-    public static Parameter ofObject(Object x) throws SQLException {
+    public static Parameter ofObject(@Nullable Object x) throws SQLException {
         // We need to keep an exception for the case of Array, because JDBC client array creations does not inherit
         // RelationalArray. Since the Relational dataType works with Relational constructs, this is an exception. We
         // should probably strive to bring this under Relational umbrella, until then treat the case separately.
@@ -172,23 +174,23 @@ public class ParameterHelper {
         final DataType type = DataType.getDataTypeFromObject(x);
         switch (type.getCode()) {
             case LONG:
-                return ofLong((Long)x);
+                return ofLong((Long)Objects.requireNonNull(x));
             case INTEGER:
-                return ofInt((Integer)x);
+                return ofInt((Integer)Objects.requireNonNull(x));
             case BOOLEAN:
-                return ofBoolean((Boolean)x);
+                return ofBoolean((Boolean)Objects.requireNonNull(x));
             case BYTES:
-                return ofBytes((byte[])x);
+                return ofBytes((byte[])Objects.requireNonNull(x));
             case FLOAT:
-                return ofFloat((Float)x);
+                return ofFloat((Float)Objects.requireNonNull(x));
             case DOUBLE:
-                return ofDouble((Double)x);
+                return ofDouble((Double)Objects.requireNonNull(x));
             case STRING:
-                return ofString((String)x);
+                return ofString((String)Objects.requireNonNull(x));
             case UUID:
-                return ofUUID((UUID)x);
+                return ofUUID((UUID)Objects.requireNonNull(x));
             case VECTOR:
-                return ofVector((RealVector)x);
+                return ofVector((RealVector)Objects.requireNonNull(x));
             case NULL:
                 return ofNull(type.getJdbcSqlCode()); // TODO: This would be generic null...
             default:

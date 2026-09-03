@@ -51,8 +51,8 @@ import io.grpc.StatusRuntimeException;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.protobuf.StatusProto;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -67,6 +67,7 @@ import java.sql.Struct;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -104,6 +105,7 @@ class JDBCRelationalConnection implements RelationalConnection {
     private volatile boolean closed;
     private final ManagedChannel managedChannel;
     private final String database;
+    @Nullable
     private String schema;
     private final JDBCServiceGrpc.JDBCServiceBlockingStub blockingStub;
     private final JDBCServiceGrpc.JDBCServiceStub asyncStub;
@@ -111,12 +113,14 @@ class JDBCRelationalConnection implements RelationalConnection {
      * Handler for server transactional responses.
      * Used to receive and buffer the results, synchronizing response after requests have been sent.
      */
+    @Nullable
     private StatefulServerConnection serverConnection;
 
     /**
      * If inprocess, this will be set and needs to be called on close.
      * Its an in-process server instance started by us.
      */
+    @Nullable
     private Closeable closeable;
 
     private Options options;
@@ -190,11 +194,11 @@ class JDBCRelationalConnection implements RelationalConnection {
         return this.blockingStub;
     }
 
-    public StatementResponse execute(String sql, Options options, Collection<Parameter> parameters) throws SQLException {
+    public StatementResponse execute(String sql, Options options, @Nullable Collection<Parameter> parameters) throws SQLException {
         StatementRequest.Builder builder = StatementRequest.newBuilder()
                 .setSql(sql)
                 .setDatabase(getDatabase()) // TODO: for transactional execution these are not required
-                .setSchema(getSchema())
+                .setSchema(Objects.requireNonNullElse(getSchema(), ""))
                 .setOptions(TypeConversion.toProtobuf(options));
         if (parameters != null) {
             builder.setParameters(Parameters.newBuilder().addAllParameter(parameters).build());
@@ -209,7 +213,7 @@ class JDBCRelationalConnection implements RelationalConnection {
                 TransactionalRequest.Builder transactionRequest = TransactionalRequest.newBuilder()
                         .setExecuteRequest(builder);
                 // Wait here until a response arrives
-                final TransactionalResponse response = serverConnection.sendRequest(transactionRequest.build());
+                final TransactionalResponse response = Objects.requireNonNull(serverConnection).sendRequest(transactionRequest.build());
                 checkForResponseError(response);
                 if (!response.hasExecuteResponse()) {
                     throw new JdbcConnectionException("Wrong kind of response received, expected ExecuteResponse");
@@ -226,11 +230,11 @@ class JDBCRelationalConnection implements RelationalConnection {
         }
     }
 
-    public InsertResponse insert(@Nonnull String tableName, @Nonnull List<RelationalStruct> data) throws SQLException {
+    public InsertResponse insert(String tableName, List<RelationalStruct> data) throws SQLException {
         InsertRequest.Builder builder = InsertRequest.newBuilder()
                 .setDataResultSet(TypeConversion.toResultSetProtobuf(data))
                 .setDatabase(getDatabase())
-                .setSchema(getSchema())
+                .setSchema(Objects.requireNonNullElse(getSchema(), ""))
                 .setTableName(tableName)
                 .setOptions(TypeConversion.toProtobuf(options));
         try {
@@ -242,7 +246,7 @@ class JDBCRelationalConnection implements RelationalConnection {
                 TransactionalRequest.Builder transactionalRequest = TransactionalRequest.newBuilder()
                         .setInsertRequest(builder);
                 // Wait here until a response arrives
-                final TransactionalResponse response = serverConnection.sendRequest(transactionalRequest.build());
+                final TransactionalResponse response = Objects.requireNonNull(serverConnection).sendRequest(transactionalRequest.build());
                 checkForResponseError(response);
                 if (!response.hasInsertResponse()) {
                     throw new JdbcConnectionException("Wrong kind of response received, expected InsertResponse");
@@ -269,7 +273,7 @@ class JDBCRelationalConnection implements RelationalConnection {
                 TransactionalRequest.Builder transactionRequest = TransactionalRequest.newBuilder()
                         .setCommitRequest(CommitRequest.newBuilder().build());
                 // wait here for response
-                final TransactionalResponse response = serverConnection.sendRequest(transactionRequest.build());
+                final TransactionalResponse response = Objects.requireNonNull(serverConnection).sendRequest(transactionRequest.build());
                 checkForResponseError(response);
                 if (!response.hasCommitResponse()) {
                     throw new JdbcConnectionException("Wrong kind of response received, expected CommitResponse");
@@ -293,7 +297,7 @@ class JDBCRelationalConnection implements RelationalConnection {
             } else {
                 TransactionalRequest.Builder transactionRequest = TransactionalRequest.newBuilder()
                         .setRollbackRequest(RollbackRequest.newBuilder().build());
-                final TransactionalResponse response = serverConnection.sendRequest(transactionRequest.build());
+                final TransactionalResponse response = Objects.requireNonNull(serverConnection).sendRequest(transactionRequest.build());
                 checkForResponseError(response);
                 if (!response.hasRollbackResponse()) {
                     throw new JdbcConnectionException("Wrong kind of response received, expected RollbackResponse");
@@ -352,7 +356,7 @@ class JDBCRelationalConnection implements RelationalConnection {
                 TransactionalRequest.Builder transactionRequest = TransactionalRequest.newBuilder()
                         .setEnableAutoCommitRequest(EnableAutoCommitRequest.newBuilder().setOptions(TypeConversion.toProtobuf(options)).build());
                 // wait here for response
-                final TransactionalResponse response = serverConnection.sendRequest(transactionRequest.build());
+                final TransactionalResponse response = Objects.requireNonNull(serverConnection).sendRequest(transactionRequest.build());
                 checkForResponseError(response);
                 if (!response.hasEnableAutoCommitResponse()) {
                     throw new JdbcConnectionException("Wrong kind of response received, expected EnableAutoCommitResponse");
@@ -366,7 +370,7 @@ class JDBCRelationalConnection implements RelationalConnection {
                 }
             }
             this.autoCommit = true;
-            serverConnection.close();
+            Objects.requireNonNull(serverConnection).close();
             serverConnection = null;
         }
     }
@@ -392,6 +396,7 @@ class JDBCRelationalConnection implements RelationalConnection {
     }
 
     @Override
+    @Nullable
     public SQLWarning getWarnings() throws SQLException {
         // TODO: For now just return null
         return null;
@@ -414,6 +419,7 @@ class JDBCRelationalConnection implements RelationalConnection {
     }
 
     @Override
+    @Nullable
     public Struct createStruct(String typeName, Object[] attributes) throws SQLException {
         // TODO: Implement: https://github.com/FoundationDB/fdb-record-layer/issues/4064
         return null;
@@ -457,18 +463,18 @@ class JDBCRelationalConnection implements RelationalConnection {
         return new JDBCRelationalDatabaseMetaData(this, getStub().getMetaData(request));
     }
 
-    @Nonnull
     @Override
     public Options getOptions() {
         return options;
     }
 
     @Override
-    public void setOption(@Nonnull Options.Name name, Object value) throws SQLException {
+    public void setOption(Options.Name name, Object value) throws SQLException {
         options = options.withOption(name, value);
     }
 
     @Override
+    @Nullable
     public URI getPath() {
         return null;
     }
@@ -479,6 +485,7 @@ class JDBCRelationalConnection implements RelationalConnection {
     }
 
     @Override
+    @Nullable
     public String getSchema() throws SQLException {
         return this.schema;
     }
