@@ -1533,44 +1533,44 @@ public class RTree {
         final AtomicReference<byte[]> currentId = new AtomicReference<>(rootId);
         final AtomicReference<LeafNode> leafNode = new AtomicReference<>(null);
         return AsyncUtil.whileTrue(() -> {
-                    // currentId is only ever set (below) to a ChildSlot's non-null child id, so it is never
-                    // actually null; NullAway still models AtomicReference#get() as @Nullable, so the
-                    // invariant is re-asserted here.
-                    final byte[] currentIdValue = Objects.requireNonNull(currentId.get());
-                    return storageAdapter.fetchNode(transaction, currentIdValue)
-                        .thenApply(node -> {
-                            if (node == null) {
-                                if (Arrays.equals(currentIdValue, rootId)) {
-                                    Verify.verify(leafNode.get() == null);
-                                    return false;
-                                }
-                                throw new IllegalStateException("unable to fetch node for insert or update");
-                            }
-                            if (parentNode.get() != null) {
-                                node.linkToParent(parentNode.get(), slotInParent.get());
-                            }
-                            if (node.getKind() == NodeKind.INTERMEDIATE) {
-                                final IntermediateNode intermediateNode = (IntermediateNode)node;
-                                final int slotIndex = findChildSlotIndex(intermediateNode, hilbertValue, key, isInsertUpdate);
-                                if (slotIndex < 0) {
-                                    Verify.verify(!isInsertUpdate);
-                                    //
-                                    // This is for a delete operation and we were unable to find a child that covers
-                                    // the Hilbert Value/key to be deleted
-                                    return false;
-                                }
+            // currentId is only ever set (below) to a ChildSlot's non-null child id, so it is never
+            // actually null; NullAway still models AtomicReference#get() as @Nullable, so the
+            // invariant is re-asserted here.
+            final byte[] currentIdValue = Objects.requireNonNull(currentId.get());
+            return storageAdapter.fetchNode(transaction, currentIdValue)
+                .thenApply(node -> {
+                    if (node == null) {
+                        if (Arrays.equals(currentIdValue, rootId)) {
+                            Verify.verify(leafNode.get() == null);
+                            return false;
+                        }
+                        throw new IllegalStateException("unable to fetch node for insert or update");
+                    }
+                    if (parentNode.get() != null) {
+                        node.linkToParent(parentNode.get(), slotInParent.get());
+                    }
+                    if (node.getKind() == NodeKind.INTERMEDIATE) {
+                        final IntermediateNode intermediateNode = (IntermediateNode)node;
+                        final int slotIndex = findChildSlotIndex(intermediateNode, hilbertValue, key, isInsertUpdate);
+                        if (slotIndex < 0) {
+                            Verify.verify(!isInsertUpdate);
+                            //
+                            // This is for a delete operation and we were unable to find a child that covers
+                            // the Hilbert Value/key to be deleted
+                            return false;
+                        }
 
-                                parentNode.set(intermediateNode);
-                                slotInParent.set(slotIndex);
-                                final ChildSlot childSlot = intermediateNode.getSlot(slotIndex);
-                                currentId.set(childSlot.getChildId());
-                                return true;
-                            } else {
-                                leafNode.set((LeafNode)node);
-                                return false;
-                            }
-                        });
-                }, executor)
+                        parentNode.set(intermediateNode);
+                        slotInParent.set(slotIndex);
+                        final ChildSlot childSlot = intermediateNode.getSlot(slotIndex);
+                        currentId.set(childSlot.getChildId());
+                        return true;
+                    } else {
+                        leafNode.set((LeafNode)node);
+                        return false;
+                    }
+                });
+        }, executor)
                 .thenApply(ignored -> {
                     final LeafNode node = leafNode.get();
                     if (logger.isTraceEnabled()) {

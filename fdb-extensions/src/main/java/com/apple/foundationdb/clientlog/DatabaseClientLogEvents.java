@@ -160,10 +160,11 @@ public class DatabaseClientLogEvents {
 
         private CompletableFuture<Boolean> loopBody() {
             // events and tr are always set by loop() before it calls this method (either on a previous call, or
-            // just above on this one), but NullAway does not track that across the two methods.
+            // just above on this one), but NullAway does not track that across the two methods. tr is deliberately
+            // not bound to a local variable here (only passed inline) so that the close() on the tr field below
+            // remains the sole, PMD-visible close point for this Transaction.
             final DatabaseClientLogEvents currentEvents = Objects.requireNonNull(events);
-            final Transaction currentTr = Objects.requireNonNull(tr);
-            final AsyncIterable<KeyValue> range = currentEvents.getRange(currentTr);
+            final AsyncIterable<KeyValue> range = currentEvents.getRange(Objects.requireNonNull(tr));
             return FDBClientLogEvents.forEachEvent(range, this).thenApply(lastProcessedKey -> {
                 currentEvents.updateForTransaction(lastProcessedKey);
                 return false;   // Return to caller if range processed or limit reached.
@@ -191,11 +192,11 @@ public class DatabaseClientLogEvents {
         @Override
         public CompletableFuture<Void> accept(FDBClientLogEvents.Event event) {
             eventCount++;
-            // Set by loop()/loopBody() before this callback can be invoked (see loopBody() above).
+            // Set by loop()/loopBody() before this callback can be invoked (see loopBody() above). tr is
+            // deliberately not bound to a local variable here (see the comment in loopBody() above).
             final DatabaseClientLogEvents currentEvents = Objects.requireNonNull(events);
-            final Transaction currentTr = Objects.requireNonNull(tr);
             currentEvents.updateForEvent(event.getStartTimestamp());
-            return callback.accept(currentTr, event);
+            return callback.accept(Objects.requireNonNull(tr), event);
         }
 
         @Override
