@@ -120,9 +120,8 @@ class OfflineValueFreePlanGenerationTest {
     }
 
     /**
-     * A nullable declaration, which is the default, is warmed for every value the type admits — null included. That is
-     * what makes one plan universal, and it is expressed by the type alone: no separate "is not null" predicate is
-     * emitted, so there is nothing to contradict the declaration.
+     * A nullable declaration is warmed for every value the type admits — null included — and that is expressed by the
+     * type alone: no separate "is not null" predicate is emitted, so there is nothing to contradict the declaration.
      */
     @Test
     void nullableDeclaredTypeAcceptsANullBinding() throws Exception {
@@ -133,17 +132,50 @@ class OfflineValueFreePlanGenerationTest {
     }
 
     /**
+     * A non-nullable declaration produces the same constraint as planning the query with a concrete non-null value
+     * does. The constraint is the plan cache key, so equal constraints mean a warmed plan and a plan built later at
+     * runtime cannot become two competing entries for one binding.
+     */
+    @Test
+    void nonNullableDeclaredTypeConstrainsAsABoundValueDoes() throws Exception {
+        final var warmed = valueFreePlanConstraint(LONG_TYPE);
+        final var fromValue = planConstraint(PreparedParams.ofNamed(Map.of("param_a", 42L)));
+
+        assertThat(warmed).isEqualTo(fromValue);
+    }
+
+    /**
+     * A nullable declaration deliberately does not match, since it admits a null the bound plan's constraint excludes.
+     * Stored-query warm-up therefore never leaves a parameter nullable and value-free at once.
+     */
+    @Test
+    void nullableDeclaredTypeConstrainsMoreLooselyThanABoundValue() throws Exception {
+        final var warmed = valueFreePlanConstraint(NULLABLE_LONG_TYPE);
+        final var fromValue = planConstraint(PreparedParams.ofNamed(Map.of("param_a", 42L)));
+
+        assertThat(warmed).isNotEqualTo(fromValue);
+    }
+
+    /**
      * Plans {@code where id = ?param_a} with {@code param_a} declared as {@code declaredType} and no value, and returns
      * the plan's constraint.
      */
     @Nonnull
     private QueryPlanConstraint valueFreePlanConstraint(@Nonnull final Type declaredType) throws Exception {
+        return planConstraint(PreparedParams.empty().withDeclaredTypes(Map.of("param_a", declaredType)));
+    }
+
+    /**
+     * Plans {@code where id = ?param_a} with the given parameters and returns the plan's constraint.
+     */
+    @Nonnull
+    private QueryPlanConstraint planConstraint(@Nonnull final PreparedParams preparedParams) throws Exception {
         return PlanGenerator.create(
                         booksTemplate(),
                         NoOpMetadataOperationsFactory.INSTANCE,
                         NoOpMetricCollector.INSTANCE,
                         Options.NONE,
-                        PreparedParams.empty().withDeclaredTypes(Map.of("param_a", declaredType)))
+                        preparedParams)
                 .getPlan("select title from books where id = ?param_a")
                 .getConstraint();
     }
