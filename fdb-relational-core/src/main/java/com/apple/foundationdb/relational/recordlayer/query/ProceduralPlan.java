@@ -54,8 +54,11 @@ public final class ProceduralPlan extends Plan<Void> {
     }
 
     @Override
-    // Void's only value is null, so this genuinely always returns null.
-    public @Nullable Void executeInternal(final ExecutionContext context) throws RelationalException {
+    // Void's only value is null, so this genuinely always returns null; NullAway still treats the plain
+    // (unannotated) type variable T from Plan#executeInternal as @NonNull at this override, regardless of
+    // Plan's generic bound now allowing @Nullable Object, so this can't be declared @Nullable Void either.
+    @SuppressWarnings("NullAway")
+    public Void executeInternal(final ExecutionContext context) throws RelationalException {
         final var metricCollector = Objects.requireNonNull(context.metricCollector);
         return metricCollector.clock(RelationalMetric.RelationalEvent.EXECUTE_PROCEDURAL_PLAN_ACTION, () -> {
             action.executeAction(context.transaction);

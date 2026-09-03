@@ -267,7 +267,6 @@ public final class CopyPlan extends QueryPlan {
         }
     }
 
-    @Nullable
     private static ArrayRow convertDataToRow(final ExecutionContext context,
                                              final DataInKeySpacePath data,
                                              final KeySpacePathSerializer serializer,
