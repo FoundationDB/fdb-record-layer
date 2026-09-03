@@ -21,6 +21,7 @@
 package com.apple.foundationdb.async.guardiann;
 
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.StreamingMode;
@@ -525,6 +526,28 @@ class Primitives {
     }
 
     /**
+     * As {@link #fetchClusterMetadataWithDistance}, but for a caller that will go on to <em>write</em> this cluster's
+     * metadata in the same transaction: the result carries permission to record that change as an appended
+     * {@link ClusterMetadataDelta} instead of rewriting the whole value.
+     *
+     * @param readTransaction the read transaction
+     * @param clusterId the id of the cluster
+     * @param centroid the cluster's transformed centroid
+     * @param distance the already-computed distance to attach
+     * @return a future of the candidate, or {@code null} if the cluster does not exist
+     */
+    @Nonnull
+    CompletableFuture<ClusterCandidateForUpdate> fetchClusterCandidateForUpdate(@Nonnull final ReadTransaction readTransaction,
+                                                                               @Nonnull final UUID clusterId,
+                                                                               @Nonnull final Transformed<RealVector> centroid,
+                                                                               final double distance) {
+        return fetchClusterMetadataForUpdate(readTransaction, clusterId)
+                .thenApply(forUpdate -> forUpdate == null
+                        ? null
+                        : new ClusterCandidateForUpdate(forUpdate, centroid, distance));
+    }
+
+    /**
      * Re-fetches the {@link ClusterMetadata} for a precomputed list of nearest-cluster {@link ClusterReference}s
      * (located in an earlier transaction and carried on a deferred task), bundling each with its stored centroid at
      * distance {@code 0}. References whose cluster no longer exists are <em>dropped</em> — a normal outcome when a
@@ -608,32 +631,98 @@ class Primitives {
     @Nonnull
     CompletableFuture<ClusterMetadata> fetchClusterMetadata(@Nonnull final ReadTransaction readTransaction,
                                                             @Nonnull final UUID clusterId) {
-        final byte[] key = getClusterMetadataSubspace().pack(Tuple.from(clusterId));
+        return fetchClusterMetadataForUpdate(readTransaction, clusterId)
+                .thenApply(forUpdate -> forUpdate == null ? null : forUpdate.clusterMetadata());
+    }
+
+    /**
+     * Like {@link #fetchClusterMetadata}, but also decides whether the caller may record its next change to this
+     * cluster as an appended {@link ClusterMetadataDelta}. The decision belongs here because this is the only place
+     * that knows the physical state of the stored value — how many deltas have accumulated and how many bytes they
+     * occupy. Neither fact escapes this method; only the verdict travels.
+     *
+     * @param readTransaction the read transaction
+     * @param clusterId the id of the cluster
+     * @return a future of the metadata and its append permission, or {@code null} if the cluster does not exist
+     */
+    @Nonnull
+    CompletableFuture<ClusterMetadataForUpdate> fetchClusterMetadataForUpdate(@Nonnull final ReadTransaction readTransaction,
+                                                                              @Nonnull final UUID clusterId) {
+        final byte[] key = clusterMetadataKey(clusterId);
         return getOnReadListener().onAsyncRead(readTransaction.get(key))
                 .thenApply(valueBytes -> {
                     getOnReadListener().onKeyValueRead(key, valueBytes);
                     if (valueBytes == null) {
                         return null;
                     }
-                    return StorageAdapter.clusterMetadataFromTuple(Tuple.fromBytes(valueBytes));
+                    final Tuple valueTuple = Tuple.fromBytes(valueBytes);
+                    final int pendingDeltas = StorageAdapter.pendingClusterMetadataDeltas(valueTuple);
+                    final boolean mayAppendDelta =
+                            pendingDeltas < getConfig().clusterMetadataMaxPendingDeltas() &&
+                                    valueBytes.length + StorageAdapter.CLUSTER_METADATA_MAX_DELTA_SIZE
+                                            <= StorageAdapter.CLUSTER_METADATA_MAX_VALUE_SIZE;
+                    if (!mayAppendDelta && logger.isDebugEnabled()) {
+                        logger.debug("cluster metadata delta log is full, the next write compacts; clusterId={}, pendingDeltas={}, valueLength={}",
+                                clusterId, pendingDeltas, valueBytes.length);
+                    }
+                    return new ClusterMetadataForUpdate(
+                            StorageAdapter.clusterMetadataFromTuple(clusterId, valueTuple), mayAppendDelta);
                 });
+    }
+
+    /**
+     * Records an incremental change to a cluster's metadata, appending it to the stored value when
+     * {@link ClusterMetadataForUpdate#mayAppendDelta() permitted} and otherwise folding it in and rewriting the value.
+     * <p>
+     * The append is the point of the exercise: it is an atomic mutation, so it needs no read of the key and two
+     * unrelated writers to the same cluster do not conflict on the write. Rewriting is the deliberate exception — it
+     * must not lose a delta appended concurrently, so it takes a read conflict on the key and may be retried.
+     *
+     * @param transaction the transaction to write within
+     * @param forUpdate the cluster's metadata together with its append permission
+     * @param delta the change to record
+     */
+    void applyClusterMetadataDelta(@Nonnull final Transaction transaction,
+                                   @Nonnull final ClusterMetadataForUpdate forUpdate,
+                                   @Nonnull final ClusterMetadataDelta delta) {
+        final ClusterMetadata clusterMetadata = forUpdate.clusterMetadata();
+        final byte[] key = clusterMetadataKey(clusterMetadata.id());
+        final byte[] deltaBytes = StorageAdapter.valueTupleFromClusterMetadataDelta(delta).pack();
+
+        // The size check is belt and braces: permission was granted against a ceiling on the delta size, so a delta
+        // that somehow exceeded it falls back to a rewrite rather than risking a silently dropped append.
+        if (forUpdate.mayAppendDelta() && deltaBytes.length <= StorageAdapter.CLUSTER_METADATA_MAX_DELTA_SIZE) {
+            getOnWriteListener().onKeyValueWritten(key, deltaBytes);
+            transaction.mutate(MutationType.APPEND_IF_FITS, key, deltaBytes);
+            return;
+        }
+
+        transaction.addReadConflictKey(key);
+        writeClusterMetadata(transaction, delta.applyTo(clusterMetadata));
     }
 
     /**
      * Persists a cluster's {@link ClusterMetadata}. This is how vector-count deltas and maintenance-state flags
      * (split/merge/reassign/collapse) become durable.
+     * <p>
+     * The value written holds no pending deltas, so this is also what compacts a cluster whose appended deltas have
+     * accumulated (see {@link #applyClusterMetadataDelta}).
      *
      * @param transaction the transaction to write within
      * @param clusterMetadata the metadata to persist
      */
     void writeClusterMetadata(@Nonnull final Transaction transaction,
                               @Nonnull final ClusterMetadata clusterMetadata) {
-        final Subspace clusterMetadataSubspace = getClusterMetadataSubspace();
-        final byte[] key = clusterMetadataSubspace.pack(Tuple.from(clusterMetadata.id()));
+        final byte[] key = clusterMetadataKey(clusterMetadata.id());
         final byte[] value = StorageAdapter.valueTupleFromClusterMetadata(clusterMetadata).pack();
 
         getOnWriteListener().onKeyValueWritten(key, value);
         transaction.set(key, value);
+    }
+
+    @Nonnull
+    private byte[] clusterMetadataKey(@Nonnull final UUID clusterId) {
+        return getClusterMetadataSubspace().pack(Tuple.from(clusterId));
     }
 
     /**
@@ -646,8 +735,7 @@ class Primitives {
      */
     void deleteClusterMetadata(@Nonnull final Transaction transaction,
                                @Nonnull final UUID clusterId) {
-        final Subspace clusterMetadataSubspace = getClusterMetadataSubspace();
-        final byte[] key = clusterMetadataSubspace.pack(Tuple.from(clusterId));
+        final byte[] key = clusterMetadataKey(clusterId);
 
         getOnWriteListener().onKeyDeleted(key);
         transaction.clear(key);
@@ -1143,9 +1231,28 @@ class Primitives {
                                                                            final int numReplicatedVectorsAdded,
                                                                            @Nonnull final RunningStats updatedStandardDeviation,
                                                                            @Nonnull final Set<UUID> causeClusterIds) {
+        return updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe(transaction, random,
+                ClusterMetadataForUpdate.wholeValueOnly(clusterMetadata),
+                clusterCentroid, accessInfo, numPrimaryVectorsAdded, numPrimaryUnderreplicatedVectorsAdded,
+                numReplicatedVectorsAdded, updatedStandardDeviation, causeClusterIds, null);
+    }
+
+    @Nonnull
+    private Optional<UUID> updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe(@Nonnull final Transaction transaction,
+                                                                                   @Nonnull final SplittableRandom random,
+                                                                                   @Nonnull final ClusterMetadataForUpdate forUpdate,
+                                                                                   @Nonnull final Transformed<RealVector> clusterCentroid,
+                                                                                   @Nonnull final AccessInfo accessInfo,
+                                                                                   final int numPrimaryVectorsAdded,
+                                                                                   final int numPrimaryUnderreplicatedVectorsAdded,
+                                                                                   final int numReplicatedVectorsAdded,
+                                                                                   @Nonnull final RunningStats updatedStandardDeviation,
+                                                                                   @Nonnull final Set<UUID> causeClusterIds,
+                                                                                   @Nullable final ClusterMetadataDelta appendDelta) {
         Verify.verify(numPrimaryVectorsAdded >= 0,
                 "updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe only handles added primary vectors");
         final Config config = getConfig();
+        final ClusterMetadata clusterMetadata = forUpdate.clusterMetadata();
 
         final int numTotalPrimaryVectors = clusterMetadata.getNumPrimaryVectors() + numPrimaryVectorsAdded;
         if (!clusterMetadata.states().contains(ClusterMetadata.State.SPLIT_MERGE) && // not already splitting/merging
@@ -1164,9 +1271,41 @@ class Primitives {
         }
 
         // Not a split: fall through to the shared reassign / plain-write handling.
-        return updateClusterMetadataAndEnqueueReassignTaskMaybe(transaction, random, clusterMetadata,
+        return updateClusterMetadataAndEnqueueReassignTaskMaybe(transaction, random, forUpdate,
                 clusterCentroid, accessInfo, numPrimaryVectorsAdded, numPrimaryUnderreplicatedVectorsAdded,
-                numReplicatedVectorsAdded, updatedStandardDeviation, causeClusterIds);
+                numReplicatedVectorsAdded, updatedStandardDeviation, causeClusterIds, appendDelta);
+    }
+
+    /**
+     * Delta-carrying form of {@link #updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe} for callers whose change
+     * to a cluster is a single insert or delete, and therefore expressible as one {@link ClusterMetadataDelta}.
+     * <p>
+     * The decision logic is identical; the difference is what happens when no task is needed, which is the common
+     * case: this form appends the delta instead of rewriting the whole metadata value, so concurrent writers to the
+     * same cluster do not have to serialize behind each other. The branches that do enqueue a task still rewrite the
+     * value, because they also have to record the new state flag — those remain safe alongside appends as long as
+     * their reads of the metadata conflict, which they do.
+     * <p>
+     * Bulk callers (the split/merge and reassign tasks) cannot use this form: they recompute a cluster's statistics
+     * from scratch over many vectors, which no single-operation delta describes.
+     *
+     * @param forUpdate the cluster's metadata plus the storage facts needed to choose between appending and compacting
+     * @param delta the change to record
+     * @return the id of an enqueued task, or {@link Optional#empty()} if none was enqueued
+     */
+    @Nonnull
+    Optional<UUID> updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe(@Nonnull final Transaction transaction,
+                                                                           @Nonnull final SplittableRandom random,
+                                                                           @Nonnull final ClusterMetadataForUpdate forUpdate,
+                                                                           @Nonnull final Transformed<RealVector> clusterCentroid,
+                                                                           @Nonnull final AccessInfo accessInfo,
+                                                                           @Nonnull final ClusterMetadataDelta delta,
+                                                                           @Nonnull final Set<UUID> causeClusterIds) {
+        final ClusterMetadata clusterMetadata = forUpdate.clusterMetadata();
+        return updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe(transaction, random, forUpdate,
+                clusterCentroid, accessInfo, delta.primaryVectorsDelta(),
+                delta.numPrimaryUnderreplicatedVectorsDelta(), delta.numReplicatedVectorsDelta(),
+                delta.applyTo(clusterMetadata).runningStandardDeviation(), causeClusterIds, delta);
     }
 
     /**
@@ -1178,7 +1317,7 @@ class Primitives {
      *
      * @param transaction the transaction to write the updated metadata and any enqueued reassign task into
      * @param random source of randomness for the id of an enqueued reassign task
-     * @param clusterMetadata the current metadata of the cluster being updated
+     * @param forUpdate the current metadata of the cluster being updated, with its append permission
      * @param clusterCentroid the transformed centroid of the cluster, carried into an enqueued {@link ReassignTask}
      * @param accessInfo the access context (subspace layout) of the structure
      * @param numPrimaryVectorsAdded the change in the number of primary vectors (may be negative for a deletion)
@@ -1194,15 +1333,17 @@ class Primitives {
     @Nonnull
     private Optional<UUID> updateClusterMetadataAndEnqueueReassignTaskMaybe(@Nonnull final Transaction transaction,
                                                                             @Nonnull final SplittableRandom random,
-                                                                            @Nonnull final ClusterMetadata clusterMetadata,
+                                                                            @Nonnull final ClusterMetadataForUpdate forUpdate,
                                                                             @Nonnull final Transformed<RealVector> clusterCentroid,
                                                                             @Nonnull final AccessInfo accessInfo,
                                                                             final int numPrimaryVectorsAdded,
                                                                             final int numPrimaryUnderreplicatedVectorsAdded,
                                                                             final int numReplicatedVectorsAdded,
                                                                             @Nonnull final RunningStats updatedStandardDeviation,
-                                                                            @Nonnull final Set<UUID> causeClusterIds) {
+                                                                            @Nonnull final Set<UUID> causeClusterIds,
+                                                                            @Nullable final ClusterMetadataDelta appendDelta) {
         final Config config = getConfig();
+        final ClusterMetadata clusterMetadata = forUpdate.clusterMetadata();
         final UUID clusterId = clusterMetadata.id();
 
         final int numTotalPrimaryVectors = clusterMetadata.getNumPrimaryVectors() + numPrimaryVectorsAdded;
@@ -1242,11 +1383,18 @@ class Primitives {
         }
 
         if (numPrimaryVectorsAdded != 0 || numReplicatedVectorsAdded != 0) {
-            // write new metadata but do not create a task
-            final ClusterMetadata newClusterMetadata =
-                    clusterMetadata.withAdditionalVectors(numPrimaryUnderreplicatedVectorsAdded,
-                            numReplicatedVectorsAdded, updatedStandardDeviation);
-            writeClusterMetadata(transaction, newClusterMetadata);
+            if (appendDelta != null) {
+                // No task is needed, so the only change is to the counts and statistics — exactly what a delta can
+                // express. Appending it avoids the whole-value rewrite (and the conflict that comes with it) on the
+                // hot insert/delete path.
+                applyClusterMetadataDelta(transaction, forUpdate, appendDelta);
+            } else {
+                // write new metadata but do not create a task
+                final ClusterMetadata newClusterMetadata =
+                        clusterMetadata.withAdditionalVectors(numPrimaryUnderreplicatedVectorsAdded,
+                                numReplicatedVectorsAdded, updatedStandardDeviation);
+                writeClusterMetadata(transaction, newClusterMetadata);
+            }
         }
         return Optional.empty();
     }
@@ -1270,31 +1418,35 @@ class Primitives {
      *
      * @param transaction the transaction to use
      * @param random a source of randomness used to mint a task id
-     * @param clusterMetadata the metadata of the cluster the primary was deleted from (pre-decrement)
+     * @param forUpdate the metadata of the cluster the primary was deleted from (pre-decrement), with its append
+     *        permission
      * @param clusterCentroid the transformed centroid of that cluster
      * @param accessInfo the current access info
-     * @param updatedStandardDeviation the running stats already reflecting the removed primary (this carries the
-     *        decremented primary-vector count)
+     * @param delta the change to record — the removal of one primary vector, plus any accompanying count changes
      *
      * @return a future that completes once the metadata has been written and any task enqueued
      */
     @Nonnull
     CompletableFuture<Void> updateClusterMetadataAndEnqueueMergeOrReassignTaskMaybe(@Nonnull final Transaction transaction,
                                                                                     @Nonnull final SplittableRandom random,
-                                                                                    @Nonnull final ClusterMetadata clusterMetadata,
+                                                                                    @Nonnull final ClusterMetadataForUpdate forUpdate,
                                                                                     @Nonnull final Transformed<RealVector> clusterCentroid,
                                                                                     @Nonnull final AccessInfo accessInfo,
-                                                                                    @Nonnull final RunningStats updatedStandardDeviation) {
-        // A single primary vector was just deleted, i.e. numPrimaryVectorsAdded == -1.
-        final int numTotalPrimaryVectors = clusterMetadata.getNumPrimaryVectors() - 1;
+                                                                                    @Nonnull final ClusterMetadataDelta delta) {
+        final ClusterMetadata clusterMetadata = forUpdate.clusterMetadata();
+        // The merge gate and an enqueued merge both need the post-delete totals, so derive them from the delta.
+        final RunningStats updatedStandardDeviation = delta.applyTo(clusterMetadata).runningStandardDeviation();
+        final int numTotalPrimaryVectors = clusterMetadata.getNumPrimaryVectors() + delta.primaryVectorsDelta();
         return enqueueMergeTaskMaybeIfUndersized(transaction, random, clusterMetadata, clusterCentroid, accessInfo,
                         updatedStandardDeviation, numTotalPrimaryVectors)
                 .thenAccept(merged -> {
                     if (!merged) {
                         // Not undersized, already pending a task, or a lone cluster with nothing to merge with:
-                        // persist the decrement (this may reassign or plain-write, but cannot merge).
-                        updateClusterMetadataAndEnqueueReassignTaskMaybe(transaction, random, clusterMetadata,
-                                clusterCentroid, accessInfo, -1, 0, 0, updatedStandardDeviation, Set.of());
+                        // record the decrement (this may reassign or append, but cannot merge).
+                        updateClusterMetadataAndEnqueueReassignTaskMaybe(transaction, random, forUpdate,
+                                clusterCentroid, accessInfo, delta.primaryVectorsDelta(),
+                                delta.numPrimaryUnderreplicatedVectorsDelta(), delta.numReplicatedVectorsDelta(),
+                                updatedStandardDeviation, Set.of(), delta);
                     }
                 });
     }

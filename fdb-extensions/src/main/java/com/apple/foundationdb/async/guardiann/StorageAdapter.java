@@ -52,6 +52,36 @@ class StorageAdapter {
     private static final double EPS = 1.0e-12;
 
     /**
+     * Number of leading elements of a cluster-metadata value that make up the base record (the two counts, the
+     * nested running statistics, the states mask and the primary-count high-water mark). Every element at or beyond
+     * this index is an appended {@link ClusterMetadataDelta}. The cluster id is deliberately not among them: it is
+     * already the key.
+     */
+    static final int CLUSTER_METADATA_BASE_ARITY = 5;
+
+    /**
+     * Ceiling on one packed {@link ClusterMetadataDelta}, used to reason about growth before a delta's bytes exist.
+     * The worst case is 27 bytes — 2 for the nested-tuple framing, 2 for the op, 9 for the distance and at most 2 each
+     * for the four remaining integers — so 32 leaves room without being generous enough to matter.
+     */
+    static final int CLUSTER_METADATA_MAX_DELTA_SIZE = 32;
+
+    /**
+     * Ceiling for a cluster-metadata value, well below FDB's 100,000-byte value limit. This is a headroom argument
+     * rather than a structural guarantee, and the margin is the whole point: {@code APPEND_IF_FITS} <em>silently</em>
+     * does nothing once a value would exceed the real limit, and a lost delta is not self-correcting — it trips the
+     * primary-count check in {@link Primitives#fetchCluster} on the next maintenance task.
+     * <p>
+     * The bound is not exact because an appender does not conflict on the value it measured, so {@code k} writers may
+     * each observe a length under this ceiling and all append: the result is at most
+     * {@code CLUSTER_METADATA_MAX_VALUE_SIZE + k * CLUSTER_METADATA_MAX_DELTA_SIZE} bytes, which stays under FDB's
+     * limit for any plausible {@code k}. {@code BunchedMap} performs the same check exactly, but only because it takes
+     * a read conflict range first (see {@code BunchedMap.java:337-346}); appending here deliberately does not, so the
+     * margin carries the safety instead.
+     */
+    static final int CLUSTER_METADATA_MAX_VALUE_SIZE = 10_000;
+
+    /**
      * Subspace for the access info.
      */
     private static final long SUBSPACE_PREFIX_ACCESS_INFO = 0x00;
@@ -336,26 +366,97 @@ class StorageAdapter {
         return resultBuilder.build();
     }
 
+    /**
+     * Parses a cluster-metadata value and folds any appended deltas into it.
+     * <p>
+     * The value is a base record followed by zero or more {@link ClusterMetadataDelta}s that were appended with
+     * {@code APPEND_IF_FITS} (see {@link #valueTupleFromClusterMetadataDelta}). Because FDB's tuple encoding is a
+     * concatenation of self-delimiting elements, appending one packed tuple to another yields a value that still
+     * parses as a single tuple — the appended deltas simply show up as extra trailing elements. Which elements are
+     * deltas is decided by position ({@link #CLUSTER_METADATA_BASE_ARITY}) rather
+     * than by shape, since the running statistics are themselves a nested tuple.
+     * <p>
+     * Deltas are folded in stored order, which is commit order: {@code APPEND_IF_FITS} appends onto whatever the
+     * value is when the transaction commits, so the replay follows the real history of the cluster.
+     *
+     * @param clusterId the id of the cluster, taken from the key rather than stored redundantly in the value
+     * @param valueTuple the parsed value
+     * @return the cluster metadata with every appended delta applied
+     */
     @Nonnull
-    static ClusterMetadata clusterMetadataFromTuple(@Nonnull final Tuple valueTuple) {
-        return new ClusterMetadata(valueTuple.getUUID(0),
+    static ClusterMetadata clusterMetadataFromTuple(@Nonnull final UUID clusterId,
+                                                    @Nonnull final Tuple valueTuple) {
+        if (valueTuple.size() < CLUSTER_METADATA_BASE_ARITY) {
+            throw new IllegalStateException("malformed cluster metadata value; expected a base record of "
+                    + CLUSTER_METADATA_BASE_ARITY + " elements, got " + valueTuple.size());
+        }
+        ClusterMetadata clusterMetadata = new ClusterMetadata(clusterId,
+                Math.toIntExact(valueTuple.getLong(0)),
                 Math.toIntExact(valueTuple.getLong(1)),
-                Math.toIntExact(valueTuple.getLong(2)),
-                runningStandardDeviationFromTuple(valueTuple.getNestedTuple(3)),
-                Math.toIntExact(valueTuple.getLong(4)),
-                // Values written before the high-water mark existed have no element 5. Zero is a safe default rather
-                // than a lossy one: the ClusterMetadata constructor raises the mark to the cluster's current primary
-                // count, so such a cluster re-derives its peak from where it is now instead of failing to parse.
-                valueTuple.size() > 5 ? Math.toIntExact(valueTuple.getLong(5)) : 0);
+                runningStandardDeviationFromTuple(valueTuple.getNestedTuple(2)),
+                Math.toIntExact(valueTuple.getLong(3)),
+                Math.toIntExact(valueTuple.getLong(4)));
+        for (int i = CLUSTER_METADATA_BASE_ARITY; i < valueTuple.size(); i++) {
+            clusterMetadata =
+                    clusterMetadataDeltaFromTuple(valueTuple.getNestedTuple(i)).applyTo(clusterMetadata);
+        }
+        return clusterMetadata;
     }
 
+    /**
+     * Serializes a fully-folded cluster metadata as the base record, with no appended deltas. Writing this value is
+     * therefore also what <em>compacts</em> a cluster whose deltas have accumulated.
+     *
+     * @param clusterMetadata the metadata to serialize
+     * @return the value tuple
+     */
     @Nonnull
     static Tuple valueTupleFromClusterMetadata(@Nonnull final ClusterMetadata clusterMetadata) {
-        return Tuple.from(clusterMetadata.id(),
-                clusterMetadata.numPrimaryUnderreplicatedVectors(), clusterMetadata.numReplicatedVectors(),
+        return Tuple.from(clusterMetadata.numPrimaryUnderreplicatedVectors(),
+                clusterMetadata.numReplicatedVectors(),
                 valueTupleFromRunningStats(clusterMetadata.runningStandardDeviation()),
                 clusterMetadata.getStatesCode(),
                 clusterMetadata.maxEverNumPrimaryVectors());
+    }
+
+    /**
+     * Returns how many deltas are pending in a cluster-metadata value, i.e. how many appends have landed since the
+     * last compaction. Callers use this to decide whether to append another delta or to compact first.
+     *
+     * @param valueTuple the parsed value
+     * @return the number of appended, not-yet-folded deltas
+     */
+    static int pendingClusterMetadataDeltas(@Nonnull final Tuple valueTuple) {
+        return Math.max(0, valueTuple.size() - CLUSTER_METADATA_BASE_ARITY);
+    }
+
+    /**
+     * Serializes a single delta as the <em>one</em> nested-tuple element that gets appended to a cluster-metadata
+     * value. Nesting keeps each delta self-delimiting, so the fold loop does not have to know the delta's arity and
+     * a later change to the delta's shape does not disturb the surrounding framing.
+     *
+     * @param delta the delta to serialize
+     * @return a one-element tuple holding the delta as a nested tuple; its packed form is what gets appended
+     */
+    @Nonnull
+    static Tuple valueTupleFromClusterMetadataDelta(@Nonnull final ClusterMetadataDelta delta) {
+        return Tuple.from(Tuple.from(delta.statsOp().getCode(),
+                delta.distance(),
+                delta.numPrimaryUnderreplicatedVectorsDelta(),
+                delta.numReplicatedVectorsDelta(),
+                delta.getStatesToSetCode(),
+                delta.getStatesToClearCode()));
+    }
+
+    @Nonnull
+    static ClusterMetadataDelta clusterMetadataDeltaFromTuple(@Nonnull final Tuple deltaTuple) {
+        return new ClusterMetadataDelta(
+                ClusterMetadataDelta.StatsOp.ofCode(Math.toIntExact(deltaTuple.getLong(0))),
+                deltaTuple.getDouble(1),
+                Math.toIntExact(deltaTuple.getLong(2)),
+                Math.toIntExact(deltaTuple.getLong(3)),
+                ClusterMetadata.State.ofCode(Math.toIntExact(deltaTuple.getLong(4))),
+                ClusterMetadata.State.ofCode(Math.toIntExact(deltaTuple.getLong(5))));
     }
 
     @Nonnull
@@ -494,9 +595,9 @@ class StorageAdapter {
      * Applies the relative-neighborhood ("occlusion") heuristic used to pick a <em>diverse</em> set of clusters to
      * replicate a vector into: a candidate cluster is <em>occluded</em> — and should be skipped — when some cluster
      * already chosen as a replication target sits closer to the candidate's centroid than the vector itself does.
-     * Formally, the candidate is occluded if, for any already-selected cluster {@code s},
-     * {@code dist(candidateCentroid, s.centroid) < dist(vector, candidateCentroid)}, where the right-hand distance is
-     * the one carried on the candidate as {@link ClusterMetadataWithDistance#distance()}.
+     * Formally, the candidate is occluded if, for any already-selected centroid {@code s},
+     * {@code dist(candidateCentroid, s) < candidateDistance}, where {@code candidateDistance} is the vector's own
+     * distance to the candidate's centroid.
      *
      * <p>
      * The idea comes from the SPANN paper (<a href="https://arxiv.org/pdf/2111.08566">arXiv:2111.08566</a>), which
@@ -509,29 +610,20 @@ class StorageAdapter {
      * direction. When no clusters have been selected yet nothing can occlude, so the candidate is always kept.
      *
      * @param estimator the distance estimator used for the centroid-to-centroid distances (in the transformed space)
-     * @param replicationCandidate the candidate cluster under consideration, carrying the vector's distance to its
-     *        centroid via {@link ClusterMetadataWithDistance#distance()}
-     * @param selectedReplicationClusters the clusters already chosen as replication targets for this vector
+     * @param candidateCentroid the transformed centroid of the candidate cluster under consideration
+     * @param candidateDistance the vector's distance to {@code candidateCentroid}
+     * @param selectedCentroids the centroids of the clusters already chosen as replication targets for this vector
      * @return {@code true} if the candidate is occluded by an already-selected cluster (and should be skipped),
      *         {@code false} otherwise
      */
     static boolean isOccluded(@Nonnull final DistanceEstimator estimator,
-                              @Nonnull final ClusterMetadataWithDistance replicationCandidate,
-                              @Nonnull final List<ClusterMetadataWithDistance> selectedReplicationClusters) {
-        final double vectorToCentroidDistance = replicationCandidate.distance();
-        if (!selectedReplicationClusters.isEmpty()) {
-            final Transformed<RealVector> replicationCandidateCentroid =
-                    replicationCandidate.centroid();
-            boolean occluded = false;
-            for (final ClusterMetadataWithDistance selectedReplicationCluster : selectedReplicationClusters) {
-                final double selectedCentroidToCandidateCentroidDistance =
-                        estimator.distance(replicationCandidateCentroid, selectedReplicationCluster.centroid());
-                if (vectorToCentroidDistance > selectedCentroidToCandidateCentroidDistance) {
-                    occluded = true;
-                    break;
-                }
-            }
-            if (occluded) {
+                              @Nonnull final Transformed<RealVector> candidateCentroid,
+                              final double candidateDistance,
+                              @Nonnull final List<Transformed<RealVector>> selectedCentroids) {
+        for (final Transformed<RealVector> selectedCentroid : selectedCentroids) {
+            final double selectedCentroidToCandidateCentroidDistance =
+                    estimator.distance(candidateCentroid, selectedCentroid);
+            if (candidateDistance > selectedCentroidToCandidateCentroidDistance) {
                 return true;
             }
         }

@@ -27,6 +27,7 @@ import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -109,11 +110,7 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
     }
 
     public int getStatesCode() {
-        int result = 0;
-        for (final State state : states()) {
-            result |= state.getCode();
-        }
-        return result;
+        return State.codeOf(states());
     }
 
     @Nonnull
@@ -220,6 +217,21 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
                 }
             }
             return resultSet;
+        }
+
+        /**
+         * Packs a set of states into the single-integer bit mask {@link #ofCode(int)} reads back. The inverse of
+         * {@link #ofCode(int)}, kept beside it so the two stay in step.
+         *
+         * @param states the states to pack
+         * @return the bit mask
+         */
+        public static int codeOf(@Nonnull final Set<State> states) {
+            int result = 0;
+            for (final State state : states) {
+                result |= state.getCode();
+            }
+            return result;
         }
     }
 }

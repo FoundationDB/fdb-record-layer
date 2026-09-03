@@ -699,7 +699,7 @@ class SplitMergeTask extends AbstractDeferredTask {
                                                           @Nonnull final List<ClusterMetadataWithDistance> replicationCandidates,
                                                           @Nonnull final Map<UUID, RunningStats> standardDeviationsMap) {
         final Config config = getConfig();
-        final List<ClusterMetadataWithDistance> selectedReplicationClusters =
+        final List<Transformed<RealVector>> selectedReplicationCentroids =
                 Lists.newArrayListWithExpectedSize(replicationCandidates.size());
         final ImmutableListMultimap.Builder<UUID, VectorReference> replicasByCluster = ImmutableListMultimap.builder();
 
@@ -725,14 +725,15 @@ class SplitMergeTask extends AbstractDeferredTask {
             replicationPriorityStandardDeviation = replicationPriorityStandardDeviation.add(replicationPriority);
 
             if (replicationPriority >= config.replicationPriorityMin()) {
-                if (StorageAdapter.isOccluded(estimator, replicationCandidate, selectedReplicationClusters)) {
+                if (StorageAdapter.isOccluded(estimator, replicationCandidate.centroid(),
+                        replicationCandidate.distance(), selectedReplicationCentroids)) {
                     numOccluded++;
                     continue;
                 }
 
                 replicasByCluster.put(replicationCandidateClusterMetadata.id(),
                         vectorReference.toReplicatedCopy(replicationPriority));
-                selectedReplicationClusters.add(replicationCandidate);
+                selectedReplicationCentroids.add(replicationCandidate.centroid());
                 numReplicated++;
             }
         }
