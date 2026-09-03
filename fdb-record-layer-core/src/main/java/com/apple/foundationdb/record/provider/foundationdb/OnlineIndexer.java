@@ -64,7 +64,7 @@ import static com.apple.foundationdb.record.metadata.Index.decodeSubspaceKey;
  * Builds an index online, i.e., concurrently with other database operations. In order to minimize
  * the impact that these operations have with other operations, this attempts to minimize the
  * priorities of its transactions. Additionally, it attempts to limit the amount of work it will
- * done in a fashion that will decrease as the number of failures for a given build attempt increases.
+ * do in a fashion that will decrease as the number of failures for a given build attempt increases.
  *
  * <p>
  * As ranges of elements are rebuilt, the fact that the range has rebuilt is added to a {@link RangeSet}

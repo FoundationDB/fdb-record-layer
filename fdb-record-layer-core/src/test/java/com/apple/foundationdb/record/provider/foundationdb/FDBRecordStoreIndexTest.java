@@ -272,6 +272,82 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void sumIndexWriteOnlyNoQueueThenOnlineIndexBuild() {
+        // Mirror of SlidingWindowIndexTest.writeOnlyNoQueueThenOnlineIndexBuild, but with a SUM
+        // aggregate index: write records while the index is WRITE_ONLY (no queue), then let the online
+        // indexer build the very same records, and check whether the aggregate counted them twice.
+        final KeyExpression key = field("num_value_2").ungrouped();
+        final RecordMetaDataHook hook = md -> md.addIndex("MySimpleRecord", new Index("sum", key, IndexTypes.SUM));
+        final IndexAggregateFunction total = new IndexAggregateFunction(FunctionNames.SUM, key, "sum");
+        final List<String> types = Collections.singletonList("MySimpleRecord");
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            final Index index = recordStore.getRecordMetaData().getIndex("sum");
+            recordStore.clearAndMarkIndexWriteOnly(index).join();
+            assertTrue(recordStore.isIndexWriteOnlyNoQueue("sum"));
+
+            saveNumValue2(1L, 100);
+            saveNumValue2(2L, 200);
+            saveNumValue2(3L, 300);
+
+            // The two index types reach exactly-once by different routes. SUM is not idempotent
+            // (AtomicMutation.Standard.isIdempotent() is false for SUM_LONG), so
+            // StandardIndexMaintainer.updateWhileWriteOnly routes through updateWriteOnlyByRecords,
+            // which consults the range set and drops the write because the build has not reached this
+            // record's range yet: the build owns these records. The sliding window instead applies the
+            // write immediately and makes the later build application a no-op by preemptively deleting
+            // the entry it is about to insert.
+            assertEquals(0L, rawAggregate(index, total),
+                    "writes to a range the build has not reached yet must not touch a non-idempotent "
+                            + "aggregate; the build is responsible for them");
+            commit(context);
+        }
+
+        // Finish the build with the online indexer, which marks the index readable.
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            final Index index = recordStore.getRecordMetaData().getIndex("sum");
+            try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index)
+                    .build()) {
+                indexer.buildIndex(true);
+            }
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            assertTrue(recordStore.isIndexReadable("sum"));
+            assertEquals(600L, recordStore.evaluateAggregateFunction(types, total, Key.Evaluated.EMPTY,
+                            IsolationLevel.SNAPSHOT).join().getLong(0),
+                    "the online indexer must not re-add records that the write-only writes already "
+                            + "added to the aggregate: a sum above the total of the records means the "
+                            + "aggregate was double counted");
+            commit(context);
+        }
+    }
+
+    private void saveNumValue2(long recNo, int numValue2) {
+        recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                .setRecNo(recNo)
+                .setNumValue2(numValue2)
+                .build());
+    }
+
+    /**
+     * Reads an aggregate straight from the index maintainer, which — unlike
+     * {@link FDBRecordStore#evaluateAggregateFunction} — works while the index is still WRITE_ONLY.
+     */
+    private long rawAggregate(@Nonnull Index index, @Nonnull IndexAggregateFunction function) {
+        return recordStore.getIndexMaintainer(index)
+                .evaluateAggregateFunction(function, TupleRange.ALL, IsolationLevel.SNAPSHOT)
+                .join()
+                .getLong(0);
+    }
+
+    @Test
     void sumUnsetOptional() {
         final KeyExpression key = field("num_value_3_indexed").ungrouped();
         final RecordMetaDataHook hook = md -> md.addIndex("MySimpleRecord", new Index("sum", key, IndexTypes.SUM));
