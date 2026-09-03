@@ -37,14 +37,13 @@ import java.util.Objects;
 public class PathValue {
     @Nullable
     private Object resolvedValue;
-    @Nullable
-    private byte[] metadata;
+    private byte @Nullable [] metadata;
 
     PathValue(@Nullable Object resolvedValue) {
         this(resolvedValue, null);
     }
 
-    PathValue(@Nullable Object resolvedValue, @Nullable byte[] metadata) {
+    PathValue(@Nullable Object resolvedValue, byte @Nullable [] metadata) {
         this.resolvedValue = resolvedValue;
         this.metadata = metadata == null ? null : Arrays.copyOf(metadata, metadata.length);
     }
@@ -66,8 +65,7 @@ public class PathValue {
      * @return metadata associated with the key in the <code>LocatableResolver</code> or <code>null</code> if
      *   no metadata exists or is applicable for the directory type
      */
-    @Nullable
-    public byte[] getMetadata() {
+    public byte @Nullable [] getMetadata() {
         return metadata == null ? null : Arrays.copyOf(metadata, metadata.length);
     }
 
