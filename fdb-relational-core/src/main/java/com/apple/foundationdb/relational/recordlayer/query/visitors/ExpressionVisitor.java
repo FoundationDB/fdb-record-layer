@@ -145,7 +145,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitSelectStarElement(@Nonnull RelationalParser.SelectStarElementContext ignored) {
-        return getDelegate().getSemanticAnalyzer().expandStar(Optional.empty(), getDelegate().getLogicalOperators());
+        return getDelegate().getSemanticAnalyzer().expandStar(null, getDelegate().getLogicalOperators());
     }
 
     @Nonnull
@@ -153,7 +153,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     public Expression visitSelectQualifierStarElement(@Nonnull RelationalParser.SelectQualifierStarElementContext ctx) {
         final var identifier = visitUid(ctx.uid());
         // the semantics of valid correlations are extended to expanding a (correlated) qualified star.
-        return getDelegate().getSemanticAnalyzer().expandStar(Optional.of(identifier), getDelegate().getLogicalOperatorsIncludingOuter());
+        return getDelegate().getSemanticAnalyzer().expandStar(identifier, getDelegate().getLogicalOperatorsIncludingOuter());
     }
 
     @Nonnull
@@ -962,14 +962,14 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                 final var resultValue = RecordConstructorValue.ofUnnamed(List.of(expression.getUnderlying()));
                 return expression.withUnderlying(resultValue);
             } else {
-                final var star = getDelegate().getSemanticAnalyzer().expandStar(Optional.of(id), getDelegate().getLogicalOperators());
+                final var star = getDelegate().getSemanticAnalyzer().expandStar(id, getDelegate().getLogicalOperators());
                 final var resultValue = star.getUnderlying();
                 // Name the column after the qualifier (table name or alias) that was expanded.
                 return Expression.of(resultValue, id);
             }
         }
         if (ctx.STAR() != null) {
-            final var star = getDelegate().getSemanticAnalyzer().expandStar(Optional.empty(), getDelegate().getLogicalOperators());
+            final var star = getDelegate().getSemanticAnalyzer().expandStar(null, getDelegate().getLogicalOperators());
             final var resultValue = star.getUnderlying();
             // Name the column after the sole for-each quantifier in scope.
             // Both standard joins and PartiQL unnest expansions introduce multiple for-each
