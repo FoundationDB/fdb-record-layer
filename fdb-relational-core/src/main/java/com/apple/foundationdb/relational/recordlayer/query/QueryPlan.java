@@ -340,18 +340,19 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                     true);
 
             // ArrayRow's vararg parameter type isn't @Nullable (NullAway/JSpecify doesn't reliably track
-            // element nullability for array/vararg-typed parameters); PLAN_SERIALIZATION_MODE is genuinely
-            // null when there's no compiled statement.
-            @SuppressWarnings("NullAway")
+            // element nullability for array/vararg-typed parameters); PLAN_SERIALIZATION_MODE and the plan
+            // complexity below are genuinely null in some cases.
             final Object planSerializationMode = parsedContinuation.getCompiledStatement() == null ? null : parsedContinuation.getCompiledStatement().getPlanSerializationMode();
-            final Struct continuationInfo = ContinuationImpl.BEGIN.equals(parsedContinuation) ? null :
-                                            new ImmutableRowStruct(new ArrayRow(
+            @SuppressWarnings("NullAway")
+            final ArrayRow continuationRow = new ArrayRow(
                             parsedContinuation.getExecutionState(),
                             parsedContinuation.getVersion(),
                             planSerializationMode,
                             parsedContinuation.getPlanHash(),
                             getSerializedPlanFromContinuation(parsedContinuation, executionContext).map(RecordQueryPlan::getComplexity).orElse(null)
-                    ), RelationalStructMetaData.of(continuationStructType));
+                    );
+            final Struct continuationInfo = ContinuationImpl.BEGIN.equals(parsedContinuation) ? null :
+                                            new ImmutableRowStruct(continuationRow, RelationalStructMetaData.of(continuationStructType));
 
             final Struct plannerMetrics;
             if (plannerEventStatsMaps == null) {

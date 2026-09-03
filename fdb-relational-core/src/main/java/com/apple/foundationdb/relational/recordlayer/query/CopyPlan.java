@@ -269,15 +269,11 @@ public final class CopyPlan extends QueryPlan {
 
     @Nullable
     private static ArrayRow convertDataToRow(final ExecutionContext context,
-                                             @Nullable final DataInKeySpacePath data,
+                                             final DataInKeySpacePath data,
                                              final KeySpacePathSerializer serializer,
                                              final Map<KeySpacePath, CatalogInfo> pathSchemaCache,
                                              final StoreCatalog storeCatalog,
                                              final boolean incrementIncarnation) {
-        if (data == null) {
-            return null;
-        }
-
         final DataInKeySpacePath effectiveData;
         if (incrementIncarnation) {
             try {

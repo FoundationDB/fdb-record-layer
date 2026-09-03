@@ -68,6 +68,7 @@ import com.google.common.collect.Maps;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -212,9 +213,9 @@ public final class PlanGenerator {
             throw uve.unwrap();
         } catch (MetaDataException mde) {
             // we need a better way for translating error codes between record layer and Relational SQL error codes
-            throw new RelationalException(mde.getMessage(), ErrorCode.SYNTAX_OR_ACCESS_VIOLATION, mde);
+            throw new RelationalException(Objects.requireNonNullElse(mde.getMessage(), mde.toString()), ErrorCode.SYNTAX_OR_ACCESS_VIOLATION, mde);
         } catch (VerifyException | SemanticException ve) {
-            throw new RelationalException(ve.getMessage(), ErrorCode.INTERNAL_ERROR, ve);
+            throw new RelationalException(Objects.requireNonNullElse(ve.getMessage(), ve.toString()), ErrorCode.INTERNAL_ERROR, ve);
         } catch (SQLException e) {
             throw ExceptionUtil.toRelationalException(e);
         }
@@ -254,10 +255,10 @@ public final class PlanGenerator {
                             .generateLogicalPlan(ast.getParseTree()));
             return maybePlan.optimize(planner, planContext, currentPlanHashMode);
         } catch (ProtoUtils.InvalidNameException ine) {
-            throw new RelationalException(ine.getMessage(), ErrorCode.INVALID_NAME, ine).toUncheckedWrappedException();
+            throw new RelationalException(Objects.requireNonNullElse(ine.getMessage(), ine.toString()), ErrorCode.INVALID_NAME, ine).toUncheckedWrappedException();
         } catch (MetaDataException mde) {
             // we need a better way for translating error codes between record layer and Relational SQL error codes
-            throw new RelationalException(mde.getMessage(), ErrorCode.SYNTAX_OR_ACCESS_VIOLATION, mde).toUncheckedWrappedException();
+            throw new RelationalException(Objects.requireNonNullElse(mde.getMessage(), mde.toString()), ErrorCode.SYNTAX_OR_ACCESS_VIOLATION, mde).toUncheckedWrappedException();
         } catch (VerifyException | SemanticException ve) {
             throw ExceptionUtil.toRelationalException(ve).toUncheckedWrappedException();
         } catch (RelationalException e) {
@@ -309,7 +310,11 @@ public final class PlanGenerator {
             final Set<PlanHashable.PlanHashMode> validPlanHashModes,
             final PlanHashable.PlanHashMode currentPlanHashMode,
             final ContinuationImpl continuation,
-            final byte[] continuationProto) throws RelationalException {
+            @Nullable final byte[] continuationProto) throws RelationalException {
+        // hasCompiledStatement() (checked by the caller before this method is invoked) is exactly
+        // "getCompiledStatement() != null"; Assert.notNullUnchecked can't narrow that since Assert lives
+        // in the not-yet-migrated fdb-relational-api module.
+        @SuppressWarnings("NullAway")
         final var compiledStatement = Assert.notNullUnchecked(continuation.getCompiledStatement());
         final var serializedPlanHashMode =
                 PlanValidator.validateSerializedPlanSerializationMode(compiledStatement, validPlanHashModes);
