@@ -125,6 +125,9 @@ public interface KeySpacePath {
      * @throws com.apple.foundationdb.record.RecordCoreArgumentException if the value generated for a position in the path is not valid for
      *   that particular position
      */
+    @SuppressWarnings("NullAway") // FDBRecordContext#asyncToSync is declared with a plain <T> (not <T extends @Nullable Object>),
+                                   // so NullAway treats its return as possibly-null even though toTupleAsync() never completes
+                                   // with a null value.
     default Tuple toTuple(FDBRecordContext context) {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, toTupleAsync(context));
     }
@@ -155,6 +158,9 @@ public interface KeySpacePath {
      * @param context the context in which the path is to be resolved
      * @return the resolved path
      */
+    @SuppressWarnings("NullAway") // FDBRecordContext#asyncToSync is declared with a plain <T> (not <T extends @Nullable Object>),
+                                   // so NullAway treats its return as possibly-null even though toResolvedPathAsync() never
+                                   // completes with a null value.
     default ResolvedKeySpacePath toResolvedPath(FDBRecordContext context) {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, toResolvedPathAsync(context));
     }
@@ -200,6 +206,9 @@ public interface KeySpacePath {
      * @param context the context in which the path is resolved and a scan is performed looking for data
      * @return {@code true} if data exists for this path
      */
+    @SuppressWarnings("NullAway") // FDBRecordContext#asyncToSync is declared with a plain <T> (not <T extends @Nullable Object>),
+                                   // so NullAway treats its unboxed return as possibly-null even though hasDataAsync() never
+                                   // completes with a null value.
     default boolean hasData(FDBRecordContext context) {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_SCAN, hasDataAsync(context));
     }
@@ -310,6 +319,9 @@ public interface KeySpacePath {
      * @param scanProperties details for how the scan should be performed
      * @return a list of fully qualified paths for each value contained within this directory
      */
+    @SuppressWarnings("NullAway") // FDBRecordContext#asyncToSync is declared with a plain <T> (not <T extends @Nullable Object>),
+                                   // so NullAway treats its return as possibly-null even though listSubdirectoryAsync(...).asList()
+                                   // never completes with a null value.
     default List<ResolvedKeySpacePath> listSubdirectory(FDBRecordContext context,
                                                         String subdirName,
                                                         @Nullable ValueRange<?> range,
@@ -329,6 +341,8 @@ public interface KeySpacePath {
      * @param scanProperties details for how the scan should be performed
      * @return a list of fully qualified paths for each value contained within this directory
      */
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even
+                                   // across a call to another overload that declares the same array @Nullable.
     default List<ResolvedKeySpacePath> listSubdirectory(FDBRecordContext context,
                                                         String subdirName,
                                                         @Nullable ValueRange<?> range,
@@ -344,6 +358,8 @@ public interface KeySpacePath {
      * @param scanProperties details for how the scan should be performed
      * @return a list of fully qualified paths for each value contained within this directory
      */
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even
+                                   // across a call to another overload that declares the same array @Nullable.
     default List<ResolvedKeySpacePath> listSubdirectory(FDBRecordContext context,
                                                         String subdirName,
                                                         ScanProperties scanProperties) {
@@ -357,6 +373,8 @@ public interface KeySpacePath {
      * @param subdirName the name of the subdirectory that is to be listed
      * @return a list of fully qualified paths for each value contained within this directory
      */
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even
+                                   // across a call to another overload that declares the same array @Nullable.
     default List<ResolvedKeySpacePath> listSubdirectory(FDBRecordContext context,
                                                         String subdirName) {
         return listSubdirectory(context, subdirName, null, null, ScanProperties.FORWARD_SCAN);
