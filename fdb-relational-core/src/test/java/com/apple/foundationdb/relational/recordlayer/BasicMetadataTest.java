@@ -84,7 +84,10 @@ public class BasicMetadataTest {
         final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
         Assertions.assertNotNull(metaData, "Null metadata returned");
 
-        try (final RelationalResultSet schemas = metaData.getSchemas(database.getDatabasePath().getPath(), null)) {
+        // metaData.getSchemas(String, String) is RelationalDatabaseMetaData's JDBC-style method; per JDBC
+        // javadoc a null schemaPattern means "no filter" -- valid, intentional usage, but the unmigrated
+        // fdb-relational-api interface it's declared on isn't annotated to say so.
+        try (@SuppressWarnings("NullAway") final RelationalResultSet schemas = metaData.getSchemas(database.getDatabasePath().getPath(), null)) {
             Set<String> retData = new HashSet<>();
             ResultSetAssert.assertThat(schemas)
                     .meetsForAllRows(ResultSetAssert.perRowCondition(rs ->
@@ -95,6 +98,9 @@ public class BasicMetadataTest {
     }
 
     @Test
+    // metaData.getSchemas(null, null) is deliberately exercising the null-catalog/null-schemaPattern JDBC
+    // contract inside a lambda; the unmigrated fdb-relational-api interface isn't annotated to allow it.
+    @SuppressWarnings("NullAway")
     void getSchemasForNullDatabaseThrowsException() throws SQLException {
         //TODO(bfines) remove this test when the catalog pattern is allowed to be null(TODO)
         final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
@@ -109,7 +115,9 @@ public class BasicMetadataTest {
         final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
         Assertions.assertNotNull(metaData, "Null metadata returned");
 
-        try (final RelationalResultSet tables = metaData.getTables(database.getDatabasePath().getPath(), "TEST_SCHEMA", null, null)) {
+        // metaData.getTables(...) accepts null tableNamePattern/types per JDBC javadoc ("no filter"); the
+        // unmigrated fdb-relational-api interface it's declared on isn't annotated to say so.
+        try (@SuppressWarnings("NullAway") final RelationalResultSet tables = metaData.getTables(database.getDatabasePath().getPath(), "TEST_SCHEMA", null, null)) {
             Assertions.assertNotNull(tables, "Null tables returned");
             List<String> retTableNames = new ArrayList<>();
             while (tables.next()) {
@@ -120,6 +128,9 @@ public class BasicMetadataTest {
     }
 
     @Test
+    // metaData.getTables(...) is invoked with null tableNamePattern/types inside a lambda, per the JDBC
+    // "no filter" contract; the unmigrated fdb-relational-api interface isn't annotated to allow it.
+    @SuppressWarnings("NullAway")
     void getTablesForMissingSchemaThrowsException() throws SQLException {
         final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
         Assertions.assertNotNull(metaData, "Null metadata returned");
@@ -133,7 +144,9 @@ public class BasicMetadataTest {
         final RelationalDatabaseMetaData metaData = dbConn.getMetaData();
         Assertions.assertNotNull(metaData, "Null metadata returned");
 
-        try (final RelationalResultSet tableData = metaData.getColumns(database.getDatabasePath().getPath(), "TEST_SCHEMA", "RESTAURANT", null)) {
+        // metaData.getColumns(...) accepts a null columnNamePattern per JDBC javadoc ("no filter"); the
+        // unmigrated fdb-relational-api interface it's declared on isn't annotated to say so.
+        try (@SuppressWarnings("NullAway") final RelationalResultSet tableData = metaData.getColumns(database.getDatabasePath().getPath(), "TEST_SCHEMA", "RESTAURANT", null)) {
             List<Tuple> rows = new ArrayList<>();
             while (tableData.next()) {
                 rows.add(new Tuple()
@@ -187,7 +200,9 @@ public class BasicMetadataTest {
         RelationalDatabaseMetaData metaData = dbConn.getMetaData();
         dbConn.setAutoCommit(false);
         dbConn.commit();
-        try (RelationalResultSet schemas = metaData.getSchemas(dbConn.getCatalog(), null)) {
+        // metaData.getSchemas(...) accepts a null schemaPattern per JDBC javadoc ("no filter"); the
+        // unmigrated fdb-relational-api interface it's declared on isn't annotated to say so.
+        try (@SuppressWarnings("NullAway") RelationalResultSet schemas = metaData.getSchemas(dbConn.getCatalog(), null)) {
             schemas.next();
             assertThat(schemas.getString("TABLE_CATALOG")).isEqualTo(database.getDatabasePath().getPath());
             assertThat(schemas.getString("TABLE_SCHEM")).satisfiesAnyOf(
@@ -198,6 +213,10 @@ public class BasicMetadataTest {
     }
 
     @Test
+    // metaData.getTables(...) is deliberately called with null catalog/schema/table/types arguments inside
+    // lambdas, per the JDBC "no filter" contract; the unmigrated fdb-relational-api interface isn't
+    // annotated to allow it.
+    @SuppressWarnings("NullAway")
     void notSupportedGetTables() throws SQLException {
         RelationalDatabaseMetaData metaData = dbConn.getMetaData();
         RelationalAssertions.assertThrowsSqlException(
@@ -212,6 +231,10 @@ public class BasicMetadataTest {
     }
 
     @Test
+    // metaData.getColumns(...) is deliberately called with null catalog/schema/table/column arguments inside
+    // lambdas, per the JDBC "no filter" contract; the unmigrated fdb-relational-api interface isn't
+    // annotated to allow it.
+    @SuppressWarnings("NullAway")
     void notSupportedGetColumns() throws SQLException {
         RelationalDatabaseMetaData metaData = dbConn.getMetaData();
         RelationalAssertions.assertThrowsSqlException(

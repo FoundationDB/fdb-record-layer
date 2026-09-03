@@ -40,6 +40,7 @@ import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetadataDeserializer;
 import com.apple.foundationdb.relational.recordlayer.query.Literals;
+import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
@@ -67,6 +68,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
@@ -80,6 +82,13 @@ import java.util.stream.Stream;
  * Contains a number of tests for serializing and deserializing {@link RecordLayerSchemaTemplate}.
  */
 public class SchemaTemplateSerDeTests {
+
+    // Stub view compiler for tests: view expansion is not implemented yet, so it just returns null.
+    // RecordLayerView.Builder#setViewCompiler declares Function<Boolean, LogicalOperator> with a
+    // @NonNull result, but that class isn't in scope here, so we suppress at this single shared stub
+    // instead of at every one of its many call sites in this file.
+    @SuppressWarnings("NullAway")
+    private static final Function<Boolean, LogicalOperator> UNIMPLEMENTED_VIEW_COMPILER = ignored -> null;
 
     @BeforeAll
     public static void setup() {
@@ -687,7 +696,7 @@ public class SchemaTemplateSerDeTests {
                 .addView(RecordLayerView.newBuilder()
                         .setName("high_salary_view")
                         .setDescription("SELECT * FROM employees WHERE salary > 50000")
-                        .setViewCompiler(ignored -> null)  // Stub for now, view expansion not implemented
+                        .setViewCompiler(UNIMPLEMENTED_VIEW_COMPILER)  // Stub for now, view expansion not implemented
                         .build())
                 .build();
 
@@ -715,12 +724,12 @@ public class SchemaTemplateSerDeTests {
                 .addView(RecordLayerView.newBuilder()
                         .setName("view1")
                         .setDescription("SELECT * FROM employees")
-                        .setViewCompiler(ignored -> null)
+                        .setViewCompiler(UNIMPLEMENTED_VIEW_COMPILER)
                         .build())
                 .addView(RecordLayerView.newBuilder()
                         .setName("view2")
                         .setDescription("SELECT id FROM employees")
-                        .setViewCompiler(ignored -> null)
+                        .setViewCompiler(UNIMPLEMENTED_VIEW_COMPILER)
                         .build())
                 .build();
 
@@ -746,7 +755,7 @@ public class SchemaTemplateSerDeTests {
                 .addView(RecordLayerView.newBuilder()
                         .setName("test_view")
                         .setDescription("SELECT * FROM employees WHERE id > 10")
-                        .setViewCompiler(ignored -> null)
+                        .setViewCompiler(UNIMPLEMENTED_VIEW_COMPILER)
                         .build())
                 .build();
 
@@ -755,7 +764,7 @@ public class SchemaTemplateSerDeTests {
                 .replaceView(RecordLayerView.newBuilder()
                         .setName("test_view")
                         .setDescription("SELECT * FROM employees WHERE id > 100")
-                        .setViewCompiler(ignored -> null)
+                        .setViewCompiler(UNIMPLEMENTED_VIEW_COMPILER)
                         .build())
                 .build();
 
@@ -782,7 +791,7 @@ public class SchemaTemplateSerDeTests {
                 .addView(RecordLayerView.newBuilder()
                         .setName("test_view")
                         .setDescription("SELECT * FROM employees")
-                        .setViewCompiler(ignored -> null)
+                        .setViewCompiler(UNIMPLEMENTED_VIEW_COMPILER)
                         .build())
                 .build();
 
@@ -818,7 +827,7 @@ public class SchemaTemplateSerDeTests {
                 .addView(RecordLayerView.newBuilder()
                         .setName("employee_view")
                         .setDescription("SELECT id, name FROM employees WHERE id > 100")
-                        .setViewCompiler(ignored -> null)
+                        .setViewCompiler(UNIMPLEMENTED_VIEW_COMPILER)
                         .build())
                 .build();
 
@@ -869,12 +878,12 @@ public class SchemaTemplateSerDeTests {
                 .addView(RecordLayerView.newBuilder()
                         .setName("employee_view")
                         .setDescription("SELECT * FROM employees")
-                        .setViewCompiler(ignored -> null)
+                        .setViewCompiler(UNIMPLEMENTED_VIEW_COMPILER)
                         .build())
                 .addView(RecordLayerView.newBuilder()
                         .setName("department_view")
                         .setDescription("SELECT * FROM departments")
-                        .setViewCompiler(ignored -> null)
+                        .setViewCompiler(UNIMPLEMENTED_VIEW_COMPILER)
                         .build())
                 .build();
 
@@ -893,7 +902,7 @@ public class SchemaTemplateSerDeTests {
         final var originalView = RecordLayerView.newBuilder()
                 .setName("test_view")
                 .setDescription("SELECT * FROM employees")
-                .setViewCompiler(ignored -> null)
+                .setViewCompiler(UNIMPLEMENTED_VIEW_COMPILER)
                 .build();
 
         // Convert to builder and back

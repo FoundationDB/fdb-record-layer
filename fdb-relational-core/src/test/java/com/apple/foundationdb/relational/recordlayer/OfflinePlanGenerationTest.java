@@ -36,6 +36,7 @@ import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.cache.NoOpMetricCollector;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
+import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import org.junit.jupiter.api.BeforeEach;
@@ -168,10 +169,16 @@ class OfflinePlanGenerationTest {
             final FDBRecordStoreBase<?> store = rlDatabase.loadSchema(connection.getSchema())
                     .loadStore().unwrap(FDBRecordStoreBase.class);
 
+            // embeddedConnection.getMetricCollector() is @Nullable only because the collector isn't set up
+            // until a transaction is active (already the case here); Assert.notNullUnchecked enforces that
+            // invariant at runtime, but NullAway can't see that since Assert lives in the not-yet-migrated
+            // fdb-relational-api module.
+            @SuppressWarnings("NullAway")
+            final var metricCollector = Assert.notNullUnchecked(embeddedConnection.getMetricCollector());
             final PlanContext openPlanContext = PlanContext.Builder.create()
                     .fromRecordStore(store, options)
                     .fromDatabase(rlDatabase)
-                    .withMetricsCollector(embeddedConnection.getMetricCollector())
+                    .withMetricsCollector(metricCollector)
                     .withSchemaTemplate(embeddedConnection.getSchemaTemplate())
                     .build();
             final var openPlan = (QueryPlan.PhysicalQueryPlan) PlanGenerator
@@ -205,10 +212,16 @@ class OfflinePlanGenerationTest {
             final FDBRecordStoreBase<?> store = rlDatabase.loadSchema(connection.getSchema())
                     .loadStore().unwrap(FDBRecordStoreBase.class);
 
+            // embeddedConnection.getMetricCollector() is @Nullable only because the collector isn't set up
+            // until a transaction is active (already the case here); Assert.notNullUnchecked enforces that
+            // invariant at runtime, but NullAway can't see that since Assert lives in the not-yet-migrated
+            // fdb-relational-api module.
+            @SuppressWarnings("NullAway")
+            final var metricCollector = Assert.notNullUnchecked(embeddedConnection.getMetricCollector());
             final PlanContext openPlanContext = PlanContext.Builder.create()
                     .fromRecordStore(store, options)
                     .fromDatabase(rlDatabase)
-                    .withMetricsCollector(embeddedConnection.getMetricCollector())
+                    .withMetricsCollector(metricCollector)
                     .withSchemaTemplate(embeddedConnection.getSchemaTemplate())
                     .build();
             PlanGenerator.create(Optional.of(cache), openPlanContext, store, options)

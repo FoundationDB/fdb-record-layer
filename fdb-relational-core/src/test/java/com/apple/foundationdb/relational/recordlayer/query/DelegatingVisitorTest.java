@@ -216,6 +216,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
+                    @SuppressWarnings("NullAway") // intentionally returns null; only the invocation is being tested here
                     public Object visitViewDefinition(RelationalParser.ViewDefinitionContext ctx) {
                         called.set(true);
                         return null;
@@ -231,6 +232,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
+                    @SuppressWarnings("NullAway") // intentionally returns null; only the invocation is being tested here
                     public Object visitStoredQueryDefinition(RelationalParser.StoredQueryDefinitionContext ctx) {
                         called.set(true);
                         return null;
@@ -246,6 +248,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
+                    @SuppressWarnings("NullAway") // intentionally returns null; only the invocation is being tested here
                     public Object visitDeclareBlock(RelationalParser.DeclareBlockContext ctx) {
                         called.set(true);
                         return null;
@@ -261,6 +264,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
+                    @SuppressWarnings("NullAway") // intentionally returns null; only the invocation is being tested here
                     public Object visitDeclaredFunction(RelationalParser.DeclaredFunctionContext ctx) {
                         called.set(true);
                         return null;
@@ -291,6 +295,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
+                    @SuppressWarnings("NullAway") // intentionally returns null; only the invocation is being tested here
                     public Object visitIndexOptions(RelationalParser.IndexOptionsContext ctx) {
                         called.set(true);
                         return null;
@@ -306,6 +311,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
+                    @SuppressWarnings("NullAway") // intentionally returns null; only the invocation is being tested here
                     public Object visitIndexOption(RelationalParser.IndexOptionContext ctx) {
                         called.set(true);
                         return null;
@@ -321,6 +327,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
+                    @SuppressWarnings("NullAway") // intentionally returns null; only the invocation is being tested here
                     public Object visitStatementOptions(RelationalParser.StatementOptionsContext ctx) {
                         called.set(true);
                         return null;
@@ -336,6 +343,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
+                    @SuppressWarnings("NullAway") // intentionally returns null; only the invocation is being tested here
                     public Object visitStatementOption(RelationalParser.StatementOptionContext ctx) {
                         called.set(true);
                         return null;
@@ -355,7 +363,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
-                    @SuppressWarnings({"NullableProblems", "DataFlowIssue"})
+                    @SuppressWarnings({"NullableProblems", "DataFlowIssue", "NullAway"})
                     public RecordLayerIndex visitVectorIndexDefinition(RelationalParser.VectorIndexDefinitionContext ctx) {
                         called.set(true);
                         return null;
@@ -375,6 +383,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
+                    @SuppressWarnings("NullAway") // intentionally returns null; only the invocation is being tested here
                     public Expressions visitPartitionClause(final RelationalParser.PartitionClauseContext ctx) {
                         called.set(true);
                         return null;
@@ -390,7 +399,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
-                    @SuppressWarnings({"NullableProblems", "DataFlowIssue"})
+                    @SuppressWarnings({"NullableProblems", "DataFlowIssue", "NullAway"})
                     public Object visitIndexColumnList(RelationalParser.IndexColumnListContext ctx) {
                         called.set(true);
                         return null;
@@ -406,7 +415,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
-                    @SuppressWarnings({"NullableProblems", "DataFlowIssue"})
+                    @SuppressWarnings({"NullableProblems", "DataFlowIssue", "NullAway"})
                     public Object visitIncludeClause(RelationalParser.IncludeClauseContext ctx) {
                         called.set(true);
                         return null;
@@ -426,7 +435,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
-                    @SuppressWarnings({"NullableProblems", "DataFlowIssue"})
+                    @SuppressWarnings({"NullableProblems", "DataFlowIssue", "NullAway"})
                     public RecordLayerIndex visitIndexOnSourceDefinition(RelationalParser.IndexOnSourceDefinitionContext ctx) {
                         called.set(true);
                         return null;
@@ -442,6 +451,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
+                    @SuppressWarnings("NullAway") // intentionally returns null; only the invocation is being tested here
                     public Object visitIndexType(RelationalParser.IndexTypeContext ctx) {
                         called.set(true);
                         return null;
@@ -457,7 +467,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
-                    @SuppressWarnings({"NullableProblems", "DataFlowIssue"})
+                    @SuppressWarnings({"NullableProblems", "DataFlowIssue", "NullAway"})
                     public Object visitIndexColumnSpec(RelationalParser.IndexColumnSpecContext ctx) {
                         called.set(true);
                         return null;
@@ -477,7 +487,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, query, query, 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
-                    @SuppressWarnings({"NullableProblems", "DataFlowIssue"})
+                    @SuppressWarnings({"NullableProblems", "DataFlowIssue", "NullAway"})
                     public RecordLayerIndex visitIndexAsSelectDefinition(RelationalParser.IndexAsSelectDefinitionContext ctx) {
                         called.set(true);
                         return null;
@@ -493,6 +503,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
+                    @SuppressWarnings("NullAway") // intentionally returns null; only the invocation is being tested here
                     public Object visitOrderClause(RelationalParser.OrderClauseContext ctx) {
                         called.set(true);
                         return null;
@@ -508,6 +519,7 @@ public class DelegatingVisitorTest {
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
+                    @SuppressWarnings("NullAway") // intentionally returns null; only the invocation is being tested here
                     public Object visitVectorIndexOptions(RelationalParser.VectorIndexOptionsContext ctx) {
                         called.set(true);
                         return null;
