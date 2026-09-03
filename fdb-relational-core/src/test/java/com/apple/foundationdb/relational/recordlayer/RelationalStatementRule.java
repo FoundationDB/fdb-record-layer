@@ -40,6 +40,8 @@ public class RelationalStatementRule implements BeforeEachCallback, AfterEachCal
     RelationalConnection connection;
     RelationalStatement statement;
 
+    // statement is set later in beforeEach(), not in this constructor.
+    @SuppressWarnings("NullAway.Init")
     public RelationalStatementRule(RelationalConnection connection) {
         this.connection = connection;
     }

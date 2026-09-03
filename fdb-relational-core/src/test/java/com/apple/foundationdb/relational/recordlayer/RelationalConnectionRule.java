@@ -48,6 +48,9 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
     RelationalConnection connection;
 
 
+    // options/schema/connection are set later via the withOptions/withSchema fluent setters and
+    // beforeEach(), not in this constructor.
+    @SuppressWarnings("NullAway.Init")
     public RelationalConnectionRule(SqlSupplier<RelationalDriver> driverSupplier, Supplier<URI> dbPathSupplier) {
         this.driverSupplier = driverSupplier;
         this.dbPathSupplier = dbPathSupplier;
@@ -69,6 +72,9 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
     }
 
     @Override
+    // connection is treated as non-null while the rule is active, but is reset to null here on
+    // teardown for test isolation between JUnit test methods.
+    @SuppressWarnings("NullAway")
     public void afterEach(ExtensionContext context) throws SQLException {
         if (connection != null) {
             connection.close();
