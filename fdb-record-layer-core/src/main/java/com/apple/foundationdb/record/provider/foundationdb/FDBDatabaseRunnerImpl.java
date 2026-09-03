@@ -40,6 +40,7 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -261,13 +262,18 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
             while (again) {
                 try {
                     T ret = transactionalRunner.run(currAttempt != 0, retriable);
-                    again = asyncToSync(FDBStoreTimer.Waits.WAIT_RETRY_DELAY, handle(ret, null));
+                    // asyncToSync is declared @Nullable (per the FDBDatabaseRunner interface contract, which
+                    // this can't narrow without an incompatible override elsewhere), but handle()'s future
+                    // always completes with a concrete true/false, never null.
+                    again = Objects.requireNonNull(asyncToSync(FDBStoreTimer.Waits.WAIT_RETRY_DELAY, handle(ret, null)));
                 } catch (Exception e) {
-                    again = asyncToSync(FDBStoreTimer.Waits.WAIT_RETRY_DELAY, handle(null, e));
+                    again = Objects.requireNonNull(asyncToSync(FDBStoreTimer.Waits.WAIT_RETRY_DELAY, handle(null, e)));
                 }
             }
             if (exception == null) {
-                return retVal;
+                // The loop above only exits with exception == null via handle()'s success branch, which always
+                // sets retVal to a real (non-null, assuming T itself is non-null-bounded) result first.
+                return Objects.requireNonNull(retVal);
             } else {
                 throw exception;
             }

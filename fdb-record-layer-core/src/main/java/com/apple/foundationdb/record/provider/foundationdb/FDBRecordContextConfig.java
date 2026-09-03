@@ -269,6 +269,7 @@ public class FDBRecordContextConfig {
         private boolean serverRequestTracing = false;
         private boolean trackOpen = false;
         private boolean saveOpenStackTrace = false;
+        @Nullable
         private TransactionListener listener = null;
         private RecordLayerPropertyStorage recordContextProperties = RecordLayerPropertyStorage.getEmptyInstance();
         private Set<String> tags = Collections.emptySet();

@@ -32,6 +32,7 @@ import org.jspecify.annotations.Nullable;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
+import java.util.Objects;
 
 /**
  * Class representing a specific version within FDB. This
@@ -595,7 +596,9 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
         if (committedVersion == null) {
             throw new RecordCoreArgumentException("the given committed version was for a read-only transaction");
         }
-        return complete(committedVersion, getLocalVersion());
+        // NullAway/JSpecify does not reliably narrow a @Nullable byte[] parameter through this null check (a
+        // known array-type tracking gap).
+        return complete(Objects.requireNonNull(committedVersion), getLocalVersion());
     }
 
     /**
