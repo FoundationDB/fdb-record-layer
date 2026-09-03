@@ -52,6 +52,7 @@ public class ResultSetContinuationTest {
                 continuation,
                 TestUtils.row(1, 2, 3), TestUtils.row(4, 5, 6));
         ResultSet rsProto = TypeConversion.toProtobuf(resultSet);
+        Assertions.assertNotNull(rsProto);
 
         try (RelationalResultSetFacade deserializedResultSet = new RelationalResultSetFacade(rsProto)) {
             List<List<Integer>> rows = toRows(deserializedResultSet, 3);
@@ -68,6 +69,7 @@ public class ResultSetContinuationTest {
                 continuation,
                 TestUtils.row(1, 2, 3), TestUtils.row(4, 5, 6));
         ResultSet rsProto = TypeConversion.toProtobuf(resultSet);
+        Assertions.assertNotNull(rsProto);
 
         try (RelationalResultSetFacade deserializedResultSet = new RelationalResultSetFacade(rsProto)) {
             // Spend all the rows so we can get the continuation
@@ -84,6 +86,7 @@ public class ResultSetContinuationTest {
                 MockContinuation.BEGIN,
                 TestUtils.row(1, 2, 3), TestUtils.row(4, 5, 6));
         ResultSet rsProto = TypeConversion.toProtobuf(resultSet);
+        Assertions.assertNotNull(rsProto);
 
         try (RelationalResultSetFacade deserializedResultSet = new RelationalResultSetFacade(rsProto)) {
             // No continuation before any row

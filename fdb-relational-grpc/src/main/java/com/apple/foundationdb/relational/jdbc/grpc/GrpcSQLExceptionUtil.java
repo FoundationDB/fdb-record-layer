@@ -32,7 +32,8 @@ import io.grpc.protobuf.StatusProto;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.reflect.Constructor;
@@ -125,6 +126,9 @@ public final class GrpcSQLExceptionUtil {
     @Nullable
     public static SQLException map(StatusRuntimeException statusRuntimeException) {
         Status status = StatusProto.fromThrowable(statusRuntimeException);
+        if (status == null) {
+            return null;
+        }
         return map(status);
     }
 
