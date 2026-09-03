@@ -81,6 +81,8 @@ public class UpdateTest {
     void updateSimpleFieldWithContinuationTest() throws Exception {
         final var fieldToUpdate = "name";
         final Function<RelationalConnection, Object> updateValue = conn -> "blahText";
+        // updateValue ignores its argument here, so passing null is safe even though Function.apply() requires @NonNull.
+        @SuppressWarnings("NullAway")
         final var expectedValue = updateValue.apply(null);
         testUpdateWithContinuationInternal(fieldToUpdate, updateValue, expectedValue);
     }
@@ -89,6 +91,8 @@ public class UpdateTest {
     void updateSimpleFieldVerifyCacheTest() throws Exception {
         final var fieldToUpdate = "name";
         final Function<RelationalConnection, Object> updateValue = conn -> "blahText";
+        // updateValue ignores its argument here, so passing null is safe even though Function.apply() requires @NonNull.
+        @SuppressWarnings("NullAway")
         final var expectedValue = updateValue.apply(null);
         testUpdateVerifyCacheInternal(fieldToUpdate, updateValue, expectedValue);
     }
@@ -209,18 +213,18 @@ public class UpdateTest {
         }
     }
 
-    private Pair<Continuation, Integer> updateWithScanRowLimit(final String fieldToUpdate, final Function<RelationalConnection, Object> updateValue,
+    private NonnullPair<Continuation, Integer> updateWithScanRowLimit(final String fieldToUpdate, final Function<RelationalConnection, Object> updateValue,
                                                                Object expectedValue) throws SQLException, RelationalException {
         return updateWithScanRowLimit(fieldToUpdate, updateValue, expectedValue, Options.NONE);
     }
 
-    private Pair<Continuation, Integer> updateWithScanRowLimit(final String fieldToUpdate, final Function<RelationalConnection, Object> updateValue,
+    private NonnullPair<Continuation, Integer> updateWithScanRowLimit(final String fieldToUpdate, final Function<RelationalConnection, Object> updateValue,
                                                                Object expectedValue, Options options) throws SQLException, RelationalException {
-        return updateWithScanRowLimit(fieldToUpdate, updateValue, expectedValue, Pair.of(ContinuationImpl.BEGIN, 0), options);
+        return updateWithScanRowLimit(fieldToUpdate, updateValue, expectedValue, NonnullPair.of(ContinuationImpl.BEGIN, 0), options);
     }
 
-    private Pair<Continuation, Integer> updateWithScanRowLimit(final String fieldToUpdate, final Function<RelationalConnection, Object> updateValue,
-                                                               Object expectedValue, Pair<Continuation, Integer> continuationAndNumUpdated,
+    private NonnullPair<Continuation, Integer> updateWithScanRowLimit(final String fieldToUpdate, final Function<RelationalConnection, Object> updateValue,
+                                                               Object expectedValue, NonnullPair<Continuation, Integer> continuationAndNumUpdated,
                                                                Options options) throws SQLException, RelationalException {
         var continuation = continuationAndNumUpdated.getLeft();
         var updatedUpTill = continuationAndNumUpdated.getRight();
@@ -241,7 +245,7 @@ public class UpdateTest {
                 }
             }
         }
-        return Pair.of(continuation, updatedUpTill);
+        return NonnullPair.of(continuation, updatedUpTill);
     }
 
     private void testUpdateWithContinuationInternal(String fieldToUpdate, Function<RelationalConnection, Object> updateValue, Object expectedValue)
