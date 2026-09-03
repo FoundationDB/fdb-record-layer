@@ -187,7 +187,7 @@ public class KeySpaceTreeResolver {
         private final Object prefix;
 
         public ResolvedPrefixRoot(Resolved parent, Object prefix) {
-            super(parent, parent.getDirectory());
+            super(parent, Objects.requireNonNull(parent.getDirectory(), "parent of a ResolvedPrefixRoot must have a directory"));
             this.prefix = prefix;
         }
 
@@ -294,7 +294,6 @@ public class KeySpaceTreeResolver {
             this.index = index;
         }
 
-        @Nullable
         public Index getIndex() {
             return index;
         }
@@ -328,7 +327,6 @@ public class KeySpaceTreeResolver {
             this.recordType = recordType;
         }
 
-        @Nullable
         public RecordType getRecordType() {
             return recordType;
         }
@@ -459,7 +457,9 @@ public class KeySpaceTreeResolver {
             if (index.get() >= tuple.size()) {
                 return AsyncUtil.READY_FALSE;
             }
-            return resolve(current.get(), tuple.get(index.get())).thenApply(resolved -> {
+            // current is initialized non-null and only ever reassigned to non-null values (see below), so it is
+            // always non-null here.
+            return resolve(Objects.requireNonNull(current.get()), tuple.get(index.get())).thenApply(resolved -> {
                 if (resolved == null) {
                     return false;
                 }
@@ -467,7 +467,7 @@ public class KeySpaceTreeResolver {
                 index.incrementAndGet();
                 return true;
             });
-        }).thenApply(vignore -> new ResolvedAndRemainder(current.get(), TupleHelpers.subTuple(tuple, index.get(), tuple.size())));
+        }).thenApply(vignore -> new ResolvedAndRemainder(Objects.requireNonNull(current.get()), TupleHelpers.subTuple(tuple, index.get(), tuple.size())));
     }
 
     @SuppressWarnings("PMD.CloseResource")
