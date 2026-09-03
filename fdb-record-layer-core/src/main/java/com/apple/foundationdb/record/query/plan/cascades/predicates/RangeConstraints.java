@@ -766,6 +766,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
                 case DISTANCE_RANK_EQUALS:
                 case DISTANCE_RANK_LESS_THAN:
                 case DISTANCE_RANK_LESS_THAN_OR_EQUAL:
+                case WITHIN_DISTANCE:
                     return true;
                 case TEXT_CONTAINS_ALL:
                 case TEXT_CONTAINS_ALL_WITHIN:

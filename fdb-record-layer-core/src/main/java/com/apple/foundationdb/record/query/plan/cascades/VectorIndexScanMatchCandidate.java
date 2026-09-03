@@ -445,16 +445,7 @@ public class VectorIndexScanMatchCandidate implements WithPrimaryKeyMatchCandida
         // currently, exactly one distance rank comparison is supported by the index.
         Verify.verify(rankComparisons.size() == 1, "attempt to create vector scan comparison without any rank comparison");
 
-        return VectorIndexScanComparisons.byDistance(toScanComparisons(scanRangesBuilder.build()),
+        return VectorIndexScanComparisons.byDistance(ScanComparisons.fromComparisonRanges(scanRangesBuilder.build()),
                 distanceRankComparisonsBuilder.build().get(0));
-    }
-
-    @Nonnull
-    private static ScanComparisons toScanComparisons(@Nonnull final List<ComparisonRange> comparisonRanges) {
-        ScanComparisons.Builder builder = new ScanComparisons.Builder();
-        for (ComparisonRange comparisonRange : comparisonRanges) {
-            builder.addComparisonRange(comparisonRange);
-        }
-        return builder.build();
     }
 }

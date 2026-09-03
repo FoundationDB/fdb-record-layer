@@ -102,7 +102,9 @@ public class RecordQuerySortAdapter<M extends Message> implements FileSortAdapte
     @Nonnull
     @Override
     public Tuple generateKey(@Nonnull FDBQueriedRecord<M> value) {
-        return key.getKey().evaluateSingleton(value).toTuple();
+        // Append the primary key so that records whose sort key alone is not unique do not collide
+        // in the underlying map and get dropped.
+        return key.getKey().evaluateSingleton(value).toTuple().addAll(value.getPrimaryKey());
     }
 
     @Nonnull

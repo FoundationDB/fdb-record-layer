@@ -406,7 +406,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                 .orElseGet(() ->
                         new RecordQueryIndexPlan(index.getName(),
                                 primaryKey,
-                                new IndexScanComparisons(IndexScanType.BY_RANK, toScanComparisons(comparisonRanges)),
+                                new IndexScanComparisons(IndexScanType.BY_RANK, ScanComparisons.fromComparisonRanges(comparisonRanges)),
                                 planContext.getPlannerConfiguration().getIndexFetchMethod(),
                                 RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
                                 reverseScanOrder,
@@ -428,7 +428,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
             return Optional.empty();
         }
         final var indexEntryToLogicalRecord = indexEntryToLogicalRecordOptional.get();
-        final var scanParameters = new IndexScanComparisons(IndexScanType.BY_RANK, toScanComparisons(comparisonRanges));
+        final var scanParameters = new IndexScanComparisons(IndexScanType.BY_RANK, ScanComparisons.fromComparisonRanges(comparisonRanges));
         final var indexPlan =
                 new RecordQueryIndexPlan(index.getName(),
                         primaryKey,
@@ -463,15 +463,6 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                 sourceAlias,
                 targetAlias,
                 indexEntryToLogicalRecord.getLogicalKeyValues());
-    }
-
-    @Nonnull
-    private static ScanComparisons toScanComparisons(@Nonnull final List<ComparisonRange> comparisonRanges) {
-        ScanComparisons.Builder builder = new ScanComparisons.Builder();
-        for (ComparisonRange comparisonRange : comparisonRanges) {
-            builder.addComparisonRange(comparisonRange);
-        }
-        return builder.build();
     }
 
     @Nonnull

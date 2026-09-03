@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.record.provider.foundationdb.query.DualPlannerTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -160,6 +161,7 @@ class SimpleMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
     }
 
 
+    @DualPlannerTest
     @ParameterizedTest
     @MethodSource("argumentsForBasicReads")
     void basicReadTest(@Nonnull final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex)
@@ -193,6 +195,16 @@ class SimpleMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
     void indexReadTest(final long seed, final int numRecords, @Nonnull final String storage,
                        final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.indexReadTest(false, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
+    }
+
+    /**
+     * Dual-planner variant of {@link #indexReadTest} with fixed args — end-to-end coverage of
+     * {@link com.apple.foundationdb.record.query.plan.cascades.MultidimensionalIndexScanMatchCandidate}'s
+     * {@code toEquivalentPlan} under Cascades.
+     */
+    @DualPlannerTest
+    void indexReadDualPlannerTest() throws Exception {
+        super.indexReadTest(false, 0L, 100, BY_NODE.toString(), true, false);
     }
 
     @ParameterizedTest
