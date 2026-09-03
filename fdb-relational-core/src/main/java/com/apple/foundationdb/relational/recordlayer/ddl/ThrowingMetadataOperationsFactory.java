@@ -103,6 +103,6 @@ public final class ThrowingMetadataOperationsFactory implements MetadataOperatio
     @Nonnull
     @Override
     public ConstantAction getSetLocalVariableConstantAction(@Nonnull String name, @Nullable Object value) {
-        throw reject("SET LOCAL");
+        throw reject("SET TRANSACTION VARIABLE");
     }
 }

@@ -121,7 +121,7 @@ public class TransactionBoundDatabaseTest {
     }
 
     @Test
-    void setLocalVariableViaTransactionBoundDatabase() throws RelationalException, SQLException {
+    void setTransactionVariableViaTransactionBoundDatabase() throws RelationalException, SQLException {
         final var embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
         withTransactionBoundConnection(embeddedConnection, Options.NONE, (KeySpace) null, conn -> {
             try (RelationalStatement stmt = conn.createStatement()) {
@@ -131,8 +131,8 @@ public class TransactionBoundDatabaseTest {
                         .build());
             }
             try (RelationalStatement stmt = conn.createStatement()) {
-                stmt.execute("SET LOCAL target_no = 77");
-                try (RelationalResultSet rs = stmt.executeQuery("SELECT NAME FROM RESTAURANT WHERE REST_NO = @target_no")) {
+                stmt.execute("SET TRANSACTION VARIABLE target_no = 77");
+                try (RelationalResultSet rs = stmt.executeQuery("SELECT NAME FROM RESTAURANT WHERE REST_NO = GET_VARIABLE(target_no)")) {
                     Assertions.assertThat(rs.next()).isTrue();
                     Assertions.assertThat(rs.getString("NAME")).isEqualTo("transbound-place");
                     Assertions.assertThat(rs.next()).isFalse();

@@ -1,7 +1,8 @@
 Diagram(
     Sequence(
         Terminal('SET'),
-        Terminal('LOCAL'),
+        Terminal('TRANSACTION'),
+        Terminal('VARIABLE'),
         NonTerminal('name'),
         Terminal('='),
         NonTerminal('constant')

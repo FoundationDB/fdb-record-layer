@@ -39,7 +39,7 @@ import java.net.URI;
 import java.util.Base64;
 
 /**
- * Tests for transaction-scoped local variables (SET LOCAL / @variable).
+ * Tests for transaction-scoped local variables (SET TRANSACTION VARIABLE / GET_VARIABLE(name)).
  */
 public class LocalVariableTests {
 
@@ -61,8 +61,8 @@ public class LocalVariableTests {
             final var conn = ddl.getConnection();
             conn.setAutoCommit(false);
             try (var stmt = conn.createStatement()) {
-                stmt.execute("set local myname = 'bob'");
-                try (var rs = stmt.executeQuery("select pk, name from t1 where name = @myname")) {
+                stmt.execute("set transaction variable myname = 'bob'");
+                try (var rs = stmt.executeQuery("select pk, name from t1 where name = GET_VARIABLE(myname)")) {
                     ResultSetAssert.assertThat(rs).hasNextRow().isRowExactly(2L, "bob").hasNoNextRow();
                 }
             }
@@ -80,8 +80,8 @@ public class LocalVariableTests {
             final var conn = ddl.getConnection();
             conn.setAutoCommit(false);
             try (var stmt = conn.createStatement()) {
-                stmt.execute("set local target = 20");
-                try (var rs = stmt.executeQuery("select pk from t2 where val = @target")) {
+                stmt.execute("set transaction variable target = 20");
+                try (var rs = stmt.executeQuery("select pk from t2 where val = GET_VARIABLE(target)")) {
                     ResultSetAssert.assertThat(rs).hasNextRow().isRowExactly(2L).hasNoNextRow();
                 }
             }
@@ -98,7 +98,7 @@ public class LocalVariableTests {
 
             // Set variable in first transaction
             try (var stmt = conn.createStatement()) {
-                stmt.execute("set local x = 42");
+                stmt.execute("set transaction variable x = 42");
             }
             conn.commit();
 
@@ -107,7 +107,7 @@ public class LocalVariableTests {
             conn.setAutoCommit(false);
             try (var stmt = conn.createStatement()) {
                 RelationalAssertions.assertThrowsSqlException(
-                        () -> stmt.executeQuery("select @x from t3"))
+                        () -> stmt.executeQuery("select GET_VARIABLE(x) from t3"))
                         .hasErrorCode(ErrorCode.UNDEFINED_PARAMETER);
             }
             conn.rollback();
@@ -122,7 +122,7 @@ public class LocalVariableTests {
             conn.setAutoCommit(false);
             try (var stmt = conn.createStatement()) {
                 RelationalAssertions.assertThrowsSqlException(
-                        () -> stmt.executeQuery("select @undefined from t4"))
+                        () -> stmt.executeQuery("select GET_VARIABLE(undefined) from t4"))
                         .hasErrorCode(ErrorCode.UNDEFINED_PARAMETER);
             }
             conn.rollback();
@@ -141,8 +141,8 @@ public class LocalVariableTests {
             // First value
             conn.setAutoCommit(false);
             try (var stmt = conn.createStatement()) {
-                stmt.execute("set local v = 100");
-                try (var rs = stmt.executeQuery("select pk from t5 where val = @v")) {
+                stmt.execute("set transaction variable v = 100");
+                try (var rs = stmt.executeQuery("select pk from t5 where val = GET_VARIABLE(v)")) {
                     ResultSetAssert.assertThat(rs).hasNextRow().isRowExactly(1L).hasNoNextRow();
                 }
             }
@@ -152,8 +152,8 @@ public class LocalVariableTests {
             conn.unwrap(EmbeddedRelationalConnection.class).createNewTransaction();
             conn.setAutoCommit(false);
             try (var stmt = conn.createStatement()) {
-                stmt.execute("set local v = 200");
-                try (var rs = stmt.executeQuery("select pk from t5 where val = @v")) {
+                stmt.execute("set transaction variable v = 200");
+                try (var rs = stmt.executeQuery("select pk from t5 where val = GET_VARIABLE(v)")) {
                     ResultSetAssert.assertThat(rs).hasNextRow().isRowExactly(2L).hasNoNextRow();
                 }
             }
@@ -171,8 +171,8 @@ public class LocalVariableTests {
             final var conn = ddl.getConnection();
             conn.setAutoCommit(false);
             try (var stmt = conn.createStatement()) {
-                stmt.execute("set local flag = true");
-                try (var rs = stmt.executeQuery("select pk from t6 where active = @flag")) {
+                stmt.execute("set transaction variable flag = true");
+                try (var rs = stmt.executeQuery("select pk from t6 where active = GET_VARIABLE(flag)")) {
                     ResultSetAssert.assertThat(rs)
                             .hasNextRow().isRowExactly(1L)
                             .hasNextRow().isRowExactly(3L)
@@ -193,9 +193,9 @@ public class LocalVariableTests {
             final var conn = ddl.getConnection();
             conn.setAutoCommit(false);
             try (var stmt = conn.createStatement()) {
-                stmt.execute("set local x = 10");
-                stmt.execute("set local x = 20");
-                try (var rs = stmt.executeQuery("select pk from t7 where val = @x")) {
+                stmt.execute("set transaction variable x = 10");
+                stmt.execute("set transaction variable x = 20");
+                try (var rs = stmt.executeQuery("select pk from t7 where val = GET_VARIABLE(x)")) {
                     ResultSetAssert.assertThat(rs).hasNextRow().isRowExactly(2L).hasNoNextRow();
                 }
             }
@@ -219,15 +219,15 @@ public class LocalVariableTests {
             conn.setAutoCommit(false);
             try (var stmt = conn.createStatement()) {
                 // Quoted variable name "myVar" stores the key with case preserved
-                stmt.execute("set local \"myVar\" = 10");
-                // @"myVar" resolves to 'myVar' — same key → found
-                try (var rs = stmt.executeQuery("select pk from t8 where val = @\"myVar\"")) {
+                stmt.execute("set transaction variable \"myVar\" = 10");
+                // GET_VARIABLE("myVar") resolves to 'myVar' — same key → found
+                try (var rs = stmt.executeQuery("select pk from t8 where val = GET_VARIABLE(\"myVar\")")) {
                     ResultSetAssert.assertThat(rs).hasNextRow().isRowExactly(1L).hasNoNextRow();
                 }
-                // @myvar is an unquoted identifier; with caseSensitive=true, it preserves
+                // GET_VARIABLE(myvar) is an unquoted identifier; with caseSensitive=true, it preserves
                 // the literal case from the input ('myvar' != 'myVar') → undefined
                 RelationalAssertions.assertThrowsSqlException(
-                        () -> stmt.executeQuery("select pk from t8 where val = @myvar"))
+                        () -> stmt.executeQuery("select pk from t8 where val = GET_VARIABLE(myvar)"))
                         .hasErrorCode(ErrorCode.UNDEFINED_PARAMETER);
             }
             conn.rollback();
@@ -239,15 +239,15 @@ public class LocalVariableTests {
         final String schemaTemplate = "create table t9(pk bigint, val bigint, primary key(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/LV")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             final var conn = ddl.setSchemaAndGetConnection();
-            // autoCommit=true: the SET LOCAL statement auto-commits its transaction; the
+            // autoCommit=true: the SET TRANSACTION VARIABLE statement auto-commits its transaction; the
             // variable disappears before the next statement runs in its own new transaction.
             conn.setAutoCommit(true);
             try (var stmt = conn.createStatement()) {
-                stmt.execute("set local x = 99");
+                stmt.execute("set transaction variable x = 99");
             }
             try (var stmt = conn.createStatement()) {
                 RelationalAssertions.assertThrowsSqlException(
-                        () -> stmt.executeQuery("select pk from t9 where pk = @x"))
+                        () -> stmt.executeQuery("select pk from t9 where pk = GET_VARIABLE(x)"))
                         .hasErrorCode(ErrorCode.UNDEFINED_PARAMETER);
             }
         }
@@ -263,10 +263,10 @@ public class LocalVariableTests {
             final var conn = ddl.getConnection();
             conn.setAutoCommit(false);
             try (var stmt = conn.createStatement()) {
-                stmt.execute("set local valfilter = 100");
+                stmt.execute("set transaction variable valfilter = 100");
             }
-            // Mix a local variable (@valfilter) with a positional prepared parameter (?)
-            try (var ps = conn.prepareStatement("select pk from t10 where val = @valfilter and pk = ?")) {
+            // Mix a local variable (GET_VARIABLE(valfilter)) with a positional prepared parameter (?)
+            try (var ps = conn.prepareStatement("select pk from t10 where val = GET_VARIABLE(valfilter) and pk = ?")) {
                 ps.setLong(1, 1L);
                 try (var rs = ps.executeQuery()) {
                     ResultSetAssert.assertThat(rs).hasNextRow().isRowExactly(1L).hasNoNextRow();
@@ -286,8 +286,8 @@ public class LocalVariableTests {
             final var conn = ddl.getConnection();
             conn.setAutoCommit(false);
             try (var stmt = conn.createStatement()) {
-                stmt.execute("set local threshold = -10");
-                try (var rs = stmt.executeQuery("select pk from t11 where delta = @threshold")) {
+                stmt.execute("set transaction variable threshold = -10");
+                try (var rs = stmt.executeQuery("select pk from t11 where delta = GET_VARIABLE(threshold)")) {
                     ResultSetAssert.assertThat(rs)
                             .hasNextRow().isRowExactly(1L)
                             .hasNextRow().isRowExactly(3L)
@@ -310,8 +310,8 @@ public class LocalVariableTests {
                 // First execution — cache miss expected
                 conn.setAutoCommit(false);
                 try (var stmt = conn.createStatement()) {
-                    stmt.execute("set local v = 10");
-                    try (var rs = stmt.executeQuery("select pk from t12 where val = @v options (log query)")) {
+                    stmt.execute("set transaction variable v = 10");
+                    try (var rs = stmt.executeQuery("select pk from t12 where val = GET_VARIABLE(v) options (log query)")) {
                         ResultSetAssert.assertThat(rs).hasNextRow().isRowExactly(1L).hasNoNextRow();
                     }
                 }
@@ -322,8 +322,8 @@ public class LocalVariableTests {
                 conn.unwrap(EmbeddedRelationalConnection.class).createNewTransaction();
                 conn.setAutoCommit(false);
                 try (var stmt = conn.createStatement()) {
-                    stmt.execute("set local v = 20");
-                    try (var rs = stmt.executeQuery("select pk from t12 where val = @v options (log query)")) {
+                    stmt.execute("set transaction variable v = 20");
+                    try (var rs = stmt.executeQuery("select pk from t12 where val = GET_VARIABLE(v) options (log query)")) {
                         ResultSetAssert.assertThat(rs).hasNextRow().isRowExactly(2L).hasNoNextRow();
                     }
                 }
@@ -335,10 +335,10 @@ public class LocalVariableTests {
 
     @Test
     void schemaTemplateFunctionWithVariableInBody() throws Exception {
-        // The TVF takes an explicit parameter and is called with @var as the argument.
+        // The TVF takes an explicit parameter and is called with GET_VARIABLE(var) as the argument.
         // This tests the interaction between local variables and schema-template TVFs.
-        // Note: using @var directly inside a TVF body requires lazy compilation support
-        // (separate work item); passing @var at the call site works today.
+        // Note: using GET_VARIABLE(var) directly inside a TVF body requires lazy compilation support
+        // (separate work item); passing GET_VARIABLE(var) at the call site works today.
         final String schemaTemplate =
                 "create table schfoo(pk bigint, name string, primary key(pk)) " +
                 "create function find_names(in target string) as select pk, name from schfoo where name = target";
@@ -348,32 +348,32 @@ public class LocalVariableTests {
             }
             final var conn = ddl.getConnection();
 
-            // Without setting @varname: call fails with UNDEFINED_PARAMETER
+            // Without setting GET_VARIABLE(varname): call fails with UNDEFINED_PARAMETER
             conn.setAutoCommit(false);
             try (var stmt = conn.createStatement()) {
                 RelationalAssertions.assertThrowsSqlException(
-                        () -> stmt.executeQuery("select pk, name from find_names(target => @varname)"))
+                        () -> stmt.executeQuery("select pk, name from find_names(target => GET_VARIABLE(varname))"))
                         .hasErrorCode(ErrorCode.UNDEFINED_PARAMETER);
             }
             conn.rollback();
 
-            // Set @varname = 'alice' → only alice is returned
+            // Set GET_VARIABLE(varname) = 'alice' → only alice is returned
             conn.unwrap(EmbeddedRelationalConnection.class).createNewTransaction();
             conn.setAutoCommit(false);
             try (var stmt = conn.createStatement()) {
-                stmt.execute("set local varname = 'alice'");
-                try (var rs = stmt.executeQuery("select pk, name from find_names(target => @varname)")) {
+                stmt.execute("set transaction variable varname = 'alice'");
+                try (var rs = stmt.executeQuery("select pk, name from find_names(target => GET_VARIABLE(varname))")) {
                     ResultSetAssert.assertThat(rs).hasNextRow().isRowExactly(1L, "alice").hasNoNextRow();
                 }
             }
             conn.commit();
 
-            // Set @varname = 'bob' → only bob is returned (different value, same function call site)
+            // Set GET_VARIABLE(varname) = 'bob' → only bob is returned (different value, same function call site)
             conn.unwrap(EmbeddedRelationalConnection.class).createNewTransaction();
             conn.setAutoCommit(false);
             try (var stmt = conn.createStatement()) {
-                stmt.execute("set local varname = 'bob'");
-                try (var rs = stmt.executeQuery("select pk, name from find_names(target => @varname)")) {
+                stmt.execute("set transaction variable varname = 'bob'");
+                try (var rs = stmt.executeQuery("select pk, name from find_names(target => GET_VARIABLE(varname))")) {
                     ResultSetAssert.assertThat(rs).hasNextRow().isRowExactly(2L, "bob").hasNoNextRow();
                 }
             }
@@ -385,10 +385,10 @@ public class LocalVariableTests {
     void filteredIndexSelectedByVariableWithPlanCacheConstraints() throws Exception {
         // Schema: table with a boolean column, a filtered index covering only active=true rows,
         // and a schema-template TVF that accepts the filter as a parameter.
-        // The TVF is called with @filter as the argument so the Cascades planner generates a
+        // The TVF is called with GET_VARIABLE(filter) as the argument so the Cascades planner generates a
         // constraint-based plan bundle:
-        //   - when @filter=true  → filtered-index plan variant is used
-        //   - when @filter=false → full-scan plan variant is used
+        //   - when GET_VARIABLE(filter)=true  → filtered-index plan variant is used
+        //   - when GET_VARIABLE(filter)=false → full-scan plan variant is used
         // Verified via plan-cache hit/miss log messages.
         final String schemaTemplate =
                 "create table schbar(pk bigint, active boolean, val bigint, primary key(pk)) " +
@@ -402,13 +402,13 @@ public class LocalVariableTests {
 
             try (var logAppender = LogAppenderRule.of("LocalVariableTests_idx", PlanGenerator.class, Level.INFO)) {
 
-                // --- first call: @filter = true ---
+                // --- first call: GET_VARIABLE(filter) = true ---
                 // active_filter = true satisfies the filtered index predicate active = true
                 // → filtered-index plan is selected; first time seeing this query → cache miss.
                 conn.setAutoCommit(false);
                 try (var stmt = conn.createStatement()) {
-                    stmt.execute("set local filter = true");
-                    try (var rs = stmt.executeQuery("select pk, val from active_items(active_filter => @filter) options (log query)")) {
+                    stmt.execute("set transaction variable filter = true");
+                    try (var rs = stmt.executeQuery("select pk, val from active_items(active_filter => GET_VARIABLE(filter)) options (log query)")) {
                         ResultSetAssert.assertThat(rs)
                                 .hasNextRow().isRowExactly(1L, 10L)
                                 .hasNextRow().isRowExactly(3L, 30L)
@@ -418,13 +418,13 @@ public class LocalVariableTests {
                 conn.commit();
                 Assertions.assertTrue(logAppender.lastMessageIsCacheMiss(), "first call (filter=true) should be a cache miss");
 
-                // --- second call: @filter = true again ---
+                // --- second call: GET_VARIABLE(filter) = true again ---
                 // Same constraint satisfied → same plan variant → cache hit.
                 conn.unwrap(EmbeddedRelationalConnection.class).createNewTransaction();
                 conn.setAutoCommit(false);
                 try (var stmt = conn.createStatement()) {
-                    stmt.execute("set local filter = true");
-                    try (var rs = stmt.executeQuery("select pk, val from active_items(active_filter => @filter) options (log query)")) {
+                    stmt.execute("set transaction variable filter = true");
+                    try (var rs = stmt.executeQuery("select pk, val from active_items(active_filter => GET_VARIABLE(filter)) options (log query)")) {
                         ResultSetAssert.assertThat(rs)
                                 .hasNextRow().isRowExactly(1L, 10L)
                                 .hasNextRow().isRowExactly(3L, 30L)
@@ -434,14 +434,14 @@ public class LocalVariableTests {
                 conn.commit();
                 Assertions.assertTrue(logAppender.lastMessageIsCacheHit(), "second call (filter=true) should be a cache hit");
 
-                // --- third call: @filter = false ---
+                // --- third call: GET_VARIABLE(filter) = false ---
                 // active_filter = false does NOT satisfy the filtered index predicate active = true
                 // → full-scan plan variant required; constraint violated → cache miss (new plan stored).
                 conn.unwrap(EmbeddedRelationalConnection.class).createNewTransaction();
                 conn.setAutoCommit(false);
                 try (var stmt = conn.createStatement()) {
-                    stmt.execute("set local filter = false");
-                    try (var rs = stmt.executeQuery("select pk, val from active_items(active_filter => @filter) options (log query)")) {
+                    stmt.execute("set transaction variable filter = false");
+                    try (var rs = stmt.executeQuery("select pk, val from active_items(active_filter => GET_VARIABLE(filter)) options (log query)")) {
                         ResultSetAssert.assertThat(rs)
                                 .hasNextRow().isRowExactly(2L, 20L)
                                 .hasNoNextRow();
@@ -450,13 +450,13 @@ public class LocalVariableTests {
                 conn.commit();
                 Assertions.assertTrue(logAppender.lastMessageIsCacheMiss(), "call with filter=false should be a cache miss (different plan variant)");
 
-                // --- fourth call: @filter = false again ---
+                // --- fourth call: GET_VARIABLE(filter) = false again ---
                 // Same full-scan plan variant → cache hit.
                 conn.unwrap(EmbeddedRelationalConnection.class).createNewTransaction();
                 conn.setAutoCommit(false);
                 try (var stmt = conn.createStatement()) {
-                    stmt.execute("set local filter = false");
-                    try (var rs = stmt.executeQuery("select pk, val from active_items(active_filter => @filter) options (log query)")) {
+                    stmt.execute("set transaction variable filter = false");
+                    try (var rs = stmt.executeQuery("select pk, val from active_items(active_filter => GET_VARIABLE(filter)) options (log query)")) {
                         ResultSetAssert.assertThat(rs)
                                 .hasNextRow().isRowExactly(2L, 20L)
                                 .hasNoNextRow();
@@ -470,9 +470,9 @@ public class LocalVariableTests {
 
     @Test
     void variableInTempFunctionBodyResolvesAtCallTime() throws Exception {
-        // @body_var directly inside a temp TVF body is resolved at invocation time, not at CREATE
+        // GET_VARIABLE(body_var) directly inside a temp TVF body is resolved at invocation time, not at CREATE
         // TEMPORARY FUNCTION time. The function can be created before the variable exists; the error
-        // surfaces only if @body_var is still absent when the function is actually called.
+        // surfaces only if GET_VARIABLE(body_var) is still absent when the function is actually called.
         final String schemaTemplate = "create table tvfbody(pk bigint, name string, primary key(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/LV")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var stmt = ddl.setSchemaAndGetConnection().createStatement()) {
@@ -481,23 +481,23 @@ public class LocalVariableTests {
             final var conn = ddl.getConnection();
             conn.setAutoCommit(false);
             try (var stmt = conn.createStatement()) {
-                // CREATE succeeds even though @body_var is not set yet
+                // CREATE succeeds even though GET_VARIABLE(body_var) is not set yet
                 stmt.execute("create temporary function find_by_body_var() on commit drop function " +
-                        "as select pk, name from tvfbody where name = @body_var");
+                        "as select pk, name from tvfbody where name = GET_VARIABLE(body_var)");
 
-                // calling before @body_var is set → UNDEFINED_PARAMETER at invocation time
+                // calling before GET_VARIABLE(body_var) is set → UNDEFINED_PARAMETER at invocation time
                 RelationalAssertions.assertThrowsSqlException(
                         () -> stmt.executeQuery("select pk, name from find_by_body_var()"))
                         .hasErrorCode(ErrorCode.UNDEFINED_PARAMETER);
 
-                // set @body_var = 'alice' → first call returns alice
-                stmt.execute("set local body_var = 'alice'");
+                // set GET_VARIABLE(body_var) = 'alice' → first call returns alice
+                stmt.execute("set transaction variable body_var = 'alice'");
                 try (var rs = stmt.executeQuery("select pk, name from find_by_body_var()")) {
                     ResultSetAssert.assertThat(rs).hasNextRow().isRowExactly(1L, "alice").hasNoNextRow();
                 }
 
-                // overwrite @body_var to 'bob' → same function now returns bob (live reference)
-                stmt.execute("set local body_var = 'bob'");
+                // overwrite GET_VARIABLE(body_var) to 'bob' → same function now returns bob (live reference)
+                stmt.execute("set transaction variable body_var = 'bob'");
                 try (var rs = stmt.executeQuery("select pk, name from find_by_body_var()")) {
                     ResultSetAssert.assertThat(rs).hasNextRow().isRowExactly(2L, "bob").hasNoNextRow();
                 }
@@ -508,8 +508,8 @@ public class LocalVariableTests {
 
     @Test
     void tempFunctionAndLocalVariableCoexist() throws Exception {
-        // Verifies that SET LOCAL and CREATE TEMPORARY FUNCTION are independent:
-        // - the temp function survives a SET LOCAL in the same transaction
+        // Verifies that SET TRANSACTION VARIABLE and CREATE TEMPORARY FUNCTION are independent:
+        // - the temp function survives a SET TRANSACTION VARIABLE in the same transaction
         // - the local variable survives a CREATE TEMPORARY FUNCTION in the same transaction
         // - both can be used together in the same query (variable passed as a function argument)
         final String schemaTemplate = "create table coexist(pk bigint, val bigint, primary key(pk))";
@@ -522,9 +522,9 @@ public class LocalVariableTests {
             try (var stmt = conn.createStatement()) {
                 // Create a temp function, then set a variable — function must still work
                 stmt.execute("create temporary function find_val(in threshold bigint) on commit drop function as select pk from coexist where val > threshold");
-                stmt.execute("set local limit_val = 15");
+                stmt.execute("set transaction variable limit_val = 15");
 
-                // Temp function still works after SET LOCAL
+                // Temp function still works after SET TRANSACTION VARIABLE
                 try (var rs = stmt.executeQuery("select pk from find_val(threshold => 15)")) {
                     ResultSetAssert.assertThat(rs)
                             .hasNextRow().isRowExactly(2L)
@@ -533,7 +533,7 @@ public class LocalVariableTests {
                 }
 
                 // Local variable still works after CREATE TEMPORARY FUNCTION
-                try (var rs = stmt.executeQuery("select pk from coexist where val > @limit_val")) {
+                try (var rs = stmt.executeQuery("select pk from coexist where val > GET_VARIABLE(limit_val)")) {
                     ResultSetAssert.assertThat(rs)
                             .hasNextRow().isRowExactly(2L)
                             .hasNextRow().isRowExactly(3L)
@@ -541,7 +541,7 @@ public class LocalVariableTests {
                 }
 
                 // Both together: variable as argument to the temp function
-                try (var rs = stmt.executeQuery("select pk from find_val(threshold => @limit_val)")) {
+                try (var rs = stmt.executeQuery("select pk from find_val(threshold => GET_VARIABLE(limit_val))")) {
                     ResultSetAssert.assertThat(rs)
                             .hasNextRow().isRowExactly(2L)
                             .hasNextRow().isRowExactly(3L)
@@ -565,20 +565,20 @@ public class LocalVariableTests {
             final var conn = ddl.getConnection();
             conn.setAutoCommit(false);
             try (var stmt = conn.createStatement()) {
-                // Filter: pk >= @min_pk  (= 2 → rows 2,3,4,5)
-                stmt.execute("set local min_pk = 2");
+                // Filter: pk >= GET_VARIABLE(min_pk)  (= 2 → rows 2,3,4,5)
+                stmt.execute("set transaction variable min_pk = 2");
                 stmt.setMaxRows(2);
                 // First page: rows 2 and 3
                 final byte[] continuationBytes;
-                try (var rs = stmt.executeQuery("select pk, name from conttbl where pk >= @min_pk")) {
+                try (var rs = stmt.executeQuery("select pk, name from conttbl where pk >= GET_VARIABLE(min_pk)")) {
                     ResultSetAssert.assertThat(rs)
                             .hasNextRow().isRowExactly(2L, "bob")
                             .hasNextRow().isRowExactly(3L, "carol")
                             .hasNoNextRow();
                     continuationBytes = rs.getContinuation().serialize();
                 }
-                // Change @min_pk to a different value — the continuation must ignore this
-                stmt.execute("set local min_pk = 99");
+                // Change GET_VARIABLE(min_pk) to a different value — the continuation must ignore this
+                stmt.execute("set transaction variable min_pk = 99");
                 stmt.setMaxRows(10);
                 // Resume via continuation: should still see rows 4 and 5 (original binding min_pk=2)
                 final String encoded = Base64.getEncoder().encodeToString(continuationBytes);
@@ -596,8 +596,8 @@ public class LocalVariableTests {
 
     @Test
     void sameNameVariableAndNamedParamAreIndependent() throws Exception {
-        // @x and ?x share the same underlying name "x" but are independent namespaces:
-        // @x resolves from the transaction's local-variable map, ?x from the prepared-parameter map.
+        // GET_VARIABLE(x) and ?x share the same underlying name "x" but are independent namespaces:
+        // GET_VARIABLE(x) resolves from the transaction's local-variable map, ?x from the prepared-parameter map.
         final String schemaTemplate = "create table tns(pk bigint, primary key(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/LV")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var stmt = ddl.setSchemaAndGetConnection().createStatement()) {
@@ -606,10 +606,10 @@ public class LocalVariableTests {
             final var conn = ddl.getConnection();
             conn.setAutoCommit(false);
             try (var stmt = conn.createStatement()) {
-                stmt.execute("set local x = 1");
+                stmt.execute("set transaction variable x = 1");
             }
-            // @x = 1 (from SET LOCAL), ?x = 2 (from named prepared param) — both resolve independently
-            try (var ps = conn.prepareStatement("select pk from tns where pk = @x or pk = ?x")) {
+            // GET_VARIABLE(x) = 1 (from SET TRANSACTION VARIABLE), ?x = 2 (from named prepared param) — both resolve independently
+            try (var ps = conn.prepareStatement("select pk from tns where pk = GET_VARIABLE(x) or pk = ?x")) {
                 ps.setLong("x", 2L);
                 try (var rs = ps.executeQuery()) {
                     ResultSetAssert.assertThat(rs)
@@ -639,7 +639,7 @@ public class LocalVariableTests {
             conn.setAutoCommit(false);
             try (var stmt = conn.createStatement()) {
                 // A null-valued local variable is in scope (unrelated to the function argument).
-                stmt.execute("set local unused = null");
+                stmt.execute("set transaction variable unused = null");
                 try (var rs = stmt.executeQuery("select pk, name from names_like(target => 'alice')")) {
                     ResultSetAssert.assertThat(rs).hasNextRow().isRowExactly(1L, "alice").hasNoNextRow();
                 }
@@ -650,11 +650,11 @@ public class LocalVariableTests {
 
     @Test
     void namedParamDoesNotResolveToLocalVariableOnPlainStatement() throws Exception {
-        // Regression: @name and ?name are independent namespaces. On a plain (non-prepared)
+        // Regression: GET_VARIABLE(name) and ?name are independent namespaces. On a plain (non-prepared)
         // Statement a ?name reference cannot be bound, so it must fail with UNDEFINED_PARAMETER and
         // must NOT silently pick up a same-named local variable's value. Previously the plain-
         // statement path injected local variables into the named-prepared-parameter map, so
-        // `?x` resolved to `@x`.
+        // `?x` resolved to `GET_VARIABLE(x)`.
         final String schemaTemplate = "create table tleak(pk bigint, primary key(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/LV")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var stmt = ddl.setSchemaAndGetConnection().createStatement()) {
@@ -663,9 +663,9 @@ public class LocalVariableTests {
             final var conn = ddl.getConnection();
             conn.setAutoCommit(false);
             try (var stmt = conn.createStatement()) {
-                stmt.execute("set local x = 1");
+                stmt.execute("set transaction variable x = 1");
                 // ?x is an unbound named prepared parameter on a plain Statement; it must not
-                // resolve to the local variable @x (= 1).
+                // resolve to the local variable GET_VARIABLE(x) (= 1).
                 RelationalAssertions.assertThrowsSqlException(
                         () -> stmt.executeQuery("select pk from tleak where pk = ?x"))
                         .hasErrorCode(ErrorCode.UNDEFINED_PARAMETER);
@@ -676,7 +676,7 @@ public class LocalVariableTests {
 
     @Test
     void permanentFunctionBodyCannotReferenceLocalVariable() throws Exception {
-        // Sanity check for the review concern about @var inside static/permanent function bodies.
+        // Sanity check for the review concern about GET_VARIABLE(var) inside static/permanent function bodies.
         // Unlike temporary functions (see variableInTempFunctionBodyResolvesAtCallTime), a permanent
         // (schema-template) function body is compiled against an EMPTY local-variable scope:
         //  - DdlVisitor.getInvokedRoutineMetadata compiles non-temporary bodies eagerly at CREATE
@@ -684,25 +684,128 @@ public class LocalVariableTests {
         //  - the deserialization path (RecordMetadataDeserializer.getSqlFunctionCompiler ->
         //    RoutineParser.parse) builds a fresh MutablePlanGenerationContext with no local
         //    variables and ignores the localVars argument entirely.
-        // So a @var reference in a permanent function body is never resolved from the calling
+        // So a GET_VARIABLE(var) reference in a permanent function body is never resolved from the calling
         // transaction and surfaces as UNDEFINED_PARAMETER. Here it fails when the schema template
         // (which eagerly compiles the body) is created; the whole flow is wrapped so the assertion
         // still holds if compilation is ever deferred to invocation time.
         final String schemaTemplate =
                 "create table permfoo(pk bigint, name string, primary key(pk)) " +
-                "create function names_matching() as select pk, name from permfoo where name = @body_var";
+                "create function names_matching() as select pk, name from permfoo where name = GET_VARIABLE(body_var)";
         RelationalAssertions.assertThrowsSqlException(() -> {
             try (var ddl = Ddl.builder().database(URI.create("/TEST/LVPERM")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
                 final var conn = ddl.setSchemaAndGetConnection();
                 conn.setAutoCommit(false);
                 try (var stmt = conn.createStatement()) {
                     stmt.executeUpdate("insert into permfoo values (1, 'alice')");
-                    stmt.execute("set local body_var = 'alice'");
+                    stmt.execute("set transaction variable body_var = 'alice'");
                     try (var rs = stmt.executeQuery("select pk, name from names_matching()")) {
                         rs.next();
                     }
                 }
             }
         }).hasErrorCode(ErrorCode.UNDEFINED_PARAMETER);
+    }
+
+    @Test
+    void variableTypeChangeForcesCacheMissNotStaleReuse() throws Exception {
+        // The plan cache key must fold in a variable's CURRENT type, not just its name: reusing a
+        // plan compiled while a variable was BIGINT against a later STRING-valued binding of the
+        // same-named variable would silently misuse a comparand shaped for the wrong type.
+        final String schemaTemplate = "create table t14(pk bigint, primary key(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/LV")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var stmt = ddl.setSchemaAndGetConnection().createStatement()) {
+                stmt.executeUpdate("insert into t14 values (1)");
+            }
+            final var conn = ddl.getConnection();
+            try (var logAppender = LogAppenderRule.of("LocalVariableTests_typechange", PlanGenerator.class, Level.INFO)) {
+                // First execution: x is BIGINT.
+                conn.setAutoCommit(false);
+                try (var stmt = conn.createStatement()) {
+                    stmt.execute("set transaction variable x = 10");
+                    try (var rs = stmt.executeQuery("select GET_VARIABLE(x) from t14 where pk = 1 options (log query)")) {
+                        ResultSetAssert.assertThat(rs).hasNextRow().isRowExactly(10).hasNoNextRow();
+                    }
+                }
+                conn.commit();
+                Assertions.assertTrue(logAppender.lastMessageIsCacheMiss(), "first execution (BIGINT) should be a cache miss");
+
+                // Second execution: identical query text, but x is now STRING. Must be a cache
+                // miss (a fresh compile), not a hit against the BIGINT-shaped plan, and must
+                // return the STRING value correctly.
+                conn.unwrap(EmbeddedRelationalConnection.class).createNewTransaction();
+                conn.setAutoCommit(false);
+                try (var stmt = conn.createStatement()) {
+                    stmt.execute("set transaction variable x = 'ten'");
+                    try (var rs = stmt.executeQuery("select GET_VARIABLE(x) from t14 where pk = 1 options (log query)")) {
+                        ResultSetAssert.assertThat(rs).hasNextRow().isRowExactly("ten").hasNoNextRow();
+                    }
+                }
+                conn.rollback();
+                Assertions.assertTrue(logAppender.lastMessageIsCacheMiss(), "second execution (STRING) must be a cache miss, not a stale hit against the BIGINT-typed plan");
+            }
+        }
+    }
+
+    @Test
+    void variableNullToTypedTransitionForcesCacheMissNotStaleReuse() throws Exception {
+        // NULL has no intrinsic type. Re-SETting a variable from NULL to a concrete type (or vice
+        // versa) must be treated the same as any other type change for cache purposes. The
+        // variable is used in a WHERE comparison (rather than selected bare) since a NULL-typed
+        // value cannot itself be the declared type of a result-set column.
+        final String schemaTemplate = "create table t15(pk bigint, val bigint, primary key(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/LV")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var stmt = ddl.setSchemaAndGetConnection().createStatement()) {
+                stmt.executeUpdate("insert into t15 values (1, 7)");
+            }
+            final var conn = ddl.getConnection();
+            try (var logAppender = LogAppenderRule.of("LocalVariableTests_nulltotyped", PlanGenerator.class, Level.INFO)) {
+                // First execution: x is NULL. val = NULL is never true, so no rows match.
+                conn.setAutoCommit(false);
+                try (var stmt = conn.createStatement()) {
+                    stmt.execute("set transaction variable x = null");
+                    try (var rs = stmt.executeQuery("select pk from t15 where val = GET_VARIABLE(x) options (log query)")) {
+                        ResultSetAssert.assertThat(rs).hasNoNextRow();
+                    }
+                }
+                conn.commit();
+                Assertions.assertTrue(logAppender.lastMessageIsCacheMiss(), "first execution (NULL) should be a cache miss");
+
+                // Second execution: identical query text, x is now BIGINT and matches val. Must
+                // be a cache miss, not a stale hit against the NULL-typed plan.
+                conn.unwrap(EmbeddedRelationalConnection.class).createNewTransaction();
+                conn.setAutoCommit(false);
+                try (var stmt = conn.createStatement()) {
+                    stmt.execute("set transaction variable x = 7");
+                    try (var rs = stmt.executeQuery("select pk from t15 where val = GET_VARIABLE(x) options (log query)")) {
+                        ResultSetAssert.assertThat(rs).hasNextRow().isRowExactly(1L).hasNoNextRow();
+                    }
+                }
+                conn.rollback();
+                Assertions.assertTrue(logAppender.lastMessageIsCacheMiss(), "second execution (BIGINT) must be a cache miss, not a stale hit against the NULL-typed plan");
+            }
+        }
+    }
+
+    @Test
+    void getVariableSetToNullReturnsNullWithoutError() throws Exception {
+        // A variable explicitly SET to NULL is a distinct state from never having been SET:
+        // reading it must succeed (not throw UNDEFINED_PARAMETER). Used in a WHERE comparison
+        // (rather than selected bare) since a NULL-typed value cannot itself be the declared type
+        // of a result-set column; per three-valued logic, `val = NULL` matches no rows.
+        final String schemaTemplate = "create table t16(pk bigint, val bigint, primary key(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/LV")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var stmt = ddl.setSchemaAndGetConnection().createStatement()) {
+                stmt.executeUpdate("insert into t16 values (1, 7)");
+            }
+            final var conn = ddl.getConnection();
+            conn.setAutoCommit(false);
+            try (var stmt = conn.createStatement()) {
+                stmt.execute("set transaction variable x = null");
+                try (var rs = stmt.executeQuery("select pk from t16 where val = GET_VARIABLE(x)")) {
+                    ResultSetAssert.assertThat(rs).hasNoNextRow();
+                }
+            }
+            conn.rollback();
+        }
     }
 }

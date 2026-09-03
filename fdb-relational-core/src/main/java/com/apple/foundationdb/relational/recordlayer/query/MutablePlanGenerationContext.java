@@ -484,7 +484,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     @Nonnull
     public Value processLocalVariable(@Nonnull String varName, int tokenIndex) {
         Assert.thatUnchecked(localVariables.containsKey(varName), UNDEFINED_PARAMETER,
-                () -> "No value found for parameter " + varName);
+                () -> "No value found for variable " + varName);
         final var value = localVariables.get(varName);
         return processPreparedStatementParameter(value, getObjectType(value), null, varName, tokenIndex);
     }

@@ -473,13 +473,13 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     }
 
     @Override
-    public ProceduralPlan visitSetLocalVariable(final RelationalParser.SetLocalVariableContext ctx) {
-        return ddlVisitor.visitSetLocalVariable(ctx);
+    public ProceduralPlan visitSetTransactionVariable(final RelationalParser.SetTransactionVariableContext ctx) {
+        return ddlVisitor.visitSetTransactionVariable(ctx);
     }
 
     @Override
-    public Expression visitVariableRefAtom(final RelationalParser.VariableRefAtomContext ctx) {
-        return expressionVisitor.visitVariableRefAtom(ctx);
+    public Expression visitGetVariableFunctionCall(final RelationalParser.GetVariableFunctionCallContext ctx) {
+        return expressionVisitor.visitGetVariableFunctionCall(ctx);
     }
 
     @Override

@@ -219,36 +219,44 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Object visitVariableRef(@Nonnull RelationalParser.VariableRefContext ctx) {
-        final var rawName = ctx.LOCAL_ID().getText().substring(1); // strip leading '@'
-        final var varName = Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(rawName, caseSensitive));
+    public Object visitGetVariableFunctionCall(@Nonnull RelationalParser.GetVariableFunctionCallContext ctx) {
+        final var varName = Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(ctx.varName.getText(), caseSensitive));
+        final var tokenIndex = ctx.varName.getStart().getTokenIndex();
         if (insideTempFunctionBody && deferMissingVarsInFunctionBodies && !localVariables.containsKey(varName)) {
-            // Variable not yet set; emit a named-parameter placeholder so the canonical form is
-            // deterministic. The actual value is injected via withExecutionContext at call time.
+            // Variable not yet set; emit a placeholder so the canonical form is deterministic. The
+            // actual value is injected via withExecutionContext at call time.
             if (allowTokenAddition) {
-                sqlCanonicalizer.append("@").append(varName).append(" ");
-                parameterHash.putInt("@".concat(varName).hashCode());
+                final var placeholder = "GET_VARIABLE(" + varName + ")";
+                sqlCanonicalizer.append(placeholder).append(" ");
+                parameterHash.putInt(placeholder.hashCode());
             }
             return null;
         }
         Assert.thatUnchecked(localVariables.containsKey(varName), ErrorCode.UNDEFINED_PARAMETER,
-                () -> "No value found for parameter " + varName);
+                () -> "No value found for variable " + varName);
         final var value = localVariables.get(varName);
-        processLocalVariableRef(value, varName, ctx.LOCAL_ID().getSymbol().getTokenIndex());
+        processGetVariableCall(value, varName, tokenIndex);
         return value;
     }
 
-    private void processLocalVariableRef(@Nullable final Object literal, @Nonnull final String varName,
+    private void processGetVariableCall(@Nullable final Object literal, @Nonnull final String varName,
                                          final int tokenIndex) {
         if (allowLiteralAddition) {
             queryHasherContextBuilder.getLiteralsBuilder()
                     .addLiteral(Type.any(), literal, null, varName, tokenIndex);
         }
         if (allowTokenAddition) {
-            final String canonicalName = "@" + varName;
+            // Fold the variable's CURRENT resolved type into the canonical text, not just its name.
+            // getCanonicalSqlString() is what QueryCacheKey is built from — if only the name were
+            // hashed here, re-SETting the same variable to an incompatible type between two runs of
+            // identical query text would produce the same cache key and reuse a plan compiled for the
+            // old type. Type.fromObject is the same inference already used for prepared-statement
+            // parameters (see MutablePlanGenerationContext#getObjectType), so this can't diverge from
+            // the type actually bound at planning time; it also naturally distinguishes NULL (no
+            // prior type) from any concretely-typed value.
+            final var typeTag = Type.fromObject(literal).getTypeCode();
+            final String canonicalName = "GET_VARIABLE(" + varName + ":" + typeTag + ")";
             sqlCanonicalizer.append(canonicalName).append(" ");
-            // Hash only the variable name — the value is injected at execution time via the
-            // QueryExecutionContext, allowing the same plan to be reused across different values.
             parameterHash.putInt(canonicalName.hashCode());
         }
     }
@@ -380,9 +388,9 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public Object visitSetLocalVariable(@Nonnull RelationalParser.SetLocalVariableContext ctx) {
-        // SET LOCAL embeds the literal value in ProceduralPlan.action, which withExecutionContext
-        // cannot update. Mark it as DDL so the plan cache is bypassed.
+    public Object visitSetTransactionVariable(@Nonnull RelationalParser.SetTransactionVariableContext ctx) {
+        // SET TRANSACTION VARIABLE embeds the literal value in ProceduralPlan.action, which
+        // withExecutionContext cannot update. Mark it as DDL so the plan cache is bypassed.
         queryCachingFlags.add(NormalizationResult.QueryCachingFlags.IS_DDL_STATEMENT);
         return visitChildren(ctx);
     }
@@ -699,8 +707,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                 }
                 final var recordLayerRoutine = (RecordLayerInvokedRoutine)temporaryRoutine;
                 // For the function body cache-key normalization: use the CREATE-time ?param bindings from
-                // the routine itself, and pass SELECT-time @var bindings separately so they resolve as
-                // local variables rather than named parameters.
+                // the routine itself, and pass SELECT-time GET_VARIABLE bindings separately so they resolve
+                // as local variables rather than named parameters.
                 final var functionAstResult = normalizeFunctionBody(schemaTemplate,
                         QueryParser.parse(recordLayerRoutine.getDescription()),
                         recordLayerRoutine.getPreparedParams(),

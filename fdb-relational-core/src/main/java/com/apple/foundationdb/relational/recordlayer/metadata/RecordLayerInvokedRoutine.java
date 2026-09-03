@@ -87,9 +87,9 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     // CREATE TEMPORARY FUNCTION (per-transaction) and discarded when the transaction ends, so at
     // most one entry per distinct localVars snapshot seen within a single transaction is retained.
     // The snapshot is an unmodifiable LinkedHashMap copy rather than a Guava ImmutableMap because
-    // local-variable values are legitimately nullable (e.g. SET LOCAL x = NULL) and ImmutableMap
-    // forbids null values; a LinkedHashMap tolerates nulls while still providing value-based
-    // equals()/hashCode() for correct cache-key lookups.
+    // local-variable values are legitimately nullable (e.g. SET TRANSACTION VARIABLE x = NULL) and
+    // ImmutableMap forbids null values; a LinkedHashMap tolerates nulls while still providing
+    // value-based equals()/hashCode() for correct cache-key lookups.
     @Nonnull
     private static BiFunction<Boolean, Map<String, Object>, UserDefinedFunction> memoize(
             @Nonnull final BiFunction<Boolean, Map<String, Object>, UserDefinedFunction> fn) {

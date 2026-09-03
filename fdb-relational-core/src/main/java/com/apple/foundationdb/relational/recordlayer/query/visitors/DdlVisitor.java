@@ -540,8 +540,9 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             return builder
                     .withUserDefinedFunctionProvider((ignore, localVarsMap) -> {
                         // Merge SELECT-time local variable bindings into the CREATE-time PreparedParams so that
-                        // @var refs inside the body resolve to their current values. We add (not replace) so
-                        // that ?param bindings already present from the CREATE-time context are preserved.
+                        // GET_VARIABLE refs inside the body resolve to their current values. We add (not
+                        // replace) so that ?param bindings already present from the CREATE-time context are
+                        // preserved.
                         if (localVarsMap != null && !localVarsMap.isEmpty()) {
                             final var prev = getDelegate().getPlanGenerationContext().getLocalVariables();
                             getDelegate().getPlanGenerationContext().setLocalVariables(localVarsMap);
@@ -617,7 +618,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Override
-    public ProceduralPlan visitSetLocalVariable(@Nonnull RelationalParser.SetLocalVariableContext ctx) {
+    public ProceduralPlan visitSetTransactionVariable(@Nonnull RelationalParser.SetTransactionVariableContext ctx) {
         final var varName = getDelegate().normalizeString(ctx.varName.getText());
         final var expr = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(
                 () -> Assert.castUnchecked(visit(ctx.varValue), Expression.class));

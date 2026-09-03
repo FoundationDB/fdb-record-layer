@@ -20,4 +20,4 @@ The Data Definition Language (DDL) is used to define the database schema, includ
     DDL/DROP/SCHEMA
     DDL/DROP/SCHEMA_TEMPLATE
     DDL/DROP/TEMPORARY_FUNCTION
-    DDL/SET_LOCAL
+    DDL/SET_TRANSACTION_VARIABLE

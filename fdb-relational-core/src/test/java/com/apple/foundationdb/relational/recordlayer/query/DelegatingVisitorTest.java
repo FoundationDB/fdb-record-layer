@@ -654,35 +654,24 @@ public class DelegatingVisitorTest {
     }
 
     @Test
-    void visitSetLocalVariableTest() {
+    void visitSetTransactionVariableTest() {
         final TypedVisitor baseVisitor = Mockito.mock(TypedVisitor.class);
         final DelegatingVisitor<TypedVisitor> delegating = new DelegatingVisitor<>(baseVisitor);
-        final RelationalParser.SetLocalVariableContext context = new RelationalParser.SetLocalVariableContext(new RelationalParser.SetStatementContext(null, -1));
+        final RelationalParser.SetTransactionVariableContext context = new RelationalParser.SetTransactionVariableContext(new RelationalParser.SetStatementContext(null, -1));
         final ProceduralPlan plan = ProceduralPlan.of(Mockito.mock(ConstantAction.class));
-        Mockito.when(baseVisitor.visitSetLocalVariable(context)).thenReturn(plan);
-        final ProceduralPlan result = delegating.visitSetLocalVariable(context);
+        Mockito.when(baseVisitor.visitSetTransactionVariable(context)).thenReturn(plan);
+        final ProceduralPlan result = delegating.visitSetTransactionVariable(context);
         Assertions.assertThat(result).isSameAs(plan);
     }
 
     @Test
-    void visitVariableRefTest() {
+    void visitGetVariableFunctionCallTest() {
         final TypedVisitor baseVisitor = Mockito.mock(TypedVisitor.class);
         final DelegatingVisitor<TypedVisitor> delegating = new DelegatingVisitor<>(baseVisitor);
-        final RelationalParser.VariableRefContext context = new RelationalParser.VariableRefContext(null, -1);
+        final RelationalParser.GetVariableFunctionCallContext context = new RelationalParser.GetVariableFunctionCallContext(new RelationalParser.SpecificFunctionContext());
         final Object mockResult = new Object();
-        Mockito.when(baseVisitor.visitVariableRef(context)).thenReturn(mockResult);
-        final Object result = delegating.visitVariableRef(context);
-        Assertions.assertThat(result).isSameAs(mockResult);
-    }
-
-    @Test
-    void visitVariableRefAtomTest() {
-        final TypedVisitor baseVisitor = Mockito.mock(TypedVisitor.class);
-        final DelegatingVisitor<TypedVisitor> delegating = new DelegatingVisitor<>(baseVisitor);
-        final RelationalParser.VariableRefAtomContext context = new RelationalParser.VariableRefAtomContext(new RelationalParser.ExpressionAtomContext());
-        final Object mockResult = new Object();
-        Mockito.when(baseVisitor.visitVariableRefAtom(context)).thenReturn(mockResult);
-        final Object result = delegating.visitVariableRefAtom(context);
+        Mockito.when(baseVisitor.visitGetVariableFunctionCall(context)).thenReturn(mockResult);
+        final Object result = delegating.visitGetVariableFunctionCall(context);
         Assertions.assertThat(result).isSameAs(mockResult);
     }
 }
