@@ -31,7 +31,6 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.recordlayer.query.AstNormalizer;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
-import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
 import org.apache.logging.log4j.Level;
@@ -348,7 +347,7 @@ public class QueryLoggingTest {
             // invariant at runtime, but NullAway can't see that since Assert lives in the not-yet-migrated
             // fdb-relational-api module.
             @SuppressWarnings("NullAway")
-            final var metricCollector = Assert.notNullUnchecked(conn.getMetricCollector());
+            final var metricCollector = com.apple.foundationdb.relational.util.Assert.notNullUnchecked(conn.getMetricCollector());
             final var planContext = PlanContext.Builder.create()
                     .fromRecordStore(store, conn.getOptions())
                     .fromDatabase(conn.getRecordLayerDatabase())
