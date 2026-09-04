@@ -37,6 +37,7 @@ import java.io.InputStream;
 import java.nio.channels.FileChannel;
 import java.security.GeneralSecurityException;
 import java.security.Key;
+import java.util.Objects;
 
 /**
  * Read values from files written by {@link FileSorter}. Keys are skipped.
@@ -119,7 +120,8 @@ public class SortedFileReader<V> implements AutoCloseable {
                     recordSectionPosition = 0;
                     if (compressed || encryptionKey != null) {
                         if (cipher != null) {
-                            FileSorter.initCipherDecrypt(cipher, encryptionKey, sectionHeader);
+                            // cipher is only non-null when encryptionKey was also non-null (see the constructor).
+                            FileSorter.initCipherDecrypt(cipher, Objects.requireNonNull(encryptionKey), sectionHeader);
                         }
                         fileChannel.position(sectionFileStart + headerStream.getTotalBytesRead());
                         InputStream inputStream = FileSorter.wrapInputStream(fileStream, cipher, compressed);
@@ -181,7 +183,8 @@ public class SortedFileReader<V> implements AutoCloseable {
             recordSectionPosition = 0;
             if (fileChannel != null) {
                 if (cipher != null) {
-                    FileSorter.initCipherDecrypt(cipher, encryptionKey, sectionHeader);
+                    // cipher is only non-null when encryptionKey was also non-null (see the constructor).
+                    FileSorter.initCipherDecrypt(cipher, Objects.requireNonNull(encryptionKey), sectionHeader);
                 }
                 fileChannel.position(sectionRecordsPosition);
                 InputStream inputStream = FileSorter.wrapInputStream(fileStream, cipher, compressed);
