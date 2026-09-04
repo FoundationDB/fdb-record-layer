@@ -26,6 +26,9 @@ jobs:
   #     entirely if the `plan` job determined none of these subprojects are affected.
   #  5. coverage: Merges the JaCoCo output of 3 and 4 and generates reports. Tolerates 3 and/or 4
   #     having been skipped or having skipped some matrix legs.
+  #  6. docs: Builds the documentation site and uploads it as a zipped artifact so reviewers can
+  #     download and preview it. This does NOT publish the site anywhere (that only happens during
+  #     a release).
 
   style:
     runs-on: ubuntu-latest
@@ -281,3 +284,36 @@ jobs:
           python3 build/coverage_annotations.py \
             --report .out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml \
             --diff pr_diff.patch
+
+  docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup Base Environment
+        id: setup-base
+        uses: ./actions/setup-base-env
+      - name: Cache Python Environment
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: docs/sphinx/.venv
+          key: ${{ runner.os }}-sphinx-python-${{ steps.setup-base.outputs.python-version }}-${{ hashFiles('docs/sphinx/requirements.txt') }}
+      - name: Build Documentation Site
+        uses: ./actions/run-gradle
+        with:
+          gradle_command: documentationSite -PreleaseBuild=false
+      - name: Zip Documentation Site
+        shell: bash
+        run: |
+          cd docs/sphinx/.out/html
+          zip -r "${{ github.workspace }}/documentation-site.zip" .
+      # Upload to the build's artifacts only. Note: does not use upload-pages-artifact or deploy-docs here
+      - name: Upload Documentation
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: documentation-site
+          path: documentation-site.zip
+          retention-days: 7
