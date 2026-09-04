@@ -296,18 +296,18 @@ public class MoreAsyncUtil {
      * @param <T> the source type
      * @return a new {@code AsyncIterable} that only contains those items in iterable for which filter returns {@code true}
      */
-    public static <T> AsyncIterable<T> filterIterable(final AsyncIterable<T> iterable,
+    public static <T extends @Nullable Object> AsyncIterable<T> filterIterable(final AsyncIterable<T> iterable,
                                                       final Function<T, Boolean> filter) {
         return filterIterable(ForkJoinPool.commonPool(), iterable, filter);
     }
 
-    public static <T> AsyncIterable<T> filterIterable(final Executor executor,
+    public static <T extends @Nullable Object> AsyncIterable<T> filterIterable(final Executor executor,
                                                       final AsyncIterable<T> iterable,
                                                       final Function<T, Boolean> filter) {
         return iterableOf(() -> filterRemaining(executor, iterable.iterator(), filter), executor);
     }
 
-    public static <T> CloseableAsyncIterator<T> filterRemaining(Executor executor,
+    public static <T extends @Nullable Object> CloseableAsyncIterator<T> filterRemaining(Executor executor,
                                                                 final AsyncIterator<T> iterator,
                                                                 final Function<T, Boolean> filter) {
         return new CloseableAsyncIterator<T>() {
@@ -352,13 +352,19 @@ public class MoreAsyncUtil {
             }
 
             @Override
+            // hasNext() is guaranteed to have set next when it returns true. Unlike a "missing value" sentinel,
+            // next may itself legitimately be null when T is instantiated with a nullable type (e.g.
+            // dedupIterable() below is used over streams that can contain null elements). AsyncIterator.next()
+            // is unannotated external code that NullAway infers as @NonNull, so this override can't be
+            // re-declared @Nullable; Objects.requireNonNull() would be wrong too, since it would incorrectly
+            // reject that legitimate null case, so the method is suppressed instead.
+            @SuppressWarnings("NullAway")
             public T next() {
                 if (!hasNext()) {
                     throw new NoSuchElementException();
                 }
                 haveNext = false;
-                // hasNext() is guaranteed to have set next when it returns true.
-                return Objects.requireNonNull(next);
+                return next;
             }
 
             @Override
@@ -384,11 +390,11 @@ public class MoreAsyncUtil {
      * @param <T> the source type
      * @return a new {@code AsyncIterable} that only contains those items in iterable for which the previous item was different
      */
-    public static <T> AsyncIterable<T> dedupIterable(final AsyncIterable<T> iterable) {
+    public static <T extends @Nullable Object> AsyncIterable<T> dedupIterable(final AsyncIterable<T> iterable) {
         return dedupIterable(ForkJoinPool.commonPool(), iterable);
     }
 
-    public static <T> AsyncIterable<T> dedupIterable(Executor executor,
+    public static <T extends @Nullable Object> AsyncIterable<T> dedupIterable(Executor executor,
                                                      final AsyncIterable<T> iterable) {
         return filterIterable(executor, iterable,
                 new Function<>() {
