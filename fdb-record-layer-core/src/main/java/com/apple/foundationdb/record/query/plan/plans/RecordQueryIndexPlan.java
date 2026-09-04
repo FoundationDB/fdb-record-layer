@@ -680,7 +680,7 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
                                                                                final EvaluationContext context,
                                                                                @Nullable final byte[] continuation,
                                                                                final ExecuteProperties executeProperties,
-                                                                               final RecordCursorResult<QueryResult> lastSuccessfulResult) {
+                                                                               @Nullable final RecordCursorResult<QueryResult> lastSuccessfulResult) {
         if (lastSuccessfulResult == null) {
             // The fallbackCursor did not have any result from the primary yet - just fallback to the index scan
             return RecordQueryPlanWithIndex.super.executePlan(store, context, continuation, executeProperties);
@@ -765,7 +765,7 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
             if (continuation.isEnd()) {
                 return continuation;
             }
-            byte[] continuationBytes = KeyValueCursorBase.Continuation.getInnerContinuation(continuation.toBytes());
+            @Nullable byte[] continuationBytes = KeyValueCursorBase.Continuation.getInnerContinuation(continuation.toBytes());
             if (continuationBytes != null && ByteArrayUtil.startsWith(continuationBytes, prefixBytes)) {
                 // Strip away the prefix. Note that ByteStrings re-use the underlying ByteArray, so this can
                 // save a copy.
