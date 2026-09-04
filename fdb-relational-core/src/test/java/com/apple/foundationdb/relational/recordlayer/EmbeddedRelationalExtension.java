@@ -73,6 +73,9 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
         this(FDBTestEnvironment.randomClusterFile(), true, options);
     }
 
+    // storeCatalog and database are initialized by setup() (called from beforeEach()), which JUnit guarantees
+    // to run before any other method on this extension is used.
+    @SuppressWarnings("NullAway.Init")
     public EmbeddedRelationalExtension(final String clusterFile, final boolean register, final Options options) {
         final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
         keyspaceProvider.registerDomainIfNotExists("TEST");
@@ -183,12 +186,18 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
 
         private final EmbeddedRelationalExtension underlyingExtension;
 
+        // BeforeEachCallback.beforeEach()'s ExtensionContext parameter isn't annotated @Nullable, but this
+        // implementation doesn't use the context, so invoking it manually with null is safe.
+        @SuppressWarnings("NullAway")
         Resource(final EmbeddedRelationalExtension underlyingExtension) throws Exception {
             this.underlyingExtension = underlyingExtension;
             this.underlyingExtension.beforeEach(null);
         }
 
+        // AfterEachCallback.afterEach()'s ExtensionContext parameter isn't annotated @Nullable, but this
+        // implementation doesn't use the context, so invoking it manually with null is safe.
         @Override
+        @SuppressWarnings("NullAway")
         public void close() {
             try {
                 underlyingExtension.afterEach(null);

@@ -27,6 +27,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Properties;
 
@@ -80,6 +81,9 @@ public class ContinuationTest {
 
     @Test
     public void testNullSameAsBegin() {
+        // fromUnderlyingBytes's bytes parameter is already @Nullable, but NullAway does not reliably track
+        // @Nullable on array-typed parameters.
+        @SuppressWarnings("NullAway")
         ContinuationImpl continuation = (ContinuationImpl) ContinuationImpl.fromUnderlyingBytes(null);
         assertContinuation(continuation, true, false, null);
     }
@@ -89,7 +93,7 @@ public class ContinuationTest {
         Assertions.assertThatThrownBy(() -> ContinuationImpl.parseContinuation("Invalid".getBytes())).isInstanceOf(InvalidProtocolBufferException.class);
     }
 
-    private void assertContinuation(ContinuationImpl continuation, boolean atBeginning, boolean atEnd, Object underlying) {
+    private void assertContinuation(ContinuationImpl continuation, boolean atBeginning, boolean atEnd, @Nullable Object underlying) {
         Assertions.assertThat(continuation.atBeginning()).isEqualTo(atBeginning);
         Assertions.assertThat(continuation.atEnd()).isEqualTo(atEnd);
         Assertions.assertThat(continuation.getExecutionState()).isEqualTo(underlying);
