@@ -202,9 +202,12 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
             return isEnd() ? ByteString.EMPTY : toProto().toByteString();
         }
 
-        @Nullable
         @Override
-        public byte[] toBytes() {
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return
+                                       // types; RecordCursorContinuation#toBytes() (out of scope here) is genuinely
+                                       // nullable per its javadoc, but its @Nullable annotation isn't recognized here,
+                                       // making this override look like it narrows a @NonNull super-method to @Nullable.
+        public byte @Nullable [] toBytes() {
             ByteString byteString = toByteString();
             return byteString.isEmpty() ? null : byteString.toByteArray();
         }
@@ -240,8 +243,10 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
                 RecordCursorProto.AggregateCursorContinuation continuationProto = RecordCursorProto.AggregateCursorContinuation.parseFrom(rawBytes);
                 return new AggregateCursorContinuation(ByteArrayContinuation.fromNullable(continuationProto.getContinuation().toByteArray()), continuationProto.hasPartialAggregationResults() ? continuationProto.getPartialAggregationResults() : null);
             } catch (InvalidProtocolBufferException ipbe) {
+                // rawBytes is non-null here (the parameter isn't annotated @Nullable), so loggable(rawBytes)
+                // (which only returns null for a null input) is guaranteed non-null.
                 throw new RecordCoreException("error parsing continuation", ipbe)
-                        .addLogInfo("raw_bytes", ByteArrayUtil2.loggable(rawBytes));
+                        .addLogInfo("raw_bytes", Objects.requireNonNull(ByteArrayUtil2.loggable(rawBytes)));
             }
         }
     }

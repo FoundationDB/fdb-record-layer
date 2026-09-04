@@ -173,7 +173,11 @@ public class ResolverValidator {
                                             .addLogInfo(LogMessageKeys.RESOLVER, resolver)
                                             .addLogInfo(LogMessageKeys.RESOLVER_KEY, keyValue.getKey())
                                             .addLogInfo(LogMessageKeys.RESOLVER_VALUE, keyValue.getValue().getValue())
-                                            .addLogInfo(LogMessageKeys.RESOLVER_METADATA, ByteArrayUtil2.loggable(keyValue.getValue().getMetadata()));
+                                            // metadata is often absent (null); loggable(null) also returns null, so
+                                            // fall back to the literal string "null" rather than risk an NPE here
+                                            // while already handling another exception.
+                                            .addLogInfo(LogMessageKeys.RESOLVER_METADATA,
+                                                    Objects.requireNonNullElse(ByteArrayUtil2.loggable(keyValue.getValue().getMetadata()), "null"));
                                 }
 
                                 if (!reverseKey.equals(keyValue.getKey())) {
