@@ -321,7 +321,15 @@ public class Expression {
         return Expressions.ofSingle(withUnderlying(Assert.notNullUnchecked(getUnderlying().replace(value -> {
             if (value instanceof ConstantObjectValue) {
                 final ConstantObjectValue constantObjectValue = (ConstantObjectValue) value;
-                return new LiteralValue<>(constantObjectValue.getResultType(), literals.asMap().get(constantObjectValue.getConstantId()));
+                final var literal = literals.literalOf(constantObjectValue.getConstantId());
+                if (literal.map(OrderedLiteral::isValueFree).orElse(false)) {
+                    // A value-free constant has no value to substitute. Folding it would yield a NULL literal, making
+                    // two distinct value-free parameters indistinguishable from each other here.
+                    return value;
+                }
+                // A constant id with no literal registered folds to NULL, as it did before value-free literals existed.
+                return new LiteralValue<>(constantObjectValue.getResultType(),
+                        literal.map(OrderedLiteral::getLiteralObject).orElse(null));
             }
             return value;
         }))));

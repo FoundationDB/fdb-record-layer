@@ -1126,7 +1126,8 @@ public class SemanticAnalyzer {
         if (!(builtInFunction instanceof WithPlanGenerationSideEffects)) {
             return;
         }
-        // combine the expanded function's literals (if any) with the currently built list of query literals.
+        // combine the expanded function's literals (if any) with the currently built list of query literals. Value-free
+        // literals ride in the same table, so a typed parameter planned with no value is carried across too.
         mutablePlanGenerationContext.importAuxiliaryLiterals(Assert.castUnchecked(builtInFunction,
                 WithPlanGenerationSideEffects.class).getAuxiliaryLiterals());
     }
