@@ -441,22 +441,32 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         });
     }
 
-    @Nonnull
+    @Nullable
     @Override
     public <M extends Message> Any serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
         // The maintenance filter is applied here, at enqueue time, so a record filtered out of this index is never
         // deferred onto the queue and updateFromQueue does not need the record to re-check it.
         final IndexBuildProto.SlidingWindowQueueEntry.Builder builder =
                 IndexBuildProto.SlidingWindowQueueEntry.newBuilder();
+        boolean anyChange = false;
         if (shouldMaintain(oldRecord)) {
             builder.setOldEntryKey(entryKeyOf(oldRecord).pack());
-            builder.setDelegatedDelete(delegate.serializePendingWriteQueue(oldRecord, null));
+            final Any delegatedDelete = delegate.serializePendingWriteQueue(oldRecord, null);
+            if (delegatedDelete != null) {
+                builder.setDelegatedDelete(delegatedDelete);
+            }
+            anyChange = true;
         }
         if (shouldMaintain(newRecord)) {
             builder.setNewEntryKey(entryKeyOf(newRecord).pack());
-            builder.setDelegatedInsert(delegate.serializePendingWriteQueue(null, newRecord));
+            final Any delegatedInsert = delegate.serializePendingWriteQueue(null, newRecord);
+            if (delegatedInsert != null) {
+                builder.setDelegatedInsert(delegatedInsert);
+            }
+            anyChange = true;
         }
-        return Any.pack(builder.build());
+        // If nothing was maintained for either records, return null to indicate that no change is needed
+        return anyChange ? Any.pack(builder.build()) : null;
     }
 
     /**
@@ -486,11 +496,11 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         final Any delegateDelete = entry.hasDelegatedDelete() ? entry.getDelegatedDelete() : null;
         final Any delegateInsert = entry.hasDelegatedInsert() ? entry.getDelegatedInsert() : null;
         // The maintenance filter was already applied when the update was first deferred, so it is not re-evaluated here.
-        validateOrThrowEx(oldKey == null || delegateDelete != null, "old record key without delegate delete");
-        validateOrThrowEx(newKey == null || delegateInsert != null, "new record key without delegate insert");
+        validateOrThrowEx(delegateDelete == null || oldKey != null, "delegate delete without old record key");
+        validateOrThrowEx(delegateInsert == null || newKey != null, "delegate insert without new record key");
         return updateWindowWhileWriteOnly(oldKey, newKey,
-                () -> delegate.updateFromQueue(delegateDelete),
-                () -> delegate.updateFromQueue(delegateInsert));
+                () -> delegateDelete == null ? AsyncUtil.DONE : delegate.updateFromQueue(delegateDelete),
+                () -> delegateInsert == null ? AsyncUtil.DONE : delegate.updateFromQueue(delegateInsert));
     }
 
     private void validateOrThrowEx(boolean isValid, @Nonnull String msg) {
