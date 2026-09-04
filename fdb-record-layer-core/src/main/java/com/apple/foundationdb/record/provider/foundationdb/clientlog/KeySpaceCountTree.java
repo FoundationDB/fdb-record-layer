@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceTree
 import org.jspecify.annotations.Nullable;
 
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 import static com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceTreeResolver.Resolved;
@@ -56,12 +57,16 @@ public class KeySpaceCountTree extends TupleKeyCountTree {
     @Override
     protected TupleKeyCountTree newPrefixChild(byte[] prefixBytes, Object prefix) {
         TupleKeyCountTree result = super.newPrefixChild(prefixBytes, prefix);
-        ((KeySpaceCountTree)result).resolved = new KeySpaceTreeResolver.ResolvedPrefixRoot(resolved, prefix);
+        // A prefix child can only be attached beneath a node whose own path has already been resolved
+        // (either the root, which is resolved at construction, or a node reached via a prior prefix link).
+        ((KeySpaceCountTree)result).resolved = new KeySpaceTreeResolver.ResolvedPrefixRoot(
+                Objects.requireNonNull(resolved, "cannot add a prefix child to an unresolved key space count tree node"), prefix);
         return result;
     }
 
     public CompletableFuture<Void> resolveVisibleChildren(KeySpaceTreeResolver resolver) {
-        if (resolved != null) {
+        final Resolved resolvedValue = resolved;
+        if (resolvedValue != null) {
             final Iterator<TupleKeyCountTree> children = getChildren().iterator();
             return AsyncUtil.whileTrue(() -> {
                 if (!children.hasNext()) {
@@ -71,7 +76,7 @@ public class KeySpaceCountTree extends TupleKeyCountTree {
                 if (!child.isVisible()) {
                     return AsyncUtil.READY_TRUE;
                 }
-                return child.resolve(resolver, resolved)
+                return child.resolve(resolver, resolvedValue)
                         .thenCompose(vignore -> child.resolveVisibleChildren(resolver))
                         .thenApply(vignore -> true);
             });

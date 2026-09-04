@@ -327,6 +327,8 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
             state.context.ensureActive().addWriteConflictRange(indexRange.begin, indexRange.end);
         }
         final BunchedMap<Tuple, List<Integer>> bunchedMap = getBunchedMap(state.context);
+        // forEachAsync legitimately returns CompletableFuture<@Nullable Void> (it always completes with null);
+        // re-wrap with thenApply to match the CompletableFuture<Void> type used below.
         CompletableFuture<Void> tokenInsertFuture = RecordCursor.fromIterator(state.context.getExecutor(), positionMap.entrySet().iterator())
                 .forEachAsync((Map.Entry<String, List<Integer>> tokenEntry) -> {
                     Tuple subspaceTuple;
@@ -342,7 +344,8 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
                         final List<Integer> value = omitPositionLists ? Collections.emptyList() : tokenEntry.getValue();
                         return bunchedMap.put(state.transaction, mapSubspace, groupedKey, value).thenAccept(ignore -> { });
                     }
-                }, state.store.getPipelineSize(PipelineOperation.TEXT_INDEX_UPDATE));
+                }, state.store.getPipelineSize(PipelineOperation.TEXT_INDEX_UPDATE))
+                .thenApply(ignore -> null);
         if (state.store.getTimer() != null) {
             return state.store.getTimer().instrument(indexUpdateEvent, tokenInsertFuture, state.context.getExecutor(), startTime);
         } else {

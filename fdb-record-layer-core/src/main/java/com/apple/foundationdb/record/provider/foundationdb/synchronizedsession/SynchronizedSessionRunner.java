@@ -39,6 +39,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -97,8 +98,10 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
     public static SynchronizedSessionRunner startSession(Subspace lockSubspace,
                                                          long leaseLengthMill,
                                                          FDBDatabaseRunnerImpl runner) {
-        return runner.asyncToSync(FDBStoreTimer.Waits.WAIT_INIT_SYNC_SESSION,
-                startSessionAsync(lockSubspace, leaseLengthMill, runner));
+        // asyncToSync is declared @Nullable (per the FDBDatabaseRunner interface contract), but the future
+        // from startSessionAsync always completes with a newly constructed, non-null SynchronizedSessionRunner.
+        return Objects.requireNonNull(runner.asyncToSync(FDBStoreTimer.Waits.WAIT_INIT_SYNC_SESSION,
+                startSessionAsync(lockSubspace, leaseLengthMill, runner)));
     }
 
 

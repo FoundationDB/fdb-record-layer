@@ -60,7 +60,7 @@ public class RecordLayerPropertyStorage {
             } catch (ClassCastException ex) {
                 throw new RecordCoreException("Invalid type for record context property", ex)
                         .addLogInfo(LogMessageKeys.PROPERTY_NAME, propertyKey.getName(),
-                                LogMessageKeys.PROPERTY_TYPE, value.getClass().getName());
+                                LogMessageKeys.PROPERTY_TYPE, value == null ? "null" : value.getClass().getName());
             }
         } else {
             return propertyKey.getDefaultValue();

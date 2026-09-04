@@ -47,8 +47,8 @@ import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.List;
@@ -119,12 +119,9 @@ public class PendingWritesQueue<T extends Message> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PendingWritesQueue.class);
 
-    @Nonnull
     private final Subspace queueSubspace;
-    @Nonnull
     private final Subspace queueSizeSubspace;
     private final long maxQueueSize;
-    @Nonnull
     private final Class<T> payloadClass;
 
     /**
@@ -139,10 +136,10 @@ public class PendingWritesQueue<T extends Message> {
      * @param payloadClass class of the payload message type, e.g. {@code MyPayload.class}; used
      * to verify and unpack the payload on read
      */
-    public PendingWritesQueue(@Nonnull Subspace queueSubspace,
-                              @Nonnull Subspace queueSizeSubspace,
+    public PendingWritesQueue(Subspace queueSubspace,
+                              Subspace queueSizeSubspace,
                               long maxQueueSize,
-                              @Nonnull Class<T> payloadClass) {
+                              Class<T> payloadClass) {
         this.queueSubspace = queueSubspace;
         this.queueSizeSubspace = queueSizeSubspace;
         this.maxQueueSize = maxQueueSize;
@@ -167,9 +164,8 @@ public class PendingWritesQueue<T extends Message> {
      * @throws PendingWritesQueueTooLargeException via the returned future if the queue is at
      * or beyond {@code maxQueueSize}
      */
-    @Nonnull
-    public CompletableFuture<Void> enqueue(@Nonnull FDBRecordContext context,
-                                           @Nonnull T payload,
+    public CompletableFuture<Void> enqueue(FDBRecordContext context,
+                                           T payload,
                                            int incarnation) {
         return capacityCheck(context).thenAccept(ignored -> writeEntry(context, payload, incarnation));
     }
@@ -192,9 +188,8 @@ public class PendingWritesQueue<T extends Message> {
      * @return a cursor over {@link PendingWritesQueueEntry} values
      */
     @SuppressWarnings("PMD.CloseResource")
-    @Nonnull
-    public RecordCursor<PendingWritesQueueEntry<T>> getQueueCursor(@Nonnull FDBRecordContext context,
-                                                                   @Nonnull ScanProperties scanProperties,
+    public RecordCursor<PendingWritesQueueEntry<T>> getQueueCursor(FDBRecordContext context,
+                                                                   ScanProperties scanProperties,
                                                                    @Nullable byte[] continuation) {
         // Inner-cursor properties: clear per-row limits (the unsplitter applies entry-level
         // limits) and force snapshot isolation so the read never installs a read-conflict
@@ -235,7 +230,7 @@ public class PendingWritesQueue<T extends Message> {
      * @param context the record context
      * @param entry the entry to clear
      */
-    public void clearEntry(@Nonnull FDBRecordContext context, @Nonnull PendingWritesQueueEntry<T> entry) {
+    public void clearEntry(FDBRecordContext context, PendingWritesQueueEntry<T> entry) {
         // Install a read-conflict range over the keys this entry occupies. Clears are blind
         // writes that don't conflict with each other, so without this two transactions could
         // concurrently clear the same entry and each decrement the size counter, making it
@@ -265,8 +260,7 @@ public class PendingWritesQueue<T extends Message> {
      *
      * @return a future resolving to {@code true} when the queue range is empty
      */
-    @Nonnull
-    public CompletableFuture<Boolean> isQueueEmpty(@Nonnull FDBRecordContext context) {
+    public CompletableFuture<Boolean> isQueueEmpty(FDBRecordContext context) {
         return context.ensureActive()
                 .getRange(queueSubspace.range(), 1)
                 .asList()
@@ -283,8 +277,7 @@ public class PendingWritesQueue<T extends Message> {
      *
      * @return a future resolving to the counter value, or {@code null} if uninitialized
      */
-    @Nonnull
-    public CompletableFuture<Long> getQueueSizeNoConflict(@Nonnull FDBRecordContext context) {
+    public CompletableFuture<Long> getQueueSizeNoConflict(FDBRecordContext context) {
         return context.readTransaction(true).get(queueSizeSubspace.pack())
                 .thenApply(bytes -> {
                     final Long size = bytes == null ? null : decodeQueueSize(bytes);
@@ -293,7 +286,7 @@ public class PendingWritesQueue<T extends Message> {
                 });
     }
 
-    private void writeEntry(@Nonnull FDBRecordContext context, @Nonnull T payload, int incarnation) {
+    private void writeEntry(FDBRecordContext context, T payload, int incarnation) {
         Any packed = Any.pack(payload);
         PendingWritesQueueProto.PendingWriteItem item =
                 PendingWritesQueueProto.PendingWriteItem.newBuilder()
@@ -315,8 +308,7 @@ public class PendingWritesQueue<T extends Message> {
         }
     }
 
-    @Nonnull
-    private CompletableFuture<Void> capacityCheck(@Nonnull FDBRecordContext context) {
+    private CompletableFuture<Void> capacityCheck(FDBRecordContext context) {
         if (maxQueueSize <= 0) {
             return CompletableFuture.completedFuture(null);
         }
@@ -336,8 +328,7 @@ public class PendingWritesQueue<T extends Message> {
         });
     }
 
-    @Nonnull
-    private PendingWritesQueueEntry<T> toQueueEntry(@Nonnull Tuple keyTuple, @Nonnull byte[] valueBytes) {
+    private PendingWritesQueueEntry<T> toQueueEntry(Tuple keyTuple, byte[] valueBytes) {
         PendingWritesQueueProto.PendingWriteItem item;
         try {
             item = PendingWritesQueueProto.PendingWriteItem.parseFrom(valueBytes);
@@ -372,7 +363,7 @@ public class PendingWritesQueue<T extends Message> {
         return new PendingWritesQueueEntry<>(keyTuple, payload, storedPayload.getTypeUrl(), item.getEnqueueTimestamp());
     }
 
-    private void mutateQueueSizeCounter(@Nonnull FDBRecordContext context, long delta) {
+    private void mutateQueueSizeCounter(FDBRecordContext context, long delta) {
         context.ensureActive().mutate(MutationType.ADD, queueSizeSubspace.pack(), encodeQueueSize(delta));
     }
 
@@ -380,12 +371,11 @@ public class PendingWritesQueue<T extends Message> {
         return ByteBuffer.allocate(Long.BYTES).order(ByteOrder.LITTLE_ENDIAN).putLong(count).array();
     }
 
-    private static long decodeQueueSize(@Nonnull byte[] bytes) {
+    private static long decodeQueueSize(byte[] bytes) {
         return ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).getLong();
     }
 
-    @Nonnull
-    private KeyValueLogMessage getLogMessage(@Nonnull String staticMsg) {
+    private KeyValueLogMessage getLogMessage(String staticMsg) {
         return KeyValueLogMessage.build(staticMsg)
                 .addKeyAndValue(LogMessageKeys.SUBSPACE, queueSubspace);
     }

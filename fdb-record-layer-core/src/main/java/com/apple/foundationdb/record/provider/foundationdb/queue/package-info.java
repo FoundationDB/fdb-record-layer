@@ -27,4 +27,7 @@
  * in the background. The intent is for the queue to be drained when the index becomes available again.</p>
  *
  */
+@NullMarked
 package com.apple.foundationdb.record.provider.foundationdb.queue;
+
+import org.jspecify.annotations.NullMarked;

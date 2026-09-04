@@ -71,6 +71,8 @@ public class StringInterningLayer {
         this.isRootLevel = isRootLevel;
     }
 
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[])
+    // parameters; createMapping's metadata parameter is correctly declared @Nullable just below.
     protected CompletableFuture<ResolverResult> intern(FDBRecordContext context, final String toIntern) {
         CompletableFuture<Optional<ResolverResult>> readResult;
         synchronized (this) {
@@ -188,7 +190,7 @@ public class StringInterningLayer {
     }
 
     private byte[] serializeValue(ResolverResult allocated) {
-        byte[] metadata = allocated.getMetadata();
+        @Nullable byte[] metadata = allocated.getMetadata();
         StringInterningProto.Data.Builder builder = StringInterningProto.Data.newBuilder();
         builder.setInternedValue(allocated.getValue());
         if (metadata != null) {
@@ -197,6 +199,8 @@ public class StringInterningLayer {
         return builder.build().toByteArray();
     }
 
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[])
+    // parameters; ResolverResult's metadata parameter is correctly declared @Nullable.
     protected static ResolverResult deserializeValue(byte[] bytes) {
         try {
             StringInterningProto.Data interned = StringInterningProto.Data.parseFrom(bytes);
