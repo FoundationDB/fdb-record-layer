@@ -34,6 +34,7 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.jspecify.annotations.Nullable;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
@@ -88,17 +89,23 @@ public class ConcurrentCacheTests {
         return "full scan with " + boundary;
     }
 
+    // pickFirst intentionally returns null when the stream has no matches (mirrored by MultiStageCache's own
+    // null-check on the reduction result), but AbstractCache.reduce()'s Function<Stream<V>, V> parameter type
+    // (main code, out of scope here) doesn't reflect that nullability.
+    @SuppressWarnings("NullAway")
     private static void getOrLoadT1lt300(final MultiStageCache<String, String, PhysicalPlanEquivalence, String> cache) {
         final var result = cache.reduce("T1", "1", ppeFor(ecFor(300)), () -> NonnullPair.of(ppeFor(lt500Constraint),
                 generateIScan(500)), s -> s + " overriden with 300", ConcurrentCacheTests::pickFirst, NoOpMetricCollector.INSTANCE);
         Assertions.assertThat(result).doesNotContain("150"); // we must not scan index <150 as the returned results would be incorrect
     }
 
+    @SuppressWarnings("NullAway")
     private static void getOrLoadT1lt90(final MultiStageCache<String, String, PhysicalPlanEquivalence, String> cache) {
         cache.reduce("T1", "1", ppeFor(ecFor(90)), () -> NonnullPair.of(ppeFor(lt150Constraint),
                 generateIScan(150)), s -> s + " overriden with 90", ConcurrentCacheTests::pickFirst, NoOpMetricCollector.INSTANCE);
     }
 
+    @SuppressWarnings("NullAway")
     private static void getOrLoadT1lt1000(final MultiStageCache<String, String, PhysicalPlanEquivalence, String> cache) {
         final var result = cache.reduce("T1", "1", ppeFor(ecFor(1000)), () -> NonnullPair.of(ppeFor(lt1000Constraint),
                 generateFullScan()), s -> s + " overriden with 1000", ConcurrentCacheTests::pickFirst, NoOpMetricCollector.INSTANCE);
@@ -113,7 +120,7 @@ public class ConcurrentCacheTests {
                 2, ConcurrentCacheTests::getOrLoadT1lt90);
         Thread.sleep(1);
         final var chosen = random.nextInt(3);
-        actions.get(chosen).accept(cache);
+        Objects.requireNonNull(actions.get(chosen), "chosen key is always one of 0, 1, 2").accept(cache);
     }
 
     @Test

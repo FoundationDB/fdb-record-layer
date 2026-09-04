@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer.query.cache;
 
 import com.apple.foundationdb.record.util.pair.NonnullPair;
-import com.apple.foundationdb.record.util.pair.Pair;
 
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
@@ -34,6 +33,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 /**
@@ -97,18 +97,6 @@ public class MultiStageCacheTests {
 
     private static String fetchFromCache(final String in) {
         return "restored " + in + " from cache";
-    }
-
-    private static Pair<String, String> produceAnimal(final String k2, final String k3) {
-        return Pair.of(k2, entries.get("Animal").get(k2).get(k3));
-    }
-
-    private static Pair<String, String> produceLandform(final String k2, final String k3) {
-        return Pair.of(k2, entries.get("Landform").get(k2).get(k3));
-    }
-
-    private static Pair<String, String> produceCapital(final String k2, final String k3) {
-        return Pair.of(k2, entries.get("Capital").get(k2).get(k3));
     }
 
     private static void shouldBe(final MultiStageCache<String, String, String, String> cache, Map<String, Map<String, Map<String, String>>> expectedLayout) {
@@ -363,15 +351,26 @@ public class MultiStageCacheTests {
         return readCache(cache, key, secondaryKey, tertiaryKey, NoOpMetricCollector.INSTANCE);
     }
 
+    // pickFirst intentionally returns null for an empty stream (AbstractCache.reduce() null-checks the result
+    // internally), but AbstractCache.reduce()'s Function<Stream<V>, V> parameter type (main code, out of scope
+    // here) doesn't reflect that nullability.
+    @SuppressWarnings("NullAway")
     private static String readCache(MultiStageCache<String, String, String, String> cache,
                                     String key, String secondaryKey,
                                     String tertiaryKey,
                                     MetricCollector metricCollector) {
         return cache.reduce(key, secondaryKey, tertiaryKey,
-                () -> NonnullPair.of(tertiaryKey, entries.get(key).get(secondaryKey).get(tertiaryKey)),
+                () -> NonnullPair.of(tertiaryKey, lookupFixture(key, secondaryKey, tertiaryKey)),
                 MultiStageCacheTests::fetchFromCache,
                 MultiStageCacheTests::pickFirst,
                 metricCollector);
+    }
+
+    // The (key, secondaryKey, tertiaryKey) combinations used by tests are always present in entries.
+    private static String lookupFixture(String key, String secondaryKey, String tertiaryKey) {
+        final var secondaryMap = Objects.requireNonNull(entries.get(key), () -> "unknown key " + key);
+        final var tertiaryMap = Objects.requireNonNull(secondaryMap.get(secondaryKey), () -> "unknown secondary key " + secondaryKey);
+        return Objects.requireNonNull(tertiaryMap.get(tertiaryKey), () -> "unknown tertiary key " + tertiaryKey);
     }
 
     @Test
