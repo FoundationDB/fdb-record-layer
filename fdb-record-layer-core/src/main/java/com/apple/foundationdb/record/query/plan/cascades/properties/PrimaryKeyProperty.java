@@ -130,11 +130,9 @@ public class PrimaryKeyProperty implements ExpressionProperty<Optional<List<Valu
 
     private static Optional<List<Value>> commonPrimaryKeyMaybe(Iterable<List<Value>> primaryKeys) {
         List<Value> common = null;
-        var first = true;
         for (final var primaryKey : primaryKeys) {
-            if (first) {
+            if (common == null) {
                 common = primaryKey;
-                first = false;
             } else if (!common.equals(primaryKey)) {
                 return Optional.empty();
             }

@@ -108,12 +108,16 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
         final long endExclusiveValue = (Long)Verify.verifyNotNull(endExclusive.eval(store, context));
         final var beginInclusiveValue = (Long)Verify.verifyNotNull(this.beginInclusive.eval(store, context));
         final var stepValue = (Long)Verify.verifyNotNull(step.eval(store, context));
-        return new Cursor(store.getExecutor(), endExclusiveValue, beginInclusiveValue, stepValue, rangeValueAsLong -> Objects.requireNonNull(Objects.requireNonNull(currentRangeValue.replace(v -> {
-            if (v instanceof LiteralValue) {
-                return LiteralValue.ofScalar(rangeValueAsLong);
-            }
-            return v;
-        })).eval(store, context)), continuation).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
+        final Function<Long, Object> currentValueForRangeValueFunction = rangeValueAsLong -> {
+            final Function<Value, @Nullable Value> substituteCurrentValueFunction = v -> {
+                if (v instanceof LiteralValue) {
+                    return LiteralValue.ofScalar(rangeValueAsLong);
+                }
+                return v;
+            };
+            return Objects.requireNonNull(Objects.requireNonNull(currentRangeValue.replace(substituteCurrentValueFunction)).eval(store, context));
+        };
+        return new Cursor(store.getExecutor(), endExclusiveValue, beginInclusiveValue, stepValue, currentValueForRangeValueFunction, continuation).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
     @Override

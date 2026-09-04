@@ -53,7 +53,7 @@ public interface PlannerEventStatsCollector extends PlannerEventListeners.EventL
      * @param collector the new collector. If {@code collector} is {@code null}, the current stats collector
      *        will be removed.
      */
-    static void setCollector(final PlannerEventStatsCollector collector) {
+    static void setCollector(@Nullable final PlannerEventStatsCollector collector) {
         if (collector == null) {
             PlannerEventListeners.removeListener(PlannerEventStatsCollector.class);
             return;

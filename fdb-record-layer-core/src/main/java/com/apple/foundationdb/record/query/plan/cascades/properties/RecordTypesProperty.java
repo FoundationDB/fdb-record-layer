@@ -143,7 +143,7 @@ public class RecordTypesProperty implements ExpressionProperty<Set<String>> {
                 }
 
                 if (nonNullChildResult == 1) {
-                    return firstChildResult;
+                    return Objects.requireNonNull(firstChildResult);
                 } else {
                     // If we have a single child, then there is a reasonable default for how most relational expressions will
                     // change the set of record types (i.e., they won't change them at all). However, if you have several relational

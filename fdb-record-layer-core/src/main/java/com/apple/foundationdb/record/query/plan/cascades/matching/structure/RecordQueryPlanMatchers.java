@@ -632,6 +632,11 @@ public class RecordQueryPlanMatchers {
                 downstream);
     }
 
+    @SuppressWarnings("NullAway") // getGroupingValue() is legitimately @Nullable (a plan may have no grouping
+    // columns), but Unapply<T, U>/Extractor<T, U> declare U with a plain (implicitly non-null) bound, so U is
+    // inferred here as non-null Value; widening that shared, widely-reused matching-framework interface would
+    // ripple through many other (non-null) Extractor.of() call sites for a single nullable-getter use. A null
+    // grouping value simply fails to match downstream, which is the desired behavior here.
     public static BindingMatcher<RecordQueryStreamingAggregationPlan> groupings(BindingMatcher<? extends Value> downstream) {
         return typedWithDownstream(RecordQueryStreamingAggregationPlan.class,
                 Extractor.of(RecordQueryStreamingAggregationPlan::getGroupingValue, name -> "grouping(" + name + ")"),
