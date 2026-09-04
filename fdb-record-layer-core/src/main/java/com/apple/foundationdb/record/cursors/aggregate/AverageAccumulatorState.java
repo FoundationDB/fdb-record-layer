@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.cursors.aggregate;
 
 import org.jspecify.annotations.Nullable;
+import java.util.Objects;
 
 /**
  * Accumulator state for AVERAGE operations. Average is unique as the return value from the aggregation ({@link
@@ -75,6 +76,8 @@ public class AverageAccumulatorState<T extends Number> implements AccumulatorSta
             return null;
         }
 
-        return total.finish().doubleValue() / count;
+        // count > 0 implies total.accumulate() was called at least once (they are incremented together in
+        // accumulate()), so total.finish() is guaranteed to have a value here.
+        return Objects.requireNonNull(total.finish()).doubleValue() / count;
     }
 }

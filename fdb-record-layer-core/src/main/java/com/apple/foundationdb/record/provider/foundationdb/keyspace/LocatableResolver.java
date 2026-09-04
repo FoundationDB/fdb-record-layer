@@ -581,7 +581,11 @@ public abstract class LocatableResolver {
                         .orElseGet(() -> createIfNotLocked(context, name, hooks)));
     }
 
-    @SuppressWarnings("squid:S1066") // do not collapse if statements with LOGGER statements
+    @SuppressWarnings({"squid:S1066", "NullAway"}) // do not collapse if statements with LOGGER statements;
+                                                     // NullAway/JSpecify does not currently track @Nullable on array
+                                                     // (byte[]) parameters reliably across this local variable and the
+                                                     // lambda that captures it, even though create(FDBRecordContext,
+                                                     // String, byte[])'s metadata parameter is @Nullable.
     private CompletableFuture<ResolverResult> createIfNotLocked(FDBRecordContext context,
                                                                 String key,
                                                                 final ResolverCreateHooks hooks) {

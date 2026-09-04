@@ -115,7 +115,7 @@ public class StreamGrouping<M extends Message> {
         if (partialAggregationResult != null && groupingKeyValue != null) {
             try {
                 this.currentGroup = DynamicMessage.parseFrom(
-                        context.getTypeRepository().newMessageBuilder(groupingKeyValue.getResultType()).getDescriptorForType(),
+                        Objects.requireNonNull(context.getTypeRepository().newMessageBuilder(groupingKeyValue.getResultType())).getDescriptorForType(),
                         partialAggregationResult.getGroupKey().toByteArray());
             } catch (InvalidProtocolBufferException e) {
                 throw new RuntimeException(e);
@@ -145,7 +145,7 @@ public class StreamGrouping<M extends Message> {
     public boolean apply(@Nullable Object currentObject) {
         final boolean groupBreak;
         if (groupingKeyValue != null) {
-            Object nextGroup = evalGroupingKey(currentObject);
+            @Nullable Object nextGroup = evalGroupingKey(currentObject);
             groupBreak = isGroupBreak(currentGroup, nextGroup);
             if (groupBreak) {
                 finalizeGroup(nextGroup);
@@ -172,7 +172,7 @@ public class StreamGrouping<M extends Message> {
         return previousCompleteResult;
     }
 
-    private boolean isGroupBreak(final Object currentGroup, final Object nextGroup) {
+    private boolean isGroupBreak(@Nullable final Object currentGroup, @Nullable final Object nextGroup) {
         if (currentGroup == null) {
             return false;
         } else {
@@ -180,11 +180,13 @@ public class StreamGrouping<M extends Message> {
         }
     }
 
+    @Nullable
     public PartialAggregationResult finalizeGroup() {
         return finalizeGroup(null);
     }
 
-    private PartialAggregationResult finalizeGroup(Object nextGroup) {
+    @Nullable
+    private PartialAggregationResult finalizeGroup(@Nullable Object nextGroup) {
         final EvaluationContext nestedContext = context.childBuilder()
                 .setBinding(groupingKeyAlias, currentGroup)
                 .setBinding(aggregateAlias, accumulator.finish())
@@ -204,6 +206,7 @@ public class StreamGrouping<M extends Message> {
         accumulator.accumulate(partial);
     }
 
+    @Nullable
     private Object evalGroupingKey(@Nullable final Object currentObject) {
         final EvaluationContext nestedContext = context.withBinding(Bindings.Internal.CORRELATION, alias, currentObject);
         return Objects.requireNonNull(groupingKeyValue).eval(store, nestedContext);

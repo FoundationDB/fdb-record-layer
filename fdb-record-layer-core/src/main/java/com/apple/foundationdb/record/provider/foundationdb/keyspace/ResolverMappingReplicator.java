@@ -37,7 +37,6 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -129,12 +128,12 @@ public class ResolverMappingReplicator implements AutoCloseable {
             return primary.getMappingSubspaceAsync().thenCompose(primaryMappingSubspace -> {
                 @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[])
                                                // parameters, even though KeyValueCursorBase.Builder#setContinuation
-                                               // declares its parameter @Nullable.
-                final byte[] continuationBytes = continuation.get();
+                                               // declares its parameter @Nullable; continuation.get() is genuinely
+                                               // nullable here (it starts out null and is only set once a batch commits).
                 RecordCursor<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(primaryMappingSubspace)
                         .setScanProperties(new ScanProperties(executeProperties))
                         .setContext(context)
-                        .setContinuation(continuationBytes)
+                        .setContinuation(continuation.get())
                         .build();
 
                 return cursor.forEachResultAsync(result -> {
@@ -147,9 +146,11 @@ public class ResolverMappingReplicator implements AutoCloseable {
                     counter.incrementAndGet();
                     return replica.setMapping(context, mappedString, mappedValue);
                 }).thenCompose(lastResult -> context.commitAsync().thenRun(() -> {
-                    // toBytes() may genuinely return null (e.g. when the cursor is exhausted); this null is used
-                    // below via Objects.nonNull(...) to decide whether the copy loop should continue.
-                    byte @Nullable [] nextContinuationBytes = lastResult.getContinuation().toBytes();
+                    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array
+                                                   // (byte[]) return types; toBytes() may genuinely return null (e.g.
+                                                   // when the cursor is exhausted), which is used below via
+                                                   // Objects.nonNull(...) to decide whether the copy loop continues.
+                    byte[] nextContinuationBytes = lastResult.getContinuation().toBytes();
                     if (LOGGER.isInfoEnabled()) {
                         LOGGER.info(KeyValueLogMessage.of("committing batch",
                                         LogMessageKeys.SCANNED_SO_FAR, counter.get(),
