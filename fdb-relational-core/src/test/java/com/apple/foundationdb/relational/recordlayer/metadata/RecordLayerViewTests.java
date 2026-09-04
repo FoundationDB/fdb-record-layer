@@ -34,6 +34,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 public class RecordLayerViewTests {
 
+    // The mock compiler is only ever stored/compared in these tests, never actually invoked to
+    // compile a view, so returning null here is safe even though Function<Boolean, LogicalOperator>
+    // doesn't declare a @Nullable return type.
+    @SuppressWarnings("NullAway")
     private static Function<Boolean, LogicalOperator> createMockCompiler() {
         return (Boolean parameter) -> null;
     }
