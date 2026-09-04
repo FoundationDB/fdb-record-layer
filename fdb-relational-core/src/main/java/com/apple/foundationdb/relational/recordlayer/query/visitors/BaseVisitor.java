@@ -956,10 +956,9 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return metadataPlanVisitor.visitShowSchemaTemplatesStatement(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitSetVariable(@Nonnull RelationalParser.SetVariableContext ctx) {
-        return visitChildren(ctx);
+    public ProceduralPlan visitSetTransactionVariable(@Nonnull RelationalParser.SetTransactionVariableContext ctx) {
+        return ddlVisitor.visitSetTransactionVariable(ctx);
     }
 
     @Nonnull
@@ -989,12 +988,6 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Nonnull
     @Override
     public Object visitSetNewValueInsideTrigger(@Nonnull RelationalParser.SetNewValueInsideTriggerContext ctx) {
-        return visitChildren(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Object visitVariableClause(@Nonnull RelationalParser.VariableClauseContext ctx) {
         return visitChildren(ctx);
     }
 

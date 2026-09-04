@@ -29,6 +29,8 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorOptionK
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
 import com.apple.foundationdb.relational.api.Options;
@@ -708,6 +710,17 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var functionName = visitFullId(ctx.schemaQualifiedRoutineName).toString();
         var throwIfNotExists = ctx.IF() == null && ctx.EXISTS() == null;
         return ProceduralPlan.of(metadataOperationsFactory.getDropTemporaryFunctionConstantAction(throwIfNotExists, functionName));
+    }
+
+    @Override
+    public ProceduralPlan visitSetTransactionVariable(@Nonnull RelationalParser.SetTransactionVariableContext ctx) {
+        final var varName = getDelegate().normalizeString(ctx.varName.getText());
+        final var expr = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(
+                () -> Assert.castUnchecked(visit(ctx.varValue), Expression.class));
+        final var underlying = expr.getUnderlying();
+        final Object value = underlying instanceof NullValue ? null
+                : Assert.castUnchecked(underlying, LiteralValue.class).getLiteralValue();
+        return ProceduralPlan.of(metadataOperationsFactory.getSetLocalVariableConstantAction(varName, value));
     }
 
     @Override
