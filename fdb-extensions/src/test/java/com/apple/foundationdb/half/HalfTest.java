@@ -21,6 +21,7 @@ package com.apple.foundationdb.half;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 /**
  * Unit test for {@link Half}.
@@ -249,7 +250,11 @@ public class HalfTest {
 
     @Test
     public void valueOfStringNullPointerExceptionTest() {
-        Assertions.assertThrows(NullPointerException.class, () -> Half.valueOf((String)null));
+        // Half.valueOf(String) declares a @NonNull parameter, but this test deliberately passes null to verify
+        // the method's defensive (implicit, via Float.valueOf) NullPointerException behavior at the API boundary.
+        @SuppressWarnings("NullAway")
+        final Executable callWithNull = () -> Half.valueOf((String)null);
+        Assertions.assertThrows(NullPointerException.class, callWithNull);
     }
 
     @Test

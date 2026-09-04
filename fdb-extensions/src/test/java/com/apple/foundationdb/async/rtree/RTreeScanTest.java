@@ -82,6 +82,15 @@ public class RTreeScanTest  {
     @Nullable
     private static Item[] items;
 
+    // Tuple.from(Object...) is from the unannotated fdb-java client library and genuinely supports a null
+    // element (RTree.Point.getCoordinate(d) is correctly declared @Nullable, since points can have null
+    // coordinates -- see RTreeModificationTest.randomInsertsWithNulls); the varargs parameter is treated
+    // as @NonNull by NullAway's defaults.
+    @SuppressWarnings("NullAway")
+    private static Tuple tupleFromNullable(@Nullable Object... elements) {
+        return Tuple.from(elements);
+    }
+
     @BeforeAll
     public static void setUpDb() {
         db = dbExtension.getDatabase();
@@ -155,7 +164,11 @@ public class RTreeScanTest  {
                 onReadCounters);
 
         final AtomicLong nresults = new AtomicLong(0L);
-        db.run(tr -> {
+        // db.run(Function<Transaction, T>) has no void-returning overload, so this side-effect-only call
+        // returns null from the lambda; NullAway does not accept an explicit @Nullable type witness on this
+        // external, unannotated method either, so the suppression is scoped to this one declaration instead.
+        @SuppressWarnings("NullAway")
+        final Void ignored = db.run(tr -> {
             AsyncUtil.forEachRemaining(rt.scan(tr, mbrPredicate, (s, l) -> true), itemSlot -> {
                 if (query.contains(itemSlot.getPosition())) {
                     nresults.incrementAndGet();
@@ -192,9 +205,9 @@ public class RTreeScanTest  {
         final TopNTraversal topNTraversal = new TopNTraversal(query, 5);
 
         for (int i = 0; i < NUM_SAMPLES; ++i) {
-            final RTree.Point point = Objects.requireNonNull(items)[i].getPoint();
-            if (query.contains(point)) {
-                expectedResultsQueue.add(items[i]);
+            final Item item = Objects.requireNonNull(items)[i];
+            if (query.contains(item.getPoint())) {
+                expectedResultsQueue.add(item);
             }
         }
         final OnReadCounters onReadCounters = new OnReadCounters();
@@ -202,7 +215,9 @@ public class RTreeScanTest  {
                 RTreeHilbertCurveHelpers::hilbertValue, NodeHelpers::newSequentialNodeId, OnWriteListener.NOOP,
                 onReadCounters);
         final AtomicLong nresults = new AtomicLong(0L);
-        db.run(tr -> {
+        // See queryWithFilters() above for why this suppression is needed.
+        @SuppressWarnings("NullAway")
+        final Void ignored = db.run(tr -> {
             final AsyncIterator<ItemSlot> scan = rt.scan(tr, topNTraversal, (s, l) -> true);
             AsyncUtil.forEachRemaining(scan, itemSlot -> {
                 if (query.contains(itemSlot.getPosition())) {
@@ -273,7 +288,7 @@ public class RTreeScanTest  {
                 if (comparator.compare(maximumItemSlot, itemSlot) >= 0) {
                     // maximum item slot must be somewhere between minX and maxX
                     final Tuple ranges = query.getRanges();
-                    final Tuple newRanges = Tuple.from(ranges.get(0), ranges.get(1), maximumItemSlot.getPosition().getCoordinate(0), ranges.get(3));
+                    final Tuple newRanges = tupleFromNullable(ranges.get(0), ranges.get(1), maximumItemSlot.getPosition().getCoordinate(0), ranges.get(3));
                     this.query = new RTree.Rectangle(newRanges);
                 }
             }

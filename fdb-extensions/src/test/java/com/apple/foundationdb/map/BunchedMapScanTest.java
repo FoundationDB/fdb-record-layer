@@ -52,6 +52,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -318,7 +319,11 @@ public class BunchedMapScanTest {
             do {
                 List<Tuple> mostRecentReadKeys = new ArrayList<>();
                 int returned = 0;
-                BunchedMapIterator<Tuple, Tuple> bunchedMapIterator = map.scan(tr, subSubspaces.get(1), continuation, limit, reverse);
+                // NullAway does not reliably honor @Nullable on byte[]-typed parameters, so the continuation
+                // variable below is misflagged as a NonNull violation even though scan()'s continuation
+                // parameter is declared @Nullable byte[].
+                @SuppressWarnings("NullAway")
+                final BunchedMapIterator<Tuple, Tuple> bunchedMapIterator = map.scan(tr, subSubspaces.get(1), continuation, limit, reverse);
                 while (bunchedMapIterator.hasNext()) {
                     Tuple toAdd = bunchedMapIterator.peek().getKey();
                     assertEquals(toAdd, bunchedMapIterator.next().getKey());
@@ -377,11 +382,15 @@ public class BunchedMapScanTest {
                 while (iterator.hasNext()) {
                     BunchedMapScanEntry<Tuple, Tuple, Long> toAdd = iterator.peek();
                     assertEquals(toAdd, iterator.next());
+                    // This test's splitter always derives a non-null Long tag (see splitter's subspaceTag()
+                    // above), even though getSubspaceTag() is generically @Nullable.
+                    final Long toAddTag = Objects.requireNonNull(toAdd.getSubspaceTag());
                     if (lastEntry != null) {
-                        if (toAdd.getSubspaceTag().equals(lastEntry.getSubspaceTag())) {
+                        final Long lastEntryTag = Objects.requireNonNull(lastEntry.getSubspaceTag());
+                        if (toAddTag.equals(lastEntryTag)) {
                             assertEquals(reverse ? 1 : -1, Integer.signum(lastEntry.getKey().compareTo(toAdd.getKey())));
                         } else {
-                            assertEquals(reverse ? 1 : -1, Integer.signum(lastEntry.getSubspaceTag().compareTo(toAdd.getSubspaceTag())));
+                            assertEquals(reverse ? 1 : -1, Integer.signum(lastEntryTag.compareTo(toAddTag)));
                         }
                     }
                     entryList.add(toAdd);
@@ -402,16 +411,19 @@ public class BunchedMapScanTest {
             int pos = 0;
             int totalRead = 0;
             for (BunchedMapScanEntry<Tuple, Tuple, Long> entry : entryList) {
-                if (tag == null || !tag.equals(entry.getSubspaceTag())) {
+                // Same non-null guarantee as above: this test's splitter always derives a non-null Long tag.
+                final Long entryTag = Objects.requireNonNull(entry.getSubspaceTag());
+                if (tag == null || !tag.equals(entryTag)) {
                     if (tag != null) {
-                        assertEquals(tag + 1, entry.getSubspaceTag().longValue());
+                        assertEquals(tag + 1, entryTag.longValue());
                     }
-                    tag = entry.getSubspaceTag();
+                    tag = entryTag;
                     pos = 0;
                 }
-                assertEquals(keyLists.get(tag.intValue()).get(pos), entry.getKey());
+                final Long nonNullTag = Objects.requireNonNull(tag);
+                assertEquals(keyLists.get(nonNullTag.intValue()).get(pos), entry.getKey());
                 assertEquals(value, entry.getValue());
-                assertEquals(subSubspaces.get(tag.intValue()), entry.getSubspace());
+                assertEquals(subSubspaces.get(nonNullTag.intValue()), entry.getSubspace());
                 pos++;
                 totalRead++;
             }
@@ -481,7 +493,15 @@ public class BunchedMapScanTest {
 
     private void scanEmptyRangeMulti(int limit, boolean reverse) throws InterruptedException, ExecutionException {
         byte[] start = Tuple.from(subSubspaces.size() + 1).pack();
-        testScanMulti(limit, reverse, Collections.emptyList(), (tr, continuation) -> map.scanMulti(tr, bmSubspace, splitter, start, null, continuation, limit, reverse));
+        testScanMulti(limit, reverse, Collections.emptyList(), (tr, continuation) -> {
+            // NullAway does not reliably honor @Nullable on byte[]-typed parameters, so the null literal
+            // below is misflagged as a NonNull violation even though scanMulti()'s subspaceEnd parameter
+            // is declared @Nullable byte[].
+            @SuppressWarnings("NullAway")
+            final BunchedMapMultiIterator<Tuple, Tuple, Long> result =
+                    map.scanMulti(tr, bmSubspace, splitter, start, null, continuation, limit, reverse);
+            return result;
+        });
         byte[] fullStart = ByteArrayUtil.join(bmSubspace.getKey(), start);
         byte[] fullEnd = bmSubspace.range().end;
         testScanMulti(limit, reverse, Collections.emptyList(), (tr, continuation) ->
@@ -499,7 +519,13 @@ public class BunchedMapScanTest {
         );
 
         byte[] end = Tuple.from(-1).pack();
-        testScanMulti(limit, reverse, Collections.emptyList(), (tr, continuation) -> map.scanMulti(tr, bmSubspace, splitter, null, end, continuation, limit, reverse));
+        testScanMulti(limit, reverse, Collections.emptyList(), (tr, continuation) -> {
+            // See the scanMulti() lambda above for why this suppression is needed.
+            @SuppressWarnings("NullAway")
+            final BunchedMapMultiIterator<Tuple, Tuple, Long> result =
+                    map.scanMulti(tr, bmSubspace, splitter, null, end, continuation, limit, reverse);
+            return result;
+        });
         byte[] fullStart2 = bmSubspace.range().begin;
         byte[] fullEnd2 = ByteArrayUtil.join(bmSubspace.getKey(), end);
         testScanMulti(limit, reverse, Collections.emptyList(), (tr, continuation) ->
@@ -556,10 +582,17 @@ public class BunchedMapScanTest {
                 }
                 // Here, the limit goes out in front of the continuation, so we note that the continuation
                 // is already satisfied and don't do more work.
+                // See the scanEmptyRangeMulti() lambdas above for why these suppressions are needed.
                 if (reverse) {
-                    return map.scanMulti(tr, bmSubspace, splitter, null, Tuple.from(keyLists.size() - iteration).pack(), continuation, limit, true);
+                    @SuppressWarnings("NullAway")
+                    final BunchedMapMultiIterator<Tuple, Tuple, Long> result =
+                            map.scanMulti(tr, bmSubspace, splitter, null, Tuple.from(keyLists.size() - iteration).pack(), continuation, limit, true);
+                    return result;
                 } else {
-                    return map.scanMulti(tr, bmSubspace, splitter, Tuple.from(iteration).pack(), null, continuation, limit, false);
+                    @SuppressWarnings("NullAway")
+                    final BunchedMapMultiIterator<Tuple, Tuple, Long> result =
+                            map.scanMulti(tr, bmSubspace, splitter, Tuple.from(iteration).pack(), null, continuation, limit, false);
+                    return result;
                 }
             });
             assertEquals(keyLists.size() + 1, loops.get());

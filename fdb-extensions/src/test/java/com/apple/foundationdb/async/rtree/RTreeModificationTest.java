@@ -44,6 +44,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
@@ -60,6 +62,14 @@ public class RTreeModificationTest {
     private static final Logger logger = LoggerFactory.getLogger(RTreeModificationTest.class);
     private static final int NUM_TEST_RUNS = 5;
     private static final int NUM_SAMPLES = 10_000;
+
+    // Tuple.from(Object...) is from the unannotated fdb-java client library and genuinely supports null
+    // elements (randomInsertsWithNulls() below intentionally constructs points with a null coordinate);
+    // its varargs parameter is treated as @NonNull by NullAway's defaults.
+    @SuppressWarnings("NullAway")
+    private static Tuple tupleFromNullable(@Nullable Object... items) {
+        return Tuple.from(items);
+    }
 
     @RegisterExtension
     static final TestDatabaseExtension dbExtension = new TestDatabaseExtension();
@@ -111,7 +121,11 @@ public class RTreeModificationTest {
         }
 
         final AtomicLong nresults = new AtomicLong(0);
-        db.run(tr -> {
+        // db.run(Function<Transaction, T>) has no void-returning overload, so this side-effect-only call
+        // returns null from the lambda; NullAway does not accept an explicit @Nullable type witness on this
+        // external, unannotated method either, so the suppression is scoped to this one declaration instead.
+        @SuppressWarnings("NullAway")
+        final Void ignored = db.run(tr -> {
             AsyncUtil.forEachRemaining(rTree.scan(tr, mbr -> true, (l, h) -> true), itemSlot -> nresults.incrementAndGet()).join();
             return null;
         });
@@ -164,7 +178,11 @@ public class RTreeModificationTest {
         }
 
         final AtomicLong nresults = new AtomicLong(0);
-        db.run(tr -> {
+        // db.run(Function<Transaction, T>) has no void-returning overload, so this side-effect-only call
+        // returns null from the lambda; NullAway does not accept an explicit @Nullable type witness on this
+        // external, unannotated method either, so the suppression is scoped to this one declaration instead.
+        @SuppressWarnings("NullAway")
+        final Void ignored = db.run(tr -> {
             AsyncUtil.forEachRemaining(rTree.scan(tr, mbr -> true, (l, h) -> true), itemSlot -> nresults.incrementAndGet()).join();
             return null;
         });
@@ -264,7 +282,7 @@ public class RTreeModificationTest {
             final Long x = random.nextFloat() < 0.01 ? null : (Long)(long)random.nextInt(1000);
             final Long y = random.nextFloat() < 0.01 ? null : (Long)(long)random.nextInt(1000);
 
-            final RTree.Point point = new RTree.Point(Tuple.from(x, y));
+            final RTree.Point point = new RTree.Point(tupleFromNullable(x, y));
             items[i] = new Item(point, Tuple.from(i), Tuple.from("value" + i));
         }
 
