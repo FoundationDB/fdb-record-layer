@@ -427,7 +427,9 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         if (translationMap.definesOnlyIdentities()) {
             return this;
         }
-        return replaceLeavesMaybe(predicate -> predicate.translateLeafPredicate(translationMap, shouldSimplify))
+        final Function<QueryPredicate, @Nullable QueryPredicate> leafTranslationFunction =
+                predicate -> predicate.translateLeafPredicate(translationMap, shouldSimplify);
+        return replaceLeavesMaybe(leafTranslationFunction)
                 .orElseThrow(() -> new RecordCoreException("unable to map tree"));
     }
 
@@ -442,7 +444,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     default Optional<QueryPredicate> replaceValuesMaybe(final Function<Value, Optional<Value>> replacementFunction) {
-        return replaceLeavesMaybe(leafPredicate -> {
+        final Function<QueryPredicate, @Nullable QueryPredicate> leafReplacementFunction = leafPredicate -> {
             if (leafPredicate instanceof PredicateWithValue) {
                 final var predicateWithValue = (PredicateWithValue)leafPredicate;
 
@@ -450,7 +452,8 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
                         comparison -> comparison.replaceValuesMaybe(replacementFunction)).orElse(null);
             }
             return leafPredicate;
-        });
+        };
+        return replaceLeavesMaybe(leafReplacementFunction);
     }
 
     PQueryPredicate toQueryPredicateProto(PlanSerializationContext serializationContext);
@@ -498,8 +501,10 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
                                                     final boolean shouldSimplifyValues) {
         final var resultPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
         for (final var predicate : predicates) {
+            final Function<QueryPredicate, @Nullable QueryPredicate> leafTranslationFunction =
+                    leafPredicate -> leafPredicate.translateLeafPredicate(translationMap, shouldSimplifyValues);
             final var newOuterInnerPredicate =
-                    predicate.replaceLeavesMaybe(leafPredicate -> leafPredicate.translateLeafPredicate(translationMap, shouldSimplifyValues))
+                    predicate.replaceLeavesMaybe(leafTranslationFunction)
                             .orElseThrow(() -> new RecordCoreException("unable to translate predicate"));
             resultPredicatesBuilder.add(newOuterInnerPredicate);
         }
