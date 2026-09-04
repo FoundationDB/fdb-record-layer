@@ -59,8 +59,10 @@ public class StoreTimerMetricCollectorFromMetricRegistryTest {
     @Test
     void getAverageTimeMicrosForEventReturnsAverageOfClockedSamples() throws Exception {
         final var collector = StoreTimerMetricCollector.fromMetricRegistry(new MetricRegistry());
-        collector.clock(RelationalMetric.RelationalEvent.LEX_PARSE, () -> null);
-        collector.clock(RelationalMetric.RelationalEvent.LEX_PARSE, () -> null);
+        // The clocked value is discarded; a non-null placeholder avoids relying on clock()'s <T extends
+        // @Nullable Object> generic bound to permit a null Supplier result here.
+        collector.clock(RelationalMetric.RelationalEvent.LEX_PARSE, () -> new Object());
+        collector.clock(RelationalMetric.RelationalEvent.LEX_PARSE, () -> new Object());
         // Two samples were recorded; both ran to completion, so the average must be a finite non-negative number.
         final double averageMicros = collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.LEX_PARSE);
         Assertions.assertTrue(averageMicros >= 0.0,
