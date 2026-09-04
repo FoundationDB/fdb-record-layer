@@ -268,6 +268,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void localVariables(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("local-variables.yamsql");
+    }
+
+    @TestTemplate
     public void maxRows(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("maxRows.yamsql");
     }
