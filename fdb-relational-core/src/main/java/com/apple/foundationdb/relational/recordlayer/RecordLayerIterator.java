@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursor.NoNextReason;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Row;
@@ -46,7 +47,8 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
     private RecordCursorResult<T> result;
     private Continuation continuation;
     // null until iteration is exhausted; see fetchNextResult() and getNoNextReason() below.
-    private RecordCursor.@Nullable NoNextReason noNextReason;
+    @Nullable
+    private NoNextReason noNextReason;
 
     private RecordLayerIterator(RecordCursor<T> cursor, Function<T, Row> transform) throws RelationalException {
         this.recordCursor = cursor;
@@ -97,9 +99,9 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
         currentResult = recordCursor.getNext();
         result = currentResult;
         if (!currentResult.hasNext()) {
-            final RecordCursor.NoNextReason reason = currentResult.getNoNextReason();
+            final NoNextReason reason = currentResult.getNoNextReason();
             noNextReason = reason;
-            if (reason == RecordCursor.NoNextReason.SOURCE_EXHAUSTED) {
+            if (reason == NoNextReason.SOURCE_EXHAUSTED) {
                 this.continuation = ContinuationImpl.END;
             } else {
                 // NullAway/JSpecify does not reliably track @Nullable on array-typed (byte[]) parameters:
@@ -147,12 +149,12 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
     public boolean terminatedEarly() {
         return !hasNext() &&
                 noNextReason != null &&
-                noNextReason != RecordCursor.NoNextReason.SOURCE_EXHAUSTED &&
-                noNextReason != RecordCursor.NoNextReason.RETURN_LIMIT_REACHED;
+                noNextReason != NoNextReason.SOURCE_EXHAUSTED &&
+                noNextReason != NoNextReason.RETURN_LIMIT_REACHED;
     }
 
     @Override
-    public RecordCursor.NoNextReason getNoNextReason() {
+    public NoNextReason getNoNextReason() {
         // Only meaningful (and only ever called) once iteration has ended, at which point fetchNextResult()
         // has already set noNextReason; see terminatedEarly() and RecordLayerResultSet's caller.
         return Objects.requireNonNull(noNextReason, "getNoNextReason() called before iteration ended");
