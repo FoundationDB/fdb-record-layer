@@ -171,6 +171,14 @@ message Options {
     PREFER_GUARDIANN = 2;
   }
   optional VectorIndexEnginePreference vector_index_engine_preference = 34;
+  // The isolation level a statement's reads run at. Modelled as an enum rather than a boolean so that further
+  // isolation levels can be added without another wire change. Note that the corresponding client-side option,
+  // Options.Name.ISOLATION_LEVEL_SNAPSHOT, is still a boolean; only the wire representation is extensible.
+  enum IsolationLevel {
+    SERIALIZABLE = 0;
+    SNAPSHOT = 1;
+  }
+  optional IsolationLevel isolation_level = 35;
 }
 
 // Request that is part of a transactional (stateful) exchange

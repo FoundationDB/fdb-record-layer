@@ -103,8 +103,9 @@ class RelationalConnectionTest {
             conn.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
             Assertions.assertThat(conn.getTransactionIsolation()).isEqualTo(Connection.TRANSACTION_SERIALIZABLE);
 
-            conn.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
-            Assertions.assertThat(conn.getTransactionIsolation()).isEqualTo(Connection.TRANSACTION_READ_COMMITTED);
+            RelationalAssertions.assertThrowsSqlException(() -> conn.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED))
+                            .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
+            Assertions.assertThat(conn.getTransactionIsolation()).isEqualTo(Connection.TRANSACTION_SERIALIZABLE);
         }
     }
 }
