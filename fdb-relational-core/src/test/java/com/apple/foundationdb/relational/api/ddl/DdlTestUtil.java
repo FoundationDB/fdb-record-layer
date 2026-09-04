@@ -46,6 +46,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -65,9 +66,13 @@ public class DdlTestUtil {
         final var schemaTemplate = connection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toBuilder()
                 .setVersion(1).setName(schemaTemplateName).build();
         RecordMetaDataProto.MetaData md = schemaTemplate.toRecordMetadata().toProto();
+        // Assert lives in the not-yet-migrated fdb-relational-api module and its parameters aren't
+        // annotated @Nullable, even though notNullUnchecked's entire purpose here is to null-check.
+        @SuppressWarnings("NullAway")
+        final var metricsCollector = Assert.notNullUnchecked(connection.getMetricCollector());
         return PlanContext.Builder.create()
                 .withMetadata(RecordMetaData.build(md))
-                .withMetricsCollector(Assert.notNullUnchecked(connection.getMetricCollector()))
+                .withMetricsCollector(metricsCollector)
                 .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes())
                 .withDbUri(URI.create(databaseUri))
                 .withDdlQueryFactory(NoOpQueryFactory.INSTANCE)
@@ -82,7 +87,9 @@ public class DdlTestUtil {
                                           final String databaseUri) throws SQLException, RelationalException {
         final var planContext = createVanillaPlanContext(embeddedConnection, schemaTemplateName, databaseUri);
         final var storeState = new RecordStoreState(null, Map.of());
-        try (var schema = embeddedConnection.getRecordLayerDatabase().loadSchema(embeddedConnection.getSchema())) {
+        // getSchema() is @Nullable in general, but is always set on the connection by this point in tests.
+        try (var schema = embeddedConnection.getRecordLayerDatabase().loadSchema(
+                Objects.requireNonNull(embeddedConnection.getSchema(), "schema not set on connection"))) {
             final var metadata = schema.loadStore().getRecordMetaData();
             return PlanGenerator.create(Optional.empty(), planContext, metadata, storeState, IndexMaintainerFactoryRegistryImpl.instance(), Options.NONE);
         }
@@ -112,7 +119,9 @@ public class DdlTestUtil {
         final var planContext = PlanContext.Builder.unapply(createVanillaPlanContext(embeddedConnection, schemaTemplateName, databaseUri, preparedParams))
                 .withConstantActionFactory(metadataOperationsFactory).build();
         final var storeState = new RecordStoreState(null, Map.of());
-        try (var schema = embeddedConnection.getRecordLayerDatabase().loadSchema(embeddedConnection.getSchema())) {
+        // getSchema() is @Nullable in general, but is always set on the connection by this point in tests.
+        try (var schema = embeddedConnection.getRecordLayerDatabase().loadSchema(
+                Objects.requireNonNull(embeddedConnection.getSchema(), "schema not set on connection"))) {
             final var metadata = schema.loadStore().getRecordMetaData();
             return PlanGenerator.create(Optional.empty(), planContext, metadata, storeState, IndexMaintainerFactoryRegistryImpl.instance(), options);
         }
@@ -125,7 +134,9 @@ public class DdlTestUtil {
         final var planContext = PlanContext.Builder.unapply(createVanillaPlanContext(embeddedConnection, schemaTemplateName, databaseUri))
                 .withDdlQueryFactory(ddlQueryFactory).build();
         final var storeState = new RecordStoreState(null, Map.of());
-        try (var schema = embeddedConnection.getRecordLayerDatabase().loadSchema(embeddedConnection.getSchema())) {
+        // getSchema() is @Nullable in general, but is always set on the connection by this point in tests.
+        try (var schema = embeddedConnection.getRecordLayerDatabase().loadSchema(
+                Objects.requireNonNull(embeddedConnection.getSchema(), "schema not set on connection"))) {
             final var metadata = schema.loadStore().getRecordMetaData();
             return PlanGenerator.create(Optional.empty(), planContext, metadata, storeState, IndexMaintainerFactoryRegistryImpl.instance(), Options.NONE);
         }
@@ -403,15 +414,13 @@ public class DdlTestUtil {
          * @param typeName the name of the type to find
          * @return the ParsedType if found, null otherwise
          */
-        @SuppressWarnings("DataFlowIssue")
         ParsedType getType(final String typeName) {
             for (final ParsedType parsedType : types) {
                 if (parsedType.getName().equals(typeName)) {
                     return parsedType;
                 }
             }
-            Assertions.fail("could not find type " + typeName);
-            return null; // not reachable.
+            return Assertions.fail("could not find type " + typeName);
         }
 
         /**
@@ -420,15 +429,13 @@ public class DdlTestUtil {
          * @param tableName the name of the table to find
          * @return the ParsedType representing the table if found, null otherwise
          */
-        @SuppressWarnings("DataFlowIssue")
         ParsedType getTable(final String tableName) {
             for (final ParsedType table : tables) {
                 if (table.getName().equals(tableName)) {
                     return table;
                 }
             }
-            Assertions.fail("could not find table" + tableName);
-            return null; // not reachable.
+            return Assertions.fail("could not find table" + tableName);
         }
     }
 
