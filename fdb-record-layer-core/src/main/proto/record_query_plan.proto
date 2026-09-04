@@ -285,6 +285,7 @@ message PValue {
     PDotProductDistanceRowNumberValue dot_product_distance_row_number_value = 61;
     PIncarnationValue incarnation_value = 62;
     PCardinalityValue cardinality_value = 63;
+    PArrayAggValue array_agg_value = 64;
   }
   // Removed types that are no longer supported
   reserved 38;
@@ -484,6 +485,11 @@ message PCountValue {
   }
   optional PPhysicalOperator operator = 1;
   optional PValue child = 2;
+}
+
+message PArrayAggValue {
+  optional PValue child = 1;
+  optional bool ignore_nulls = 2;
 }
 
 message PDerivedValue {
@@ -1770,9 +1776,10 @@ message PRecordQueryAggregateIndexPlan {
   optional PRecordQueryIndexPlan index_plan = 1;
   optional string record_type_name = 2;
   optional PIndexKeyValueToPartialRecord to_record = 3;
-  optional PValue result_value = 4;
+  optional PValue result_value = 4; // VC0
   optional PQueryPlanConstraint constraint = 5;
-  optional PValue group_by_result_value = 6;
+  optional PValue group_by_result_value = 6; // VC0
+  optional PType result_type = 7; // VC1 onwards.
 }
 
 //

@@ -105,7 +105,7 @@ import java.util.stream.Collectors;
  * @see MaterializedViewIndexGenerator
  * @see RecordLayerIndex
  */
-public final class OnSourceIndexGenerator {
+public final class OnSourceIndexGenerator implements IndexGenerator {
 
     @Nonnull
     private final Identifier indexName;
@@ -119,13 +119,8 @@ public final class OnSourceIndexGenerator {
     @Nonnull
     private final LogicalPlanFragment source;
 
-    private final boolean isUnique;
-
-    private final boolean useLegacyExtremum;
-
-    private final boolean useNullableArrays;
-
-    private final boolean generateKeyValueExpressionWithEmptyKey;
+    @Nonnull
+    private final IndexGenerationOptions options;
 
     @Nonnull
     private final Map<String, String> indexOptions;
@@ -133,19 +128,16 @@ public final class OnSourceIndexGenerator {
     @Nonnull
     private final RecordLayerSchemaTemplate.Builder metadataBuilder;
 
-    public OnSourceIndexGenerator(@Nonnull final Identifier indexName, @Nonnull final LogicalPlanFragment source,
+    private OnSourceIndexGenerator(@Nonnull final Identifier indexName, @Nonnull final LogicalPlanFragment source,
                                   @Nonnull final List<IndexedColumn> keyColumns, @Nonnull final List<IndexedColumn> valueColumns,
-                                  final boolean isUnique, final boolean useLegacyExtremum, final boolean useNullableArrays,
-                                  final boolean generateKeyValueExpressionWithEmptyKey, @Nonnull final Map<String, String> indexOptions,
+                                  @Nonnull final IndexGenerationOptions options,
+                                  @Nonnull final Map<String, String> indexOptions,
                                   @Nonnull final RecordLayerSchemaTemplate.Builder metadataBuilder) {
         this.indexName = indexName;
         this.source = source;
         this.keyColumns = ImmutableList.copyOf(keyColumns);
         this.valueColumns = ImmutableList.copyOf(valueColumns);
-        this.isUnique = isUnique;
-        this.useLegacyExtremum = useLegacyExtremum;
-        this.useNullableArrays = useNullableArrays;
-        this.generateKeyValueExpressionWithEmptyKey = generateKeyValueExpressionWithEmptyKey;
+        this.options = options;
         this.indexOptions = ImmutableMap.copyOf(indexOptions);
         this.metadataBuilder = metadataBuilder;
     }
@@ -164,15 +156,16 @@ public final class OnSourceIndexGenerator {
      * the final index structure.
      * <p>
      * The generated index will be ordered according to the key columns and can optionally enforce uniqueness
-     * if configured via {@link Builder#setUnique(boolean)}.
+     * if configured via {@link IndexGenerationOptions#unique()} flag.
      *
      * @return a fully configured {@link RecordLayerIndex} ready to be added to the schema
      */
     @Nonnull
+    @Override
     public RecordLayerIndex.Builder generate() {
-        final var keyIdentifiers = keyColumns.stream().map(IndexedColumn::getIdentifier).collect(ImmutableList.toImmutableList());
+        final var keyIdentifiers = keyColumns.stream().map(IndexedColumn::identifier).collect(ImmutableList.toImmutableList());
         final var keyIdentifiersAsSet = ImmutableSet.copyOf(keyIdentifiers);
-        final var valueIdentifiers = valueColumns.stream().map(IndexedColumn::getIdentifier)
+        final var valueIdentifiers = valueColumns.stream().map(IndexedColumn::identifier)
                 .filter(id -> !keyIdentifiersAsSet.contains(id)).collect(ImmutableList.toImmutableList());
 
         final var topLevelOperator = Iterables.getOnlyElement(source.getLogicalOperators());
@@ -203,8 +196,8 @@ public final class OnSourceIndexGenerator {
                 }).collect(ImmutableList.toImmutableList());
 
         final List<OrderByExpression> orderByExpressions = keyColumns.stream().map(keyColumn -> {
-            final var column = originalOutputMap.get(keyColumn.getIdentifier());
-            Assert.notNullUnchecked(column, ErrorCode.UNDEFINED_COLUMN, () -> "could not find " + keyColumn.getIdentifier());
+            final var column = originalOutputMap.get(keyColumn.identifier());
+            Assert.notNullUnchecked(column, ErrorCode.UNDEFINED_COLUMN, () -> "could not find " + keyColumn.identifier());
             return OrderByExpression.of(Expression.fromColumn(column), keyColumn.isDescending(), keyColumn.isNullsLast());
         }).collect(ImmutableList.toImmutableList());
 
@@ -223,44 +216,15 @@ public final class OnSourceIndexGenerator {
         final var resultingOperator = LogicalOperator.newUnnamedOperator(projectionExpressions,
                 Quantifier.forEach(Reference.initialOf(newSelectExpression)));
         final var indexPlan = LogicalOperator.generateSort(resultingOperator, orderByExpressions, ImmutableSet.of(), Optional.empty());
-        final var indexGenerator = MaterializedViewIndexGenerator.from(indexPlan.getQuantifier().getRangesOver().get(), useLegacyExtremum);
-        final var indexBuilder = indexGenerator.generate(metadataBuilder, indexName.toString(), isUnique, useNullableArrays, generateKeyValueExpressionWithEmptyKey);
-        indexBuilder.addAllOptions(indexOptions);
-        return indexBuilder;
+        final var indexGenerator = MaterializedViewIndexGenerator.newInstance(
+                indexPlan.getQuantifier().getRangesOver().get(), metadataBuilder, indexName.toString(),
+                options);
+        final var indexMetadata = indexGenerator.generate();
+        indexMetadata.addAllOptions(indexOptions);
+        return indexMetadata;
     }
 
-    public static final class IndexedColumn {
-
-        @Nonnull
-        private final Identifier identifier;
-
-        private final boolean isDescending;
-
-        private final boolean isNullsLast;
-
-        private IndexedColumn(@Nonnull final Identifier identifier, boolean isDescending, boolean isNullsLast) {
-            this.identifier = identifier;
-            this.isDescending = isDescending;
-            this.isNullsLast = isNullsLast;
-        }
-
-        @Nonnull
-        public Identifier getIdentifier() {
-            return identifier;
-        }
-
-        public boolean isDescending() {
-            return isDescending;
-        }
-
-        public boolean isNullsLast() {
-            return isNullsLast;
-        }
-
-        @Nonnull
-        public static IndexedColumn of(@Nonnull final Identifier identifier, boolean isDescending, boolean isNullsLast) {
-            return new IndexedColumn(identifier, isDescending, isNullsLast);
-        }
+    public record IndexedColumn(@Nonnull Identifier identifier, boolean isDescending, boolean isNullsLast) {
 
         /**
          * Parses an index column specification from a parser context into an {@link IndexedColumn}.
@@ -275,11 +239,12 @@ public final class OnSourceIndexGenerator {
          *
          * @param columnSpec the parser context containing the column specification
          * @param identifierVisitor the visitor used to extract the column identifier
+         *
          * @return an {@link IndexedColumn} representing the parsed column specification
          */
         @Nonnull
-        public static OnSourceIndexGenerator.IndexedColumn parseColSpec(@Nonnull final RelationalParser.IndexColumnSpecContext columnSpec,
-                                                                        @Nonnull final IdentifierVisitor identifierVisitor) {
+        public static IndexedColumn parseColSpec(@Nonnull final RelationalParser.IndexColumnSpecContext columnSpec,
+                                                 @Nonnull final IdentifierVisitor identifierVisitor) {
             final var columnId = identifierVisitor.visitUid(columnSpec.columnName);
             final var orderContext = columnSpec.orderClause();
 
@@ -287,7 +252,7 @@ public final class OnSourceIndexGenerator {
             boolean nullsLast = false;
 
             if (orderContext == null) {
-                return OnSourceIndexGenerator.IndexedColumn.of(columnId, isDesc, nullsLast);
+                return new IndexedColumn(columnId, isDesc, nullsLast);
             }
 
             isDesc = orderContext.DESC() != null;
@@ -296,14 +261,14 @@ public final class OnSourceIndexGenerator {
             } else {
                 nullsLast = orderContext.LAST() != null;
             }
-            return OnSourceIndexGenerator.IndexedColumn.of(columnId, isDesc, nullsLast);
+            return new IndexedColumn(columnId, isDesc, nullsLast);
         }
 
         @Nonnull
-        public static OnSourceIndexGenerator.IndexedColumn parseUid(@Nonnull final RelationalParser.UidContext uid,
-                                                                    @Nonnull final IdentifierVisitor identifierVisitor) {
+        public static IndexedColumn parseUid(@Nonnull final RelationalParser.UidContext uid,
+                                             @Nonnull final IdentifierVisitor identifierVisitor) {
             final var columnId = identifierVisitor.visitUid(uid);
-            return OnSourceIndexGenerator.IndexedColumn.of(columnId, false, false);
+            return new IndexedColumn(columnId, false, false);
         }
     }
 
@@ -329,13 +294,7 @@ public final class OnSourceIndexGenerator {
         @Nonnull
         private final Map<String, String> indexOptions;
 
-        private boolean isUnique;
-
-        private boolean useLegacyExtremum;
-
-        private boolean useNullableArrays;
-
-        private boolean generateKeyValueExpressionWithEmptyKey;
+        private IndexGenerationOptions options;
 
         private RecordLayerSchemaTemplate.Builder metadataBuilder;
 
@@ -392,27 +351,12 @@ public final class OnSourceIndexGenerator {
             return this;
         }
 
+        /**
+         * What the definition asks of the index beyond its key.
+         */
         @Nonnull
-        public Builder setUnique(boolean isUnique) {
-            this.isUnique = isUnique;
-            return this;
-        }
-
-        @Nonnull
-        public Builder setUseLegacyExtremum(boolean useLegacyExtremum) {
-            this.useLegacyExtremum = useLegacyExtremum;
-            return this;
-        }
-
-        @Nonnull
-        public Builder setUseNullableArrays(boolean useNullableArrays) {
-            this.useNullableArrays = useNullableArrays;
-            return this;
-        }
-
-        @Nonnull
-        public Builder setGenerateKeyValueExpressionWithEmptyKey(boolean generateKeyValueExpressionWithEmptyKey) {
-            this.generateKeyValueExpressionWithEmptyKey = generateKeyValueExpressionWithEmptyKey;
+        public Builder setOptions(@Nonnull final IndexGenerationOptions options) {
+            this.options = options;
             return this;
         }
 
@@ -429,8 +373,8 @@ public final class OnSourceIndexGenerator {
             Assert.notNullUnchecked(indexSource);
             Assert.notNullUnchecked(semanticAnalyzer);
             Assert.notNullUnchecked(metadataBuilder);
-            return new OnSourceIndexGenerator(indexName, indexSource, keyColumns, valueColumns,
-                    isUnique, useLegacyExtremum, useNullableArrays, generateKeyValueExpressionWithEmptyKey,
+            Assert.notNullUnchecked(options);
+            return new OnSourceIndexGenerator(indexName, indexSource, keyColumns, valueColumns, options,
                     indexOptions, metadataBuilder);
         }
     }
