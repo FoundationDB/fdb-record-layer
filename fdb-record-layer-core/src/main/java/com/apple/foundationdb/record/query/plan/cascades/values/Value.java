@@ -335,7 +335,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
         if (translationMap.definesOnlyIdentities()) {
             return this;
         }
-        return replaceLeavesMaybe(value -> {
+        final Function<Value, @Nullable Value> leafTranslationFunction = value -> {
             if (value instanceof LeafValue) {
                 final var leafValue = (LeafValue)value;
                 final var correlatedTo = value.getCorrelatedTo();
@@ -351,7 +351,8 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
             }
             Verify.verify(value.getCorrelatedTo().isEmpty());
             return value;
-        }, false).orElseThrow(() -> new RecordCoreException("unable to map tree"));
+        };
+        return replaceLeavesMaybe(leafTranslationFunction, false).orElseThrow(() -> new RecordCoreException("unable to map tree"));
     }
 
     default <V extends Value> V narrow(Class<V> narrowedClass) {
