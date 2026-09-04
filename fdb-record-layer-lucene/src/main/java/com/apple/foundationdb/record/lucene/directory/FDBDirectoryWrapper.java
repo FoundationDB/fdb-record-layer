@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene.directory;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -234,10 +235,11 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         if (sharedCacheManager == null) {
             sharedCacheKey = null;
         } else {
-            if (sharedCacheManager.getSubspace() == null) {
+            final Subspace sharedManagerSubspace = sharedCacheManager.getSubspace();
+            if (sharedManagerSubspace == null) {
                 sharedCacheKey = state.store.getSubspace().unpack(subspace.pack());
             } else {
-                sharedCacheKey = sharedCacheManager.getSubspace().unpack(subspace.pack());
+                sharedCacheKey = sharedManagerSubspace.unpack(subspace.pack());
             }
         }
         return createFDBDirectory(
@@ -598,18 +600,29 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                 });
     }
 
+    // Implemented as an explicit anonymous class (rather than a lambda) so that createCursor's own @Nullable
+    // lastResult parameter keeps its correct formal-parameter index in the compiled bytecode. javac's lambda
+    // desugaring prepends captured variables (pendingWriteQueue, preCommitCallback) to the synthetic method's
+    // parameter list without re-indexing the lambda's own parameter type annotations to match, which previously
+    // misattributed lastResult's @Nullable annotation onto the captured pendingWriteQueue parameter and made
+    // SpotBugs (incorrectly) report NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE on pendingWriteQueue.
     private CursorFactory<PendingWriteQueue.QueueEntry> cursorFactory(PendingWriteQueue pendingWriteQueue,
                                                                       @Nullable Function<FDBRecordStore, CompletableFuture<Void>> preCommitCallback) {
-        return (FDBRecordStore store, @Nullable RecordCursorResult<PendingWriteQueue.QueueEntry> lastResult, int rowLimit) -> {
-            if (preCommitCallback != null) {
-                store.getContext().getOrCreateCommitCheck(DRAIN_PRE_COMMIT_HOOK + state.index.getName(),
-                        name -> () -> preCommitCallback.apply(store));
+        return new CursorFactory<PendingWriteQueue.QueueEntry>() {
+            @Override
+            public RecordCursor<PendingWriteQueue.QueueEntry> createCursor(FDBRecordStore store,
+                                                                             @Nullable RecordCursorResult<PendingWriteQueue.QueueEntry> lastResult,
+                                                                             int rowLimit) {
+                if (preCommitCallback != null) {
+                    store.getContext().getOrCreateCommitCheck(DRAIN_PRE_COMMIT_HOOK + state.index.getName(),
+                            name -> () -> preCommitCallback.apply(store));
+                }
+                byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
+                ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(executeProperties -> executeProperties.setReturnedRowLimit(rowLimit));
+                // Note: null could have been used instead of continuation as the preceding items should have been deleted. However,
+                // using a continuation will prevent an infinite loop in case of a bug that doesn't clear items.
+                return pendingWriteQueue.getQueueCursor(store.getContext(), scanProperties, continuation);
             }
-            byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
-            ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(executeProperties -> executeProperties.setReturnedRowLimit(rowLimit));
-            // Note: null could have been used instead of continuation as the preceding items should have been deleted. However,
-            // using a continuation will prevent an infinite loop in case of a bug that doesn't clear items.
-            return pendingWriteQueue.getQueueCursor(store.getContext(), scanProperties, continuation);
         };
     }
 

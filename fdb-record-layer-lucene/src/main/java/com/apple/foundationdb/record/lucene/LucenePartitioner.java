@@ -230,7 +230,8 @@ public class LucenePartitioner {
             return getNewestPartition(groupKey, state.context, state.indexSubspace).thenApply(newestPartition -> new PartitionedQueryHint(true, newestPartition));
         }
 
-        final PartitionedSortContext sortCriteria = luceneScanQuery.getSort() == null ? null : isSortedByPartitionField(luceneScanQuery.getSort());
+        final Sort sort = luceneScanQuery.getSort();
+        final PartitionedSortContext sortCriteria = sort == null ? null : isSortedByPartitionField(sort);
         final LuceneComparisonQuery partitionFieldPredicate = checkQueryForPartitionFieldPredicate(luceneScanQuery);
         final boolean isAscending = sortCriteria != null && sortCriteria.isByPartitionField && !sortCriteria.isReverse;
         final Comparisons.Type comparisonType = partitionFieldPredicate == null ? null : partitionFieldPredicate.getComparisonType();
