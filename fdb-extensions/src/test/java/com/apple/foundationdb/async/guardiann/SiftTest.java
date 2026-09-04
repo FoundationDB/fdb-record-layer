@@ -141,6 +141,8 @@ public class SiftTest implements BaseTest {
     final TestSubspaceExtension subspaceExtension = new TestSubspaceExtension(dbExtension);
 
     @TempDir
+    // Injected by JUnit's TempDirectory extension before each test; NullAway cannot see framework injection.
+    @SuppressWarnings("NullAway")
     Path tempDir;
 
     private static Database db;
@@ -360,7 +362,7 @@ public class SiftTest implements BaseTest {
         GuardiannStructureAsserts.assertGuardiannInvariantsAfterDeletes(getDb(), guardiann);
 
         // ---- only setB remains ----
-        final StructureSnapshot snap = GuardiannStructureAsserts.snapshotStructure(getDb(), guardiann);
+        final StructureSnapshot snap = Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(getDb(), guardiann));
         assertThat(snap)
                 .as("structure snapshot must be non-null after the run")
                 .isNotNull();

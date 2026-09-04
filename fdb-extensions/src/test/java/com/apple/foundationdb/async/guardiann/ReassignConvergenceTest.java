@@ -87,6 +87,8 @@ public class ReassignConvergenceTest implements BaseTest {
     final TestSubspaceExtension subspaceExtension = new TestSubspaceExtension(dbExtension);
 
     @TempDir
+    // Injected by JUnit's TempDirectory extension before each test; NullAway cannot see framework injection.
+    @SuppressWarnings("NullAway")
     Path tempDir;
 
     private static Database db;
@@ -213,7 +215,11 @@ public class ReassignConvergenceTest implements BaseTest {
         final Primitives primitives = locator.primitives();
         final int numNearestClusters = 1 + guardiann.getConfig().reassignNumNeighboringClusters();
 
-        getDb().run(transaction -> {
+        // db.run(Function<Transaction, T>) has no void-returning overload, so this side-effect-only call
+        // returns null from the lambda; NullAway does not accept an explicit @Nullable type witness on this
+        // external, unannotated method either, so the suppression is scoped to this one declaration instead.
+        @SuppressWarnings("NullAway")
+        final Void ignored = getDb().run(transaction -> {
             final AccessInfo accessInfo = primitives.fetchAccessInfo(transaction).join();
             final ClusterMetadata clusterMetadata = primitives.fetchClusterMetadata(transaction, clusterId).join();
             if (clusterMetadata == null) {
