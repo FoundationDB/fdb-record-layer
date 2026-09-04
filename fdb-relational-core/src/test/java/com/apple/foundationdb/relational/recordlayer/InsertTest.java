@@ -211,6 +211,11 @@ public class InsertTest {
     }
 
     @Test
+    // This test intentionally passes a null element into the varargs array to exercise validation
+    // (addAll's Object... elements aren't @Nullable-annotated, and array element nullness isn't
+    // reliably tracked by NullAway); the suppression also covers the getMessage() dereference below,
+    // which is always non-null for the exception thrown by this code path.
+    @SuppressWarnings("NullAway")
     void canNotAddNullElementToArray() {
         final var builder = EmbeddedRelationalArray.newBuilder();
         final var throwAssert = Assertions.assertThrows(SQLException.class, () -> builder.addAll(1, 2, 3, null, 5, 6));
