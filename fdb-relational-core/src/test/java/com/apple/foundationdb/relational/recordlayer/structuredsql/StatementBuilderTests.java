@@ -37,6 +37,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import javax.annotation.Nonnull;
 import java.net.URI;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -139,7 +140,7 @@ public class StatementBuilderTests {
             var whereClause = updateBuilder.getWhereClause();
             assertThat(whereClause)
                     .isNotNull();
-            assertThat(whereClause.toString())
+            assertThat(Objects.requireNonNull(whereClause).toString())
                     .contains("{pk = 444}");
         }
     }
@@ -153,7 +154,7 @@ public class StatementBuilderTests {
             var whereClause = updateBuilder.getWhereClause();
             assertThat(whereClause)
                     .isNotNull();
-            assertThat(whereClause.toString())
+            assertThat(Objects.requireNonNull(whereClause).toString())
                     .contains("{pk = 444 AND ( a < 42 )}");
         }
     }
@@ -196,7 +197,7 @@ public class StatementBuilderTests {
             assertThat(whereClause)
                     .isNotNull();
             // this is not very nice output, but I don't want to use the SQL visitor to check the string, i.e. I want the test to focus on one API call at a time if possible.
-            assertThat(whereClause.toString())
+            assertThat(Objects.requireNonNull(whereClause).toString())
                     .contains("AND(({pk = 444 AND ( a < 42 )} : ???) : boolean ∪ ∅,LESS_THAN((B : long ∪ ∅) : long ∪ ∅,42 : long) : boolean ∪ ∅) : boolean ∪ ∅");
         }
     }
