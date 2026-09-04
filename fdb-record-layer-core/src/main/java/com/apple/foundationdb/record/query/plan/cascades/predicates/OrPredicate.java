@@ -163,7 +163,7 @@ public final class OrPredicate extends AndOrPredicate {
             rangesSet.add(range.get());
         }
 
-        final var value = Objects.requireNonNull(((PredicateWithValue)Iterables.getFirst(getChildren(), null)).getValue());
+        final var value = Objects.requireNonNull(((PredicateWithValue)getChildren().iterator().next()).getValue());
         return Optional.of(PredicateWithValueAndRanges.ofRanges(value, rangesSet.build()));
     }
 

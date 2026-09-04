@@ -63,7 +63,7 @@ public class ValuePredicateSimplificationRule extends QueryPredicateSimplificati
                     if (comparison instanceof Comparisons.ValueComparison) {
                         final var comparisonType = comparison.getType();
                         if (!comparisonType.isUnary()) {
-                            final var simplifiedOperand = comparison.getValue().simplify(call.getEvaluationContext(),
+                            final var simplifiedOperand = ((Comparisons.ValueComparison)comparison).getValue().simplify(call.getEvaluationContext(),
                                     call.getEquivalenceMap(), call.getConstantAliases(), DereferenceConstantObjectValueRuleSet.instance());
                             return Optional.of(comparison.withValue(simplifiedOperand));
                         }

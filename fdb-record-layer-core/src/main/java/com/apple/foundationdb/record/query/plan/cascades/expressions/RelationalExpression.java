@@ -843,7 +843,9 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
 
     default PExpression toPlannerEventExpressionProto() {
         return PExpression.newBuilder()
-                .setName(Debugger.mapDebugger(debugger -> debugger.nameForObject(this)).orElseThrow())
+                .setName(Debugger.mapDebugger(debugger -> Optional.ofNullable(debugger.nameForObject(this)))
+                        .flatMap(Function.identity())
+                        .orElseThrow())
                 .setSemanticHashCode(semanticHashCode())
                 .build();
     }

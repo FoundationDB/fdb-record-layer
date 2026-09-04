@@ -686,7 +686,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
                 predicateWithValues
                         .stream()
                         .collect(Multimaps.toMultimap(
-                                predicate -> boundEquivalence.wrap(predicate.getValue()), Function.identity(), LinkedHashMultimap::create));
+                                predicate -> boundEquivalence.wrap(Objects.requireNonNull(predicate.getValue())), Function.identity(), LinkedHashMultimap::create));
 
         partitionedPredicatesWithValues
                 .asMap()

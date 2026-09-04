@@ -61,7 +61,7 @@ public interface RelationalExpressionWithPredicates extends RelationalExpression
                             final var comparisons = ((PredicateWithComparisons)p).getComparisons();
                             for (final var comparison : comparisons) {
                                 if (comparison instanceof Comparisons.ValueComparison) {
-                                    typesBuilder.addAll(comparison.getValue().getDynamicTypes());
+                                    typesBuilder.addAll(((Comparisons.ValueComparison)comparison).getValue().getDynamicTypes());
                                 }
                             }
                         }
@@ -108,7 +108,7 @@ public interface RelationalExpressionWithPredicates extends RelationalExpression
                 .flatMap(predicate -> predicate.preOrderStream()
                         .filter(p -> p instanceof PredicateWithValue && filteringPredicate.test((PredicateWithValue)p))
                         .map(p -> (PredicateWithValue)p)
-                        .flatMap(predicateWithValue -> predicateWithValue.getValue().preOrderStream().filter(FieldValue.class::isInstance))
+                        .flatMap(predicateWithValue -> Objects.requireNonNull(predicateWithValue.getValue()).preOrderStream().filter(FieldValue.class::isInstance))
                         .map(value -> (FieldValue)value))
                 .map(fieldValue -> {
                     final Set<CorrelationIdentifier> fieldCorrelatedTo = fieldValue.getChild().getCorrelatedTo();
