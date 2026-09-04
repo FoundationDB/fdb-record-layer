@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,15 +18,13 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record;
+package com.apple.foundationdb.record.locking;
 
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.record.locking.AsyncLock;
-import com.apple.foundationdb.record.locking.LockIdentifier;
-import com.apple.foundationdb.record.locking.LockRegistry;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -46,6 +44,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Test for {@link LockRegistry}.
@@ -72,7 +72,7 @@ public class LockRegistryTest {
 
     @ParameterizedTest
     @MethodSource("argumentsForTests")
-    public void orderedWriteTest(final int numRuns) {
+    void orderedWriteTest(final int numRuns) {
         final List<Integer> resource = new ArrayList<>();
         final List<NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>>> writeLockAndWaits = new ArrayList<>();
         for (int i = 0; i < numRuns; i++) {
@@ -85,13 +85,14 @@ public class LockRegistryTest {
         }
         checkAllCompletedNormally(futures);
         for (int i = 0; i < numRuns; i++) {
-            Assertions.assertEquals(i, resource.get(i));
+            assertThat(resource.get(i))
+                    .isEqualTo(i);
         }
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForTests")
-    public void sharedReadsExclusiveWriteTest(final int numRuns) throws ExecutionException, InterruptedException {
+    void sharedReadsExclusiveWriteTest(final int numRuns) throws ExecutionException, InterruptedException {
         final List<Integer> resource = IntStream.range(0, numRuns).boxed().collect(Collectors.toList());
 
         // get 2 read locks, that will be shared
@@ -105,28 +106,37 @@ public class LockRegistryTest {
 
         final List<CompletableFuture<Void>> futures = new ArrayList<>();
         futures.add(runWithLock(() -> {
-            Assertions.assertEquals(numRuns * 2, resource.size());
+            assertThat(resource)
+                    .hasSize(numRuns * 2);
             for (int i = 0; i < numRuns * 2; i++) {
-                Assertions.assertEquals(i, resource.get(i));
+                assertThat(resource.get(i))
+                        .isEqualTo(i);
             }
         }, readLockAndWait4));
         futures.add(runWithLock(() -> {
-            Assertions.assertEquals(numRuns * 2, resource.size());
+            assertThat(resource)
+                    .hasSize(numRuns * 2);
             for (int i = 0; i < numRuns * 2; i++) {
-                Assertions.assertEquals(i, resource.get(i));
+                assertThat(resource.get(i))
+                        .isEqualTo(i);
             }
         }, readLockAndWait3));
         checkWaiting(futures);
         futures.add(runWithLock(() -> {
+            assertThat(resource)
+                    .hasSize(numRuns);
             Assertions.assertEquals(numRuns, resource.size());
             for (int i = 0; i < numRuns; i++) {
-                Assertions.assertEquals(i, resource.get(i));
+                assertThat(resource.get(i))
+                        .isEqualTo(i);
             }
         }, readLockAndWait2));
         futures.add(runWithLock(() -> {
-            Assertions.assertEquals(numRuns, resource.size());
+            assertThat(resource)
+                    .hasSize(numRuns);
             for (int i = 0; i < numRuns; i++) {
-                Assertions.assertEquals(i, resource.get(i));
+                assertThat(resource.get(i))
+                        .isEqualTo(i);
             }
         }, readLockAndWait1));
         // checks that the initial 2 reads get to completion
@@ -134,7 +144,8 @@ public class LockRegistryTest {
         // other 2 are still waiting
         checkWaiting(ImmutableList.of(futures.get(0), futures.get(1)));
         futures.add(runWithLock(() -> {
-            Assertions.assertEquals(numRuns, resource.size());
+            assertThat(resource)
+                    .hasSize(numRuns);
             for (int i = 0; i < numRuns; i++) {
                 resource.add(numRuns + i);
             }
@@ -144,7 +155,7 @@ public class LockRegistryTest {
     }
 
     @Test
-    public void writeWaitForReadTest() throws InterruptedException {
+    void writeWaitForReadTest() throws InterruptedException {
         final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> readLockAndWait = acquireReadLock();
         final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> writeLockAndWait = acquireWriteLock();
 
@@ -158,7 +169,7 @@ public class LockRegistryTest {
     }
 
     @Test
-    public void writeWaitForMultipleReadsTest() throws InterruptedException {
+    void writeWaitForMultipleReadsTest() throws InterruptedException {
         // get multiple read locks
         final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> readLockAndWait1 = acquireReadLock();
         final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> readLockAndWait2 = acquireReadLock();
@@ -178,7 +189,31 @@ public class LockRegistryTest {
     }
 
     @Test
-    public void writeWaitForWriteTest() throws InterruptedException {
+    void writeWaitsEvenIfLastReadWasReleasedAtAcquisition() {
+        // start two reads
+        final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> readLockAndWait1 = acquireReadLock();
+        final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> readLockAndWait2 = acquireReadLock();
+        checkAllCompletedNormally(ImmutableList.of(readLockAndWait1.getRight(), readLockAndWait2.getRight()));
+
+        // release the second one, so the most recent lock for this ID should be marked as released
+        readLockAndWait2.getLeft().get().release();
+        assertThat(registry.getHeldLocks())
+                .hasEntrySatisfying(identifier, lockInRegistry -> assertThat(lockInRegistry.isLockReleased()).isTrue());
+
+        // new write lock has to wait for the first read even though the top lock in the registry is already released
+        final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> writeLockAndWait = acquireWriteLock();
+        assertThat(writeLockAndWait.getRight())
+                .isNotDone();
+
+        readLockAndWait1.getLeft().get().release();
+        assertThat(writeLockAndWait.getRight())
+                .isCompleted();
+        assertThat(writeLockAndWait.getLeft())
+                .hasValueSatisfying(writeLock -> assertThat(writeLock).isNotNull().isSameAs(registry.getHeldLocks().get(identifier)));
+    }
+
+    @Test
+    void writeWaitForWriteTest() throws InterruptedException {
         final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> writeLockAndWait1 = acquireWriteLock();
         final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> writeLockAndWait2 = acquireWriteLock();
 
@@ -191,8 +226,31 @@ public class LockRegistryTest {
         checkAllCompletedNormally(ImmutableList.of(writeLockAndWait2.getRight()));
     }
 
+    @ParameterizedTest
+    @BooleanSource
+    void writeProceedsIfParentFails(boolean parentIsWrite) {
+        final CompletableFuture<Void> parentOperation = new CompletableFuture<>();
+        final CompletableFuture<Integer> childOperation = CompletableFuture.completedFuture(1);
+
+        final CompletableFuture<Void> parentUnderLock = parentIsWrite ? registry.doWithWriteLock(identifier, () -> parentOperation) : registry.doWithReadLock(identifier, () -> parentOperation);
+        final CompletableFuture<Integer> writeUnderLock = registry.doWithWriteLock(identifier, () -> childOperation);
+
+        // Write should not have started as the parent has not completed
+        assertThat(writeUnderLock)
+                .isNotDone();
+
+        // Complete the parent operation with an error
+        parentOperation.completeExceptionally(new Throwable("error for test"));
+        assertThat(parentUnderLock)
+                .isCompletedExceptionally();
+
+        // Now the child write should proceed (completing immediately) and should complete successfully
+        assertThat(writeUnderLock)
+                .isCompletedWithValue(1);
+    }
+
     @Test
-    public void multipleReadsWaitForWriteTest() throws InterruptedException {
+    void multipleReadsWaitForWriteTest() throws InterruptedException {
         final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> writeLockAndWait = acquireWriteLock();
         // get multiple read lock
         final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> readLockAndWait1 = acquireReadLock();
@@ -208,7 +266,7 @@ public class LockRegistryTest {
     }
 
     @Test
-    public void doWithReadLockTest() throws InterruptedException, ExecutionException {
+    void doWithReadLockTest() throws InterruptedException, ExecutionException {
         final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> writeLockAndWait1 = acquireWriteLock();
         final CompletableFuture<Integer> read = registry.doWithReadLock(identifier, () -> CompletableFuture.completedFuture(1));
         final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> writeLockAndWait2 = acquireWriteLock();
@@ -226,7 +284,7 @@ public class LockRegistryTest {
     }
 
     @Test
-    public void readsDependOnEachOtherTest() throws ExecutionException, InterruptedException {
+    void readsDependOnEachOtherTest() throws ExecutionException, InterruptedException {
         final CompletableFuture<Void> future1 = new CompletableFuture<>();
         final CompletableFuture<Void> future2 = new CompletableFuture<>();
         final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> readLockAndWait1 = acquireReadLock();
@@ -251,6 +309,94 @@ public class LockRegistryTest {
             }
         }, readLockAndWait2));
         checkAllCompletedNormally(tasks);
+    }
+
+    @ParameterizedTest(name = "cleanUpWhenDone[writeLock={0}]")
+    @BooleanSource
+    void cleanUpWhenDone(boolean writeLock) {
+        assertThat(registry.getHeldLocks())
+                .isEmpty();
+
+        // As the lock was not previously held, it should immediately be ready
+        final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> lockAndWait = writeLock ? acquireWriteLock() : acquireReadLock();
+        assertThat(lockAndWait.getRight())
+                .isDone();
+        assertThat(lockAndWait.getLeft())
+                .hasValueSatisfying(lockInRef -> assertThat(lockInRef).isNotNull());
+        assertThat(registry.getHeldLocks())
+                .hasEntrySatisfying(identifier, lockInMap -> assertThat(lockInMap).isSameAs(lockAndWait.getLeft().get()));
+
+        // Release the lock
+        lockAndWait.getLeft().get().release();
+
+        // The map entry should now be cleared out
+        assertThat(registry.getHeldLocks())
+                .isEmpty();
+    }
+
+    @ParameterizedTest(name = "cleanUpWhenAllWorkIsDone[oldestFirst={0}]")
+    @BooleanSource
+    void cleanUpWhenAllWorkIsDone(boolean oldestFirst) {
+        assertThat(registry.getHeldLocks())
+                .isEmpty();
+
+        // Acquire two read locks. They should both be immediately acquired
+        final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> lockAndWait1 = acquireReadLock();
+        final NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> lockAndWait2 = acquireReadLock();
+        assertThat(lockAndWait1.getRight())
+                .isDone();
+        assertThat(lockAndWait2.getRight())
+                .isDone();
+        assertThat(lockAndWait1.getLeft())
+                .hasValueSatisfying(lockInRef -> assertThat(lockInRef).isNotNull());
+        assertThat(lockAndWait2.getLeft())
+                .hasValueSatisfying(lockInRef -> assertThat(lockInRef).isNotNull());
+
+        // The registry should hold the second lock in its map
+        assertThat(registry.getHeldLocks())
+                .hasEntrySatisfying(identifier, lockInMap -> assertThat(lockInMap).isSameAs(lockAndWait2.getLeft().get()));
+
+        // Release one lock
+        if (oldestFirst) {
+            lockAndWait1.getLeft().get().release();
+        } else {
+            lockAndWait2.getLeft().get().release();
+        }
+
+        // The registry should still point to the second lock
+        assertThat(registry.getHeldLocks())
+                .hasEntrySatisfying(identifier, lockInMap -> assertThat(lockInMap).isSameAs(lockAndWait2.getLeft().get()));
+
+        // Release the other lock
+        if (oldestFirst) {
+            lockAndWait2.getLeft().get().release();
+        } else {
+            lockAndWait1.getLeft().get().release();
+        }
+
+        // Now the entry in the registry should be released
+        assertThat(registry.getHeldLocks())
+                .isEmpty();
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void cleanUpEvenIfTaskFails(boolean writeLock) {
+        final CompletableFuture<Void> underlyingFuture = new CompletableFuture<>();
+        final CompletableFuture<Void> futureUnderLock = writeLock ? registry.doWithWriteLock(identifier, () -> underlyingFuture) : registry.doWithReadLock(identifier, () -> underlyingFuture);
+        assertThat(futureUnderLock)
+                .isNotDone();
+        assertThat(registry.getHeldLocks())
+                .containsKey(identifier);
+
+        // Complete the underlying operation
+        underlyingFuture.completeExceptionally(new Throwable("error for test"));
+        assertThat(futureUnderLock)
+                .isCompletedExceptionally();
+
+        // The lock future failed but the cleanup of the lock registry should still be run
+        assertThat(registry.getHeldLocks())
+                .isEmpty();
     }
 
     private NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> acquireWriteLock() {
@@ -287,15 +433,17 @@ public class LockRegistryTest {
             Assertions.fail("Tasks didn't complete normally", e);
         }
         for (CompletableFuture<T> f: futures) {
-            Assertions.assertTrue(f.isDone());
-            Assertions.assertFalse(f.isCompletedExceptionally());
+            assertThat(f)
+                    .isDone()
+                    .isNotCompletedExceptionally();
         }
     }
 
     public static <T> void checkWaiting(@Nonnull List<CompletableFuture<T>> futures) throws InterruptedException {
-        Thread.sleep(1000);
+        Thread.sleep(100);
         for (CompletableFuture<T> f: futures) {
-            Assertions.assertFalse(f.isDone());
+            assertThat(f)
+                    .isNotDone();
         }
     }
 }
