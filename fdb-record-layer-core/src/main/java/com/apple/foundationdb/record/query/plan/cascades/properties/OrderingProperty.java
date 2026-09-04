@@ -105,6 +105,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.Bindings.Internal.CORRELATION;
@@ -196,7 +197,8 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
                                 final var translationMap = AliasMap.ofAliases(innerAlias, Quantifier.current());
                                 return Stream.of(Pair.of(fieldValue.rebase(translationMap), valuePredicate.getComparison()));
                             })
-                            .collect(ImmutableSetMultimap.toImmutableSetMultimap(Pair::getLeft, Pair::getRight));
+                            .collect(ImmutableSetMultimap.toImmutableSetMultimap(
+                                    pair -> Objects.requireNonNull(pair.getLeft()), pair -> Objects.requireNonNull(pair.getRight())));
 
             // We can create a new ordering set by adding the equality-bound values to the ordering set domain no matter what.
             final var childOrderingSet = childOrdering.getOrderingSet();
@@ -588,12 +590,13 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
             //
             // Substitute the grouping key value everywhere the ObjectValue of the grouping key alias is used.
             //
-            final var composedCompleteResultValueOptional = completeResultValue.replaceLeavesMaybe(value -> {
+            final Function<Value, @Nullable Value> substituteGroupingKeyFunction = value -> {
                 if (value instanceof ObjectValue && ((ObjectValue)value).getAlias().equals(groupingKeyAlias)) {
                     return groupingValue;
                 }
                 return value;
-            });
+            };
+            final var composedCompleteResultValueOptional = completeResultValue.replaceLeavesMaybe(substituteGroupingKeyFunction);
 
             if (composedCompleteResultValueOptional.isEmpty()) {
                 return Ordering.empty();
