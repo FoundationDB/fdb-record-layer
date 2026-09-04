@@ -53,6 +53,7 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -253,8 +254,7 @@ public class KeySpacePathParsingTest {
                 .map(type -> {
                     // VALUES_FOR_TYPE covers every KeyType (verified by validateValuesForTypeCoverage());
                     // Map.get() is @Nullable per NullAway's built-in model, but the key is always present here.
-                    @SuppressWarnings("NullAway")
-                    final List<PathEntry> entries = VALUES_FOR_TYPE.get(type);
+                    final List<PathEntry> entries = Objects.requireNonNull(VALUES_FOR_TYPE.get(type));
                     return Arguments.of(type, entries.get(0));
                 });
     }
@@ -278,8 +278,7 @@ public class KeySpacePathParsingTest {
                 .flatMap(type -> {
                     // VALUES_FOR_TYPE covers every KeyType (verified by validateValuesForTypeCoverage());
                     // Map.get() is @Nullable per NullAway's built-in model, but the key is always present here.
-                    @SuppressWarnings("NullAway")
-                    final List<PathEntry> entries = VALUES_FOR_TYPE.get(type);
+                    final List<PathEntry> entries = Objects.requireNonNull(VALUES_FOR_TYPE.get(type));
                     return ParameterizedTestUtils.booleans("constant")
                             .flatMap(constant -> entries.stream()
                                     .map(pathEntry -> Arguments.of(type, constant, pathEntry)));
