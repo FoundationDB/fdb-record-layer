@@ -103,10 +103,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * A property used to create and collect the derivations of data flowing in a plan. A derivation is a {@link Value}-tree
@@ -510,22 +513,22 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             final var resultValuesBuilder = ImmutableList.<Value>builder();
             final var filteredRecordTypeNames = ImmutableSet.copyOf(typeFilterPlan.getRecordTypes());
             for (final Value childResultValue : childResultValues) {
-                final var replacedChildResultValueOptional =
-                        childResultValue.replaceLeavesMaybe(value -> {
-                            if (value instanceof QueriedValue) {
-                                final var queriedValue = (QueriedValue)value;
-                                final var childRecordTypeNames = queriedValue.getRecordTypeNames();
-                                if (childRecordTypeNames == null) {
-                                    return value;
-                                }
-                                final var intersectedRecordTypeNames =
-                                        childRecordTypeNames.stream()
-                                                .filter(filteredRecordTypeNames::contains)
-                                                .collect(ImmutableList.toImmutableList());
-                                return new QueriedValue(typeFilterPlan.getResultValue().getResultType(), intersectedRecordTypeNames);
-                            }
+                final Function<Value, @Nullable Value> restrictRecordTypesFunction = value -> {
+                    if (value instanceof QueriedValue) {
+                        final var queriedValue = (QueriedValue)value;
+                        final var childRecordTypeNames = queriedValue.getRecordTypeNames();
+                        if (childRecordTypeNames == null) {
                             return value;
-                        });
+                        }
+                        final var intersectedRecordTypeNames =
+                                childRecordTypeNames.stream()
+                                        .filter(filteredRecordTypeNames::contains)
+                                        .collect(ImmutableList.toImmutableList());
+                        return new QueriedValue(typeFilterPlan.getResultValue().getResultType(), intersectedRecordTypeNames);
+                    }
+                    return value;
+                };
+                final var replacedChildResultValueOptional = childResultValue.replaceLeavesMaybe(restrictRecordTypesFunction);
                 Verify.verify(replacedChildResultValueOptional.isPresent());
                 resultValuesBuilder.add(replacedChildResultValueOptional.get());
             }
@@ -654,7 +657,7 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             if (groupingValue != null) {
                 resultTranslationMap
                         .when(streamingAggregationPlan.getGroupingKeyAlias())
-                        .then((sourceAlias, leafValue) -> streamingAggregationPlan.getGroupingValue());
+                        .then((sourceAlias, leafValue) -> groupingValue);
             }
 
             resultTranslationMap.when(streamingAggregationPlan.getAggregateAlias())

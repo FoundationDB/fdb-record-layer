@@ -51,7 +51,12 @@ public class AbstractQueryPredicateRuleCall<RESULT, CALL extends AbstractQueryPr
                                           final AliasMap equivalenceMap,
                                           final Set<CorrelationIdentifier> constantAliases,
                                           final Function<QueryPredicate, QueryPlanConstraint> retrieveQueryPlanConstraintFunction) {
+        // Wrap in a fresh lambda (rather than passing the reference directly) so this non-null-returning
+        // function's target type is re-inferred against AbstractRuleCall's Function<BASE, @Nullable
+        // QueryPlanConstraint> parameter; a non-null producer is always safely assignable to a nullable-permitting
+        // consumer, but NullAway treats the generic type argument invariantly when a pre-typed reference is passed
+        // directly. See Simplification.optimize() for the deliberate choice to keep this function non-null-returning.
         super(rule, root, current, evaluationContext, bindings, equivalenceMap, constantAliases,
-                retrieveQueryPlanConstraintFunction);
+                predicate -> retrieveQueryPlanConstraintFunction.apply(predicate));
     }
 }

@@ -336,7 +336,9 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
                     return false;
                 }
 
-                final Type.Record.Field fieldInCurrentRecordType = fieldNameFieldMap.get(name);
+                final Type.Record.Field fieldInCurrentRecordType =
+                        Objects.requireNonNull(fieldNameFieldMap.get(name),
+                                () -> "field " + name + " missing from field map though present in ordinal map");
                 if (!isAccessCompatibleWithCurrentType(entry.getValue(), fieldInCurrentRecordType.getFieldType())) {
                     // something wrong downstream
                     return false;

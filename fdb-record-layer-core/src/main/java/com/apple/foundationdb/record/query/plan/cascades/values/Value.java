@@ -85,6 +85,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -588,14 +589,14 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
                                  final AliasMap aliasMap,
                                  final Set<CorrelationIdentifier> constantAliases,
                                  final CorrelationIdentifier upperBaseAlias) {
+        final Function<Value, @Nullable Value> pushDownLeafFunction = value -> {
+            if (value instanceof QuantifiedObjectValue && ((QuantifiedObjectValue)value).getAlias().equals(upperBaseAlias)) {
+                return this;
+            }
+            return value;
+        };
         return Streams.stream(toBePushedDownValues)
-                .map(toBePushedDownValue ->
-                        toBePushedDownValue.replaceLeavesMaybe(value -> {
-                            if (value instanceof QuantifiedObjectValue && ((QuantifiedObjectValue)value).getAlias().equals(upperBaseAlias)) {
-                                return this;
-                            }
-                            return value;
-                        }))
+                .map(toBePushedDownValue -> toBePushedDownValue.replaceLeavesMaybe(pushDownLeafFunction))
                 .map(valueOptional -> valueOptional.orElseThrow(() -> new RecordCoreException("unexpected empty optional")))
                 .map(composedValue -> composedValue.simplify(simplificationRuleSet, evaluationContext, aliasMap,
                         constantAliases))
