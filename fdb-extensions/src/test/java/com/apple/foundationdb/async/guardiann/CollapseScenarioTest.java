@@ -89,11 +89,16 @@ public class CollapseScenarioTest implements BaseTest {
     final TestSubspaceExtension subspaceExtension = new TestSubspaceExtension(dbExtension);
 
     @TempDir
+    // Injected by JUnit's TempDirectory extension before each test; NullAway cannot see framework injection.
+    @SuppressWarnings("NullAway")
     Path tempDir;
 
     private static Database db;
 
     /** Set by {@link #newGuardiann} so each test can read the COLLAPSE task counter. */
+    // Assigned by newGuardiann(), which every test calls before touching this field; NullAway's field
+    // initialization check only recognizes constructors and JUnit lifecycle methods as initializers.
+    @SuppressWarnings("NullAway")
     private TestHelpers.TestOnWriteListener onWriteListener;
 
     @Override
@@ -217,7 +222,11 @@ public class CollapseScenarioTest implements BaseTest {
         final VectorId a2 = new VectorId(Tuple.from("a", 2), UUID.randomUUID());
         final VectorId b1 = new VectorId(Tuple.from("b", 1), UUID.randomUUID());
 
-        db.run(tr -> {
+        // db.run(Function<Transaction, T>) has no void-returning overload, so this side-effect-only call
+        // returns null from the lambda; NullAway does not accept an explicit @Nullable type witness on this
+        // external, unannotated method either, so the suppression is scoped to this one declaration instead.
+        @SuppressWarnings("NullAway")
+        final Void ignored1 = db.run(tr -> {
             primitives.writeCollapsedVectorId(tr, signatureA, a1);
             primitives.writeCollapsedVectorId(tr, signatureA, a2);
             primitives.writeCollapsedVectorId(tr, signatureB, b1);
@@ -231,7 +240,9 @@ public class CollapseScenarioTest implements BaseTest {
         assertThat(scanned).containsExactlyInAnyOrder(a1, a2, b1);
 
         // Deleting a single (signature, primaryKey) removes only that member; its siblings and other signatures stay.
-        db.run(tr -> {
+        // See the writeCollapsedVectorId block above for why this suppression is needed.
+        @SuppressWarnings("NullAway")
+        final Void ignored2 = db.run(tr -> {
             primitives.deleteCollapsedVectorId(tr, signatureA, a1.primaryKey());
             return null;
         });
@@ -283,7 +294,9 @@ public class CollapseScenarioTest implements BaseTest {
         for (int i = 0; i < 150; i++) {
             final DoubleRealVector perturbed = CommonTestHelpers.perturb(base, sampler, 0.5d);
             final Tuple pk = Tuple.from("overlap", i);
-            db.run(tr -> {
+            // See the writeCollapsedVectorId block above for why this suppression is needed.
+            @SuppressWarnings("NullAway")
+            final Void ignored3 = db.run(tr -> {
                 guardiann.insert(tr, pk, perturbed, null, true).join();
                 return null;
             });
@@ -496,7 +509,10 @@ public class CollapseScenarioTest implements BaseTest {
         for (int i = 1; i <= numDistinctPrimaries; i++) {
             final Tuple primaryKey = Tuple.from("distinct", i);
             final RealVector vector = records.get(i).vector();
-            db.run(tr -> {
+            // See collapsedVectorIdStoreScanAndDelete()'s writeCollapsedVectorId block for why this
+            // suppression is needed.
+            @SuppressWarnings("NullAway")
+            final Void ignored4 = db.run(tr -> {
                 guardiann.insert(tr, primaryKey, vector, null, true).join();
                 return null;
             });
@@ -509,7 +525,10 @@ public class CollapseScenarioTest implements BaseTest {
         final RealVector duplicate = duplicateVector();
 
         // Phase 1: write the orphaned replicas (and their still-present metadata) into the cluster.
-        db.run(tr -> {
+        // See collapsedVectorIdStoreScanAndDelete()'s writeCollapsedVectorId block for why this
+        // suppression is needed.
+        @SuppressWarnings("NullAway")
+        final Void ignored5 = db.run(tr -> {
             final AccessInfo accessInfo = Objects.requireNonNull(primitives.fetchAccessInfo(tr).join());
             final Quantizer quantizer = primitives.quantizer(accessInfo);
             final Transformed<RealVector> transformedDuplicate =
@@ -538,7 +557,10 @@ public class CollapseScenarioTest implements BaseTest {
         final UUID signature = StorageAdapter.signatureUuid(stagedReplicas.get(0).vector());
         final List<Tuple> collapsedPrimaryKeys =
                 stagedReplicas.stream().map(ref -> ref.id().primaryKey()).toList();
-        db.run(tr -> {
+        // See collapsedVectorIdStoreScanAndDelete()'s writeCollapsedVectorId block for why this
+        // suppression is needed.
+        @SuppressWarnings("NullAway")
+        final Void ignored6 = db.run(tr -> {
             for (final VectorReference replica : stagedReplicas) {
                 primitives.writeCollapsedVectorId(tr, signature, replica.id());
             }
@@ -601,7 +623,10 @@ public class CollapseScenarioTest implements BaseTest {
         for (int i = 1; i <= numDistinctPrimaries; i++) {
             final Tuple primaryKey = Tuple.from("distinct", i);
             final RealVector vector = records.get(i).vector();
-            db.run(tr -> {
+            // See collapsedVectorIdStoreScanAndDelete()'s writeCollapsedVectorId block for why this
+            // suppression is needed.
+            @SuppressWarnings("NullAway")
+            final Void ignored4 = db.run(tr -> {
                 guardiann.insert(tr, primaryKey, vector, null, true).join();
                 return null;
             });
@@ -614,7 +639,10 @@ public class CollapseScenarioTest implements BaseTest {
 
         // Phase 1: one plain (non-collapsed) member replica whose primary is (below) recorded in the collapsed set.
         final Tuple memberPrimaryKey = Tuple.from("collapsed-dup", 0);
-        db.run(tr -> {
+        // See collapsedVectorIdStoreScanAndDelete()'s writeCollapsedVectorId block for why this
+        // suppression is needed.
+        @SuppressWarnings("NullAway")
+        final Void ignored5 = db.run(tr -> {
             final AccessInfo accessInfo = Objects.requireNonNull(primitives.fetchAccessInfo(tr).join());
             final Quantizer quantizer = primitives.quantizer(accessInfo);
             final Transformed<RealVector> transformedDuplicate =
@@ -638,7 +666,10 @@ public class CollapseScenarioTest implements BaseTest {
         // Phase 2: record the member in the collapsed store (so it folds), and add a HIGHER-priority already-collapsed
         // replica of the same signature. Its primaryKey is Tuple.from(signature); we deliberately write NO collapsed-
         // store entry for (signature, Tuple.from(signature)), so its fold-time lookup returns null and it passes through.
-        db.run(tr -> {
+        // See collapsedVectorIdStoreScanAndDelete()'s writeCollapsedVectorId block for why this
+        // suppression is needed.
+        @SuppressWarnings("NullAway")
+        final Void ignored6 = db.run(tr -> {
             final AccessInfo accessInfo = Objects.requireNonNull(primitives.fetchAccessInfo(tr).join());
             final Quantizer quantizer = primitives.quantizer(accessInfo);
             final Transformed<RealVector> transformedDuplicate =
@@ -707,7 +738,10 @@ public class CollapseScenarioTest implements BaseTest {
         for (int i = 1; i <= numDistinctPrimaries; i++) {
             final Tuple primaryKey = Tuple.from("distinct", i);
             final RealVector vector = records.get(i).vector();
-            db.run(tr -> {
+            // See collapsedVectorIdStoreScanAndDelete()'s writeCollapsedVectorId block for why this
+            // suppression is needed.
+            @SuppressWarnings("NullAway")
+            final Void ignored4 = db.run(tr -> {
                 guardiann.insert(tr, primaryKey, vector, null, true).join();
                 return null;
             });
@@ -721,7 +755,10 @@ public class CollapseScenarioTest implements BaseTest {
         // A fresh, non-collapsed duplicate replica: same content (hence same signature) but a distinct primary key and,
         // crucially, NO collapsed-store entry — the state a duplicate inserted after a collapse leaves.
         final Tuple freshPrimaryKey = Tuple.from("fresh-dup", 0);
-        db.run(tr -> {
+        // See collapsedVectorIdStoreScanAndDelete()'s writeCollapsedVectorId block for why this
+        // suppression is needed.
+        @SuppressWarnings("NullAway")
+        final Void ignored5 = db.run(tr -> {
             final AccessInfo accessInfo = Objects.requireNonNull(primitives.fetchAccessInfo(tr).join());
             final Quantizer quantizer = primitives.quantizer(accessInfo);
             final Transformed<RealVector> transformedDuplicate =
@@ -742,7 +779,10 @@ public class CollapseScenarioTest implements BaseTest {
 
         // A HIGHER-priority already-collapsed representative for the same signature (processed first). No collapsed-
         // store entry for (signature, Tuple.from(signature)), so it takes the collapsed short-circuit and claims S.
-        db.run(tr -> {
+        // See collapsedVectorIdStoreScanAndDelete()'s writeCollapsedVectorId block for why this
+        // suppression is needed.
+        @SuppressWarnings("NullAway")
+        final Void ignored6 = db.run(tr -> {
             final AccessInfo accessInfo = Objects.requireNonNull(primitives.fetchAccessInfo(tr).join());
             final Quantizer quantizer = primitives.quantizer(accessInfo);
             final Transformed<RealVector> transformedDuplicate =
@@ -875,7 +915,10 @@ public class CollapseScenarioTest implements BaseTest {
         for (int i = 0; i < count; i++) {
             final Tuple primaryKey = Tuple.from(pkBase + i);
             primaryKeys.add(primaryKey);
-            db.run(tr -> {
+            // See collapsedVectorIdStoreScanAndDelete()'s writeCollapsedVectorId block for why this
+            // suppression is needed.
+            @SuppressWarnings("NullAway")
+            final Void ignored = db.run(tr -> {
                 guardiann.insert(tr, primaryKey, vector, null, true).join();
                 return null;
             });
@@ -896,7 +939,10 @@ public class CollapseScenarioTest implements BaseTest {
 
     /** Adds {@link ClusterMetadata.State#COLLAPSE} to the cluster's states (preserving any others). */
     private void setCollapseState(final Guardiann guardiann, final UUID clusterId) {
-        db.run(tr -> {
+        // See collapsedVectorIdStoreScanAndDelete()'s writeCollapsedVectorId block for why this
+        // suppression is needed.
+        @SuppressWarnings("NullAway")
+        final Void ignored = db.run(tr -> {
             final Primitives primitives = guardiann.getLocator().primitives();
             final ClusterMetadata metadata =
                     Objects.requireNonNull(primitives.fetchClusterMetadata(tr, clusterId).join());
@@ -910,7 +956,10 @@ public class CollapseScenarioTest implements BaseTest {
     /** Builds a {@link CollapseTask} in memory and runs it in its own transaction. */
     private void runCollapseDirectly(final Guardiann guardiann, final UUID clusterId,
                                      final Transformed<RealVector> transformedCentroid) {
-        db.run(tr -> {
+        // See collapsedVectorIdStoreScanAndDelete()'s writeCollapsedVectorId block for why this
+        // suppression is needed.
+        @SuppressWarnings("NullAway")
+        final Void ignored = db.run(tr -> {
             final Primitives primitives = guardiann.getLocator().primitives();
             final AccessInfo accessInfo = Objects.requireNonNull(primitives.fetchAccessInfo(tr).join());
             final UUID taskId = RandomHelpers.randomUuid(clusterId, true);
@@ -949,7 +998,10 @@ public class CollapseScenarioTest implements BaseTest {
         final Locator locator = guardiann.getLocator();
         final Primitives primitives = locator.primitives();
         final int numNearestClusters = 1 + guardiann.getConfig().reassignNumNeighboringClusters();
-        db.run(transaction -> {
+        // See collapsedVectorIdStoreScanAndDelete()'s writeCollapsedVectorId block for why this
+        // suppression is needed.
+        @SuppressWarnings("NullAway")
+        final Void ignored = db.run(transaction -> {
             final AccessInfo accessInfo = Objects.requireNonNull(primitives.fetchAccessInfo(transaction).join());
             final ClusterMetadata clusterMetadata =
                     Objects.requireNonNull(primitives.fetchClusterMetadata(transaction, clusterId).join());
