@@ -96,8 +96,6 @@ tasks.withType(JavaCompile).configureEach {
         option("NullAway:JSpecifyMode", "true")
         option("NullAway:AcknowledgeRestrictiveAnnotations", "true")
     }
-    // TEMP-DIAGNOSTIC: remove before finishing -- see full error list instead of javac's default 100-cap.
-    options.compilerArgs << "-Xmaxerrs" << "10000"
 }
 
 publishing {
