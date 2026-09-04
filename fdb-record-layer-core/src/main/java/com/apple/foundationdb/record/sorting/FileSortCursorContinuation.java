@@ -57,6 +57,8 @@ class FileSortCursorContinuation<K, V> implements RecordCursorContinuation {
     @Nullable
     private byte[] cachedBytes;
 
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably recognize that the already-@Nullable
+    // byte[] field cachedBytes needs no initialization here; it is lazily computed in toBytes().
     FileSortCursorContinuation(FileSortAdapter<K, V> adapter,
                                boolean exhausted, boolean loading,
                                Collection<V> inMemoryRecords,
@@ -109,6 +111,8 @@ class FileSortCursorContinuation<K, V> implements RecordCursorContinuation {
 
     @Override
     @Nullable
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably track @Nullable on byte[] return types;
+    // this method is correctly annotated @Nullable above.
     public byte[] toBytes() {
         if (isEnd()) {
             return null;
@@ -132,6 +136,8 @@ class FileSortCursorContinuation<K, V> implements RecordCursorContinuation {
         return result;
     }
 
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably narrow a @Nullable byte[] parameter
+    // after a null check (unparsed is provably non-null in the else branch below).
     static <K, V> FileSortCursorContinuation<K, V> from(@Nullable byte[] unparsed,
                                                         FileSortAdapter<K, V> adapter) {
         FileSortCursorContinuation<K, V> result;
