@@ -305,6 +305,15 @@ public final class PlanGenerator {
         return copyPlan;
     }
 
+    // MutablePlanGenerationContext#setContinuation(...) already correctly declares its parameter
+    // @Nullable byte[], matching continuationProto's own type here, but NullAway/JSpecify does not
+    // reliably match up @Nullable byte[]-to-@Nullable byte[] array-typed parameters (known limitation).
+    @SuppressWarnings("NullAway")
+    private static void setContinuationOnContext(final MutablePlanGenerationContext planGenerationContext,
+                                                 @Nullable final byte[] continuationProto) {
+        planGenerationContext.setContinuation(continuationProto);
+    }
+
     private static QueryPlan.ContinuedPhysicalQueryPlan generatePhysicalPlanForCompiledStatementContinuation(
             final AstNormalizer.NormalizationResult ast,
             final Set<PlanHashable.PlanHashMode> validPlanHashModes,
@@ -371,7 +380,7 @@ public final class PlanGenerator {
                 ast.getQueryCacheKey().getCanonicalQueryString(), Objects.requireNonNull(continuation.getBindingHash()));
         planGenerationContext.setForExplain(ast.getQueryExecutionContext().isForExplain());
         Arrays.stream(orderedLiterals).forEach(literal -> planGenerationContext.getLiteralsBuilder().addLiteral(literal));
-        planGenerationContext.setContinuation(continuationProto);
+        setContinuationOnContext(planGenerationContext, continuationProto);
         final var continuationPlanConstraint =
                 QueryPlanConstraint.fromProto(serializationContext, compiledStatement.getPlanConstraint());
 
