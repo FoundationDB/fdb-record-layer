@@ -46,29 +46,6 @@ public class QueryPlanUtils {
     }
 
     /**
-     * The method to get a function from an {@link IndexEntry} to a {@link FDBQueriedRecord} representing a partial record.
-     * @param <M> Protobuf class for record message
-     * @param store the store against which the query is run
-     * @param recordTypeName the record type of the indexed record
-     * @param indexName the index from which the entry came
-     * @param toRecord generator of partial record from index entry
-     * @param hasPrimaryKey whether the index entry has a primary key
-     * @return a function map index entries to queried records
-     */
-    @SuppressWarnings("unchecked")
-    public static <M extends Message> Function<IndexEntry, FDBQueriedRecord<M>> getCoveringIndexEntryToPartialRecordFunction(final @Nonnull FDBRecordStoreBase<M> store,
-                                                                                                                             final @Nonnull String recordTypeName,
-                                                                                                                             final @Nonnull String indexName,
-                                                                                                                             final @Nonnull IndexKeyValueToPartialRecord toRecord,
-                                                                                                                             final boolean hasPrimaryKey) {
-        final RecordMetaData metaData = store.getRecordMetaData();
-        final RecordType recordType = metaData.getQueryableRecordType(recordTypeName);
-        final Index index = metaData.getIndex(indexName);
-        final Descriptors.Descriptor recordDescriptor = recordType.getDescriptor();
-        return indexEntry -> store.coveredIndexQueriedRecord(index, indexEntry, recordType, (M) toRecord.toRecord(recordDescriptor, indexEntry), hasPrimaryKey);
-    }
-
-    /**
      * Some plans require serializable isolation (such as DML); this should be enforced by the parser, but as a backup
      * this method can be used to additionally protect.
      * <p>

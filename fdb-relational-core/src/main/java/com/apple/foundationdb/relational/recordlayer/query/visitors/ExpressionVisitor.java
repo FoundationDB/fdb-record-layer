@@ -672,7 +672,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     private Expression visitLikePredicate(@Nonnull Expression operand, @Nonnull RelationalParser.LikePredicateContext ctx) {
         final LiteralValue<?> escapeValue;
         if (ctx.escape != null) {
-            final var escapeChar = getDelegate().normalizeString(ctx.escape.getText());
+            final var escapeChar = SemanticAnalyzer.normalizeStringLiteral(ctx.escape.getText());
             escapeValue = new LiteralValue<>(escapeChar);
         } else {
             escapeValue = new LiteralValue<>(null);
@@ -825,7 +825,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         Assert.isNullUnchecked(ctx.START_NATIONAL_STRING_LITERAL(), ErrorCode.UNSUPPORTED_QUERY, "national string literal is not supported");
         Assert.isNullUnchecked(ctx.COLLATE(), ErrorCode.UNSUPPORTED_QUERY, "collation is not supported");
         final var value = getDelegate().getPlanGenerationContext().processQueryLiteral(Type.primitiveType(Type.TypeCode.STRING),
-                getDelegate().normalizeString(ctx.getText()),
+                SemanticAnalyzer.normalizeStringLiteral(ctx),
                 ctx.getStart().getTokenIndex());
         return Expression.ofUnnamed(value);
     }

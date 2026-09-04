@@ -192,6 +192,22 @@ test_block:
       - query: select x from t1 group by col1 as x, col2 as x;
       - error: AMBIGUOUS_COLUMN
     -
+      # Test that a duplicate grouping column is rejected. In particular, this exercises an ambiguity check during
+      # pull-up. The group-by result exposes `col1` twice, so pulling the grouping columns up over that result finds
+      # two references for it and cannot pick one arbitrarily.
+      - query: select max(col2) from t1 group by col1, col1;
+      - supported_version: 4.10.1.0
+      - error: AMBIGUOUS_COLUMN
+    -
+      - query: select col1 from t1 group by col1, col1;
+      - supported_version: 4.10.1.0
+      - error: AMBIGUOUS_COLUMN
+    -
+      # Duplicate grouping column + HAVING.
+      - query: select max(col2) from t1 group by col1, col1 having col1 > 0;
+      - supported_version: 4.10.1.0
+      - error: AMBIGUOUS_COLUMN
+    -
       - query: SELECT COUNT(*) from T1 WHERE col1 = 20 or col2 = 5
       - explain: "ISCAN(I1 <,>) | FILTER _.COL1 EQUALS promote(@c10 AS LONG) OR _.COL2 EQUALS promote(@c14 AS LONG) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)"
       - result: [{!l 9}]
@@ -260,4 +276,43 @@ test_block:
       - result: [{!l 10, !l 5}]
       - result: []
       - result: [{!l 20, !l 8}]
+---
+# Aggregates over a record constructor. These are regression tests for Issue #4481. They exercise the interaction of
+# `collapseSimpleSelectMaybe()`, which collapses some of these record constructors, with the group-by pull-up logic.
+test_block:
+  name: aggregate-over-record
+  tests:
+    -
+      # A star-derived record constructor.
+      - query: SELECT COUNT((T1.*)) FROM T1
+      - supported_version: 4.13.4.0
+      - result: [{!l 13}]
+    -
+      # Record constructor with every column enumerated in declaration order; gets collapsed like the star-derived form.
+      - query: SELECT COUNT((T1.id, T1.col1, T1.col2)) FROM T1
+      - supported_version: 4.13.4.0
+      - result: [{!l 13}]
+    -
+      # The same columns, but out of order. Such a record constructor doesn’t get collapsed.
+      - query: SELECT COUNT((T1.col2, T1.col1, T1.id)) FROM T1
+      - result: [{!l 13}]
+    -
+      # A strict subset of the columns. Doesn’t get collapsed either.
+      - query: SELECT COUNT((T1.id, T1.col2)) FROM T1
+      - result: [{!l 13}]
+    -
+      # The star-derived form again, but with grouping. Here the pull-up has grouping columns to rewrite alongside the
+      # aggregate.
+      - query: SELECT col1, COUNT((T1.*)) FROM T1 GROUP BY col1
+      - supported_version: 4.13.4.0
+      - result: [{!l 10, !l 5}, {!l 20, !l 8}]
+    -
+      # The HAVING predicate is normalized as well, not only the projection.
+      - query: SELECT col1 FROM T1 GROUP BY col1 HAVING COUNT((T1.*)) > 5
+      - supported_version: 4.13.4.0
+      - result: [{!l 20}]
+    -
+      # An ORDER BY over an aggregate is not supported, whatever the aggregate’s argument looks like.
+      - query: SELECT col1 FROM T1 GROUP BY col1 ORDER BY COUNT((T1.*))
+      - error: UNSUPPORTED_QUERY
 ...
