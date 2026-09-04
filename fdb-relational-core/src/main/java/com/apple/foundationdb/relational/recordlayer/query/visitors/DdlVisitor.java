@@ -648,12 +648,27 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         if (!isMacro && isTemporary) {
             // delay the compilation of table-valued temporary functions for later
             return builder
-                    .withUserDefinedFunctionProvider(ignore -> visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary))
+                    .withUserDefinedFunctionProvider((ignore, localVarsMap) -> {
+                        // Merge SELECT-time local variable bindings into the CREATE-time PreparedParams so that
+                        // GET_VARIABLE refs inside the body resolve to their current values. We add (not
+                        // replace) so that ?param bindings already present from the CREATE-time context are
+                        // preserved.
+                        if (localVarsMap != null && !localVarsMap.isEmpty()) {
+                            final var prev = getDelegate().getPlanGenerationContext().getLocalVariables();
+                            getDelegate().getPlanGenerationContext().setLocalVariables(localVarsMap);
+                            try {
+                                return visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
+                            } finally {
+                                getDelegate().getPlanGenerationContext().setLocalVariables(prev);
+                            }
+                        }
+                        return visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
+                    })
                     .withSerializableFunction(new RawSqlFunction(functionName, functionDefinition))
                     .build();
         } else {
             final var userDefinedFunction = visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
-            builder.withUserDefinedFunctionProvider(ignore -> userDefinedFunction);
+            builder.withUserDefinedFunctionProvider((ignore, localVars) -> userDefinedFunction);
             if (isMacro) {
                 return builder.withSerializableFunction(userDefinedFunction).build();
             } else {
