@@ -321,11 +321,12 @@ public class RaBitQuantizerTest {
                 if (sum == null) {
                     sum = v;
                 } else {
-                    sum.add(v);
+                    sum = sum.add(v);
                 }
             }
             Objects.requireNonNull(v);
             Objects.requireNonNull(q);
+            Objects.requireNonNull(sum);
 
             final RealVector centroid = sum.multiply(1.0d / numVectorsForCentroid);
 
