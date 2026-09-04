@@ -1130,6 +1130,7 @@ public class TemporaryFunctionTests {
         final var visitor = new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, statement, statement, 42),
                 schemaTemplate, NoOpQueryFactory.INSTANCE, metadataOperationsFactory, URI.create("/FDB/FRL1"), false) {
             @Override
+            @SuppressWarnings("NullAway") // intentionally returns null; only the invocation is being tested here
             public LogicalOperator visitStatementBody(final RelationalParser.StatementBodyContext ctx) {
                 called.set(true);
                 return null;

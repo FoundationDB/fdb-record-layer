@@ -43,6 +43,9 @@ public class CatalogValidatorTest {
     void testValidateWithUnsetRecordLayerSchemaName() {
         RecordLayerSchema goodSchema = generateGoodSchema();
         // clear schema_name field
+        // generateSchema's schemaName param is @Nonnull in the not-yet-migrated fdb-relational-api
+        // module, but this test intentionally passes null to exercise CatalogValidator's unset-field check.
+        @SuppressWarnings("NullAway")
         RecordLayerSchema schemaWithUnsetRecordLayerSchemaName = (RecordLayerSchema) goodSchema.getSchemaTemplate().generateSchema(goodSchema.getDatabaseName(), null);
         RelationalException exception = Assertions.assertThrows(RelationalException.class, () ->
                 CatalogValidator.validateSchema(schemaWithUnsetRecordLayerSchemaName));
@@ -54,6 +57,9 @@ public class CatalogValidatorTest {
     void testValidateWithUnsetDatabaseId() {
         RecordLayerSchema goodSchema = generateGoodSchema();
         // clear database_id field
+        // generateSchema's databaseId param is @Nonnull in the not-yet-migrated fdb-relational-api
+        // module, but this test intentionally passes null to exercise CatalogValidator's unset-field check.
+        @SuppressWarnings("NullAway")
         RecordLayerSchema badRecordLayerSchema = (RecordLayerSchema) goodSchema.getSchemaTemplate().generateSchema(null, goodSchema.getName());
 
         RelationalException exception = Assertions.assertThrows(RelationalException.class, () ->
