@@ -36,6 +36,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
 import java.sql.SQLException;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 public class StoreTimerMetricCollectorFromFDBRecordContextTest {
@@ -68,7 +69,8 @@ public class StoreTimerMetricCollectorFromFDBRecordContextTest {
                         resultSetAssert.hasNextRow();
                     }
                     resultSetAssert.hasNoNextRow();
-                    var collector = connection.getMetricCollector();
+                    // getMetricCollector() is @Nullable in general, but is always set by the time a statement has executed.
+                    var collector = Objects.requireNonNull(connection.getMetricCollector(), "metric collector not set");
                     testGeneralMetrics(collector);
                     testExecuteContinuationSpecificMetrics(collector);
                 }
@@ -92,7 +94,8 @@ public class StoreTimerMetricCollectorFromFDBRecordContextTest {
                 }
                 resultSetAssert.hasNoNextRow();
                 continuation = resultSet.getContinuation();
-                var collector = connection.getMetricCollector();
+                // getMetricCollector() is @Nullable in general, but is always set by the time a statement has executed.
+                var collector = Objects.requireNonNull(connection.getMetricCollector(), "metric collector not set");
                 testGeneralMetrics(collector);
                 if (!hitCache) {
                     testCacheMissSpecificMetrics(collector);
@@ -103,7 +106,7 @@ public class StoreTimerMetricCollectorFromFDBRecordContextTest {
         } catch (SQLException sql) {
             Assertions.fail(sql);
         }
-        return continuation;
+        return Objects.requireNonNull(continuation, "continuation should have been set unless an assertion failed above");
     }
 
     private void setupAndExecuteWithConnection(Consumer<EmbeddedRelationalConnection> execute) throws Exception {

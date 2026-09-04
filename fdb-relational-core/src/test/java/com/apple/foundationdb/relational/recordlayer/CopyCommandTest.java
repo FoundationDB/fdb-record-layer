@@ -66,6 +66,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
@@ -90,7 +91,7 @@ public class CopyCommandTest {
 
     @BeforeEach
     void setUp() {
-        connectionUtils = new ConnectionUtils(relationalExtension.getDriver());
+        connectionUtils = new ConnectionUtils(Objects.requireNonNull(relationalExtension.getDriver()));
     }
 
     @ParameterizedTest
@@ -148,7 +149,7 @@ public class CopyCommandTest {
         clearTestData(connectionUtils, sourceTestPath);
 
         // Import to destination (using quoted path)
-        int importedCount = connectionUtils.getFromCatalog(conn -> {
+        int importedCount = Objects.requireNonNull(connectionUtils.getFromCatalog(conn -> {
             final EmbeddedRelationalConnection embeddedConnection = (EmbeddedRelationalConnection)conn;
             embeddedConnection.createNewTransaction();
             int count;
@@ -163,7 +164,7 @@ public class CopyCommandTest {
             }
             final Plan.ExecutionContext executionContext = Plan.ExecutionContext.of(
                     embeddedConnection.getTransaction(),
-                    Options.NONE, conn, embeddedConnection.getMetricCollector());
+                    Options.NONE, conn, Objects.requireNonNull(embeddedConnection.getMetricCollector()));
             try (final RelationalResultSet relationalResultSet = copyImportAction.execute(executionContext)) {
                 assertTrue(relationalResultSet.next());
                 count = relationalResultSet.getInt("COUNT");
@@ -172,7 +173,7 @@ public class CopyCommandTest {
             }
 
             return count;
-        });
+        }));
         assertEquals(withExecutionContext ? 3 : 2, importedCount);
 
         final KeySpacePath destTestPath = KeySpaceUtils.toKeySpacePath(URI.create(dest.schemaPath), keySpace);
@@ -366,7 +367,7 @@ public class CopyCommandTest {
                     assertFalse(continuation.atBeginning());
                     final ContinuationImpl continuationImpl = (ContinuationImpl)rs.getContinuation();
                     final Continuation corruptedContinuation = continuationImpl.asBuilder()
-                            .withPlanHash(continuationImpl.getPlanHash() + 3)
+                            .withPlanHash(Objects.requireNonNull(continuationImpl.getPlanHash()) + 3)
                             .build();
                     RelationalAssertions.assertThrowsSqlException(
                                     () -> continueExport(limit, conn, corruptedContinuation, results))
@@ -529,7 +530,7 @@ public class CopyCommandTest {
         String templateName1 = "TEMPLATE1_" + uuidName;
         String templateName2 = "TEMPLATE2_" + uuidName;
         final ConnectionUtils destConnectionUtils = multiCluster ?
-                                                    new ConnectionUtils(relationalExtension.extensionForOtherCluster().getDriver()) :
+                                                    new ConnectionUtils(Objects.requireNonNull(relationalExtension.extensionForOtherCluster().getDriver())) :
                                                     connectionUtils;
         final List<Moveable> moveables = IntStream.of(0, 1, 2)
                 .mapToObj(index -> {
@@ -802,7 +803,7 @@ public class CopyCommandTest {
     }
 
     private static List<byte[]> exportData(String path, ConnectionUtils connectionUtils, String incarnationClause) throws SQLException, RelationalException {
-        return connectionUtils.getFromCatalog(conn -> {
+        return Objects.requireNonNull(connectionUtils.getFromCatalog(conn -> {
             try (RelationalStatement stmt = conn.createStatement();
                      RelationalResultSet rs = stmt.executeQuery("COPY " + path + " " + incarnationClause)) {
                 List<byte[]> exportedData = new ArrayList<>();
