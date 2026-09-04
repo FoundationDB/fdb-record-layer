@@ -342,7 +342,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             // ArrayRow's vararg parameter type isn't @Nullable (NullAway/JSpecify doesn't reliably track
             // element nullability for array/vararg-typed parameters); PLAN_SERIALIZATION_MODE and the plan
             // complexity below are genuinely null in some cases.
-            final Object planSerializationMode = parsedContinuation.getCompiledStatement() == null ? null : parsedContinuation.getCompiledStatement().getPlanSerializationMode();
+            final var compiledStatement = parsedContinuation.getCompiledStatement();
+            final Object planSerializationMode = compiledStatement == null ? null : compiledStatement.getPlanSerializationMode();
             @SuppressWarnings("NullAway")
             final ArrayRow continuationRow = new ArrayRow(
                             parsedContinuation.getExecutionState(),

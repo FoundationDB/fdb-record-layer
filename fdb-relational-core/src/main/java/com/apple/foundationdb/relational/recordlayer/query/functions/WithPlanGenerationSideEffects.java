@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query.functions;
 
 import com.apple.foundationdb.relational.recordlayer.query.Literals;
+
 /**
  * Trait used to capture side effects resulting from the integration of a
  * {@link com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction} into a query plan.

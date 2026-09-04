@@ -26,6 +26,7 @@ import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.IntStream;
 import org.antlr.v4.runtime.misc.Interval;
+
 /**
  * A {@link IntStream} stream, that enables allows a case-sensitive {@link org.antlr.v4.runtime.Lexer}
  * to become case-insensitive by upper-casing the stream of symbols arriving to it.

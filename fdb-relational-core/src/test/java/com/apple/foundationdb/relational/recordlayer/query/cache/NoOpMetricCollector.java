@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.util.Supplier;
+
 /**
  * A no-op {@link MetricCollector} for use in tests that do not need to track metrics.
  */

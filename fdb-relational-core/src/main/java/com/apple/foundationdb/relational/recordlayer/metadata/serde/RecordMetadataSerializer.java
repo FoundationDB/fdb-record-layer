@@ -81,12 +81,13 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
         // See: TODO (Relational index misses version information)
         Assert.thatUnchecked(index instanceof RecordLayerIndex);
         final RecordLayerIndex recLayerIndex = (RecordLayerIndex) index;
+        final var predicate = recLayerIndex.getPredicate();
         getBuilder().addIndex(recLayerIndex.getTableStorageName(),
                 new Index(index.getName(),
                         recLayerIndex.getKeyExpression(),
                         index.getIndexType(),
                         recLayerIndex.getOptions(),
-                        recLayerIndex.getPredicate() == null ? null : IndexPredicate.fromProto(recLayerIndex.getPredicate())));
+                        predicate == null ? null : IndexPredicate.fromProto(predicate)));
     }
 
     @Override

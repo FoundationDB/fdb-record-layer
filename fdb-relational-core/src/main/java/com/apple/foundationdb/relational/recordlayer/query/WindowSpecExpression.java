@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
+
 /**
  * Helper class that captures the components of an SQL {@code OVER} clause used in window functions.
  * <p>
