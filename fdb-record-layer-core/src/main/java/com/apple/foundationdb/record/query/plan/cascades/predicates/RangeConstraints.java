@@ -161,7 +161,8 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
         for (final var comparison : getComparisons()) {
             if (comparison instanceof Comparisons.ValueComparison) {
                 final var newComparand = ((Comparisons.ValueComparison)comparison).getComparandValue().evalWithoutStore(context);
-                builder.addComparisonMaybe(new Comparisons.SimpleComparison(comparison.getType(), newComparand));
+                builder.addComparisonMaybe(new Comparisons.SimpleComparison(comparison.getType(),
+                        Objects.requireNonNull(newComparand, "compile-time comparand evaluated to null")));
             } else {
                 builder.addComparisonMaybe(comparison);
             }
@@ -546,7 +547,8 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
             }
             var comparand = comparison.getComparand(null, evaluationContext);
             if (comparison.hasMultiColumnComparand()) {
-                items.addAll(((Tuple)comparand).getItems());
+                // hasMultiColumnComparand()'s contract (see its javadoc) guarantees getComparand() returns a Tuple.
+                items.addAll(((Tuple)Objects.requireNonNull(comparand)).getItems());
             } else {
                 items.add(ScanComparisons.toTupleItem(comparand));
             }

@@ -158,7 +158,14 @@ public class LockRegistry {
         return acquire(id, getNewLock).thenCompose(lock -> {
             lockRef.set(lock);
             return operation.get();
-        }).whenComplete((ignore, err) -> lockRef.get().release());
+        }).whenComplete((ignore, err) -> {
+            // lockRef is only set once acquire()'s future completes successfully; if acquire() itself fails,
+            // thenCompose's lambda never runs and lockRef stays unset, so guard against that here.
+            final var acquiredLock = lockRef.get();
+            if (acquiredLock != null) {
+                acquiredLock.release();
+            }
+        });
     }
 
     private AsyncLock updateRefAndGetNewLock(final LockIdentifier identifier, final UnaryOperator<AsyncLock> getNewLock) {

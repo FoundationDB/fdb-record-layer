@@ -44,7 +44,7 @@ public class RecordSerializationException extends RecordCoreException {
     }
 
     @Override
-    public RecordSerializationException addLogInfo(String description, Object object) {
+    public RecordSerializationException addLogInfo(String description, @Nullable Object object) {
         super.addLogInfo(description, object);
         return this;
     }

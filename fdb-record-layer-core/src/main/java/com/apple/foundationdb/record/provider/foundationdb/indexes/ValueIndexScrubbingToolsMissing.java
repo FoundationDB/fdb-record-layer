@@ -100,7 +100,7 @@ public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBS
     }
 
     @Override
-    public CompletableFuture<Issue> handleOneItem(FDBRecordStore store,  final RecordCursorResult<FDBStoredRecord<Message>> result) {
+    public CompletableFuture<@Nullable Issue> handleOneItem(FDBRecordStore store,  final RecordCursorResult<FDBStoredRecord<Message>> result) {
         if (recordTypes == null || index == null) {
             throw new IllegalStateException("presetParams was not called appropriately for this scrubbing tool");
         }

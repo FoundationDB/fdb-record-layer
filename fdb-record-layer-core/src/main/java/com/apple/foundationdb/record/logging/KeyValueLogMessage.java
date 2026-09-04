@@ -123,6 +123,8 @@ public class KeyValueLogMessage {
         return keyValueMap.values().toArray();
     }
 
+    @SuppressWarnings("NullAway") // The last slot legitimately holds a null throwable when the caller has none
+    // to log; NullAway/JSpecify does not track per-element nullability of array contents.
     public Object[] getValuesWithThrowable(@Nullable final Throwable t) {
         final Object[] ret = keyValueMap.values().toArray(new Object[keyValueMap.size() + 1]);
         ret[ret.length - 1] = t;
@@ -134,6 +136,7 @@ public class KeyValueLogMessage {
         return this;
     }
 
+    @Nullable
     public String getStaticMessage() {
         return keyValueMap.get(LogMessageKeys.TITLE.toString());
     }

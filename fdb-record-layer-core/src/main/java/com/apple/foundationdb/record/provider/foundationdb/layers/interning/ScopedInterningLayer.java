@@ -35,6 +35,7 @@ import com.google.common.annotations.VisibleForTesting;
 import org.jspecify.annotations.Nullable;
 
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -84,7 +85,9 @@ public class ScopedInterningLayer extends LocatableResolver {
             this.nodeSubspaceFuture = CompletableFuture.completedFuture(new Subspace(GLOBAL_SCOPE_PREFIX_BYTES));
         } else {
             isRootLevel = false;
-            this.baseSubspaceFuture = resolvedPath.thenApply(ResolvedKeySpacePath::toSubspace);
+            // All call sites of this private constructor pass path and resolvedPath as either both null or both
+            // non-null (see the public constructors above), so resolvedPath is guaranteed non-null here.
+            this.baseSubspaceFuture = Objects.requireNonNull(resolvedPath).thenApply(ResolvedKeySpacePath::toSubspace);
             this.nodeSubspaceFuture = baseSubspaceFuture;
         }
         this.stateSubspaceFuture = nodeSubspaceFuture.thenApply(node -> node.get(STATE_SUBSPACE_KEY_SUFFIX));

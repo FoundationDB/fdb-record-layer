@@ -27,8 +27,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-
 /**
  * A single entry returned by
  * {@link PendingWritesQueue#getQueueCursor(FDBRecordContext, ScanProperties, byte[])}.
@@ -38,17 +36,14 @@ import javax.annotation.Nonnull;
  * @param <T> the payload message type of the queue that produced this entry
  */
 public final class PendingWritesQueueEntry<T extends Message> {
-    @Nonnull
     private final Tuple keyTuple;
-    @Nonnull
     private final T payload;
-    @Nonnull
     private final String payloadTypeUrl;
     private final long enqueueTimestamp;
 
-    PendingWritesQueueEntry(@Nonnull Tuple keyTuple,
-                            @Nonnull T payload,
-                            @Nonnull String payloadTypeUrl,
+    PendingWritesQueueEntry(Tuple keyTuple,
+                            T payload,
+                            String payloadTypeUrl,
                             long enqueueTimestamp) {
         // Sanity-check the key shape — the queue always writes (incarnation, versionstamp).
         if (keyTuple.size() != 2) {
@@ -61,7 +56,6 @@ public final class PendingWritesQueueEntry<T extends Message> {
         this.enqueueTimestamp = enqueueTimestamp;
     }
 
-    @Nonnull
     public Tuple getKeyTuple() {
         return keyTuple;
     }
@@ -80,7 +74,6 @@ public final class PendingWritesQueueEntry<T extends Message> {
      *
      * @return the unpacked, typed payload
      */
-    @Nonnull
     public T getPayload() {
         return payload;
     }
@@ -91,7 +84,6 @@ public final class PendingWritesQueueEntry<T extends Message> {
      *
      * @return the on-disk {@code Any} type URL
      */
-    @Nonnull
     public String getPayloadTypeUrl() {
         return payloadTypeUrl;
     }
