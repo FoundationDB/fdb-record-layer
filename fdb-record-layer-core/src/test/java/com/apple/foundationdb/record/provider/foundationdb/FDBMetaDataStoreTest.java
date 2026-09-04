@@ -1812,8 +1812,9 @@ public class FDBMetaDataStoreTest {
 
     /**
      * This is somewhat of a weird case, but validate that if there is a union field for the new record type name that
-     * looks like _NewRecordTypeName (for whatever reason), <em>don't</em> rename the union field to that because getting
-     * the name looking right isn't worth throwing an error.
+     * looks like _NewRecordTypeName (for whatever reason), the rename is rejected rather than performed with the union
+     * field left under its old name. Renaming the canonical union field would collide with that existing field, and a
+     * union whose field names disagree with their record types is confusing enough to be worth an error.
      */
     @Test
     public void renameSimpleWhereUnionFieldIsAlreadyTaken() {
@@ -1846,23 +1847,46 @@ public class FDBMetaDataStoreTest {
         }
         try (FDBRecordContext context = fdb.openContext()) {
             openMetaDataStore(context);
-            renameRecordType("MySimpleRecord", "MyNewSimpleRecord");
-            RecordMetaData metaData = metaDataStore.getRecordMetaData();
-            assertEquals(ImmutableSet.of("MyNewSimpleRecord", "MyOtherRecord"), metaData.getRecordTypes().keySet());
-            assertEquals(ImmutableSet.of("_MySimpleRecord", "_MyNewSimpleRecord"), metaData.getUnionDescriptor().getFields().stream().map(Descriptors.FieldDescriptor::getName).collect(Collectors.toSet()));
-            assertEquals("_MySimpleRecord", metaData.getUnionFieldForRecordType(metaData.getRecordType("MyNewSimpleRecord")).getName());
-            assertEquals("_MyNewSimpleRecord", metaData.getUnionFieldForRecordType(metaData.getRecordType("MyOtherRecord")).getName());
+            final MetaDataException e = assertThrows(MetaDataException.class,
+                    () -> renameRecordType("MySimpleRecord", "MyNewSimpleRecord"));
+            assertEquals("Cannot rename union field to _MyNewSimpleRecord as a field of that name already exists",
+                    e.getMessage());
             context.commit();
         }
+        // The rejected rename must have left the stored metadata untouched.
         try (FDBRecordContext context = fdb.openContext()) {
             openMetaDataStore(context);
             RecordMetaData metaData = metaDataStore.getRecordMetaData();
-            assertEquals(ImmutableSet.of("MyNewSimpleRecord", "MyOtherRecord"), metaData.getRecordTypes().keySet());
+            assertEquals(ImmutableSet.of("MySimpleRecord", "MyOtherRecord"), metaData.getRecordTypes().keySet());
             assertEquals(ImmutableSet.of("_MySimpleRecord", "_MyNewSimpleRecord"), metaData.getUnionDescriptor().getFields().stream().map(Descriptors.FieldDescriptor::getName).collect(Collectors.toSet()));
-            assertEquals("_MySimpleRecord", metaData.getUnionFieldForRecordType(metaData.getRecordType("MyNewSimpleRecord")).getName());
+            assertEquals("_MySimpleRecord", metaData.getUnionFieldForRecordType(metaData.getRecordType("MySimpleRecord")).getName());
             assertEquals("_MyNewSimpleRecord", metaData.getUnionFieldForRecordType(metaData.getRecordType("MyOtherRecord")).getName());
             context.commit();
         }
+    }
+
+    /**
+     * Validate that a record type that has a union field but no entry in the record type list, which should never
+     * happen but is expressible in a hand-built metadata, is reported rather than renamed.
+     */
+    @Test
+    public void renameRecordTypeMissingFromRecordTypeList() {
+        final RecordMetaDataProto.MetaData.Builder builder =
+                RecordMetaData.build(TestRecords1Proto.getDescriptor()).toProto().toBuilder();
+        // Drop MySimpleRecord from the record type list, leaving its _MySimpleRecord union field in place. The union
+        // field is what makes the rename resolve MySimpleRecord as a RECORD-usage type in the first place.
+        final List<RecordMetaDataProto.RecordType> recordTypes = builder.getRecordTypesList().stream()
+                .filter(recordType -> !recordType.getName().equals("MySimpleRecord"))
+                .collect(Collectors.toList());
+        builder.clearRecordTypes().addAllRecordTypes(recordTypes);
+
+        final MetaDataException e = assertThrows(MetaDataException.class,
+                () -> renameRecordType(builder, "MySimpleRecord", "MyNewSimpleRecord"));
+        assertEquals("Missing MySimpleRecord in record type list", e.getMessage());
+        // The rename must be rejected before anything has been rewritten.
+        assertThat(builder.getRecords().getMessageTypeList().stream()
+                        .map(DescriptorProtos.DescriptorProto::getName).collect(Collectors.toList()),
+                hasItem("MySimpleRecord"));
     }
 
     /**
@@ -1960,6 +1984,48 @@ public class FDBMetaDataStoreTest {
             RecordMetaData metaData = metaDataStore.getRecordMetaData();
             assertEquals(RecordMetaDataBuilder.DEFAULT_UNION_NAME, metaData.getUnionDescriptor().getName());
             assertEquals(ImmutableSet.of("MySimpleRecord", "MyOtherRecord"), metaData.getRecordTypes().keySet());
+        }
+    }
+
+    /**
+     * Validate that the union can still be renamed to a name whose canonical union field name is already taken, since
+     * renaming the union does not rename any union field and so cannot collide with one.
+     */
+    @Test
+    public void renameUnionWhereUnionFieldIsAlreadyTaken() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
+            // Give MyOtherRecord's union field the name that renaming the union to UnionType would want for itself.
+            metaDataStore.mutateMetaData(metaDataProtoBuilder ->
+                    metaDataProtoBuilder.getRecordsBuilder().getMessageTypeBuilderList().forEach(messageType -> {
+                        if (messageType.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                            messageType.getFieldBuilderList().forEach(field -> {
+                                if (field.getName().equals("_MyOtherRecord")) {
+                                    field.setName("_UnionType");
+                                }
+                            });
+                        }
+                    })
+            );
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            renameRecordType(RecordMetaDataBuilder.DEFAULT_UNION_NAME, "UnionType");
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            assertEquals("UnionType", metaData.getUnionDescriptor().getName());
+            assertEquals(ImmutableSet.of("MySimpleRecord", "MyOtherRecord"), metaData.getRecordTypes().keySet());
+            assertEquals(ImmutableSet.of("_MySimpleRecord", "_UnionType"),
+                    metaData.getUnionDescriptor().getFields().stream().map(Descriptors.FieldDescriptor::getName).collect(Collectors.toSet()));
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            assertEquals("UnionType", metaData.getUnionDescriptor().getName());
+            assertEquals("_UnionType", metaData.getUnionFieldForRecordType(metaData.getRecordType("MyOtherRecord")).getName());
         }
     }
 
@@ -2161,6 +2227,39 @@ public class FDBMetaDataStoreTest {
             openMetaDataStore(context);
             MetaDataException e = assertThrows(MetaDataException.class, () -> renameRecordType("MyOtherRecord", "MySimpleRecord"));
             assertEquals("Cannot rename record type to MySimpleRecord as an imported record type of that name already exists", e.getMessage());
+        }
+    }
+
+    /**
+     * Validate that a {@code NESTED} record type, too, cannot be renamed to the name of an imported record type, even
+     * though the rename would not otherwise touch the record type list.
+     */
+    @Test
+    public void renameNestedRecordTypeClashingWithImported() {
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = RecordMetaData.build(TestRecordsImportedAndNewProto.getDescriptor());
+            metaDataStore.saveRecordMetaData(metaData);
+            // Move the NESTED type out of the way, so that MySimpleRecord names only the imported record type.
+            renameRecordType("MySimpleRecord", "MyLocalSimpleRecord");
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            final MetaDataException e = assertThrows(MetaDataException.class,
+                    () -> renameRecordType("MyLocalSimpleRecord", "MySimpleRecord"));
+            assertEquals("Cannot rename record type to MySimpleRecord as an imported record type of that name already exists",
+                    e.getMessage());
+            context.commit();
+        }
+        // The rejected rename must have left the stored metadata untouched.
+        try (FDBRecordContext context = fdb.openContext()) {
+            openMetaDataStore(context);
+            RecordMetaData metaData = metaDataStore.getRecordMetaData();
+            assertEquals(ImmutableSet.of("MySimpleRecord", "MyOtherRecord"), metaData.getRecordTypes().keySet());
+            assertNotNull(metaData.getRecordsDescriptor().findMessageTypeByName("MyLocalSimpleRecord"));
+            assertEquals("com.apple.foundationdb.record.test1.MySimpleRecord",
+                    metaData.getRecordType("MySimpleRecord").getDescriptor().getFullName());
         }
     }
 
