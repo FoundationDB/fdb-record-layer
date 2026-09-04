@@ -182,7 +182,7 @@ public class ScopedDirectoryLayer extends LocatableResolver {
     }
 
     @Override
-    public CompletableFuture<Void> updateMetadata(FDBRecordContext context, String key, byte[] metadata) {
+    public CompletableFuture<Void> updateMetadata(FDBRecordContext context, String key, @Nullable byte[] metadata) {
         throw new UnsupportedOperationException("cannot update metadata in ScopedDirectoryLayer");
     }
 
