@@ -2498,7 +2498,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                                       @Nullable final byte[] continuation,
                                                                       final IndexOrphanBehavior orphanBehavior,
                                                                       final ScanProperties scanProperties,
-                                                                      final RecordCursorResult<FDBIndexedRecord<M>> lastSuccessfulResult) {
+                                                                      @Nullable final RecordCursorResult<FDBIndexedRecord<M>> lastSuccessfulResult) {
         if (lastSuccessfulResult == null) {
             // The fallbackCursor did not have any result from the primary yet - just fallback to the index scan
             return scanIndexRecords(index, scanType, scanRange, continuation, orphanBehavior, scanProperties);

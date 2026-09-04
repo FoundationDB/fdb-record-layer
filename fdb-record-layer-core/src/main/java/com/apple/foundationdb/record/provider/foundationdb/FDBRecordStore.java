@@ -1655,7 +1655,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 // removeUniquenessViolationsAsync when deleting the second to last record that contains the value key.
                 return AsyncUtil.DONE;
             }
-        }, getPipelineSize(PipelineOperation.RESOLVE_UNIQUENESS));
+            // forEachAsync legitimately returns CompletableFuture<@Nullable Void> (it always completes with
+            // null); re-wrap with thenApply to match this method's declared CompletableFuture<Void> return type.
+        }, getPipelineSize(PipelineOperation.RESOLVE_UNIQUENESS)).thenApply(ignore -> null);
     }
 
     @API(API.Status.INTERNAL)
