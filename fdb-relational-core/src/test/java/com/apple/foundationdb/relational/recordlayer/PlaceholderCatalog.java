@@ -65,6 +65,7 @@ public class PlaceholderCatalog {
             this.fileDesc = fileDesc;
         }
 
+        @Nullable
         public TableInfo getTableInfo(String tableName) {
             return tableMap.get(tableName);
         }

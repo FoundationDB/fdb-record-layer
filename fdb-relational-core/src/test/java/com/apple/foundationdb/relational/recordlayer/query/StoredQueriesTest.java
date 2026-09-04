@@ -41,6 +41,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
 import java.sql.SQLException;
+import java.util.Objects;
 
 public class StoredQueriesTest {
 
@@ -152,8 +153,8 @@ public class StoredQueriesTest {
             embeddedConnection.setAutoCommit(true);
             final var storedQueries = schemaTemplate.getStoredQueries();
             Assertions.assertEquals(2, storedQueries.size());
-            Assertions.assertEquals("select * from t1 where col1 = 10", storedQueries.get("BY_COL1").getQuery());
-            Assertions.assertEquals("select * from t1 where id = 1", storedQueries.get("BY_ID").getQuery());
+            Assertions.assertEquals("select * from t1 where col1 = 10", Objects.requireNonNull(storedQueries.get("BY_COL1")).getQuery());
+            Assertions.assertEquals("select * from t1 where id = 1", Objects.requireNonNull(storedQueries.get("BY_ID")).getQuery());
             Assertions.assertEquals(0, countCachedPlans(connection, ddl.getSchemaTemplateName())); // we do not generate plans at ddl execution for now
         }
     }
