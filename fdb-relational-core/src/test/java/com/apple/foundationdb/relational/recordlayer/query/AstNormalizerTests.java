@@ -57,6 +57,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -264,7 +265,9 @@ public class AstNormalizerTests {
             final var evaluationContext = execParams.getEvaluationContext();
             final var constantBindingName = Bindings.Internal.CONSTANT.bindingName(Quantifier.constant().getId());
             if (evaluationContext.getBindings().containsBinding(constantBindingName)) {
-                final var binding = evaluationContext.getBinding(constantBindingName);
+                // containsBinding() confirms the binding exists; getBinding() is @Nullable in general
+                // (a bound value could itself be null), but a CONSTANT binding is always a real map.
+                final var binding = Objects.requireNonNull(evaluationContext.getBinding(constantBindingName));
                 compareBindings(binding, expectedParameters);
             } else {
                 if (!expectedParameters.isEmpty()) {
@@ -403,17 +406,23 @@ public class AstNormalizerTests {
                         .setDescription(functionDdl)
                         .setNormalizedDescription(canonicalFunctionDdl)
                         // invoking the compiled routine should only happen during plan generation.
-                        .withUserDefinedFunctionProvider(ignored -> new CompiledSqlFunction("", List.of(), List.of(),
-                                List.of(), Optional.empty(), null, Literals.empty()) {
-                            @Override
-                            public RecordMetaDataProto.PUserDefinedFunction toProto() {
-                                throw new UnsupportedOperationException("unexpected call");
-                            }
+                        .withUserDefinedFunctionProvider(ignored -> {
+                            // body is unused in this test stub: both overrides below always throw, so the
+                            // constructor's @NonNull body param is never dereferenced.
+                            @SuppressWarnings("NullAway")
+                            final CompiledSqlFunction stub = new CompiledSqlFunction("", List.of(), List.of(),
+                                    List.of(), Optional.empty(), null, Literals.empty()) {
+                                @Override
+                                public RecordMetaDataProto.PUserDefinedFunction toProto() {
+                                    throw new UnsupportedOperationException("unexpected call");
+                                }
 
-                            @Override
-                            public RelationalExpression encapsulate(final CallSiteArguments arguments) {
-                                throw new UnsupportedOperationException("unexpected call");
-                            }
+                                @Override
+                                public RelationalExpression encapsulate(final CallSiteArguments arguments) {
+                                    throw new UnsupportedOperationException("unexpected call");
+                                }
+                            };
+                            return stub;
                         })
                         .withSerializableFunction(new RawSqlFunction(name, functionDdl))
                         .build())
