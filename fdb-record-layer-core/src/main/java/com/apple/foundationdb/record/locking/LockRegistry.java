@@ -23,9 +23,11 @@ package com.apple.foundationdb.record.locking;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -191,5 +193,15 @@ public class LockRegistry {
             timer.record(FDBStoreTimer.DetailEvents.LOCKS_REGISTERED, System.nanoTime() - startTime);
         }
         return newLock;
+    }
+
+    /**
+     * Get the underlying registry of locks for each lock identifier. Intended for testing only.
+     *
+     * @return an unmodifiable view of the registry's locks
+     */
+    @VisibleForTesting
+    Map<LockIdentifier, AsyncLock> getHeldLocks() {
+        return Collections.unmodifiableMap(heldLocks);
     }
 }
