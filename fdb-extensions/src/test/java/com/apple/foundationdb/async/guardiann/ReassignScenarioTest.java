@@ -115,6 +115,8 @@ public class ReassignScenarioTest implements BaseTest {
     static final TestClassSubspaceExtension subspaceExtension = new TestClassSubspaceExtension(dbExtension);
 
     @TempDir
+    // Injected by JUnit's TempDirectory extension before each test; NullAway cannot see framework injection.
+    @SuppressWarnings("NullAway")
     Path tempDir;
 
     private static Database db;
@@ -175,7 +177,11 @@ public class ReassignScenarioTest implements BaseTest {
         final List<PrimaryKeyAndVector> warmup =
                 VecsDatasetLoaders.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, NUM_WARMUP_INSERTS);
         for (final PrimaryKeyAndVector record : warmup) {
-            db.run(tr -> {
+            // db.run(Function<Transaction, T>) has no void-returning overload, so this side-effect-only call
+            // returns null from the lambda; NullAway does not accept an explicit @Nullable type witness on this
+            // external, unannotated method either, so the suppression is scoped to this one declaration instead.
+            @SuppressWarnings("NullAway")
+            final Void ignored = db.run(tr -> {
                 guardiann.insert(tr, record.primaryKey(), record.vector(), null, true).join();
                 return null;
             });
@@ -194,7 +200,9 @@ public class ReassignScenarioTest implements BaseTest {
         // accumulated on the outer (absent) frame and don't pollute this count.
         onWriteListener.pushFrame();
         try {
-            db.run(tr -> {
+            // See the warmup loop above for why this suppression is needed.
+            @SuppressWarnings("NullAway")
+            final Void ignored2 = db.run(tr -> {
                 final Primitives primitives = guardiann.getLocator().primitives();
                 final AccessInfo accessInfo =
                         Objects.requireNonNull(primitives.fetchAccessInfo(tr).join(),
@@ -275,7 +283,7 @@ public class ReassignScenarioTest implements BaseTest {
 
             GuardiannStructureAsserts.assertGuardiannInvariants(db, guardiann);
 
-            final StructureSnapshot snap = GuardiannStructureAsserts.snapshotStructure(db, guardiann);
+            final StructureSnapshot snap = Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann));
             assertThat(snap)
                     .as("structure snapshot must be non-null after warmup + injection")
                     .isNotNull();

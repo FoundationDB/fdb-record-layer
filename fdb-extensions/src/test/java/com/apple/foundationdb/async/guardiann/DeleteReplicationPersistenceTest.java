@@ -86,6 +86,8 @@ public class DeleteReplicationPersistenceTest implements BaseTest {
     final TestSubspaceExtension subspaceExtension = new TestSubspaceExtension(dbExtension);
 
     @TempDir
+    // Injected by JUnit's TempDirectory extension before each test; NullAway cannot see framework injection.
+    @SuppressWarnings("NullAway")
     Path tempDir;
 
     private static Database db;
@@ -142,7 +144,11 @@ public class DeleteReplicationPersistenceTest implements BaseTest {
         // ---- Phase 1: insert near-duplicates; the oversized cluster splits into bordered sub-clusters. ----
         onWriteListener.pushFrame();
         for (final PrimaryKeyAndVector op : inserts) {
-            db.run(transaction -> {
+            // db.run(Function<Transaction, T>) has no void-returning overload, so this side-effect-only call
+            // returns null from the lambda; NullAway does not accept an explicit @Nullable type witness on this
+            // external, unannotated method either, so the suppression is scoped to this one declaration instead.
+            @SuppressWarnings("NullAway")
+            final Void ignored = db.run(transaction -> {
                 guardiann.insert(transaction, op.primaryKey(), op.vector(), null, true).join();
                 return null;
             });
@@ -170,7 +176,9 @@ public class DeleteReplicationPersistenceTest implements BaseTest {
         final List<PrimaryKeyAndVector> deletes = inserts.subList(0, NUM_DELETES);
         onWriteListener.pushFrame();
         for (final PrimaryKeyAndVector op : deletes) {
-            db.run(transaction -> {
+            // See the insert loop above for why this suppression is needed.
+            @SuppressWarnings("NullAway")
+            final Void ignored = db.run(transaction -> {
                 guardiann.delete(transaction, op.primaryKey(), op.vector(), true).join();
                 return null;
             });

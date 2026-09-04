@@ -78,6 +78,8 @@ public class SplitMergeSplitScenarioTest implements BaseTest {
     static final TestClassSubspaceExtension subspaceExtension = new TestClassSubspaceExtension(dbExtension);
 
     @TempDir
+    // Injected by JUnit's TempDirectory extension before each test; NullAway cannot see framework injection.
+    @SuppressWarnings("NullAway")
     Path tempDir;
 
     private static Database db;
@@ -146,7 +148,12 @@ public class SplitMergeSplitScenarioTest implements BaseTest {
             for (int i = 0; i < NUM_NEAR_DUPLICATES; i++) {
                 final DoubleRealVector perturbed = CommonTestHelpers.perturb(base, sampler, PERTURBATION_SIGMA);
                 final Tuple pk = CommonTestHelpers.createPrimaryKey(i);
-                db.run(tr -> {
+                // db.run(Function<Transaction, T>) has no void-returning overload, so this side-effect-only call
+                // returns null from the lambda; NullAway does not accept an explicit @Nullable type witness on
+                // this external, unannotated method either, so the suppression is scoped to this one declaration
+                // instead.
+                @SuppressWarnings("NullAway")
+                final Void ignored = db.run(tr -> {
                     guardiann.insert(tr, pk, perturbed, null, true).join();
                     return null;
                 });
@@ -165,7 +172,7 @@ public class SplitMergeSplitScenarioTest implements BaseTest {
 
             GuardiannStructureAsserts.assertGuardiannInvariants(db, guardiann);
 
-            final StructureSnapshot snap = GuardiannStructureAsserts.snapshotStructure(db, guardiann);
+            final StructureSnapshot snap = Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann));
             assertThat(snap)
                     .as("structure snapshot must be non-null after inserts")
                     .isNotNull();
