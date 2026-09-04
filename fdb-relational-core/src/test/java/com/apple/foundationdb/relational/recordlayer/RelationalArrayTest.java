@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.RelationalStructAssert;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -402,7 +403,7 @@ public class RelationalArrayTest {
         testArrays(nullArrayIdx, nonNullArrayIdx, null, filledArray, sqlType, 2);
     }
 
-    private void testArrays(int nullArrayIdx, int nonNullArrayIdx, List<Object> nullArrayElements,
+    private void testArrays(int nullArrayIdx, int nonNullArrayIdx, @Nullable List<Object> nullArrayElements,
                             List<Object> nonNullArrayElements, int sqlType, int pk) throws SQLException {
         try (final var conn = DriverManager.getConnection(database.getConnectionUri().toString())) {
             conn.setSchema(database.getSchemaName());

@@ -42,6 +42,7 @@ import java.sql.Array;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Objects;
 import java.util.Set;
 
 import static com.apple.foundationdb.relational.utils.RelationalAssertions.assertThrowsSqlException;
@@ -231,7 +232,9 @@ public class StructDataMetadataTest {
         // Run continuation the specified number of times
         for (int i = 0; i < numContinuationRuns; i++) {
             try (final PreparedStatement ps = connection.prepareStatement("EXECUTE CONTINUATION ?")) {
-                ps.setBytes(1, continuation.serialize());
+                // Populated by the base query loop above whenever numContinuationRuns > 0 (all call sites use
+                // numBaseQueryRuns >= 1 together with numContinuationRuns).
+                ps.setBytes(1, Objects.requireNonNull(continuation).serialize());
                 try (final ResultSet resultSet = ps.executeQuery()) {
                     Assertions.assertTrue(resultSet.next(), "Did not find a record on continuation run " + (i + 1));
                     assertOnMetaData.accept(resultSet.unwrap(RelationalResultSet.class));

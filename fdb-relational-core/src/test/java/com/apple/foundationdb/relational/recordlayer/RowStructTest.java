@@ -57,6 +57,10 @@ public class RowStructTest {
                 DataType.StructType.Field.from("fInt", DataType.Primitives.NULLABLE_LONG.type(), 1)
         ), true);
         final var metadata = RelationalStructMetaData.of(type);
+        // ArrayRow's varargs aren't @Nullable, but a null element here intentionally represents a SQL NULL
+        // in the first field, which is exactly what this test (wasNullWorks) exercises; ArrayRow is out of
+        // scope to annotate here.
+        @SuppressWarnings("NullAway")
         final var row = new ArrayRow(null, 1L);
         if (mutable) {
             final var toReturn = new MutableRowStruct(metadata);
