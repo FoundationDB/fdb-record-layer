@@ -604,6 +604,7 @@ public class FDBRecordContextConfig {
             return this;
         }
 
+        @Nullable
         public TransactionListener getListener() {
             return listener;
         }

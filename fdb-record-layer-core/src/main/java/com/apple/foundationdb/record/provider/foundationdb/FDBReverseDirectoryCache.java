@@ -47,6 +47,7 @@ import org.jspecify.annotations.Nullable;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -415,7 +416,10 @@ public class FDBReverseDirectoryCache {
     @VisibleForTesting
     public void rebuild(LocatableResolver scope) {
         try (FDBRecordContext context = fdb.openContext()) {
-            Subspace reverseCacheSubspace = fdb.asyncToSync(null, null, getReverseCacheSubspace(scope));
+            // Previously called fdb.asyncToSync(null, null, ...), passing null for the required Wait event
+            // (and skipping timer instrumentation entirely); use context.asyncToSync with a real Wait event,
+            // consistent with how subspace resolution is instrumented elsewhere (e.g. SubspaceProviderByKeySpacePath).
+            Subspace reverseCacheSubspace = context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, getReverseCacheSubspace(scope));
             context.ensureActive().clear(reverseCacheSubspace.range());
             context.getDatabase().clearForwardDirectoryCache();
             persistentCacheMissCount.set(0L);
@@ -445,7 +449,16 @@ public class FDBReverseDirectoryCache {
         final Subspace subdirs = new Subspace(Tuple.from(prefix, 0L), prefix);
 
         fdb.asyncToSync(initialContext.getTimer(), FDBStoreTimer.Waits.WAIT_REVERSE_DIRECTORY_SCAN,
-                populate(initialContext, subdirs, directory, null));
+                populate(initialContext, subdirs, directory, noContinuation()));
+    }
+
+    // The continuation parameter of populate()/populateRegion() below is already correctly declared
+    // @Nullable byte[], but NullAway does not reliably recognize a null literal as matching a @Nullable byte[]
+    // parameter (a known array-type tracking gap).
+    @Nullable
+    @SuppressWarnings("NullAway")
+    private static byte[] noContinuation() {
+        return null;
     }
 
     private CompletableFuture<byte[]> populate(FDBRecordContext context,
@@ -479,7 +492,8 @@ public class FDBReverseDirectoryCache {
                 .build();
 
         return cursor.forEachResult(result -> {
-            final KeyValue kv = result.get();
+            // forEachResult only invokes this consumer for results that have a next value.
+            final KeyValue kv = Objects.requireNonNull(result.get());
             final String dirName = directorySubspace.unpack(kv.getKey()).getString(0);
             final Object dirValue = Tuple.fromBytes(kv.getValue()).get(0);
 

@@ -42,6 +42,7 @@ import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.util.AbstractMap;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Serialize records during sorting, either in a continuation or in a file.
@@ -67,7 +68,7 @@ public class SortedRecordSerializer<M extends Message> {
         @Nullable
         private final FDBRecordVersion version;
 
-        public Sorted(Tuple primaryKey, RecordType recordType, M protoRecord, FDBRecordVersion version) {
+        public Sorted(Tuple primaryKey, RecordType recordType, M protoRecord, @Nullable FDBRecordVersion version) {
             this.primaryKey = primaryKey;
             this.recordType = recordType;
             this.protoRecord = protoRecord;
@@ -150,7 +151,7 @@ public class SortedRecordSerializer<M extends Message> {
         builder.setPrimaryKey(ZeroCopyByteString.wrap(rec.getPrimaryKey().pack()));
         builder.setMessage(ZeroCopyByteString.wrap(serializer.serialize(recordMetaData, rec.getRecordType(), rec.getRecord(), timer)));
         if (rec.hasVersion()) {
-            builder.setVersion(ZeroCopyByteString.wrap(rec.getVersion().toBytes()));
+            builder.setVersion(ZeroCopyByteString.wrap(Objects.requireNonNull(rec.getVersion()).toBytes()));
         }
         return builder.build();
     }
