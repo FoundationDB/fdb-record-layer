@@ -14,6 +14,7 @@ For functions that aggregate values across multiple rows, see :ref:`aggregate fu
     Functions/scalar_functions/bitmap_bucket_offset
     Functions/scalar_functions/cardinality
     Functions/scalar_functions/coalesce
+    Functions/scalar_functions/get_variable
     Functions/scalar_functions/get_versionstamp_incarnation
     Functions/scalar_functions/greatest
     Functions/scalar_functions/least
