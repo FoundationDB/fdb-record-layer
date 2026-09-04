@@ -191,6 +191,21 @@ public class IndexEntry {
     }
 
     /**
+     * Copy of this entry carrying the given value in place of its own, or this entry itself if the two values are equal.
+     *
+     * @param value the value the copy should carry
+     *
+     * @return an entry with the same index and key as this one, and the given value
+     */
+    @Nonnull
+    public IndexEntry withValue(@Nonnull Tuple value) {
+        if (TupleHelpers.equals(this.value, value)) {
+            return this;
+        }
+        return new IndexEntry(index, key, value);
+    }
+
+    /**
      * Get the type of null stored in a given key index location. Calling this method on
      * an <code>IndexEntry</code> that was created directly from tuples, or if the value at <code>idx</code>
      * is not null, will result in an exception.
