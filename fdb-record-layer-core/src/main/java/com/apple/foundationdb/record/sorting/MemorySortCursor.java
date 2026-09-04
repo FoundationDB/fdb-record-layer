@@ -32,6 +32,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
@@ -52,7 +53,9 @@ public class MemorySortCursor<K, V> implements RecordCursor<V> {
     @Nullable
     private K minimumKey;
 
+    @Nullable
     private RecordCursorContinuation inputContinuation;
+    @Nullable
     private Iterator<Map.Entry<K, V>> iterator;
     
     private MemorySortCursor(final MemorySortAdapter<K, V> adapter,
@@ -89,12 +92,16 @@ public class MemorySortCursor<K, V> implements RecordCursor<V> {
 
     private RecordCursorResult<V> nextFromIterator() {
         final long startTime = System.nanoTime();
-        if (iterator.hasNext()) {
+        final RecordCursorContinuation currentInputContinuation =
+                Objects.requireNonNull(inputContinuation, "inputContinuation must be set before nextFromIterator is called");
+        final Iterator<Map.Entry<K, V>> currentIterator =
+                Objects.requireNonNull(iterator, "iterator must be set before nextFromIterator is called");
+        if (currentIterator.hasNext()) {
             // Return a sorted record.
-            Map.Entry<K, V> next = iterator.next();
+            Map.Entry<K, V> next = currentIterator.next();
             minimumKey = next.getKey();
             Collection<V> remainingRecords = scratchpad.tailValues(minimumKey);
-            MemorySortCursorContinuation<K, V> continuation = new MemorySortCursorContinuation<>(adapter, false, remainingRecords, minimumKey, inputContinuation);
+            MemorySortCursorContinuation<K, V> continuation = new MemorySortCursorContinuation<>(adapter, false, remainingRecords, minimumKey, currentInputContinuation);
             RecordCursorResult<V> result = RecordCursorResult.withNextValue(next.getValue(), continuation);
             if (timer != null) {
                 timer.recordSinceNanoTime(SortEvents.Events.MEMORY_SORT_LOAD_RECORD, startTime);
@@ -103,7 +110,7 @@ public class MemorySortCursor<K, V> implements RecordCursor<V> {
         }
         // If filling the sorter didn't reach the limit, none were discarded and all the records in it must be all the records period.
         boolean exhausted = scratchpad.getMap().size() < adapter.getMaxRecordCountInMemory();
-        MemorySortCursorContinuation<K, V> continuation = new MemorySortCursorContinuation<>(adapter, exhausted, Collections.emptyList(), minimumKey, inputContinuation);
+        MemorySortCursorContinuation<K, V> continuation = new MemorySortCursorContinuation<>(adapter, exhausted, Collections.emptyList(), minimumKey, currentInputContinuation);
         return RecordCursorResult.withoutNextValue(continuation, exhausted ? NoNextReason.SOURCE_EXHAUSTED : NoNextReason.RETURN_LIMIT_REACHED);
     }
 
@@ -130,7 +137,11 @@ public class MemorySortCursor<K, V> implements RecordCursor<V> {
         return visitor.visitLeave(this);
     }
 
-    @SuppressWarnings("PMD.CloseResource")
+    @SuppressWarnings({"PMD.CloseResource", "NullAway"}) // RecordCursorContinuation#toBytes() is legitimately
+    // @Nullable (a null byte[] commonly means "start from the beginning"), but NullAway/JSpecify does not
+    // reliably track @Nullable on array (byte[]) type parameters of a generic Function, so a null continuation
+    // here is flagged as mismatched even though inputCursorFunction implementations (e.g.
+    // RecordQueryPlan#executePlan) accept it.
     public static <K, V, M extends Map<K, V>> MemorySortCursor<K, V> create(MemorySortAdapter<K, V> adapter,
                                                                             Function<byte[], RecordCursor<V>> inputCursorFunction,
                                                                             @Nullable StoreTimer timer,

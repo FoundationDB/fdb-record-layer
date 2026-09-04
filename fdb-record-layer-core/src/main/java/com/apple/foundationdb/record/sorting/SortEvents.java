@@ -23,6 +23,8 @@ package com.apple.foundationdb.record.sorting;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * {@link StoreTimer} events related to sorting.
  */
@@ -48,7 +50,7 @@ public class SortEvents {
         private final String title;
         private final String logKey;
 
-        Events(String title, String logKey) {
+        Events(String title, @Nullable String logKey) {
             this.title = title;
             this.logKey = (logKey != null) ? logKey : StoreTimer.Event.super.logKey();
         }
@@ -78,7 +80,7 @@ public class SortEvents {
         private final String logKey;
         private final boolean isSize;
 
-        Counts(String title, String logKey, boolean isSize) {
+        Counts(String title, @Nullable String logKey, boolean isSize) {
             this.title = title;
             this.logKey = (logKey != null) ? logKey : StoreTimer.Count.super.logKey();
             this.isSize = false;

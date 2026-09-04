@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.sorting.MemorySortAdapter.MemorySortCompara
 import org.jspecify.annotations.Nullable;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -46,6 +47,7 @@ public abstract class MemoryScratchpad<K, V, M extends Map<K, V>> {
     @Nullable
     private final StoreTimer timer;
 
+    @Nullable
     private LoadResult<K> loadResult;
 
     protected MemoryScratchpad(final MemorySortAdapter<K, V> adapter,
@@ -131,7 +133,7 @@ public abstract class MemoryScratchpad<K, V, M extends Map<K, V>> {
             }
             final long startTime = System.nanoTime();
             try {
-                V value = sourceResult.get();
+                V value = Objects.requireNonNull(sourceResult.get(), "sourceResult.get() should be non-null since sourceResult.hasNext() is true");
                 K key = adapter.generateKey(value);
 
                 if (comparator.compareToMinimumKey(key) > 0) {
@@ -157,7 +159,8 @@ public abstract class MemoryScratchpad<K, V, M extends Map<K, V>> {
                     timer.recordSinceNanoTime(SortEvents.Events.MEMORY_SORT_STORE_RECORD, startTime);
                 }
             }
-        }), source.getExecutor()).thenApply(vignore -> loadResult);
+        }), source.getExecutor()).thenApply(vignore ->
+                Objects.requireNonNull(loadResult, "loadResult should have been set by the loop body above"));
     }
 
     public abstract void removeLast(K currentKey);

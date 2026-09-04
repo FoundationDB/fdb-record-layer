@@ -56,6 +56,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.zip.DeflaterOutputStream;
@@ -92,6 +93,7 @@ public class FileSorter<K, V>  {
     private final Executor executor;
     private final List<File> files;
 
+    @Nullable
     private LoadResult loadResult;
 
     public FileSorter(FileSortAdapter<K, V> adapter, @Nullable StoreTimer timer,
@@ -160,7 +162,7 @@ public class FileSorter<K, V>  {
                 // Save from memory and, if necessary, consolidate into a single file.
                 return CompletableFuture.runAsync(() -> saveToNextFile(1), executor).thenApply(vignore -> false);
             }
-        }), executor).thenApply(vignore -> loadResult);
+        }), executor).thenApply(vignore -> Objects.requireNonNull(loadResult, "loadResult should have been set by the loop body above"));
     }
 
     @SuppressWarnings({"PMD.CompareObjectsWithEquals", "PMD.CloseResource"})
@@ -190,7 +192,9 @@ public class FileSorter<K, V>  {
                         final String cipherName = adapter.getEncryptionCipherName();
                         if (cipherName != null) {
                             cipher = CipherPool.borrowCipher(cipherName);
-                            initCipherEncrypt(cipher, encryptionKey, adapter.getSecureRandom(), sectionHeader);
+                            initCipherEncrypt(cipher, encryptionKey,
+                                    Objects.requireNonNull(adapter.getSecureRandom(), "adapter must supply a secure random source when encryption is configured"),
+                                    sectionHeader);
                         }
                     }
                     headerStream.writeMessageNoTag(sectionHeader.build());
@@ -339,7 +343,9 @@ public class FileSorter<K, V>  {
         int sectionRecordEnd;
         int fileRecordEnd;
         int recordPosition;
-        
+
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably recognize that the already-@Nullable
+        // byte[] fields key/value need no initialization here; they are set on the first call to next().
         public InputState(File file, FileSortAdapter<?, ?> adapter) throws IOException, GeneralSecurityException {
             this.file = file;
             fileStream = new FileInputStream(file);
@@ -364,7 +370,8 @@ public class FileSorter<K, V>  {
             fileRecordEnd = builder.getNumberOfRecords();
         }
 
-        @SuppressWarnings("PMD.CloseResource")
+        @SuppressWarnings({"PMD.CloseResource", "NullAway"}) // NullAway/JSpecify does not reliably track the
+        // already-@Nullable byte[] fields key/value across this assignment.
         public void next() throws IOException, GeneralSecurityException {
             while (recordPosition >= sectionRecordEnd) {
                 if (recordPosition >= fileRecordEnd) {
@@ -390,7 +397,8 @@ public class FileSorter<K, V>  {
                     fileChannel.position(sectionFilePosition);
                     sectionFilePosition += builder.getNumberOfBytes();
                     if (cipher != null) {
-                        initCipherDecrypt(cipher, encryptionKey, builder);
+                        // cipher is only non-null when encryptionKey was also non-null (see the constructor).
+                        initCipherDecrypt(cipher, Objects.requireNonNull(encryptionKey), builder);
                     }
                     InputStream inputStream = wrapInputStream(fileStream, cipher, compressed);
                     entryStream = CodedInputStream.newInstance(inputStream);
@@ -506,7 +514,9 @@ public class FileSorter<K, V>  {
             headerStream.flush();
             sectionHeaderPosition = fileChannel.position();
             if (cipher != null) {
-                initCipherEncrypt(cipher, encryptionKey, secureRandom, sectionHeader);
+                // cipher is only non-null when encryptionKey and secureRandom were also both non-null
+                // (see the constructor).
+                initCipherEncrypt(cipher, Objects.requireNonNull(encryptionKey), Objects.requireNonNull(secureRandom), sectionHeader);
             }
             headerStream.writeMessageNoTag(sectionHeader.build());
             headerStream.flush();
@@ -569,7 +579,9 @@ public class FileSorter<K, V>  {
                 if (minState == null) {
                     break;
                 }
-                output.next(minState.key, minState.value);
+                // minState is only ever assigned from an input with a non-null key (see the loop above), and
+                // InputState always sets key and value together (see InputState#next()), so value is non-null too.
+                output.next(Objects.requireNonNull(minState.key), Objects.requireNonNull(minState.value));
                 minState.next();
             }
             output.finish();

@@ -52,6 +52,8 @@ class MemorySortCursorContinuation<K, V> implements RecordCursorContinuation {
     @Nullable
     private byte[] cachedBytes;
 
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably recognize that the already-@Nullable
+    // byte[] field cachedBytes needs no initialization here; it is lazily computed in toBytes().
     MemorySortCursorContinuation(MemorySortAdapter<K, V> adapter, boolean exhausted, Collection<V> records,
                                  @Nullable K minimumKey, RecordCursorContinuation childContinuation) {
         this.adapter = adapter;
@@ -89,6 +91,8 @@ class MemorySortCursorContinuation<K, V> implements RecordCursorContinuation {
 
     @Override
     @Nullable
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably track @Nullable on byte[] return types;
+    // this method is correctly annotated @Nullable above.
     public byte[] toBytes() {
         if (exhausted) {
             return null;
@@ -111,6 +115,8 @@ class MemorySortCursorContinuation<K, V> implements RecordCursorContinuation {
         return result;
     }
 
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably narrow a @Nullable byte[] parameter
+    // after a null check (unparsed is provably non-null in the else branch below).
     static <K, V> MemorySortCursorContinuation<K, V> from(@Nullable byte[] unparsed,
                                                           MemorySortAdapter<K, V> adapter) {
         MemorySortCursorContinuation<K, V> result;
