@@ -24,6 +24,7 @@ import com.apple.test.RandomSeedSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
+import java.util.Objects;
 import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -41,6 +42,9 @@ public class ByteArrayUtil2Test {
         String hexRegex = "^\\\\x[0-9a-f][0-9a-f]$";
         for (int i = Byte.MIN_VALUE; i < (byte)' '; i++) {
             String l = ByteArrayUtil2.loggable(new byte[]{(byte)i});
+            // loggable() is only @Nullable to handle a null input array; the literal array above is never
+            // null, so the result cannot be null either.
+            Objects.requireNonNull(l);
             assertTrue(l.matches(hexRegex), l + " matches /" + hexRegex + "/");
         }
         for (int i = (byte)' '; i < (byte)'"'; i++) {
@@ -93,6 +97,9 @@ public class ByteArrayUtil2Test {
         final String loggable = ByteArrayUtil2.loggable(bytes);
         byte[] unlogged = ByteArrayUtil2.unprint(loggable);
         assertArrayEquals(bytes, unlogged, "Unprinting loggable bytes should reconstruct original array");
+        // loggable() is only @Nullable to handle a null input array; bytes above is never null, so the
+        // result cannot be null either.
+        Objects.requireNonNull(loggable);
         assertFalse(loggable.contains("="), "loggable string should not contain equals sign");
         assertFalse(loggable.contains("\""), "loggable string should not contain quote");
         assertFalse(loggable.contains("\'"), "loggable string should not contain single quote");

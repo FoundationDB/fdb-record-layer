@@ -24,6 +24,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -31,6 +33,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TupleHelpersTest {
+
+    // Tuple.from(Object...) is from the unannotated fdb-java client library and genuinely supports null
+    // elements (several cases below intentionally construct tuples with a null component); its varargs
+    // parameter is treated as @NonNull by NullAway's defaults.
+    @SuppressWarnings("NullAway")
+    private static Tuple tupleFromNullable(@Nullable Object... items) {
+        return Tuple.from(items);
+    }
 
     static Stream<Arguments> isPrefixTrueCases() {
         UUID uuid1 = UUID.fromString("12345678-1234-1234-1234-123456789abc");
@@ -65,9 +75,9 @@ class TupleHelpersTest {
                 Arguments.of("uuids", 
                         Tuple.from("test", uuid1), 
                         Tuple.from("test", uuid1, UUID.randomUUID())),
-                Arguments.of("null values", 
-                        Tuple.from("test", null), 
-                        Tuple.from("test", null, "more")),
+                Arguments.of("null values",
+                        tupleFromNullable("test", null),
+                        tupleFromNullable("test", null, "more")),
                 Arguments.of("number variations", 
                         Tuple.from(42, 3.14, -7L), 
                         Tuple.from(42, 3.14, -7L, "suffix")),
@@ -113,20 +123,20 @@ class TupleHelpersTest {
                 Arguments.of("different binary data", 
                         Tuple.from("test", data1), 
                         Tuple.from("test", data2, "more")),
-                Arguments.of("null mismatch", 
-                        Tuple.from("test", null), 
+                Arguments.of("null mismatch",
+                        tupleFromNullable("test", null),
                         Tuple.from("test", "not-null")),
                 Arguments.of("null vs empty string",
-                        Tuple.from("test", null),
+                        tupleFromNullable("test", null),
                         Tuple.from("test", "")),
                 Arguments.of("null vs 0",
-                        Tuple.from("test", null),
+                        tupleFromNullable("test", null),
                         Tuple.from("test", 0)),
                 Arguments.of("null vs false",
-                        Tuple.from("test", null),
+                        tupleFromNullable("test", null),
                         Tuple.from("test", false)),
                 Arguments.of("null vs byte[0]",
-                        Tuple.from("test", null),
+                        tupleFromNullable("test", null),
                         Tuple.from("test", new byte[0])),
                 Arguments.of("number mismatch", 
                         Tuple.from(42, 3.14), 

@@ -25,6 +25,8 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import org.junit.jupiter.api.Test;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -41,19 +43,27 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Tests for serialization in {@link BunchedMap}.
  */
 public class BunchedTupleSerializerTest {
+    // Tuple.from(Object...) is from the unannotated fdb-java client library and genuinely supports null
+    // elements (several entries below intentionally construct tuples with a null component); its varargs
+    // parameter is treated as @NonNull by NullAway's defaults.
+    @SuppressWarnings("NullAway")
+    private static Tuple tupleFromNullable(@Nullable Object... items) {
+        return Tuple.from(items);
+    }
+
     private static final List<Tuple> TEST_TUPLES = Arrays.asList(
             Tuple.from(),
-            Tuple.from((Object)null),
+            tupleFromNullable((Object)null),
             Tuple.from(1066L),
-            Tuple.from(1066L, null),
+            tupleFromNullable(1066L, null),
             Tuple.from(1066L, "hello"),
             Tuple.from(1415L),
             Tuple.from(Tuple.from(1066L)),
             Tuple.from(Tuple.from(1066L), "hello"),
-            Tuple.from(Tuple.from(1066L, null), "hello"),
+            Tuple.from(tupleFromNullable(1066L, null), "hello"),
             Tuple.from(Tuple.from(1066L, 1415L), "hello"),
             Tuple.from(Tuple.from(1066L, "hello")),
-            Tuple.from(Tuple.from(1066L, "hello"), null)
+            tupleFromNullable(Tuple.from(1066L, "hello"), null)
     );
     private static final BunchedTupleSerializer serializer = BunchedTupleSerializer.instance();
 
