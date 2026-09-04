@@ -38,6 +38,7 @@ import com.google.common.primitives.Bytes;
 import org.jspecify.annotations.Nullable;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -84,7 +85,9 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
             this.contentSubspace = DEFAULT_CONTENT_SUBSPACE;
         } else {
             this.isRootLevel = false;
-            this.baseSubspaceFuture = resolvedPathFuture.thenApply(ResolvedKeySpacePath::toSubspace);
+            // The superclass constructor already validated that path and resolvedPathFuture are both null or
+            // both non-null; we're in the "not both null" branch, so resolvedPathFuture is guaranteed non-null here.
+            this.baseSubspaceFuture = Objects.requireNonNull(resolvedPathFuture).thenApply(ResolvedKeySpacePath::toSubspace);
             this.nodeSubspaceFuture = baseSubspaceFuture.thenApply(base ->
                     new Subspace(Bytes.concat(base.getKey(), DirectoryLayer.DEFAULT_NODE_SUBSPACE.getKey())));
             this.contentSubspace = new Subspace(RESERVED_CONTENT_SUBSPACE_PREFIX);
@@ -163,7 +166,7 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
         return reverseCache.get(timer, wrap(value));
     }
 
-    private CompletableFuture<Optional<String>> readInReverseCacheSubpspace(FDBStoreTimer timer, Long value) {
+    private CompletableFuture<Optional<String>> readInReverseCacheSubpspace(@Nullable FDBStoreTimer timer, Long value) {
         return database.getReverseDirectoryCache().getInReverseDirectoryCacheSubspace(timer, wrap(value));
     }
 
@@ -255,6 +258,8 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
 
 
     @Override
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even
+                                   // for a null literal passed to a constructor that declares the same array @Nullable.
     public ResolverResult deserializeValue(byte[] value) {
         Tuple unpacked = contentSubspace.unpack(value);
         return unpacked.size() == 1 ?

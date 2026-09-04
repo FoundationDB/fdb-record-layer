@@ -120,6 +120,7 @@ public class KeySpacePathWrapper implements KeySpacePath {
     }
 
     @Override
+    @Nullable
     public Object getValue() {
         return inner.getValue();
     }

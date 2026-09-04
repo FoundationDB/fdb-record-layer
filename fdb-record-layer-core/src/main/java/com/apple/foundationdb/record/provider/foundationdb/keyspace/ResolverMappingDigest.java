@@ -34,6 +34,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import org.jspecify.annotations.Nullable;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -65,7 +66,9 @@ public class ResolverMappingDigest implements AutoCloseable {
         runner.close();
     }
 
-    @SuppressWarnings("PMD.CloseResource")
+    @SuppressWarnings({"PMD.CloseResource", "NullAway"}) // NullAway/JSpecify does not currently track @Nullable on array
+                                                           // (byte[]) parameters, even for a null literal passed to
+                                                           // computeInternal, whose continuation parameter is @Nullable.
     public CompletableFuture<byte[]> computeDigest() {
         MessageDigest messageDigest;
         try {
@@ -97,7 +100,9 @@ public class ResolverMappingDigest implements AutoCloseable {
                     .build();
 
             return cursor.forEachResult(result -> {
-                KeyValue kv = result.get();
+                // forEachResult guarantees hasNext() is true for every result it hands to the consumer, so
+                // get() is guaranteed non-null here even though its declared return type is generically @Nullable.
+                KeyValue kv = Objects.requireNonNull(result.get());
                 String key = mappingSubspace.unpack(kv.getKey()).getString(0);
                 ResolverResult value = resolver.deserializeValue(kv.getValue());
 

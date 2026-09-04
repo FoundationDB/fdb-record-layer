@@ -32,6 +32,7 @@ import com.google.common.primitives.Bytes;
 
 import org.jspecify.annotations.Nullable;
 import java.util.Collections;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -83,7 +84,9 @@ public class ScopedDirectoryLayer extends LocatableResolver {
             this.baseSubspaceFuture = CompletableFuture.completedFuture(new Subspace());
             this.contentSubspace = new Subspace();
         } else {
-            this.baseSubspaceFuture = resolvedPath.thenApply(ResolvedKeySpacePath::toSubspace);
+            // The superclass constructor already validated that path and resolvedPath are both null or both
+            // non-null; we're in the "not both null" branch, so resolvedPath is guaranteed non-null here.
+            this.baseSubspaceFuture = Objects.requireNonNull(resolvedPath).thenApply(ResolvedKeySpacePath::toSubspace);
             this.contentSubspace = new Subspace(RESERVED_CONTENT_SUBSPACE_PREFIX);
         }
         this.nodeSubspaceFuture = baseSubspaceFuture.thenApply(base ->
