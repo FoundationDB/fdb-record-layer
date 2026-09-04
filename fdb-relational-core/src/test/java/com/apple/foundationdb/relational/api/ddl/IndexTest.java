@@ -53,6 +53,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Locale;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 import static com.apple.foundationdb.record.RecordMetaDataProto.AndPredicate;
@@ -99,8 +100,9 @@ public class IndexTest {
                 DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
                         "/IndexTest").getPlan(query));
         Assertions.assertEquals(errorCode, ve.getErrorCode());
-        Assertions.assertTrue(ve.getMessage().contains(errorMessage), String.format(Locale.ROOT,
-                "expected error message '%s' to contain '%s' but it didn't", ve.getMessage(), errorMessage));
+        final String actualMessage = Objects.requireNonNullElse(ve.getMessage(), ve.toString());
+        Assertions.assertTrue(actualMessage.contains(errorMessage), String.format(Locale.ROOT,
+                "expected error message '%s' to contain '%s' but it didn't", actualMessage, errorMessage));
         connection.rollback();
         connection.setAutoCommit(true);
     }

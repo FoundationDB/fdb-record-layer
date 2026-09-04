@@ -42,6 +42,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -134,7 +135,9 @@ public class SqlFunctionTest {
                 };
             }
         });
-        return t.get();
+        // The factory callback above always calls t.set(template) before shouldWorkWithInjectedFactory
+        // returns, so t is guaranteed non-null here.
+        return Objects.requireNonNull(t.get());
     }
 
     @Test
