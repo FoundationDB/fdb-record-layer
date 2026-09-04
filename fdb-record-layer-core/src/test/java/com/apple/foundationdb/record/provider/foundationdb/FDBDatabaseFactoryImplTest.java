@@ -155,14 +155,14 @@ class FDBDatabaseFactoryImplTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"3", "-1", "0x10", "2147483647", "-2147483648"})
+    @ValueSource(strings = {"3", "-1", "0x10", "-0x10", "0123", "-0123", "2147483647" /* Integer.MAX_VALUE */, "-2147483648" /* Integer.MIN_VALUE */ })
     void setKnobByEnumAcceptsValidIntValues(String value) {
         assertThatCode(() -> factory.setKnob(FDBClientKnob.TLS_CLIENT_HANDSHAKE_THREADS, value))
                 .doesNotThrowAnyException();
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"not_an_int", "3.5", "", "#10"})
+    @ValueSource(strings = {"not_an_int", "3.5", "", "#10", "2147483648" /* Integer.MAX_VALUE + 1 */, "-2147483649" /* Integer.MIN_VALUE - 1 */})
     void setKnobByEnumRejectsInvalidIntValues(String value) {
         assertThatThrownBy(() -> factory.setKnob(FDBClientKnob.TLS_CLIENT_HANDSHAKE_THREADS, value))
                 .isInstanceOf(RecordCoreArgumentException.class);
@@ -179,14 +179,14 @@ class FDBDatabaseFactoryImplTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"11.0", "0", "-1.5", "NaN", "Infinity", "-Infinity"})
+    @ValueSource(strings = {"11.0", "0", "-1.5", "3e40", "-3e40", "2e309", "-2e309", "NaN", "Infinity", "-Infinity"})
     void setKnobByEnumAcceptsValidDoubleValues(String value) {
         assertThatCode(() -> factory.setKnob(FDBClientKnob.TLS_CLIENT_CONNECTION_THROTTLE_TIMEOUT, value))
                 .doesNotThrowAnyException();
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"not_a_double", ""})
+    @ValueSource(strings = {"not_a_double", "", "#10", "3.14.15", "0x123"})
     void setKnobByEnumRejectsInvalidDoubleValues(String value) {
         assertThatThrownBy(() -> factory.setKnob(FDBClientKnob.TLS_CLIENT_CONNECTION_THROTTLE_TIMEOUT, value))
                 .isInstanceOf(RecordCoreArgumentException.class);
@@ -214,19 +214,16 @@ class FDBDatabaseFactoryImplTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"1", "9223372036854775807", "-9223372036854775808"})
+    @ValueSource(strings = {"1", "0", "-10", "0x10", "-0x10", "0123", "-0123",  "9223372036854775807" /* Long.MAX_VALUE */, "-9223372036854775808" /* Long.MIN_VALUE */})
     void setKnobByEnumAcceptsValidLongValues(String value) {
         assertThatCode(() -> factory.setKnob(FDBClientKnob.PACKET_WARNING, value))
                 .doesNotThrowAnyException();
     }
 
-    @Test
-    void setKnobByEnumRejectsLongValuesThatOverflowInt() {
-        // sanity check that the LONG knob type is checked against long parsing, not int parsing
-        final String tooBigForInt = Long.toString((long) Integer.MAX_VALUE + 1);
-        assertThatCode(() -> factory.setKnob(FDBClientKnob.PACKET_WARNING, tooBigForInt))
-                .doesNotThrowAnyException();
-        assertThatThrownBy(() -> factory.setKnob(FDBClientKnob.TLS_CLIENT_HANDSHAKE_THREADS, tooBigForInt))
+    @ParameterizedTest
+    @ValueSource(strings = {"not_a_long", "", "#10", "9223372036854775808" /* Long.MAX_VALUE + 1 */, "-9223372036854775809" /* Long.MIN_VALUE - 1 */})
+    void setKnobByEnumRejectsInvalidLongValues(String value) {
+        assertThatThrownBy(() -> factory.setKnob(FDBClientKnob.PACKET_WARNING, value))
                 .isInstanceOf(RecordCoreArgumentException.class);
     }
 }

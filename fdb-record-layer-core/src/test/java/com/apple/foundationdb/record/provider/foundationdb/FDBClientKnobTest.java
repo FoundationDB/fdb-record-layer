@@ -25,7 +25,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import javax.annotation.Nonnull;
-import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
@@ -65,10 +65,8 @@ class FDBClientKnobTest {
 
     @Test
     void allKnobNamesAreDistinct() {
-        final long distinctNameCount = Arrays.stream(FDBClientKnob.values())
+        assertThat(List.of(FDBClientKnob.values()))
                 .map(FDBClientKnob::getKnobName)
-                .distinct()
-                .count();
-        assertThat(distinctNameCount).isEqualTo(FDBClientKnob.values().length);
+                .doesNotHaveDuplicates();
     }
 }

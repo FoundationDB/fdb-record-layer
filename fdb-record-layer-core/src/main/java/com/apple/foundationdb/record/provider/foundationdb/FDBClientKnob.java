@@ -57,17 +57,20 @@ import java.util.stream.Collectors;
  * </p>
  *
  * <p>
- * For the full list of available knobs and their default values, consult the FDB source files:
+ * For the full list of available knobs, consult the FDB source files:
  * </p>
  *
  * <ul>
- *     <li><a href="https://github.com/apple/foundationdb/blob/main/flow/Knobs.cpp"><code>flow/Knobs.cpp</code></a> - Common knobs available in all FDB processes</li>
- *     <li><a href="https://github.com/apple/foundationdb/blob/main/fdbclient/ClientKnobs.cpp"><code>fdbclient/ClientKnobs.cpp</code></a> - Knobs specific to FDB clients</li>
+ *     <li><a href="https://github.com/apple/foundationdb/blob/main/flow/include/flow/Knobs.h"><code>flow/Knobs.h</code></a> - Common knobs available in all FDB processes</li>
+ *     <li><a href="https://github.com/apple/foundationdb/blob/main/flow/Knobs.cpp"><code>flow/Knobs.cpp</code></a> - For common knobs' default values</li>
+ *     <li><a href="https://github.com/apple/foundationdb/blob/main/fdbclient/include/fdbclient/Knobs.h"><code>fdbclient/Knobs.h</code></a> - Knobs specific to FDB clients</li>
+ *     <li><a href="https://github.com/apple/foundationdb/blob/main/fdbclient/ClientKnobs.cpp"><code>fdbclient/ClientKnobs.cpp</code></a> - For the client knobs' default values</li>
  * </ul>
  *
  * <p>
- * When consulting those files, be sure to validate that the knob is present in tag corresponding to the
- * FDB client version.
+ * When consulting those files, be sure to validate that the knob is present in the tag corresponding to the
+ * FDB client version configured to run with this client. The knobs in this class are annotated with
+ * their required FDB client versions. Any knob without an annotation has been around since at least 7.0.0.
  * </p>
  *
  * @see FDBDatabaseFactory#setKnob(FDBClientKnob, String)
@@ -98,6 +101,8 @@ public enum FDBClientKnob {
     /**
      * If {@code true}, TLS handshakes are never performed on the main network thread, even if
      * {@link #TLS_CLIENT_HANDSHAKE_THREADS} is set to {@code 0}.
+     *
+     * @since FDB 8.0.0
      */
     DISABLE_MAINTHREAD_TLS_HANDSHAKE(KnobValueType.BOOLEAN),
     /**
@@ -122,16 +127,22 @@ public enum FDBClientKnob {
     /**
      * The number of seconds to wait after failing to reach an endpoint before the client's location cache will
      * retry that endpoint again.
+     *
+     * @since FDB 7.1.0
      */
     LOCATION_CACHE_FAILED_ENDPOINT_RETRY_INTERVAL(KnobValueType.DOUBLE),
     /**
      * Whether the client should log detailed information about connection attempts. If enabled, logs are
      * written to the directory specified by {@link #CONNECTION_LOG_DIRECTORY}.
+     *
+     * @since FDB 7.4.0
      */
     LOG_CONNECTION_ATTEMPTS_ENABLED(KnobValueType.BOOLEAN),
     /**
      * The directory to which connection attempt logs are written, if {@link #LOG_CONNECTION_ATTEMPTS_ENABLED}
      * is set to {@code true}.
+     *
+     * @since FDB 7.4.0
      */
     CONNECTION_LOG_DIRECTORY(KnobValueType.STRING),
     /**
@@ -156,8 +167,10 @@ public enum FDBClientKnob {
      * instances that it considers to be down as it has been unable to make a healthy connection.
      *
      * @see #LOCATION_CACHE_PEER_EVICTOR_FAILED_THRESHOLD
+     * @see #LOCATION_CACHE_PEER_EVICTOR_DELAY
      * @see #LOCATION_CACHE_PEER_EVICTOR_ENABLED
      * @see #LOCATION_CACHE_PEER_EVICTOR_SCAN_CHUNK
+     * @since FDB 7.3.78 and 7.4.7
      */
     LOCATION_CACHE_PEER_EVICTOR_ENABLED(KnobValueType.BOOLEAN),
     /**
@@ -166,6 +179,7 @@ public enum FDBClientKnob {
      * process to clean up its internal state, with the period determined by this knob.
      *
      * @see #LOCATION_CACHE_PEER_EVICTOR_ENABLED
+     * @since FDB 7.3.78 and 7.4.7
      */
     LOCATION_CACHE_PEER_EVICTOR_DELAY(KnobValueType.DOUBLE),
     /**
@@ -174,6 +188,7 @@ public enum FDBClientKnob {
      * eligible for clean up.
      *
      * @see #LOCATION_CACHE_PEER_EVICTOR_ENABLED
+     * @since FDB 7.3.78 and 7.4.7
      */
     LOCATION_CACHE_PEER_EVICTOR_FAILED_THRESHOLD(KnobValueType.INT),
     /**
@@ -183,12 +198,15 @@ public enum FDBClientKnob {
      * affecting other operations during the peer eviction.
      *
      * @see #LOCATION_CACHE_PEER_EVICTOR_ENABLED
+     * @since FDB 7.3.78 and 7.4.7
      */
     LOCATION_CACHE_PEER_EVICTOR_SCAN_CHUNK(KnobValueType.INT),
     /**
      * Whether the client should clear its cached sampled subset of commit/GRV proxies whenever the recruited
      * proxy count drops below {@link #MAX_COMMIT_PROXY_CONNECTIONS} or {@link #MAX_GRV_PROXY_CONNECTIONS}, so
      * that the cache cleans up connections to unresponsive proxies.
+     *
+     * @since FDB 7.3.78 and 7.4.7
      */
     SHRINK_PROXY_LIST_CLEAR_CACHE_BELOW_THRESHOLD(KnobValueType.BOOLEAN),
     ;
@@ -243,30 +261,37 @@ public enum FDBClientKnob {
     /**
      * The type of value that a given {@link FDBClientKnob} expects to be set to. This is used to validate that
      * a value supplied to one of the {@link FDBDatabaseFactory#setKnob(FDBClientKnob, String)}-style setters
-     * matches what the underlying native client knob actually expects. The following table describes what
-     * string values are considered legal for each type:
-     *
-     * <table>
-     * <caption>Legal values by knob value type</caption>
-     * <tr><th>Type</th><th>Legal values</th></tr>
-     * <tr><td>{@link #INT}, {@link #LONG}</td><td>Any value accepted by {@link Integer#decode(String)} (for
-     * {@link #INT}) or {@link Long#decode(String)} (for {@link #LONG}), except for the {@code #}-prefixed hex
-     * notation that those methods accept but the native client does not. In particular, this includes ordinary
-     * base-10 values (e.g., {@code "123"}, {@code "-1"}), hex values with a {@code 0x} or {@code 0X} prefix
-     * (e.g., {@code "0x7B"}), and octal values with a leading {@code 0} (e.g., {@code "0173"}, interpreted as
-     * {@code 123}), matching the parsing performed by the native client.</td></tr>
-     * <tr><td>{@link #DOUBLE}</td><td>Any value accepted by {@link Double#parseDouble(String)}.</td></tr>
-     * <tr><td>{@link #BOOLEAN}</td><td>{@code "true"} or {@code "false"} (either accepted case-insensitively),
-     * or any value that can be parsed as an integer (as with {@link #INT}), with a non-zero value interpreted
-     * as {@code true} and zero interpreted as {@code false}.</td></tr>
-     * <tr><td>{@link #STRING}</td><td>Any value is legal.</td></tr>
-     * </table>
+     * matches what the underlying native client knob actually expects. Different types may restrict the set
+     * of legal values to only those that can be interpreted correctly by the native client. See each knob value
+     * type's documentation for more details about the range of values they accept.
      */
     public enum KnobValueType {
+        /**
+         * A 32-bit integer knob value type. Accepts any value accepted by {@link Integer#decode(String)}, except
+         * for the {@code #}-prefixed hex notation that those methods accept but the native client does not.
+         * In particular, this includes ordinary base-10 values (e.g., {@code "123"}, {@code "-1"}), hex values
+         * with a {@code 0x} or {@code 0X} prefix (e.g., {@code "0x7B"}), and octal values with a leading {@code 0}
+         * (e.g., {@code "0173"}, interpreted as decimal {@code 123}), matching the parsing performed by the native client.
+         */
         INT,
+        /**
+         * A 64-bit integer knob value type. Accepts a similar set of values as {@link #INT}, except using
+         * {@link Long#decode(String)}, thus allowing a larger range of integral values.
+         */
         LONG,
+        /**
+         * A double-precision floating point knob value type. Accepts any value accepted by {@link Double#parseDouble(String)}.
+         */
         DOUBLE,
+        /**
+         * A Boolean knob value type. Accepts {@code "true"} or {@code "false"} (case-insensitively),
+         * or any value that can be parsed as an integer (as with {@link #INT}), with a non-zero value interpreted
+         * as {@code true} and zero interpreted as {@code false}.</td></tr>
+         */
         BOOLEAN,
+        /**
+         * A {@link String} knob value type. Accepts any string.
+         */
         STRING,
     }
 }

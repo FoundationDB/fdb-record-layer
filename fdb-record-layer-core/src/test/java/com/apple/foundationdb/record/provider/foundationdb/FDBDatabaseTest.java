@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.FDB;
+import com.apple.foundationdb.FDBError;
+import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.MoreAsyncUtil;
@@ -41,12 +43,16 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
+import org.hamcrest.MatcherAssert;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.platform.engine.support.hierarchical.ExclusiveResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -66,6 +72,8 @@ import java.util.function.Consumer;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.hasLength;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -617,23 +625,69 @@ class FDBDatabaseTest {
         }
     }
 
+    /**
+     * Test whether setting a knob on a running client succeeds. This also validates that setting the lock in
+     * our config actually affects the underlying FDB client. It does this by setting the key size limit, which
+     * is a very visible lock. It also resets this limit when it's done, but it is still important that it run
+     * isolated from other transactions, so it uses the same resource lock as {@link org.junit.jupiter.api.parallel.Isolated}
+     * to ensure no other tests are running at the same time.
+     *
+     * @see org.junit.jupiter.api.parallel.Isolated for the resource lock
+     */
+    @ResourceLock(ExclusiveResource.GLOBAL_KEY)
     @Test
-    void canSetKnobOnRunningClient() {
+    void canSetKnobWithKnownEffectOnRunningClient() {
         // Get a running client (initialized in dbExtension)
         final FDBDatabase database = dbExtension.getDatabase();
         final FDBDatabaseFactory factory = database.getFactory();
+        final KeySpacePath path = pathManager.createPath(TestKeySpace.RAW_DATA);
+        final Subspace subspace;
+        try (FDBRecordContext context = database.openContext()) {
+            subspace = path.toSubspace(context);
+        }
 
-        // A knob that the native client recognizes: setting it should not throw, whether or not the client
-        // actually respects a change to it after having already started.
-        assertDoesNotThrow(() -> factory.setKnob(FDBClientKnob.TLS_CLIENT_HANDSHAKE_THREADS, "3"));
-        assertEquals("3", factory.getKnobs().get(FDBClientKnob.TLS_CLIENT_HANDSHAKE_THREADS.getKnobName()));
+        // Set the KEY_SIZE_LIMIT knob. This is one that can be set on a running client with its effect
+        // immediately visible. It is generally ill-advised for the user to set this knob, so it is not
+        // part of the enum. However, it is an easy one to test to see if adjusting it really has
+        // an effect, so we use it in this test
+        final String keySizeLimitKnob = "key_size_limit";
+        final byte[] key = subspace.pack(Tuple.from("blah_blah_blah").pack());
+        assertThat(key.length, greaterThan(10));
+        try {
+            assertDoesNotThrow(() -> factory.setKnob(keySizeLimitKnob, "10"));
+            assertEquals("10", factory.getKnobs().get(keySizeLimitKnob));
 
-        // The native client swallows unrecognized knob names (logging a warning) rather than throwing, both
-        // before and after the client has started. Setting one through the factory should not throw either,
-        // but it is still recorded so that, e.g., a subsequent factory targeting a fresh client would apply it.
+            try (FDBRecordContext context = database.openContext()) {
+                // Try and set a key that exceeds the key size limit. As `set` cannot throw an error, this
+                // will manifest itself only when we try and commit.
+                context.ensureActive().set(key, Tuple.from("blah_blah_blah").pack());
+                FDBExceptions.FDBStoreKeySizeException err = assertThrows(FDBExceptions.FDBStoreKeySizeException.class, context::commit);
+                assertThat(err.getCause(), instanceOf(FDBException.class));
+                assertEquals(FDBError.KEY_TOO_LARGE.code(), ((FDBException)err.getCause()).getCode());
+            }
+        } finally {
+            // Revert the knob to its original value
+            factory.setKnob(keySizeLimitKnob, "10000");
+        }
+
+        // Now that the size limit been reset, setting the key should once again succeed
+        assertThat(key.length, lessThanOrEqualTo(10000));
+        try (FDBRecordContext context = database.openContext()) {
+            context.ensureActive().set(key, Tuple.from("blah_blah_blah").pack());
+            assertDoesNotThrow(context::commit);
+        }
+    }
+
+    @Test
+    void canSetUnknownKnobOnRunningClient() {
+        final FDBDatabase database = dbExtension.getDatabase();
+        final FDBDatabaseFactory factory = database.getFactory();
+
+        // The native client swallows unrecognized knob names (logging a warning) rather than throwing.
+        // We validate that (1) we don't get an error and (2) we record this knob even though it hasn't
+        // done anything
         assertDoesNotThrow(() -> factory.setKnob("this_knob_does_not_exist", "1"));
         assertEquals("1", factory.getKnobs().get("this_knob_does_not_exist"));
-
     }
 
     @Test
