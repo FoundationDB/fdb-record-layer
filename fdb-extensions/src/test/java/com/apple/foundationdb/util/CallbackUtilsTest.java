@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.util;
 
-import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
