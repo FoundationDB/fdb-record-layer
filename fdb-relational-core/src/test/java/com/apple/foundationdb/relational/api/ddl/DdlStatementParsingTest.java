@@ -681,14 +681,14 @@ public class DdlStatementParsingTest {
                 Assertions.assertEquals("v_idx", index.getName(), "Incorrect index name!");
 
                 final var actualKe = ((RecordLayerIndex)index).getKeyExpression().toKeyExpression();
-                List<RecordKeyExpressionProto.KeyExpression> keys = null;
+                List<RecordKeyExpressionProto.KeyExpression> keys;
                 if (actualKe.hasThen()) {
                     keys = new ArrayList<>(actualKe.getThen().getChildList());
                 } else if (actualKe.hasField()) {
                     keys = new ArrayList<>();
                     keys.add(actualKe);
                 } else {
-                    Assertions.fail("Unexpected KeyExpression type");
+                    keys = Assertions.fail("Unexpected KeyExpression type");
                 }
                 //if the first key is RecordType,remove that
                 if (keys.get(0).hasRecordTypeKey()) {
@@ -1403,6 +1403,9 @@ public class DdlStatementParsingTest {
                 assertThat(recordLayerIndex.getKeyExpression()).isEqualTo(
                         Key.Expressions.concat(Key.Expressions.field("b"), Key.Expressions.field("c")));
                 assertThat(recordLayerIndex.getPredicate()).isNotNull();
+                // Assert lives in the not-yet-migrated fdb-relational-api module and its parameters aren't
+                // annotated @Nullable, even though notNullUnchecked's entire purpose here is to null-check.
+                @SuppressWarnings("NullAway")
                 final var predicate = Assert.notNullUnchecked(recordLayerIndex.getPredicate());
                 final var expectedPredicateProto = RecordMetaDataProto.Predicate.newBuilder()
                         .setValuePredicate(RecordMetaDataProto.ValuePredicate.newBuilder().addValue("a")
@@ -1446,6 +1449,9 @@ public class DdlStatementParsingTest {
                 assertThat(recordLayerIndex.getKeyExpression()).isEqualTo(
                         Key.Expressions.concat(Key.Expressions.field("b"), Key.Expressions.field("c")));
                 assertThat(recordLayerIndex.getPredicate()).isNotNull();
+                // Assert lives in the not-yet-migrated fdb-relational-api module and its parameters aren't
+                // annotated @Nullable, even though notNullUnchecked's entire purpose here is to null-check.
+                @SuppressWarnings("NullAway")
                 final var predicate = Assert.notNullUnchecked(recordLayerIndex.getPredicate());
                 final var expectedPredicateProto = RecordMetaDataProto.Predicate.newBuilder()
                         .setValuePredicate(RecordMetaDataProto.ValuePredicate.newBuilder().addValue("a")
