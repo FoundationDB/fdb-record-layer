@@ -812,7 +812,7 @@ public class CopyCommandTest {
                 }
                 return exportedData;
             }
-        });
+        }));
     }
 
     private static int importDatabase(final boolean namedAndQuoted, final boolean autoCommit, final SchemaInfo dest,
@@ -822,7 +822,7 @@ public class CopyCommandTest {
 
     private static int importDatabase(final boolean namedAndQuoted, final boolean autoCommit,
                                       final List<byte[]> exportedData, ConnectionUtils targetConnectionUtils, String path) throws SQLException, RelationalException {
-        return targetConnectionUtils.getFromCatalog(conn -> {
+        return Objects.requireNonNull(targetConnectionUtils.getFromCatalog(conn -> {
             conn.setAutoCommit(autoCommit);
             int resultingCount;
             try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY " + maybeQuote(path, namedAndQuoted) + " FROM " + (namedAndQuoted ? "?data" : "?"))) {
@@ -844,7 +844,7 @@ public class CopyCommandTest {
                 conn.commit();
             }
             return resultingCount;
-        });
+        }));
     }
 
     private static class Moveable {
