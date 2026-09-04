@@ -602,13 +602,11 @@ public class KeySpacePathParsingTest {
             KeySpacePath currentPath = path;
             // asyncToSync()'s generic return type isn't nullability-annotated in this unmigrated
             // record-layer-core API, but resolveAsync() never completes with a null PathValue.
-            @SuppressWarnings("NullAway")
-            PathValue resolved = context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, currentPath.resolveAsync(context));
+            PathValue resolved = Objects.requireNonNull(context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, currentPath.resolveAsync(context)));
             values.add(resolved.getResolvedValue());
             while (currentPath.getParent() != null) {
                 currentPath = currentPath.getParent();
-                @SuppressWarnings("NullAway")
-                PathValue resolvedParent = context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, currentPath.resolveAsync(context));
+                PathValue resolvedParent = Objects.requireNonNull(context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, currentPath.resolveAsync(context)));
                 values.add(resolvedParent.getResolvedValue());
             }
             return values;
