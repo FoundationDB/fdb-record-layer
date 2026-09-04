@@ -29,7 +29,6 @@ import com.apple.foundationdb.relational.api.ddl.ConstantAction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 
-import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 
 @API(API.Status.EXPERIMENTAL)

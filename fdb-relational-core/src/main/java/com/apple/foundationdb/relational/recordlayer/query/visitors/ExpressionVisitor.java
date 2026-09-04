@@ -1069,7 +1069,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             for (final var elementField : elementFields) {
                 final int index = targetTypeReorderings.indexOf(elementField.getFieldName());
                 final var fieldType = elementField.getFieldType();
-                Expression currentFieldColumns = null;
+                Expression currentFieldColumns;
                 if (index >= 0 && index < providedColumnContexts.size()) {
                     currentFieldColumns = parseRecordField(providedColumnContexts.get(index), elementField);
                 } else if (index >= providedColumnContexts.size()) {
