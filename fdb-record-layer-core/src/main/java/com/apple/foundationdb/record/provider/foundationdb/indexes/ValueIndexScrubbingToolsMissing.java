@@ -51,6 +51,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 
 /**
@@ -107,25 +108,26 @@ public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBS
 
         final FDBStoredRecord<Message> rec = result.get();
         if (rec == null || !recordTypes.contains(rec.getRecordType())) {
-            return CompletableFuture.completedFuture(null);
+            final CompletableFuture<@Nullable Issue> noIssue = CompletableFuture.completedFuture(null);
+            return noIssue;
         }
 
-        return getMissingIndexKeys(store, rec)
-                .thenApply(missingIndexesKeys -> {
-                    if (missingIndexesKeys.isEmpty()) {
-                        return null;
-                    }
-                    // Here: Oh, No! the index is missing!!
-                    // (Maybe) report an error and (maybe) return this record to be index
-                    return new Issue(
-                            KeyValueLogMessage.build("Scrubber: missing index entry",
-                                    LogMessageKeys.KEY, rec.getPrimaryKey().toString(),
-                                    LogMessageKeys.INDEX_KEY, missingIndexesKeys.toString()),
-                            FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES,
-                            // Issue#recordToIndex is documented as nullable ("if non-null, let the indexer index this
-                            // record"), but its constructor parameter is not itself annotated @Nullable.
-                            allowRepairOrNull(rec));
-                });
+        final Function<List<Tuple>, @Nullable Issue> checkMissingIndexKeys = missingIndexesKeys -> {
+            if (missingIndexesKeys.isEmpty()) {
+                return null;
+            }
+            // Here: Oh, No! the index is missing!!
+            // (Maybe) report an error and (maybe) return this record to be index
+            return new Issue(
+                    KeyValueLogMessage.build("Scrubber: missing index entry",
+                            LogMessageKeys.KEY, rec.getPrimaryKey().toString(),
+                            LogMessageKeys.INDEX_KEY, missingIndexesKeys.toString()),
+                    FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES,
+                    // Issue#recordToIndex is documented as nullable ("if non-null, let the indexer index this
+                    // record"), but its constructor parameter is not itself annotated @Nullable.
+                    allowRepairOrNull(rec));
+        };
+        return getMissingIndexKeys(store, rec).<@Nullable Issue>thenApply(checkMissingIndexKeys);
     }
 
     @SuppressWarnings("NullAway") // Issue#recordToIndex's constructor parameter is not annotated @Nullable even though it is

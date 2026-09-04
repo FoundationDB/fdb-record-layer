@@ -34,11 +34,14 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.NestedRecordType;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
+import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScrubbingTools;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.protobuf.Message;
 
 import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
@@ -46,6 +49,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 /**
  * Index Scrubbing Toolbox for a Value index maintainer. Scrub dangling value index entries - i.e. index entries
@@ -101,11 +105,12 @@ public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<Ind
 
         final IndexEntry indexEntry = result.get();
         if (indexEntry == null) {
-            return CompletableFuture.completedFuture(null);
+            final CompletableFuture<@Nullable Issue> noIssue = CompletableFuture.completedFuture(null);
+            return noIssue;
         }
 
         if (isSynthetic) {
-            return store.loadSyntheticRecord(indexEntry.getPrimaryKey(), IndexOrphanBehavior.RETURN).thenApply(syntheticRecord -> {
+            final Function<FDBSyntheticRecord, @Nullable Issue> checkSyntheticRecord = syntheticRecord -> {
                 if (syntheticRecord.getConstituents().isEmpty()) {
                     // None of the constituents of this synthetic type are present, so it must be dangling
                     List<Tuple> primaryKeysForConflict = new ArrayList<>(indexEntry.getPrimaryKey().size() - 1);
@@ -118,15 +123,17 @@ public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<Ind
                     return scrubDanglingEntry(store, indexEntry, primaryKeysForConflict);
                 }
                 return null;
-            });
+            };
+            return store.loadSyntheticRecord(indexEntry.getPrimaryKey(), IndexOrphanBehavior.RETURN).<@Nullable Issue>thenApply(checkSyntheticRecord);
         } else {
-            return store.loadIndexEntryRecord(indexEntry, IndexOrphanBehavior.RETURN).thenApply(indexedRecord -> {
+            final Function<FDBIndexedRecord<Message>, @Nullable Issue> checkIndexedRecord = indexedRecord -> {
                 if (!indexedRecord.hasStoredRecord()) {
                     // Here: Oh, No! this index is dangling!
                     return scrubDanglingEntry(store, indexEntry, List.of(indexEntry.getPrimaryKey()));
                 }
                 return null;
-            });
+            };
+            return store.loadIndexEntryRecord(indexEntry, IndexOrphanBehavior.RETURN).<@Nullable Issue>thenApply(checkIndexedRecord);
         }
     }
 

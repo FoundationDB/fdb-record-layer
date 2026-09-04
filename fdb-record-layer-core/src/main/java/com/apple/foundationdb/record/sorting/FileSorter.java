@@ -547,7 +547,10 @@ public class FileSorter<K, V>  {
 
     // TODO: If there were a limit on the total number of records saved, then each file could be limited to
     // that number and merge could stop when it is reached.
-    @SuppressWarnings({"PMD.EmptyCatchBlock", "PMD.CloseResource", "PMD.UseTryWithResources"})
+    @SuppressWarnings({"PMD.EmptyCatchBlock", "PMD.CloseResource", "PMD.UseTryWithResources", "NullAway"})
+    // NullAway: minState is only ever assigned from an input with a non-null key (see the loop below), and
+    // InputState always sets key and value together (see InputState#next()), so value is non-null too; but
+    // NullAway/JSpecify does not reliably recognize Objects.requireNonNull() as narrowing a @Nullable byte[].
     private void merge(Collection<File> inputFiles, File outputFile) throws IOException, GeneralSecurityException {
         final long startTime = System.nanoTime();
         final List<InputState> inputs = new ArrayList<>(inputFiles.size());
