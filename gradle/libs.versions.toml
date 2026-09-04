@@ -65,7 +65,7 @@ snakeyaml = "2.6"
 # Static analysis dependency versions
 
 jacoco = "0.8.14"
-spotbugs = "4.10.3"
+spotbugs = "4.10.4"
 
 [libraries]
 
