@@ -59,6 +59,7 @@ import com.google.protobuf.Message;
 import org.jspecify.annotations.Nullable;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
@@ -354,7 +355,9 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
          * @return untyped serializer
          */
         public RecordSerializer<Message> getUntypedSerializer() {
-            return untypedStoreBuilder.getSerializer();
+            // FDBRecordStore.Builder#getSerializer() is declared @Nullable, but the underlying field always has
+            // a non-null default (DynamicMessageRecordSerializer.instance()) and no public API can clear it.
+            return Objects.requireNonNull(untypedStoreBuilder.getSerializer());
         }
 
         /**
@@ -500,7 +503,9 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
         @Override
         public FDBRecordStoreStateCache getStoreStateCache() {
-            return untypedStoreBuilder.getStoreStateCache();
+            // FDBRecordStore.Builder#getStoreStateCache() is declared @Nullable, but the underlying field always
+            // has a non-null default (PassThroughRecordStoreStateCache.instance()) and no public API can clear it.
+            return Objects.requireNonNull(untypedStoreBuilder.getStoreStateCache());
         }
 
         @Override
@@ -534,25 +539,34 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
         @Override
         public CompletableFuture<FDBTypedRecordStore<M>> uncheckedOpenAsync() {
+            final RecordSerializer<M> nonNullTypedSerializer = requireTypedSerializer();
             return untypedStoreBuilder.uncheckedOpenAsync()
-                    .thenApply(untypedStore -> new FDBTypedRecordStore<>(untypedStore, typedSerializer));
+                    .thenApply(untypedStore -> new FDBTypedRecordStore<>(untypedStore, nonNullTypedSerializer));
         }
 
         @Override
         public CompletableFuture<FDBTypedRecordStore<M>> createOrOpenAsync(StoreExistenceCheck existenceCheck) {
+            final RecordSerializer<M> nonNullTypedSerializer = requireTypedSerializer();
             return untypedStoreBuilder.createOrOpenAsync(existenceCheck)
-                    .thenApply(untypedStore -> new FDBTypedRecordStore<>(untypedStore, typedSerializer));
+                    .thenApply(untypedStore -> new FDBTypedRecordStore<>(untypedStore, nonNullTypedSerializer));
+        }
+
+        // typedSerializer must be set before opening/building a typed record store; this is the same
+        // precondition build() below already enforces.
+        private RecordSerializer<M> requireTypedSerializer() {
+            if (typedSerializer == null) {
+                throw new RecordCoreException("typed serializer must be specified");
+            }
+            return typedSerializer;
         }
 
         @Override
         public FDBTypedRecordStore<M> build() {
-            if (typedSerializer == null) {
-                throw new RecordCoreException("typed serializer must be specified");
-            }
+            final RecordSerializer<M> nonNullTypedSerializer = requireTypedSerializer();
             if (untypedStoreBuilder.getSerializer() == null) {
-                untypedStoreBuilder.setSerializer(typedSerializer.widen());
+                untypedStoreBuilder.setSerializer(nonNullTypedSerializer.widen());
             }
-            return new FDBTypedRecordStore<>(untypedStoreBuilder.build(), typedSerializer);
+            return new FDBTypedRecordStore<>(untypedStoreBuilder.build(), nonNullTypedSerializer);
         }
 
         @Override

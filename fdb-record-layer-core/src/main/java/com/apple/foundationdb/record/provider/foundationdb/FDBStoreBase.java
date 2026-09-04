@@ -97,7 +97,11 @@ public abstract class FDBStoreBase {
 
     public Subspace getSubspace() {
         if (subspace == null) {
-            subspace = context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, getSubspaceAsync());
+            // Use an explicitly-typed intermediate so the target type of the (@Nullable) subspace field
+            // assignment doesn't influence generic inference of asyncToSync's type parameter, which would
+            // otherwise conflict with getSubspaceAsync()'s own (non-null) declared return type.
+            final Subspace resolved = context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, getSubspaceAsync());
+            subspace = resolved;
         }
         return subspace;
     }

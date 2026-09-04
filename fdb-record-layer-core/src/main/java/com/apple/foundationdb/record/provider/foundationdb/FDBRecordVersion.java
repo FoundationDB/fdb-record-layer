@@ -32,7 +32,6 @@ import org.jspecify.annotations.Nullable;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
-import java.util.Objects;
 
 /**
  * Class representing a specific version within FDB. This
@@ -589,6 +588,9 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * @param committedVersion the result of {@link FDBRecordContext#getVersionStamp}
      * @return a new record version with a complete version
      */
+    // NullAway/JSpecify does not reliably narrow a @Nullable byte[] parameter through a null check, even via
+    // Objects.requireNonNull (a known array-type tracking gap).
+    @SuppressWarnings("NullAway")
     public FDBRecordVersion withCommittedVersion(@Nullable byte[] committedVersion) {
         if (isComplete()) {
             throw new RecordCoreException("version is already complete");
@@ -596,9 +598,7 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
         if (committedVersion == null) {
             throw new RecordCoreArgumentException("the given committed version was for a read-only transaction");
         }
-        // NullAway/JSpecify does not reliably narrow a @Nullable byte[] parameter through this null check (a
-        // known array-type tracking gap).
-        return complete(Objects.requireNonNull(committedVersion), getLocalVersion());
+        return complete(committedVersion, getLocalVersion());
     }
 
     /**
@@ -610,7 +610,7 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * @return <code>true</code> if the object is equal to this version and <code>false</code> otherwise
      */
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(@Nullable Object o) {
         if (o == null) {
             return false;
         } else if (o == this) {

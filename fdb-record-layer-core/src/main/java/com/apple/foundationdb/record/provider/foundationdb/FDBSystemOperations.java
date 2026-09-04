@@ -44,6 +44,10 @@ public class FDBSystemOperations {
         return bytes == null ? null : new String(bytes, StandardCharsets.UTF_8);
     }
 
+    // FDBDatabaseRunner#asyncToSync is declared @Nullable <T> T (blanket-nullable), and every caller of this
+    // wrapper (getPrimaryDatacenter/getConnectionString/getClusterFilePath) already expects a @Nullable result,
+    // so match that contract exactly rather than trying to narrow it.
+    @Nullable
     private static <T> T asyncToSync(FDBDatabaseRunner runner, CompletableFuture<T> operation) {
         return runner.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_SYSTEM_KEY, operation);
     }

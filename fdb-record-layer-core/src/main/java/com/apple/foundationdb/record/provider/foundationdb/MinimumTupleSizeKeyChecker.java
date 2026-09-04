@@ -32,6 +32,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -43,6 +44,12 @@ public class MinimumTupleSizeKeyChecker implements KeyChecker {
     private final List<CheckedSubspace> checks;
 
     private final List<byte[]> prefixes = new ArrayList<>();
+
+    // ByteArrayUtil2.loggable() genuinely returns null only when given a null byte[], but every call site
+    // below passes a never-null key/prefix array; checkFails' Object... varargs does not accept null elements.
+    private static String loggable(byte[] bytes) {
+        return Objects.requireNonNull(ByteArrayUtil2.loggable(bytes));
+    }
 
     /**
      * A key prefix and associated check settings.
@@ -103,12 +110,14 @@ public class MinimumTupleSizeKeyChecker implements KeyChecker {
         if (!checkedSubspace.checkReads && !write) {
             return;
         }
-        final byte[] prefix = checkKeyLength(checkedSubspace, keyBegin);
+        @Nullable final byte[] prefix = checkKeyLength(checkedSubspace, keyBegin);
         if (prefix != null) {
-            if (!keyHasPrefix(keyEnd, prefix)) {
+            // NullAway/JSpecify does not reliably narrow a @Nullable byte[] local through this null check (a
+            // known array-type tracking gap).
+            if (!keyHasPrefix(keyEnd, Objects.requireNonNull(prefix))) {
                 checkFails(checkedSubspace, "key range not limited to single subspace",
-                        "keyBegin", ByteArrayUtil2.loggable(keyBegin),
-                        "keyEnd", ByteArrayUtil2.loggable(keyEnd));
+                        "keyBegin", loggable(keyBegin),
+                        "keyEnd", loggable(keyEnd));
             }
         }
     }
@@ -133,10 +142,11 @@ public class MinimumTupleSizeKeyChecker implements KeyChecker {
     }
 
     @Nullable
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably track @Nullable on byte[] return types
     private synchronized byte[] checkKeyLength(CheckedSubspace checkedSubspace, final byte[] key) {
         final int prefixLength = TupleHelpers.prefixLengthOfSize(key, checkedSubspace.minTupleSize);
         if (prefixLength < 0) {
-            checkFails(checkedSubspace, "key not long enough", "key", ByteArrayUtil2.loggable(key));
+            checkFails(checkedSubspace, "key not long enough", "key", loggable(key));
             return null;
         }
         for (byte[] prefix : prefixes) {
