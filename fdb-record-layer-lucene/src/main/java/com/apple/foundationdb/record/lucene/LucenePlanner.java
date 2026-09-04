@@ -256,8 +256,9 @@ public class LucenePlanner extends RecordQueryPlanner {
         }
         final var name = String.join("_", prefix);
         final var newFieldNames = luceneQueryComponent.getFields().stream().map(field -> name + "_" + field).collect(Collectors.toList());
-        final var newExplicitFieldNames = luceneQueryComponent.getExplicitFieldNames() == null
-                ? null : luceneQueryComponent.getExplicitFieldNames().stream().map(field -> name + "_" + field).collect(Collectors.toSet());
+        final var explicitFieldNames = luceneQueryComponent.getExplicitFieldNames();
+        final var newExplicitFieldNames = explicitFieldNames == null
+                ? null : explicitFieldNames.stream().map(field -> name + "_" + field).collect(Collectors.toSet());
         return luceneQueryComponent.withNewFields(newFieldNames, newExplicitFieldNames);
     }
 
@@ -299,9 +300,10 @@ public class LucenePlanner extends RecordQueryPlanner {
 
         switch (filter.getType()) {
             case AUTO_COMPLETE:
-                final var resolvedFields = filter.getExplicitFieldNames() == null
+                final var explicitFieldNames = filter.getExplicitFieldNames();
+                final var resolvedFields = explicitFieldNames == null
                                            ? filter.getFields()
-                                           : filter.getExplicitFieldNames();
+                                           : explicitFieldNames;
                 return new LuceneAutoCompleteQueryClause(filter.getQuery(), filter.isQueryIsParameter(), resolvedFields);
             case QUERY:
             case QUERY_HIGHLIGHT:

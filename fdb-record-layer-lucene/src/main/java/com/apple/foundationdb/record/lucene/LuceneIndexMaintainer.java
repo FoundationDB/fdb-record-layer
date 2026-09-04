@@ -546,8 +546,9 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                     // There isn't a more efficient way to get partition info by id than loading it all, and
                     // if you can't load it all and one partition's lucene index in a single transaction,
                     // you won't be able to repartition, so we always provide all the partition info.
-                    if (request.getPartitionId() != null) {
-                        infoStream = infoStream.filter(info -> info.getId() == request.getPartitionId());
+                    final Integer partitionId = request.getPartitionId();
+                    if (partitionId != null) {
+                        infoStream = infoStream.filter(info -> info.getId() == partitionId);
                     }
                     final List<CompletableFuture<Map.Entry<Integer, LuceneMetadataInfo.LuceneInfo>>> luceneInfos =
                             infoStream.map(partitionInfo ->
