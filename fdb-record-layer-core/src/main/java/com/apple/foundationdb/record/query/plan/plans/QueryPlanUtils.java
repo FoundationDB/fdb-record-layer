@@ -41,6 +41,7 @@ import java.util.function.Function;
 /**
  * Utility class for query planning.
  */
+@API(API.Status.INTERNAL)
 public class QueryPlanUtils {
     private QueryPlanUtils() {
     }
@@ -58,7 +59,6 @@ public class QueryPlanUtils {
      * @param executeProperties the execute properties used for executing
      * @param planClass the class of the plan being protected
      */
-    @API(API.Status.INTERNAL)
     static void enforceSerializable(@Nonnull final ExecuteProperties executeProperties,
                                     final Class<?> planClass) {
         if (executeProperties.getIsolationLevel() != IsolationLevel.SERIALIZABLE) {
