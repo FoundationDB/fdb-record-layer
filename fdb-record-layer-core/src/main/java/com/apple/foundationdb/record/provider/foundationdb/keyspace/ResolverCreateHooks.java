@@ -25,6 +25,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.google.common.collect.ImmutableList;
 
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
@@ -83,6 +84,6 @@ public class ResolverCreateHooks {
      * Functional interface for the safety check that will be run before writing a mapping in the {@link LocatableResolver}.
      */
     @FunctionalInterface
-    public interface MetadataHook extends Function<String, byte[]> {
+    public interface MetadataHook extends Function<String, byte @Nullable []> {
     }
 }

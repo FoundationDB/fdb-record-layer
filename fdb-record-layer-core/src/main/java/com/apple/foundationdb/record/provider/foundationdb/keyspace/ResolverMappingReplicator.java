@@ -37,6 +37,7 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -126,21 +127,29 @@ public class ResolverMappingReplicator implements AutoCloseable {
             final FDBRecordContext context = runner.openContext();
 
             return primary.getMappingSubspaceAsync().thenCompose(primaryMappingSubspace -> {
+                @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[])
+                                               // parameters, even though KeyValueCursorBase.Builder#setContinuation
+                                               // declares its parameter @Nullable.
+                final byte[] continuationBytes = continuation.get();
                 RecordCursor<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(primaryMappingSubspace)
                         .setScanProperties(new ScanProperties(executeProperties))
                         .setContext(context)
-                        .setContinuation(continuation.get())
+                        .setContinuation(continuationBytes)
                         .build();
 
                 return cursor.forEachResultAsync(result -> {
-                    KeyValue kv = result.get();
+                    // forEachResultAsync guarantees hasNext() is true for every result passed to func, so get() is
+                    // guaranteed non-null here even though its declared return type is generically @Nullable.
+                    KeyValue kv = Objects.requireNonNull(result.get());
                     final String mappedString = primaryMappingSubspace.unpack(kv.getKey()).getString(0);
                     final ResolverResult mappedValue = valueDeserializer.apply(kv.getValue());
                     accumulator.accumulate(mappedValue.getValue());
                     counter.incrementAndGet();
                     return replica.setMapping(context, mappedString, mappedValue);
                 }).thenCompose(lastResult -> context.commitAsync().thenRun(() -> {
-                    byte[] nextContinuationBytes = lastResult.getContinuation().toBytes();
+                    // toBytes() may genuinely return null (e.g. when the cursor is exhausted); this null is used
+                    // below via Objects.nonNull(...) to decide whether the copy loop should continue.
+                    byte @Nullable [] nextContinuationBytes = lastResult.getContinuation().toBytes();
                     if (LOGGER.isInfoEnabled()) {
                         LOGGER.info(KeyValueLogMessage.of("committing batch",
                                         LogMessageKeys.SCANNED_SO_FAR, counter.get(),
