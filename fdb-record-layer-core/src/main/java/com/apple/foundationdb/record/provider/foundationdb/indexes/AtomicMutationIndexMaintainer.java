@@ -120,8 +120,9 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) locals, even after an explicit
-                                   // null check (param/compareAndClear are confirmed non-null by the checks/continue above their use).
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) locals, even after an explicit
+    // null check (param/compareAndClear are confirmed non-null by the checks/continue above their use).
+    @SuppressWarnings("NullAway")
     protected <M extends Message> CompletableFuture<Void> updateIndexKeys(final FDBIndexableRecord<M> savedRecord,
                                                                           final boolean remove,
                                                                           final List<IndexEntry> indexEntries) {
@@ -204,11 +205,12 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    @SuppressWarnings({"PMD.CloseResource", "NullAway"}) // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters
-                                                          // (passing null to mean "start from the beginning"); and RecordCursor#reduce's
-                                                          // generic <U> is declared without "extends @Nullable Object", so NullAway treats
-                                                          // its identity parameter and return value as non-null even though this mutation's
-                                                          // identity/aggregate values are genuinely @Nullable Tuples.
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters
+    // (passing null to mean "start from the beginning"); and RecordCursor#reduce's
+    // generic <U> is declared without "extends @Nullable Object", so NullAway treats
+    // its identity parameter and return value as non-null even though this mutation's
+    // identity/aggregate values are genuinely @Nullable Tuples.
+    @SuppressWarnings({"PMD.CloseResource", "NullAway"})
     public CompletableFuture<Tuple> evaluateAggregateFunction(IndexAggregateFunction function,
                                                               TupleRange range,
                                                               IsolationLevel isolationveLevel) {

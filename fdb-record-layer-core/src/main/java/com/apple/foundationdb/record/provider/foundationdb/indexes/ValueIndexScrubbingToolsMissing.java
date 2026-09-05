@@ -78,9 +78,10 @@ public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBS
     }
 
     @Override
-    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters of
-                                   // FDBRecordStoreBase#scanRecords (out of scope to fix here); null intentionally means
-                                   // "start from the beginning".
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters of
+    // FDBRecordStoreBase#scanRecords (out of scope to fix here); null intentionally means
+    // "start from the beginning".
+    @SuppressWarnings("NullAway")
     public RecordCursor<FDBStoredRecord<Message>> getCursor(final TupleRange tupleRange, final FDBRecordStore store, int limit) {
         final IsolationLevel isolationLevel = IsolationLevel.SNAPSHOT;
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
@@ -93,8 +94,9 @@ public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBS
 
     @Override
     @Nullable
-    @SuppressWarnings("NullAway") // IndexScrubbingTools#getKeyFromCursorResult (out of scope to fix here) is not annotated
-                                   // @Nullable even though a missing stored record genuinely yields a null key here.
+    // IndexScrubbingTools#getKeyFromCursorResult (out of scope to fix here) is not annotated
+    // @Nullable even though a missing stored record genuinely yields a null key here.
+    @SuppressWarnings("NullAway")
     public Tuple getKeyFromCursorResult(final RecordCursorResult<FDBStoredRecord<Message>> result) {
         final FDBStoredRecord<Message> storedRecord = result.get();
         return storedRecord == null ? null : storedRecord.getPrimaryKey();
@@ -130,8 +132,9 @@ public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBS
         return getMissingIndexKeys(store, rec).<@Nullable Issue>thenApply(checkMissingIndexKeys);
     }
 
-    @SuppressWarnings("NullAway") // Issue#recordToIndex's constructor parameter is not annotated @Nullable even though it is
-                                   // documented as accepting null; see the comment at the call site above.
+    // Issue#recordToIndex's constructor parameter is not annotated @Nullable even though it is
+    // documented as accepting null; see the comment at the call site above.
+    @SuppressWarnings("NullAway")
     private FDBStoredRecord<Message> allowRepairOrNull(final FDBStoredRecord<Message> rec) {
         return allowRepair ? rec : null;
     }
@@ -149,9 +152,10 @@ public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBS
                 .asList();
     }
 
-    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters of
-                                   // RecordCursor#flatMapPipelined (out of scope to fix here); null intentionally means
-                                   // "start from the beginning".
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters of
+    // RecordCursor#flatMapPipelined (out of scope to fix here); null intentionally means
+    // "start from the beginning".
+    @SuppressWarnings("NullAway")
     protected RecordCursor<IndexEntry> indexEntriesForRecord(FDBRecordStore store, FDBStoredRecord<Message> rec) {
         final Index nonNullIndex = Objects.requireNonNull(index, "presetParams was not called appropriately for this scrubbing tool");
         final IndexMaintainer maintainer = store.getIndexMaintainer(nonNullIndex);

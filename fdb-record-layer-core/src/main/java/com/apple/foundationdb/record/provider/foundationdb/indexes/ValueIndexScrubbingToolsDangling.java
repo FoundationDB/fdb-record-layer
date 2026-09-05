@@ -72,9 +72,10 @@ public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<Ind
     }
 
     @Override
-    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters of
-                                   // FDBRecordStoreBase#scanIndex (out of scope to fix here); null intentionally means
-                                   // "start from the beginning".
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters of
+    // FDBRecordStoreBase#scanIndex (out of scope to fix here); null intentionally means
+    // "start from the beginning".
+    @SuppressWarnings("NullAway")
     public RecordCursor<IndexEntry> getCursor(final TupleRange range, final FDBRecordStore store, final int limit) {
         // IsolationLevel.SNAPSHOT will not cause range conflicts, which is ok because this index is idempotent.
         // If a repair is made, any related component (in this case - index entries) should be explicitly added to the conflict list.
@@ -90,8 +91,9 @@ public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<Ind
 
     @Override
     @Nullable
-    @SuppressWarnings("NullAway") // IndexScrubbingTools#getKeyFromCursorResult (out of scope to fix here) is not annotated
-                                   // @Nullable even though a missing index entry genuinely yields a null key here.
+    // IndexScrubbingTools#getKeyFromCursorResult (out of scope to fix here) is not annotated
+    // @Nullable even though a missing index entry genuinely yields a null key here.
+    @SuppressWarnings("NullAway")
     public Tuple getKeyFromCursorResult(final RecordCursorResult<IndexEntry> result) {
         final IndexEntry indexEntry = result.get();
         return indexEntry == null ? null : indexEntry.getKey();
@@ -137,8 +139,9 @@ public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<Ind
         }
     }
 
-    @SuppressWarnings("NullAway") // Issue#recordToIndex's constructor parameter is not annotated @Nullable even though it is
-                                   // documented as accepting null (this scrubbing tool never has a record to index).
+    // Issue#recordToIndex's constructor parameter is not annotated @Nullable even though it is
+    // documented as accepting null (this scrubbing tool never has a record to index).
+    @SuppressWarnings("NullAway")
     private Issue scrubDanglingEntry(FDBRecordStore store, IndexEntry indexEntry, List<Tuple> conflictPrimaryKeys) {
         // Here: the index entry is dangling. Fix it (if allowed) and report the issue.
         final Tuple valueKey = indexEntry.getKey();

@@ -127,9 +127,10 @@ class TextCursor implements BaseCursor<IndexEntry> {
         }
     }
 
-    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters of
-                                   // ByteArrayContinuation#fromNullable (out of scope to fix here); underlying.getContinuation()
-                                   // is genuinely nullable, which is exactly what fromNullable is designed to accept.
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters of
+    // ByteArrayContinuation#fromNullable (out of scope to fix here); underlying.getContinuation()
+    // is genuinely nullable, which is exactly what fromNullable is designed to accept.
+    @SuppressWarnings("NullAway")
     private RecordCursorContinuation continuationHelper() {
         return ByteArrayContinuation.fromNullable(underlying.getContinuation());
     }

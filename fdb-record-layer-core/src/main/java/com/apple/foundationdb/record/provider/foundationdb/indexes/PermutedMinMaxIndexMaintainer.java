@@ -257,9 +257,10 @@ public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
     }
 
     // Return the min/max key matching the given group key or {@code null} if there are not entries for the group.
-    @SuppressWarnings({"PMD.CloseResource", "NullAway"}) // NullAway/JSpecify does not currently track @Nullable on array (byte[])
-                                                          // parameters of scan() (a null continuation intentionally means
-                                                          // "start from the beginning").
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[])
+    // parameters of scan() (a null continuation intentionally means
+    // "start from the beginning").
+    @SuppressWarnings({"PMD.CloseResource", "NullAway"})
     private CompletableFuture<Tuple> getExtremum(Tuple groupKey) {
         final RecordCursor<IndexEntry> scan = scan(TupleRange.allOf(groupKey), null,
                 type.baseScanProperties.with(props -> props.clearState().setReturnedRowLimit(1)));
@@ -273,13 +274,14 @@ public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    @SuppressWarnings({"PMD.CloseResource", "PMD.UseTryWithResources", "NullAway"}) // PMD cannot determine resource is closed;
-                                                                                     // NullAway/JSpecify does not currently track
-                                                                                     // @Nullable on array (byte[]) parameters of scan()
-                                                                                     // (null continuation), nor RecordCursor#reduce's
-                                                                                     // plain <U> (declared without "extends @Nullable
-                                                                                     // Object" even though a null identity/accumulated
-                                                                                     // value is genuinely used here).
+    // PMD cannot determine resource is closed;
+    // NullAway/JSpecify does not currently track
+    // @Nullable on array (byte[]) parameters of scan()
+    // (null continuation), nor RecordCursor#reduce's
+    // plain <U> (declared without "extends @Nullable
+    // Object" even though a null identity/accumulated
+    // value is genuinely used here).
+    @SuppressWarnings({"PMD.CloseResource", "PMD.UseTryWithResources", "NullAway"})
     public CompletableFuture<Tuple> evaluateAggregateFunction(final IndexAggregateFunction function,
                                                               final TupleRange range,
                                                               final IsolationLevel isolationLevel) {
