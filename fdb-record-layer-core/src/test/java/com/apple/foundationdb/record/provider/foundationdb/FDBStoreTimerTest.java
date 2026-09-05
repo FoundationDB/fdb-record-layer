@@ -54,6 +54,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -91,7 +92,7 @@ public class FDBStoreTimerTest {
 
         @Override
         public String title() {
-            return null;
+            return name();
         }
     }
 
@@ -115,7 +116,7 @@ public class FDBStoreTimerTest {
         RecordCursor<KeyValue> kvc = KeyValueCursor.Builder.withSubspace(subspace).setContext(context).setScanProperties(ScanProperties.FORWARD_SCAN).setRange(TupleRange.ALL).build();
 
         // see the timer counts from some onNext calls
-        FDBStoreTimer latestTimer = context.getTimer();
+        FDBStoreTimer latestTimer = Objects.requireNonNull(context.getTimer());
         StoreTimerSnapshot savedTimer;
         StoreTimer diffTimer;
 
@@ -130,9 +131,9 @@ public class FDBStoreTimerTest {
         Map<String, Number> diffKVs;
         diffKVs = diffTimer.getKeysAndValues();
         assertThat(diffKVs, hasKey("load_scan_entry_count"));
-        assertEquals(1, diffKVs.get("load_scan_entry_count").intValue());
+        assertEquals(1, Objects.requireNonNull(diffKVs.get("load_scan_entry_count")).intValue());
         assertThat(diffKVs, hasKey("load_key_value_count"));
-        assertEquals(1, diffKVs.get("load_key_value_count").intValue());
+        assertEquals(1, Objects.requireNonNull(diffKVs.get("load_key_value_count")).intValue());
 
         // get a snapshot from latestTimer after the single cursor advance
         savedTimer = StoreTimerSnapshot.from(latestTimer);
@@ -147,16 +148,16 @@ public class FDBStoreTimerTest {
         diffTimer = StoreTimer.getDifference(latestTimer, savedTimer);
         diffKVs = diffTimer.getKeysAndValues();
         assertThat(diffKVs, hasKey("load_scan_entry_count"));
-        assertEquals(numAdvances, diffKVs.get("load_scan_entry_count").intValue());
+        assertEquals(numAdvances, Objects.requireNonNull(diffKVs.get("load_scan_entry_count")).intValue());
         assertThat(diffKVs, hasKey("load_key_value_count"));
-        assertEquals(numAdvances, diffKVs.get("load_key_value_count").intValue(), numAdvances);
+        assertEquals(numAdvances, Objects.requireNonNull(diffKVs.get("load_key_value_count")).intValue(), numAdvances);
     }
 
     @Test
     void timeoutCounterDifferenceTest() {
         RecordCursor<KeyValue> kvc = KeyValueCursor.Builder.withSubspace(subspace).setContext(context).setScanProperties(ScanProperties.FORWARD_SCAN).setRange(TupleRange.ALL).build();
 
-        FDBStoreTimer latestTimer = context.getTimer();
+        FDBStoreTimer latestTimer = Objects.requireNonNull(context.getTimer());
         CompletableFuture<RecordCursorResult<KeyValue>> fkvr;
         RecordCursorResult<KeyValue> kvr;
 
@@ -166,8 +167,8 @@ public class FDBStoreTimerTest {
         // the latest timer should have recorded the one timeout event
         Map<String, Number> diffKVs;
         diffKVs = latestTimer.getKeysAndValues();
-        assertEquals(1, diffKVs.get("wait_advance_cursor_timeout_count").intValue());
-        assertTrue(diffKVs.get("wait_advance_cursor_timeout_micros").intValue() > 0);
+        assertEquals(1, Objects.requireNonNull(diffKVs.get("wait_advance_cursor_timeout_count")).intValue());
+        assertTrue(Objects.requireNonNull(diffKVs.get("wait_advance_cursor_timeout_micros")).intValue() > 0);
         assertThat(diffKVs.get("wait_advance_cursor_timeout_micros").intValue(), greaterThan(0));
 
         // advance the cursor without timing out
@@ -198,7 +199,7 @@ public class FDBStoreTimerTest {
     @Test
     void timerConstraintChecks() {
         // invalid to subtract a snapshot timer from a timer that has been reset after the snapshot was taken
-        FDBStoreTimer latestTimer = context.getTimer();
+        FDBStoreTimer latestTimer = Objects.requireNonNull(context.getTimer());
         final StoreTimerSnapshot savedTimer;
         savedTimer = StoreTimerSnapshot.from(latestTimer);
         latestTimer.reset();
@@ -230,12 +231,12 @@ public class FDBStoreTimerTest {
         assertThat(diff.getCounter(FDBStoreTimer.Counts.CREATE_RECORD_STORE), Matchers.nullValue());
         assertThat(diff.getCounter(FDBStoreTimer.Events.CHECK_VERSION), Matchers.nullValue());
         assertThat(diff.getCounter(DummySizeEvents.SIZE_EVENT_1), Matchers.nullValue());
-        assertThat(diff.getCounter(FDBStoreTimer.Counts.DELETE_RECORD_KEY).getCount(), Matchers.is(1));
-        assertThat(diff.getCounter(FDBStoreTimer.Counts.DELETE_RECORD_KEY).getTimeNanos(), Matchers.is(0L));
-        assertThat(diff.getCounter(FDBStoreTimer.Events.DIRECTORY_READ).getCount(), Matchers.is(1));
-        assertThat(diff.getCounter(FDBStoreTimer.Events.DIRECTORY_READ).getTimeNanos(), Matchers.is(7L));
-        assertThat(diff.getCounter(DummySizeEvents.SIZE_EVENT_2).getCount(), Matchers.is(1));
-        assertThat(diff.getCounter(DummySizeEvents.SIZE_EVENT_2).getCumulativeValue(), Matchers.is(30L));
+        assertThat(Objects.requireNonNull(diff.getCounter(FDBStoreTimer.Counts.DELETE_RECORD_KEY)).getCount(), Matchers.is(1));
+        assertThat(Objects.requireNonNull(diff.getCounter(FDBStoreTimer.Counts.DELETE_RECORD_KEY)).getTimeNanos(), Matchers.is(0L));
+        assertThat(Objects.requireNonNull(diff.getCounter(FDBStoreTimer.Events.DIRECTORY_READ)).getCount(), Matchers.is(1));
+        assertThat(Objects.requireNonNull(diff.getCounter(FDBStoreTimer.Events.DIRECTORY_READ)).getTimeNanos(), Matchers.is(7L));
+        assertThat(Objects.requireNonNull(diff.getCounter(DummySizeEvents.SIZE_EVENT_2)).getCount(), Matchers.is(1));
+        assertThat(Objects.requireNonNull(diff.getCounter(DummySizeEvents.SIZE_EVENT_2)).getCumulativeValue(), Matchers.is(30L));
     }
 
     @Test
@@ -251,12 +252,12 @@ public class FDBStoreTimerTest {
         timer.recordSize(DummySizeEvents.SIZE_EVENT_2, 2L);
 
         StoreTimer diff = StoreTimer.getDifference(timer, snapshot);
-        assertThat(diff.getCounter(FDBStoreTimer.Counts.DELETE_RECORD_KEY).getCount(), Matchers.is(1));
-        assertThat(diff.getCounter(FDBStoreTimer.Counts.DELETE_RECORD_KEY).getTimeNanos(), Matchers.is(0L));
-        assertThat(diff.getCounter(FDBStoreTimer.Events.DIRECTORY_READ).getCount(), Matchers.is(1));
-        assertThat(diff.getCounter(FDBStoreTimer.Events.DIRECTORY_READ).getTimeNanos(), Matchers.is(7L));
-        assertThat(diff.getCounter(DummySizeEvents.SIZE_EVENT_2).getCount(), Matchers.is(1));
-        assertThat(diff.getCounter(DummySizeEvents.SIZE_EVENT_2).getCumulativeValue(), Matchers.is(2L));
+        assertThat(Objects.requireNonNull(diff.getCounter(FDBStoreTimer.Counts.DELETE_RECORD_KEY)).getCount(), Matchers.is(1));
+        assertThat(Objects.requireNonNull(diff.getCounter(FDBStoreTimer.Counts.DELETE_RECORD_KEY)).getTimeNanos(), Matchers.is(0L));
+        assertThat(Objects.requireNonNull(diff.getCounter(FDBStoreTimer.Events.DIRECTORY_READ)).getCount(), Matchers.is(1));
+        assertThat(Objects.requireNonNull(diff.getCounter(FDBStoreTimer.Events.DIRECTORY_READ)).getTimeNanos(), Matchers.is(7L));
+        assertThat(Objects.requireNonNull(diff.getCounter(DummySizeEvents.SIZE_EVENT_2)).getCount(), Matchers.is(1));
+        assertThat(Objects.requireNonNull(diff.getCounter(DummySizeEvents.SIZE_EVENT_2)).getCumulativeValue(), Matchers.is(2L));
     }
 
     @Test
@@ -271,16 +272,16 @@ public class FDBStoreTimerTest {
 
         assertThat(snapshot.getCounterSnapshot(FDBStoreTimer.Counts.DELETE_RECORD_KEY), Matchers.nullValue());
         assertThat(snapshot.getCounterSnapshot(FDBStoreTimer.Counts.CREATE_RECORD_STORE), Matchers.notNullValue());
-        StoreTimerSnapshot.CounterSnapshot counterSnapshot1 = snapshot.getCounterSnapshot(FDBStoreTimer.Counts.CREATE_RECORD_STORE);
+        StoreTimerSnapshot.CounterSnapshot counterSnapshot1 = Objects.requireNonNull(snapshot.getCounterSnapshot(FDBStoreTimer.Counts.CREATE_RECORD_STORE));
         assertThat(counterSnapshot1.getCount(), Matchers.is(1));
         assertThat(snapshot.getCounterSnapshot(FDBStoreTimer.Events.DIRECTORY_READ), Matchers.nullValue());
         assertThat(snapshot.getCounterSnapshot(FDBStoreTimer.Events.CHECK_VERSION), Matchers.notNullValue());
-        StoreTimerSnapshot.CounterSnapshot counterSnapshot2 = snapshot.getCounterSnapshot(FDBStoreTimer.Events.CHECK_VERSION);
+        StoreTimerSnapshot.CounterSnapshot counterSnapshot2 = Objects.requireNonNull(snapshot.getCounterSnapshot(FDBStoreTimer.Events.CHECK_VERSION));
         assertThat(counterSnapshot2.getCount(), Matchers.is(1));
         assertThat(counterSnapshot2.getTimeNanos(), Matchers.is(2L));
         assertThat(snapshot.getCounterSnapshot(DummySizeEvents.SIZE_EVENT_2), Matchers.nullValue());
         assertThat(snapshot.getCounterSnapshot(DummySizeEvents.SIZE_EVENT_1), Matchers.notNullValue());
-        StoreTimerSnapshot.CounterSnapshot counterSnapshot3 = snapshot.getCounterSnapshot(DummySizeEvents.SIZE_EVENT_1);
+        StoreTimerSnapshot.CounterSnapshot counterSnapshot3 = Objects.requireNonNull(snapshot.getCounterSnapshot(DummySizeEvents.SIZE_EVENT_1));
         assertThat(counterSnapshot3.getCount(), Matchers.is(1));
         assertThat(counterSnapshot3.getCumulativeValue(), Matchers.is(10L));
     }
@@ -312,7 +313,7 @@ public class FDBStoreTimerTest {
         private final String title;
         private final String logKey;
 
-        TestEvent(String title, String logKey) {
+        TestEvent(String title, @Nullable String logKey) {
             this.title = title;
             this.logKey = (logKey != null) ? logKey : StoreTimer.Event.super.logKey();
         }
@@ -357,7 +358,7 @@ public class FDBStoreTimerTest {
 
         // Aggregate counters are immutable.
         assertThrows(RecordCoreException.class, () -> {
-            storeTimer.getCounter(FDBStoreTimer.CountAggregates.BYTES_DELETED).increment(44);
+            Objects.requireNonNull(storeTimer.getCounter(FDBStoreTimer.CountAggregates.BYTES_DELETED)).increment(44);
         });
     }
 
@@ -633,17 +634,22 @@ public class FDBStoreTimerTest {
         @Override
         public void commit(final FDBDatabase database, final Transaction transaction,
                            @Nullable final StoreTimer storeTimer, @Nullable final Throwable exception) {
-            reads += storeTimer.getCount(FDBStoreTimer.Counts.READS);
-            writes += storeTimer.getCount(FDBStoreTimer.Counts.WRITES);
-            storeTimer.reset();
+            // TransactionListener declares storeTimer as @Nullable in general, but every transaction created in
+            // this test is opened with a real timer, so it is never actually null here.
+            final StoreTimer nonNullStoreTimer = Objects.requireNonNull(storeTimer);
+            reads += nonNullStoreTimer.getCount(FDBStoreTimer.Counts.READS);
+            writes += nonNullStoreTimer.getCount(FDBStoreTimer.Counts.WRITES);
+            nonNullStoreTimer.reset();
             commits++;
         }
 
         @Override
         public void close(final FDBDatabase database, final Transaction transaction, @Nullable final StoreTimer storeTimer) {
-            reads += storeTimer.getCount(FDBStoreTimer.Counts.READS);
-            writes += storeTimer.getCount(FDBStoreTimer.Counts.WRITES);
-            storeTimer.reset();
+            // See comment in commit() above: storeTimer is guaranteed non-null for this test's usage.
+            final StoreTimer nonNullStoreTimer = Objects.requireNonNull(storeTimer);
+            reads += nonNullStoreTimer.getCount(FDBStoreTimer.Counts.READS);
+            writes += nonNullStoreTimer.getCount(FDBStoreTimer.Counts.WRITES);
+            nonNullStoreTimer.reset();
             ++closes;
         }
     }
