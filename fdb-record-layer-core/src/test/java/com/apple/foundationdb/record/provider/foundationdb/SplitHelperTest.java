@@ -637,6 +637,10 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
     }
 
     @Nullable
+    // NullAway/JSpecify does not reliably track @Nullable byte[] parameters; it flags
+    // assertArrayEquals(expectedContents, rawRecord.getRawRecord()) below as a mismatch even
+    // though expectedContents is narrowed non-null and getRawRecord() is declared non-null.
+    @SuppressWarnings("NullAway")
     private FDBRawRecord loadWithSplit(FDBRecordContext context, Tuple key, SplitHelperTestConfig testConfig,
                                        @Nullable FDBStoredSizes expectedSizes, @Nullable byte[] expectedContents, @Nullable FDBRecordVersion expectedVersion) {
         final ReadTransaction tr = context.ensureActive();
@@ -652,7 +656,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
             assertNull(rawRecord);
         } else {
             assertNotNull(rawRecord);
-            assertArrayEquals(expectedContents, Objects.requireNonNull(rawRecord.getRawRecord()));
+            assertArrayEquals(Objects.requireNonNull(expectedContents), Objects.requireNonNull(rawRecord.getRawRecord()));
             int valueSize = expectedContents.length;
             if (expectedVersion != null) {
                 valueSize += 1 + FDBRecordVersion.VERSION_LENGTH;
@@ -722,6 +726,10 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
     }
 
     @Nullable
+    // NullAway/JSpecify does not reliably track @Nullable byte[] parameters; it flags
+    // assertArrayEquals(expectedContents, rawRecord.getRawRecord()) below as a mismatch even
+    // though expectedContents is narrowed non-null and getRawRecord() is declared non-null.
+    @SuppressWarnings("NullAway")
     private FDBRawRecord scanSingleRecord(FDBRecordContext context, boolean reverse, Tuple key, @Nullable FDBStoredSizes expectedSizes, @Nullable byte[] expectedContents, @Nullable FDBRecordVersion version) {
         final ScanProperties scanProperties = reverse ? ScanProperties.REVERSE_SCAN : ScanProperties.FORWARD_SCAN;
         KeyValueCursor kvCursor = KeyValueCursor.Builder.withSubspace(subspace)
@@ -745,7 +753,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
 
             assertNotNull(rawRecord);
             assertEquals(key, rawRecord.getPrimaryKey());
-            assertArrayEquals(expectedContents, Objects.requireNonNull(rawRecord.getRawRecord()));
+            assertArrayEquals(Objects.requireNonNull(expectedContents), Objects.requireNonNull(rawRecord.getRawRecord()));
             assertEquals(expectedSizes.getKeyCount(), rawRecord.getKeyCount());
             assertEquals(expectedSizes.getKeySize(), rawRecord.getKeySize());
             assertEquals(expectedSizes.getValueSize(), rawRecord.getValueSize());
