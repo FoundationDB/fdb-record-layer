@@ -113,10 +113,11 @@ public class TimeWindowForFunction implements PlanHashable, PlanSerializable {
     }
 
     @Override
-    @SuppressWarnings("NullAway") // PlanHashable#objectsPlanHash's Object... varargs is not annotated @Nullable,
-                                  // but each element is routed through objectPlanHash(mode, Object), which
-                                  // explicitly handles null elements (returning 0) -- passing the genuinely
-                                  // nullable leaderboardType/TimestampParameter fields here is safe.
+    // PlanHashable#objectsPlanHash's Object... varargs is not annotated @Nullable,
+    // but each element is routed through objectPlanHash(mode, Object), which
+    // explicitly handles null elements (returning 0) -- passing the genuinely
+    // nullable leaderboardType/TimestampParameter fields here is safe.
+    @SuppressWarnings("NullAway")
     public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, leaderboardType, leaderboardTimestamp, leaderboardTypeParameter,
                 leaderboardTimestampParameter);

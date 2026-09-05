@@ -66,9 +66,10 @@ public class ResolverMappingDigest implements AutoCloseable {
         runner.close();
     }
 
-    @SuppressWarnings({"PMD.CloseResource", "NullAway"}) // NullAway/JSpecify does not currently track @Nullable on array
-                                                           // (byte[]) parameters, even for a null literal passed to
-                                                           // computeInternal, whose continuation parameter is @Nullable.
+    // NullAway/JSpecify does not currently track @Nullable on array
+    // (byte[]) parameters, even for a null literal passed to
+    // computeInternal, whose continuation parameter is @Nullable.
+    @SuppressWarnings({"PMD.CloseResource", "NullAway"})
     public CompletableFuture<byte[]> computeDigest() {
         MessageDigest messageDigest;
         try {
