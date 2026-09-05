@@ -70,6 +70,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
@@ -162,7 +163,8 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
 
             for (TestRecords1Proto.MySimpleRecord record : records) {
-                assertEquals(record.toString(), recordStore.loadRecord(Tuple.from(record.getRecNo())).getRecord().toString());
+                // record was just saved above, so it is guaranteed to be present
+                assertEquals(record.toString(), Objects.requireNonNull(recordStore.loadRecord(Tuple.from(record.getRecNo()))).getRecord().toString());
             }
         }
     }
@@ -267,8 +269,10 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
     public void uniquenessChecksShouldBeStoreScoped() throws Exception {
         final KeySpacePath otherPath = pathManager.createPath(TestKeySpace.RECORD_STORE);
         try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore firstStore = createOrOpenRecordStore(context, simpleMetaData(NO_HOOK), path).getLeft();
-            final FDBRecordStore otherStore = createOrOpenRecordStore(context, simpleMetaData(NO_HOOK), otherPath).getLeft();
+            // Pair#getLeft() is @Nullable in general; createOrOpenRecordStore always supplies a non-null
+            // left value.
+            final FDBRecordStore firstStore = Objects.requireNonNull(createOrOpenRecordStore(context, simpleMetaData(NO_HOOK), path).getLeft());
+            final FDBRecordStore otherStore = Objects.requireNonNull(createOrOpenRecordStore(context, simpleMetaData(NO_HOOK), otherPath).getLeft());
             Index index = firstStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
 
             AtomicBoolean check1Run = new AtomicBoolean(false);
@@ -302,8 +306,10 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         for (final KeySpacePath keySpacePath : List.of(path, otherPath)) {
             try (FDBRecordContext context = openContext()) {
                 Pair<FDBRecordStore, QueryPlanner> recordStoreQueryPlannerPair = createOrOpenRecordStore(context, simpleMetaData(NO_HOOK), keySpacePath);
-                recordStore = recordStoreQueryPlannerPair.getLeft();
-                planner = recordStoreQueryPlannerPair.getRight();
+                // Pair#getLeft()/getRight() are @Nullable in general; createOrOpenRecordStore always
+                // supplies non-null values for both.
+                recordStore = Objects.requireNonNull(recordStoreQueryPlannerPair.getLeft());
+                planner = Objects.requireNonNull(recordStoreQueryPlannerPair.getRight());
 
                 recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(1066L)
@@ -318,7 +324,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         final RecordMetaDataHook uniqueHook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", uniqueIndex);
 
         try (FDBRecordContext context = openContext()) {
-            recordStore = createOrOpenRecordStore(context, simpleMetaData(uniqueHook), path).getLeft();
+            recordStore = Objects.requireNonNull(createOrOpenRecordStore(context, simpleMetaData(uniqueHook), path).getLeft());
             commit(context);
 
             try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
@@ -332,14 +338,14 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         }
 
         try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore otherStore = createOrOpenRecordStore(context, simpleMetaData(uniqueHook), otherPath).getLeft();
+            final FDBRecordStore otherStore = Objects.requireNonNull(createOrOpenRecordStore(context, simpleMetaData(uniqueHook), otherPath).getLeft());
             otherStore.markIndexWriteOnly(uniqueIndex).get();
             commit(context);
         }
 
         try (FDBRecordContext context = openContext()) {
-            recordStore = createOrOpenRecordStore(context, simpleMetaData(uniqueHook), path).getLeft();
-            final FDBRecordStore otherStore = createOrOpenRecordStore(context, simpleMetaData(uniqueHook), otherPath).getLeft();
+            recordStore = Objects.requireNonNull(createOrOpenRecordStore(context, simpleMetaData(uniqueHook), path).getLeft());
+            final FDBRecordStore otherStore = Objects.requireNonNull(createOrOpenRecordStore(context, simpleMetaData(uniqueHook), otherPath).getLeft());
 
             assertEquals(IndexState.READABLE, recordStore.getIndexState(uniqueIndex));
             assertEquals(IndexState.WRITE_ONLY, otherStore.getIndexState(uniqueIndex));
@@ -357,6 +363,10 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // FDBRecordStoreBase#scanIndex's continuation parameter is declared @Nullable byte[] (a position
+    // NullAway does not reliably recognize as nullable), so the null literals below still trip the
+    // checker.
+    @SuppressWarnings("NullAway")
     public void changeIndexAtFixedSubspaceKey() throws Exception {
         final Object subspaceKey = "fixed_subspace_key";
 
@@ -621,7 +631,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
                 assertEquals(1L, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
                 assertThat(recordStore.getIndexState(uniqueIndex), either(equalTo(IndexState.WRITE_ONLY)).or(equalTo(IndexState.READABLE_UNIQUE_PENDING)));
                 assertThat(recordStore.scanUniquenessViolations(uniqueIndex)
-                                .map(RecordIndexUniquenessViolation::getPrimaryKey).asList().get(),
+                                .map(v -> Objects.requireNonNull(v.getPrimaryKey())).asList().get(),
                         containsAllPrimaryKeys());
                 commit(context);
             }
@@ -720,6 +730,10 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         }
 
         private void assertIndexEntries() throws InterruptedException, ExecutionException {
+            // FDBRecordStoreBase#scanIndex's continuation parameter is declared @Nullable byte[] (a
+            // position NullAway does not reliably recognize as nullable), so the null literal below
+            // still trips the checker.
+            @SuppressWarnings("NullAway")
             List<IndexEntry> indexEntries = recordStore.scanIndex(
                             nonUniqueIndex,
                             new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL),
@@ -744,8 +758,10 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
             timer.reset();
             try (FDBRecordContext context = openContext()) {
                 final AtomicReference<RecordMetaData> metadataProvider = new AtomicReference<>(uniqueMetadata);
-                createOrOpenRecordStore(context, metadataProvider::get);
-                final FDBRecordStore.Builder storeBuilder = getStoreBuilder(context, metadataProvider.get());
+                // metadataProvider always holds a non-null RecordMetaData: it is initialized with one
+                // above and never subsequently cleared.
+                createOrOpenRecordStore(context, () -> Objects.requireNonNull(metadataProvider.get()));
+                final FDBRecordStore.Builder storeBuilder = getStoreBuilder(context, Objects.requireNonNull(metadataProvider.get()));
                 assertFalse(recordStore.isVersionChanged());
                 assertEquals(0L, timer.getCount(FDBStoreTimer.Events.REBUILD_INDEX));
 
@@ -831,6 +847,10 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         }
 
         @Override
+        // IndexMaintainer#scan declares its continuation parameter as @Nullable byte[] (a position
+        // NullAway does not reliably recognize/reconcile between an override and its forwarded call) -
+        // the array-nullability tracking gap documented elsewhere in this rollout.
+        @SuppressWarnings("NullAway")
         public RecordCursor<IndexEntry> scan(final IndexScanType scanType, final TupleRange range, @Nullable final byte[] continuation, final ScanProperties scanProperties) {
             return underlying.scan(scanType, range, continuation, scanProperties);
         }
@@ -856,6 +876,10 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         }
 
         @Override
+        // IndexMaintainer#scanUniquenessViolations declares its continuation parameter as @Nullable
+        // byte[] (a position NullAway does not reliably recognize/reconcile between an override and its
+        // forwarded call) - the array-nullability tracking gap documented elsewhere in this rollout.
+        @SuppressWarnings("NullAway")
         public RecordCursor<IndexEntry> scanUniquenessViolations(final TupleRange range, @Nullable final byte[] continuation, final ScanProperties scanProperties) {
             return underlying.scanUniquenessViolations(range, continuation, scanProperties);
         }
@@ -866,6 +890,10 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         }
 
         @Override
+        // IndexMaintainer#validateEntries declares its continuation parameter as @Nullable byte[] (a
+        // position NullAway does not reliably recognize/reconcile between an override and its forwarded
+        // call) - the array-nullability tracking gap documented elsewhere in this rollout.
+        @SuppressWarnings("NullAway")
         public RecordCursor<InvalidIndexEntry> validateEntries(@Nullable final byte[] continuation, @Nullable final ScanProperties scanProperties) {
             return underlying.validateEntries(continuation, scanProperties);
         }
