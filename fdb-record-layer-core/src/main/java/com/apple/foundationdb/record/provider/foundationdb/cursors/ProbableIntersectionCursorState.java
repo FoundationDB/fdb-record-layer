@@ -155,8 +155,9 @@ class ProbableIntersectionCursorState<T> extends KeyedMergeCursorState<T> {
         }
     }
 
-    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters (a null continuation
-                                   // intentionally means "start from the beginning").
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters (a null continuation
+    // intentionally means "start from the beginning").
+    @SuppressWarnings("NullAway")
     static <T> ProbableIntersectionCursorState<T> from(
             Function<byte[], RecordCursor<T>> cursorFunction,
             BloomFilterCursorContinuation continuation,

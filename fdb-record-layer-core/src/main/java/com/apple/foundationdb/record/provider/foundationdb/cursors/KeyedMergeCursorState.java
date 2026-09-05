@@ -64,8 +64,9 @@ class KeyedMergeCursorState<T> extends MergeCursorState<T> {
         this.comparisonKey = null;
     }
 
-    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters (a null continuation
-                                   // intentionally means "start from the beginning").
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters (a null continuation
+    // intentionally means "start from the beginning").
+    @SuppressWarnings("NullAway")
     public static <T> KeyedMergeCursorState<T> from(
             Function<byte[], RecordCursor<T>> cursorFunction,
             RecordCursorContinuation continuation,

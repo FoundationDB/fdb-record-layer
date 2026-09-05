@@ -168,8 +168,9 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
      * Take items from inner cursor and put in pipeline until no more or a mapped cursor item is available.
      * @return a future that will complete with {@code false} if an item is available or none will ever be, or with {@code true} if this method should be called to try again
      */
-    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
-                                   // PipelineQueueEntry's outerCheckValue parameter is annotated @Nullable.
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // PipelineQueueEntry's outerCheckValue parameter is annotated @Nullable.
+    @SuppressWarnings("NullAway")
     protected CompletableFuture<Boolean> tryToFillPipeline() {
         if (closed) {
             return ALREADY_CANCELLED;
@@ -247,8 +248,9 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         }
     }
 
-    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields; initialInnerContinuation
-                                   // is only ever meant to be used once, so clearing it back to null here is intentional.
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields; initialInnerContinuation
+    // is only ever meant to be used once, so clearing it back to null here is intentional.
+    @SuppressWarnings("NullAway")
     private void clearInitialInnerContinuation() {
         initialInnerContinuation = null;
     }

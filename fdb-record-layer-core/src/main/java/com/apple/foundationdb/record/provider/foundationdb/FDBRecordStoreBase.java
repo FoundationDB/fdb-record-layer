@@ -1375,18 +1375,18 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                         if (getTimer() != null) {
                             getTimer().increment(FDBStoreTimer.Counts.BAD_INDEX_ENTRY);
                         }
-                        {
-                            final RecordCoreStorageException ex = new RecordCoreStorageException("record not found from index entry");
-                            ex.addLogInfo(
-                                    LogMessageKeys.INDEX_NAME, entry.getIndex().getName(),
-                                    LogMessageKeys.PRIMARY_KEY, primaryKey,
-                                    LogMessageKeys.INDEX_KEY, entry.getKey());
-                            final SubspaceProvider subspaceProvider = getSubspaceProvider();
-                            if (subspaceProvider != null) {
-                                ex.addLogInfo(subspaceProvider.logKey(), subspaceProvider.toString(getContext()));
-                            }
-                            throw ex;
+                    {
+                        final RecordCoreStorageException ex = new RecordCoreStorageException("record not found from index entry");
+                        ex.addLogInfo(
+                                LogMessageKeys.INDEX_NAME, entry.getIndex().getName(),
+                                LogMessageKeys.PRIMARY_KEY, primaryKey,
+                                LogMessageKeys.INDEX_KEY, entry.getKey());
+                        final SubspaceProvider subspaceProvider = getSubspaceProvider();
+                        if (subspaceProvider != null) {
+                            ex.addLogInfo(subspaceProvider.logKey(), subspaceProvider.toString(getContext()));
                         }
+                        throw ex;
+                    }
                     default:
                         throw new RecordCoreException("Unexpected index orphan behavior: " + orphanBehavior);
                 }

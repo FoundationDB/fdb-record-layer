@@ -203,10 +203,11 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
         }
 
         @Override
-        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return
-                                       // types; RecordCursorContinuation#toBytes() (out of scope here) is genuinely
-                                       // nullable per its javadoc, but its @Nullable annotation isn't recognized here,
-                                       // making this override look like it narrows a @NonNull super-method to @Nullable.
+        // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return
+        // types; RecordCursorContinuation#toBytes() (out of scope here) is genuinely
+        // nullable per its javadoc, but its @Nullable annotation isn't recognized here,
+        // making this override look like it narrows a @NonNull super-method to @Nullable.
+        @SuppressWarnings("NullAway")
         public byte @Nullable [] toBytes() {
             ByteString byteString = toByteString();
             return byteString.isEmpty() ? null : byteString.toByteArray();
