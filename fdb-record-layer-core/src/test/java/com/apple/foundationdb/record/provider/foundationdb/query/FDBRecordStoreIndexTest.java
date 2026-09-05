@@ -211,6 +211,9 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Test
+    // continuation = null below is intentional: it means "start from the beginning of the range".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     public void scanIndexWithUuidValue() {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, RecordMetaData.newBuilder().setRecords(TestRecordsUuidProto.getDescriptor()).getRecordMetaData());
@@ -244,7 +247,9 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreQueryTestBase {
                     ScanProperties.FORWARD_SCAN).asIterator()) {
                 for (int i = 1; i >= 0; i--) {
                     assertTrue(cursor.hasNext());
-                    IndexEntry tuples = cursor.next();
+                    // next() is only @Nullable because RecordCursorIterator is generic; the class contract
+                    // guarantees non-null here since hasNext() just returned true.
+                    IndexEntry tuples = Objects.requireNonNull(cursor.next());
                     assertEquals(2, tuples.getKey().size());
                     assertEquals(uuids.get(i), tuples.getKey().getUUID(0));
                 }
@@ -257,6 +262,9 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreQueryTestBase {
      * Verify that explicit (i.e. bypassing the planner) index scans work .
      */
     @Test
+    // continuation = null below is intentional: it means "start from the beginning of the range".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     public void scanIndexWithValue() throws Exception {
         RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("MySimpleRecord$num_value_unique");
@@ -278,7 +286,9 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreQueryTestBase {
                     new TupleRange(Tuple.from(900L), Tuple.from(950L), EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE),
                     null, ScanProperties.FORWARD_SCAN).asIterator()) {
                 while (cursor.hasNext()) {
-                    IndexEntry tuples = cursor.next();
+                    // next() is only @Nullable because RecordCursorIterator is generic; the class contract
+                    // guarantees non-null here since hasNext() just returned true.
+                    IndexEntry tuples = Objects.requireNonNull(cursor.next());
                     Tuple key = tuples.getKey();
                     Tuple value = tuples.getValue();
                     assertEquals(2, key.size());

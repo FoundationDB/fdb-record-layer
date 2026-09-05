@@ -47,6 +47,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -77,6 +78,7 @@ class MessageTransformationTest {
         Assertions.assertTrue(childrenMap.containsKey(0)); //aField
         Assertions.assertEquals(1, childrenMap.size());
         var aTrie = childrenMap.get(0); // aField
+        Assertions.assertNotNull(aTrie);
         Assertions.assertNull(aTrie.getValue());
         childrenMap = aTrie.getChildrenMap();
         Assertions.assertNotNull(childrenMap);
@@ -84,6 +86,7 @@ class MessageTransformationTest {
         Assertions.assertTrue(childrenMap.containsKey(1)); // abField
         Assertions.assertEquals(2, childrenMap.size());
         var aaTrie = childrenMap.get(0); // aaField
+        Assertions.assertNotNull(aaTrie);
         Assertions.assertNull(aaTrie.getValue());
         childrenMap = aaTrie.getChildrenMap();
         Assertions.assertNotNull(childrenMap);
@@ -91,13 +94,17 @@ class MessageTransformationTest {
         Assertions.assertTrue(childrenMap.containsKey(1)); // aabField
         Assertions.assertEquals(2, childrenMap.size());
         var aaaTrie = childrenMap.get(0); // aaaField
+        Assertions.assertNotNull(aaaTrie);
         Assertions.assertNull(aaaTrie.getChildrenMap());
         Assertions.assertNotNull(aaaTrie.getValue());
         Assertions.assertEquals(aaaTrie.getValue(), transformMap.get(a_aa_aaa.getFieldPath()));
         var aabTrie = childrenMap.get(1); // aabField
+        Assertions.assertNotNull(aabTrie);
         Assertions.assertEquals(aabTrie.getValue(), transformMap.get(a_aa_aab.getFieldPath()));
         childrenMap = aTrie.getChildrenMap();
+        Assertions.assertNotNull(childrenMap);
         var abTrie = childrenMap.get(1); // abField
+        Assertions.assertNotNull(abTrie);
         Assertions.assertNull(abTrie.getChildrenMap());
         Assertions.assertNotNull(abTrie.getValue());
         Assertions.assertEquals(abTrie.getValue(), transformMap.get(a_ab.getFieldPath()));
@@ -138,6 +145,11 @@ class MessageTransformationTest {
     }
 
     @Test
+    // store = null below is intentional: this test evaluates values directly without a real
+    // record store. MessageHelpers.transformMessage()'s `store` parameter isn't annotated
+    // @Nullable even though it is only ever forwarded to Value.eval(store, context), which does
+    // accept a null store for store-independent evaluation.
+    @SuppressWarnings("NullAway")
     void testTransformLeafs() {
         final var inValue = makeRecordConstructor();
         final var a_aa_aaa = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa", "aaa"));
@@ -198,6 +210,11 @@ class MessageTransformationTest {
     }
 
     @Test
+    // store = null below is intentional: this test evaluates values directly without a real
+    // record store. MessageHelpers.transformMessage()'s `store` parameter isn't annotated
+    // @Nullable even though it is only ever forwarded to Value.eval(store, context), which does
+    // accept a null store for store-independent evaluation.
+    @SuppressWarnings("NullAway")
     void testTransformIntermediate() {
         final var inValue = makeRecordConstructor();
         final var a_aa = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa"));
@@ -226,11 +243,11 @@ class MessageTransformationTest {
                 trie,
                 null,
                 inValue.getResultType(),
-                evaluationContext.getTypeRepository().getMessageDescriptor(inValue.getResultType()),
+                Objects.requireNonNull(evaluationContext.getTypeRepository().getMessageDescriptor(inValue.getResultType())),
                 inValue.getResultType(),
-                evaluationContext.getTypeRepository().getMessageDescriptor(inValue.getResultType()),
+                Objects.requireNonNull(evaluationContext.getTypeRepository().getMessageDescriptor(inValue.getResultType())),
                 inRecord);
-        
+
         final var aValue =
                 RecordConstructorValue.ofColumns(
                         ImmutableList.of(
@@ -257,6 +274,11 @@ class MessageTransformationTest {
     }
 
     @Test
+    // store = null below is intentional: this test evaluates values directly without a real
+    // record store. MessageHelpers.transformMessage()'s `store` parameter isn't annotated
+    // @Nullable even though it is only ever forwarded to Value.eval(store, context), which does
+    // accept a null store for store-independent evaluation.
+    @SuppressWarnings("NullAway")
     void testTransformSparse() {
         final var inValue = makeSparseRecordConstructor();
         final var a_aa_aaa = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa", "aaa"));
@@ -301,13 +323,13 @@ class MessageTransformationTest {
                 ));
 
         final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).addTypeIfNeeded(expectedValue.getResultType()).build());
-        final var inRecord = (Message)inValue.eval(null, evaluationContext);
+        final var inRecord = (Message)Objects.requireNonNull(inValue.eval(null, evaluationContext));
         final var result = MessageHelpers.transformMessage(null,
                 evaluationContext,
                 trie,
                 null,
                 expectedValue.getResultType(),
-                evaluationContext.getTypeRepository().getMessageDescriptor(expectedValue.getResultType()),
+                Objects.requireNonNull(evaluationContext.getTypeRepository().getMessageDescriptor(expectedValue.getResultType())),
                 inValue.getResultType(),
                 inRecord.getDescriptorForType(),
                 inRecord);
@@ -317,6 +339,11 @@ class MessageTransformationTest {
     }
 
     @Test
+    // store = null below is intentional: this test evaluates values directly without a real
+    // record store. MessageHelpers.transformMessage()'s `store` parameter isn't annotated
+    // @Nullable even though it is only ever forwarded to Value.eval(store, context), which does
+    // accept a null store for store-independent evaluation.
+    @SuppressWarnings("NullAway")
     void testTransformLeafsWithCoercion() throws Exception {
         final var inValue = makeRecordConstructor();
         final var a_aa_aaa = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa", "aaa"));
@@ -333,7 +360,7 @@ class MessageTransformationTest {
                         transformMap);
 
         final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).build());
-        final var inRecord = (Message)inValue.eval(null, evaluationContext);
+        final var inRecord = (Message)Objects.requireNonNull(inValue.eval(null, evaluationContext));
         final var coercedType = Type.Record.fromDescriptor(TestRecordsTransformProto.DefaultTransformMessage.getDescriptor());
         final var result = (Message)Verify.verifyNotNull(MessageHelpers.transformMessage(null,
                 evaluationContext,
@@ -356,6 +383,12 @@ class MessageTransformationTest {
     }
 
     @Test
+    @Test
+    // store = null below is intentional: this test evaluates values directly without a real
+    // record store. MessageHelpers.transformMessage()'s `store` parameter isn't annotated
+    // @Nullable even though it is only ever forwarded to Value.eval(store, context), which does
+    // accept a null store for store-independent evaluation.
+    @SuppressWarnings("NullAway")
     void testTransformIntermediateWithCoercion() throws Exception {
         final var inValue = makeRecordConstructor();
         final var a_aa = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa"));
@@ -378,7 +411,7 @@ class MessageTransformationTest {
                         transformMap);
 
         final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).build());
-        final var inRecord = (Message)inValue.eval(null, evaluationContext);
+        final var inRecord = (Message)Objects.requireNonNull(inValue.eval(null, evaluationContext));
         final var coercedType = Type.Record.fromDescriptor(TestRecordsTransformProto.DefaultTransformMessage.getDescriptor());
         final var result = (Message)MessageHelpers.transformMessage(null,
                 evaluationContext,
@@ -400,6 +433,12 @@ class MessageTransformationTest {
     }
 
     @Test
+    @Test
+    // store = null below is intentional: this test evaluates values directly without a real
+    // record store. MessageHelpers.transformMessage()'s `store` parameter isn't annotated
+    // @Nullable even though it is only ever forwarded to Value.eval(store, context), which does
+    // accept a null store for store-independent evaluation.
+    @SuppressWarnings("NullAway")
     void testTransformLeafsWithPromotion() throws Exception {
         final var inValue = makeRecordConstructor();
         final var a_aa_aaa = FieldValue.ofFieldNames(inValue, ImmutableList.of("a", "aa", "aaa"));
@@ -418,7 +457,7 @@ class MessageTransformationTest {
         final var promotionsTrie = PromoteValue.computePromotionsTrie(coercedType, inValue.getResultType(), transformationsTrie);
 
         final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(inValue.getResultType()).build());
-        final var inRecord = (Message)inValue.eval(null, evaluationContext);
+        final var inRecord = (Message)Objects.requireNonNull(inValue.eval(null, evaluationContext));
         final var result = (Message)Verify.verifyNotNull(MessageHelpers.transformMessage(null,
                 evaluationContext,
                 transformationsTrie,
@@ -464,6 +503,12 @@ class MessageTransformationTest {
      * @throws Exception if things fail
      */
     @Test
+    @Test
+    // store = null below is intentional: this test evaluates values directly without a real
+    // record store. MessageHelpers.transformMessage()'s `store` parameter isn't annotated
+    // @Nullable even though it is only ever forwarded to Value.eval(store, context), which does
+    // accept a null store for store-independent evaluation.
+    @SuppressWarnings("NullAway")
     void testPartialPromotionAndDeepCopy() throws Exception {
         final var inValue = makeRecordConstructorForPartialPromotion();
 
@@ -476,7 +521,7 @@ class MessageTransformationTest {
         final var typeRepository =
                 TypeRepository.newBuilder().addAllTypes(inValue.getDynamicTypes()).build();
         final var evaluationContext = EvaluationContext.forTypeRepository(typeRepository);
-        final var inRecord = (Message)inValue.eval(null, evaluationContext);
+        final var inRecord = (Message)Objects.requireNonNull(inValue.eval(null, evaluationContext));
         final var result = (Message)Verify.verifyNotNull(
                 MessageHelpers.transformMessage(null,
                         evaluationContext,
@@ -541,6 +586,12 @@ class MessageTransformationTest {
      * @throws Exception if things fail
      */
     @Test
+    @Test
+    // store = null below is intentional: this test evaluates values directly without a real
+    // record store. MessageHelpers.transformMessage()'s `store` parameter isn't annotated
+    // @Nullable even though it is only ever forwarded to Value.eval(store, context), which does
+    // accept a null store for store-independent evaluation.
+    @SuppressWarnings("NullAway")
     void testPartialPromotionAndNoDeepCopy() throws Exception {
         final var inValue = makeRecordConstructorForPartialPromotion();
 
@@ -556,14 +607,14 @@ class MessageTransformationTest {
                         .addAllTypes(inValue.getDynamicTypes())
                         .build();
         final var evaluationContext = EvaluationContext.forTypeRepository(typeRepository);
-        final var inRecord = (Message)inValue.eval(null, evaluationContext);
+        final var inRecord = (Message)Objects.requireNonNull(inValue.eval(null, evaluationContext));
         final var result = (Message)Verify.verifyNotNull(
                 MessageHelpers.transformMessage(null,
                         evaluationContext,
                         transformationsTrie,
                         promotionsTrie,
                         coercedType,
-                        typeRepository.getMessageDescriptor(coercedType), // this is the dynamically-created protobuf descriptor we are coercing to
+                        Objects.requireNonNull(typeRepository.getMessageDescriptor(coercedType)), // this is the dynamically-created protobuf descriptor we are coercing to
                         inValue.getResultType(),
                         inRecord.getDescriptorForType(),
                         inRecord));
@@ -596,10 +647,15 @@ class MessageTransformationTest {
     }
 
     @Test
+    // store = null below is intentional: this test evaluates values directly without a real
+    // record store. MessageHelpers.transformMessage()'s `store` parameter isn't annotated
+    // @Nullable even though it is only ever forwarded to Value.eval(store, context), which does
+    // accept a null store for store-independent evaluation.
+    @SuppressWarnings("NullAway")
     void testPromotionWithArrayToNotNullable() throws Exception {
         final var restaurantValue = makeRestaurantConstructor();
         final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(restaurantValue.getDynamicTypes()).build());
-        final var restaurantRecord = (Message)restaurantValue.eval(null, evaluationContext);
+        final var restaurantRecord = (Message)Objects.requireNonNull(restaurantValue.eval(null, evaluationContext));
         final var coercedType = Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor());
         final var transformationsTrie =
                 RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(ImmutableMap.of()),
@@ -634,10 +690,15 @@ class MessageTransformationTest {
     }
 
     @Test
+    // store = null below is intentional: this test evaluates values directly without a real
+    // record store. MessageHelpers.transformMessage()'s `store` parameter isn't annotated
+    // @Nullable even though it is only ever forwarded to Value.eval(store, context), which does
+    // accept a null store for store-independent evaluation.
+    @SuppressWarnings("NullAway")
     void testPromotionWithNullArrayToNullable() throws Exception {
         var restaurantValue = makeRestaurantConstructorWithNull();
         var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(restaurantValue.getDynamicTypes()).build());
-        var restaurantRecord = (Message)restaurantValue.eval(null, evaluationContext);
+        var restaurantRecord = (Message)Objects.requireNonNull(restaurantValue.eval(null, evaluationContext));
         final var coercedType = Type.Record.fromDescriptor(TestRecords4WrapperProto.RestaurantRecord.getDescriptor());
         final var transformationsTrie =
                 RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(ImmutableMap.of()),
@@ -677,10 +738,15 @@ class MessageTransformationTest {
     }
 
     @Test
+    // store = null below is intentional: this test evaluates values directly without a real
+    // record store. MessageHelpers.transformMessage()'s `store` parameter isn't annotated
+    // @Nullable even though it is only ever forwarded to Value.eval(store, context), which does
+    // accept a null store for store-independent evaluation.
+    @SuppressWarnings("NullAway")
     void testPromotionWithArrayToNullable() throws Exception {
         final var restaurantValue = makeRestaurantConstructor();
         final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(restaurantValue.getDynamicTypes()).build());
-        final var restaurantRecord = (Message)restaurantValue.eval(null, evaluationContext);
+        final var restaurantRecord = (Message)Objects.requireNonNull(restaurantValue.eval(null, evaluationContext));
         final var coercedType = Type.Record.fromDescriptor(TestRecords4WrapperProto.RestaurantRecord.getDescriptor());
         final var transformationsTrie =
                 RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(ImmutableMap.of()),
@@ -721,10 +787,15 @@ class MessageTransformationTest {
      * Tests that a field that is {@code null} cannot be coerced into a field that is not nullable.
      */
     @Test
+    // store = null below is intentional: this test evaluates values directly without a real
+    // record store. MessageHelpers.transformMessage()'s `store` parameter isn't annotated
+    // @Nullable even though it is only ever forwarded to Value.eval(store, context), which does
+    // accept a null store for store-independent evaluation.
+    @SuppressWarnings("NullAway")
     void testPromotionWithNullArrayToNotNullable() {
         final var restaurantValue = makeRestaurantConstructorWithNull();
         final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(restaurantValue.getDynamicTypes()).build());
-        final var restaurantRecord = (Message)restaurantValue.eval(null, evaluationContext);
+        final var restaurantRecord = (Message)Objects.requireNonNull(restaurantValue.eval(null, evaluationContext));
         final var coercedType = Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor());
         final var transformationsTrie =
                 RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(ImmutableMap.of()),
@@ -761,13 +832,17 @@ class MessageTransformationTest {
         Descriptors.Descriptor wrapperDescriptor = null;
         if (nullable) {
             final var typeRepository = TypeRepository.newBuilder().addTypeIfNeeded(targetType).build();
-            wrapperDescriptor = typeRepository.getMessageDescriptor((String) typeRepository.getMessageTypes().toArray()[0]);
+            // The message type was just added above via addTypeIfNeeded(), so the descriptor lookup
+            // is guaranteed to succeed.
+            wrapperDescriptor = Objects.requireNonNull(
+                    typeRepository.getMessageDescriptor((String) typeRepository.getMessageTypes().toArray()[0]));
             Assertions.assertTrue(NullableArrayTypeUtils.describesWrappedArray(wrapperDescriptor));
         }
         var msg = MessageHelpers.coerceArray(targetType, (Type.Array) strArrayValue.getResultType(),
                 wrapperDescriptor, null, objects);
         msg = nullable ? NullableArrayTypeUtils.unwrapIfArray(msg, targetType) : msg;
-        final var actualList = (List) msg;
+        // The array being coerced is a non-null list literal, so the coerced result is never null.
+        final var actualList = (List) Objects.requireNonNull(msg);
         Assertions.assertTrue(actualList instanceof List);
         Assertions.assertEquals(3, actualList.size());
         Assertions.assertEquals("abc", actualList.get(0));
@@ -810,9 +885,10 @@ class MessageTransformationTest {
             wrapperDescriptor = arrayWrappers.get(0);
         }
         var msg = MessageHelpers.coerceArray(targetType, (Type.Array) arrayValue.getResultType(),
-                wrapperDescriptor, null, arrayValue.eval(null, EvaluationContext.forTypeRepository(typeRepository)));
+                wrapperDescriptor, null, Objects.requireNonNull(arrayValue.eval(null, EvaluationContext.forTypeRepository(typeRepository))));
         msg = nullable ? NullableArrayTypeUtils.unwrapIfArray(msg, targetType) : msg;
-        final var actualList = (List) msg;
+        // The array being coerced is a non-null list literal, so the coerced result is never null.
+        final var actualList = (List) Objects.requireNonNull(msg);
         Assertions.assertEquals(3, actualList.size());
         for (int i = 0; i < 3; i++) {
             final var recordValues = ((DynamicMessage) actualList.get(i)).getAllFields().values();
