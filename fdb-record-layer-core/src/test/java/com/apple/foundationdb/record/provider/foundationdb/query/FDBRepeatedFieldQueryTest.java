@@ -55,6 +55,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
@@ -176,7 +177,7 @@ class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Scan(<,>) | one of s1 GREATER_THAN b
         RecordQueryPlan plan = planQuery(query);
-        assertThat(plan, filter(query.getFilter(), scan(unbounded())));
+        assertThat(plan, filter(Objects.requireNonNull(query.getFilter()), scan(unbounded())));
         assertEquals(972152650, plan.planHash(PlanHashable.CURRENT_LEGACY));
         assertEquals(1637946793, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         assertEquals(Arrays.asList(1L), fetchResultValues(plan, TestRecords6Proto.MyRepeatedRecord.REC_NO_FIELD_NUMBER,
@@ -359,7 +360,7 @@ class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
 
             // Index(review_rating <,>) | name GREATER_THAN A
             RecordQueryPlan plan = planQuery(query);
-            assertThat(plan, filter(query.getFilter(), indexScan(allOf(indexName("review_rating"), unbounded()))));
+            assertThat(plan, filter(Objects.requireNonNull(query.getFilter()), indexScan(allOf(indexName("review_rating"), unbounded()))));
             assertEquals(1381942688, plan.planHash(PlanHashable.CURRENT_LEGACY));
             assertEquals(-2104094855, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             assertEquals(Arrays.asList(1000L, 1001L, 1000L, 1001L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
@@ -370,7 +371,7 @@ class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
 
             // Index(review_rating <,>) | UnorderedPrimaryKeyDistinct() | name GREATER_THAN A
             plan = planQuery(query);
-            assertThat(plan, filter(query.getFilter(), primaryKeyDistinct(
+            assertThat(plan, filter(Objects.requireNonNull(query.getFilter()), primaryKeyDistinct(
                     indexScan(allOf(indexName("review_rating"), unbounded())))));
             assertEquals(1381942689, plan.planHash(PlanHashable.CURRENT_LEGACY));
             assertEquals(-984860353, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
@@ -390,14 +391,14 @@ class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             // Fetch(Covering(Index(customers-name <,>) -> [name: KEY[1], rest_no: KEY[2]]) | name GREATER_THAN A)
             RecordQueryPlan plan = planQuery(query);
             if (shouldOptimizeForIndexFilters) {
-                assertThat(plan, fetch(filter(query.getFilter(), coveringIndexScan(indexScan(allOf(indexName("customers-name"), unbounded()))))));
+                assertThat(plan, fetch(filter(Objects.requireNonNull(query.getFilter()), coveringIndexScan(indexScan(allOf(indexName("customers-name"), unbounded()))))));
                 assertEquals(-505715770, plan.planHash(PlanHashable.CURRENT_LEGACY));
                 assertEquals(-378020523, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
                 assertEquals(Arrays.asList(1000L, 1001L, 1000L, 1001L, 1000L, 1001L, 1000L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                         this::openNestedRecordStore,
                         TestHelpers::assertDiscardedNone));
             } else {
-                assertThat(plan, filter(query.getFilter(), indexScan(allOf(indexName("customers"), unbounded()))));
+                assertThat(plan, filter(Objects.requireNonNull(query.getFilter()), indexScan(allOf(indexName("customers"), unbounded()))));
                 assertEquals(1833106833, plan.planHash(PlanHashable.CURRENT_LEGACY));
                 assertEquals(201074216, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
                 assertEquals(Arrays.asList(1000L, 1001L, 1000L, 1001L, 1000L, 1000L, 1001L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
@@ -413,12 +414,12 @@ class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             // Fetch(Covering(Index(customers-name <,>) -> [name: KEY[1], rest_no: KEY[2]]) | UnorderedPrimaryKeyDistinct() | name GREATER_THAN A)
             plan = planQuery(query);
             if (shouldOptimizeForIndexFilters) {
-                assertThat(plan, fetch(filter(query.getFilter(), primaryKeyDistinct(
+                assertThat(plan, fetch(filter(Objects.requireNonNull(query.getFilter()), primaryKeyDistinct(
                         coveringIndexScan(indexScan(allOf(indexName("customers-name"), unbounded())))))));
                 assertEquals(-505715763, plan.planHash(PlanHashable.CURRENT_LEGACY));
                 assertEquals(741213979, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             } else {
-                assertThat(plan, filter(query.getFilter(), fetch(primaryKeyDistinct(
+                assertThat(plan, filter(Objects.requireNonNull(query.getFilter()), fetch(primaryKeyDistinct(
                         coveringIndexScan(indexScan(allOf(indexName("customers"), unbounded())))))));
                 assertEquals(-1611344673, plan.planHash(PlanHashable.CURRENT_LEGACY));
                 assertEquals(-484615365, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
@@ -546,6 +547,9 @@ class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that demanding unique values forces a distinctness plan at the end.
      */
     @DualPlannerTest
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the executeQuery call site below.
+    @SuppressWarnings("NullAway")
     void testComplexQuery7() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
@@ -578,7 +582,7 @@ class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             TestRecords1Proto.MySimpleRecord.Builder builder = TestRecords1Proto.MySimpleRecord.newBuilder();
-            Message byPrimary = recordStore.loadRecord(Tuple.from(1337)).getRecord();
+            Message byPrimary = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(1337))).getRecord();
             TestRecords1Proto.MySimpleRecord simplePrimary = builder.mergeFrom(byPrimary).build();
             assertEquals(1337, simplePrimary.getRecNo());
             assertEquals(Collections.singletonList(100), simplePrimary.getRepeaterList());
@@ -598,7 +602,7 @@ class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             final var typeRepository = TypeRepository.newBuilder().addAllTypes(usedTypes).build();
             List<Message> byQuery =
                     recordStore.executeQuery(plan, null, EvaluationContext.forBindingsAndTypeRepository(Bindings.EMPTY_BINDINGS, typeRepository), ExecuteProperties.SERIAL_EXECUTE)
-                            .map(QueryResult::getQueriedRecord).map(FDBRecord::getRecord).asList().get();
+                            .map(qr -> Objects.requireNonNull(qr.getQueriedRecord())).map(FDBRecord::getRecord).asList().get();
             assertEquals(1, byQuery.size());
             assertDiscardedNone(context);
             TestRecords1Proto.MySimpleRecord simpleByQuery = builder.clear().mergeFrom(byQuery.get(0)).build();
