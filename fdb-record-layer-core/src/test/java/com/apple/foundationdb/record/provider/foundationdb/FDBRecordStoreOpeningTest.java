@@ -63,6 +63,7 @@ import org.jspecify.annotations.Nullable;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -398,7 +399,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             recordStore.setHeaderUserField(userField, ByteString.copyFromUtf8("my_value"));
-            assertEquals("my_value", recordStore.getHeaderUserField(userField).toStringUtf8());
+            assertEquals("my_value", Objects.requireNonNull(recordStore.getHeaderUserField(userField)).toStringUtf8());
             // do not commit to make sure it is *only* updated at commit time
         }
 
@@ -406,12 +407,12 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             assertNull(recordStore.getHeaderUserField("my_key"));
             recordStore.setHeaderUserField(userField, ByteString.copyFromUtf8("my_other_value"));
-            assertEquals("my_other_value", recordStore.getHeaderUserField(userField).toStringUtf8());
+            assertEquals("my_other_value", Objects.requireNonNull(recordStore.getHeaderUserField(userField)).toStringUtf8());
 
             // Create a new record store to validate that a new record store in the same transaction also sees the value
             // when opened after the value has been changed
             FDBRecordStore secondStore = recordStore.asBuilder().open();
-            assertEquals("my_other_value", secondStore.getHeaderUserField(userField).toStringUtf8());
+            assertEquals("my_other_value", Objects.requireNonNull(secondStore.getHeaderUserField(userField)).toStringUtf8());
 
             secondStore.clearHeaderUserField(userField);
             assertNull(secondStore.getHeaderUserField(userField));
@@ -440,10 +441,10 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
         }
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            assertArrayEquals(new byte[]{0x42}, recordStore.getHeaderUserField("user_field").toByteArray());
+            assertArrayEquals(new byte[]{0x42}, Objects.requireNonNull(recordStore.getHeaderUserField("user_field")).toByteArray());
 
             FDBRecordStore secondStore = recordStore.asBuilder().open();
-            assertArrayEquals(new byte[]{0x42}, secondStore.getHeaderUserField("user_field").toByteArray());
+            assertArrayEquals(new byte[]{0x42}, Objects.requireNonNull(secondStore.getHeaderUserField("user_field")).toByteArray());
 
             recordStore.setHeaderUserField("user_field", new byte[]{0x10, 0x66});
             assertArrayEquals(new byte[]{0x10, 0x66}, recordStore.getHeaderUserField("user_field").toByteArray());
@@ -502,6 +503,9 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // begin/end = null below is intentional: it means "the entire range".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     void storeExistenceChecksWithNoRecords() throws Exception {
         RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         FDBRecordStore.Builder storeBuilder;
@@ -627,7 +631,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
                 assertThat(noInfoErr.getLogInfo(), hasKey(LogMessageKeys.KEY.toString()));
                 Object firstKey = noInfoErr.getLogInfo().get(LogMessageKeys.KEY.toString());
                 assertThat(firstKey, instanceOf(Tuple.class));
-                long firstKeyBegin = ((Tuple) firstKey).getLong(0);
+                long firstKeyBegin = ((Tuple) Objects.requireNonNull(firstKey)).getLong(0);
                 assertEquals(FDBRecordStoreKeyspace.RECORD.key(), firstKeyBegin);
             }
 
@@ -651,7 +655,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
                 assertThat(noInfoErr.getLogInfo(), hasKey(LogMessageKeys.KEY.toString()));
                 Object firstKey = noInfoErr.getLogInfo().get(LogMessageKeys.KEY.toString());
                 assertThat(firstKey, instanceOf(Tuple.class));
-                long firstKeyBegin = ((Tuple) firstKey).getLong(0);
+                long firstKeyBegin = ((Tuple) Objects.requireNonNull(firstKey)).getLong(0);
                 assertEquals(FDBRecordStoreKeyspace.INDEX.key(), firstKeyBegin);
             }
 
@@ -676,7 +680,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
                 assertThat(noInfoErr.getLogInfo(), hasKey(LogMessageKeys.KEY.toString()));
                 Object firstKey = noInfoErr.getLogInfo().get(LogMessageKeys.KEY.toString());
                 assertThat(firstKey, instanceOf(Tuple.class));
-                long firstKeyBegin = ((Tuple) firstKey).getLong(0);
+                long firstKeyBegin = ((Tuple) Objects.requireNonNull(firstKey)).getLong(0);
                 assertEquals(FDBRecordStoreKeyspace.INDEX_STATE_SPACE.key(), firstKeyBegin);
             }
         }
@@ -720,7 +724,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
 
             TestRecords1Proto.MySimpleRecord.Builder simple = TestRecords1Proto.MySimpleRecord.newBuilder();
-            simple.mergeFrom(recordStore.loadRecord(Tuple.from(1L)).getRecord());
+            simple.mergeFrom(Objects.requireNonNull(recordStore.loadRecord(Tuple.from(1L))).getRecord());
             assertEquals(111, simple.getNumValue2());
             simple.setNumValue2(1111);
             recordStore.updateRecord(simple.build());
@@ -1069,7 +1073,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
                     .createOrOpen();
 
             assertEquals(userVersionChecker.needRebuildIndexes, Map.of(index.getName(), 100L));
-            recordStore = Pair.of(store, setupPlanner(store, null)).getLeft();
+            recordStore = Objects.requireNonNull(Pair.of(store, setupPlanner(store, null)).getLeft());
             assertEquals(newIndexState, recordStore.getAllIndexStates().get(index));
             commit(context);
         }

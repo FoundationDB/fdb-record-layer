@@ -109,20 +109,20 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
                                 final int numValue, final String indexName, Object indexedValue) {
         assertBaseRecord(rec, primaryKey, strValue, numValue, indexName, indexedValue);
 
-        FDBRecordVersion version = rec.getStoredRecord().getVersion();
-        assertThat(version.toBytes().length, equalTo(12));
+        FDBRecordVersion version = Objects.requireNonNull(rec.getStoredRecord()).getVersion();
+        assertThat(Objects.requireNonNull(version).toBytes().length, equalTo(12));
     }
 
     protected void assertRecord(final FDBQueriedRecord<Message> rec, final long primaryKey, final String strValue,
                                 final int numValue, final String indexName, Object indexedValue, final int localVersion) {
         assertBaseRecord(rec, primaryKey, strValue, numValue, indexName, indexedValue);
 
-        FDBRecordVersion version = rec.getStoredRecord().getVersion();
-        assertThat(version.getLocalVersion(), equalTo(localVersion));
+        FDBRecordVersion version = Objects.requireNonNull(rec.getStoredRecord()).getVersion();
+        assertThat(Objects.requireNonNull(version).getLocalVersion(), equalTo(localVersion));
     }
 
     private void assertBaseRecord(final FDBQueriedRecord<Message> rec, final long primaryKey, final String strValue, final int numValue, final String indexName, final Object indexedValue) {
-        IndexEntry indexEntry = rec.getIndexEntry();
+        IndexEntry indexEntry = Objects.requireNonNull(rec.getIndexEntry());
         assertThat(indexEntry.getIndex().getName(), equalTo(indexName));
         List<Object> indexElements = indexEntry.getKey().getItems();
         assertThat(indexElements.size(), equalTo(2));
@@ -132,7 +132,7 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
         assertThat(indexPrimaryKey.size(), equalTo(1));
         assertThat(indexPrimaryKey.get(0), equalTo(primaryKey));
 
-        FDBStoredRecord<Message> storedRecord = rec.getStoredRecord();
+        FDBStoredRecord<Message> storedRecord = Objects.requireNonNull(rec.getStoredRecord());
         assertThat(storedRecord.getPrimaryKey().get(0), equalTo(primaryKey));
         assertThat(storedRecord.getRecordType().getName(), equalTo("MySimpleRecord"));
 
@@ -151,12 +151,21 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
         return planQuery(query);
     }
 
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters, even when passed
+    // through to another overload whose continuation parameter is already annotated @Nullable.
+    @SuppressWarnings("NullAway")
     protected byte[] executeAndVerifyData(RecordQueryPlan plan, int expectedRecords, BiConsumer<FDBQueriedRecord<Message>, Integer> recordVerifier,
                                           final RecordMetaDataHook metaDataHook) throws Exception {
         return executeAndVerifyData(plan, null, ExecuteProperties.SERIAL_EXECUTE, expectedRecords, recordVerifier, metaDataHook);
     }
 
-    protected byte[] executeAndVerifyData(RecordQueryPlan plan, byte[] continuation, ExecuteProperties executeProperties,
+    // The returned continuation is null once the scan is exhausted (this method's return type is kept as a
+    // non-null byte[] to match the contract already relied upon by sibling subclasses of this base class;
+    // fixing that properly is out of scope here). NullAway/JSpecify does not reliably track @Nullable on
+    // byte[] parameters/return types.
+    @SuppressWarnings("NullAway")
+    protected byte[] executeAndVerifyData(RecordQueryPlan plan, @Nullable byte[] continuation, ExecuteProperties executeProperties,
                                           int expectedRecords, BiConsumer<FDBQueriedRecord<Message>, Integer> recordVerifier, final RecordMetaDataHook metaDataHook) throws Exception {
         byte[] lastContinuation;
 
@@ -167,7 +176,12 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
         return lastContinuation;
     }
 
-    protected byte[] executeAndVerifyData(FDBRecordContext context, RecordQueryPlan plan, byte[] continuation, ExecuteProperties executeProperties,
+    // See the comment on the overload above: the returned continuation can genuinely be null once the scan
+    // is exhausted, but the return type is kept as a non-null byte[] to match the existing contract relied
+    // upon outside this file. NullAway/JSpecify does not reliably track @Nullable on byte[] parameters/return
+    // types.
+    @SuppressWarnings("NullAway")
+    protected byte[] executeAndVerifyData(FDBRecordContext context, RecordQueryPlan plan, @Nullable byte[] continuation, ExecuteProperties executeProperties,
                                           int expectedRecords, BiConsumer<FDBQueriedRecord<Message>, Integer> recordVerifier) {
         byte[] lastContinuation;
 
@@ -178,8 +192,13 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
         return lastContinuation;
     }
 
+    // See the comment on executeAndVerifyData() above: the returned continuation can genuinely be null once
+    // the scan is exhausted, but the return type is kept as a non-null byte[] to match the existing contract
+    // relied upon outside this file. NullAway/JSpecify does not reliably track @Nullable on byte[]
+    // parameters/return types.
+    @SuppressWarnings("NullAway")
     protected byte[] scanAndVerifyData(String indexName, IndexFetchMethod fetchMethod, IndexScanBounds scanBounds,
-                                       final ScanProperties scanProperties, byte[] continuation,
+                                       final ScanProperties scanProperties, @Nullable byte[] continuation,
                                        int expectedRecords, BiConsumer<FDBQueriedRecord<Message>, Integer> recordVerifier, RecordMetaDataHook metaDataHook) {
         byte[] lastContinuation;
 
@@ -190,11 +209,15 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
         return lastContinuation;
     }
 
+    // continuation is legitimately null on the first scan; scanIndexRecords()'s continuation parameter is
+    // already annotated @Nullable, but NullAway/JSpecify does not reliably track @Nullable on byte[]
+    // parameters even when passed through to another @Nullable byte[] parameter.
     @Nullable
+    @SuppressWarnings("NullAway")
     protected byte[] scanAndVerifyData(FDBRecordContext context, String indexName, IndexFetchMethod fetchMethod,
-                                       IndexScanBounds scanBounds, final ScanProperties scanProperties, final byte[] continuation,
+                                       IndexScanBounds scanBounds, final ScanProperties scanProperties, @Nullable final byte[] continuation,
                                        int expectedRecords, BiConsumer<FDBQueriedRecord<Message>, Integer> recordVerifier) {
-        byte[] lastContinuation;
+        @Nullable byte[] lastContinuation;
         try (RecordCursorIterator<FDBQueriedRecord<Message>> iterator = recordStore.scanIndexRecords(
                         indexName, fetchMethod, scanBounds,
                         continuation, IndexOrphanBehavior.ERROR, scanProperties)
@@ -223,11 +246,11 @@ public class RemoteFetchTestBase extends FDBRecordStoreQueryTestBase {
         if ((useIndexPrefetch != IndexFetchMethod.SCAN_AND_FETCH) &&
                 (recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1))) {
 
-            StoreTimer.Counter numRemoteFetches = recordStore.getTimer().getCounter(REMOTE_FETCH);
-            StoreTimer.Counter numRemoteFetchEntries = recordStore.getTimer().getCounter(SCAN_REMOTE_FETCH_ENTRY);
+            StoreTimer.Counter numRemoteFetches = Objects.requireNonNull(recordStore.getTimer()).getCounter(REMOTE_FETCH);
+            StoreTimer.Counter numRemoteFetchEntries = Objects.requireNonNull(recordStore.getTimer()).getCounter(SCAN_REMOTE_FETCH_ENTRY);
             // Assert expected <= actual since there could be some other reads because of some set up code
-            assertTrue(expectedRemoteFetches <= numRemoteFetches.getCount());
-            assertTrue(expectedRemoteFetchEntries <= numRemoteFetchEntries.getCount());
+            assertTrue(expectedRemoteFetches <= Objects.requireNonNull(numRemoteFetches).getCount());
+            assertTrue(expectedRemoteFetchEntries <= Objects.requireNonNull(numRemoteFetchEntries).getCount());
         }
     }
 
