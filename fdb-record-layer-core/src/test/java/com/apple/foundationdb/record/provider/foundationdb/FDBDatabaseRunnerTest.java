@@ -172,6 +172,10 @@ public class FDBDatabaseRunnerTest {
     }
 
     @Test
+    // NullAway/JSpecify does not track FDBDatabaseRunner.run()'s inferred type parameter as
+    // @Nullable, but the second run() call below deliberately returns a @Nullable
+    // FDBStoredRecord to verify that the record was actually deleted.
+    @SuppressWarnings("NullAway")
     public void runDatabaseOperations() {
         // Tests to make sure the database operations are run and committed.
 
@@ -184,7 +188,7 @@ public class FDBDatabaseRunnerTest {
                         .setKeySpacePath(path)
                         .build();
                 store.deleteRecord(Tuple.from(1066L));
-                return null;
+                return context;
             });
 
             FDBStoredRecord<Message> retrieved2 = runner.run(context -> {
@@ -401,7 +405,7 @@ public class FDBDatabaseRunnerTest {
                 context.ensureActive().addReadConflictKey(key); // will cause conflict the first attempt
                 context.ensureActive().addWriteConflictKey(key);
 
-                return null;
+                return context;
             });
             assertEquals(2, attempts.get());
         }
