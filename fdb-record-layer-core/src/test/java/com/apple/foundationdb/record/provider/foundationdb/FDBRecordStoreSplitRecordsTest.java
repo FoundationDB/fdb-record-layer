@@ -44,6 +44,7 @@ import com.apple.test.Tags;
 import com.google.common.base.Strings;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -54,6 +55,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -76,6 +78,16 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 @Tag(Tags.RequiresFDB)
 public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
+
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at call sites in this file; centralizing the (well-understood) suppression
+    // here, rather than repeating it at every "no continuation" call site, keeps things readable.
+    // (Mirrors the same pattern used in FDBRecordStoreBase.noContinuation().)
+    @Nullable
+    @SuppressWarnings("NullAway")
+    private static byte[] noContinuation() {
+        return null;
+    }
 
     static class SplitRecordsTestConfig {
         private final boolean unrollRecordDeletes;
@@ -108,8 +120,8 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
 
         static SplitRecordsTestConfig getDefault() {
             return new SplitRecordsTestConfig(
-                    FDBRecordStoreProperties.UNROLL_SINGLE_RECORD_DELETES.getDefaultValue(),
-                    FDBRecordStoreProperties.LOAD_RECORDS_VIA_GETS.getDefaultValue()
+                    Objects.requireNonNull(FDBRecordStoreProperties.UNROLL_SINGLE_RECORD_DELETES.getDefaultValue()),
+                    Objects.requireNonNull(FDBRecordStoreProperties.LOAD_RECORDS_VIA_GETS.getDefaultValue())
             );
         }
     }
@@ -179,7 +191,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
             assertEquals(rec2, readRec2.getRecord());
 
             // Ensure can still read using range scan.
-            List<FDBStoredRecord<Message>> recs = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asList().get();
+            List<FDBStoredRecord<Message>> recs = recordStore.scanRecords(noContinuation(), ScanProperties.FORWARD_SCAN).asList().get();
             assertEquals(2, recs.size());
 
             assertFalse(recs.get(0).isSplit());
@@ -197,9 +209,9 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
 
             // Ensure can still delete.
             recordStore.deleteRecord(Tuple.from(1066L));
-            assertEquals(1, recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).getCount().get().intValue());
+            assertEquals(1, recordStore.scanRecords(noContinuation(), ScanProperties.FORWARD_SCAN).getCount().get().intValue());
             recordStore.deleteRecord(Tuple.from(1415L));
-            assertEquals(0, recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).getCount().get().intValue());
+            assertEquals(0, recordStore.scanRecords(noContinuation(), ScanProperties.FORWARD_SCAN).getCount().get().intValue());
 
             commit(context);
         }
@@ -466,12 +478,12 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
             assertEquals(rec1, storedRec1.getRecord());
 
             // Scan should return only that record
-            RecordCursorIterator<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asIterator();
+            RecordCursorIterator<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(noContinuation(), ScanProperties.FORWARD_SCAN).asIterator();
             assertTrue(cursor.hasNext());
             FDBStoredRecord<Message> scannedRec1 = cursor.next();
             assertEquals(storedRec1, scannedRec1);
             assertFalse(cursor.hasNext());
-            cursor = recordStore.scanRecords(null, ScanProperties.REVERSE_SCAN).asIterator();
+            cursor = recordStore.scanRecords(noContinuation(), ScanProperties.REVERSE_SCAN).asIterator();
             assertTrue(cursor.hasNext());
             FDBStoredRecord<Message> scannedReverseRec1 = cursor.next();
             assertEquals(storedRec1, scannedReverseRec1);
@@ -491,7 +503,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
             assertEquals(rec2, storedRec2.getRecord());
 
             // Scan should now contain both records.
-            cursor = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asIterator();
+            cursor = recordStore.scanRecords(noContinuation(), ScanProperties.FORWARD_SCAN).asIterator();
             assertTrue(cursor.hasNext());
             scannedRec1 = cursor.next();
             assertEquals(storedRec1, scannedRec1);
@@ -499,7 +511,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
             FDBStoredRecord<Message> scannedRec2 = cursor.next();
             assertEquals(storedRec2, scannedRec2);
             assertFalse(cursor.hasNext());
-            cursor = recordStore.scanRecords(null, ScanProperties.REVERSE_SCAN).asIterator();
+            cursor = recordStore.scanRecords(noContinuation(), ScanProperties.REVERSE_SCAN).asIterator();
             assertTrue(cursor.hasNext());
             scannedRec2 = cursor.next();
             assertEquals(storedRec2, scannedRec2);
@@ -512,12 +524,12 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
             assertTrue(recordStore.deleteRecord(Tuple.from(1066L)));
 
             // Scan should now have just the second record
-            cursor = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asIterator();
+            cursor = recordStore.scanRecords(noContinuation(), ScanProperties.FORWARD_SCAN).asIterator();
             assertTrue(cursor.hasNext());
             scannedRec2 = cursor.next();
             assertEquals(storedRec2, scannedRec2);
             assertFalse(cursor.hasNext());
-            cursor = recordStore.scanRecords(null, ScanProperties.REVERSE_SCAN).asIterator();
+            cursor = recordStore.scanRecords(noContinuation(), ScanProperties.REVERSE_SCAN).asIterator();
             assertTrue(cursor.hasNext());
             scannedRec2 = cursor.next();
             assertEquals(storedRec2, scannedRec2);
@@ -585,18 +597,18 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         }
         try (FDBRecordContext context = openContext()) {
             openLongRecordStore(context);
-            RecordCursorIterator<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asIterator();
+            RecordCursorIterator<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(noContinuation(), ScanProperties.FORWARD_SCAN).asIterator();
             assertTrue(cursor.hasNext());
-            FDBStoredRecord<Message> rec1 = cursor.next();
+            FDBStoredRecord<Message> rec1 = Objects.requireNonNull(cursor.next());
             TestRecords2Proto.MyLongRecord.Builder myrec1 = TestRecords2Proto.MyLongRecord.newBuilder();
             myrec1.mergeFrom(rec1.getRecord());
             assertEquals(bytes1, myrec1.getBytesValue());
             assertTrue(cursor.hasNext());
-            FDBStoredRecord<Message> rec2 = cursor.next();
+            FDBStoredRecord<Message> rec2 = Objects.requireNonNull(cursor.next());
             TestRecords2Proto.MyLongRecord.Builder myrec2 = TestRecords2Proto.MyLongRecord.newBuilder();
             myrec2.mergeFrom(rec2.getRecord());
             assertEquals(bytes2, myrec2.getBytesValue());
-            FDBStoredRecord<Message> rec3 = cursor.next();
+            FDBStoredRecord<Message> rec3 = Objects.requireNonNull(cursor.next());
             TestRecords2Proto.MyLongRecord.Builder myrec3 = TestRecords2Proto.MyLongRecord.newBuilder();
             myrec3.mergeFrom(rec3.getRecord());
             assertEquals(bytes3, myrec3.getBytesValue());
@@ -631,7 +643,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, TEST_SPLIT_HOOK);
 
-            RecordCursorIterator<FDBStoredRecord<Message>> messageCursor = recordStore.scanRecords(null,
+            RecordCursorIterator<FDBStoredRecord<Message>> messageCursor = recordStore.scanRecords(noContinuation(),
                     new ScanProperties(ExecuteProperties.newBuilder()
                             .setReturnedRowLimit(1)
                             .setIsolationLevel(IsolationLevel.SERIALIZABLE)
@@ -676,7 +688,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, TEST_SPLIT_HOOK);
 
-            RecordCursorIterator<FDBStoredRecord<Message>> messageCursor = recordStore.scanRecords(null,
+            RecordCursorIterator<FDBStoredRecord<Message>> messageCursor = recordStore.scanRecords(noContinuation(),
                             new ScanProperties(ExecuteProperties.newBuilder()
                                     .setReturnedRowLimit(1)
                                     .setSkip(scannedRecords.size())
@@ -685,7 +697,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
                     .asIterator();
             while (messageCursor.hasNext()) {
                 scannedRecords.add(messageCursor.next());
-                messageCursor = recordStore.scanRecords(null, new ScanProperties(
+                messageCursor = recordStore.scanRecords(noContinuation(), new ScanProperties(
                         ExecuteProperties.newBuilder()
                                 .setReturnedRowLimit(1)
                                 .setSkip(scannedRecords.size())
@@ -752,20 +764,20 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
             FDBStoredRecord<Message> loadedRecord = recordStore.loadRecord(Tuple.from(recno));
             assertEquals(savedRecord, loadedRecord);
 
-            List<FDBStoredRecord<Message>> scannedRecords = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asList().join();
+            List<FDBStoredRecord<Message>> scannedRecords = recordStore.scanRecords(noContinuation(), ScanProperties.FORWARD_SCAN).asList().join();
             assertEquals(Collections.singletonList(savedRecord), scannedRecords);
 
-            List<FDBStoredRecord<Message>> scanOneRecord = recordStore.scanRecords(null, new ScanProperties(
+            List<FDBStoredRecord<Message>> scanOneRecord = recordStore.scanRecords(noContinuation(), new ScanProperties(
                     ExecuteProperties.newBuilder()
                             .setReturnedRowLimit(1)
                             .setIsolationLevel(IsolationLevel.SERIALIZABLE)
                             .build())).asList().join();
             assertEquals(Collections.singletonList(savedRecord), scanOneRecord);
 
-            List<FDBStoredRecord<Message>> reversedScannedRecords = recordStore.scanRecords(null, ScanProperties.REVERSE_SCAN).asList().join();
+            List<FDBStoredRecord<Message>> reversedScannedRecords = recordStore.scanRecords(noContinuation(), ScanProperties.REVERSE_SCAN).asList().join();
             assertEquals(Collections.singletonList(savedRecord), reversedScannedRecords);
 
-            List<FDBStoredRecord<Message>> reversedScannedOneRecord = recordStore.scanRecords(null, new ScanProperties(
+            List<FDBStoredRecord<Message>> reversedScannedOneRecord = recordStore.scanRecords(noContinuation(), new ScanProperties(
                     ExecuteProperties.newBuilder()
                             .setReturnedRowLimit(1)
                             .setIsolationLevel(IsolationLevel.SERIALIZABLE)
@@ -802,7 +814,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
             byte[] key = recordStore.getSubspace().pack(Tuple.from(FDBRecordStore.RECORD_KEY, recno, SplitHelper.START_SPLIT_RECORD));
             context.ensureActive().clear(key);
 
-            if (context.getPropertyStorage().getPropertyValue(FDBRecordStoreProperties.LOAD_RECORDS_VIA_GETS)) {
+            if (Objects.requireNonNull(context.getPropertyStorage().getPropertyValue(FDBRecordStoreProperties.LOAD_RECORDS_VIA_GETS))) {
                 // If we load via single key gets, we cannot distinguish between a record where the first split
                 // point is gone from an empty record because we do not a follow up scan. The whole point of this
                 // execution is to avoid those scans, so there's not much that can be done
@@ -811,17 +823,17 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
                 runAndCheckSplitException(() -> recordStore.loadRecord(Tuple.from(recno)),
                         "Found split record without start", "Loaded split record missing start key");
             }
-            runAndCheckSplitException(() -> recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asList().get(),
+            runAndCheckSplitException(() -> recordStore.scanRecords(noContinuation(), ScanProperties.FORWARD_SCAN).asList().get(),
                     "Found split record without start", "Scanned split records missing start key");
-            runAndCheckSplitException(() -> recordStore.scanRecords(null, new ScanProperties(
+            runAndCheckSplitException(() -> recordStore.scanRecords(noContinuation(), new ScanProperties(
                             ExecuteProperties.newBuilder()
                                     .setReturnedRowLimit(1)
                                     .setIsolationLevel(IsolationLevel.SERIALIZABLE)
                                     .build())).asList().get(),
                     "Found split record without start", "Scanned one split record missing start key");
-            runAndCheckSplitException(() -> recordStore.scanRecords(null, ScanProperties.REVERSE_SCAN).asList().get(),
+            runAndCheckSplitException(() -> recordStore.scanRecords(noContinuation(), ScanProperties.REVERSE_SCAN).asList().get(),
                     "Found split record without start", "Scanned split records in reverse missing start key");
-            runAndCheckSplitException(() -> recordStore.scanRecords(null, new ScanProperties(
+            runAndCheckSplitException(() -> recordStore.scanRecords(noContinuation(), new ScanProperties(
                             ExecuteProperties.newBuilder()
                                     .setReturnedRowLimit(1)
                                     .setIsolationLevel(IsolationLevel.SERIALIZABLE)
@@ -833,9 +845,9 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(recno + 1).build());
 
 
-            runAndCheckSplitException(() -> recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asList().get(),
+            runAndCheckSplitException(() -> recordStore.scanRecords(noContinuation(), ScanProperties.FORWARD_SCAN).asList().get(),
                     "Found split record without start", "Scanned split records missing start key");
-            runAndCheckSplitException(() -> recordStore.scanRecords(null, ScanProperties.REVERSE_SCAN).asList().get(),
+            runAndCheckSplitException(() -> recordStore.scanRecords(noContinuation(), ScanProperties.REVERSE_SCAN).asList().get(),
                     "Found split record without start", "Scanned split records in reverse missing start key");
 
             // DO NOT COMMIT
@@ -852,17 +864,17 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
 
             runAndCheckSplitException(() -> recordStore.loadRecord(Tuple.from(recno)),
                     "Split record segments out of order", "Loaded split record missing middle key");
-            runAndCheckSplitException(() -> recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asList().get(),
+            runAndCheckSplitException(() -> recordStore.scanRecords(noContinuation(), ScanProperties.FORWARD_SCAN).asList().get(),
                     "Split record segments out of order", "Scanned split records missing middle key");
-            runAndCheckSplitException(() -> recordStore.scanRecords(null, new ScanProperties(
+            runAndCheckSplitException(() -> recordStore.scanRecords(noContinuation(), new ScanProperties(
                             ExecuteProperties.newBuilder()
                                     .setReturnedRowLimit(1)
                                     .setIsolationLevel(IsolationLevel.SERIALIZABLE)
                                     .build())).asList().get(),
                     "Split record segments out of order", "Scanned one split record missing middle key");
-            runAndCheckSplitException(() -> recordStore.scanRecords(null, ScanProperties.REVERSE_SCAN).asList().get(),
+            runAndCheckSplitException(() -> recordStore.scanRecords(noContinuation(), ScanProperties.REVERSE_SCAN).asList().get(),
                     "Split record segments out of order", "Scanned split records in reverse missing middle key");
-            runAndCheckSplitException(() -> recordStore.scanRecords(null, new ScanProperties(
+            runAndCheckSplitException(() -> recordStore.scanRecords(noContinuation(), new ScanProperties(
                             ExecuteProperties.newBuilder()
                                     .setReturnedRowLimit(1)
                                     .setIsolationLevel(IsolationLevel.SERIALIZABLE)
@@ -886,10 +898,10 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
             FDBStoredRecord<Message> loadedRecord = recordStore.loadRecord(Tuple.from(recno));
             assertNull(loadedRecord);
 
-            List<FDBStoredRecord<Message>> scannedRecords = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asList().join();
+            List<FDBStoredRecord<Message>> scannedRecords = recordStore.scanRecords(noContinuation(), ScanProperties.FORWARD_SCAN).asList().join();
             assertEquals(Collections.emptyList(), scannedRecords);
 
-            List<FDBStoredRecord<Message>> reverseScannedRecords = recordStore.scanRecords(null, ScanProperties.REVERSE_SCAN).asList().join();
+            List<FDBStoredRecord<Message>> reverseScannedRecords = recordStore.scanRecords(noContinuation(), ScanProperties.REVERSE_SCAN).asList().join();
             assertEquals(Collections.emptyList(), reverseScannedRecords);
 
             commit(context);

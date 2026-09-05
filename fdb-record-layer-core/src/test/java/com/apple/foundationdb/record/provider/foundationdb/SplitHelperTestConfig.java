@@ -106,7 +106,7 @@ public class SplitHelperTestConfig {
 
     public static SplitHelperTestConfig getDefault() {
         return new SplitHelperTestConfig(true, false,
-                FDBRecordStoreProperties.UNROLL_SINGLE_RECORD_DELETES.getDefaultValue(),
-                FDBRecordStoreProperties.LOAD_RECORDS_VIA_GETS.getDefaultValue(), false, false);
+                Objects.requireNonNull(FDBRecordStoreProperties.UNROLL_SINGLE_RECORD_DELETES.getDefaultValue()),
+                Objects.requireNonNull(FDBRecordStoreProperties.LOAD_RECORDS_VIA_GETS.getDefaultValue()), false, false);
     }
 }
