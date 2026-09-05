@@ -38,4 +38,31 @@ class ImportSchemaTemplateTests {
     void withIncludedDependencies(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("import-schema-template/with-included-dependencies.yamsql");
     }
+
+    /**
+     * Test the logic that can load a meta-data object from JSON where the meta-data
+     * has raw SQL user-defined functions included in it. Make sure that both user-defined macro
+     * functions and user-defined compiled SQL functions can both be loaded and used in basic
+     * queries against the meta-data.
+     *
+     * @param runner YAML runner
+     * @throws Exception from the test execution
+     */
+    @TestTemplate
+    void withUserDefinedFunctions(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("import-schema-template/with-user-defined-functions.yamsql");
+    }
+
+    /**
+     * Test the logic that can load a meta-data object from JSON where the meta-data
+     * has auxiliary types (i.e. user-defined SQL types) included in it. Make sure that
+     * the loaded auxiliary types can be used as parameters of user-defined functions.
+     *
+     * @param runner YAML runner
+     * @throws Exception from the test execution
+     */
+    @TestTemplate
+    void withAuxiliaryTypes(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("import-schema-template/with-auxiliary-types.yamsql");
+    }
 }

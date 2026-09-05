@@ -83,6 +83,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     private final Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticTypeMap;
     @Nonnull
+    private final Map<String, Descriptors.GenericDescriptor> auxiliaryTypeDescriptorMap;
+    @Nonnull
     private final Map<String, UserDefinedFunction> userDefinedFunctionMap;
     @Nonnull
     private final Map<String, View> viewMap;
@@ -118,6 +120,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                 Collections.unmodifiableMap(orig.indexes),
                 Collections.unmodifiableMap(orig.universalIndexes),
                 Collections.unmodifiableList(orig.formerIndexes),
+                Collections.unmodifiableMap(orig.auxiliaryTypeDescriptorMap),
                 Collections.unmodifiableMap(orig.userDefinedFunctionMap),
                 Collections.unmodifiableMap(orig.viewMap),
                 Collections.unmodifiableMap(orig.storedQueries),
@@ -140,6 +143,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                              @Nonnull Map<String, Index> indexes,
                              @Nonnull Map<String, Index> universalIndexes,
                              @Nonnull List<FormerIndex> formerIndexes,
+                             @Nonnull Map<String, Descriptors.GenericDescriptor> auxiliaryTypeDescriptorMap,
                              @Nonnull Map<String, UserDefinedFunction> userDefinedFunctionMap,
                              @Nonnull Map<String, View> viewMap,
                              @Nonnull Map<String, StoredQuery> storedQueries,
@@ -159,6 +163,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         this.indexes = indexes;
         this.universalIndexes = universalIndexes;
         this.formerIndexes = formerIndexes;
+        this.auxiliaryTypeDescriptorMap = auxiliaryTypeDescriptorMap;
         this.userDefinedFunctionMap = userDefinedFunctionMap;
         this.viewMap = viewMap;
         this.storedQueries = storedQueries;
@@ -746,6 +751,11 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     public Map<String, StoredQuery> getStoredQueries() {
         return storedQueries;
+    }
+
+    @Nonnull
+    public Map<String, Descriptors.GenericDescriptor> getAuxiliaryTypeDescriptors() {
+        return auxiliaryTypeDescriptorMap;
     }
 
     /**

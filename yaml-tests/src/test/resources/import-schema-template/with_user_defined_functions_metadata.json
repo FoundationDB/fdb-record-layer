@@ -1,0 +1,90 @@
+{
+  "records": {
+    "name": "with_user_defined_functions.proto",
+    "package": "com.apple.foundationdb.relational.yamltests.generated.withuserdefinedfunctions",
+    "dependency": [],
+    "messageType": [{
+      "name": "U",
+      "field": [{
+        "name": "id",
+        "number": 1,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64",
+        "oneofIndex": 0,
+        "proto3Optional": true
+      }, {
+        "name": "x",
+        "number": 2,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64",
+        "oneofIndex": 1,
+        "proto3Optional": true
+      }],
+      "oneofDecl": [{
+        "name": "_id"
+      }, {
+        "name": "_x"
+      }]
+    }, {
+      "name": "RecordTypeUnion",
+      "field": [{
+        "name": "_U",
+        "number": 1,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_MESSAGE",
+        "typeName": ".com.apple.foundationdb.relational.yamltests.generated.withuserdefinedfunctions.U"
+      }]
+    }],
+    "options": {
+      "javaOuterClassname": "WithUserDefinedFunctionsProto"
+    },
+    "syntax": "proto3"
+  },
+  "indexes": [{
+    "recordType": ["U"],
+    "name": "U$x",
+    "rootExpression": {
+      "field": {
+        "fieldName": "x",
+        "fanType": "SCALAR",
+        "nullInterpretation": "NOT_UNIQUE"
+      }
+    },
+    "subspaceKey": "AlUkeAA=",
+    "lastModifiedVersion": 2,
+    "type": "value",
+    "addedVersion": 2
+  }],
+  "recordTypes": [{
+    "name": "U",
+    "primaryKey": {
+      "then": {
+        "child": [{
+          "recordTypeKey": {
+          }
+        }, {
+          "field": {
+            "fieldName": "id",
+            "fanType": "SCALAR",
+            "nullInterpretation": "NOT_UNIQUE"
+          }
+        }]
+      }
+    }
+  }],
+  "userDefinedFunctions": [{
+    "sqlFunction": {
+      "name": "func_a",
+      "definition": "CREATE FUNCTION \"func_a\"(in \"q\" bigint) AS select * from \"U\" WHERE \"id\" \u003d \"q\""
+    }
+  }, {
+    "sqlFunction": {
+      "name": "func_b",
+      "definition": "CREATE FUNCTION \"func_b\"(in \"x\" bigint) RETURN \"x\"+1"
+    }
+  }],
+  "splitLongRecords": false,
+  "version": 2,
+  "storeRecordVersions": false,
+  "dependencies": []
+}

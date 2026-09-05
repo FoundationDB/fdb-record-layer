@@ -1,0 +1,12 @@
+Ê
+
+È
+with-auxiliary-types)EXPLAIN SELECT * FROM func_a((5l, 'foo'))„create temporary function func_a(IN R TYPE "X") on commit drop function AS select * from U where R."a" = "x"."a" and R."b" = "x"."b"ü
+»ÂœÃ.i Ð®¹(+0Ù¼š8<@“ISCAN(U$x [EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS a, STRING AS b).a, EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS a, STRING AS b).b])Çdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS a, STRING AS b).a, EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS a, STRING AS b).b]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a, STRING AS b AS x)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">U$x</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a, STRING AS b AS x)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}

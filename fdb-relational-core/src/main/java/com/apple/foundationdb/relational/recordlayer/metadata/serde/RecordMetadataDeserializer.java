@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedMacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.util.ProtoUtils;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
@@ -105,6 +106,23 @@ public class RecordMetadataDeserializer {
             }
         }
         nameToTableBuilder.values().stream().map(RecordLayerTable.Builder::build).forEach(schemaTemplateBuilder::addTable);
+
+        for (final var auxiliaryTypeDescriptor : recordMetaData.getAuxiliaryTypeDescriptors().values()) {
+            final Type recordLayerType;
+            if (auxiliaryTypeDescriptor instanceof Descriptors.EnumDescriptor) {
+                recordLayerType = Type.Enum.fromDescriptorPreservingNames(
+                        false, (Descriptors.EnumDescriptor)auxiliaryTypeDescriptor);
+            } else {
+                Assert.thatUnchecked(auxiliaryTypeDescriptor instanceof Descriptors.Descriptor,
+                        ErrorCode.INTERNAL_ERROR,
+                        () -> String.format("Unsupported auxiliary type descriptor with name '%s'", auxiliaryTypeDescriptor.getFullName()));
+                recordLayerType = Type.Record
+                        .fromDescriptorPreservingName((Descriptors.Descriptor)auxiliaryTypeDescriptor)
+                        .withNullability(true);
+            }
+            schemaTemplateBuilder.addAuxiliaryType((DataType.Named)DataTypeUtils.toRelationalType(recordLayerType));
+        }
+
         final var metadataProvider = Suppliers.memoize(schemaTemplateBuilder::build);
         if (!recordMetaData.getUserDefinedFunctionMap().isEmpty()) {
             // TODO: topsort deps of functions.

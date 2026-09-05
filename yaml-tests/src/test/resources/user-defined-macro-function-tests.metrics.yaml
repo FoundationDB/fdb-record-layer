@@ -4,22 +4,22 @@ user-defined-scalar-function-tests:
     explain: ISCAN(I2 <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.R.V.Z AS _0) |
         MAP (_._0._0 AS _0)
     task_count: 269
-    task_total_time_ms: 17
+    task_total_time_ms: 103
     transform_count: 70
-    transform_time_ms: 5
+    transform_time_ms: 67
     transform_yield_count: 24
-    insert_time_ms: 0
+    insert_time_ms: 2
     insert_new_count: 25
     insert_reused_count: 2
 -   query: EXPLAIN select st2_func(r) from nested
     ref: user-defined-macro-function-tests.yamsql:84
     explain: ISCAN(I2 <,>) | MAP (_.R.U AS _0)
     task_count: 211
-    task_total_time_ms: 15
+    task_total_time_ms: 21
     transform_count: 54
-    transform_time_ms: 6
+    transform_time_ms: 11
     transform_yield_count: 23
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 22
     insert_reused_count: 4
 -   query: EXPLAIN select id from nested where self(id) > 2 and self(id) < 5
@@ -27,9 +27,9 @@ user-defined-scalar-function-tests:
     explain: ISCAN(I2 <,>) | FILTER _.ID GREATER_THAN promote(@c10 AS LONG) AND _.ID
         LESS_THAN promote(@c17 AS LONG) | MAP (_.ID AS ID)
     task_count: 349
-    task_total_time_ms: 24
+    task_total_time_ms: 16
     transform_count: 96
-    transform_time_ms: 7
+    transform_time_ms: 8
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 36
@@ -40,11 +40,11 @@ user-defined-scalar-function-tests:
     explain: ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c29 AS LONG)
         | MAP (_.ID AS A, _.ID AS B, _.ID * @c29 AS C)
     task_count: 349
-    task_total_time_ms: 25
+    task_total_time_ms: 116
     transform_count: 96
-    transform_time_ms: 8
+    transform_time_ms: 83
     transform_yield_count: 28
-    insert_time_ms: 0
+    insert_time_ms: 2
     insert_new_count: 36
     insert_reused_count: 4
 -   query: EXPLAIN select z(r) as A, z(r) as B, st2_func(r) as C from nested where
@@ -53,11 +53,11 @@ user-defined-scalar-function-tests:
     explain: ISCAN(I2 <,>) | FILTER _.ID EQUALS promote(@c26 AS LONG) | MAP (_.R.V.Z
         AS A, _.R.V.Z AS B, _.R.U AS C)
     task_count: 349
-    task_total_time_ms: 27
+    task_total_time_ms: 118
     transform_count: 97
-    transform_time_ms: 8
+    transform_time_ms: 82
     transform_yield_count: 28
-    insert_time_ms: 0
+    insert_time_ms: 2
     insert_new_count: 36
     insert_reused_count: 4
 -   query: EXPLAIN select self(id) as A, z(r) as B, z(r) as C from nested where z(r)
@@ -66,11 +66,11 @@ user-defined-scalar-function-tests:
     explain: ISCAN(I2 [EQUALS promote(@c29 AS LONG)]) | FILTER _.ID LESS_THAN_OR_EQUALS
         promote(@c37 AS LONG) | MAP (_.ID AS A, _.R.V.Z AS B, _.R.V.Z AS C)
     task_count: 409
-    task_total_time_ms: 30
+    task_total_time_ms: 26
     transform_count: 104
-    transform_time_ms: 8
+    transform_time_ms: 11
     transform_yield_count: 31
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 42
     insert_reused_count: 3
 -   query: EXPLAIN select * from table_func1(3)
@@ -78,11 +78,11 @@ user-defined-scalar-function-tests:
     explain: ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c5 AS LONG)
         | MAP (_.ID AS ID, _.ID AS ID_COPY, _.R.V.Z AS Z_VAL)
     task_count: 483
-    task_total_time_ms: 43
+    task_total_time_ms: 114
     transform_count: 127
-    transform_time_ms: 13
+    transform_time_ms: 66
     transform_yield_count: 41
-    insert_time_ms: 1
+    insert_time_ms: 6
     insert_new_count: 65
     insert_reused_count: 4
 -   query: EXPLAIN select * from table_func2(140)
@@ -90,11 +90,11 @@ user-defined-scalar-function-tests:
     explain: ISCAN(I2 [[GREATER_THAN_OR_EQUALS promote(@c5 AS LONG)]]) | MAP (_.ID
         AS PROCESSED_ID, _.R.V.Z AS Z_VAL)
     task_count: 512
-    task_total_time_ms: 46
+    task_total_time_ms: 36
     transform_count: 131
-    transform_time_ms: 12
+    transform_time_ms: 14
     transform_yield_count: 43
-    insert_time_ms: 1
+    insert_time_ms: 2
     insert_new_count: 67
     insert_reused_count: 3
 -   query: EXPLAIN select * from table_func3(20, 40)
@@ -116,9 +116,9 @@ user-defined-scalar-function-tests:
         q0 -> { ISCAN(I2 <,>) | FILTER _.ID EQUALS q0.ID AND _.ID LESS_THAN_OR_EQUALS
         promote(@c15 AS LONG) AS q1 RETURN (q1.ID AS A, q0.ID AS B) }
     task_count: 1168
-    task_total_time_ms: 121
+    task_total_time_ms: 80
     transform_count: 304
-    transform_time_ms: 46
+    transform_time_ms: 38
     transform_yield_count: 96
     insert_time_ms: 3
     insert_new_count: 175
@@ -128,11 +128,11 @@ user-defined-scalar-function-tests:
     explain: ISCAN(I2 <,>) | FILTER _.ID LESS_THAN_OR_EQUALS promote(@c14 AS LONG)
         | MAP (_.ID AS A, _.R.V.Z AS B)
     task_count: 483
-    task_total_time_ms: 37
+    task_total_time_ms: 39
     transform_count: 127
-    transform_time_ms: 10
+    transform_time_ms: 16
     transform_yield_count: 41
-    insert_time_ms: 1
+    insert_time_ms: 2
     insert_new_count: 65
     insert_reused_count: 4
 -   query: EXPLAIN select self(self(a_val)) as A, self(a_copy) as B from table_func3(10,
@@ -154,11 +154,11 @@ user-defined-scalar-function-tests:
         AND _.ID GREATER_THAN promote(@c13 AS LONG) | MAP (_.ID AS ID, _.ID AS ID_COPY,
         _.R.V.Z AS Z_VAL)
     task_count: 483
-    task_total_time_ms: 40
+    task_total_time_ms: 35
     transform_count: 128
-    transform_time_ms: 12
+    transform_time_ms: 15
     transform_yield_count: 41
-    insert_time_ms: 1
+    insert_time_ms: 2
     insert_new_count: 65
     insert_reused_count: 4
 -   query: EXPLAIN select id, abcd(a) as d_val from deep_nested_t
@@ -187,7 +187,7 @@ user-defined-scalar-function-tests:
     insert_reused_count: 2
 user-defined-scalar-function-with-expressions-tests:
 -   query: EXPLAIN select add_udf(0, 1l) from range(1, 2)
-    ref: user-defined-macro-function-tests.yamsql:264
+    ref: user-defined-macro-function-tests.yamsql:267
     explain: TF range(promote(@c10 AS LONG), promote(@c12 AS LONG), STEP 1l) | MAP
         (promote(@c3 AS LONG) + @c5 AS _0)
     task_count: 114
@@ -199,7 +199,7 @@ user-defined-scalar-function-with-expressions-tests:
     insert_new_count: 9
     insert_reused_count: 0
 -   query: EXPLAIN select add_udf(5l, 10l) from range(1, 2)
-    ref: user-defined-macro-function-tests.yamsql:268
+    ref: user-defined-macro-function-tests.yamsql:271
     explain: TF range(promote(@c10 AS LONG), promote(@c12 AS LONG), STEP 1l) | MAP
         (@c3 + @c5 AS _0)
     task_count: 114
@@ -211,53 +211,55 @@ user-defined-scalar-function-with-expressions-tests:
     insert_new_count: 9
     insert_reused_count: 0
 -   query: EXPLAIN select st1_constructor(r.u.x) from nested
-    ref: user-defined-macro-function-tests.yamsql:272
-    explain: SCAN([IS NESTED]) | MAP (promote((_.R.U.X AS A, 0l AS _1) AS LONG AS
-        Y, LONG AS Z) AS _0)
-    task_count: 144
-    task_total_time_ms: 5
-    transform_count: 40
-    transform_time_ms: 1
-    transform_yield_count: 13
+    ref: user-defined-macro-function-tests.yamsql:275
+    explain: ISCAN(I1 <,>) | MAP (promote((_.R.U.X AS A, 0l AS _1) AS LONG AS Y, LONG
+        AS Z) AS _0)
+    task_count: 211
+    task_total_time_ms: 13
+    transform_count: 54
+    transform_time_ms: 6
+    transform_yield_count: 23
     insert_time_ms: 0
-    insert_new_count: 12
-    insert_reused_count: 2
+    insert_new_count: 22
+    insert_reused_count: 4
 -   query: EXPLAIN select st1_constructor_alt(r.u.x) from nested
-    ref: user-defined-macro-function-tests.yamsql:281
-    explain: SCAN([IS NESTED]) | MAP (promote((_.R.U.X AS A, 5l AS _1) AS LONG AS
-        Y, LONG AS Z) AS _0)
-    task_count: 144
-    task_total_time_ms: 3
-    transform_count: 40
-    transform_time_ms: 1
-    transform_yield_count: 13
+    ref: user-defined-macro-function-tests.yamsql:284
+    explain: ISCAN(I1 <,>) | MAP (promote((_.R.U.X AS A, 5l AS _1) AS LONG AS Y, LONG
+        AS Z) AS _0)
+    task_count: 211
+    task_total_time_ms: 11
+    transform_count: 54
+    transform_time_ms: 4
+    transform_yield_count: 23
     insert_time_ms: 0
-    insert_new_count: 12
-    insert_reused_count: 2
+    insert_new_count: 22
+    insert_reused_count: 4
 -   query: EXPLAIN select z(r) from nested
-    ref: user-defined-macro-function-tests.yamsql:290
-    explain: SCAN([IS NESTED]) | MAP (_.R.V.Z AS _0)
-    task_count: 144
-    task_total_time_ms: 5
-    transform_count: 40
-    transform_time_ms: 1
-    transform_yield_count: 13
+    ref: user-defined-macro-function-tests.yamsql:293
+    explain: 'COVERING(I1 <,> -> [ID: KEY:[2], R: [V: [Z: KEY:[0]]]]) | MAP (_.R.V.Z
+        AS _0)'
+    task_count: 239
+    task_total_time_ms: 9
+    transform_count: 59
+    transform_time_ms: 4
+    transform_yield_count: 25
     insert_time_ms: 0
-    insert_new_count: 12
-    insert_reused_count: 2
+    insert_new_count: 25
+    insert_reused_count: 4
 -   query: EXPLAIN select z_alt(r) from nested
-    ref: user-defined-macro-function-tests.yamsql:294
-    explain: SCAN([IS NESTED]) | MAP (_.R.V.Z AS _0)
-    task_count: 144
-    task_total_time_ms: 5
-    transform_count: 40
-    transform_time_ms: 1
-    transform_yield_count: 13
+    ref: user-defined-macro-function-tests.yamsql:297
+    explain: 'COVERING(I1 <,> -> [ID: KEY:[2], R: [V: [Z: KEY:[0]]]]) | MAP (_.R.V.Z
+        AS _0)'
+    task_count: 239
+    task_total_time_ms: 12
+    transform_count: 59
+    transform_time_ms: 5
+    transform_yield_count: 25
     insert_time_ms: 0
-    insert_new_count: 12
-    insert_reused_count: 2
+    insert_new_count: 25
+    insert_reused_count: 4
 -   query: EXPLAIN select st1_array((1l, 2l)) from range(1, 2)
-    ref: user-defined-macro-function-tests.yamsql:298
+    ref: user-defined-macro-function-tests.yamsql:301
     explain: TF range(promote(@c12 AS LONG), promote(@c14 AS LONG), STEP 1l) | MAP
         (array(promote(promote((@c4 AS _0, @c6 AS _1) AS LONG AS Y, LONG AS Z) AS
         LONG AS Y, LONG AS Z)) AS _0)
@@ -270,31 +272,31 @@ user-defined-scalar-function-with-expressions-tests:
     insert_new_count: 9
     insert_reused_count: 0
 -   query: EXPLAIN select st1_array_alt(r.v) from nested
-    ref: user-defined-macro-function-tests.yamsql:302
-    explain: SCAN([IS NESTED]) | MAP (array(promote(_.R.V AS LONG AS Y, LONG AS Z))
-        AS _0)
-    task_count: 144
-    task_total_time_ms: 3
-    transform_count: 40
-    transform_time_ms: 1
-    transform_yield_count: 13
+    ref: user-defined-macro-function-tests.yamsql:305
+    explain: ISCAN(I1 <,>) | MAP (array(promote(_.R.V AS LONG AS Y, LONG AS Z)) AS
+        _0)
+    task_count: 211
+    task_total_time_ms: 8
+    transform_count: 54
+    transform_time_ms: 3
+    transform_yield_count: 23
     insert_time_ms: 0
-    insert_new_count: 12
-    insert_reused_count: 2
+    insert_new_count: 22
+    insert_reused_count: 4
 -   query: EXPLAIN select st1_array_without_return_type(r.v) from nested
-    ref: user-defined-macro-function-tests.yamsql:311
-    explain: SCAN([IS NESTED]) | MAP (array(promote(_.R.V AS LONG AS Y, LONG AS Z))
-        AS _0)
-    task_count: 144
-    task_total_time_ms: 4
-    transform_count: 40
-    transform_time_ms: 2
-    transform_yield_count: 13
+    ref: user-defined-macro-function-tests.yamsql:314
+    explain: ISCAN(I1 <,>) | MAP (array(promote(_.R.V AS LONG AS Y, LONG AS Z)) AS
+        _0)
+    task_count: 211
+    task_total_time_ms: 9
+    transform_count: 54
+    transform_time_ms: 4
+    transform_yield_count: 23
     insert_time_ms: 0
-    insert_new_count: 12
-    insert_reused_count: 2
+    insert_new_count: 22
+    insert_reused_count: 4
 -   query: EXPLAIN select st1_array_first(st1_array((1l, 2l))) from range(1, 2)
-    ref: user-defined-macro-function-tests.yamsql:320
+    ref: user-defined-macro-function-tests.yamsql:323
     explain: TF range(promote(@c15 AS LONG), promote(@c17 AS LONG), STEP 1l) | MAP
         (array(promote(promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, LONG AS Z) AS
         LONG AS Y, LONG AS Z))[promote(1 AS INT)] AS _0)
@@ -310,19 +312,19 @@ user-defined-scalar-function-with-expressions-tests:
     setup:
     - create temporary function temp_constructor(IN x bigint) on commit drop function
         return (x, 5L)
-    ref: user-defined-macro-function-tests.yamsql:335
+    ref: user-defined-macro-function-tests.yamsql:338
     explain: SCAN([IS NESTED, EQUALS promote(@c14 AS LONG)]) | MAP ((_.R.U.W AS X,
         5l AS _1) AS _0)
-    task_count: 204
-    task_total_time_ms: 7
-    transform_count: 57
-    transform_time_ms: 2
-    transform_yield_count: 16
+    task_count: 417
+    task_total_time_ms: 23
+    transform_count: 106
+    transform_time_ms: 7
+    transform_yield_count: 32
     insert_time_ms: 0
-    insert_new_count: 17
-    insert_reused_count: 1
+    insert_new_count: 43
+    insert_reused_count: 2
 -   query: EXPLAIN select st1_constructor_with_defaults(4) from range(1, 2)
-    ref: user-defined-macro-function-tests.yamsql:339
+    ref: user-defined-macro-function-tests.yamsql:342
     explain: TF range(promote(@c8 AS LONG), promote(@c10 AS LONG), STEP 1l) | MAP
         ((promote(@c3 AS LONG) AS Y, promote(2l AS LONG) AS Z) AS _0)
     task_count: 114
@@ -334,7 +336,7 @@ user-defined-scalar-function-with-expressions-tests:
     insert_new_count: 9
     insert_reused_count: 0
 -   query: EXPLAIN select st1_constructor_with_defaults((3*2)) from range(1, 2)
-    ref: user-defined-macro-function-tests.yamsql:343
+    ref: user-defined-macro-function-tests.yamsql:346
     explain: TF range(promote(@c12 AS LONG), promote(@c14 AS LONG), STEP 1l) | MAP
         ((promote(@c4 * @c14 AS LONG) AS Y, promote(2l AS LONG) AS Z) AS _0)
     task_count: 114
@@ -346,7 +348,7 @@ user-defined-scalar-function-with-expressions-tests:
     insert_new_count: 9
     insert_reused_count: 0
 -   query: EXPLAIN select st1_constructor_with_defaults(4, 5) from range(1, 2)
-    ref: user-defined-macro-function-tests.yamsql:347
+    ref: user-defined-macro-function-tests.yamsql:350
     explain: TF range(promote(@c10 AS LONG), promote(@c12 AS LONG), STEP 1l) | MAP
         ((promote(@c3 AS LONG) AS Y, promote(@c5 AS LONG) AS Z) AS _0)
     task_count: 114
@@ -358,7 +360,7 @@ user-defined-scalar-function-with-expressions-tests:
     insert_new_count: 9
     insert_reused_count: 0
 -   query: EXPLAIN select st1_constructor_with_defaults(y => 4) from range(1, 2)
-    ref: user-defined-macro-function-tests.yamsql:351
+    ref: user-defined-macro-function-tests.yamsql:354
     explain: TF range(promote(@c10 AS LONG), promote(@c12 AS LONG), STEP 1l) | MAP
         ((promote(@c5 AS LONG) AS Y, promote(2l AS LONG) AS Z) AS _0)
     task_count: 114
@@ -370,7 +372,7 @@ user-defined-scalar-function-with-expressions-tests:
     insert_new_count: 9
     insert_reused_count: 0
 -   query: EXPLAIN select st1_constructor(5l) from range(1, 2)
-    ref: user-defined-macro-function-tests.yamsql:355
+    ref: user-defined-macro-function-tests.yamsql:358
     explain: TF range(promote(@c8 AS LONG), promote(@c10 AS LONG), STEP 1l) | MAP
         (promote((@c3 AS A, 0l AS _1) AS LONG AS Y, LONG AS Z) AS _0)
     task_count: 114
@@ -381,3 +383,31 @@ user-defined-scalar-function-with-expressions-tests:
     insert_time_ms: 0
     insert_new_count: 9
     insert_reused_count: 0
+-   query: EXPLAIN select red_colour() from range(1, 2)
+    setup:
+    - create temporary function red_colour() returns colour on commit drop function
+        return 'red'
+    ref: user-defined-macro-function-tests.yamsql:388
+    explain: TF range(promote(@c7 AS LONG), promote(@c9 AS LONG), STEP 1l) | MAP (promote('red'
+        AS ENUM<red(0), green(1), blue(2)>) AS _0)
+    task_count: 114
+    task_total_time_ms: 1
+    transform_count: 27
+    transform_time_ms: 0
+    transform_yield_count: 6
+    insert_time_ms: 0
+    insert_new_count: 9
+    insert_reused_count: 0
+-   query: EXPLAIN select id from nested where r.v.z = z(((5l, 11l), (10l, 100l)))
+    ref: user-defined-macro-function-tests.yamsql:401
+    explain: 'COVERING(I1 [EQUALS promote(((@c15 AS _0, @c17 AS _1) AS _0, (@c21 AS
+        _0, @c23 AS _1) AS _1) AS LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z
+        AS V).V.Z] -> [ID: KEY:[2], R: [V: [Z: KEY:[0]]]]) | MAP (_.ID AS ID)'
+    task_count: 437
+    task_total_time_ms: 23
+    transform_count: 107
+    transform_time_ms: 9
+    transform_yield_count: 34
+    insert_time_ms: 0
+    insert_new_count: 45
+    insert_reused_count: 4

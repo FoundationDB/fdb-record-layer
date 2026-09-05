@@ -309,7 +309,7 @@ public class SchemaTemplateSerDeTests {
                 .setVersion(42)
                 .addAuxiliaryType(DataType.StructType.from(
                         "Subtype",
-                        List.of(DataType.StructType.Field.from("field1", DataType.Primitives.INTEGER.type(), 0)),
+                        List.of(DataType.StructType.Field.from("field1", DataType.Primitives.INTEGER.type(), 1)),
                         true))
                 .addTable(
                         RecordLayerTable.newBuilder(false)
@@ -325,14 +325,58 @@ public class SchemaTemplateSerDeTests {
                                 .build())
                 .build();
         final var proto = sampleRecordSchemaTemplate.toRecordMetadata();
-        final var deserializedTableType = RecordLayerSchemaTemplate.fromRecordMetadata(proto, "TestSchemaTemplate", 42).findTableByName("T1");
+        final var deserializedSchemaTemplate = RecordLayerSchemaTemplate.fromRecordMetadata(proto, "TestSchemaTemplate", 42);
+        final var deserializedTableType = deserializedSchemaTemplate.findTableByName("T1");
         Assertions.assertTrue(deserializedTableType.isPresent());
         final var column = deserializedTableType.get().getColumns().stream().findFirst();
         Assertions.assertTrue(column.isPresent());
         final var type = column.get().getDataType();
         Assertions.assertInstanceOf(DataType.StructType.class, type);
-        final var typeName = ((DataType.StructType) type).getName();
+        final var typeName = ((DataType.StructType)type).getName();
         Assertions.assertEquals("Subtype", typeName);
+        Assertions.assertTrue(proto.getAuxiliaryTypeDescriptors().containsKey("Subtype"));
+        final var auxiliaryType = deserializedSchemaTemplate.findTypeByName("Subtype");
+        Assertions.assertTrue(auxiliaryType.isPresent());
+        Assertions.assertEquals(type, auxiliaryType.get());
+    }
+
+    @Test
+    void deserializationAllNestedTypesArePreservedCorrectly() {
+        final var sampleRecordSchemaTemplate = RecordLayerSchemaTemplate.newBuilder()
+                .setName("TestSchemaTemplate")
+                .setVersion(42)
+                .addAuxiliaryType(DataType.StructType.from(
+                        "Subtype1",
+                        List.of(DataType.StructType.Field.from("field1", DataType.Primitives.INTEGER.type().withNullable(true), 1)),
+                        true))
+                .addAuxiliaryType(DataType.StructType.from(
+                        "Subtype2",
+                        List.of(DataType.StructType.Field.from("field1", DataType.Primitives.INTEGER.type().withNullable(true), 1)),
+                        true))
+                .addAuxiliaryType(DataType.EnumType.from(
+                        "Subtype3",
+                        List.of(
+                                DataType.EnumType.EnumValue.of("Red", 1),
+                                DataType.EnumType.EnumValue.of("Green", 2)),
+                        false))
+                .addTable(
+                        RecordLayerTable.newBuilder(false)
+                                .setName("T1")
+                                .addColumn(RecordLayerColumn.newBuilder()
+                                        .setName("COL1")
+                                        .setDataType(
+                                                DataType.StructType.from(
+                                                        "Subtype",
+                                                        List.of(DataType.StructType.Field.from("field1", DataType.Primitives.INTEGER.type(), 1)),
+                                                        true))
+                                        .build())
+                                .build())
+                .build();
+        final var proto = sampleRecordSchemaTemplate.toRecordMetadata();
+        final var deserializedSchemaTemplate = RecordLayerSchemaTemplate.fromRecordMetadata(proto, "TestSchemaTemplate", 42);
+        final var deserializedTableType = deserializedSchemaTemplate.findTableByName("T1");
+        Assertions.assertTrue(deserializedTableType.isPresent());
+        Assertions.assertEquals(deserializedSchemaTemplate.getAuxiliaryTypes(), sampleRecordSchemaTemplate.getAuxiliaryTypes());
     }
 
 
