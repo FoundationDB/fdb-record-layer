@@ -43,7 +43,6 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
@@ -66,6 +65,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -96,6 +96,9 @@ import static org.junit.jupiter.api.Assertions.fail;
 class BitmapValueIndexTest extends FDBRecordStoreTestBase {
 
     @Test
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // scanIndex's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void basic() {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
@@ -157,6 +160,9 @@ class BitmapValueIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // scanIndex's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void nonPrimaryKey() {
         final RecordMetaDataHook num_by_num3_hook = metadata -> {
             metadata.addIndex(metadata.getRecordType("MySimpleRecord"),
@@ -211,6 +217,9 @@ class BitmapValueIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // scanIndex's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void uniquenessViolationNotChecked() {
         final RecordMetaDataHook num_by_num3_hook_not_unique = metadata -> {
             metadata.removeIndex("MySimpleRecord$num_value_unique");
@@ -297,7 +306,7 @@ class BitmapValueIndexTest extends FDBRecordStoreTestBase {
             assertEquals(1339577615, queryPlan.planHash(PlanHashable.CURRENT_LEGACY));
             assertEquals(-1022755654, queryPlan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             assertThat(
-                    collectOnBits(queryPlan.execute(recordStore).map(FDBQueriedRecord::getIndexEntry)),
+                    collectOnBits(queryPlan.execute(recordStore).map(record -> Objects.requireNonNull(record.getIndexEntry()))),
                     equalTo(IntStream.range(100, 200).boxed()
                             .filter(i -> (i & 1) == 1)
                             .filter(i -> (i % 7) == 3 && (i % 5) == 4)
@@ -327,7 +336,7 @@ class BitmapValueIndexTest extends FDBRecordStoreTestBase {
             assertEquals(-1911273393, queryPlan.planHash(PlanHashable.CURRENT_LEGACY));
             assertEquals(2018486938, queryPlan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             assertThat(
-                    collectOnBits(queryPlan.execute(recordStore).map(FDBQueriedRecord::getIndexEntry)),
+                    collectOnBits(queryPlan.execute(recordStore).map(record -> Objects.requireNonNull(record.getIndexEntry()))),
                     equalTo(IntStream.range(151, 200).boxed()
                             .filter(i -> (i & 1) == 1)
                             .filter(i -> (i % 7) == 3 && (i % 5) == 4)
@@ -358,7 +367,7 @@ class BitmapValueIndexTest extends FDBRecordStoreTestBase {
             assertEquals(1173292541, queryPlan.planHash(PlanHashable.CURRENT_LEGACY));
             assertEquals(-1559227819, queryPlan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             assertThat(
-                    collectOnBits(queryPlan.execute(recordStore).map(FDBQueriedRecord::getIndexEntry)),
+                    collectOnBits(queryPlan.execute(recordStore).map(record -> Objects.requireNonNull(record.getIndexEntry()))),
                     equalTo(IntStream.range(100, 200).boxed()
                             .filter(i -> (i & 1) == 1)
                             .filter(i -> (i % 7) == 3 && ((i % 5) == 2 || (i % 5) == 4))
@@ -385,9 +394,12 @@ class BitmapValueIndexTest extends FDBRecordStoreTestBase {
             int ntimes = 0;
             byte[] continuation = null;
             do {
+                // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+                // execute's continuation parameter is declared @Nullable byte[].
+                @SuppressWarnings("NullAway")
                 RecordCursor<IndexEntry> cursor = queryPlan.execute(recordStore, EvaluationContext.EMPTY, continuation, ExecuteProperties.newBuilder().setReturnedRowLimit(2).build())
-                        .map(FDBQueriedRecord::getIndexEntry);
-                RecordCursorResult<IndexEntry> cursorResult = cursor.forEachResult(i -> onBits.addAll(collectOnBits(i.get()))).join();
+                        .map(record -> Objects.requireNonNull(record.getIndexEntry()));
+                RecordCursorResult<IndexEntry> cursorResult = cursor.forEachResult(i -> onBits.addAll(collectOnBits(Objects.requireNonNull(i.get())))).join();
                 ntimes++;
                 continuation = cursorResult.getContinuation().toBytes();
             } while (continuation != null);
@@ -428,7 +440,7 @@ class BitmapValueIndexTest extends FDBRecordStoreTestBase {
             assertEquals(1788540340, queryPlan.planHash(PlanHashable.CURRENT_LEGACY));
             assertEquals(1021904334, queryPlan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             assertThat(
-                    collectOnBits(queryPlan.execute(recordStore).map(FDBQueriedRecord::getIndexEntry)),
+                    collectOnBits(queryPlan.execute(recordStore).map(record -> Objects.requireNonNull(record.getIndexEntry()))),
                     equalTo(IntStream.range(100, 200).boxed()
                             .filter(i -> (i & 1) == 1)
                             .filter(i -> ((i % 7) == 3 && (i % 5) == 0) || ((i % 7) == 3 && (i % 5) == 4))
@@ -457,7 +469,7 @@ class BitmapValueIndexTest extends FDBRecordStoreTestBase {
             assertEquals(1339577551, queryPlan.planHash(PlanHashable.CURRENT_LEGACY));
             assertEquals(17236339, queryPlan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             assertThat(
-                    collectOnBits(queryPlan.execute(recordStore).map(FDBQueriedRecord::getIndexEntry)),
+                    collectOnBits(queryPlan.execute(recordStore).map(record -> Objects.requireNonNull(record.getIndexEntry()))),
                     equalTo(IntStream.range(100, 200).boxed()
                             .filter(i -> (i & 1) == 1)
                             .filter(i -> (i % 7) == 1 && !((i % 5) == 2))
@@ -499,7 +511,7 @@ class BitmapValueIndexTest extends FDBRecordStoreTestBase {
             assertEquals(-556720460, queryPlan.planHash(PlanHashable.CURRENT_LEGACY));
             assertEquals(1315884767, queryPlan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             assertThat(
-                    collectOnBits(queryPlan.execute(recordStore).map(FDBQueriedRecord::getIndexEntry)),
+                    collectOnBits(queryPlan.execute(recordStore).map(record -> Objects.requireNonNull(record.getIndexEntry()))),
                     equalTo(IntStream.concat(IntStream.range(100, 200), IntStream.range(500, 600)).boxed()
                             .filter(i -> (i & 1) == 1)
                             .collect(Collectors.toList())));
@@ -554,7 +566,7 @@ class BitmapValueIndexTest extends FDBRecordStoreTestBase {
                     coveringIndexScan(indexScan(allOf(indexName("nested_num_by_str_num3"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("[[1, 4, odd],[1, 4, odd]]"))))))));
             assertEquals(1000204717, queryPlan.planHash(PlanHashable.CURRENT_LEGACY));
             assertThat(
-                    collectOnBits(queryPlan.execute(recordStore).map(FDBQueriedRecord::getIndexEntry)),
+                    collectOnBits(queryPlan.execute(recordStore).map(record -> Objects.requireNonNull(record.getIndexEntry()))),
                     equalTo(IntStream.range(100, 200).boxed()
                             .filter(i -> (i & 1) == 1)
                             .filter(i -> (i % 7) == 3 && (i % 5) == 4)
@@ -579,7 +591,7 @@ class BitmapValueIndexTest extends FDBRecordStoreTestBase {
             assertThat(queryPlan, coveringIndexScan(indexScan(allOf(indexName("rec_no_by_str_num2"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("[[odd, 3],[odd, 3]]"))))));
             assertEquals(1188586655, queryPlan.planHash(PlanHashable.CURRENT_LEGACY));
             assertThat(
-                    collectOnBits(queryPlan.execute(recordStore).map(FDBQueriedRecord::getIndexEntry)),
+                    collectOnBits(queryPlan.execute(recordStore).map(record -> Objects.requireNonNull(record.getIndexEntry()))),
                     equalTo(IntStream.range(100, 200).boxed()
                             .filter(i -> (i & 1) == 1)
                             .filter(i -> (i % 7) == 3)
@@ -651,7 +663,9 @@ class BitmapValueIndexTest extends FDBRecordStoreTestBase {
 
     protected RecordMetaData metaData(@Nullable RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecordsBitmapProto.getDescriptor());
-        hook.apply(metaData);
+        if (hook != null) {
+            hook.apply(metaData);
+        }
         return metaData.getRecordMetaData();
     }
 

@@ -124,6 +124,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -302,6 +303,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // scanIndex's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     private static List<IndexEntry> scanIndex(FDBRecordStore store, Index index, TupleRange range, ScanProperties scanProperties) throws ExecutionException, InterruptedException {
         return store.scanIndex(index, BY_TEXT_TOKEN, range, null, scanProperties).asList().get();
     }
@@ -333,6 +337,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                 }
                 ScanProperties scanProperties = propertiesBuilder.build().asScanProperties(i % 2 == 0);
                 int retrieved = 0;
+                // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+                // scanIndex's continuation parameter is declared @Nullable byte[].
+                @SuppressWarnings("NullAway")
                 RecordCursorIterator<IndexEntry> cursor = store.scanIndex(index, BY_TEXT_TOKEN, range, continuation, scanProperties).asIterator();
                 while (cursor.hasNext()) {
                     paginatedResults.add(cursor.next());
@@ -468,6 +475,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     entryOf(Tuple.from("hours", 1623), Collections.singletonList(87)),
                     entryOf(Tuple.from("households", 1623), Collections.singletonList(1))
             ), entryList);
+            // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+            // scanIndexRecords's continuation parameter is declared @Nullable byte[].
+            @SuppressWarnings("NullAway")
             List<Message> recordList = recordStore.scanIndexRecords(index.getName(), BY_TEXT_TOKEN, TupleRange.prefixedBy("h"), null, ScanProperties.FORWARD_SCAN)
                     .map(FDBIndexedRecord::getRecord)
                     .asList()
@@ -790,6 +800,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     entryOf(Tuple.from(1066L), Collections.singletonList(3)),
                     entryOf(Tuple.from(1623L), Arrays.asList(18, 108))
             ), entryList);
+            // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+            // scanIndexRecords's continuation parameter is declared @Nullable byte[].
+            @SuppressWarnings("NullAway")
             List<Message> recordList = recordStore.scanIndexRecords(COMPLEX_TEXT_BY_GROUP.getName(), BY_TEXT_TOKEN, TupleRange.allOf(Tuple.from(0L, "to")), null, ScanProperties.FORWARD_SCAN)
                     .map(FDBIndexedRecord::getRecord)
                     .asList()
@@ -982,6 +995,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
+            // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+            // scanRecords's continuation parameter is declared @Nullable byte[].
+            @SuppressWarnings("NullAway")
             Set<Message> records = new HashSet<>(recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN)
                     .map(FDBStoredRecord::getRecord)
                     .asList()
@@ -1356,6 +1372,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             ScanProperties scanProperties = ExecuteProperties.newBuilder().setScannedRecordsLimit(0).build().asScanProperties(reverse);
+            // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+            // scanIndex's continuation parameter is declared @Nullable byte[].
+            @SuppressWarnings("NullAway")
             RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, BY_TEXT_TOKEN, TupleRange.allOf(Tuple.from(token)), null, scanProperties);
             RecordCursorResult<IndexEntry> result = cursor.getNext();
             if (!result.hasNext()) {
@@ -1368,6 +1387,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // scanIndex's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     private void scanMultipleWithScanRecordLimits(Index index, List<String> tokens, int scanRecordLimit, boolean reverse) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
@@ -1410,6 +1432,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             byte[] continuation = null;
 
             do {
+                // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+                // scanIndex's continuation parameter is declared @Nullable byte[].
+                @SuppressWarnings("NullAway")
                 RecordCursorIterator<IndexEntry> cursor = recordStore.scanIndex(index, BY_TEXT_TOKEN, TupleRange.allOf(Tuple.from(token)), continuation, reverse ? ScanProperties.REVERSE_SCAN : ScanProperties.FORWARD_SCAN).asIterator();
                 for (int i = 0; i < limit || limit == 0; i++) {
                     if (cursor.hasNext()) {
@@ -1439,6 +1464,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             final List<IndexEntry> fullResults = scanIndex(recordStore, index, TupleRange.allOf(Tuple.from(token)));
             validateSorted(fullResults);
             final ScanProperties scanProperties = ExecuteProperties.newBuilder().setReturnedRowLimit(limit).setSkip(skip).build().asScanProperties(reverse);
+            // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+            // scanIndex's continuation parameter is declared @Nullable byte[].
+            @SuppressWarnings("NullAway")
             final RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, BY_TEXT_TOKEN, TupleRange.allOf(Tuple.from(token)), null, scanProperties);
             List<IndexEntry> scanResults = cursor.asList().get();
             RecordCursorResult<IndexEntry> noNextResult = cursor.getNext();
@@ -1491,6 +1519,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // scanIndex's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void invalidScans() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
@@ -1537,7 +1568,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
     private List<Long> querySimpleDocumentsWithScan(QueryComponent filter, int planHash) throws InterruptedException, ExecutionException {
         return queryDocuments(Collections.singletonList(SIMPLE_DOC), Collections.singletonList(field("doc_id")), filter, planHash,
-                    filter(BooleanNormalizer.getDefaultInstance().normalize(filter), typeFilter(contains(SIMPLE_DOC), PlanMatchers.scan(unbounded()))))
+                    filter(Objects.requireNonNull(BooleanNormalizer.getDefaultInstance().normalize(filter)), typeFilter(contains(SIMPLE_DOC), PlanMatchers.scan(unbounded()))))
                 .map(t -> t.getLong(0))
                 .asList()
                 .get();
@@ -1736,6 +1767,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             while (!done) {
                 final int priorKeysLoaded = getLoadTextEntryCount(recordStore);
                 ExecuteProperties executeProperties = ExecuteProperties.newBuilder().setScannedRecordsLimit(50).build();
+                // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+                // executeQuery's continuation parameter is declared @Nullable byte[].
+                @SuppressWarnings("NullAway")
                 RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, executeProperties);
                 assertEquals(Collections.emptyList(), cursor.asList().get());
                 RecordCursorResult<FDBQueriedRecord<Message>> noNextResult = cursor.getNext();
@@ -2708,6 +2742,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // scanRecords's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     private Set<Long> performQueryWithRecordStoreScan(RecordMetaDataHook hook, QueryComponent filter) throws Exception {
         final ScanProperties scanProperties = new ScanProperties(ExecuteProperties.newBuilder().setTimeLimit(3000).build());
         Set<Long> results = new HashSet<>();
@@ -2729,6 +2766,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         return results;
     }
 
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // executeQuery's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     private Set<Long> performQueryWithIndexScan(RecordMetaDataHook hook, Index index, QueryComponent filter) throws Exception {
         final ExecuteProperties executeProperties = ExecuteProperties.newBuilder().setTimeLimit(3000).build();
         final RecordQuery query = RecordQuery.newBuilder()
@@ -3083,6 +3123,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             }
 
             int textSize = 0;
+            // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+            // scanRecords's continuation parameter is declared @Nullable byte[].
+            @SuppressWarnings("NullAway")
             RecordCursorIterator<String> cursor = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN)
                     .map(record -> {
                         Message msg = record.getRecord();
@@ -3091,7 +3134,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     })
                     .asIterator();
             while (cursor.hasNext()) {
-                textSize += cursor.next().length();
+                textSize += Objects.requireNonNull(cursor.next()).length();
             }
 
             LOGGER.info("Usage:");
@@ -3173,6 +3216,10 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
     @Tag(Tags.Performance)
     @Test
+    // fdb.run's generic Function<? super FDBRecordContext, ? extends T> return type is inferred as Void here;
+    // "return null;" is the idiomatic way to complete a Void-returning lambda, but the unbounded generic type
+    // parameter isn't annotated to express that Void's only value is null.
+    @SuppressWarnings("NullAway")
     void textIndexPerf1000ParallelInsert() throws Exception {
         // Create 1000 records
         Random r = new Random();
