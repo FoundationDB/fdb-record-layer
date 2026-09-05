@@ -59,11 +59,15 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
     @Override
     @Nonnull
     PlanContext createPlanContext(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final Options options) throws RelationalException {
+        final var localVars = conn.getTransaction().getLocalVariables();
+        // Intentionally not injected into the prepared-parameter map: GET_VARIABLE(name) and ?name
+        // must remain independent namespaces.
         return PlanContext.builder()
                 .fromRecordStore(store, options)
                 .fromDatabase(conn.getRecordLayerDatabase())
                 .withMetricsCollector(Assert.notNullUnchecked(conn.getMetricCollector()))
                 .withSchemaTemplate(conn.getTransaction().getBoundSchemaTemplateMaybe().orElse(conn.getSchemaTemplate()))
+                .withLocalVariables(localVars)
                 .build();
     }
 

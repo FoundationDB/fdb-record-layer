@@ -134,6 +134,9 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     private final PreparedParams preparedStatementParameters;
 
     @Nonnull
+    private final Map<String, Object> localVariables;
+
+    @Nonnull
     private final Set<NormalizationResult.QueryCachingFlags> queryCachingFlags;
 
     @Nonnull
@@ -157,7 +160,9 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         literalNodes.put(RelationalParser.NegativeDecimalConstantContext.class, context -> ParseHelpers.parseDecimal(context.getText()));
     }
 
-    private AstNormalizer(@Nonnull final PreparedParams preparedStatementParameters, boolean caseSensitive,
+    private AstNormalizer(@Nonnull final PreparedParams preparedStatementParameters,
+                          @Nonnull final Map<String, Object> localVariables,
+                          boolean caseSensitive,
                           @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode, boolean forExplain) {
         parameterHash = Hashing.murmur3_32_fixed().newHasher().putInt("ParameterHash".hashCode());
         parameterHashSupplier = Suppliers.memoize(() -> parameterHash.hash().asInt())::get;
@@ -165,6 +170,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         // needed to collect information that guide query execution (explain flag, continuation string, offset int, and limit int).
         queryHasherContextBuilder = NormalizedQueryExecutionContext.newBuilder().setPlanHashMode(currentPlanHashMode).setForExplain(forExplain);
         this.preparedStatementParameters = preparedStatementParameters;
+        this.localVariables = localVariables;
         allowTokenAddition = true;
         allowLiteralAddition = true;
         queryCachingFlags = EnumSet.noneOf(NormalizationResult.QueryCachingFlags.class);
@@ -217,6 +223,36 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         String uid = SemanticAnalyzer.normalizeString(ctx.getText(), caseSensitive);
         sqlCanonicalizer.append("\"").append(uid).append("\"").append(" ");
         return null;
+    }
+
+    @Override
+    public Object visitGetVariableFunctionCall(@Nonnull RelationalParser.GetVariableFunctionCallContext ctx) {
+        final var varName = Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(ctx.varName.getText(), caseSensitive));
+        final var tokenIndex = ctx.varName.getStart().getTokenIndex();
+        Assert.thatUnchecked(localVariables.containsKey(varName), ErrorCode.UNDEFINED_PARAMETER,
+                () -> "No value found for variable " + varName);
+        final var value = localVariables.get(varName);
+        processGetVariableCall(value, varName, tokenIndex);
+        return value;
+    }
+
+    private void processGetVariableCall(@Nullable final Object literal, @Nonnull final String varName,
+                                         final int tokenIndex) {
+        if (allowLiteralAddition) {
+            queryHasherContextBuilder.getLiteralsBuilder()
+                    .addLiteral(Type.any(), literal, null, varName, tokenIndex);
+        }
+        if (allowTokenAddition) {
+            // Fold the variable's CURRENT type into the canonical text, not just its name.
+            // getCanonicalSqlString() is what QueryCacheKey is built from, so hashing only the name
+            // would let re-SETting the variable to an incompatible type between two runs of
+            // identical query text reuse a plan compiled for the old type. This also naturally
+            // distinguishes NULL (no prior type) from any concretely-typed value.
+            final var typeTag = Type.fromObject(literal).getTypeCode();
+            final String canonicalName = "GET_VARIABLE(" + varName + ":" + typeTag + ")";
+            sqlCanonicalizer.append(canonicalName).append(" ");
+            parameterHash.putInt(canonicalName.hashCode());
+        }
     }
 
     public int getParameterHash() {
@@ -646,7 +682,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                         context.getPlannerConfiguration(),
                         isCaseSensitive,
                         currentPlanHashMode,
-                        query
+                        query,
+                        context.getLocalVariables()
                 ));
     }
 
@@ -659,7 +696,20 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                                                    boolean caseSensitive,
                                                    @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode,
                                                    @Nonnull final String query) throws RelationalException {
-        final var astNormalizer = new AstNormalizer(preparedStatementParameters, caseSensitive, currentPlanHashMode, parseTreeInfo.getQueryType() == ParseTreeInfo.QueryType.DESCRIBE_QUERY);
+        return normalizeAst(schemaTemplate, parseTreeInfo, preparedStatementParameters, plannerConfiguration,
+                caseSensitive, currentPlanHashMode, query, Map.of());
+    }
+
+    @Nonnull
+    private static NormalizationResult normalizeAst(@Nonnull final SchemaTemplate schemaTemplate,
+                                                     @Nonnull final ParseTreeInfoImpl parseTreeInfo,
+                                                     @Nonnull final PreparedParams preparedStatementParameters,
+                                                     @Nonnull final PlannerConfiguration plannerConfiguration,
+                                                     boolean caseSensitive,
+                                                     @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode,
+                                                     @Nonnull final String query,
+                                                     @Nonnull final Map<String, Object> localVariables) throws RelationalException {
+        final var astNormalizer = new AstNormalizer(preparedStatementParameters, localVariables, caseSensitive, currentPlanHashMode, parseTreeInfo.getQueryType() == ParseTreeInfo.QueryType.DESCRIBE_QUERY);
         astNormalizer.visit(parseTreeInfo.getRootContext());
         final var recordLayerSchemaTemplate = Assert.castUnchecked(schemaTemplate, RecordLayerSchemaTemplate.class);
 

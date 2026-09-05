@@ -516,6 +516,16 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
+    public Expression visitGetVariableFunctionCall(@Nonnull RelationalParser.GetVariableFunctionCallContext ctx) {
+        final var varName = getDelegate().normalizeString(ctx.varName.getText());
+        final var tokenIndex = ctx.varName.getStart().getTokenIndex();
+        final Value value = getDelegate().getPlanGenerationContext().processLocalVariable(varName, tokenIndex);
+        final var type = DataTypeUtils.toRelationalType(value.getResultType());
+        return Expression.ofUnnamed(type, value);
+    }
+
+    @Nonnull
+    @Override
     public Expression visitFunctionCallExpressionAtom(@Nonnull RelationalParser.FunctionCallExpressionAtomContext ctx) {
         return parseChild(ctx);
     }
