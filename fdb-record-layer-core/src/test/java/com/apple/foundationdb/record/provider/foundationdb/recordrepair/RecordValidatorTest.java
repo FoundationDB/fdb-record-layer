@@ -398,11 +398,11 @@ public class RecordValidatorTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void validateRecordVersion(final FDBRecordStore store, final Tuple primaryKey, final String expectedValidationCode, final String expectedRepairCode) {
+    private void validateRecordVersion(final FDBRecordStore store, final Tuple primaryKey, final String expectedValidationCode, @Nullable final String expectedRepairCode) {
         validate(expectedValidationCode, expectedRepairCode, new RecordVersionValidator(store), primaryKey);
     }
 
-    private void validateRecordValue(final FDBRecordStore store, final Tuple primaryKey, final String expectedValidationCode, final String expectedRepairCode) {
+    private void validateRecordValue(final FDBRecordStore store, final Tuple primaryKey, final String expectedValidationCode, @Nullable final String expectedRepairCode) {
         validate(expectedValidationCode, expectedRepairCode, new RecordValueValidator(store), primaryKey);
     }
 
