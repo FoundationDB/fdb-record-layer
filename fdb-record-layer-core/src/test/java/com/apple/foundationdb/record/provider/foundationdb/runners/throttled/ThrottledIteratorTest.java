@@ -42,6 +42,7 @@ import com.apple.test.BooleanSource;
 import com.apple.test.ParameterizedTestUtils;
 import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -52,6 +53,7 @@ import org.slf4j.MDC;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Semaphore;
@@ -329,7 +331,8 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         final ItemHandler<Integer> itemHandler = (store, item, quotaManager) -> CompletableFuture.supplyAsync(() -> {
             // fail 5 times
             if (failCount.get() < 5) {
-                int itemNumber = item.get();
+                // item is the value currently being handled, so it is always present here
+                int itemNumber = Objects.requireNonNull(item.get());
                 // fail every other item starting at item 3
                 if ((itemNumber > 2) && (itemNumber >= lastFailedItem.get() + 2)) {
                     failCount.incrementAndGet();
@@ -381,7 +384,8 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         final ItemHandler<Integer> itemHandler = (store, item, quotaManager) -> CompletableFuture.supplyAsync(() -> {
             // fail 5 times
             if (failCount.get() < 5) {
-                int itemNumber = item.get();
+                // item is the value currently being handled, so it is always present here
+                int itemNumber = Objects.requireNonNull(item.get());
                 // fail every other item starting at item 3
                 if ((itemNumber > 2) && (itemNumber >= lastFailedItem.get() + 2)) {
                     failCount.incrementAndGet();
@@ -554,7 +558,8 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         AtomicInteger totalScanned = new AtomicInteger(0); // number of items scanned
 
         final ItemHandler<Integer> itemHandler = (store, item, quotaManager) -> {
-            int itemNumber = item.get();
+            // item is the value currently being handled, so it is always present here
+            int itemNumber = Objects.requireNonNull(item.get());
             if (itemNumber == lastItemToScan) {
                 quotaManager.markExhausted();
             }
@@ -586,7 +591,8 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         final CursorFactory<Tuple> cursorFactory = createCursorFactory();
 
         final ItemHandler<Tuple> itemHandler = (store, item, quotaManager) -> {
-            return store.loadRecordAsync(item.get()).thenApply(rec -> {
+            // item is the value currently being handled, so it is always present here
+            return store.loadRecordAsync(Objects.requireNonNull(item.get())).thenApply(rec -> {
                 TestRecords1Proto.MySimpleRecord.Builder simpleRec = TestRecords1Proto.MySimpleRecord.newBuilder();
                 simpleRec.mergeFrom(rec.getRecord());
                 itemsScanned.add((int)simpleRec.getRecNo());
@@ -638,6 +644,10 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest
     @BooleanSource
+    // FDBRecordStoreBase#scanRecords's continuation parameter is declared @Nullable byte[] (a position
+    // NullAway does not reliably recognize as nullable), so the null literal passed below still trips
+    // the checker.
+    @SuppressWarnings("NullAway")
     void testRollBackTransaction(boolean commitWhenDone) throws Exception {
         final int numRecords = 50;
         final CursorFactory<Tuple> cursorFactory = createCursorFactory();
@@ -646,8 +656,8 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
             // mark records as deleted so that the 10 max deletions per transaction will force multiple transactions
             quotaManager.deleteCountInc();
             // Actually trying to delete the records here so that we can verify that the transaction was not committed
-            // as all the records remain
-            return store.deleteRecordAsync(item.get()).thenApply(ignore -> null);
+            // as all the records remain. item is the value currently being handled, so it is always present here.
+            return store.deleteRecordAsync(Objects.requireNonNull(item.get())).thenApply(ignore -> null);
         };
 
         try (FDBRecordContext context = openContext()) {
@@ -701,8 +711,9 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         Semaphore gate = new Semaphore(0);
 
         final ItemHandler<Integer> itemHandler = (store, item, quotaManager) -> {
-            // First future hangs on, all others are immediately completed
-            CompletableFuture<Void> future = (item.get() == 0) ? new CompletableFuture<>() : CompletableFuture.completedFuture(null);
+            // First future hangs on, all others are immediately completed. item is the value currently
+            // being handled, so it is always present here.
+            CompletableFuture<Void> future = (Objects.requireNonNull(item.get()) == 0) ? new CompletableFuture<>() : CompletableFuture.completedFuture(null);
             futures.add(future);
             // Release the rest of the flow once handling of the first item initiated
             gate.release();
@@ -730,6 +741,9 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // RecordCursor#fromList's continuation parameter is declared @Nullable byte[] (a position NullAway
+    // does not reliably recognize as nullable), so the null literal passed below still trips the checker.
+    @SuppressWarnings("NullAway")
     void testIteratorClosesIncompleteFutures() throws Exception {
         // close the runner before the future completes (the futures should be closed)
         int numRecords = 50;
@@ -740,13 +754,15 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         Semaphore gate = new Semaphore(0);
 
         final CursorFactory<Integer> cursorFactory = (store, lastResult, rowLimit) -> {
-            cursor.set(RecordCursor.fromList(IntStream.range(0, numRecords).boxed().collect(Collectors.toList()), null));
-            return cursor.get();
+            final RecordCursor<Integer> newCursor = RecordCursor.fromList(IntStream.range(0, numRecords).boxed().collect(Collectors.toList()), null);
+            cursor.set(newCursor);
+            return newCursor;
         };
 
         final ItemHandler<Integer> itemHandler = (store, item, quotaManager) -> {
-            // First future hangs on, all others are immediately completed
-            CompletableFuture<Void> future = (item.get() == 0) ? new CompletableFuture<>() : CompletableFuture.completedFuture(null);
+            // First future hangs on, all others are immediately completed. item is the value currently
+            // being handled, so it is always present here.
+            CompletableFuture<Void> future = (Objects.requireNonNull(item.get()) == 0) ? new CompletableFuture<>() : CompletableFuture.completedFuture(null);
             futures.add(future);
             // Release the rest of the flow once handling of the first item initiated
             gate.release();
@@ -781,8 +797,9 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         assertThatThrownBy(iterateAll::join).hasCauseInstanceOf(FDBDatabaseRunner.RunnerClosed.class);
         // Only one transaction started (no retry), since the runner was closed
         assertThat(transactionStart.get()).isOne();
-        // Cursor is closed
-        Assertions.assertThat(cursor.get().isClosed()).isTrue();
+        // Cursor is closed. The cursorFactory above always sets cursor before returning, so it is
+        // guaranteed to be non-null here.
+        Assertions.assertThat(Objects.requireNonNull(cursor.get()).isClosed()).isTrue();
     }
 
     /**
@@ -798,10 +815,11 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         Semaphore gate = new Semaphore(0);
 
         final CursorFactory<Integer> cursorFactory = (store, lastResult, rowLimit) -> {
-            cursor.set(new SingleItemCursor<>(store.getExecutor(), future));
+            final SingleItemCursor<Integer> newCursor = new SingleItemCursor<>(store.getExecutor(), future);
+            cursor.set(newCursor);
             // Release the rest of the flow once handling of the first item initiated
             gate.release();
-            return cursor.get();
+            return newCursor;
         };
 
         final ItemHandler<Integer> itemHandler = (store, item, quotaManager) -> {
@@ -829,8 +847,9 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         assertThatThrownBy(() -> future.get()).hasCauseInstanceOf(FDBDatabaseRunner.RunnerClosed.class);
         // Overall status is failed because we can't runAsync() anymore
         assertThatThrownBy(iterateAll::join).hasCauseInstanceOf(FDBDatabaseRunner.RunnerClosed.class);
-        // Cursor is closed
-        Assertions.assertThat(cursor.get().isClosed()).isTrue();
+        // Cursor is closed. The cursorFactory above always sets cursor before returning, so it is
+        // guaranteed to be non-null here.
+        Assertions.assertThat(Objects.requireNonNull(cursor.get()).isClosed()).isTrue();
     }
 
     private static Stream<Arguments> mdcParams() {
@@ -844,6 +863,11 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest
     @MethodSource("mdcParams")
+    // ThrottledRetryingIterator.Builder#withMdcContext's parameter lacks a @Nullable annotation in main
+    // source even though its Javadoc says it "[d]efaults to empty context" and it just forwards to
+    // FDBRecordContextConfig.Builder#setMdcContext, which is correctly @Nullable; the mdcContext local
+    // below is genuinely null in the "null MDC" test case.
+    @SuppressWarnings("NullAway")
     void testMdcContextPropagation(boolean useMdc, String mdcValue, int numRecords, int deletesPerTransaction, int expectedTransactions) throws Exception {
         // In this test, "useMdc" of TRUE means set the MDC context directly, FALSE means set it in the ContextConfig
         String mdcKey = "mdckey";
@@ -896,11 +920,11 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
 
     private ThrottledRetryingIterator.Builder<Integer> iteratorBuilder(final int numRecords,
                                                                        final ItemHandler<Integer> itemHandler,
-                                                                       final Consumer<ThrottledRetryingIterator.QuotaManager> initNotification,
-                                                                       final Consumer<ThrottledRetryingIterator.QuotaManager> successNotification,
+                                                                       @Nullable final Consumer<ThrottledRetryingIterator.QuotaManager> initNotification,
+                                                                       @Nullable final Consumer<ThrottledRetryingIterator.QuotaManager> successNotification,
                                                                        final int maxPerSecLimit,
                                                                        final int maxDeletedPerTransaction, final int numRetries,
-                                                                       final int transactionTimeMillis, final AtomicInteger limitRef) {
+                                                                       final int transactionTimeMillis, @Nullable final AtomicInteger limitRef) {
 
         ThrottledRetryingIterator.Builder<Integer> throttledIterator = ThrottledRetryingIterator.builder(fdb, intCursor(numRecords, limitRef), itemHandler);
 
@@ -925,11 +949,15 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         return throttledIterator;
     }
 
-    private CursorFactory<Integer> intCursor(int numInts, AtomicInteger limitRef) {
+    private CursorFactory<Integer> intCursor(int numInts, @Nullable AtomicInteger limitRef) {
         return listCursor(IntStream.range(0, numInts).boxed().collect(Collectors.toList()), limitRef);
     }
 
-    private <T> CursorFactory<T> listCursor(List<T> items, AtomicInteger limitRef) {
+    // RecordCursor#fromList's continuation parameter is declared @Nullable byte[] (a position NullAway
+    // does not reliably recognize as nullable), so the genuinely-nullable `continuation` local below
+    // still trips the checker.
+    @SuppressWarnings("NullAway")
+    private <T> CursorFactory<T> listCursor(List<T> items, @Nullable AtomicInteger limitRef) {
         return (store, cont, limit) -> {
             if (limitRef != null) {
                 limitRef.set(limit);
@@ -939,6 +967,10 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         };
     }
 
+    // FDBRecordStore#scanRecordKeys's continuation parameter is declared @Nullable byte[] (a position
+    // NullAway does not reliably recognize as nullable), so the genuinely-nullable `continuation` local
+    // below still trips the checker.
+    @SuppressWarnings("NullAway")
     private static CursorFactory<Tuple> createCursorFactory() {
         return (store, lastResult, rowLimit) -> {
             final byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
