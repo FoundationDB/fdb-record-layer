@@ -60,6 +60,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @API(API.Status.EXPERIMENTAL)
 public class SyntheticRecordPlannerNestedKeysTest extends AbstractSyntheticRecordPlannerTest {
     @Test
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the scanIndex call sites below.
+    @SuppressWarnings("NullAway")
     void joinOnNestedKeysWithDifferentTypes() throws Exception {
         metaDataBuilder.getRecordType("CustomerWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("int_rec_id")));
         metaDataBuilder.getRecordType("OrderWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("rec_id")));
@@ -190,6 +193,9 @@ public class SyntheticRecordPlannerNestedKeysTest extends AbstractSyntheticRecor
     }
 
     @Test
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the scanIndex call sites below.
+    @SuppressWarnings("NullAway")
     void joinOnListOfKeysWithDifferentTypes() throws Exception {
         metaDataBuilder.getRecordType("CustomerWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("int_rec_id")));
         metaDataBuilder.getRecordType("OrderWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("rec_id")));
@@ -278,6 +284,9 @@ public class SyntheticRecordPlannerNestedKeysTest extends AbstractSyntheticRecor
     }
 
     @Test
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the scanIndex call sites below.
+    @SuppressWarnings("NullAway")
     void joinOnMultipleNestedKeys() throws Exception {
         metaDataBuilder.getRecordType("CustomerWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("rec_id")));
         metaDataBuilder.getRecordType("OrderWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("rec_id")));

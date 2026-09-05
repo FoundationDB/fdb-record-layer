@@ -83,6 +83,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @API(API.Status.EXPERIMENTAL)
 public class SyntheticRecordPlannerJoinIndexTest extends AbstractSyntheticRecordPlannerTest {
     @Test
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the scanIndex call sites below.
+    @SuppressWarnings("NullAway")
     void joinIndex() {
         metaDataBuilder.addIndex("MySimpleRecord", "other_rec_no");
         final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("Simple_Other");
@@ -123,7 +126,7 @@ public class SyntheticRecordPlannerJoinIndexTest extends AbstractSyntheticRecord
             List<Tuple> results1 = recordStore.scanIndex(index, IndexScanType.BY_VALUE, range, null, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join();
             assertEquals(expected1, results1);
 
-            FDBStoredRecord<Message> record = recordStore.loadRecord(Tuple.from(201));
+            FDBStoredRecord<Message> record = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(201)));
             TestRecordsJoinIndexProto.MySimpleRecord.Builder recordBuilder = TestRecordsJoinIndexProto.MySimpleRecord.newBuilder().mergeFrom(record.getRecord());
             recordBuilder.setStrValue("even");
             recordStore.saveRecord(recordBuilder.build());
@@ -205,6 +208,9 @@ public class SyntheticRecordPlannerJoinIndexTest extends AbstractSyntheticRecord
     }
 
     @Test
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the scanIndex call sites below.
+    @SuppressWarnings("NullAway")
     void buildJoinIndex() {
         metaDataBuilder.addIndex("MySimpleRecord", "other_rec_no");
         final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("Simple_Other");
@@ -248,6 +254,9 @@ public class SyntheticRecordPlannerJoinIndexTest extends AbstractSyntheticRecord
     }
 
     @Test
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the scanIndex call sites below.
+    @SuppressWarnings("NullAway")
     void aggregateJoinIndex() {
         final KeyExpression pkey = concat(recordType(), field("uuid"));
         metaDataBuilder.getRecordType("Customer").setPrimaryKey(pkey);

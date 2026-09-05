@@ -63,6 +63,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CyclicBarrier;
@@ -249,6 +250,9 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
 
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 3, 5})
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the getQueueCursor call site below.
+    @SuppressWarnings("NullAway")
     void testDrainPendingQueueWhileBuilding(int limit) throws Exception {
         // Add new records during online indexing session
         final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE);
@@ -311,6 +315,9 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
 
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 3})
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the getQueueCursor call site below.
+    @SuppressWarnings("NullAway")
     void testDrainPendingQueueWhileBuildingAfterNPasses(final int passesCount) throws Exception {
         // Same as testDrainPendingQueueWhileBuilding, but the writes are injected after exactly passesCount scan
         // passes have run rather than after the first. The scan limit is kept small (and there are plenty of initial
@@ -578,6 +585,9 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
     }
 
     @Test
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the scanIndex call site below.
+    @SuppressWarnings("NullAway")
     void testQueryCannotUseIndexInQueueState() throws Exception {
         // While an index is being built with a queue it is not readable and queries must not be able to scan it.
         final Index index = new Index("simple$num_value_2_queue", field("num_value_2"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE);
@@ -975,7 +985,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         resumeSemaphore.release();
         indexerThread.join();
         assertInstanceOf(RecordCoreException.class, buildFailure.get(), "the build should have crashed");
-        assertEquals(intentionally, buildFailure.get().getMessage());
+        assertEquals(intentionally, Objects.requireNonNull(buildFailure.get()).getMessage());
 
         // The queue should still hold the deferred writes after the crash.
         assertEquals(queuedRecNos.size(), queueSizeCounter(index).intValue());
@@ -1210,7 +1220,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                         final FDBRecordStore store = createStoreBuilder().setContext(context)
                                 .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
                         saveSimpleRecord(store, thisRecNo, thisRecNo * 19);
-                        return null;
+                        return context;
                     });
                     writtenCount.incrementAndGet();
                     recNo += 2;
@@ -1399,6 +1409,9 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         }
     }
 
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the scanIndex call site below.
+    @SuppressWarnings("NullAway")
     private long indexEntryCount(final Index index) {
         try (FDBRecordContext context = openContext()) {
             final long count = recordStore.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
@@ -1412,6 +1425,9 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
      * The primary keys of the index entries whose leading (indexed) value equals {@code value}, for a value index over
      * a single field.
      */
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the scanIndex call site below.
+    @SuppressWarnings("NullAway")
     private List<Long> indexPrimaryKeysForValue(final Index index, final int value) {
         try (FDBRecordContext context = openContext()) {
             final List<Long> primaryKeys = recordStore.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(value)), null, ScanProperties.FORWARD_SCAN)
@@ -1470,6 +1486,9 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
      * {@code numValue2}. The index is keyed {@code num_value_2} with primary key {@code (num_value_2, rec_no)}, so
      * {@code rec_no} is the trailing entry key column.
      */
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the scanIndex call site below.
+    @SuppressWarnings("NullAway")
     private Set<Long> indexRecNosForGroup(final Index index, final int numValue2) {
         try (FDBRecordContext context = openContext()) {
             final Set<Long> recNos = new HashSet<>(recordStore.scanIndex(index, IndexScanType.BY_VALUE,

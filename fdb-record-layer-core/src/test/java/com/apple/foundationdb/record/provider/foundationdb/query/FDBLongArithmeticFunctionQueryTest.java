@@ -79,6 +79,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -373,7 +374,7 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
                             try (RecordCursor<QueryResult> cursor = executeCascades(recordStore, plan, bindings)) {
                                 int previousSum = Integer.MIN_VALUE;
                                 for (RecordCursorResult<QueryResult> queryResult = cursor.getNext(); queryResult.hasNext(); queryResult = cursor.getNext()) {
-                                    Message msg = queryResult.get().getMessage();
+                                    Message msg = Objects.requireNonNull(queryResult.get()).getMessage();
                                     assertNotNull(msg);
                                     Descriptors.Descriptor descriptor = msg.getDescriptorForType();
                                     Map<String, Number> result = ImmutableMap.of(
@@ -381,7 +382,7 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
                                             "mask", (long) msg.getField(descriptor.findFieldByName("mask")),
                                             "id", (long) msg.getField(descriptor.findFieldByName("id"))
                                     );
-                                    int sumValue = result.get("sum").intValue();
+                                    int sumValue = Objects.requireNonNull(result.get("sum")).intValue();
                                     assertThat("Sum value should be in query predicate range", sumValue, both(greaterThanOrEqualTo(lowerSum)).and(lessThanOrEqualTo(upperSum)));
                                     assertThat("Results should be sorted by sum value", sumValue, greaterThanOrEqualTo(previousSum));
                                     results.add(result);
@@ -392,7 +393,7 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
                                     .filter(rec -> rec.getStrValueIndexed().equals(strValue))
                                     .map(rec -> ImmutableMap.of("sum", rec.getNumValue2() + rec.getNumValue3Indexed(), "mask", rec.getNumValueUnique() & 4L, "id", rec.getRecNo()))
                                     .filter(res -> {
-                                        int sum = res.get("sum").intValue();
+                                        int sum = Objects.requireNonNull(res.get("sum")).intValue();
                                         return sum >= lowerSum && sum <= upperSum;
                                     })
                                     .toArray();
@@ -525,7 +526,7 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
             Set<Map<String, Object>> results = new HashSet<>();
             try (RecordCursor<QueryResult> cursor = executeCascades(recordStore, plan)) {
                 for (RecordCursorResult<QueryResult> queryResult = cursor.getNext(); queryResult.hasNext(); queryResult = cursor.getNext()) {
-                    Message msg = queryResult.get().getMessage();
+                    Message msg = Objects.requireNonNull(queryResult.get()).getMessage();
                     assertNotNull(msg);
                     Descriptors.Descriptor descriptor = msg.getDescriptorForType();
                     results.add(ImmutableMap.of(
@@ -603,10 +604,10 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
                 final List<TestRecords1Proto.MySimpleRecord> queried = new ArrayList<>();
                 try (RecordCursorIterator<FDBQueriedRecord<Message>> iter = executeQuery(plan, Bindings.newBuilder().set(param, val).build())) {
                     while (iter.hasNext()) {
-                        queried.add(TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(iter.next().getRecord()).build());
+                        queried.add(TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(Objects.requireNonNull(iter.next()).getRecord()).build());
                     }
                 }
-                assertThat(queried, containsInAnyOrder(grouped.get(val).toArray()));
+                assertThat(queried, containsInAnyOrder(Objects.requireNonNull(grouped.get(val)).toArray()));
             }
 
             commit(context);
@@ -640,7 +641,7 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
         final List<TestRecords1Proto.MySimpleRecord> queried = new ArrayList<>();
         try (RecordCursorIterator<FDBQueriedRecord<Message>> iterator = executeQuery(plan, bindings)) {
             while (iterator.hasNext()) {
-                FDBQueriedRecord<Message> rec = iterator.next();
+                FDBQueriedRecord<Message> rec = Objects.requireNonNull(iterator.next());
                 queried.add(TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build());
             }
         }
