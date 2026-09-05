@@ -30,6 +30,7 @@ import com.apple.foundationdb.util.LoggableException;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -49,6 +50,9 @@ public class FallbackCursorTest {
     @Test
     public void testFallBackCursorNoFailure() throws Exception {
         List<Integer> integers = List.of(1, 2, 3);
+        // ListCursor's continuation parameter is declared @Nullable byte[] (a position NullAway does
+        // not reliably recognize as nullable), so the null literal below still trips the checker.
+        @SuppressWarnings("NullAway")
         ListCursor<Integer> inner = new ListCursor<>(integers, null);
         FallbackCursor<Integer> classUnderTest = new FallbackCursor<>(inner, (lastResult) -> {
             throw new RuntimeException("This should not be thrown");
@@ -63,6 +67,9 @@ public class FallbackCursorTest {
     public void testPrimaryCursorImmediateFailure() throws Exception {
         RecordCursor<Integer> inner = new FailingCursor(0);
         List<Integer> integers = List.of(1, 2, 3);
+        // ListCursor's continuation parameter is declared @Nullable byte[] (a position NullAway does
+        // not reliably recognize as nullable), so the null literal below still trips the checker.
+        @SuppressWarnings("NullAway")
         RecordCursor<Integer> fallbackCursor = new ListCursor<>(integers, null);
         FallbackCursor<Integer> classUnderTest = new FallbackCursor<>(inner, (lastResult) -> {
             assertNull(lastResult);
@@ -78,6 +85,9 @@ public class FallbackCursorTest {
     public void testPrimaryCursorFailureAfterFewResultsNotSupported() throws Exception {
         RecordCursor<Integer> inner = new FailingCursor(2);
         List<Integer> integers = List.of(1, 2, 3);
+        // ListCursor's continuation parameter is declared @Nullable byte[] (a position NullAway does
+        // not reliably recognize as nullable), so the null literal below still trips the checker.
+        @SuppressWarnings("NullAway")
         RecordCursor<Integer> fallbackCursor = new ListCursor<>(integers, null);
         FallbackCursor<Integer> classUnderTest = new FallbackCursor<>(inner, (lastResult) -> {
             // simulate a cursor that cannot continue after a result has been returned
@@ -91,13 +101,16 @@ public class FallbackCursorTest {
         assertTrue(ex.getCause() instanceof RecordCoreException);
         // in this case, the cursor returns the fallback cursor's onNext() directly, which, if calling get() on,
         // will fail immediately, not going through the wrapping mechanism of the cursor.
-        assertEquals("Cannot fallback to alternate cursor since inner already produced a record", ex.getCause().getMessage());
+        assertEquals("Cannot fallback to alternate cursor since inner already produced a record", Objects.requireNonNull(ex.getCause()).getMessage());
     }
 
     @Test
     public void testPrimaryCursorFailureAfterFewResultsIsSupported() throws Exception {
         RecordCursor<Integer> inner = new FailingCursor(2);
         List<Integer> integers = List.of(1, 2, 3);
+        // ListCursor's continuation parameter is declared @Nullable byte[] (a position NullAway does
+        // not reliably recognize as nullable), so the null literal below still trips the checker.
+        @SuppressWarnings("NullAway")
         RecordCursor<Integer> fallbackCursor = new ListCursor<>(integers, null);
         FallbackCursor<Integer> classUnderTest = new FallbackCursor<>(inner, (lastResult) -> fallbackCursor);
 
@@ -127,7 +140,7 @@ public class FallbackCursorTest {
         Exception ex = assertThrows(ExecutionException.class, () -> classUnderTest.asList().get());
         assertTrue(ex.getCause() instanceof RecordCoreException);
         assertEquals("Fallback cursor failed, cannot fallback again",
-                ((LoggableException)(ex.getCause())).getLogInfo().get("fallback_failed"));
+                ((LoggableException)Objects.requireNonNull(ex.getCause())).getLogInfo().get("fallback_failed"));
     }
 
     /**
