@@ -37,7 +37,7 @@ public class NamedPredicate<T> extends TypeSafeMatcher<T> {
     private final String name;
 
     public NamedPredicate(@Nonnull Predicate<T> inner) {
-        this(inner, null);
+        this(inner, inner.toString());
     }
 
     public NamedPredicate(@Nonnull Predicate<T> inner, String name) {

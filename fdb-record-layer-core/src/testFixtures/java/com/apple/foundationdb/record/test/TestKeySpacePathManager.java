@@ -104,7 +104,7 @@ public class TestKeySpacePathManager implements AutoCloseable {
                         .setLogTransaction(true)
                         .setMdcContext(MDC.getCopyOfContextMap());
                 try (FDBDatabaseRunner runner = db.newRunner(config)) {
-                    runner.run(context -> {
+                    runner.<Void>run(context -> {
                         for (KeySpacePath path : paths) {
                             if (LOGGER.isDebugEnabled()) {
                                 LOGGER.debug(KeyValueLogMessage.of("deleting test key space path",

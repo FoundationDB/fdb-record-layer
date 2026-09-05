@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.match;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import org.hamcrest.Description;
@@ -41,8 +42,11 @@ public class InValueJoinMatcher extends PlanMatcherWithChild {
 
     @Override
     public boolean matchesSafely(@Nonnull RecordQueryPlan plan) {
+        // getValues(EvaluationContext) is unused by RecordQueryInValuesJoinPlan's override (its values are
+        // static literals), but pass a real, non-null context rather than null since the general
+        // RecordQueryInJoinPlan#getValues contract does dereference it for other join-plan subclasses.
         return plan instanceof RecordQueryInValuesJoinPlan &&
-                listMatcher.matches(((RecordQueryInValuesJoinPlan) plan).getValues(null)) &&
+                listMatcher.matches(((RecordQueryInValuesJoinPlan) plan).getValues(EvaluationContext.empty())) &&
                 super.matchesSafely(plan);
     }
 

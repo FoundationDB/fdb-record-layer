@@ -34,7 +34,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
 import java.util.Arrays;
 import java.util.List;
 
@@ -60,10 +60,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @Tag(Tags.RequiresFDB)
 public abstract class FDBCollateQueryTestBase extends FDBRecordStoreQueryTestBase {
 
-    @Nonnull
     protected final String collateFunctionName;
 
-    protected FDBCollateQueryTestBase(@Nonnull String collateFunctionName) {
+    protected FDBCollateQueryTestBase(String collateFunctionName) {
         this.collateFunctionName = collateFunctionName;
     }
 
@@ -107,11 +106,11 @@ public abstract class FDBCollateQueryTestBase extends FDBRecordStoreQueryTestBas
 
     protected static final KeyExpression NAME_FIELD = field("str_value_indexed");
 
-    protected void sortOnly(String locale, String... expected) throws Exception {
+    protected void sortOnly(@Nullable String locale, String... expected) throws Exception {
         sortOnly(locale, NAMES, expected);
     }
 
-    protected void sortOnly(String locale, List<String> names, String... expected) throws Exception {
+    protected void sortOnly(@Nullable String locale, List<String> names, String... expected) throws Exception {
         final KeyExpression key;
         final RecordMetaDataHook hook;
         if (locale == null) {

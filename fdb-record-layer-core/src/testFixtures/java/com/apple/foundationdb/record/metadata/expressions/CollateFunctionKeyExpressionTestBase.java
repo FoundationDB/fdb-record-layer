@@ -28,7 +28,6 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -54,7 +53,7 @@ public abstract class CollateFunctionKeyExpressionTestBase {
         this.collateFunctionName = collateFunctionName;
     }
 
-    private static List<Key.Evaluated> evaluate(@Nonnull KeyExpression expression, @Nullable Message record) {
+    private static List<Key.Evaluated> evaluate(@Nonnull KeyExpression expression, Message record) {
         return expression.evaluate(new UnstoredRecord<>(record));
     }
 

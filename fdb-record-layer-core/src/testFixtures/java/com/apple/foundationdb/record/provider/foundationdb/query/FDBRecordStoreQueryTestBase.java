@@ -82,13 +82,13 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -164,7 +164,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
             @Nullable Tuple sortValue = null;
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = plan.execute(recordStore, contextSupplier.get()).asIterator()) {
                 while (cursor.hasNext()) {
-                    FDBQueriedRecord<Message> rec = cursor.next();
+                    FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursor.next());
                     TestRecords1Proto.MySimpleRecord myrec = TestRecords1Proto.MySimpleRecord.newBuilder()
                             .mergeFrom(rec.getRecord())
                             .build();
@@ -201,14 +201,14 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
      * @return the last result from the cursor
      * @throws Throwable any thrown exception, or its cause if the exception is a {@link ExecutionException}
      */
-    protected RecordCursorResult<FDBQueriedRecord<Message>> querySimpleRecordStoreWithContinuation(@Nonnull RecordMetaDataHook recordMetaDataHook,
-                                                                                                   @Nonnull RecordQueryPlan plan,
-                                                                                                   @Nonnull Supplier<EvaluationContext> contextSupplier,
+    protected RecordCursorResult<FDBQueriedRecord<Message>> querySimpleRecordStoreWithContinuation(RecordMetaDataHook recordMetaDataHook,
+                                                                                                   RecordQueryPlan plan,
+                                                                                                   Supplier<EvaluationContext> contextSupplier,
                                                                                                    @Nullable byte[] continuation,
-                                                                                                   @Nonnull ExecuteProperties executeProperties,
-                                                                                                   @Nonnull Consumer<Integer> checkNumRecords,
-                                                                                                   @Nonnull Consumer<TestRecords1Proto.MySimpleRecord.Builder> checkRecord,
-                                                                                                   @Nonnull Consumer<FDBRecordContext> checkDiscarded)
+                                                                                                   ExecuteProperties executeProperties,
+                                                                                                   Consumer<Integer> checkNumRecords,
+                                                                                                   Consumer<TestRecords1Proto.MySimpleRecord.Builder> checkRecord,
+                                                                                                   Consumer<FDBRecordContext> checkDiscarded)
             throws Throwable {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, recordMetaDataHook);
@@ -217,7 +217,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
             RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(recordStore, contextSupplier.get(), continuation, executeProperties);
             lastResult = cursor.forEachResult(result -> {
                 TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
-                myrec.mergeFrom(result.get().getRecord());
+                myrec.mergeFrom(Objects.requireNonNull(result.get()).getRecord());
                 checkRecord.accept(myrec);
                 i.incrementAndGet();
             });
@@ -252,8 +252,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         }
     }
 
-    @Nonnull
-    protected List<Map<String, Object>> queryAsMaps(@Nonnull RecordQueryPlan plan, @Nonnull Bindings bindings) {
+    protected List<Map<String, Object>> queryAsMaps(RecordQueryPlan plan, Bindings bindings) {
         final TypeRepository types = TypeRepository.newBuilder()
                 .addAllTypes(usedTypes().evaluate(plan))
                 .build();
@@ -261,7 +260,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         try (RecordCursor<QueryResult> resultCursor = plan.executePlan(recordStore, evaluationContext, null, ExecuteProperties.SERIAL_EXECUTE)) {
             List<Map<String, Object>> maps = new ArrayList<>();
             for (RecordCursorResult<QueryResult> res = resultCursor.getNext(); res.hasNext(); res = resultCursor.getNext()) {
-                Message message = res.get().getMessage();
+                Message message = Objects.requireNonNull(res.get()).getMessage();
                 Map<String, Object> asMap = message.getAllFields()
                         .entrySet()
                         .stream()
@@ -272,13 +271,11 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         }
     }
 
-    @Nonnull
-    protected static Bindings constantBindings(@Nonnull ConstantObjectValue constant, @Nonnull Object value) {
+    protected static Bindings constantBindings(ConstantObjectValue constant, Object value) {
         return constantBindings(Map.of(constant, value));
     }
 
-    @Nonnull
-    protected static Bindings constantBindings(@Nonnull Map<ConstantObjectValue, Object> constantMap) {
+    protected static Bindings constantBindings(Map<ConstantObjectValue, Object> constantMap) {
         Map<CorrelationIdentifier, ImmutableMap.Builder<String, Object>> byAlias = new HashMap<>();
         for (Map.Entry<ConstantObjectValue, Object> constant :  constantMap.entrySet()) {
             byAlias.computeIfAbsent(constant.getKey().getAlias(), ignore -> ImmutableMap.builder())
@@ -291,7 +288,6 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         return bindingsBuilder.build();
     }
 
-    @Nonnull
     protected RecordMetaDataHook complexQuerySetupHook() {
         return metaData -> {
             metaData.addIndex("MySimpleRecord", new Index("multi_index",
@@ -316,7 +312,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         createOrOpenRecordStore(context, nestedMetaData(hook));
     }
 
-    protected void openNestedWrappedArrayRecordStore(@Nonnull FDBRecordContext context, @Nullable RecordMetaDataHook hook) {
+    protected void openNestedWrappedArrayRecordStore(FDBRecordContext context, @Nullable RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords4WrapperProto.getDescriptor());
         metaDataBuilder.addUniversalIndex(globalCountIndex());
         metaDataBuilder.addIndex("RestaurantRecord", "review_rating", field("reviews", FanType.None).nest(field("values", FanType.FanOut).nest("rating")));
@@ -508,12 +504,10 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     }
 
 
-    @Nonnull
     protected RecordMetaDataHook complexPrimaryKeyHook() {
         return complexPrimaryKeyHook(false);
     }
 
-    @Nonnull
     protected RecordMetaDataHook complexPrimaryKeyHook(boolean skipNum3) {
         return metaData -> {
             RecordTypeBuilder recordType = metaData.getRecordType("MySimpleRecord");
@@ -558,7 +552,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         }
     }
 
-    protected List<UUID> setupTupleFields(@Nonnull FDBRecordContext context) throws Exception {
+    protected List<UUID> setupTupleFields(FDBRecordContext context) throws Exception {
         openAnyRecordStore(TestRecordsTupleFieldsProto.getDescriptor(), context);
         final List<UUID> uuids = IntStream.rangeClosed(1, 10).mapToObj(i -> UUID.randomUUID())
                 .sorted(Comparisons::compare).collect(Collectors.toList());
@@ -580,7 +574,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         return recordStore.getRecordMetaData().getRecordType(recordType).getPrimaryKey();
     }
 
-    protected void clearStoreCounter(@Nonnull FDBRecordContext context) {
+    protected void clearStoreCounter(FDBRecordContext context) {
         if (context.getTimer() != null) {
             context.getTimer().reset();
         }
@@ -627,8 +621,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
      * @param query the query
      * @return the plan that is either just planned or planned, then serialized, deserialized, and reconstructed
      */
-    @Nonnull
-    protected RecordQueryPlan planQuery(@Nonnull final RecordQuery query) {
+    protected RecordQueryPlan planQuery(final RecordQuery query) {
         return planQuery(this.planner, query);
     }
 
@@ -638,8 +631,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
      * @param query the query
      * @return the plan that is either just planned or planned, then serialized, deserialized, and reconstructed
      */
-    @Nonnull
-    protected static RecordQueryPlan planQuery(@Nonnull final QueryPlanner planner, @Nonnull final RecordQuery query) {
+    protected static RecordQueryPlan planQuery(final QueryPlanner planner, final RecordQuery query) {
         final RecordQueryPlan plannedPlan = planner.plan(query);
         if (planner instanceof RecordQueryPlanner) {
             return plannedPlan;
@@ -649,13 +641,11 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         return verifySerialization(plannedPlan);
     }
 
-    @Nonnull
-    protected RecordQueryPlan planGraph(@Nonnull Supplier<Reference> querySupplier, @Nonnull String... allowedIndexes) {
+    protected RecordQueryPlan planGraph(Supplier<Reference> querySupplier, String... allowedIndexes) {
         return planGraph(querySupplier, Bindings.EMPTY_BINDINGS, allowedIndexes);
     }
 
-    @Nonnull
-    protected RecordQueryPlan planGraph(@Nonnull Supplier<Reference> querySupplier, @Nonnull Bindings bindings, @Nonnull String... allowedIndexes) {
+    protected RecordQueryPlan planGraph(Supplier<Reference> querySupplier, Bindings bindings, String... allowedIndexes) {
         assertThat(planner, instanceOf(CascadesPlanner.class));
         final CascadesPlanner cascadesPlanner = (CascadesPlanner)planner;
         final Optional<Collection<String>> allowedIndexesOptional;
@@ -677,15 +667,15 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         final var eventClassStatsMapForRewriting = statsMaps.getEventWithStateClassStatsMapByPlannerPhase(PlannerPhase.REWRITING);
         assertTrue(eventClassStatsMapForRewriting.isPresent());
         assertTrue(eventClassStatsMapForRewriting.get().containsKey(ExecutingTaskPlannerEvent.class));
-        assertTrue(eventClassStatsMapForRewriting.get().get(ExecutingTaskPlannerEvent.class).getCount(Location.BEGIN) > 0);
+        assertTrue(Objects.requireNonNull(eventClassStatsMapForRewriting.get().get(ExecutingTaskPlannerEvent.class)).getCount(Location.BEGIN) > 0);
 
         final var eventClassStatsMapForPlanning = statsMaps.getEventWithStateClassStatsMapByPlannerPhase(PlannerPhase.PLANNING);
         assertTrue(eventClassStatsMapForPlanning.isPresent());
         assertTrue(eventClassStatsMapForPlanning.get().containsKey(ExecutingTaskPlannerEvent.class));
 
-        final var totalTasks = eventClassStatsMap.get(ExecutingTaskPlannerEvent.class).getCount(Location.BEGIN);
-        final var rewritingTasks = eventClassStatsMapForRewriting.get().get(ExecutingTaskPlannerEvent.class).getCount(Location.BEGIN);
-        final var planningTasks = eventClassStatsMapForPlanning.get().get(ExecutingTaskPlannerEvent.class).getCount(Location.BEGIN);
+        final var totalTasks = Objects.requireNonNull(eventClassStatsMap.get(ExecutingTaskPlannerEvent.class)).getCount(Location.BEGIN);
+        final var rewritingTasks = Objects.requireNonNull(eventClassStatsMapForRewriting.get().get(ExecutingTaskPlannerEvent.class)).getCount(Location.BEGIN);
+        final var planningTasks = Objects.requireNonNull(eventClassStatsMapForPlanning.get().get(ExecutingTaskPlannerEvent.class)).getCount(Location.BEGIN);
 
         assertTrue(totalTasks > 0);
         assertTrue(rewritingTasks > 0);
@@ -703,8 +693,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
      * @param plan the original plan
      * @return the deserialized and verified plan
      */
-    @Nonnull
-    protected static RecordQueryPlan verifySerialization(@Nonnull final RecordQueryPlan plan) {
+    protected static RecordQueryPlan verifySerialization(final RecordQueryPlan plan) {
         PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.CURRENT_FOR_CONTINUATION);
         final PRecordQueryPlan planProto = plan.toRecordQueryPlanProto(serializationContext);
@@ -730,8 +719,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
      * @param plan the original plan
      * @return the deserialized and verified plan
      */
-    @Nonnull
-    protected static RecordQueryPlan verifyRebase(@Nonnull final RecordQueryPlan plan) {
+    protected static RecordQueryPlan verifyRebase(final RecordQueryPlan plan) {
         final var rebasedPlans =
                 References.rebaseGraphs(ImmutableList.of(Reference.plannedOf(plan)),
                         Memoizer.noMemoization(PlannerStage.PLANNED), new ToUniqueAliasesTranslationMap(),
@@ -744,22 +732,19 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         return rebasedPlan;
     }
 
-    @Nonnull
-    protected RecordCursorIterator<FDBQueriedRecord<Message>> executeQuery(@Nonnull final RecordQueryPlan plan) {
+    protected RecordCursorIterator<FDBQueriedRecord<Message>> executeQuery(final RecordQueryPlan plan) {
         return executeQuery(plan, Bindings.EMPTY_BINDINGS);
     }
 
-    @Nonnull
-    protected RecordCursorIterator<FDBQueriedRecord<Message>> executeQuery(@Nonnull final RecordQueryPlan plan,
-                                                                           @Nonnull final Bindings bindings) {
+    protected RecordCursorIterator<FDBQueriedRecord<Message>> executeQuery(final RecordQueryPlan plan,
+                                                                           final Bindings bindings) {
         return executeQuery(plan, null, bindings, Integer.MAX_VALUE);
     }
 
-    @Nonnull
     @SuppressWarnings("resource")
-    protected RecordCursorIterator<FDBQueriedRecord<Message>> executeQuery(@Nonnull final RecordQueryPlan plan,
+    protected RecordCursorIterator<FDBQueriedRecord<Message>> executeQuery(final RecordQueryPlan plan,
                                                                            @Nullable byte[] continuation,
-                                                                           @Nonnull final Bindings bindings,
+                                                                           final Bindings bindings,
                                                                            final int limit) {
         final var usedTypes = usedTypes().evaluate(plan);
         final var typeRepository = TypeRepository.newBuilder().addAllTypes(usedTypes).build();
@@ -771,7 +756,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
                 continuation, executeProperties).asIterator();
     }
 
-    protected static void assertMatches(@Nonnull final RecordQueryPlan plan, @Nonnull BindingMatcher<? extends RecordQueryPlan> planMatcher) {
+    protected static void assertMatches(final RecordQueryPlan plan, BindingMatcher<? extends RecordQueryPlan> planMatcher) {
         final boolean matches = planMatcher.matches(plan);
         if (matches) {
             return;
@@ -781,7 +766,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         fail();
     }
 
-    protected static void assertMatchesExactly(@Nonnull final RecordQueryPlan plan, @Nonnull BindingMatcher<? extends RecordQueryPlan> planMatcher) {
+    protected static void assertMatchesExactly(final RecordQueryPlan plan, BindingMatcher<? extends RecordQueryPlan> planMatcher) {
         final boolean matchesExactly = planMatcher.matchesExactly(plan);
         if (matchesExactly) {
             return;
