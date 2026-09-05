@@ -54,6 +54,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
@@ -102,6 +103,9 @@ class TransactionalRunnerTest {
     }
 
     @AfterEach
+    // timer = null below is intentional: it releases the reference between tests so a stale timer
+    // cannot be read accidentally; every test's @BeforeEach re-assigns it before any use.
+    @SuppressWarnings("NullAway")
     public void tearDown() {
         assertEquals(timer.getCount(FDBStoreTimer.Counts.CLOSE_CONTEXT), timer.getCount(FDBStoreTimer.Counts.OPEN_CONTEXT),
                 "an equal number of contexts should have been opened and closed");
@@ -539,12 +543,12 @@ class TransactionalRunnerTest {
             } else {
                 exception = assertThrows(CompletionException.class, runResult::join);
             }
-            assertTrue(contextRef.get().isClosed());
+            assertTrue(Objects.requireNonNull(contextRef.get()).isClosed());
 
             if (success) {
                 assertValue(runner, key, value);
             } else {
-                assertEquals(cause, exception.getCause());
+                assertEquals(cause, Objects.requireNonNull(exception).getCause());
                 assertValue(runner, key, null);
             }
         }
@@ -572,7 +576,7 @@ class TransactionalRunnerTest {
             } else {
                 exception = assertThrows(RuntimeException.class, callable::call);
             }
-            assertTrue(contextRef.get().isClosed());
+            assertTrue(Objects.requireNonNull(contextRef.get()).isClosed());
 
             if (success) {
                 assertValue(runner, key, value);
@@ -583,7 +587,7 @@ class TransactionalRunnerTest {
         }
     }
 
-    private static void assertValue(final TransactionalRunner runner, final byte[] key, final byte[] value) {
+    private static void assertValue(final TransactionalRunner runner, final byte[] key, @Nullable final byte[] value) {
         assertArrayEquals(value, runner.runAsync(false, context -> context.ensureActive().get(key)).join());
     }
 
@@ -603,12 +607,12 @@ class TransactionalRunnerTest {
     }
 
     private void assertConflictException(final FDBExceptions.FDBStoreTransactionConflictException exception) {
-        assertEquals(FDBError.NOT_COMMITTED.code(), ((FDBException)exception.getCause()).getCode());
+        assertEquals(FDBError.NOT_COMMITTED.code(), ((FDBException)Objects.requireNonNull(exception.getCause())).getCode());
     }
 
     private void assertConflictException(final CompletionException exception) {
         assertThat(exception.getCause(), Matchers.instanceOf(FDBException.class));
-        assertEquals(FDBError.NOT_COMMITTED.code(), ((FDBException) exception.getCause()).getCode());
+        assertEquals(FDBError.NOT_COMMITTED.code(), ((FDBException)Objects.requireNonNull(exception.getCause())).getCode());
     }
 
     private static byte[] randomBytes(final int count, final Random random) {
