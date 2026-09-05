@@ -73,6 +73,7 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -115,10 +116,13 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
                 context.getTimer().reset();
             }
 
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor =
-                         recordStore.executeQuery(plan, null, executeProperties).asIterator()) {
+            // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+            // executeQuery's continuation parameter is declared @Nullable byte[].
+            @SuppressWarnings("NullAway")
+            RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties).asIterator();
+            try (cursor) {
                 while (cursor.hasNext()) {
-                    cursor.next().getRecord();
+                    Objects.requireNonNull(cursor.next()).getRecord();
                 }
                 Optional<Integer> scanned = getRecordScanned(context);
                 if (context.getTimer() != null) {
@@ -136,7 +140,11 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
                 context.getTimer().reset();
             }
 
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = cursorFunction.apply(null)) {
+            // NullAway/JSpecify does not currently track @Nullable on byte[] type arguments in generic
+            // functional interfaces like Function<byte[], ...>, even when passing a literal null.
+            @SuppressWarnings("NullAway")
+            RecordCursor<FDBQueriedRecord<Message>> cursor = cursorFunction.apply(null);
+            try (cursor) {
                 boolean caughtScanLimitReached = false;
                 RecordCursorResult<FDBQueriedRecord<Message>> result = null;
                 try {
@@ -151,7 +159,7 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
                     }
                 }
                 if (failOnLimitReached && !caughtScanLimitReached) {
-                    assertNotEquals(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED, result.getNoNextReason());
+                    assertNotEquals(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED, Objects.requireNonNull(result).getNoNextReason());
                 }
                 Optional<Integer> scanned = getRecordScanned(context);
                 if (context.getTimer() != null) {
@@ -163,6 +171,9 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
         }
     }
 
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // executeQuery's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     private void assertNumberOfRecordsScanned(int expected, RecordQueryPlan plan, ExecuteProperties executeProperties, String message) throws Exception {
         assertNumberOfRecordsScanned(expected, continuation -> recordStore.executeQuery(plan, null, executeProperties), executeProperties.isFailOnScanLimitReached(), message);
     }
@@ -172,12 +183,16 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context);
                 RecordQueryPlanWithNoChildren planWithNoChildren = (RecordQueryPlanWithNoChildren) plan;
-                try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor =
-                             recordStore.executeQuery(planWithNoChildren, null, ExecuteProperties.SERIAL_EXECUTE).asIterator()) {
+                // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+                // executeQuery's continuation parameter is declared @Nullable byte[].
+                @SuppressWarnings("NullAway")
+                RecordCursorIterator<FDBQueriedRecord<Message>> cursor =
+                             recordStore.executeQuery(planWithNoChildren, null, ExecuteProperties.SERIAL_EXECUTE).asIterator();
+                try (cursor) {
                     int maximumToScan = 0;
                     while (cursor.hasNext()) {
-                        FDBQueriedRecord<Message> record = cursor.next();
-                        maximumToScan += record.getStoredRecord().getKeyCount() + (record.getStoredRecord().isVersionedInline() ? 1 : 0);
+                        FDBQueriedRecord<Message> record = Objects.requireNonNull(cursor.next());
+                        maximumToScan += Objects.requireNonNull(record.getStoredRecord()).getKeyCount() + (record.getStoredRecord().isVersionedInline() ? 1 : 0);
                     }
                     return maximumToScan;
                 }
@@ -245,13 +260,17 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
                 final List<Long> byContinuation = new ArrayList<>();
                 byte[] continuation = null;
                 do {
-                    try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, properties.build())) {
+                    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+                    // executeQuery's continuation parameter is declared @Nullable byte[].
+                    @SuppressWarnings("NullAway")
+                    RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, properties.build());
+                    try (cursor) {
                         if (context.getTimer() != null) {
                             context.getTimer().reset();
                         }
                         RecordCursorResult<FDBQueriedRecord<Message>> result;
                         while ((result = cursor.getNext()).hasNext()) {
-                            byContinuation.add(getRecNo.apply(result.get()));
+                            byContinuation.add(getRecNo.apply(Objects.requireNonNull(result.get())));
                         }
                         continuation = result.getContinuation().toBytes();
                         int overrun = BaseCursorCountVisitor.getCount(cursor);
@@ -337,6 +356,9 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
                     .setScannedRecordsLimit(0)
                     .setIsolationLevel(IsolationLevel.SERIALIZABLE)
                     .build());
+            // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+            // scanRecords's continuation parameter is declared @Nullable byte[].
+            @SuppressWarnings("NullAway")
             RecordCursorIterator<FDBStoredRecord<Message>> messageCursor = recordStore.scanRecords(null, props.get()).asIterator();
             while (messageCursor.hasNext()) {
                 scannedRecords.add(messageCursor.next());
@@ -359,7 +381,11 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
             openSimpleRecordStore(context);
             byte[] continuation = null;
             do {
-                try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, properties).asIterator()) {
+                // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+                // executeQuery's continuation parameter is declared @Nullable byte[].
+                @SuppressWarnings("NullAway")
+                RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, properties).asIterator();
+                try (cursor) {
                     int retrieved = 0;
                     while (cursor.hasNext()) {
                         cursor.next();
@@ -433,6 +459,9 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
         }
     }
 
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // scanRecords's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     private static RecordCursor<FDBStoredRecord<Message>> veryShortTimeLimitedScan(@Nonnull FDBRecordStore recordStore, boolean reverse) {
         final ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                 .setTimeLimit(1L)
