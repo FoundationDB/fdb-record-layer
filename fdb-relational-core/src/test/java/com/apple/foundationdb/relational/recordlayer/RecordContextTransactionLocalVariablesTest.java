@@ -39,8 +39,7 @@ import java.sql.SQLException;
 
 /**
  * Direct unit tests for the transaction-scoped variable storage on {@link Transaction} /
- * {@link RecordContextTransaction}, independent of any SQL surface (SET/GET_VARIABLE land in later
- * stacked PRs on top of this one).
+ * {@link RecordContextTransaction}, independent of any SQL surface.
  */
 public class RecordContextTransactionLocalVariablesTest {
 

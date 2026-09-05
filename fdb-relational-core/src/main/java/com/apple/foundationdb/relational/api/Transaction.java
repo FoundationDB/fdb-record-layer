@@ -66,17 +66,16 @@ public interface Transaction extends AutoCloseable {
     void unsetBoundSchemaTemplate();
 
     /**
-     * Sets a transaction-scoped local variable. The variable lives for the duration of this transaction only.
+     * Sets a transaction-scoped local variable, visible only for the duration of this transaction.
      *
-     * @param name  the variable name (caller is responsible for normalization)
-     * @param value the variable value
+     * @param name the variable name; the caller is responsible for normalization
      */
     void setLocalVariable(@Nonnull String name, @Nullable Object value);
 
     /**
-     * Returns an unmodifiable view of all local variables set in this transaction.
+     * Returns the local variables set in this transaction.
      *
-     * @return map from variable name to value; empty if no variables have been set
+     * @return an unmodifiable view; empty if none have been set
      */
     @Nonnull
     Map<String, Object> getLocalVariables();
