@@ -33,8 +33,8 @@ import java.net.URI;
 
 /**
  * Tests for the {@code SET TRANSACTION VARIABLE} statement. There is no SQL-level way to read a
- * variable's value yet (that's {@code GET_VARIABLE}, added in the next stacked PR), so these
- * assert directly on {@link EmbeddedRelationalConnection#getTransaction()} instead.
+ * variable's value yet, so these assert directly on {@link EmbeddedRelationalConnection#getTransaction()}
+ * instead.
  */
 public class SetTransactionVariableTests {
 
