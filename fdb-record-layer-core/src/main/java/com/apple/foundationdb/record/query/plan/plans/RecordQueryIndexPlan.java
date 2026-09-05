@@ -749,8 +749,9 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
 
         @Nullable
         @Override
-        @SuppressWarnings("NullAway") // NullAway doesn't reliably track @Nullable on byte[] return types; this
-                                       // method is correctly annotated @Nullable above.
+        // NullAway doesn't reliably track @Nullable on byte[] return types; this
+        // method is correctly annotated @Nullable above.
+        @SuppressWarnings("NullAway")
         public byte[] unwrapContinuation(@Nullable final byte[] continuation) {
             if (continuation == null) {
                 return null;
@@ -786,10 +787,11 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
             private volatile byte[] bytes;
             private final KeyValueCursorBase.SerializationMode serializationMode;
 
-            @SuppressWarnings({"squid:S3077", "NullAway"}) // array immutable once initialized, so AtomicByteArray not
-                                                            // necessary; NullAway doesn't reliably track that this
-                                                            // field is already declared @Nullable, so it doesn't
-                                                            // need constructor initialization.
+            // array immutable once initialized, so AtomicByteArray not
+            // necessary; NullAway doesn't reliably track that this
+            // field is already declared @Nullable, so it doesn't
+            // need constructor initialization.
+            @SuppressWarnings({"squid:S3077", "NullAway"})
             private PrefixRemovingContinuation(RecordCursorContinuation baseContinuation, int prefixLength, KeyValueCursorBase.SerializationMode serializationMode) {
                 this.baseContinuation = baseContinuation;
                 this.prefixLength = prefixLength;
