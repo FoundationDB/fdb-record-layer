@@ -131,7 +131,7 @@ public abstract class SynchronizedSessionTest {
                     checkActive(sessionOnLock2);
                     sessionOnLock2.endSession();
                 }
-                return null;
+                return context;
             });
             sessionOnLock1.endSession();
         }
@@ -166,7 +166,7 @@ public abstract class SynchronizedSessionTest {
                 // This shows that for in one session:
                 // - Different jobs of one runner can run together
                 // - Jobs of different runners can run together
-                database.newRunner().asyncToSync(null, CompletableFuture.allOf(session1Runner1Job1, session1Runner1Job2, session1Runner2Job1));
+                database.newRunner().asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_SYNC_SESSION, CompletableFuture.allOf(session1Runner1Job1, session1Runner1Job2, session1Runner2Job1));
                 assertEquals(4, state.get());
 
                 // Should not be able to continue the runners after the lock is taken by others.
@@ -322,7 +322,7 @@ public abstract class SynchronizedSessionTest {
         if (runAsync) {
             runner.runAsync(c -> AsyncUtil.DONE);
         } else {
-            runner.run(c -> null);
+            runner.run(c -> c);
         }
     }
 
@@ -341,7 +341,7 @@ public abstract class SynchronizedSessionTest {
 
     private void assertFailedContinueSession(SynchronizedSessionRunner synchronizedSessionRunner) {
         SynchronizedSessionLockedException exception = assertThrows(SynchronizedSessionLockedException.class,
-                () -> synchronizedSessionRunner.run(c -> null));
+                () -> synchronizedSessionRunner.run(c -> c));
         assertEquals("Failed to continue the session", exception.getMessage());
     }
 

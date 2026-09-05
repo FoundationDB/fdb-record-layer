@@ -35,6 +35,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.jspecify.annotations.Nullable;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -80,7 +81,7 @@ class ResolvedKeySpacePathTest {
     @ParameterizedTest
     @MethodSource("testEqualsHashCode")
     void testEqualsHashCode(KeyType keyType, boolean constantDirectory, boolean differenceInParent) {
-        TestValuePair values = TYPE_TEST_VALUES.get(keyType);
+        TestValuePair values = Objects.requireNonNull(TYPE_TEST_VALUES.get(keyType));
 
         // Create a single KeySpace with the appropriate directory structure
         KeySpaceDirectory rootDir = new KeySpaceDirectory("root", KeyType.STRING, "root");

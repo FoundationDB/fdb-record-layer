@@ -54,6 +54,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -85,7 +87,9 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
     private static final FieldKeyExpression GROUP_EXPRESSION = field(GROUPING_FIELD);
 
     @Test
-    @SuppressWarnings("deprecation")
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the scanRecords call site below.
+    @SuppressWarnings({"deprecation", "NullAway"})
     public void testUpdateRecordCounts() throws Exception {
         try (FDBRecordContext context = openContext()) {
             final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestRecordsWithHeaderProto.getDescriptor());
@@ -457,6 +461,9 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the countRecords call site below.
+    @SuppressWarnings("NullAway")
     public void testCountRecords() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);
@@ -526,7 +533,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
             assertEquals(sum, recordStore.getSnapshotRecordUpdateCount().join().longValue());
 
             expectedCounts.forEach((bucketNum, expected) ->
-                    assertEquals(expectedCounts.get(bucketNum).longValue(),
+                    assertEquals(expected.longValue(),
                             recordStore.getSnapshotRecordUpdateCount(key, Key.Evaluated.scalar(bucketNum)).join().longValue()));
         }
     }
@@ -1092,6 +1099,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
     // Get a new metadata version every time we change the count key definition.
     static class CountMetaDataHook implements RecordMetaDataHook {
         int metaDataVersion = 100;
+        @Nullable
         RecordMetaDataHook baseHook = null;
 
         @Override
