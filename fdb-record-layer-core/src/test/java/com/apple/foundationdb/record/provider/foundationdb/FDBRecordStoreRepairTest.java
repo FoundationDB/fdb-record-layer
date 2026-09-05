@@ -35,6 +35,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -55,6 +56,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class FDBRecordStoreRepairTest extends FDBRecordStoreTestBase {
 
     @Test
+    // FDBRecordStore#repairRecordKeys's continuation parameter is declared @Nullable byte[] (a position
+    // NullAway does not reliably recognize as nullable), so the null literal below still trips the
+    // checker. The lambda passed to TestHelpers.assertThrows() has no declaration to attach a narrower
+    // suppression to.
+    @SuppressWarnings("NullAway")
     public void cannotRepairInSnapshotIsolation() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -215,7 +221,7 @@ public class FDBRecordStoreRepairTest extends FDBRecordStoreTestBase {
         return createRecordsToCorrupt(nRecords, null);
     }
 
-    private List<Message> createRecordsToCorrupt(int nRecords, RecordMetaDataHook hook) throws Exception {
+    private List<Message> createRecordsToCorrupt(int nRecords, @Nullable RecordMetaDataHook hook) throws Exception {
         List<Message> records = new ArrayList<>();
         try (FDBRecordContext context = openContext()) {
             openUnsplitRecordStore(context, hook);
@@ -237,13 +243,18 @@ public class FDBRecordStoreRepairTest extends FDBRecordStoreTestBase {
         validateRecords(expectedRecords, null);
     }
 
-    private void validateRecords(List<Message> expectedRecords, RecordMetaDataHook hook) throws Exception {
+    private void validateRecords(List<Message> expectedRecords, @Nullable RecordMetaDataHook hook) throws Exception {
         final List<Message> readRecords;
         try (FDBRecordContext context = openContext()) {
             openUnsplitRecordStore(context, hook);
-            readRecords = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN)
+            // FDBRecordStoreBase#scanRecords's continuation parameter is declared @Nullable byte[] (a
+            // position NullAway does not reliably recognize as nullable), so the null literal below
+            // still trips the checker.
+            @SuppressWarnings("NullAway")
+            List<Message> scannedRecords = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN)
                     .map(FDBStoredRecord::getRecord)
                     .asList().get();
+            readRecords = scannedRecords;
         }
         assertEquals(expectedRecords.size(), readRecords.size());
         expectedRecords.stream().forEach(message -> assertTrue(readRecords.contains(message), () -> "Failed to read " + message));
@@ -259,17 +270,21 @@ public class FDBRecordStoreRepairTest extends FDBRecordStoreTestBase {
     }
 
     private void doKeyRepair(int repairedKeys, int invalidKeyLengths, int invalidSplitSuffixes,
-                             RecordMetaDataHook hook) throws Exception {
+                             @Nullable RecordMetaDataHook hook) throws Exception {
         doKeyRepair(repairedKeys, invalidKeyLengths, invalidSplitSuffixes, hook, false);
     }
 
     private void doKeyRepair(int repairedKeys, int invalidKeyLengths, int invalidSplitSuffixes,
-                             RecordMetaDataHook hook,
+                             @Nullable RecordMetaDataHook hook,
                              boolean isDryRun) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openUnsplitRecordStore(context, hook);
-            assertNull(recordStore.repairRecordKeys(null, ScanProperties.FORWARD_SCAN, isDryRun).get(),
-                    "Did not expect a continuation!");
+            // FDBRecordStore#repairRecordKeys's continuation parameter is declared @Nullable byte[] (a
+            // position NullAway does not reliably recognize as nullable), so the null literal below
+            // still trips the checker.
+            @SuppressWarnings("NullAway")
+            byte[] resultContinuation = recordStore.repairRecordKeys(null, ScanProperties.FORWARD_SCAN, isDryRun).get();
+            assertNull(resultContinuation, "Did not expect a continuation!");
             context.commit();
 
             final FDBStoreTimer timer = Objects.requireNonNull(context.getTimer());
@@ -284,7 +299,7 @@ public class FDBRecordStoreRepairTest extends FDBRecordStoreTestBase {
         openUnsplitRecordStore(context, null);
     }
 
-    public void openUnsplitRecordStore(FDBRecordContext context, RecordMetaDataHook hook) throws Exception {
+    public void openUnsplitRecordStore(FDBRecordContext context, @Nullable RecordMetaDataHook hook) throws Exception {
         openSimpleRecordStore(context, metaData -> {
             metaData.setSplitLongRecords(false);
             if (hook != null) {
