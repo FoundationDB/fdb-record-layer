@@ -53,6 +53,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -110,12 +111,16 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
             final List<Long> byCursors = new ArrayList<>();
             byte[] continuation = null;
             do {
-                try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, justLimit)) {
+                // FDBRecordStoreBase#executeQuery's continuation parameter is declared @Nullable byte[]
+                // (a position NullAway does not reliably recognize as nullable), so the genuinely-nullable
+                // continuation local below still trips the checker.
+                try (@SuppressWarnings("NullAway") RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, justLimit)) {
                     RecordCursorResult<FDBQueriedRecord<Message>> result = null;
                     do {
                         result = cursor.getNext();
                         if (result.hasNext()) {
-                            byCursors.add(getRecNo.apply(result.get()));
+                            // result.hasNext() was just checked above, so a value is present
+                            byCursors.add(getRecNo.apply(Objects.requireNonNull(result.get())));
                         }
                     } while (result.hasNext());
                     continuation = result.getContinuation().toBytes();
@@ -131,7 +136,10 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
                         .setReturnedRowLimit(amount)
                         .setIsolationLevel(justLimit.getIsolationLevel())
                         .build();
-                try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, skipAndLimit)) {
+                // FDBRecordStoreBase#executeQuery's continuation parameter is declared @Nullable byte[]
+                // (a position NullAway does not reliably recognize as nullable), so the null literal
+                // below still trips the checker.
+                try (@SuppressWarnings("NullAway") RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, skipAndLimit)) {
                     final List<Long> next = cursor.map(getRecNo).asList().get();
                     byOffsets.addAll(next);
                     if (next.size() < amount) {
@@ -256,7 +264,8 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
         final QueryComponent filter = Query.field("str_value_indexed").equalsValue("even");
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            recordStore.getTimer().reset();
+            // context always has a timer configured by the test infrastructure
+            Objects.requireNonNull(recordStore.getTimer()).reset();
 
             final RecordQueryPlan plan = indexPlanEquals("MySimpleRecord$num_value_3_indexed", 2);
             byte[] continuation = null;
@@ -264,6 +273,10 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
 
             // Read with no filter.
             do {
+                // FDBRecordStoreBase#executeQuery's continuation parameter is declared @Nullable byte[]
+                // (a position NullAway does not reliably recognize as nullable), so the genuinely-nullable
+                // continuation local below still trips the checker.
+                @SuppressWarnings("NullAway")
                 RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, ExecuteProperties.SERIAL_EXECUTE)
                         .limitRowsTo(amount);
                 int count = cursor.getCount().get();
@@ -278,9 +291,17 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
             continuation = null;
             int filteredCount = 0;
             do {
+                // FDBRecordStoreBase#executeQuery's continuation parameter is declared @Nullable byte[]
+                // (a position NullAway does not reliably recognize as nullable), so the genuinely-nullable
+                // continuation local below still trips the checker.
+                @SuppressWarnings("NullAway")
                 RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, ExecuteProperties.SERIAL_EXECUTE)
                         .limitRowsTo(amount)
-                        .filterInstrumented(rec -> filter.eval(recordStore, EvaluationContext.EMPTY, rec),
+                        // QueryComponent#eval() is genuinely @Nullable ("null if this component cannot
+                        // determine [it]"), but filterInstrumented's Function<T, Boolean> requires a
+                        // non-null result; a simple equalsValue comparison on this record type never
+                        // returns null, so fail fast instead if that invariant is ever violated.
+                        .filterInstrumented(rec -> Objects.requireNonNull(filter.eval(recordStore, EvaluationContext.EMPTY, rec)),
                                 recordStore.getTimer(), Collections.singleton(FDBStoreTimer.Counts.QUERY_FILTER_PLAN_GIVEN), Collections.emptySet(),
                                 Collections.singleton(FDBStoreTimer.Counts.QUERY_FILTER_PLAN_PASSED), Collections.emptySet());
                 int count = cursor.getCount().get();
