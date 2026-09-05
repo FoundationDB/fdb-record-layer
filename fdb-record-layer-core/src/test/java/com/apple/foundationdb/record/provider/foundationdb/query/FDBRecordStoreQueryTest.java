@@ -202,7 +202,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 int count = 0;
                 while (cursor.hasNext()) {
                     TestRecordsBytesProto.ByteStringRecord.Builder record = TestRecordsBytesProto.ByteStringRecord.newBuilder();
-                    record.mergeFrom(cursor.next().getRecord());
+                    record.mergeFrom(Objects.requireNonNull(cursor.next()).getRecord());
                     assertEquals(byteString(0, 1, 3), record.getSecondary());
                     assertEquals("box", record.getName());
                     count++;
@@ -237,7 +237,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 int count = 0;
                 while (cursor.hasNext()) {
                     TestRecordsBytesProto.ByteStringRecord.Builder record = TestRecordsBytesProto.ByteStringRecord.newBuilder();
-                    record.mergeFrom(cursor.next().getRecord());
+                    record.mergeFrom(Objects.requireNonNull(cursor.next()).getRecord());
 
                     if (count == 0) {
                         assertEquals(byteString(0, 1, 2), record.getPkey());
@@ -292,7 +292,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 int count = 0;
                 while (cursor.hasNext()) {
                     TestRecordsUuidProto.UuidRecord.Builder record = TestRecordsUuidProto.UuidRecord.newBuilder();
-                    record.mergeFrom(cursor.next().getRecord());
+                    record.mergeFrom(Objects.requireNonNull(cursor.next()).getRecord());
                     assertEquals(uuid1, TupleFieldsHelper.fromProto(record.getSecondary()));
                     assertEquals("foo", record.getName());
                     count++;
@@ -345,7 +345,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 int count = 0;
                 while (cursor.hasNext()) {
                     TestRecordsBytesProto.ByteStringRecord.Builder record = TestRecordsBytesProto.ByteStringRecord.newBuilder();
-                    record.mergeFrom(cursor.next().getRecord());
+                    record.mergeFrom(Objects.requireNonNull(cursor.next()).getRecord());
                     assertEquals(byteString(1), record.getSecondary());
                     count++;
                 }
@@ -373,7 +373,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 int count = 0;
                 while (cursor.hasNext()) {
                     TestRecordsBytesProto.ByteStringRecord.Builder record = TestRecordsBytesProto.ByteStringRecord.newBuilder();
-                    record.mergeFrom(cursor.next().getRecord());
+                    record.mergeFrom(Objects.requireNonNull(cursor.next()).getRecord());
                     assertThat("matches prefix", record.getSecondary().startsWith(byteString(1)));
                     count++;
                 }
@@ -401,7 +401,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 int count = 0;
                 while (cursor.hasNext()) {
                     TestRecordsBytesProto.ByteStringRecord.Builder record = TestRecordsBytesProto.ByteStringRecord.newBuilder();
-                    record.mergeFrom(cursor.next().getRecord());
+                    record.mergeFrom(Objects.requireNonNull(cursor.next()).getRecord());
                     assertThat("matches prefix", record.getSecondary().startsWith(byteString(1, 0)));
                     count++;
                 }
@@ -417,7 +417,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
      */
     @DualPlannerTest
     void queryWithContinuation() throws Exception {
-        setupSimpleRecordStore(null, (i, builder) -> {
+        setupSimpleRecordStore(NO_HOOK, (i, builder) -> {
             builder.setRecNo(i);
             builder.setNumValue2(i % 2);
             builder.setStrValueIndexed((i % 2 == 0) ? "even" : "odd");
@@ -448,6 +448,10 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
             byte[] continuation = null;
             List<TestRecords1Proto.MySimpleRecord> retrieved = new ArrayList<>(100);
             while (true) {
+                // continuation legitimately starts out null (first execution) and is reassigned to real bytes
+                // below; NullAway/JSpecify does not reliably track @Nullable on byte[] parameters, so this
+                // loop-carried variable trips a known limitation.
+                @SuppressWarnings("NullAway")
                 RecordCursor<TestRecords1Proto.MySimpleRecord> cursor =
                         recordStore.executeQuery(plan, continuation, ExecuteProperties.newBuilder()
                                 .setReturnedRowLimit(10)
@@ -483,6 +487,8 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
             continuation = null;
             retrieved = new ArrayList<>(50);
             while (true) {
+                // continuation loop var; see comment on the earlier equivalent loop above
+                @SuppressWarnings("NullAway")
                 RecordCursor<TestRecords1Proto.MySimpleRecord> cursor =
                         recordStore.executeQuery(plan, continuation, ExecuteProperties.newBuilder()
                                 .setReturnedRowLimit(5)
@@ -527,6 +533,8 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
             continuation = null;
             retrieved = new ArrayList<>(50);
             while (true) {
+                // continuation loop var; see comment on the earlier equivalent loop above
+                @SuppressWarnings("NullAway")
                 RecordCursor<TestRecords1Proto.MySimpleRecord> cursor =
                         recordStore.executeQuery(plan, continuation, ExecuteProperties.newBuilder()
                                 .setReturnedRowLimit(15)
@@ -555,7 +563,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
      */
     @DualPlannerTest
     void queryWithShortTimeLimit() throws Exception {
-        setupSimpleRecordStore(null, (i, builder) -> {
+        setupSimpleRecordStore(NO_HOOK, (i, builder) -> {
             builder.setRecNo(i);
             builder.setNumValue3Indexed(i / 10);
         });
@@ -583,7 +591,10 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     Thread.sleep(timeLeft);
                 }
                 count++;
-                try (RecordCursor<Long> cursor = recordStore.executeQuery(plan, continuation, executeProperties)
+                // continuation legitimately starts out null (first execution) and is reassigned to real bytes
+                // below; NullAway/JSpecify does not reliably track @Nullable on byte[] parameters, so this
+                // loop-carried variable trips a known limitation.
+                try (@SuppressWarnings("NullAway") RecordCursor<Long> cursor = recordStore.executeQuery(plan, continuation, executeProperties)
                         .map(record -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(record.getRecord()).getRecNo())) {
                     cursor.forEach(list::add).join();
                     RecordCursorResult<Long> result = cursor.getNext();
@@ -645,7 +656,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 int i = 0;
                 try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = plan.execute(recordStore, evaluationContext).asIterator()) {
                     while (cursor.hasNext()) {
-                        FDBQueriedRecord<Message> rec = cursor.next();
+                        FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursor.next());
                         TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
                         myrec.mergeFrom(rec.getRecord());
                         assertEquals(strValue, myrec.getStrValueIndexed());
@@ -707,7 +718,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
             int i = 0;
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                 while (cursor.hasNext()) {
-                    FDBQueriedRecord<Message> rec = cursor.next();
+                    FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursor.next());
                     TestRecordsEnumProto.MyShapeRecord.Builder shapeRec = TestRecordsEnumProto.MyShapeRecord.newBuilder();
                     shapeRec.mergeFrom(rec.getRecord());
                     assertEquals(TestRecordsEnumProto.MyShapeRecord.Color.RED, shapeRec.getColor());
@@ -756,7 +767,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 int i = 0;
                 try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                     while (cursor.hasNext()) {
-                        FDBQueriedRecord<Message> rec = cursor.next();
+                        FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursor.next());
                         TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
                         myrec.mergeFrom(rec.getRecord());
                         assertTrue(myrec.getNumValueUnique() != 3);
@@ -779,7 +790,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 int i = 0;
                 try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                     while (cursor.hasNext()) {
-                        FDBQueriedRecord<Message> rec = cursor.next();
+                        FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursor.next());
                         TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
                         myrec.mergeFrom(rec.getRecord());
                         assertTrue(myrec.hasStrValueIndexed());
@@ -946,7 +957,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
             int i = 0;
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                 while (cursor.hasNext()) {
-                    FDBQueriedRecord<Message> rec = cursor.next();
+                    FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursor.next());
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
                     myrec.mergeFrom(rec.getRecord());
                     assertTrue(myrec.hasNumValue3Indexed() && myrec.getNumValue3Indexed() < 2);
@@ -1042,13 +1053,13 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
         assertThat(err.getLogInfo(), hasKey(LogMessageKeys.PLAN.toString()));
         Object plan = err.getLogInfo().get(LogMessageKeys.PLAN.toString());
         assertThat(plan, instanceOf(String.class));
-        assertThat("Expected plan \"" + plan + "\" to be under size threshold", ((String) plan).length(), lessThanOrEqualTo(1003));
+        assertThat("Expected plan \"" + plan + "\" to be under size threshold", ((String) Objects.requireNonNull(plan)).length(), lessThanOrEqualTo(1003));
 
         assertThat(err.getLogInfo(), hasEntry(LogMessageKeys.MAX_COMPLEXITY.toString(), complexityLimit));
         assertThat(err.getLogInfo(), hasKey(LogMessageKeys.COMPLEXITY.toString()));
         Object complexity = err.getLogInfo().get(LogMessageKeys.COMPLEXITY.toString());
         assertThat(complexity, instanceOf(Number.class));
-        assertThat(((Number) complexity).intValue(), greaterThan(complexityLimit));
+        assertThat(((Number) Objects.requireNonNull(complexity)).intValue(), greaterThan(complexityLimit));
     }
 
     @Test
@@ -1056,7 +1067,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             final List<UUID> uuids = setupTupleFields(context);
 
-            FDBStoredRecord<Message> rec3 = recordStore.loadRecord(Tuple.from(uuids.get(3)));
+            FDBStoredRecord<Message> rec3 = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(uuids.get(3))));
             TestRecordsTupleFieldsProto.MyFieldsRecord.Builder myrec3 = TestRecordsTupleFieldsProto.MyFieldsRecord.newBuilder();
             myrec3.mergeFrom(rec3.getRecord());
             assertEquals("s3", TupleFieldsHelper.fromProto(myrec3.getFstring()));
@@ -1167,7 +1178,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
             int i = 0;
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                 while (cursor.hasNext()) {
-                    FDBQueriedRecord<Message> rec = cursor.next();
+                    FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursor.next());
                     TestRecordsEnumProto.MyShapeRecord.Builder shapeRec = TestRecordsEnumProto.MyShapeRecord.newBuilder();
                     shapeRec.mergeFrom(rec.getRecord());
                     assertEquals(TestRecordsEnumProto.MyShapeRecord.Color.RED, shapeRec.getColor());
