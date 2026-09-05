@@ -383,7 +383,6 @@ class MessageTransformationTest {
     }
 
     @Test
-    @Test
     // store = null below is intentional: this test evaluates values directly without a real
     // record store. MessageHelpers.transformMessage()'s `store` parameter isn't annotated
     // @Nullable even though it is only ever forwarded to Value.eval(store, context), which does
@@ -432,7 +431,6 @@ class MessageTransformationTest {
         Assertions.assertEquals("z", typedResult.getZ());
     }
 
-    @Test
     @Test
     // store = null below is intentional: this test evaluates values directly without a real
     // record store. MessageHelpers.transformMessage()'s `store` parameter isn't annotated
@@ -502,7 +500,6 @@ class MessageTransformationTest {
      *
      * @throws Exception if things fail
      */
-    @Test
     @Test
     // store = null below is intentional: this test evaluates values directly without a real
     // record store. MessageHelpers.transformMessage()'s `store` parameter isn't annotated
@@ -585,7 +582,6 @@ class MessageTransformationTest {
      *
      * @throws Exception if things fail
      */
-    @Test
     @Test
     // store = null below is intentional: this test evaluates values directly without a real
     // record store. MessageHelpers.transformMessage()'s `store` parameter isn't annotated
