@@ -50,6 +50,7 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -191,7 +192,7 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
                                 result -> !result.isValid() &&
                                         result.getErrorCode().equals(RecordRepairResult.CODE_SPLIT_ERROR) &&
                                         result.isRepaired() &&
-                                        result.getRepairCode().equals(RecordRepairResult.REPAIR_RECORD_DELETED));
+                                        Objects.requireNonNull(result.getRepairCode()).equals(RecordRepairResult.REPAIR_RECORD_DELETED));
                         Assertions.assertThat((Object)invalidResults.get(0).getPrimaryKey()).isEqualTo(primaryKey);
                     } else {
                         // record split gone and version elsewhere - record looks gone
@@ -213,7 +214,7 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
                         result ->  !result.isValid() &&
                                 result.getErrorCode().equals(expectedError) &&
                                 result.isRepaired() &&
-                                result.getRepairCode().equals(RecordRepairResult.REPAIR_RECORD_DELETED));
+                                Objects.requireNonNull(result.getRepairCode()).equals(RecordRepairResult.REPAIR_RECORD_DELETED));
                 Assertions.assertThat((Object)invalidResults.get(0).getPrimaryKey()).isEqualTo(primaryKey);
             }
         }
@@ -269,7 +270,7 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
                 ValidationTestUtils.assertInvalidResults(
                         invalidResults,
                         20,
-                        result -> result.isRepaired() && result.getRepairCode().equals(RecordRepairResult.REPAIR_VERSION_CREATED));
+                        result -> result.isRepaired() && Objects.requireNonNull(result.getRepairCode()).equals(RecordRepairResult.REPAIR_VERSION_CREATED));
                 Assertions.assertThat(invalidResults.stream().map(RecordRepairResult::getPrimaryKey).collect(Collectors.toList()))
                         .isEqualTo(IntStream.range(1, 21).boxed().map(Tuple::from).collect(Collectors.toList()));
             }
@@ -286,6 +287,10 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
         // Load the records again to make sure they are all there
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
+            // FDBRecordStoreBase#scanRecords's continuation parameter is declared @Nullable byte[] (a
+            // position NullAway does not reliably recognize as nullable), so the null literal below
+            // still trips the checker.
+            @SuppressWarnings("NullAway")
             final List<FDBStoredRecord<Message>> records = store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().get();
             if (!storeVersions) {
                 // no versions stored - no repair done
@@ -351,7 +356,7 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
                 ValidationTestUtils.assertInvalidResults(
                         invalidResults,
                         halfRecordCount,
-                        result -> result.isRepaired() && result.getRepairCode().equals(RecordRepairResult.REPAIR_VERSION_CREATED));
+                        result -> result.isRepaired() && Objects.requireNonNull(result.getRepairCode()).equals(RecordRepairResult.REPAIR_VERSION_CREATED));
                 Assertions.assertThat(invalidResults.stream().map(RecordRepairResult::getPrimaryKey).collect(Collectors.toList()))
                         .isEqualTo(IntStream.range(1, halfRecordCount + 1).boxed().map(Tuple::from).collect(Collectors.toList()));
             }
@@ -368,6 +373,10 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
         // Load the records again to make sure they are all there
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = createOrOpenRecordStore(context, metaDataBuilder.build(), path, formatVersion);
+            // FDBRecordStoreBase#scanRecords's continuation parameter is declared @Nullable byte[] (a
+            // position NullAway does not reliably recognize as nullable), so the null literal below
+            // still trips the checker.
+            @SuppressWarnings("NullAway")
             final List<FDBStoredRecord<Message>> records = store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().get();
             if (validationKind.equals(RecordRepair.ValidationKind.RECORD_VALUE_AND_VERSION)) {
                 // Repair was run
@@ -422,7 +431,7 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
                     result -> !result.isValid() &&
                             result.getErrorCode().equals(RecordRepairResult.CODE_DESERIALIZE_ERROR) &&
                             result.isRepaired() &&
-                            result.getRepairCode().equals(RecordRepairResult.REPAIR_RECORD_DELETED));
+                            Objects.requireNonNull(result.getRepairCode()).equals(RecordRepairResult.REPAIR_RECORD_DELETED));
             Assertions.assertThat((Object)repairResults.getInvalidResults().get(0).getPrimaryKey()).isEqualTo(primaryKey);
         }
 
@@ -470,7 +479,8 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
             // This means that the repair process stops mid-way, as soon as we hit the corrupt record. The last transaction will not be committed.
             RepairValidationResults repairResults = runner.run().join();
             Assertions.assertThat(repairResults.isComplete()).isFalse();
-            Assertions.assertThat(repairResults.getCaughtException().getCause()).isInstanceOfAny(UnknownValidationException.class);
+            // isComplete() is false, so an exception was necessarily caught
+            Assertions.assertThat(Objects.requireNonNull(repairResults.getCaughtException()).getCause()).isInstanceOfAny(UnknownValidationException.class);
             Assertions.assertThat(repairResults.getValidResultCount()).isEqualTo(ValidationTestUtils.RECORD_INDEX_WITH_THREE_SPLITS);
             Assertions.assertThat(repairResults.getInvalidResults()).isEmpty();
         }
@@ -555,6 +565,10 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
         // Load the records again to  make sure they are all there
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
+            // FDBRecordStoreBase#scanRecords's continuation parameter is declared @Nullable byte[] (a
+            // position NullAway does not reliably recognize as nullable), so the null literal below
+            // still trips the checker.
+            @SuppressWarnings("NullAway")
             final List<FDBStoredRecord<Message>> records = store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().get();
             // Ensure there are 48 records plus unaffected ones (the corrupt ones are gone)
             // Also present are records which only have their versions removed
@@ -624,6 +638,11 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
      * Allow a few transactions to commit but then introduce an exception that will stop the iteration.
      */
     @Test
+    // FDBRecordStoreBase#scanRecords's continuation parameter is declared @Nullable byte[] (a position
+    // NullAway does not reliably recognize as nullable), so the null literal below still trips the
+    // checker. The lambda passed to assertThatThrownBy() has no declaration to attach a narrower
+    // suppression to.
+    @SuppressWarnings("NullAway")
     void testValidateSomeTransactionsCommitted() throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(true, true);
         final FormatVersion maximumSupportedVersion = FormatVersion.getMaximumSupportedVersion();
@@ -695,7 +714,11 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
         try {
             runner = builder.buildRepairRunner(true);
         } finally {
-            runner.close();
+            // Guard against buildRepairRunner() throwing before assigning runner: closing a null runner
+            // here would mask the original exception with an unrelated NullPointerException.
+            if (runner != null) {
+                runner.close();
+            }
         }
         RepairValidationResults results = runner.run().join();
         Assertions.assertThat(results.isComplete()).isFalse();
@@ -752,14 +775,14 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
                     result -> !result.isValid() &&
                             result.getErrorCode().equals(RecordRepairResult.CODE_VERSION_MISSING_ERROR) &&
                             result.isRepaired() &&
-                            result.getRepairCode().equals(RecordRepairResult.REPAIR_VERSION_CREATED));
+                            Objects.requireNonNull(result.getRepairCode()).equals(RecordRepairResult.REPAIR_VERSION_CREATED));
             ValidationTestUtils.assertInvalidResults(
                     repairResults.getInvalidResults().subList(1, 2), // Second invalid result
                     1,
                     result -> !result.isValid() &&
                             result.getErrorCode().equals(RecordRepairResult.CODE_DESERIALIZE_ERROR) &&
                             result.isRepaired() &&
-                            result.getRepairCode().equals(RecordRepairResult.REPAIR_RECORD_DELETED));
+                            Objects.requireNonNull(result.getRepairCode()).equals(RecordRepairResult.REPAIR_RECORD_DELETED));
             Assertions.assertThat(repairResults.getInvalidResults().stream().map(RecordRepairResult::getPrimaryKey).collect(Collectors.toList()))
                     .isEqualTo(List.of(primaryKey1, primaryKey2));
         }
@@ -793,6 +816,10 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
         // Load the records again to make sure they are all there
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
+            // FDBRecordStoreBase#scanRecords's continuation parameter is declared @Nullable byte[] (a
+            // position NullAway does not reliably recognize as nullable), so the null literal below
+            // still trips the checker.
+            @SuppressWarnings("NullAway")
             final List<FDBStoredRecord<Message>> records = store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().get();
             Assertions.assertThat(records).hasSize(numRecords);
             if (hasVersion != null) {
