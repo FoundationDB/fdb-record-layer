@@ -55,6 +55,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.PrimitiveIterator;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -93,6 +94,9 @@ public class UnionIntersectionTest extends FDBRecordStoreTestBase {
     // Union / intersection merges need to pause whenever either side hits an out-of-band reason for stopping.
 
     @Test
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // UnionCursor.create's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     public void unionReasons() throws Exception {
         final Function<byte[], RecordCursor<FDBStoredRecord<Message>>> left = continuation -> scanRecordsBetween(10L, 20L, continuation);
         final Function<byte[], RecordCursor<FDBStoredRecord<Message>>> leftLimited = left.andThen(cursor -> new RecordCursorTest.FakeOutOfBandCursor<>(cursor, 3));
@@ -121,6 +125,9 @@ public class UnionIntersectionTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // UnionCursor.create's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     public void unionMultiReasons() throws Exception {
         final Function<byte[], RecordCursor<FDBStoredRecord<Message>>> first = continuation -> scanRecordsBetween(10L, 20L, continuation);
         final Function<byte[], RecordCursor<FDBStoredRecord<Message>>> firstLimited = first.andThen(cursor -> new RecordCursorTest.FakeOutOfBandCursor<>(cursor, 3));
@@ -155,6 +162,9 @@ public class UnionIntersectionTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // IntersectionCursor.create's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     public void intersectionReasons() throws Exception {
         final Function<byte[], RecordCursor<FDBStoredRecord<Message>>> left = continuation -> scanRecordsBetween(7L, 20L, continuation);
         final Function<byte[], RecordCursor<FDBStoredRecord<Message>>> leftLimited = left.andThen(cursor -> new RecordCursorTest.FakeOutOfBandCursor<>(cursor, 3));
@@ -194,6 +204,9 @@ public class UnionIntersectionTest extends FDBRecordStoreTestBase {
         byte[] continuation = null;
         List<Integer> results = new ArrayList<>();
         while (!done) {
+            // NullAway/JSpecify does not currently track @Nullable on byte[] type arguments in generic
+            // functional interfaces like Function<byte[], ...>, even for a properly-nullable local variable.
+            @SuppressWarnings("NullAway")
             IntersectionCursor<Integer> intersectionCursor = IntersectionCursor.create(Collections::singletonList, false, left, right, continuation, timer);
             intersectionCursor.forEach(results::add).join();
             RecordCursorResult<Integer> noNextResult = intersectionCursor.getNext();
@@ -208,6 +221,9 @@ public class UnionIntersectionTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // IntersectionCursor.create's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     public void intersectionMultiReasons() throws Exception {
         final Function<byte[], RecordCursor<FDBStoredRecord<Message>>> first = continuation -> scanRecordsBetween(10L, 20L, continuation);
         final Function<byte[], RecordCursor<FDBStoredRecord<Message>>> firstLimited = first.andThen(cursor -> new RecordCursorTest.FakeOutOfBandCursor<>(cursor, 3));
@@ -233,6 +249,9 @@ public class UnionIntersectionTest extends FDBRecordStoreTestBase {
         }
     }
 
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // UnionCursor.create's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     private void verifyUnionWithInnerLimits(List<Function<byte[], RecordCursor<FDBRecord<Message>>>> cursorFunctions,
                                             PrimitiveIterator.OfLong target) throws Exception {
         byte[] continuation = null;
@@ -245,7 +264,7 @@ public class UnionIntersectionTest extends FDBRecordStoreTestBase {
                 while (union.hasNext()) {
                     assertFalse(done); // if we think we're done, should not get more records
                     long expected = target.next();
-                    long next = storedRecordRecNo(union.next());
+                    long next = storedRecordRecNo(Objects.requireNonNull(union.next()));
                     assertEquals(expected, next);
                 }
                 continuation = union.getContinuation();
@@ -339,6 +358,9 @@ public class UnionIntersectionTest extends FDBRecordStoreTestBase {
      * key works.
      */
     @Test
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // IntersectionCursor.create/UnionCursor.create's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     public void indexScansByPrimaryKey() throws Exception {
         final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN;
         try (FDBRecordContext context = openContext()) {
