@@ -131,7 +131,12 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
             assertEquals(0, recordStore.getSnapshotRecordCount(groupExpr, Key.Evaluated.scalar(1)).join().longValue());
 
             int expectedNum = 3;
-            for (FDBStoredRecord<Message> storedRecord : recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asList().join()) {
+            // FDBRecordStoreBase#scanRecords's continuation parameter is declared @Nullable byte[] (a
+            // position NullAway does not reliably recognize as nullable), so the null literal below
+            // still trips the checker.
+            @SuppressWarnings("NullAway")
+            List<FDBStoredRecord<Message>> scannedRecords = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asList().join();
+            for (FDBStoredRecord<Message> storedRecord : scannedRecords) {
                 TestRecordsWithHeaderProto.MyRecord rec = parseMyRecord(storedRecord.getRecord());
                 assertEquals(2, rec.getHeader().getRecNo());
                 assertEquals(expectedNum++, rec.getHeader().getNum());
@@ -438,7 +443,12 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
 
             for (String path : paths) {
                 // When scanned BY_GROUP, the index keeps one entry (containing the extremum rec_no for each group). Make sure the ones for the deleted path are gone
-                try (RecordCursor<IndexEntry> entryCursor = recordStore.scanIndex(extremumIndex, IndexScanType.BY_GROUP, TupleRange.allOf(Tuple.from(path)), null, ScanProperties.FORWARD_SCAN)) {
+                // FDBRecordStoreBase#scanIndex's continuation parameter is declared @Nullable byte[] (a
+                // position NullAway does not reliably recognize as nullable), so the null literal below
+                // still trips the checker.
+                @SuppressWarnings("NullAway")
+                RecordCursor<IndexEntry> entryCursorLocal = recordStore.scanIndex(extremumIndex, IndexScanType.BY_GROUP, TupleRange.allOf(Tuple.from(path)), null, ScanProperties.FORWARD_SCAN);
+                try (RecordCursor<IndexEntry> entryCursor = entryCursorLocal) {
                     Map<Integer, Long> extremeByNum = new HashMap<>();
                     for (RecordCursorResult<IndexEntry> result = entryCursor.getNext(); result.hasNext(); result = entryCursor.getNext()) {
                         IndexEntry entry = Objects.requireNonNull(result.get());
@@ -451,7 +461,12 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
                     }
                 }
                 // When scanned BY_VALUE, the index keeps one entry per record. Make sure the ones for the deleted path are gone
-                try (RecordCursor<FDBIndexedRecord<Message>> recordCursor = recordStore.scanIndexRecords(extremumIndex, IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(path)), null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN)) {
+                // FDBRecordStoreBase#scanIndexRecords's continuation parameter is declared @Nullable byte[]
+                // (a position NullAway does not reliably recognize as nullable), so the null literal below
+                // still trips the checker.
+                @SuppressWarnings("NullAway")
+                RecordCursor<FDBIndexedRecord<Message>> recordCursorLocal = recordStore.scanIndexRecords(extremumIndex, IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(path)), null, IndexOrphanBehavior.ERROR, ScanProperties.FORWARD_SCAN);
+                try (RecordCursor<FDBIndexedRecord<Message>> recordCursor = recordCursorLocal) {
                     List<TestRecordsWithHeaderProto.MyRecord> recordsFromIndex = recordCursor
                             .map(rec -> TestRecordsWithHeaderProto.MyRecord.newBuilder().mergeFrom(rec.getRecord()).build())
                             .asList()
@@ -532,7 +547,7 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
             // Assert that the deleted path is gone, but all other path sums should be the same
             for (String path : paths) {
                 // Get the sum for each value of num
-                Map<Integer, Long> sumByNum = sumsByPathAndNum.get(path);
+                Map<Integer, Long> sumByNum = Objects.requireNonNull(sumsByPathAndNum.get(path));
                 for (Map.Entry<Integer, Long> numAndSum : sumByNum.entrySet()) {
                     long expectedSum = path.equals(pathToDelete) ? 0L : numAndSum.getValue();
                     assertEquals(expectedSum, getGroupedSum(sumIndex, Key.Evaluated.concatenate(path, numAndSum.getKey())));
@@ -682,6 +697,9 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // Deliberately passing a null predicate to verify defensive behavior (throws InvalidExpressionException
+    // rather than, say, being silently interpreted as deleteAllData).
+    @SuppressWarnings("NullAway")
     void testDeleteWhereNullPredicate() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeaderPrimaryKey(context, false);
@@ -694,6 +712,10 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // FDBRecordStoreBase#scanIndex's continuation parameter is declared @Nullable byte[] (a position
+    // NullAway does not reliably recognize as nullable), so the null literal below still trips the
+    // checker.
+    @SuppressWarnings("NullAway")
     void testDeleteWhereWithFunctionIndexSplit() throws Exception {
         // Index key is (header.path, first three characters of str_value)
         // Value is remaining suffix of str_value
@@ -724,6 +746,10 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // FDBRecordStoreBase#scanIndex's continuation parameter is declared @Nullable byte[] (a position
+    // NullAway does not reliably recognize as nullable), so the null literal below still trips the
+    // checker.
+    @SuppressWarnings("NullAway")
     void testDeleteWhereSingleTypeWithFunctionIndexSplit() throws Exception {
         // Index key is (header.path, first three characters of str_value)
         // Value is remaining suffix of str_value
@@ -756,6 +782,10 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // FDBRecordStoreBase#scanIndexRecords/scanRecords's continuation parameter is declared @Nullable
+    // byte[] (a position NullAway does not reliably recognize as nullable), so the null literals below
+    // still trip the checker.
+    @SuppressWarnings("NullAway")
     void testDeleteWhereSingleTypeEmptyPredicate() throws Exception {
         // Index on a single type that puts only the first 3 characters of str_value into the key of the index,
         // the rest of the suffix going into the value.
@@ -797,6 +827,10 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // FDBRecordStoreBase#scanIndex's continuation parameter is declared @Nullable byte[] (a position
+    // NullAway does not reliably recognize as nullable), so the null literal below still trips the
+    // checker.
+    @SuppressWarnings("NullAway")
     void testDeleteWhereSingleTypeWithRecordTypePrefixedFunctionIndexSplit() throws Exception {
         // Index key is (recordType, header.path, first three characters of str_value)
         // Value is remaining suffix of str_value
@@ -860,6 +894,10 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
             }
 
             for (Map.Entry<Integer, List<FDBStoredRecord<Message>>> entry : recordsByNum.entrySet()) {
+                // FDBRecordStoreBase#scanRecords's continuation parameter is declared @Nullable byte[] (a
+                // position NullAway does not reliably recognize as nullable), so the null literal below
+                // still trips the checker.
+                @SuppressWarnings("NullAway")
                 List<FDBStoredRecord<Message>> readRecords = recordStore.scanRecords(TupleRange.allOf(Tuple.from(path, entry.getKey())), null, ScanProperties.FORWARD_SCAN)
                         .asList()
                         .join();
@@ -886,6 +924,10 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
             // Now that the index is no longer maintained, the range delete should succeed
             recordStore.deleteRecordsWhere(filter);
             for (Map.Entry<Integer, List<FDBStoredRecord<Message>>> entry : recordsByNum.entrySet()) {
+                // FDBRecordStoreBase#scanRecords's continuation parameter is declared @Nullable byte[] (a
+                // position NullAway does not reliably recognize as nullable), so the null literal below
+                // still trips the checker.
+                @SuppressWarnings("NullAway")
                 List<FDBStoredRecord<Message>> readRecords = recordStore.scanRecords(TupleRange.allOf(Tuple.from(path, entry.getKey())), null, ScanProperties.FORWARD_SCAN)
                         .asList()
                         .join();
@@ -929,6 +971,10 @@ public class FDBRecordStoreDeleteWhereTest extends FDBRecordStoreTestBase {
             final String path = recordsByPath.keySet().iterator().next();
             deleteByPathOperation.accept(path);
 
+            // FDBRecordStoreBase#scanRecords's continuation parameter is declared @Nullable byte[] (a
+            // position NullAway does not reliably recognize as nullable), so the null literal below
+            // still trips the checker.
+            @SuppressWarnings("NullAway")
             List<TestRecordsWithHeaderProto.MyRecord> readRecords = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN)
                     .map(storedRecord -> TestRecordsWithHeaderProto.MyRecord.newBuilder().mergeFrom(storedRecord.getRecord()).build())
                     .asList()
