@@ -589,7 +589,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
 
     private List<FDBIndexedRecord<Message>> scanIndex(final IndexOrphanBehavior orphanBehavior) throws InterruptedException, ExecutionException {
         return recordStore.scanIndexRemoteFetch("MySimpleRecord$num_value_unique", new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL),
-                null, ScanProperties.FORWARD_SCAN, orphanBehavior).asList().get();
+                noContinuation(), ScanProperties.FORWARD_SCAN, orphanBehavior).asList().get();
     }
 
     private void createOrphanEntry() throws Exception {
