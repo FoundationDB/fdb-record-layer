@@ -851,10 +851,9 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitShowSchemaTemplatesStatement(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitSetVariable(@Nonnull RelationalParser.SetVariableContext ctx) {
-        return getDelegate().visitSetVariable(ctx);
+    public ProceduralPlan visitSetTransactionVariable(@Nonnull RelationalParser.SetTransactionVariableContext ctx) {
+        return getDelegate().visitSetTransactionVariable(ctx);
     }
 
     @Nonnull
@@ -885,12 +884,6 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Object visitSetNewValueInsideTrigger(@Nonnull RelationalParser.SetNewValueInsideTriggerContext ctx) {
         return getDelegate().visitSetNewValueInsideTrigger(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public Object visitVariableClause(@Nonnull RelationalParser.VariableClauseContext ctx) {
-        return getDelegate().visitVariableClause(ctx);
     }
 
     @Nonnull
