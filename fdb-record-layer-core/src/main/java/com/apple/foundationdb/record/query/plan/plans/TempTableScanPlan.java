@@ -74,8 +74,9 @@ public class TempTableScanPlan extends AbstractRelationalExpressionWithoutChildr
     }
 
     @Override
-    @SuppressWarnings("NullAway") // NullAway doesn't reliably track @Nullable on byte[] parameters; ListCursor's
-                                   // constructor explicitly tolerates (and handles) a null continuation.
+    // NullAway doesn't reliably track @Nullable on byte[] parameters; ListCursor's
+    // constructor explicitly tolerates (and handles) a null continuation.
+    @SuppressWarnings("NullAway")
     public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
                                                                      final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,

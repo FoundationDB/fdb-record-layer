@@ -299,8 +299,9 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
         @Nullable
         private SelectorPlanContinuation cachedProto;
 
-        @SuppressWarnings("NullAway") // NullAway doesn't reliably narrow @Nullable byte[] via the enclosing
-                                       // `rawBytes != null` check below; parseFrom's parameter is genuinely non-null here.
+        // NullAway doesn't reliably narrow @Nullable byte[] via the enclosing
+        // `rawBytes != null` check below; parseFrom's parameter is genuinely non-null here.
+        @SuppressWarnings("NullAway")
         public SelectorContinuation(@Nullable byte[] rawBytes) {
             try {
                 if (rawBytes != null) {
@@ -353,8 +354,9 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
 
         @Nullable
         @Override
-        @SuppressWarnings("NullAway") // NullAway doesn't reliably track @Nullable on byte[] return types; this
-                                       // method is correctly annotated @Nullable above.
+        // NullAway doesn't reliably track @Nullable on byte[] return types; this
+        // method is correctly annotated @Nullable above.
+        @SuppressWarnings("NullAway")
         public byte[] toBytes() {
             if (isEnd()) {
                 return null;
@@ -377,8 +379,9 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
         }
 
         @Nullable
-        @SuppressWarnings("NullAway") // NullAway doesn't reliably track @Nullable on byte[] return types; this
-                                       // method is correctly annotated @Nullable above.
+        // NullAway doesn't reliably track @Nullable on byte[] return types; this
+        // method is correctly annotated @Nullable above.
+        @SuppressWarnings("NullAway")
         public byte[] getInnerContinuation() {
             return (innerContinuation == null) ? null : innerContinuation.toByteArray();
         }

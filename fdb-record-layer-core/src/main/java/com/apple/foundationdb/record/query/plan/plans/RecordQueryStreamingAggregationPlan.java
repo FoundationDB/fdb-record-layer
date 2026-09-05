@@ -124,9 +124,10 @@ public class RecordQueryStreamingAggregationPlan extends AbstractRelationalExpre
     }
 
     @Override
-    @SuppressWarnings({"unchecked", "NullAway"}) // NullAway doesn't reliably track @Nullable on byte[] parameters
-                                                  // through local variable narrowing/reassignment, even though both
-                                                  // continuation and innerContinuation are declared @Nullable byte[].
+    // NullAway doesn't reliably track @Nullable on byte[] parameters
+    // through local variable narrowing/reassignment, even though both
+    // continuation and innerContinuation are declared @Nullable byte[].
+    @SuppressWarnings({"unchecked", "NullAway"})
     public <M extends Message> RecordCursor<QueryResult> executePlan(FDBRecordStoreBase<M> store,
                                                                      EvaluationContext context,
                                                                      @Nullable byte[] continuation,
@@ -284,8 +285,9 @@ public class RecordQueryStreamingAggregationPlan extends AbstractRelationalExpre
     }
 
     @Override
-    @SuppressWarnings("NullAway") // PlanHashable.objectsPlanHash's varargs aren't annotated @Nullable, but each
-                                   // element is hashed via objectPlanHash, which is explicitly null-safe.
+    // PlanHashable.objectsPlanHash's varargs aren't annotated @Nullable, but each
+    // element is hashed via objectPlanHash, which is explicitly null-safe.
+    @SuppressWarnings("NullAway")
     public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, getInnerPlan(), groupingKeyValue, aggregateValue, completeResultValue);
     }

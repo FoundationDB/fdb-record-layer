@@ -86,8 +86,9 @@ public class RecordQueryFirstOrDefaultPlan extends AbstractRelationalExpressionW
         return onEmptyResultValue;
     }
 
-    @SuppressWarnings({"resource", "NullAway"}) // NullAway doesn't reliably track @Nullable on byte[] parameters;
-                                                 // the executePlan continuation parameter is declared @Nullable.
+    // NullAway doesn't reliably track @Nullable on byte[] parameters;
+    // the executePlan continuation parameter is declared @Nullable.
+    @SuppressWarnings({"resource", "NullAway"})
     @Override
     public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
                                                                      final EvaluationContext context,

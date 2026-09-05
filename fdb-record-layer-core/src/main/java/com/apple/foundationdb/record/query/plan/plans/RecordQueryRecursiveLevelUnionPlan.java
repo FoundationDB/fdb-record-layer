@@ -141,9 +141,10 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
         return ImmutableSet.of();
     }
 
-    @SuppressWarnings({"resource", "NullAway"}) // NullAway doesn't reliably track @Nullable on byte[] through the
-                                                 // `x == null ? null : x.toByteArray()` ternary, even though the
-                                                 // target executePlan parameter is declared @Nullable byte[].
+    // NullAway doesn't reliably track @Nullable on byte[] through the
+    // `x == null ? null : x.toByteArray()` ternary, even though the
+    // target executePlan parameter is declared @Nullable byte[].
+    @SuppressWarnings({"resource", "NullAway"})
     @Override
     public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
                                                                      final EvaluationContext context,
@@ -356,9 +357,10 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
          * @param tempTableFactory the {@link TempTable} factory.
          * @param continuationBytes optional continuation of the {@link RecursiveUnionCursor}.
          */
-        @SuppressWarnings("NullAway") // NullAway doesn't reliably narrow @Nullable byte[] via the enclosing
-                                       // `continuationBytes == null` check below; Continuation.from's parameter
-                                       // is genuinely non-null here.
+        // NullAway doesn't reliably narrow @Nullable byte[] via the enclosing
+        // `continuationBytes == null` check below; Continuation.from's parameter
+        // is genuinely non-null here.
+        @SuppressWarnings("NullAway")
         RecursiveStateManagerImpl(final BiFunction<@Nullable ByteString, EvaluationContext, RecordCursor<QueryResult>> initialCursorCreator,
                                   final BiFunction<@Nullable ByteString, EvaluationContext,  RecordCursor<QueryResult>> recursiveCursorCreator,
                                   final EvaluationContext baseContext,

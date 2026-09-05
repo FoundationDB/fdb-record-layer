@@ -115,11 +115,12 @@ public class RecordQueryRecursiveDfsJoinPlan extends AbstractRelationalExpressio
     }
 
     @Override
-    @SuppressWarnings("NullAway") // Two independent tooling limitations, neither a real bug: (1) NullAway doesn't
-                                   // reliably track @Nullable on byte[] return types (the checkValueFunction lambda
-                                   // legitimately returns null when there's no primary key to serialize); (2)
-                                   // RecursiveValue.getValue() is legitimately @Nullable, but the target type of this
-                                   // method reference is the JDK's non-nullness-aware java.util.function.Function.
+    // Two independent tooling limitations, neither a real bug: (1) NullAway doesn't
+    // reliably track @Nullable on byte[] return types (the checkValueFunction lambda
+    // legitimately returns null when there's no primary key to serialize); (2)
+    // RecursiveValue.getValue() is legitimately @Nullable, but the target type of this
+    // method reference is the JDK's non-nullness-aware java.util.function.Function.
+    @SuppressWarnings("NullAway")
     public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
                                                                      final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,

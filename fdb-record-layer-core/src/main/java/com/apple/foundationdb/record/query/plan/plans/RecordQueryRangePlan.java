@@ -87,8 +87,9 @@ public class RecordQueryRangePlan extends AbstractRelationalExpressionWithoutChi
     }
 
     @Override
-    @SuppressWarnings("NullAway") // NullAway doesn't reliably track @Nullable on byte[] parameters; RangeCursor's
-                                   // constructor handles a null continuation (starts from position 0).
+    // NullAway doesn't reliably track @Nullable on byte[] parameters; RangeCursor's
+    // constructor handles a null continuation (starts from position 0).
+    @SuppressWarnings("NullAway")
     public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
                                                                      final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
