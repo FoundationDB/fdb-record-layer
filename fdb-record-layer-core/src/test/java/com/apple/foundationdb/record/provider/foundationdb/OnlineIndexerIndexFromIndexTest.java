@@ -40,6 +40,7 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -332,7 +333,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .build()) {
 
             IndexingByIndex.ValidationException e = assertThrows(IndexingByIndex.ValidationException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains("source index is not scannable"));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains("source index is not scannable"));
         }
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
@@ -363,11 +364,11 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .build()) {
 
             IndexingByIndex.ValidationException e = assertThrows(IndexingByIndex.ValidationException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains("source index is not a VALUE index"));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains("source index is not a VALUE index"));
 
             try (FDBRecordContext context = openContext()) {
                 e = assertThrows(IndexingBase.ValidationException.class, () -> indexBuilder.rebuildIndex(recordStore));
-                assertTrue(e.getMessage().contains("source index is not a VALUE index"));
+                assertTrue(Objects.requireNonNull(e.getMessage()).contains("source index is not a VALUE index"));
                 context.commit();
             }
         }
@@ -402,11 +403,11 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .build()) {
 
             IndexingByIndex.ValidationException e = assertThrows(IndexingByIndex.ValidationException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains("source index creates duplicates"));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains("source index creates duplicates"));
 
             try (FDBRecordContext context = openContext()) {
                 e = assertThrows(IndexingBase.ValidationException.class, () -> indexBuilder.rebuildIndex(recordStore));
-                assertTrue(e.getMessage().contains("source index creates duplicates"));
+                assertTrue(Objects.requireNonNull(e.getMessage()).contains("source index creates duplicates"));
                 context.commit();
             }
         }
@@ -500,7 +501,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
             // now try building by records, a failure is expected
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains("This index was partly built by another method"));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains("This index was partly built by another method"));
         }
 
         openSimpleMetaData(hook);
@@ -556,7 +557,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
             // now try building by records, a failure is expected
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains("This index was partly built by another method"));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains("This index was partly built by another method"));
         }
 
         openSimpleMetaData(hook);
@@ -602,7 +603,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
             // now try building by records, a failure is expected
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains("This index was partly built by another method"));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains("This index was partly built by another method"));
         }
 
         openSimpleMetaData(hook);
@@ -656,7 +657,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
             // now try building by records, a failure is expected
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains("This index was partly built by another method"));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains("This index was partly built by another method"));
         }
 
         openSimpleMetaData(hook);
@@ -784,7 +785,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
             // now try building if disabled, nothing should be happening
             RecordCoreException e = assertThrows(IndexingBase.ValidationException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains("Index state is not as expected"));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains("Index state is not as expected"));
         }
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
 
@@ -854,7 +855,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .build()) {
 
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains("This index was partly built by another method"));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains("This index was partly built by another method"));
         }
 
         // try index continuation, but allow rebuild
@@ -923,7 +924,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .build()) {
 
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains("This index was partly built by another method"));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains("This index was partly built by another method"));
         }
 
         // try indexing with src_index2, but allow continuation of previous method (src_index)
@@ -1103,7 +1104,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
             final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
                     indexer.blockIndexBuilds(luka, 10L);
             String indexName = tgtIndex.getName();
-            final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
+            final IndexBuildProto.IndexBuildIndexingStamp stamp = Objects.requireNonNull(stampMap.get(indexName));
             assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX, stamp.getMethod());
             assertTrue(stamp.getBlock());
         }
@@ -1114,7 +1115,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
             final Map<String, IndexBuildProto.IndexBuildIndexingStamp> stampMap =
                     indexer.queryIndexingStamps();
             String indexName = tgtIndex.getName();
-            final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
+            final IndexBuildProto.IndexBuildIndexingStamp stamp = Objects.requireNonNull(stampMap.get(indexName));
             assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX, stamp.getMethod());
             assertTrue(stamp.getBlock());
             assertEquals(luka, stamp.getBlockID());
@@ -1132,7 +1133,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .setLimit(chunkSize)
                 .build()) {
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains("This index was partly built, and blocked"));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains("This index was partly built, and blocked"));
         }
         try (FDBRecordContext context = openContext()) {
             assertTrue(recordStore.getIndexState(tgtIndex).isWriteOnly());

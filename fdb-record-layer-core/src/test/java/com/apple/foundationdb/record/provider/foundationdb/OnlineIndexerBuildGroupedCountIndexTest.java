@@ -48,6 +48,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -62,6 +63,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * Tests for building a grouped count index.
  */
 public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
+    // NullAway/JSpecify does not reliably propagate @Nullable byte[] annotations for cross-file
+    // (bytecode-read) method parameters, so a properly-@Nullable-typed continuation still gets
+    // flagged as a mismatch at call sites in this file. Declaring the return type here as plain
+    // (non-null) byte[] sidesteps that: passing a "non-null-typed" value into a @Nullable-declared
+    // parameter is always accepted, regardless of how that parameter's own nullability was read.
+    @SuppressWarnings("NullAway")
+    private static byte[] noContinuation() {
+        return null;
+    }
+
     private static final KeyExpression PRIMARY_KEY = concatenateFields("num_value_2", "rec_no");
 
     private static final Index COUNT_BY_NUM_VALUE_2 = new Index("countByNumValue2",
@@ -153,7 +164,7 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
     private Map<Integer, Long> countByGroup() {
         try (FDBRecordContext context = openContext()) {
             Map<Integer, Long> values = new HashMap<>();
-            recordStore.scanIndex(COUNT_BY_NUM_VALUE_2, IndexScanType.BY_GROUP, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
+            recordStore.scanIndex(COUNT_BY_NUM_VALUE_2, IndexScanType.BY_GROUP, TupleRange.ALL, noContinuation(), ScanProperties.FORWARD_SCAN)
                     .forEach(indexEntry -> {
                         int numValue2 = (int)indexEntry.getKey().getLong(indexEntry.getKey().size() - 1);
                         long count = indexEntry.getValue().getLong(0);
@@ -215,7 +226,9 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
                 .setRecordsPerSecond(OnlineIndexOperationConfig.DEFAULT_RECORDS_PER_SECOND * 100)
                 .build()) {
             CompletableFuture<?> buildFuture = indexer.buildIndexAsync(true);
-            recordsAfter = updater.update(recordsBefore, otherRecordsBefore);
+            // otherRecordsBefore is only null when the updater ignores its second parameter (see
+            // call sites above); substituting an empty list in that case is behaviorally identical.
+            recordsAfter = updater.update(recordsBefore, Objects.requireNonNullElse(otherRecordsBefore, List.of()));
             buildFuture.join();
         }
 
@@ -273,7 +286,7 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
                             .setMetaDataProvider(metaData)
                             .open();
                     newRecords.forEach(innerStore::saveRecord);
-                    return null;
+                    return true;
                 });
                 recordsAfter.addAll(newRecords);
             }
@@ -301,7 +314,7 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
                             .setMetaDataProvider(metaData)
                             .open();
                     updatedRecords.forEach(innerStore::saveRecord);
-                    return null;
+                    return true;
                 });
             }
             return recordsBefore;
@@ -328,7 +341,7 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
                             .setMetaDataProvider(metaData)
                             .open();
                     toDelete.forEach(innerStore::deleteRecord);
-                    return null;
+                    return true;
                 });
                 toDelete.forEach(recordMap::remove);
             }
@@ -381,7 +394,7 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
                             .open();
                     toSimple.values().forEach(innerStore::saveRecord);
                     toOther.values().forEach(innerStore::saveRecord);
-                    return null;
+                    return true;
                 });
 
                 toSimple.forEach((key, simple) -> {
@@ -418,7 +431,7 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
                             .setMetaDataProvider(metaData)
                             .open();
                     innerStore.deleteRecordsWhere(Query.field("num_value_2").equalsValue(numValue2));
-                    return null;
+                    return true;
                 });
                 newRecords.removeIf(mySimpleRecord -> mySimpleRecord.getNumValue2() == numValue2);
             }
@@ -507,7 +520,7 @@ public class OnlineIndexerBuildGroupedCountIndexTest extends OnlineIndexerTest {
                             otherDeletes.forEach(otherMap::remove);
                         });
                     }
-                    return null;
+                    return true;
                 });
             }
             return simpleMap.values();
