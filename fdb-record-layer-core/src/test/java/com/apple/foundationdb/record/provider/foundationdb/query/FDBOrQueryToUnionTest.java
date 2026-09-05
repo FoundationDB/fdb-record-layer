@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -146,6 +147,15 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 @Tag(Tags.RequiresFDB)
 class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
+    // NullAway/JSpecify does not reliably resolve the @Nullable annotation on FDBRecordStoreBase's inherited
+    // scanRecords(byte[], ScanProperties) default method when it is called (with no continuation) from outside
+    // FDBRecordStore itself; wrapping the call here, rather than suppressing at each call site, centralizes the
+    // (well-understood) suppression.
+    @SuppressWarnings("NullAway")
+    private RecordCursor<FDBStoredRecord<Message>> scanAllRecords(ScanProperties scanProperties) {
+        return recordStore.scanRecords(null, scanProperties);
+    }
+
     private static Stream<Boolean> booleanArgs() {
         return Stream.of(false, true);
     }
@@ -362,7 +372,10 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 int i = 0;
                 byte[] continuation = null;
                 do {
-                    try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, ExecuteProperties.newBuilder()
+                    // continuation legitimately starts out null (first execution) and is reassigned to real
+                    // bytes below; NullAway/JSpecify does not reliably track @Nullable on byte[] parameters,
+                    // so this loop-carried variable trips a known limitation.
+                    try (@SuppressWarnings("NullAway") RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, ExecuteProperties.newBuilder()
                             .setReturnedRowLimit(limit)
                             .build()).asIterator()) {
                         while (cursor.hasNext()) {
@@ -808,7 +821,10 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                         .setReturnedRowLimit(limit)
                         .build();
-                try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, executeProperties).asIterator()) {
+                // continuation legitimately starts out null (first execution) and is reassigned to real
+                // bytes below; NullAway/JSpecify does not reliably track @Nullable on byte[] parameters,
+                // so this loop-carried variable trips a known limitation.
+                try (@SuppressWarnings("NullAway") RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, executeProperties).asIterator()) {
                     int i = 0;
                     Set<Tuple> keysThisIteration = new HashSet<>();
                     while (cursor.hasNext()) {
@@ -1182,7 +1198,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             final RecordType recordType = recordStore.getRecordMetaData().getRecordType("MySimpleRecord");
-            expected = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN)
+            expected = scanAllRecords(ScanProperties.FORWARD_SCAN)
                     .filter(rec -> recordType.equals(rec.getRecordType()))
                     .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build())
                     .filter(msg -> "odd".equals(msg.getStrValueIndexed()) && (msg.getNumValue2() == 0 || msg.getNumValue2() == 2))
@@ -1321,7 +1337,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 }
             }
             final RecordType type = recordStore.getRecordMetaData().getRecordType("MySimpleRecord");
-            int expectedCount = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN)
+            int expectedCount = scanAllRecords(ScanProperties.FORWARD_SCAN)
                     .filter(rec -> type.equals(rec.getRecordType()))
                     .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build())
                     .filter(msg -> "even".equals(msg.getStrValueIndexed()) || "odd".equals(msg.getStrValueIndexed()))
@@ -1500,7 +1516,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 .and(scanComparisons(unbounded()));
         if (planner instanceof RecordQueryPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher = filterPlan(indexPlanMatcher)
-                    .where(queryComponents(only(PrimitiveMatchers.equalsObject(query.getFilter()))));
+                    .where(queryComponents(only(PrimitiveMatchers.equalsObject(Objects.requireNonNull(query.getFilter())))));
             assertMatchesExactly(plan, planMatcher);
 
             assertEquals(1539136105, plan.planHash(CURRENT_LEGACY));
@@ -1537,7 +1553,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             }
 
             final RecordType type = recordStore.getRecordMetaData().getRecordType("MySimpleRecord");
-            int expectedCount = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN)
+            int expectedCount = scanAllRecords(ScanProperties.FORWARD_SCAN)
                     .filter(rec -> type.equals(rec.getRecordType()))
                     .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build())
                     .filter(msg -> "even".equals(msg.getStrValueIndexed()) || "odd".equals(msg.getStrValueIndexed()))
@@ -1605,7 +1621,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             final Set<Long> ids = new HashSet<>();
             try (RecordCursorIterator<FDBQueriedRecord<Message>> iterator = executeQuery(plan, bindings)) {
                 while (iterator.hasNext()) {
-                    final FDBQueriedRecord<Message> queriedRecord = iterator.next();
+                    final FDBQueriedRecord<Message> queriedRecord = Objects.requireNonNull(iterator.next());
                     TestRecords1Proto.MySimpleRecord simpleRecord = TestRecords1Proto.MySimpleRecord.newBuilder()
                             .mergeFrom(queriedRecord.getRecord())
                             .build();
@@ -1624,7 +1640,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             assertThat(ids, not(empty()));
             final RecordType type = recordStore.getRecordMetaData().getRecordType("MySimpleRecord");
             final Set<Long> expectedIds = new HashSet<>();
-            recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN)
+            scanAllRecords(ScanProperties.FORWARD_SCAN)
                     .filter(rec -> type.equals(rec.getRecordType()))
                     .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build())
                     .filter(msg -> msg.getNumValue2() == 1 && ("even".equals(msg.getStrValueIndexed()) || "odd".equals(msg.getStrValueIndexed())))
@@ -1693,7 +1709,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             final Set<Long> ids = new HashSet<>();
             try (RecordCursorIterator<FDBQueriedRecord<Message>> iterator = executeQuery(plan, bindings)) {
                 while (iterator.hasNext()) {
-                    final FDBQueriedRecord<Message> queriedRecord = iterator.next();
+                    final FDBQueriedRecord<Message> queriedRecord = Objects.requireNonNull(iterator.next());
                     TestRecords1Proto.MySimpleRecord simpleRecord = TestRecords1Proto.MySimpleRecord.newBuilder()
                             .mergeFrom(queriedRecord.getRecord())
                             .build();
@@ -1711,7 +1727,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             assertThat(ids, not(empty()));
             final RecordType type = recordStore.getRecordMetaData().getRecordType("MySimpleRecord");
             final Set<Long> expectedIds = new HashSet<>();
-            recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN)
+            scanAllRecords(ScanProperties.FORWARD_SCAN)
                     .filter(rec -> type.equals(rec.getRecordType()))
                     .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build())
                     .filter(msg -> "even".equals(msg.getStrValueIndexed()) || "odd".equals(msg.getStrValueIndexed()))
@@ -1809,7 +1825,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             try (RecordCursorIterator<FDBQueriedRecord<Message>> iter = executeQuery(plan, bindings)) {
                 while (iter.hasNext()) {
                     TestRecords1Proto.MySimpleRecord simpleRecord = TestRecords1Proto.MySimpleRecord.newBuilder()
-                            .mergeFrom(iter.next().getRecord())
+                            .mergeFrom(Objects.requireNonNull(iter.next()).getRecord())
                             .build();
                     assertThat(simpleRecord.getNumValue3Indexed(), either(equalTo(0)).or(equalTo(2)));
                     Tuple sortValue = sortKeyContainsPrimaryKey ? Tuple.from(simpleRecord.getNumValue2(), simpleRecord.getRecNo()) : Tuple.from(simpleRecord.getNumValue2());
@@ -2104,7 +2120,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(5).build()).asIterator()) {
+            try (@SuppressWarnings("NullAway") RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(5).build()).asIterator()) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -2245,7 +2261,10 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 int i = 0;
                 byte[] continuation = null;
                 do {
-                    try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, ExecuteProperties.newBuilder()
+                    // continuation legitimately starts out null (first execution) and is reassigned to real
+                    // bytes below; NullAway/JSpecify does not reliably track @Nullable on byte[] parameters,
+                    // so this loop-carried variable trips a known limitation.
+                    try (@SuppressWarnings("NullAway") RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, ExecuteProperties.newBuilder()
                             .setReturnedRowLimit(limit)
                             .build()).asIterator()) {
                         while (cursor.hasNext()) {
@@ -2341,7 +2360,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
      */
     @Test
     void unionVisitorOnComplexComparisonKey() throws Exception {
-        complexQuerySetup(null);
+        complexQuerySetup(NO_HOOK);
 
         final IndexScanParameters fullValueScan = IndexScanComparisons.byValue();
 
@@ -2492,7 +2511,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
     @ParameterizedTest(name = "testOrQueryToDistinctUnionWithPartialDefer[{0}]")
     @MethodSource("baseParams")
     void testOrQueryToDistinctUnionWithPartialDefer(OrQueryParams orQueryParams) throws Exception {
-        complexQuerySetup(null);
+        complexQuerySetup(NO_HOOK);
 
         RecordQuery query = orQueryParams.queryBuilder()
                 .setRecordType("MySimpleRecord")
@@ -2543,7 +2562,7 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
     @ParameterizedTest(name = "testComplexOrQueryToDistinctUnion[{0}]")
     @MethodSource("baseParams")
     void testComplexOrQueryToDistinctUnion(OrQueryParams orQueryParams) throws Exception {
-        complexQuerySetup(null);
+        complexQuerySetup(NO_HOOK);
 
         final RecordQuery query = orQueryParams.queryBuilder()
                 .setRecordType("MySimpleRecord")
