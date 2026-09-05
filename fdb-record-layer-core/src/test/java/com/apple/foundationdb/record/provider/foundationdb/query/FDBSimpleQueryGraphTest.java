@@ -875,7 +875,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                         Field.of(statsType, Optional.of("stats")),
                         Field.of(Type.primitiveType(Type.TypeCode.INT, true), Optional.of("category"))));
 
-        final var fieldAccessesRestaurantRecord = fieldAccesses.get("RestaurantRecord");
+        final var fieldAccessesRestaurantRecord = Objects.requireNonNull(fieldAccesses.get("RestaurantRecord"));
         //
         // RestaurantRecord ->
         //     "[name;1;STRING]→[STRING],
@@ -903,7 +903,8 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         Assertions.assertEquals(leafType, Type.primitiveType(Type.TypeCode.LONG, false));
 
         childrenMap = fieldAccessesRestaurantRecord.getChildrenMap();
-        childFieldAccesses = childrenMap.get(FieldValue.ResolvedAccessor.of(restaurantRecordType, "rest_no", 0));
+        Assertions.assertNotNull(childrenMap);
+        childFieldAccesses = Objects.requireNonNull(childrenMap).get(FieldValue.ResolvedAccessor.of(restaurantRecordType, "rest_no", 0));
         Assertions.assertNotNull(childFieldAccesses);
         leafType = childFieldAccesses.getValue();
         Assertions.assertNotNull(leafType);
@@ -911,7 +912,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
         Assertions.assertTrue(CompatibleTypeEvolutionPredicate.isAccessCompatibleWithCurrentType(fieldAccessesRestaurantRecord, restaurantRecordType));
 
-        final var fieldAccessesRestaurantReviewer = fieldAccesses.get("RestaurantReviewer");
+        final var fieldAccessesRestaurantReviewer = Objects.requireNonNull(fieldAccesses.get("RestaurantReviewer"));
         //
         // RestaurantReviewer ->
         //     "[name;1;STRING]→[STRING],
@@ -998,7 +999,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                         Field.of(statsType, Optional.of("stats")),
                         Field.of(Type.primitiveType(Type.TypeCode.INT, true), Optional.of("category"))));
 
-        final var fieldAccessesRestaurantRecord = fieldAccesses.get("RestaurantRecord");
+        final var fieldAccessesRestaurantRecord = Objects.requireNonNull(fieldAccesses.get("RestaurantRecord"));
         //
         // RestaurantRecord ->
         //     "[name;1;STRING]→[STRING],
@@ -1009,7 +1010,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         //
         Assertions.assertTrue(CompatibleTypeEvolutionPredicate.isAccessCompatibleWithCurrentType(fieldAccessesRestaurantRecord, restaurantRecordType));
 
-        final var fieldAccessesRestaurantReviewer = fieldAccesses.get("RestaurantReviewer");
+        final var fieldAccessesRestaurantReviewer = Objects.requireNonNull(fieldAccesses.get("RestaurantReviewer"));
         //
         // RestaurantReviewer ->
         //     "[name;1;STRING]→[STRING],
@@ -1079,7 +1080,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                         Field.of(statsType, Optional.of("stats")),
                         Field.of(Type.primitiveType(Type.TypeCode.INT, true), Optional.of("category"))));
 
-        final var fieldAccessesRestaurantRecord = fieldAccesses.get("RestaurantRecord");
+        final var fieldAccessesRestaurantRecord = Objects.requireNonNull(fieldAccesses.get("RestaurantRecord"));
         //
         // RestaurantRecord ->
         //     "[name;1;STRING]→[STRING],
@@ -1090,7 +1091,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         //
         Assertions.assertFalse(CompatibleTypeEvolutionPredicate.isAccessCompatibleWithCurrentType(fieldAccessesRestaurantRecord, restaurantRecordType));
 
-        final var fieldAccessesRestaurantReviewer = fieldAccesses.get("RestaurantReviewer");
+        final var fieldAccessesRestaurantReviewer = Objects.requireNonNull(fieldAccesses.get("RestaurantReviewer"));
         //
         // RestaurantReviewer ->
         //     "[name;1;STRING]→[STRING],
@@ -1162,7 +1163,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                         Field.of(statsType, Optional.of("stats")),
                         Field.of(Type.primitiveType(Type.TypeCode.INT, true), Optional.of("category"))));
 
-        final var fieldAccessesRestaurantRecord = fieldAccesses.get("RestaurantRecord");
+        final var fieldAccessesRestaurantRecord = Objects.requireNonNull(fieldAccesses.get("RestaurantRecord"));
         //
         // RestaurantRecord ->
         //     "[name;1;STRING]→[STRING],
@@ -1173,7 +1174,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         //
         Assertions.assertFalse(CompatibleTypeEvolutionPredicate.isAccessCompatibleWithCurrentType(fieldAccessesRestaurantRecord, restaurantRecordType));
 
-        final var fieldAccessesRestaurantReviewer = fieldAccesses.get("RestaurantReviewer");
+        final var fieldAccessesRestaurantReviewer = Objects.requireNonNull(fieldAccesses.get("RestaurantReviewer"));
         //
         // RestaurantReviewer ->
         //     "[name;1;STRING]→[STRING],
