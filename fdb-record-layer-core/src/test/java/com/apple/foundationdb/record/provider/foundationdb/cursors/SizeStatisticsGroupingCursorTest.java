@@ -91,6 +91,9 @@ public class SizeStatisticsGroupingCursorTest extends FDBRecordStoreTestBase {
             ScanProperties scanProperties = new ScanProperties(ExecuteProperties.newBuilder().setScannedBytesLimit(10_000).build());
             // Scan a little of the data
             AtomicReference<RecordCursorResult<SizeStatisticsGroupedResults>> resultRef = new AtomicReference<>();
+            // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+            // getStoreCursor's continuation parameter is declared @Nullable byte[].
+            @SuppressWarnings("NullAway")
             List<SizeStatisticsGroupedResults> allResults = getStoreCursor(recordStore, scanProperties, null, 0).asList(resultRef).join();
             assertThat(allResults).isEmpty();
             // resultRef is populated as a side effect of the asList(resultRef) call above.
@@ -114,6 +117,9 @@ public class SizeStatisticsGroupingCursorTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // getStoreCursor's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void calcSizeWithManyContinuations() throws Exception {
         populateStore(100, 100_000L);
 
@@ -144,6 +150,9 @@ public class SizeStatisticsGroupingCursorTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // getStoreCursor's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void calcSizeWithAggregationDepthOne() throws Exception {
         final int recordCount = 1_000;
         populateStore(recordCount, 1_000_000L);
@@ -162,6 +171,9 @@ public class SizeStatisticsGroupingCursorTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // getStoreCursor's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void calcSizeWithAggregationDepthTwo() throws Exception {
         final int recordCount = 1_000;
         populateStore(recordCount, 1_000_000L);
@@ -197,6 +209,9 @@ public class SizeStatisticsGroupingCursorTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // getStoreCursor's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void calcSizeWithAggregationDepthUnlimited() throws Exception {
         final int recordCount = 1_000;
         populateStore(recordCount, 1_000_000L);
@@ -244,6 +259,9 @@ public class SizeStatisticsGroupingCursorTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // getRecordsCursor's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void calcSizeRecordsOnly() throws Exception {
         final int recordCount = 100;
         populateStore(recordCount, 50_000L);
@@ -263,6 +281,9 @@ public class SizeStatisticsGroupingCursorTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // getIndexCursor's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void calcSizeSpecificIndex() throws Exception {
         final int recordCount = 100;
         populateStore(recordCount, 50_000L);
@@ -282,6 +303,9 @@ public class SizeStatisticsGroupingCursorTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // getStoreCursor's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void calcSizeWithReverseScan() throws Exception {
         final int recordCount = 100;
         populateStore(recordCount, 50_000L);
@@ -389,20 +413,32 @@ public class SizeStatisticsGroupingCursorTest extends FDBRecordStoreTestBase {
         return getStoreTotalResult(store).getStats().getTotalSize();
     }
 
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // getStoreCursor's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     private SizeStatisticsGroupedResults getStoreTotalResult(FDBRecordStore store) {
         final List<SizeStatisticsGroupedResults> allResults = getAllResults(getStoreCursor(store, ScanProperties.FORWARD_SCAN, null, 0));
         assertThat(allResults).hasSize(1);
         return allResults.get(0);
     }
 
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // getRecordsCursor's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     private long getRecordsTotalSize(FDBRecordStore store) {
         return getTotalSize(getAllResults(getRecordsCursor(store, ScanProperties.FORWARD_SCAN, null, 0)));
     }
 
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // getIndexCursor's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     private long getIndexTotalSize(FDBRecordStore store, String indexName) {
         return getTotalSize(getAllResults(getIndexCursor(store, indexName, ScanProperties.FORWARD_SCAN, null, 0)));
     }
 
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // getSubspaceCursor's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     private long getSubspaceTotalSize(FDBRecordStore store, Subspace subspace) {
         return getTotalSize(getAllResults(getSubspaceCursor(store, subspace, ScanProperties.FORWARD_SCAN, null, 0)));
     }
@@ -433,6 +469,9 @@ public class SizeStatisticsGroupingCursorTest extends FDBRecordStoreTestBase {
         return SizeStatisticsGroupingCursor.ofSubspace(subspace, store.getContext(), scanProperties, continuation, aggregationDepth);
     }
 
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // the 4-arg getStoreSizeResult's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     private RecordCursorResult<SizeStatisticsGroupedResults> getStoreSizeResult(FDBRecordStore store) {
         return getStoreSizeResult(store, ScanProperties.FORWARD_SCAN, null, 0);
     }
