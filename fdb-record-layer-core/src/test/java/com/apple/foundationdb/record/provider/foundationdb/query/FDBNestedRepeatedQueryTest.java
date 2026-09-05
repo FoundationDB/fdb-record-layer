@@ -104,6 +104,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
@@ -703,13 +704,13 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                                 .build();
                         final EvaluationContext evaluationContext = EvaluationContext.forBindings(bindings);
                         final List<Pair<TestRecordsNestedMapProto.OuterRecord, TestRecordsNestedMapProto.MapRecord.Entry>> queried = plan.execute(recordStore, evaluationContext)
-                                .map(FDBQueriedRecord::getSyntheticRecord)
+                                .map(rec -> Objects.requireNonNull(rec.getSyntheticRecord()))
                                 .map(synthetic -> {
                                     TestRecordsNestedMapProto.OuterRecord outer = TestRecordsNestedMapProto.OuterRecord.newBuilder()
-                                            .mergeFrom(synthetic.getConstituent(PARENT_CONSTITUENT).getRecord())
+                                            .mergeFrom(Objects.requireNonNull(synthetic.getConstituent(PARENT_CONSTITUENT)).getRecord())
                                             .build();
                                     TestRecordsNestedMapProto.MapRecord.Entry entry = TestRecordsNestedMapProto.MapRecord.Entry.newBuilder()
-                                            .mergeFrom(synthetic.getConstituent("entry").getRecord())
+                                            .mergeFrom(Objects.requireNonNull(synthetic.getConstituent("entry")).getRecord())
                                             .build();
                                     return Pair.of(outer, entry);
                                 })
@@ -773,13 +774,13 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                             .sorted(reverse ? Comparator.reverseOrder() : Comparator.naturalOrder())
                             .collect(Collectors.toList());
                     final List<Pair<Long, String>> actual = plan.execute(recordStore, evaluationContext)
-                            .map(FDBQueriedRecord::getSyntheticRecord)
+                            .map(rec -> Objects.requireNonNull(rec.getSyntheticRecord()))
                             .map(synthetic -> {
                                 TestRecordsNestedMapProto.OuterRecord outerRecord = TestRecordsNestedMapProto.OuterRecord.newBuilder()
-                                        .mergeFrom(synthetic.getConstituent(PARENT_CONSTITUENT).getRecord())
+                                        .mergeFrom(Objects.requireNonNull(synthetic.getConstituent(PARENT_CONSTITUENT)).getRecord())
                                         .build();
                                 TestRecordsNestedMapProto.MapRecord.Entry entry = TestRecordsNestedMapProto.MapRecord.Entry.newBuilder()
-                                        .mergeFrom(synthetic.getConstituent("entry").getRecord())
+                                        .mergeFrom(Objects.requireNonNull(synthetic.getConstituent("entry")).getRecord())
                                         .build();
                                 assertThat(entry.getKey(), either(equalTo(key1)).or(equalTo(key2)));
                                 assertTrue(outerRecord.getMap().getEntryList().contains(entry), () -> "outer record should contain entry.\n  Outer record:\n" + outerRecord + "\n  Entry:\n" + entry);
@@ -852,11 +853,11 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
             for (long otherId : otherIds) {
                 for (String key1 : keys) {
                     for (String key2 : keys) {
-                        final List<Pair<TestRecordsNestedMapProto.OuterRecord, TestRecordsNestedMapProto.MapRecord.Entry>> expected = data.stream()
+                        final List<NonnullPair<TestRecordsNestedMapProto.OuterRecord, TestRecordsNestedMapProto.MapRecord.Entry>> expected = data.stream()
                                 .filter(rec -> rec.getOtherId() == otherId)
                                 .flatMap(rec -> rec.getMap().getEntryList().stream()
                                         .filter(entry -> entry.getKey().equals(key1) || entry.getKey().equals(key2))
-                                        .map(entry -> Pair.of(rec, entry)))
+                                        .map(entry -> NonnullPair.of(rec, entry)))
                                 .sorted((p1, p2) -> {
                                     int comparison = p1.getRight().getValue().compareTo(p2.getRight().getValue());
                                     if (comparison != 0) {
@@ -877,13 +878,13 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                                 .build();
                         final EvaluationContext evaluationContext = EvaluationContext.forBindings(bindings);
                         final List<Pair<TestRecordsNestedMapProto.OuterRecord, TestRecordsNestedMapProto.MapRecord.Entry>> queried = plan.execute(recordStore, evaluationContext)
-                                .map(FDBQueriedRecord::getSyntheticRecord)
+                                .map(rec -> Objects.requireNonNull(rec.getSyntheticRecord()))
                                 .map(synthetic -> {
                                     TestRecordsNestedMapProto.OuterRecord outer = TestRecordsNestedMapProto.OuterRecord.newBuilder()
-                                            .mergeFrom(synthetic.getConstituent(PARENT_CONSTITUENT).getRecord())
+                                            .mergeFrom(Objects.requireNonNull(synthetic.getConstituent(PARENT_CONSTITUENT)).getRecord())
                                             .build();
                                     TestRecordsNestedMapProto.MapRecord.Entry entry = TestRecordsNestedMapProto.MapRecord.Entry.newBuilder()
-                                            .mergeFrom(synthetic.getConstituent("entry").getRecord())
+                                            .mergeFrom(Objects.requireNonNull(synthetic.getConstituent("entry")).getRecord())
                                             .build();
                                     return Pair.of(outer, entry);
                                 })
@@ -1036,8 +1037,8 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
 
                             Key.Evaluated entryEval = keyAndValueExpr.evaluateMessageSingleton(rec, rec.getRecord());
                             TestRecordsNestedMapProto.MapRecord.Entry entry = TestRecordsNestedMapProto.MapRecord.Entry.newBuilder()
-                                    .setKey(entryEval.getString(0))
-                                    .setValue(entryEval.getString(1))
+                                    .setKey(Objects.requireNonNull(entryEval.getString(0)))
+                                    .setValue(Objects.requireNonNull(entryEval.getString(1)))
                                     .build();
 
                             return TestRecordsNestedMapProto.OuterRecord.newBuilder()
@@ -1148,8 +1149,8 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
 
                                 Key.Evaluated entryEval = keyAndValueExpr.evaluateMessageSingleton(rec, rec.getRecord());
                                 TestRecordsNestedMapProto.MapRecord.Entry entry = TestRecordsNestedMapProto.MapRecord.Entry.newBuilder()
-                                        .setKey(entryEval.getString(0))
-                                        .setValue(entryEval.getString(1))
+                                        .setKey(Objects.requireNonNull(entryEval.getString(0)))
+                                        .setValue(Objects.requireNonNull(entryEval.getString(1)))
                                         .build();
 
                                 return TestRecordsNestedMapProto.OuterRecord.newBuilder()
@@ -1245,14 +1246,14 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
 
                                 final Key.Evaluated entry1Eval = entry1Expr.evaluateMessageSingleton(rec, rec.getRecord());
                                 TestRecordsNestedMapProto.MapRecord.Entry entry1 = TestRecordsNestedMapProto.MapRecord.Entry.newBuilder()
-                                        .setKey(entry1Eval.getString(0))
-                                        .setValue(entry1Eval.getString(1))
+                                        .setKey(Objects.requireNonNull(entry1Eval.getString(0)))
+                                        .setValue(Objects.requireNonNull(entry1Eval.getString(1)))
                                         .build();
 
                                 final Key.Evaluated entry2Eval = entry2Expr.evaluateMessageSingleton(rec, rec.getRecord());
                                 TestRecordsNestedMapProto.MapRecord.Entry entry2 = TestRecordsNestedMapProto.MapRecord.Entry.newBuilder()
-                                        .setKey(entry2Eval.getString(0))
-                                        .setValue(entry2Eval.getString(1))
+                                        .setKey(Objects.requireNonNull(entry2Eval.getString(0)))
+                                        .setValue(Objects.requireNonNull(entry2Eval.getString(1)))
                                         .build();
 
                                 return TestRecordsNestedMapProto.OuterRecord.newBuilder()
@@ -1633,7 +1634,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                 cascadeResults = new HashMap<>();
                 try (RecordCursor<QueryResult> cascadeCursor = executeCascades(recordStore, plan)) {
                     for (RecordCursorResult<QueryResult> result = cascadeCursor.getNext(); result.hasNext(); result = cascadeCursor.getNext()) {
-                        Message protoResult = result.get().getMessage();
+                        Message protoResult = Objects.requireNonNull(result.get()).getMessage();
                         String key = (String) protoResult.getField(protoResult.getDescriptorForType().findFieldByName("key"));
                         Object aggregate = protoResult.getField(protoResult.getDescriptorForType().findFieldByName("aggregate"));
                         cascadeResults.put(key, Tuple.from(aggregate));
@@ -1829,6 +1830,9 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the plan.execute() call site below.
+    @SuppressWarnings("NullAway")
     void bitmapValueQueryOnKeyAndOtherUnnested() {
         final RecordMetaDataHook hook = addUnnestedType()
                 .andThen(metaDataBuilder -> metaDataBuilder.addIndex(OUTER_WITH_ENTRIES, bitmapValueByKeyOtherUnnested()));
@@ -1868,7 +1872,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                     final List<Integer> expected = intValuesWithKey(withOtherId, key);
                     final EvaluationContext evaluationContext = EvaluationContext.forBinding(keyParameter, key).withBinding(otherParameter, otherId);
                     try (RecordCursor<IndexEntry> cursor = plan.execute(recordStore, evaluationContext, null, ExecuteProperties.SERIAL_EXECUTE)
-                            .map(FDBQueriedRecord::getIndexEntry)) {
+                            .map(rec -> Objects.requireNonNull(rec.getIndexEntry()))) {
                         assertEquals(expected, collectOnBits(cursor));
                     }
                 }
@@ -1900,6 +1904,9 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
         ));
     }
 
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the plan.execute() call site below.
+    @SuppressWarnings("NullAway")
     private void bitmapValueQueryOnKeyAndTwoOthersUnnested(BiFunction<String, String, QueryComponent> otherIdFilters) {
         final RecordMetaDataHook hook = addUnnestedType()
                 .andThen(metaDataBuilder -> metaDataBuilder.addIndex(OUTER_WITH_ENTRIES, bitmapValueByKeyOtherUnnested()));
@@ -1951,7 +1958,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                                 .withBinding(other1Parameter, other1Id)
                                 .withBinding(other2Parameter, other2Id);
                         try (RecordCursor<IndexEntry> cursor = plan.execute(recordStore, evaluationContext, null, ExecuteProperties.SERIAL_EXECUTE)
-                                .map(FDBQueriedRecord::getIndexEntry)) {
+                                .map(rec -> Objects.requireNonNull(rec.getIndexEntry()))) {
                             assertEquals(expected, collectOnBits(cursor));
                         }
                     }
@@ -1962,6 +1969,9 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the scanIndex call site below.
+    @SuppressWarnings("NullAway")
     private List<Integer> collectBitsFromIndex(Index index, Tuple group) {
         return collectOnBits(recordStore.scanIndex(index, IndexScanType.BY_GROUP, TupleRange.allOf(group), null, ScanProperties.FORWARD_SCAN));
     }

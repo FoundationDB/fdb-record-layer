@@ -849,6 +849,9 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest
     @BooleanSource
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the scanIndex call sites below.
+    @SuppressWarnings("NullAway")
     void countClearWhenZero(boolean clearWhenZero) {
         final GroupingKeyExpression byKey = new GroupingKeyExpression(field("str_value_indexed"), 0);
         final RecordMetaDataHook hook = md -> md.addIndex("MySimpleRecord", new Index("count_by_str", byKey, IndexTypes.COUNT, ImmutableMap.of(IndexOptions.CLEAR_WHEN_ZERO, Boolean.toString(clearWhenZero))));
@@ -956,6 +959,9 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the getQueueCursor call site below.
+    @SuppressWarnings("NullAway")
     void writeOnlyWithQueueIndex() throws Exception {
         final String standardIndexName = "queued_num_value_3";
         final String permissiveIndexName = "permissive_index";
@@ -1125,6 +1131,9 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the scanRecords call site below.
+    @SuppressWarnings("NullAway")
     void modifyIndexState() throws Exception {
         final String indexName = "MySimpleRecord$num_value_3_indexed";
         TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1066L).setNumValue3Indexed(42).build();
@@ -1160,7 +1169,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             commit(context1);
             fail("Able to commit transaction after index state is modified.");
         } catch (FDBExceptions.FDBStoreRetriableException e) {
-            assertThat(((FDBException)e.getCause()).getCode(), equalTo(FDBError.NOT_COMMITTED.code()));
+            assertThat(((FDBException)Objects.requireNonNull(e.getCause())).getCode(), equalTo(FDBError.NOT_COMMITTED.code()));
         }
 
         commit(context2); // context2 didn't need index, so this should succeed
@@ -1411,7 +1420,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                 .setConfigLoader(configLoader)
                 .build()) {
             RecordCoreException ex = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            assertTrue(ex.getMessage().contains(throwMsg));
+            assertTrue(Objects.requireNonNull(ex.getMessage()).contains(throwMsg));
         }
     }
 
@@ -2131,13 +2140,13 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             RecordCursorIterator<RecordIndexUniquenessViolation> cursor = recordStore.scanUniquenessViolations(index).asIterator();
 
             assertTrue(cursor.hasNext());
-            RecordIndexUniquenessViolation first = cursor.next();
+            RecordIndexUniquenessViolation first = Objects.requireNonNull(cursor.next());
             assertEquals(Tuple.from(42L), first.getIndexEntry().getKey());
             assertEquals(Tuple.from(1066L), first.getPrimaryKey());
             assertEquals(Tuple.from(1793L), first.getExistingKey());
 
             assertTrue(cursor.hasNext());
-            RecordIndexUniquenessViolation second = cursor.next();
+            RecordIndexUniquenessViolation second = Objects.requireNonNull(cursor.next());
             assertEquals(Tuple.from(42L), second.getIndexEntry().getKey());
             assertEquals(Tuple.from(1793L), second.getPrimaryKey());
             assertEquals(Tuple.from(1066L), second.getExistingKey());
@@ -2152,13 +2161,13 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                     .asIterator();
 
             assertTrue(cursor.hasNext());
-            RecordIndexUniquenessViolation first = cursor.next();
+            RecordIndexUniquenessViolation first = Objects.requireNonNull(cursor.next());
             assertEquals(Tuple.from(42L), first.getIndexEntry().getKey());
             assertEquals(Tuple.from(1066L), first.getPrimaryKey());
             assertEquals(Tuple.from(1793L), first.getExistingKey());
 
             assertTrue(cursor.hasNext());
-            RecordIndexUniquenessViolation second = cursor.next();
+            RecordIndexUniquenessViolation second = Objects.requireNonNull(cursor.next());
             assertEquals(Tuple.from(42L), second.getIndexEntry().getKey());
             assertEquals(Tuple.from(1793L), second.getPrimaryKey());
             assertEquals(Tuple.from(1066L), second.getExistingKey());
@@ -2245,19 +2254,19 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                     .asIterator();
 
             assertTrue(cursor.hasNext());
-            RecordIndexUniquenessViolation next = cursor.next();
+            RecordIndexUniquenessViolation next = Objects.requireNonNull(cursor.next());
             assertEquals(Tuple.from(3L), next.getIndexEntry().getKey());
             assertEquals(Tuple.from(1066L), next.getPrimaryKey());
             assertThat(next.getExistingKey(), is(oneOf(Tuple.from(1793L), Tuple.from(1849L))));
 
             assertTrue(cursor.hasNext());
-            next = cursor.next();
+            next = Objects.requireNonNull(cursor.next());
             assertEquals(Tuple.from(3L), next.getIndexEntry().getKey());
             assertEquals(Tuple.from(1793L), next.getPrimaryKey());
             assertThat(next.getExistingKey(), is(oneOf(Tuple.from(1066L), Tuple.from(1849L))));
 
             assertTrue(cursor.hasNext());
-            next = cursor.next();
+            next = Objects.requireNonNull(cursor.next());
             assertEquals(Tuple.from(3L), next.getIndexEntry().getKey());
             assertEquals(Tuple.from(1849L), next.getPrimaryKey());
             assertThat(next.getExistingKey(), is(oneOf(Tuple.from(1066L), Tuple.from(1793L))));
@@ -2267,13 +2276,13 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             cursor = recordStore.scanUniquenessViolations(index, Key.Evaluated.scalar(2)).asIterator();
 
             assertTrue(cursor.hasNext());
-            next = cursor.next();
+            next = Objects.requireNonNull(cursor.next());
             assertEquals(Tuple.from(2L), next.getIndexEntry().getKey());
             assertEquals(Tuple.from(1066L), next.getPrimaryKey());
             assertEquals(Tuple.from(1793L), next.getExistingKey());
 
             assertTrue(cursor.hasNext());
-            next = cursor.next();
+            next = Objects.requireNonNull(cursor.next());
             assertEquals(Tuple.from(2L), next.getIndexEntry().getKey());
             assertEquals(Tuple.from(1793L), next.getPrimaryKey());
             assertEquals(Tuple.from(1066L), next.getExistingKey());
@@ -2334,7 +2343,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(recordA);
             context.commit();
 
-            Collection<StoreTimer.Event> events = context.getTimer().getEvents();
+            Collection<StoreTimer.Event> events = Objects.requireNonNull(context.getTimer()).getEvents();
             assertFalse(events.contains(FDBStoreTimer.Events.SAVE_INDEX_ENTRY));
             assertFalse(events.contains(FDBStoreTimer.Events.SKIP_INDEX_RECORD));
         }
@@ -2354,7 +2363,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openAnyRecordStore(TestRecordsIndexFilteringProto.getDescriptor(), context, hook);
-            context.getTimer().reset();
+            Objects.requireNonNull(context.getTimer()).reset();
 
             TestRecordsIndexFilteringProto.MyBasicRecord recordA = TestRecordsIndexFilteringProto.MyBasicRecord.newBuilder()
                     .setRecNo(1002).setNumValue2(102).build();
@@ -2362,7 +2371,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(recordA);
             context.commit();
 
-            Collection<StoreTimer.Event> events = context.getTimer().getEvents();
+            Collection<StoreTimer.Event> events = Objects.requireNonNull(context.getTimer()).getEvents();
             assertTrue(events.contains(FDBStoreTimer.Events.SAVE_INDEX_ENTRY));
             assertFalse(events.contains(FDBStoreTimer.Events.SKIP_INDEX_RECORD));
         }
@@ -2375,14 +2384,14 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                     .setIndexMaintenanceFilter(noneFilter)
                     .createOrOpen();
             setupPlanner(null);
-            context.getTimer().reset();
+            Objects.requireNonNull(context.getTimer()).reset();
 
             TestRecordsIndexFilteringProto.MyBasicRecord recordB = TestRecordsIndexFilteringProto.MyBasicRecord.newBuilder()
                     .setRecNo(1003).setNumValue2(103).build();
             recordStore.saveRecord(recordB);
             context.commit();
 
-            Collection<StoreTimer.Event> events = context.getTimer().getEvents();
+            Collection<StoreTimer.Event> events = Objects.requireNonNull(context.getTimer()).getEvents();
             assertFalse(events.contains(FDBStoreTimer.Events.SAVE_INDEX_ENTRY));
             assertTrue(events.contains(FDBStoreTimer.Events.SKIP_INDEX_RECORD));
         }
@@ -2399,7 +2408,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(recordA);
             context.commit();
 
-            Collection<StoreTimer.Event> events = context.getTimer().getEvents();
+            Collection<StoreTimer.Event> events = Objects.requireNonNull(context.getTimer()).getEvents();
             assertFalse(events.contains(FDBStoreTimer.Events.SAVE_INDEX_ENTRY));
             assertFalse(events.contains(FDBStoreTimer.Events.SKIP_INDEX_RECORD));
         }
@@ -2421,7 +2430,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                     .setIndexMaintenanceFilter(noneFilter)
                     .uncheckedOpen();
 
-            context.getTimer().reset();
+            Objects.requireNonNull(context.getTimer()).reset();
 
             FDBRecordStoreBase.UserVersionChecker userVersionChecker = new FDBRecordStoreBase.UserVersionChecker() {
                 @Override
@@ -2443,7 +2452,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
             fdbRecordStore.checkVersion(userVersionChecker, FDBRecordStoreBase.StoreExistenceCheck.NONE).get();
 
-            Collection<StoreTimer.Event> events = context.getTimer().getEvents();
+            Collection<StoreTimer.Event> events = Objects.requireNonNull(context.getTimer()).getEvents();
             assertFalse(events.contains(FDBStoreTimer.Events.SAVE_INDEX_ENTRY));
             assertTrue(events.contains(FDBStoreTimer.Events.SKIP_INDEX_RECORD));
         }
@@ -2470,6 +2479,9 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         testChangeIndexDefinition(false, "num_value", "str_value");
     }
 
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the scanIndex call site below.
+    @SuppressWarnings("NullAway")
     public void testChangeIndexDefinition(boolean withCount,
                                           final String originalIndexFieldName,
                                           final String newIndexFieldName) throws Exception {
@@ -2737,6 +2749,9 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the scanIndexRecords/validateEntries call sites below.
+    @SuppressWarnings("NullAway")
     public void orphanedIndexEntry() throws Exception {
         try (FDBRecordContext context = openContext()) {
             uncheckedOpenSimpleRecordStore(context);
@@ -2786,7 +2801,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                 recordStore.scanIndexRecords("MySimpleRecord$str_value_indexed").asList().get();
                 fail("Scan should have found orphaned record");
             } catch (ExecutionException e) {
-                assertEquals("record not found from index entry", e.getCause().getMessage());
+                assertEquals("record not found from index entry", Objects.requireNonNull(e.getCause()).getMessage());
             }
             commit(context);
         }
@@ -2873,6 +2888,10 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not reliably recognize a null literal, nor a byte[] local variable
+    // that is only ever assigned from a @Nullable-returning call, as matching the @Nullable byte[]
+    // continuation parameter of validateEntries() below.
+    @SuppressWarnings("NullAway")
     public void testIndexOrphanValidationByIterations() throws Exception {
         Set<IndexEntry> expectedInvalidEntries = setUpIndexOrphanValidation();
 
@@ -2890,7 +2909,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
                         .limitRowsTo(limit)
                         .asIterator();
                 while (cursor.hasNext()) {
-                    InvalidIndexEntry invalidIndexEntry = cursor.next();
+                    InvalidIndexEntry invalidIndexEntry = Objects.requireNonNull(cursor.next());
                     assertEquals(InvalidIndexEntry.Reasons.ORPHAN, invalidIndexEntry.getReason());
                     IndexEntry entry = invalidIndexEntry.getEntry();
                     assertFalse(results.contains(entry), "Entry " + entry + " is duplicated");
@@ -2935,7 +2954,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
             Set<IndexEntry> results = new HashSet<>();
             while (cursor.hasNext()) {
-                InvalidIndexEntry invalidIndexEntry = cursor.next();
+                InvalidIndexEntry invalidIndexEntry = Objects.requireNonNull(cursor.next());
                 assertEquals(InvalidIndexEntry.Reasons.ORPHAN, invalidIndexEntry.getReason());
                 IndexEntry entry = invalidIndexEntry.getEntry();
                 assertFalse(results.contains(entry), "Entry " + entry + " is duplicated");
@@ -2950,6 +2969,9 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the scanRecords/scanIndex call sites below.
+    @SuppressWarnings("NullAway")
     public void testIndexMissingValidation() throws Exception {
         final int nRecords = 10;
         try (FDBRecordContext context = openContext()) {
@@ -3246,7 +3268,11 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             assertTrue(tracked.contains(indexName),
                     "tracked set should contain the write-only index name");
 
-            tracked = context.getInSession(ContextSessionKey.READABLE_INDEXES_UPDATED);
+            // getInSession() is @Nullable in general (the key may never have been touched), but
+            // MySimpleRecord has other indexes (e.g. str_value_indexed) that remain readable and are
+            // always updated by saveRecord() above, so this key is always populated here; we're only
+            // checking that num_value_3_indexed specifically isn't among the readable indexes tracked.
+            tracked = Objects.requireNonNull(context.getInSession(ContextSessionKey.READABLE_INDEXES_UPDATED));
             assertFalse(tracked.contains(indexName), "index is not readable, should not be tracked");
         }
     }
